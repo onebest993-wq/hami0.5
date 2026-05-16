@@ -1,0 +1,66 @@
+---
+description: Hami Legal App - Architecture, conventions, and patterns
+alwaysApply: true
+---
+
+# Hami Legal App — Architecture & Conventions
+
+## ⛔ Golden Rule (لا تتجاوزه)
+
+**لا تلاعب في الشكل أو التصميم إلا بإذن صريح.**  
+Do NOT modify UI, colors, layout, fonts, or any visual aspect. Only backend logic, performance, and code quality.
+
+---
+
+## Project Context
+
+Hyper-premium Legal Application and Closed E-commerce Marketplace for Iraqi lawyers.
+
+**Design System:**
+- Primary: Deep Navy `#0A0F1C` / `#05060D`
+- Accents: Gold `#E6C673`, Emerald (success)
+- Style: Glassmorphism, Motion.js, RTL, Tajawal/Cairo fonts
+
+---
+
+## Import Standards
+
+- Use `@/` for `src/` and `@/app` for `src/app`
+- Supabase config: `@/utils/supabase/info`
+- Shared components: `@/app/components/figma/ImageWithFallback`, `@/app/components/shared/*`
+
+---
+
+## Routing (App.tsx)
+
+State-based, no React Router. Screens: `splash` | `auth` | `client` | `lawyer` | `profile` | `admin` | `adminLawLibrary` | `settings` | `privacy` | `support`
+
+---
+
+## Component Structure
+
+- `SharedComponents`: PageWrapper, GlassCard, GoldButton, AppHeader
+- `ui/`: shadcn-style primitives (Button, Card, Dialog, Input, etc.)
+- `lawyer/`, `client/`, `admin/`: feature domains
+- `figma/`: ImageWithFallback (asset fallback)
+
+---
+
+## Services (v2.0)
+
+- `DataService`, `SupabaseService`, `AuthService`, `CryptoService`
+- No AlternativePrivacyProtocol, WebAuthn, or figma:asset
+
+---
+
+## Animations
+
+Import from `@/app/animations/transitions`. Use `screenTransitions.splash`, `.auth`, `.main`, `.secondary` for screens.
+
+---
+
+## Do NOT
+
+- Use relative `../../../utils/supabase/info` — use `@/utils/supabase/info`
+- Add AlternativePrivacyProtocol or figma:asset imports
+- Break RTL or Arabic text layout

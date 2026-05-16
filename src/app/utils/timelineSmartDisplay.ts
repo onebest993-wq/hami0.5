@@ -1,0 +1,268 @@
+import type { TimelineEvent, TimelineSmartPriority } from '@/app/types/execution';
+import { stripPendingLabelsFromExecutorSubject } from '@/app/utils/executorDecisionTitles';
+
+const MS_DAY = 86400000;
+
+function startOfLocalDay(d: Date): Date {
+    const x = new Date(d);
+    x.setHours(0, 0, 0, 0);
+    return x;
+}
+
+/** تحليل تاريخ مهلة من السجل (يفضّل YYYY-MM-DD أو ISO) */
+export function parseTimelineDeadlineDate(raw: string | undefined): Date | null {
+    if (!raw) return null;
+    const s = String(raw).trim();
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? null : d;
+}
+
+export function formatTimelineWhenAr(raw: string | undefined): string {
+    if (!raw) return '—';
+    const s = String(raw).trim();
+    if (!s) return '—';
+    const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(s);
+    const d = parseTimelineDeadlineDate(s);
+    if (!d) return s;
+    const dateStr = d.toLocaleDateString('ar-EG', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+    });
+    if (dateOnly) return dateStr;
+    const timeStr = d.toLocaleTimeString('ar-EG', {
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+    return `${dateStr} · ${timeStr}`;
+}
+
+/** فرق الأيام من «اليوم» إلى أجل المهلة (سالب بعد انقضاء المهلة) */
+export function timelineDeadlineDaysLeft(deadlineDate: string | undefined): number | null {
+    const end = parseTimelineDeadlineDate(deadlineDate);
+    if (!end) return null;
+    const today = startOfLocalDay(new Date());
+    const e0 = startOfLocalDay(end);
+    return Math.round((e0.getTime() - today.getTime()) / MS_DAY);
+}
+
+function eventSortTimeMs(e: TimelineEvent): number {
+    const ts = e.timestamp || e.date;
+    const d = parseTimelineDeadlineDate(ts);
+    return d ? d.getTime() : 0;
+}
+
+/** صف مع أولوية محسوبة للعرض في الرادار — لا يُكتب تلقائياً في التخزين */
+export type TimelineRadarComputedRow = TimelineEvent & {
+    radarSmartPriority: TimelineSmartPriority;
+    radarDeadlineDaysLeft: number | null;
+};
+
+function isDeadlineCriticalRow(r: TimelineRadarComputedRow): boolean {
+    return Boolean(r.deadlineDate) && r.radarDeadlineDaysLeft !== null && r.radarDeadlineDaysLeft <= 3;
+}
+
+/**
+ * أهم N حدث: مثبّت أولاً، ثم مواعيد حرجة (≤3 أيام أو متأخرة)، ثم الأحدث زمنياً.
+ */
+export function computeSmartTimelineRadarTop(
+    events: TimelineEvent[],
+    options?: { limit?: number }
+): TimelineRadarComputedRow[] {
+    const limit = options?.limit ?? 5;
+    const enriched: TimelineRadarComputedRow[] = events.map((e) => {
+        const radarDeadlineDaysLeft = timelineDeadlineDaysLeft(e.deadlineDate);
+        let radarSmartPriority: TimelineSmartPriority = 'normal';
+        if (radarDeadlineDaysLeft !== null && radarDeadlineDaysLeft <= 3) {
+            radarSmartPriority = radarDeadlineDaysLeft < 0 ? 'deadline' : 'urgent';
+        }
+        return { ...e, radarSmartPriority, radarDeadlineDaysLeft };
+    });
+
+    enriched.sort((a, b) => {
+        const ap = a.isPinned ? 1 : 0;
+        const bp = b.isPinned ? 1 : 0;
+        if (ap !== bp) return bp - ap;
+
+        const ac = isDeadlineCriticalRow(a) ? 1 : 0;
+        const bc = isDeadlineCriticalRow(b) ? 1 : 0;
+        if (ac !== bc) return bc - ac;
+
+        if (ac && bc) {
+            const da = a.radarDeadlineDaysLeft ?? 999;
+            const db = b.radarDeadlineDaysLeft ?? 999;
+            if (da !== db) return da - db;
+        }
+
+        return eventSortTimeMs(b) - eventSortTimeMs(a);
+    });
+
+    return enriched.slice(0, limit);
+}
+
+/** يضمن مفتاحاً فريداً لكل صف — ضروري لتوسيع التفاصيل ولـ React key عند تكرار id قديم */
+export function ensureUniqueTimelineRowIds(events: TimelineEvent[]): TimelineEvent[] {
+    const seenCount = new Map<string, number>();
+    return events.map((e, index) => {
+        const raw =
+            e.id != null && String(e.id).trim() !== ''
+                ? String(e.id)
+                : `tl_${index}_${String(e.timestamp || e.date || '').replace(/\s/g, '')}`;
+        const n = (seenCount.get(raw) ?? 0) + 1;
+        seenCount.set(raw, n);
+        const id = n === 1 ? raw : `${raw}__${n}`;
+        return id === e.id ? e : { ...e, id };
+    });
+}
+
+function parseGraceBoundsFromEvictionDescription(desc: string): { start?: string; end?: string } {
+    const startM = desc.match(/بداية احتساب المهلة:\s*(\d{4}-\d{2}-\d{2})/);
+    const endM = desc.match(/انتهاء المهلة:\s*(\d{4}-\d{2}-\d{2})/);
+    return { start: startM?.[1], end: endM?.[1] };
+}
+
+function parseGraceStartFromAppointmentDescription(desc: string): string | undefined {
+    const m = desc.match(/بدأت (\d{4}-\d{2}-\d{2})/);
+    return m?.[1];
+}
+
+/**
+ * يدمج زوج الحدثين القديمين (مهلة تخلية + موعد انتهاء) في سطر واحد للعرض فقط.
+ */
+export function mergeLegacyEvictionResidentialGracePairs(events: TimelineEvent[]): TimelineEvent[] {
+    const consumed = new Set<string>();
+    const out: TimelineEvent[] = [];
+
+    for (const e of events) {
+        const eid = String(e.id);
+        if (consumed.has(eid)) continue;
+
+        const isLegacyApptEnd =
+            e.type === 'appointment' &&
+            typeof e.title === 'string' &&
+            e.title.includes('انتهاء مهلة التخلية السكنية');
+
+        if (isLegacyApptEnd && /^\d{4}-\d{2}-\d{2}$/.test(String(e.date))) {
+            const startGuess = parseGraceStartFromAppointmentDescription(e.description || '');
+            const endYmd = String(e.date);
+            const partner = events.find(
+                (x) =>
+                    String(x.id) !== eid &&
+                    !consumed.has(String(x.id)) &&
+                    Boolean((x.metadata as Record<string, unknown> | undefined)?.evictionResidentialGraceModal) &&
+                    (() => {
+                        const { start, end } = parseGraceBoundsFromEvictionDescription(x.description || '');
+                        return start === startGuess && end === endYmd;
+                    })()
+            );
+            if (partner) {
+                consumed.add(eid);
+                consumed.add(String(partner.id));
+                const { start, end } = parseGraceBoundsFromEvictionDescription(partner.description || '');
+                const daysM = (partner.description || '').match(/المدة:\s*(\d+)/);
+                const days = daysM ? Number(daysM[1]) : 0;
+                out.push({
+                    ...partner,
+                    title: 'مهلة التخلية السكنية',
+                    description:
+                        start && end
+                            ? `من ${start} إلى ${end}${days > 0 ? ` — ${days} يوماً تقويمياً` : ''}`
+                            : partner.description,
+                    metadata: {
+                        ...partner.metadata,
+                        mergedLegacyGracePair: [partner.id, e.id],
+                    },
+                });
+                continue;
+            }
+        }
+
+        out.push(e);
+    }
+
+    return out;
+}
+
+/** مصدر السجل للعرض (توحيد تسمية المُحلل) */
+export function timelineSourceForDisplay(source: string | undefined): string | undefined {
+    if (!source) return undefined;
+    if (source === 'AI Copilot') return 'مُحلل حامي الذكي';
+    return source;
+}
+
+/** عنوان الحدث للعرض — نفس القواعد السابقة دون تغيير المنطق المخزّن */
+export function timelineTitleForDisplay(event: TimelineEvent): string {
+    const t0 = String(event.title || '');
+    let t = t0
+        .replace(/🤖\s*تحليل مساعد الذكاء الاصطناعي للإضبارة/g, 'تحليل مُحلل حامي الذكي للإضبارة')
+        .replace(/🤖\s*حفظ اقتراح AI كملاحظة/g, 'حفظ اقتراح مُحلل حامي الذكي كملاحظة')
+        .replace(/🤖\s*تحويل اقتراح AI إلى مهمة/g, 'تحويل اقتراح مُحلل حامي الذكي إلى مهمة')
+        .replace(/📝\s*نسخ طلب AI جاهز/g, 'نسخ طلب جاهز (مُحلل حامي)')
+        .replace(/^اقتراح AI:/g, 'اقتراح من المُحلل:');
+    if (!t || !/قيد\s*البت/i.test(t)) return t;
+    const fromDecisions =
+        event.type === 'decision' || String(event.source || '').includes('قرارات');
+    if (!fromDecisions) return t;
+    const m = t.match(
+        /^(✅\s*موافقة المنفذ|❌\s*رفض\s*(?:المنفذ|الطلب)|🔄\s*قرار بديل)\s*:\s*(.+)$/i
+    );
+    if (m) {
+        const rest = stripPendingLabelsFromExecutorSubject(m[2] || '');
+        const label = String(m[1])
+            .replace(/^✅\s*/u, '')
+            .replace(/^❌\s*/u, '')
+            .replace(/^🔄\s*/u, '')
+            .trim();
+        return rest ? `${label}: ${rest}` : label;
+    }
+    t = stripPendingLabelsFromExecutorSubject(t);
+    return t.replace(/^[\s✅❌🔄📌📄📝🔔💰⚖️🏠🤖⏳🔢🏛️📈]+/u, '').trim();
+}
+
+/** إزالة إيموجي العنوان — نطاق يوافق طلب الواجهة */
+export const TIMELINE_TITLE_EMOJI_RE =
+    /[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F004}\u{1F0CF}]/gu;
+
+export function cleanTimelineCardTitle(event: TimelineEvent): string {
+    return timelineTitleForDisplay(event)
+        .replace(TIMELINE_TITLE_EMOJI_RE, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+/** لون عنوان بطاقة السجل الزمني (وضع ليلي هادئ) — بديل الأيقونات */
+export function timelineCardTitleClassName(
+    event: Pick<TimelineEvent, 'type' | 'source' | 'title'>
+): string {
+    const src = String(event.source || '');
+    const title = String(event.title || '');
+    const blob = `${src} ${title}`;
+    if (
+        /مُحلل حامي|محلل حامي|AI Copilot|Copilot|مساعد الذكاء|الذكاء الاصطناعي|تحليل مُحلل|اقتراح من المُحلل/i.test(
+            blob
+        )
+    ) {
+        return 'text-amber-400';
+    }
+    const t = event.type;
+    if (t === 'decision') return 'text-blue-400';
+    if (/محكمة|قرار|طعن|تمييز|قضاء|محضر تنفيذ|القرارات والطعون/i.test(src)) {
+        return 'text-blue-400';
+    }
+    if (t === 'payment' || t === 'notification' || t === 'settlement') {
+        return 'text-emerald-400';
+    }
+    if (/تبليغ|إخبار|مال|دفع|رسوم|محفظة|المركز المالي|الحجز المالي/i.test(src)) {
+        return 'text-emerald-400';
+    }
+    return 'text-gray-200';
+}
+
+export function stripEmojisFromText(s: string): string {
+    return String(s || '')
+        .replace(TIMELINE_TITLE_EMOJI_RE, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}

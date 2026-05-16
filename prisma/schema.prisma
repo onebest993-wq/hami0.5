@@ -1,0 +1,428 @@
+// 🗄️ CRITICAL DATABASE ARCHITECTURE: ENTERPRISE SCHEMA FOR "HAMI"
+//
+// STRICT COMPLIANCE RULES:
+// 1. NO AUTO-INCREMENT IDs - All IDs MUST be UUID
+// 2. SENSITIVE FIELDS MUST BE Type String (E2EE Ciphertext)
+// 3. EVERY FILE MUST HAVE `data_signature` field for integrity validation
+//
+// Security Features:
+// - Zero-Knowledge Architecture
+// - E2EE Data Storage
+// - SRP Authentication Ready
+// - Strict Ownership Enforcement
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// === AUTHENTICATION & USERS ===
+
+model Lawyer {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Authentication (SRP-Ready)
+  email         String  @unique
+  srp_salt      String? // SRP Salt (for password-less auth)
+  srp_verifier  String? // SRP Verifier
+  public_key    String? // Public Key for E2EE handshake
+
+  // Profile (Encrypted if sensitive)
+  encrypted_name         String? // E2EE: Real name
+  encrypted_phone        String? // E2EE: Phone number
+  encrypted_license_info String? // E2EE: Bar license details
+
+  // Relations
+  executionFiles        ExecutionFile[]
+  lawsuits              Lawsuit[]
+  accessDiagnosticLogs  AccessDiagnosticLog[]
+  clientRelationships   ClientLawyerRelation[]
+
+  @@index([email])
+  @@map("lawyers")
+}
+
+model Client {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Authentication
+  email        String  @unique
+  srp_salt     String?
+  srp_verifier String?
+
+  // Profile (Encrypted)
+  encrypted_name  String?
+  encrypted_phone String?
+
+  // Relations
+  lawyerRelationships ClientLawyerRelation[]
+
+  @@index([email])
+  @@map("clients")
+}
+
+model ClientLawyerRelation {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  client_id String
+  lawyer_id String
+
+  status RelationStatus @default(PENDING)
+
+  client Client @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  lawyer Lawyer @relation(fields: [lawyer_id], references: [id], onDelete: Cascade)
+
+  @@unique([client_id, lawyer_id])
+  @@index([client_id])
+  @@index([lawyer_id])
+  @@map("client_lawyer_relations")
+}
+
+enum RelationStatus {
+  PENDING
+  ACTIVE
+  TERMINATED
+}
+
+// === EXECUTION FILES (التنفيذ) ===
+
+model ExecutionFile {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lawyer_id String
+  lawyer    Lawyer @relation(fields: [lawyer_id], references: [id], onDelete: Cascade)
+
+  // File Metadata (Plaintext - searchable)
+  file_number String // e.g., "تنفيذ/123/2026"
+  court       String // e.g., "محكمة التنفيذ/بغداد"
+  status      ExecutionStatus @default(ACTIVE)
+
+  // Encrypted Core Data
+  encrypted_file_data String @db.Text // E2EE: All sensitive file info (JSON)
+
+  // Integrity Protection
+  data_signature String // SHA-256 hash for tamper detection
+
+  // Relations
+  debtor           Debtor?
+  financialLedger  FinancialLedger?
+  timeline         TimelineEvent[]
+  seizedAssets     SeizedAsset[]
+
+  @@index([lawyer_id])
+  @@index([file_number])
+  @@index([status])
+  @@map("execution_files")
+}
+
+enum ExecutionStatus {
+  ACTIVE
+  PENDING
+  SUSPENDED
+  COMPLETED
+  ARCHIVED
+}
+
+model Debtor {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  file_id        String        @unique
+  executionFile  ExecutionFile @relation(fields: [file_id], references: [id], onDelete: Cascade)
+
+  // Encrypted Personal Info
+  encrypted_name    String @db.Text
+  encrypted_phone   String?
+  encrypted_address String? @db.Text
+
+  // Metadata
+  job_status         JobStatus          @default(EMPLOYED)
+  notification_state NotificationState  @default(NOT_NOTIFIED)
+
+  @@index([file_id])
+  @@map("debtors")
+}
+
+enum JobStatus {
+  EMPLOYED
+  UNEMPLOYED
+  GOVERNMENT
+  PRIVATE_SECTOR
+  SELF_EMPLOYED
+}
+
+enum NotificationState {
+  NOT_NOTIFIED
+  NOTIFIED_ONCE
+  NOTIFIED_TWICE
+  CERTIFIED_DELIVERY
+  FAILED_DELIVERY
+}
+
+model FinancialLedger {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  file_id       String        @unique
+  executionFile ExecutionFile @relation(fields: [file_id], references: [id], onDelete: Cascade)
+
+  // Encrypted Financial Data
+  encrypted_total_debt   String // E2EE: Total debt amount
+  encrypted_lawyer_fee   String // E2EE: Lawyer's fee
+  encrypted_court_fee    String? // E2EE: Court fees
+  encrypted_paid_amounts String? @db.Text // E2EE: JSON array of payments
+
+  // Metadata
+  settlement_type SettlementType @default(FULL_EXECUTION)
+  currency        String         @default("IQD")
+
+  @@index([file_id])
+  @@map("financial_ledgers")
+}
+
+enum SettlementType {
+  FULL_EXECUTION
+  PARTIAL_SETTLEMENT
+  PAYMENT_PLAN
+  AUCTION_SALE
+  VOLUNTARY
+}
+
+model SeizedAsset {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  file_id       String
+  executionFile ExecutionFile @relation(fields: [file_id], references: [id], onDelete: Cascade)
+
+  // Asset Info (Encrypted)
+  encrypted_asset_type        String // E2EE: Vehicle, Property, etc.
+  encrypted_asset_description String @db.Text
+  encrypted_estimated_value   String
+
+  // Metadata
+  seizure_date String // Plain date string
+  status       AssetStatus @default(SEIZED)
+
+  @@index([file_id])
+  @@index([status])
+  @@map("seized_assets")
+}
+
+enum AssetStatus {
+  SEIZED
+  IN_AUCTION
+  SOLD
+  RETURNED
+}
+
+model TimelineEvent {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  file_id       String
+  executionFile ExecutionFile @relation(fields: [file_id], references: [id], onDelete: Cascade)
+
+  event_type EventType
+  title      String
+  date       String // Plain date string
+
+  // Optional Encrypted Details
+  encrypted_description String? @db.Text
+
+  @@index([file_id])
+  @@index([event_type])
+  @@map("timeline_events")
+}
+
+enum EventType {
+  SYSTEM
+  SUMMONS
+  JUDGMENT
+  PAYMENT
+  SEIZURE
+  AUCTION
+  CLOSE
+  NOTE
+}
+
+// === LAWSUITS (الدعاوى) ===
+
+model Lawsuit {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lawyer_id String
+  lawyer    Lawyer @relation(fields: [lawyer_id], references: [id], onDelete: Cascade)
+
+  // Metadata (Plaintext - searchable)
+  case_number String
+  case_type   CaseType
+  court       String
+  status      LawsuitStatus @default(ACTIVE)
+
+  // Encrypted Core Data
+  encrypted_file_data String @db.Text // E2EE: All case details
+
+  // Integrity Protection
+  data_signature String
+
+  // Relations
+  stages  LawsuitStage[]
+  parties Party[]
+
+  @@index([lawyer_id])
+  @@index([case_number])
+  @@index([status])
+  @@map("lawsuits")
+}
+
+enum CaseType {
+  CIVIL
+  CRIMINAL
+  FAMILY
+  ADMINISTRATIVE
+  COMMERCIAL
+}
+
+enum LawsuitStatus {
+  ACTIVE
+  APPEALED
+  CASSATION
+  COMPLETED
+  ARCHIVED
+}
+
+model LawsuitStage {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lawsuit_id String
+  lawsuit    Lawsuit @relation(fields: [lawsuit_id], references: [id], onDelete: Cascade)
+
+  stage_name String // "البداءة", "الاستئناف", "التمييز"
+  case_no    String
+  court      String
+  status     StageStatus @default(ACTIVE)
+
+  // Encrypted Stage Data
+  encrypted_stage_data String @db.Text
+
+  @@index([lawsuit_id])
+  @@map("lawsuit_stages")
+}
+
+enum StageStatus {
+  ACTIVE
+  COMPLETED
+  DISMISSED
+}
+
+model Party {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  lawsuit_id String
+  lawsuit    Lawsuit @relation(fields: [lawsuit_id], references: [id], onDelete: Cascade)
+
+  // Encrypted Party Info
+  encrypted_name  String
+  encrypted_phone String?
+  role            String // "المدعي", "المدعى عليه", etc.
+
+  @@index([lawsuit_id])
+  @@map("parties")
+}
+
+// === ACCESS DIAGNOSTIC LOG (W.I.F.E Protocol) ===
+
+model AccessDiagnosticLog {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  ip_address      String
+  attempted_route String
+  action_taken    AccessAction
+
+  // Request Details
+  user_agent String?
+  referer    String?
+  origin     String?
+
+  // Optional: Link to lawyer if authenticated
+  lawyer_id String?
+  lawyer    Lawyer? @relation(fields: [lawyer_id], references: [id], onDelete: SetNull)
+
+  @@index([ip_address])
+  @@index([action_taken])
+  @@index([createdAt])
+  @@map("access_diagnostic_logs")
+}
+
+enum AccessAction {
+  RESTRICTED
+  ROUTED_TO_DIAGNOSTICS
+  ALLOWED
+  BLOCKED
+}
+
+// === SESSION & DEVICE BINDING (WebAuthn Ready) ===
+
+model DeviceCredential {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lawyer_id String
+
+  // WebAuthn Credential
+  credential_id   String @unique
+  public_key      String @db.Text
+  counter         Int    @default(0)
+  
+  // Device Info
+  device_name     String?
+  device_type     String? // "mobile", "desktop", "tablet"
+  last_used       DateTime @default(now())
+
+  @@index([lawyer_id])
+  @@index([credential_id])
+  @@map("device_credentials")
+}
+
+// === ANALYTICS & MONITORING ===
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  lawyer_id String?
+  action    String
+  resource  String?
+  ip_address String?
+  
+  // Request metadata
+  user_agent String?
+  status     String? // "SUCCESS", "FAILURE", "BLOCKED"
+
+  @@index([lawyer_id])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

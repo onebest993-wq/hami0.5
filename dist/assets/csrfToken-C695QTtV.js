@@ -1,0 +1,1 @@
+function a(e){const t=Array.from(e,r=>String.fromCharCode(r)).join("");return btoa(t).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"")}async function o(e){const n=new TextEncoder().encode(`hami-csrf-v1:${e}`),r=await crypto.subtle.digest("SHA-256",n);return a(new Uint8Array(r))}export{o as createCsrfToken};

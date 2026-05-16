@@ -1,0 +1,5 @@
+@import 'tailwindcss' source(none);
+@source '../index.tsx';
+@source '../app/**/*.{js,ts,jsx,tsx}';
+
+@plugin 'tailwindcss-animate';

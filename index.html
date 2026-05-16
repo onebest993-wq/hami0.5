@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ar-IQ" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <link rel="preconnect" href="https://wldjvjnodvyodmgbgzab.supabase.co" crossorigin />
+    
+    <!-- 🔐 WebAuthn Permissions Policy -->
+    <meta http-equiv="Permissions-Policy" content="publickey-credentials-get=*, publickey-credentials-create=*" />
+    
+    <title>Hami - Lawyer Dashboard</title>
+    <style>
+      body { background-color: #000; color: #E6C673; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; }
+      #root { width: 100%; height: 100%; }
+      #loading-overlay { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s; }
+      .loader { width: 48px; height: 48px; border: 3px solid #E6C673; border-radius: 50%; display: inline-block; position: relative; box-sizing: border-box; animation: rotation 1s linear infinite; }
+      .loader::after { content: ''; box-sizing: border-box; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 40px; height: 40px; border-radius: 50%; border: 3px solid transparent; border-bottom-color: #E6C673; }
+      @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+  </head>
+  <body>
+    <div id="loading-overlay">
+        <span class="loader"></span>
+        <p style="margin-top: 20px; font-family: monospace;">Loading System...</p>
+    </div>
+    <div id="root"></div>
+    <script>
+      // 🛡️ Remove loader when React mounts
+      window.removeLoader = function() {
+        var loader = document.getElementById('loading-overlay');
+        if (loader) {
+            loader.style.opacity = '0';
+            setTimeout(() => loader.remove(), 500);
+        }
+      };
+      
+      // 🛡️ Global Error Catcher (DOM APIs + textContent — avoid XSS via error message)
+      window.onerror = function(msg, url, line) {
+        var loader = document.getElementById('loading-overlay');
+        if (loader) {
+          while (loader.firstChild) loader.removeChild(loader.firstChild);
+          var h1 = document.createElement('h1');
+          h1.style.color = 'red';
+          h1.textContent = 'System Error';
+          var pre = document.createElement('pre');
+          pre.style.color = 'white';
+          pre.style.textAlign = 'left';
+          pre.style.background = '#111';
+          pre.style.padding = '10px';
+          var lines = [];
+          if (msg != null) lines.push(String(msg));
+          if (url != null) lines.push(String(url));
+          if (line != null) lines.push(String(line));
+          pre.textContent = lines.join('\n');
+          var btn = document.createElement('button');
+          btn.textContent = 'Reload';
+          btn.onclick = function() { location.reload(); };
+          loader.appendChild(h1);
+          loader.appendChild(pre);
+          loader.appendChild(btn);
+        }
+      };
+      
+      // إزالة شاشة التحميل فور جاهزية DOM
+      document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+          if (typeof window.removeLoader === 'function') window.removeLoader();
+        }, 80);
+      });
+
+      // عند Refresh من ذاكرة المتصفح (bfcache)
+      window.addEventListener('pageshow', function() {
+        if (typeof window.removeLoader === 'function') window.removeLoader();
+      });
+
+      // احتياطي — لا تبقى الشاشة السوداء أكثر من 2.5 ثانية
+      setTimeout(function() {
+        if (typeof window.removeLoader === 'function') {
+          window.removeLoader();
+          return;
+        }
+        var loader = document.getElementById('loading-overlay');
+        if (loader && loader.parentNode) {
+          loader.style.opacity = '0';
+          loader.style.transition = 'opacity 0.5s';
+          setTimeout(function() { loader.remove(); }, 500);
+        }
+      }, 2500);
+    </script>
+    <script type="module" src="/src/index.tsx"></script>
+  </body>
+</html>

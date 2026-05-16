@@ -1,0 +1,8 @@
+Timestamp: 1772833900000
+
+إصلاح vite.config.ts و tsconfig.json
+- إضافة alias "@/app" بشكل صريح
+- تحديث vite.config.ts
+- تحديث tsconfig.json
+
+يجب إعادة تشغيل dev server الآن!
