@@ -216,6 +216,12 @@ class SecureStoreService {
     webReadyPromise = this.ensureWebReady();
   }
 
+  /** انتظار تحميل IndexedDB قبل قراءة/كتابة البيانات المحلية (يمنع فقدان الإضابير عند التحديث). */
+  static async ensurePersistedReady(): Promise<void> {
+    if (!isWebEnvironment()) return;
+    await this.ensureWebReady();
+  }
+
   private static async ensureWebReady(): Promise<void> {
     if (!isWebEnvironment() || webReady) return;
     if (webReadyPromise) return webReadyPromise;
@@ -310,7 +316,41 @@ class SecureStoreService {
     }
   }
 
+  private static countCasesInRaw(raw: string): number {
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return 0;
+      const root = parsed as Record<string, unknown>;
+      const cases = (root.state as { casesById?: unknown } | undefined)?.casesById ?? root.casesById;
+      return cases && typeof cases === 'object' ? Object.keys(cases as object).length : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  private static shouldRejectEmptyOverwrite(key: string, incoming: string, existing: string): boolean {
+    if (key === 'hami:criminal:store') {
+      return this.countCasesInRaw(incoming) === 0 && this.countCasesInRaw(existing) > 0;
+    }
+    const trimmed = incoming.trim();
+    if (trimmed === '' || trimmed === '{}' || trimmed === 'null') return true;
+    return false;
+  }
+
   static async setItem(key: string, value: string): Promise<void> {
+    if (isWebEnvironment()) {
+      await this.ensureWebReady();
+      try {
+        const existing = webFallbackStore.get(key) ?? (await this.webDbGetItem(key));
+        if (existing && this.shouldRejectEmptyOverwrite(key, value, existing)) {
+          _warn(`Refused empty overwrite for "${key}" — existing data preserved.`);
+          return;
+        }
+      } catch {
+        /* ignore guard */
+      }
+    }
+
     decryptedCache.set(key, value);
     const encrypted = await encryptIfSensitive(key, value);
     if (isWebEnvironment()) {
@@ -402,6 +442,7 @@ class SecureStoreService {
     if (isWebEnvironment()) {
       this.ensureWebMigrationSync();
       this.ensureWebReadySyncKickoff();
+      decryptedCache.set(key, value);
       webFallbackStore.set(key, value);
     }
     void this.setItem(key, value);

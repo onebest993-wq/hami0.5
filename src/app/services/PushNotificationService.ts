@@ -28,6 +28,12 @@
  */
 
 import { debug } from '@/app/utils/debug';
+import {
+    canSendPushNotifications,
+    getLawyerSettingsSnapshot,
+    isNotificationChannelAllowed,
+    pushNotificationOptionsFromSettings,
+} from '@/app/services/settings/settingsRuntime';
 
 // =====================================================
 // Types
@@ -58,29 +64,96 @@ export interface NotificationAction {
 // PushNotificationService Class
 // =====================================================
 
+function isEmbeddedContext(): boolean {
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
+}
+
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+
 export class PushNotificationService {
   private static registration: ServiceWorkerRegistration | null = null;
+  private static registerInFlight: Promise<ServiceWorkerRegistration | null> | null = null;
   private static isSupported = 'serviceWorker' in navigator && 'PushManager' in window;
   private static permissionStatus: NotificationPermission = 'default';
+  /** يمنع تكرار تحذير/محاولة الاشتراك عندما SW غير متاح */
+  private static pushSubscribeBlocked = false;
+
+  private static blockPushSubscribe(reason: 'dev' | 'no-sw' | 'no-vapid'): null {
+    if (this.pushSubscribeBlocked) return null;
+    this.pushSubscribeBlocked = true;
+    if (reason === 'dev') {
+      debug.log('[PushNotification] Push subscription disabled in development (no Service Worker)');
+      return null;
+    }
+    if (reason === 'no-vapid') {
+      debug.log('[PushNotification] Push subscription skipped — VITE_VAPID_PUBLIC_KEY not set');
+      return null;
+    }
+    debug.log('[PushNotification] Push subscription unavailable — using local notifications only');
+    return null;
+  }
+
+  static hasServiceWorkerRegistration(): boolean {
+    return this.registration !== null;
+  }
+
+  /** تسجيل Service Worker من public/sw.js (يُتخطى داخل iframe) */
+  static async registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+    if (import.meta.env.DEV) return null;
+    if (this.registration) return this.registration;
+    if (!('serviceWorker' in navigator)) return null;
+    if (isEmbeddedContext()) {
+      debug.log('[PushNotification] Service Worker skipped (embedded iframe)');
+      return null;
+    }
+    if (this.registerInFlight) return this.registerInFlight;
+
+    this.registerInFlight = (async () => {
+      try {
+        const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+        await reg.update().catch(() => undefined);
+        this.registration = reg;
+        debug.log('[PushNotification] ✅ Service Worker registered');
+        return reg;
+      } catch (error) {
+        debug.warn('[PushNotification] Service Worker registration failed:', error);
+        return null;
+      } finally {
+        this.registerInFlight = null;
+      }
+    })();
+
+    return this.registerInFlight;
+  }
 
   /**
    * تهيئة الخدمة
    */
   static async initialize(): Promise<boolean> {
-    // ✅ FIX: تعطيل Service Worker في بيئة Figma Make
-    // Service Workers لا تعمل بشكل صحيح في iframes
     if (!('Notification' in window)) {
       debug.warn('[PushNotification] Notifications API not supported');
       return false;
     }
 
     try {
-      // ✅ استخدام Notification API مباشرة بدون Service Worker
-      debug.log('[PushNotification] ✅ Initialized (without Service Worker)');
-
-      // فحص الصلاحيات
       this.permissionStatus = Notification.permission as NotificationPermission;
-      
+      const reg = await this.registerServiceWorker();
+      if (reg) {
+        debug.log('[PushNotification] ✅ Initialized (with Service Worker)');
+      } else {
+        debug.log('[PushNotification] ✅ Initialized (without Service Worker)');
+      }
       return true;
     } catch (error) {
       debug.error('[PushNotification] ❌ Initialization failed:', error);
@@ -155,41 +228,29 @@ export class PushNotificationService {
    * إشعارات مخصصة للنظام القانوني
    */
   static async notifyNewExecution(caseNo: string): Promise<void> {
-    await this.showNotification({
-      title: '📩 ملف تنفيذ جديد',
-      body: `تم إضافة ملف تنفيذ رقم ${caseNo}`,
-      tag: 'new-execution',
-      data: { type: 'execution', caseNo }
-    });
+    const settings = getLawyerSettingsSnapshot();
+    if (!canSendPushNotifications(settings) || !isNotificationChannelAllowed(settings, 'execution')) return;
+    await this.showNotification(
+      pushNotificationOptionsFromSettings(settings, {
+        title: '📩 ملف تنفيذ جديد',
+        body: `تم إضافة ملف تنفيذ رقم ${caseNo}`,
+        tag: 'new-execution',
+        data: { type: 'execution', caseNo },
+      }),
+    );
   }
 
   static async notifyNewLawsuit(caseNo: string): Promise<void> {
-    await this.showNotification({
-      title: '📩 ملف دعوى جديد',
-      body: `تم إضافة ملف دعوى رقم ${caseNo}`,
-      tag: 'new-lawsuit',
-      data: { type: 'lawsuit', caseNo }
-    });
-  }
-
-  static async notifyUpdate(fileType: string, caseNo: string): Promise<void> {
-    await this.showNotification({
-      title: '🔄 تحديث',
-      body: `تم تحديث ${fileType} رقم ${caseNo}`,
-      tag: 'update',
-      data: { type: fileType, caseNo }
-    });
-  }
-
-  static async notifyDeadline(caseNo: string, deadline: string): Promise<void> {
-    await this.showNotification({
-      title: '⏰ تذكير بموعد',
-      body: `موعد قريب لملف ${caseNo}: ${deadline}`,
-      tag: 'deadline',
-      data: { type: 'deadline', caseNo, deadline },
-      requireInteraction: true,
-      vibrate: [200, 100, 200]
-    });
+    const settings = getLawyerSettingsSnapshot();
+    if (!canSendPushNotifications(settings) || !isNotificationChannelAllowed(settings, 'lawsuits')) return;
+    await this.showNotification(
+      pushNotificationOptionsFromSettings(settings, {
+        title: '📩 ملف دعوى جديد',
+        body: `تم إضافة ملف دعوى رقم ${caseNo}`,
+        tag: 'new-lawsuit',
+        data: { type: 'lawsuit', caseNo },
+      }),
+    );
   }
 
   /**
@@ -212,35 +273,40 @@ export class PushNotificationService {
    * (يتطلب إعداد VAPID Keys في Supabase)
    */
   static async subscribeToPush(): Promise<PushSubscription | null> {
-    if (!this.registration) {
-      await this.initialize();
+    if (this.pushSubscribeBlocked) return null;
+    if (import.meta.env.DEV) {
+      return this.blockPushSubscribe('dev');
     }
 
     if (!this.registration) {
-      debug.error('[PushNotification] Service Worker not registered');
-      return null;
+      await this.registerServiceWorker();
+    }
+
+    if (!this.registration) {
+      return this.blockPushSubscribe('no-sw');
     }
 
     try {
-      // يتطلب VAPID Public Key من Server
-      // const applicationServerKey = 'YOUR_VAPID_PUBLIC_KEY';
-      
+      const existing = await this.registration.pushManager.getSubscription();
+      if (existing) return existing;
+
+      const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
+      if (!vapidPublicKey?.trim()) {
+        return this.blockPushSubscribe('no-vapid');
+      }
+
+      const rawKey = urlBase64ToUint8Array(vapidPublicKey.trim());
+      const key = new Uint8Array(rawKey);
+
       const subscription = await this.registration.pushManager.subscribe({
         userVisibleOnly: true,
-        // applicationServerKey: applicationServerKey
+        applicationServerKey: key,
       });
 
-      debug.log('[PushNotification] ✅ Subscribed to push:', subscription);
-      
-      // يمكن إرسال الـ subscription إلى Server هنا
-      // await fetch('/api/push/subscribe', {
-      //   method: 'POST',
-      //   body: JSON.stringify(subscription)
-      // });
-
+      debug.log('[PushNotification] ✅ Subscribed to push');
       return subscription;
     } catch (error) {
-      debug.error('[PushNotification] ❌ Push subscription failed:', error);
+      debug.warn('[PushNotification] Push subscription failed:', error);
       return null;
     }
   }

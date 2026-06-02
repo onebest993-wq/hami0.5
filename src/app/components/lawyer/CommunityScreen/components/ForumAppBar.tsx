@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowRight, Briefcase, Search, Bell } from 'lucide-react';
+import { SecureAPIClient } from '@/app/services/SecureAPIClient';
+import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
 
 interface ForumAppBarProps {
     onBack?: () => void;
@@ -16,10 +18,14 @@ export const ForumAppBar = ({ onBack, activeSection, onSectionChange, onSearchOp
 
     const fetchNotifications = useCallback(async () => {
         if (!userId) return;
-        if (import.meta.env.DEV) return;
+        const settings = getLawyerSettingsSnapshot();
+        if (!settings.notifications.master || settings.security.decoyMode) return;
         try {
-            const res = await fetch('/api/forum/notifications');
-            const data = await res.json();
+            const data = await SecureAPIClient.fetchSecure<{
+                ok: boolean;
+                notifications: typeof notifications;
+                unreadCount: number;
+            }>('/api/forum/notifications', { method: 'GET' });
             if (data.ok) {
                 setNotifications(data.notifications.slice(0, 20));
                 setUnreadCount(data.unreadCount);
@@ -38,8 +44,10 @@ export const ForumAppBar = ({ onBack, activeSection, onSectionChange, onSearchOp
 
     const handleMarkAllRead = async () => {
         if (!userId) return;
+        const settings = getLawyerSettingsSnapshot();
+        if (!settings.notifications.master || settings.security.decoyMode) return;
         try {
-            await fetch('/api/forum/notifications', {
+            await SecureAPIClient.fetchSecure('/api/forum/notifications', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'mark_all_read' }),

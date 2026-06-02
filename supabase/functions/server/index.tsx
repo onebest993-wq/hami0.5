@@ -98,17 +98,142 @@ app.post('/make-server-f09713ba/comms-dispatcher', async (c) => {
 
 
 // --- KV PROXY (BRIDGE TO DATABASE) ---
+// 🔐 محمي بـ JWT + key scoping منذ الإصلاح الأمني.
+// كل مفتاح/prefix يجب أن يخص المستخدم نفسه؛ يُمنع الوصول لمفاتيح أي شخص آخر
+// أو لمفاتيح عامة غير مُعرَّفة في الـ whitelist.
+const kvProxySupabase = createClient(
+    Deno.env.get('SUPABASE_URL') || '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
+    { auth: { autoRefreshToken: false, persistSession: false } },
+);
+
+/**
+ * فحص ملكية المفتاح. نقسّمها لثلاث فئات:
+ *
+ *   PRIVATE (يجب احتواء userId): يُسمح فقط إن كان المفتاح يحوي userId الخاص بالمستخدم في الموضع المتوقع.
+ *   - `user:${u}:...`, `calendar:${u}:...`, `lawyer_files:${u}:...`
+ *   - `urgentActions:${u}:...`, `transactions:${u}:...`, `transactionsThreading:${u}:...`
+ *   - `notifications:${u}:...`, `notifications_${u}`
+ *   - `vault:docs:${u}:...` (authorId)
+ *   - `follow:${u}:${otherUserId}` (followerId === u)
+ *   - `hami:push:${u}`, `hami:calendar:events:${u}:v1`
+ *
+ *   READABLE_GLOBAL (مُتاح للجميع للقراءة، الكتابة محمية بطبقة API منفصلة):
+ *   - `community:posts:...`, `community:reports:...`
+ *   - `repository:docs:...`
+ *   - `banned:users:...` (للأدمن يقرأ، حالياً نمنع كتابة عبر هذا proxy)
+ */
+function isKeyOwnedBy(rawKey: unknown, userId: string, op: 'read' | 'write'): boolean {
+    if (typeof rawKey !== 'string' || !rawKey || !userId) return false;
+    const k = rawKey;
+    const u = userId;
+
+    // PRIVATE keys — يجب احتواء userId
+    if (k.startsWith(`user:${u}:`)) return true;
+    if (k.startsWith(`calendar:${u}:`)) return true;
+    if (k.startsWith(`lawyer_files:${u}:`)) return true;
+    if (k.startsWith(`urgentActions:${u}:`)) return true;
+    if (k.startsWith(`transactions:${u}:`)) return true;
+    if (k.startsWith(`transactionsThreading:${u}:`)) return true;
+    if (k.startsWith(`notifications:${u}:`)) return true;
+    if (k === `notifications_${u}`) return true;
+    if (k.startsWith(`vault:docs:${u}:`)) return true;
+    if (k === `hami:push:${u}`) return true;
+    if (k === `hami:calendar:events:${u}:v1`) return true;
+    // follow:${followerId}:${followingId} — الكتابة فقط لو المُتابِع هو نفسه
+    if (k.startsWith(`follow:${u}:`)) return true;
+
+    // READABLE_GLOBAL — قراءة فقط
+    if (op === 'read') {
+        if (k.startsWith('community:posts:')) return true;
+        if (k.startsWith('community:reports:')) return true;
+        if (k.startsWith('repository:docs:')) return true;
+        if (k.startsWith('banned:users:')) return true;
+        // قراءة follow لطرف ثانٍ (للتحقق إن كان X يتابع Y)
+        if (k.startsWith('follow:')) return true;
+    }
+
+    return false;
+}
+
+function isPrefixOwnedBy(rawPrefix: unknown, userId: string): boolean {
+    if (typeof rawPrefix !== 'string' || !rawPrefix || !userId) return false;
+    const p = rawPrefix;
+    const u = userId;
+    if (p.startsWith(`user:${u}:`)) return true;
+    if (p.startsWith(`calendar:${u}:`)) return true;
+    if (p.startsWith(`lawyer_files:${u}:`)) return true;
+    if (p.startsWith(`urgentActions:${u}:`)) return true;
+    if (p.startsWith(`transactions:${u}:`)) return true;
+    if (p.startsWith(`notifications:${u}:`)) return true;
+    if (p.startsWith(`vault:docs:${u}:`)) return true;
+    // global readable prefixes — للقوائم العامة فقط
+    if (p === 'community:posts:' || p.startsWith('community:posts:')) return true;
+    if (p === 'community:reports:' || p.startsWith('community:reports:')) return true;
+    if (p === 'repository:docs:' || p.startsWith('repository:docs:')) return true;
+    return false;
+}
+
+async function extractUserIdFromAuth(c: any): Promise<string | null> {
+    const authHeader = c.req.header('Authorization') ?? '';
+    if (!authHeader.toLowerCase().startsWith('bearer ')) return null;
+    const token = authHeader.slice(7).trim();
+    if (!token) return null;
+    // ملاحظة: نتجاهل anon key (لا يحوي sub) — نطلب JWT حقيقي للمستخدم
+    try {
+        const { data, error } = await kvProxySupabase.auth.getUser(token);
+        if (error || !data?.user?.id) return null;
+        return data.user.id;
+    } catch {
+        return null;
+    }
+}
+
 app.post('/make-server-f09713ba/kv-proxy', async (c) => {
     try {
-        const { action, key, value, prefix } = await c.req.json();
-        let result;
+        // 1) المصادقة الإجبارية
+        const userId = await extractUserIdFromAuth(c);
+        if (!userId) {
+            return c.json({ error: 'Unauthorized: valid user JWT required' }, 401);
+        }
 
+        const { action, key, value, prefix } = await c.req.json();
+
+        // 2) فحص ownership قبل أي عملية
+        let result;
         switch (action) {
-            case 'set': await kv.set(key, value); result = { success: true }; break;
-            case 'get': result = await kv.get(key); break;
-            case 'getByPrefix': result = await kv.getByPrefix(prefix); break;
-            case 'del': await kv.del(key); result = { success: true }; break;
-            default: throw new Error(`Unknown action: ${action}`);
+            case 'set': {
+                if (!isKeyOwnedBy(key, userId, 'write')) {
+                    return c.json({ error: 'Forbidden: key not owned by current user' }, 403);
+                }
+                await kv.set(key, value);
+                result = { success: true };
+                break;
+            }
+            case 'get': {
+                if (!isKeyOwnedBy(key, userId, 'read')) {
+                    return c.json({ error: 'Forbidden: key not readable by current user' }, 403);
+                }
+                result = await kv.get(key);
+                break;
+            }
+            case 'getByPrefix': {
+                if (!isPrefixOwnedBy(prefix, userId)) {
+                    return c.json({ error: 'Forbidden: prefix not scoped to current user' }, 403);
+                }
+                result = await kv.getByPrefix(prefix);
+                break;
+            }
+            case 'del': {
+                if (!isKeyOwnedBy(key, userId, 'write')) {
+                    return c.json({ error: 'Forbidden: key not owned by current user' }, 403);
+                }
+                await kv.del(key);
+                result = { success: true };
+                break;
+            }
+            default:
+                return c.json({ error: `Unknown action: ${action}` }, 400);
         }
         if (result === undefined) result = null;
         return c.json(result);

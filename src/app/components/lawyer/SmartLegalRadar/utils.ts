@@ -57,6 +57,12 @@ export function isToday(dateStr: string): boolean {
     return dateStr === `${y}-${m}-${d}`;
 }
 
+/** يوم سابق — للعرض الشفاف دون الحذف */
+export function isPastDay(dateStr: string): boolean {
+    if (!dateStr || dateStr.length < 10) return false;
+    return dateStr < todayYmd();
+}
+
 export function todayYmd(): string {
     const now = new Date();
     const y = now.getFullYear();

@@ -4,10 +4,17 @@ vi.mock('./wifeNonceStore', () => ({
   consumeNonceWithTtl: vi.fn(),
 }));
 
-import { verifyWifeSignature } from './wifeValidator';
-import { consumeNonceWithTtl } from './wifeNonceStore';
+vi.mock('@/app/services/StolenTokenRegistry', () => ({
+  detectStolenToken: vi.fn().mockResolvedValue({ status: 'valid' }),
+  registerTokenSession: vi.fn().mockResolvedValue(undefined),
+}));
 
-const TOKEN = 'test-user-token';
+import { verifyWifeSignature } from './wifeValidator.ts';
+import { consumeNonceWithTtl } from './wifeNonceStore.ts';
+import { createCsrfToken } from './csrfToken.ts';
+
+/** يجب أن يكون ≥ 20 حرفاً (getVerifiedTokenSubject) */
+const TOKEN = 'test-user-token-abcdefghijklmnopqrstuvwxyz';
 const USER_ID = 'user-1';
 
 function canonicalPathAndQuery(url: string): string {
@@ -96,6 +103,7 @@ describe('verifyWifeSignature security checks', () => {
     const nonce = 'nonce_valid_12345';
     const body = '{"hello":"world"}';
     const signature = await signWifePayload({ method, url, timestamp, nonce, body, token: TOKEN });
+    const csrf = await createCsrfToken(TOKEN);
 
     const req = new Request(url, {
       method,
@@ -104,6 +112,7 @@ describe('verifyWifeSignature security checks', () => {
         'x-wife-signature': signature,
         'x-wife-timestamp': timestamp,
         'x-wife-nonce': nonce,
+        'x-csrf-token': csrf,
       },
       body,
     });
@@ -192,6 +201,7 @@ describe('verifyWifeSignature security checks', () => {
       body: contentHash,
       token: TOKEN,
     });
+    const csrf = await createCsrfToken(TOKEN);
 
     const req = new Request(url, {
       method,
@@ -201,6 +211,7 @@ describe('verifyWifeSignature security checks', () => {
         'x-wife-timestamp': timestamp,
         'x-wife-nonce': nonce,
         'x-wife-content-hash': contentHash,
+        'x-csrf-token': csrf,
       },
       body: '--test-boundary\r\ncontent\r\n--test-boundary--',
     });
@@ -239,4 +250,3 @@ describe('verifyWifeSignature security checks', () => {
     expect(valid).toBe(false);
   });
 });
-

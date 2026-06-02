@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { persistenceRepository } from '../infrastructure/persistence/LocalStorageRepository';
+import { debug } from '@/app/utils/debug';
 
 /**
  * 💾 useAutoSave Hook
@@ -10,7 +11,7 @@ import { persistenceRepository } from '../infrastructure/persistence/LocalStorag
  * @param data The data state to save
  * @param delay Debounce delay in ms (default 1000ms)
  */
-export function useAutoSave<T>(key: string, data: T, delay: number = 1000) {
+export function useAutoSave<T>(key: string, data: T, delay: number = 2_000, enabled: boolean = true) {
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
     const dataRef = useRef(data);
 
@@ -21,14 +22,16 @@ export function useAutoSave<T>(key: string, data: T, delay: number = 1000) {
 
     // Save function
     const saveImmediately = useCallback(() => {
+        if (!enabled) return;
         if (dataRef.current) {
-            console.log(`💾 [AutoSave] Saving ${key}...`);
+            debug.log(`[AutoSave] ${key}`);
             persistenceRepository.save(key, dataRef.current);
         }
-    }, [key]);
+    }, [key, enabled]);
 
     // Debounced save on data change
     useEffect(() => {
+        if (!enabled) return;
         if (timeoutRef.current) {
             clearTimeout(timeoutRef.current);
         }
@@ -42,10 +45,11 @@ export function useAutoSave<T>(key: string, data: T, delay: number = 1000) {
                 clearTimeout(timeoutRef.current);
             }
         };
-    }, [data, delay, saveImmediately]);
+    }, [data, delay, saveImmediately, enabled]);
 
     // لا حفظ متزامن على beforeunload — كان يجمّد F5/إعادة التحميل مع بيانات كبيرة
     useEffect(() => {
+        if (!enabled) return;
         let idleSaveId: number | null = null;
 
         const scheduleSave = () => {
@@ -80,7 +84,7 @@ export function useAutoSave<T>(key: string, data: T, delay: number = 1000) {
                 else window.clearTimeout(idleSaveId);
             }
         };
-    }, [saveImmediately]);
+    }, [saveImmediately, enabled]);
 }
 
 /**

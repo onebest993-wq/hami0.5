@@ -11,15 +11,12 @@
  */
 
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
 import type { ExecutionFile } from '@/app/types/execution';
 import SecureStoreService from '@/app/services/SecureStoreService';
+import { createSecureJSONStorage } from '@/app/services/securePersistStorage';
 
-const secureStateStorage = {
-    getItem: (name: string) => SecureStoreService.getItemSync(name),
-    setItem: (name: string, value: string) => SecureStoreService.setItemSync(name, value),
-    removeItem: (name: string) => SecureStoreService.deleteItemSync(name),
-};
+const secureStateStorage = createSecureJSONStorage<Partial<AppState>>();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -28,7 +25,6 @@ const secureStateStorage = {
 type UserRole = 'lawyer' | 'admin' | 'client';
 
 type Screen = 
-    | 'splash'
     | 'auth'
     | 'lawyer'
     | 'admin'
@@ -147,7 +143,7 @@ export const useAppStore = create<AppState>()(
             
             isAuthenticated: false,
             currentUser: null,
-            currentScreen: 'splash',
+            currentScreen: 'auth',
             previousScreen: null,
             executionFiles: [],
             selectedExecutionId: null,
@@ -214,11 +210,30 @@ export const useAppStore = create<AppState>()(
                 } catch (error) {
                     console.error('Failed to save execution file:', error);
                 }
+
+                // Audit log: نشر حدث "تم إنشاء إضبارة تنفيذ" إلى NotificationStore
+                try {
+                    const caseNo =
+                        (file as { executionCaseNumber?: string }).executionCaseNumber ||
+                        (file as { caseNo?: string }).caseNo ||
+                        String(file.id);
+                    const clientName =
+                        (file as { clientName?: string }).clientName ||
+                        (file as { creditor?: string }).creditor;
+                    void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                        AuditLog.execution.fileCreated({
+                            executionId: file.id,
+                            caseNo,
+                            clientName,
+                        });
+                    });
+                } catch { /* silent — audit publish is non-critical */ }
                 
                 return { executionFiles: newFiles };
             }),
             
             updateExecutionFile: (id, updates) => set((state) => {
+                const before = state.executionFiles.find((f) => f.id === id);
                 const newFiles = state.executionFiles.map((file) =>
                     file.id === id ? { ...file, ...updates } : file
                 );
@@ -228,12 +243,59 @@ export const useAppStore = create<AppState>()(
                 } catch (error) {
                     console.error('Failed to update execution file:', error);
                 }
+
+                // Audit log ذكي: فقط عند تغيير حالات حياتية (lifecycle/status/closure)، ليس عند كل تحرير حقل
+                if (before) {
+                    const b = before as unknown as Record<string, unknown>;
+                    const u = updates as unknown as Record<string, unknown>;
+                    try {
+                        void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                            const caseNo =
+                                (b.executionCaseNumber as string | undefined) ||
+                                (b.caseNo as string | undefined) ||
+                                String(before.id);
+
+                            // إغلاق الإضبارة
+                            if (
+                                u.dossier_lifecycle_status === 'finished' &&
+                                b.dossier_lifecycle_status !== 'finished'
+                            ) {
+                                AuditLog.execution.closed({ executionId: before.id, caseNo });
+                            }
+                            // حبس تنفيذي
+                            if (
+                                typeof u.executive_detention_until === 'string' &&
+                                u.executive_detention_until !== b.executive_detention_until
+                            ) {
+                                AuditLog.execution.detentionOrdered({
+                                    executionId: before.id,
+                                    caseNo,
+                                    untilDate: u.executive_detention_until,
+                                });
+                            }
+                        });
+                    } catch { /* silent */ }
+                }
                 
                 return { executionFiles: newFiles };
             }),
             
             deleteExecutionFile: (id) => set((state) => {
+                const before = state.executionFiles.find((f) => f.id === id);
                 const newFiles = state.executionFiles.filter((file) => file.id !== id);
+                if (before) {
+                    try {
+                        void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                            AuditLog.execution.closed({
+                                executionId: before.id,
+                                caseNo:
+                                    (before as unknown as { executionCaseNumber?: string }).executionCaseNumber ||
+                                    (before as unknown as { caseNo?: string }).caseNo ||
+                                    String(before.id),
+                            });
+                        });
+                    } catch { /* silent */ }
+                }
                 
                 try {
                     SecureStoreService.setItemSync('executionFiles', JSON.stringify(newFiles));
@@ -298,7 +360,7 @@ export const useAppStore = create<AppState>()(
         }),
         {
             name: 'hami-app-storage',
-            storage: createJSONStorage(() => secureStateStorage),
+            storage: secureStateStorage,
             // Persist everything except transient state
             partialize: (state) => ({
                 isAuthenticated: state.isAuthenticated,

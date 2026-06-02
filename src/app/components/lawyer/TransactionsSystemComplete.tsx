@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { Loader2 } from 'lucide-react';
 import type { Transaction, TransactionStep, TransactionStatus } from './TransactionsSystemComplete/types';
@@ -10,13 +10,15 @@ import { TransactionDetailsView } from './TransactionsSystemComplete/views/Trans
 import { HandoverReceiptModal } from './TransactionsSystemComplete/modals/HandoverReceiptModal';
 import { ScheduleAppointmentModal } from './TransactionsSystemComplete/modals/ScheduleAppointmentModal';
 import { useTransactionsData } from '@/app/components/lawyer/hooks/useTransactionsData';
+import { CalendarBridge } from '@/app/services/calendarBridge';
 
 interface TransactionsSystemProps {
   onBack: () => void;
   userId: string;
+  initialTransactionId?: string;
 }
 
-export const TransactionsSystem = ({ onBack, userId }: TransactionsSystemProps) => {
+export const TransactionsSystem = ({ onBack, userId, initialTransactionId }: TransactionsSystemProps) => {
   const [view, setView] = useState<'main' | 'new' | 'details' | 'analytics' | 'archive'>('main');
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [showHandoverModal, setShowHandoverModal] = useState(false);
@@ -36,6 +38,12 @@ export const TransactionsSystem = ({ onBack, userId }: TransactionsSystemProps) 
     setSelectedTransaction(tx);
     setView('details');
   }, []);
+
+  useEffect(() => {
+    if (!initialTransactionId || loading) return;
+    const tx = transactions.find((t) => t.id === initialTransactionId);
+    if (tx) handleOpenDetails(tx);
+  }, [initialTransactionId, loading, transactions, handleOpenDetails]);
 
   const handleSaveTransaction = useCallback(async (newTx: Transaction) => {
     const result = await addTransaction(newTx);
@@ -91,9 +99,18 @@ export const TransactionsSystem = ({ onBack, userId }: TransactionsSystemProps) 
 
     const updated: Transaction = { ...selectedTransaction, steps: updatedSteps };
     await updateTransaction(updated);
+    CalendarBridge.syncTransactionAppointment({
+      userId,
+      transactionId: updated.id,
+      stepId: selectedStepForSchedule.id,
+      date,
+      time,
+      title: `${updated.transactionType} — ${selectedStepForSchedule.label}`,
+      clientName: updated.clientName,
+    });
     setSelectedTransaction(updated);
     setShowScheduleModal(false);
-  }, [selectedTransaction, selectedStepForSchedule, updateTransaction]);
+  }, [selectedTransaction, selectedStepForSchedule, updateTransaction, userId]);
 
   if (loading) {
     return (

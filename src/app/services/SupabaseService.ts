@@ -99,7 +99,9 @@ export class SupabaseService {
   static async updateExecutionFile(fileId: string, updates: Partial<ExecutionFileDTO_Supabase>): Promise<void> {
     const existing = loadExecutionFilesRaw() as Record<string, unknown>[] || [];
     const idx = existing.findIndex((f) => isRecord(f) && f.id === fileId);
-    if (idx < 0) return;
+    if (idx < 0) {
+      throw new Error(`Execution file not found: ${fileId}`);
+    }
     existing[idx] = { ...existing[idx], ...updates, updatedAt: new Date().toISOString() };
     saveExecutionFilesRaw(existing);
   }
@@ -133,10 +135,35 @@ export class SupabaseService {
   // Global Notes — LocalStorage فقط حالياً
   // =====================================================
 
-  static async saveGlobalNote(note: Omit<GlobalNote, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
-    const noteId = generateId('note');
-    const existing = loadGlobalNotesRaw() as GlobalNote[] || [];
-    existing.push({ ...note, id: noteId, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+  static async saveGlobalNote(
+    note: Omit<GlobalNote, 'id' | 'createdAt' | 'updatedAt'>,
+    options?: { id?: string },
+  ): Promise<string> {
+    const existing = (loadGlobalNotesRaw() as GlobalNote[]) || [];
+    const now = new Date().toISOString();
+    const requestedId = options?.id?.trim();
+
+    if (requestedId) {
+      const idx = existing.findIndex((n) => String(n.id) === requestedId);
+      if (idx >= 0) {
+        existing[idx] = {
+          ...existing[idx],
+          ...note,
+          id: requestedId,
+          updatedAt: now,
+        };
+        saveGlobalNotesRaw(existing);
+        return requestedId;
+      }
+    }
+
+    const noteId = requestedId || generateId('note');
+    existing.push({
+      ...note,
+      id: noteId,
+      createdAt: now,
+      updatedAt: now,
+    });
     saveGlobalNotesRaw(existing);
     return noteId;
   }

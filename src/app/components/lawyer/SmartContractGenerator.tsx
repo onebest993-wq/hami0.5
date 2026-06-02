@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { X, Calendar, MapPin, User, Building, UserCircle, Briefcase, Hash, Map, FileText, Shield, AlertTriangle, TrendingDown, Scale, Home, Hammer, ShoppingCart, DollarSign, Clock, Copy, Printer, Check, Bot } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
-import { AILegalAssistant } from './AILegalAssistant';
+import { X, Calendar, MapPin, User, Building, UserCircle, Briefcase, Hash, Map, FileText, Shield, AlertTriangle, TrendingDown, Scale, Home, Hammer, ShoppingCart, DollarSign, Clock, Copy, Printer, Check } from 'lucide-react';
+import { motion } from 'motion/react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { PRINT_STYLES } from './SmartContractGenerator/utils/printStyles';
 import type { ContractData, ContractDetails, ShieldsData } from './SmartContractGenerator/types/types';
@@ -9,8 +8,7 @@ import ContractPaper from './SmartContractGenerator/components/ContractPaper';
 
 export const SmartContractGenerator = ({ onClose }: { onClose: () => void }) => {
   const [copied, setCopied] = useState(false);
-  const [showAIAssistant, setShowAIAssistant] = useState(false);
-  
+
   const [contractData, setContractData] = useState<ContractData>({
     type: 'عقد اتفاق عام',
     date: '',
@@ -218,23 +216,9 @@ export const SmartContractGenerator = ({ onClose }: { onClose: () => void }) => 
         </h1>
 
         <div className="flex items-center gap-3">
-            {/* AI Assistant Toggle Button */}
-            <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setShowAIAssistant(!showAIAssistant)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all text-sm font-medium ${
-                showAIAssistant
-                ? 'bg-blue-600/20 border border-blue-500/50 text-blue-300'
-                : 'bg-slate-800/50 border border-slate-700/50 text-white/70 hover:bg-slate-800 hover:text-white'
-            }`}
-            >
-            <Bot size={18} />
-            <span className="hidden sm:inline">المساعد القانوني</span>
-            </motion.button>
-
-            <button type="button" 
-                onClick={onClose} 
+            <button
+                type="button"
+                onClick={onClose}
                 className="bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 px-3 py-1.5 rounded-lg font-bold flex items-center gap-2 transition-colors"
             >
                 ❌ إغلاق
@@ -272,27 +256,6 @@ export const SmartContractGenerator = ({ onClose }: { onClose: () => void }) => 
             </motion.button>
           </div>
         )}
-
-        {/* AI Legal Assistant Panel */}
-        <AnimatePresence>
-          {showAIAssistant && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-              className="h-[600px] w-full"
-            >
-              <AILegalAssistant
-                onInsertToDraft={(text) => {
-                  // سيتم نسخ النص إلى الحافظة
-                  navigator.clipboard.writeText(text);
-                  SmartToast.success('✅ تم نسخ النص إلى الحافظة! الصق النص في المكان المناسب في العقد.');
-                }}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Split View - Responsive Layout */}
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6" dir="rtl">

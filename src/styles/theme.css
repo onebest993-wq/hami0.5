@@ -1,6 +1,92 @@
 :root {
   --background: 0 0% 100%;
   --foreground: 222.2 84% 4.9%;
+  --glass-opacity: 0.85;
+  --hami-brand: #e6c673;
+  --hami-font-size: 16px;
+}
+
+html {
+  font-size: var(--hami-font-size, 16px);
+}
+
+.hami-glass-surface {
+  background-color: rgba(26, 30, 46, var(--glass-opacity, 0.85));
+  backdrop-filter: blur(12px);
+}
+
+.hami-lawyer-panel {
+  background-color: rgba(26, 33, 48, var(--glass-opacity, 0.85));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, rgb(26 33 48) calc(var(--glass-opacity, 0.85) * 100%), transparent) 0%,
+    rgba(5, 5, 5, 0.82) 100%
+  );
+  border: 1px solid color-mix(in srgb, var(--hami-primary, #e6c673) 45%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.hami-accent-text {
+  color: var(--hami-primary, #e6c673);
+}
+
+.hami-accent-border {
+  border-color: color-mix(in srgb, var(--hami-primary, #e6c673) 40%, transparent);
+}
+
+.hami-accent-border-strong {
+  border-color: color-mix(in srgb, var(--hami-primary, #e6c673) 55%, transparent);
+}
+
+html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+html.hami-high-contrast {
+  filter: contrast(1.08);
+}
+
+html.hami-compact .p-6 {
+  padding: 1rem;
+}
+
+html.hami-compact .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.65rem;
+}
+
+html.hami-compact .gap-3 {
+  gap: 0.5rem;
+}
+
+html[data-hami-color-mode='light'] body {
+  background-color: #e8ecf4;
+  color: #0a0f1c;
+}
+
+html[data-hami-color-mode='light'] [data-hami-lawyer-dashboard] {
+  color: #0a0f1c;
+}
+
+html[data-hami-color-mode='light'] .hami-glass-surface {
+  background-color: rgba(255, 255, 255, calc(var(--glass-opacity, 0.85) * 0.92));
+}
+
+@media print {
+  html.hami-watermark-export body::after {
+    content: 'حامي — وثيقة سرية';
+    position: fixed;
+    inset: 40% 10%;
+    font-size: 2.5rem;
+    color: rgba(0, 0, 0, 0.12);
+    transform: rotate(-24deg);
+    pointer-events: none;
+    z-index: 99999;
+    text-align: center;
+  }
 }
 
 body {

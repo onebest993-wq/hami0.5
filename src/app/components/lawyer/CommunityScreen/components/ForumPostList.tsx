@@ -25,6 +25,10 @@ interface ForumPostListProps {
     onFollow: (targetUserId: string) => void;
     followingIds: Set<string>;
     userStats: Record<string, { followerCount: number; postCount: number }>;
+    bookmarkedIds?: Set<string>;
+    onToggleBookmark?: (postId: string) => void;
+    onToggleLock?: (postId: string) => void;
+    onMuteUser?: (userId: string) => void;
 }
 
 export const ForumPostList = ({
@@ -33,6 +37,7 @@ export const ForumPostList = ({
     onDelete, onEdit, onReport, onShare,
     aiAnalysisByPostId, onAnalyzeAI, onCloseSummary, onLoadMore,
     isAdmin, onTogglePin, onFollow, followingIds, userStats,
+    bookmarkedIds, onToggleBookmark, onToggleLock, onMuteUser,
 }: ForumPostListProps) => {
     if (loadingPosts) {
         return (
@@ -85,6 +90,10 @@ export const ForumPostList = ({
                     onFollow={onFollow}
                     followingIds={followingIds}
                     userStats={userStats}
+                    isBookmarked={bookmarkedIds?.has(post.id) ?? false}
+                    onToggleBookmark={onToggleBookmark}
+                    onToggleLock={onToggleLock}
+                    onMuteUser={onMuteUser}
                 />
             ))}
 

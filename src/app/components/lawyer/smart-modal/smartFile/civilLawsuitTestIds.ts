@@ -1,0 +1,17 @@
+/** Stable selectors for E2E / integration (no visual impact). */
+export const CIVIL_LAWSUIT_TEST_IDS = {
+    hubLawsuits: 'hub-archive-lawsuit',
+    workspace: 'lawsuits-workspace',
+    tabCivil: 'lawsuits-tab-civil',
+    tabUrgent: 'lawsuits-tab-urgent',
+    addLawsuit: 'lawsuits-add-new',
+    dossier: 'smart-file-dossier',
+    dossierBack: 'smart-file-back',
+    newCaseSave: 'lawyer-new-case-save',
+    taskAdd: 'smart-file-task-add',
+    taskModal: 'smart-file-task-modal',
+    taskTitle: 'smart-file-task-title',
+    taskSubmit: 'smart-file-task-submit',
+    taskRow: (id: string) => `smart-file-task-row-${id}`,
+    lawsuitFile: (id: string | number) => `lawsuit-file-${id}`,
+} as const;

@@ -46,7 +46,11 @@ export async function fetchKvProxyGuarded(
         return existing.promise;
     }
 
-    if (windowCount >= MAX_REQUESTS_PER_WINDOW) {
+    while (windowCount >= MAX_REQUESTS_PER_WINDOW) {
+        const waitMs = Math.max(50, WINDOW_MS - (Date.now() - windowStart));
+        await new Promise((r) => setTimeout(r, Math.min(waitMs, 500)));
+        pruneWindow(Date.now());
+        if (windowCount < MAX_REQUESTS_PER_WINDOW) break;
         if (import.meta.env.DEV) {
             console.warn('[KvGuard] تجاوز حد kv-proxy — تم تخطي الطلب');
         }
@@ -56,11 +60,12 @@ export async function fetchKvProxyGuarded(
         });
     }
 
-    if (inFlight.size >= MAX_IN_FLIGHT) {
+    while (inFlight.size >= MAX_IN_FLIGHT) {
         if (import.meta.env.DEV) {
             console.warn('[KvGuard] طلبات kv-proxy متزامنة كثيرة — انتظار');
         }
         await Promise.race([...inFlight.values()].map((e) => e.promise)).catch(() => undefined);
+        if (inFlight.size < MAX_IN_FLIGHT) break;
     }
 
     windowCount += 1;

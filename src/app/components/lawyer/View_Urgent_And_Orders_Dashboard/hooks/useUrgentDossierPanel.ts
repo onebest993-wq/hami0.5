@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
-import { resetActiveOrderFilePanelCache } from '../../DeferredActiveOrderFile';
+import { resetActiveOrderFilePanelCache, preloadActiveOrderFilePanel } from '../../DeferredActiveOrderFile';
 import type { UrgentCase } from '../../Component_Urgent_Card';
+import { hydrateCase } from '@/app/domain/urgent/hydrateCase';
 import { mergeUrgentCasePatch } from '../mergeCasePatch';
 
 type UseUrgentDossierPanelArgs = {
@@ -16,7 +17,9 @@ export function useUrgentDossierPanel({ cases, setCases, pendingCasesPersistRef 
 
     const selectedCaseFile = useMemo(() => {
         if (!selectedCaseForDetails) return null;
-        return cases.find((c) => c.id === selectedCaseForDetails) ?? { id: selectedCaseForDetails };
+        const found = cases.find((c) => c.id === selectedCaseForDetails);
+        if (!found) return null;
+        return (hydrateCase(found) ?? found) as UrgentCase;
     }, [cases, selectedCaseForDetails]);
 
     const closeDossierPanel = useCallback(() => {
@@ -26,6 +29,7 @@ export function useUrgentDossierPanel({ cases, setCases, pendingCasesPersistRef 
 
     const retryDossierPanel = useCallback(() => {
         resetActiveOrderFilePanelCache();
+        preloadActiveOrderFilePanel();
         setDossierMountKey((k) => k + 1);
     }, []);
 
@@ -35,6 +39,7 @@ export function useUrgentDossierPanel({ cases, setCases, pendingCasesPersistRef 
     }, []);
 
     const openDossierForCase = useCallback((caseId: string) => {
+        preloadActiveOrderFilePanel();
         setSelectedCaseForDetails(caseId);
         setShowDetailsModal(true);
     }, []);

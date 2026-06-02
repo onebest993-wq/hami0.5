@@ -10,58 +10,13 @@
  * @author Hami Legal System
  */
 
-import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
+import { lazyWithRetry, type LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
+import {
+    LazyLawyerNewCase,
+    LazyCompleteLawsuitSystem,
+} from '@/app/utils/lazy/lawyerNewCaseModal';
 
-/**
- * Create a lazy component with retry logic
- * Handles network failures gracefully
- */
-type LazyComponent = ComponentType<Record<string, unknown>>;
-
-const LAZY_IMPORT_TIMEOUT_MS = 18_000;
-
-function lazyWithRetry(
-    componentImport: () => Promise<{ default: LazyComponent }>,
-    retries: number = 3,
-): LazyExoticComponent<LazyComponent> {
-    return lazy(() => {
-        return new Promise<{ default: LazyComponent }>((resolve, reject) => {
-            let settled = false;
-            const timeoutId = window.setTimeout(() => {
-                if (settled) return;
-                settled = true;
-                reject(new Error('انتهت مهلة تحميل المكون. تحقق من الاتصال ثم أعد المحاولة.'));
-            }, LAZY_IMPORT_TIMEOUT_MS);
-
-            const finish = (fn: () => void) => {
-                if (settled) return;
-                settled = true;
-                window.clearTimeout(timeoutId);
-                fn();
-            };
-
-            const attemptImport = (retriesLeft: number) => {
-                componentImport()
-                    .then((mod) => finish(() => resolve(mod)))
-                    .catch((error: unknown) => {
-                        if (retriesLeft === 0) {
-                            finish(() => reject(error));
-                            return;
-                        }
-
-                        window.setTimeout(() => {
-                            if (import.meta.env.DEV) {
-                                console.log(`Retrying component import... (${retriesLeft} retries left)`);
-                            }
-                            attemptImport(retriesLeft - 1);
-                        }, 1000);
-                    });
-            };
-
-            attemptImport(retries);
-        });
-    });
-}
+export { LazyLawyerNewCase, LazyCompleteLawsuitSystem };
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HEAVY MODALS (Lazy Loaded)
@@ -137,14 +92,6 @@ export const LazyExecutionDashboard = lazyWithRetry(
     () => import('@/app/components/lawyer/ExecutionDashboard').then((m) => ({ default: m.ExecutionDashboard as unknown as LazyComponent }))
 );
 
-export const LazyCompleteLawsuitSystem = lazyWithRetry(
-    () => import('@/app/components/lawyer/CompleteLawsuitSystem').then((m) => ({ default: m.CompleteLawsuitSystem as unknown as LazyComponent }))
-);
-
-export const LazySmartLegalConsultant = lazyWithRetry(() =>
-    import('@/app/components/lawyer/SmartLegalConsultant').then((m) => ({ default: m.SmartLegalConsultant as unknown as LazyComponent }))
-);
-
 export const LazySmartUtilities = lazyWithRetry(() =>
     import('@/app/components/lawyer/SmartUtilities').then((m) => ({ default: m.SmartUtilities as unknown as LazyComponent }))
 );
@@ -164,12 +111,6 @@ export const LazyArchivePortal = lazyWithRetry(() =>
 );
 
 /** LawyerDashboard: heavy overlays & tabs (split from main lawyer chunk) */
-export const LazyLeadManagement = lazyWithRetry(() =>
-    import('@/app/components/lawyer/LeadManagement').then((m) => ({ default: m.LeadManagement as unknown as LazyComponent }))
-);
-export const LazyCommunicationHub = lazyWithRetry(() =>
-    import('@/app/components/lawyer/CommunicationHub').then((m) => ({ default: m.CommunicationHub as unknown as LazyComponent }))
-);
 export const LazyTransactionsSystem = lazyWithRetry(() =>
     import('@/app/components/lawyer/TransactionsThreading/TransactionsThreadingSystem').then((m) => ({
         default: m.TransactionsThreadingSystem as unknown as LazyComponent,
@@ -207,8 +148,60 @@ export const LazySmartVaultModal = lazyWithRetry(() =>
 export const LazySmartCriminalLibrary = lazyWithRetry(() =>
     import('@/app/components/lawyer/dashboard/SmartCriminalLibrary').then((m) => ({ default: m.SmartCriminalLibrary as unknown as LazyComponent }))
 );
+let criminalDashboardPrefetch: Promise<unknown> | null = null;
+let smartFileModalPrefetch: Promise<unknown> | null = null;
+
+/** تحميل مسبق لوحة الإضبارة الجزائية + المتجر قبل النقر */
+export function prefetchCriminalDashboard(): void {
+    if (typeof window === 'undefined') return;
+    if (!criminalDashboardPrefetch) {
+        criminalDashboardPrefetch = Promise.all([
+            import('@/app/components/lawyer/criminal-system/criminalStore'),
+            import('@/app/components/lawyer/criminal-system/CriminalDashboard'),
+        ]);
+    }
+}
+
+/** تحميل مسبق إضبارة المدني قبل النقر */
+export function prefetchSmartFileModal(): void {
+    if (typeof window === 'undefined') return;
+    if (!smartFileModalPrefetch) {
+        smartFileModalPrefetch = Promise.all([
+            import('@/app/components/lawyer/SmartFileModal'),
+            import('@/app/components/lawyer/smart-modal/SmartFileModalContent'),
+        ]);
+    }
+}
+
+/** تحميل مسبق كل أنواع الإضابير (مدني + جزائي + تنفيذ) */
+export function prefetchDossierShells(): void {
+    prefetchSmartFileModal();
+    prefetchCriminalDashboard();
+    if (typeof window === 'undefined') return;
+    void import('@/app/components/lawyer/ExecutionDashboard');
+}
+
+export function resetCriminalDashboardPrefetch(): void {
+    criminalDashboardPrefetch = null;
+}
+
+export function resetSmartFileModalPrefetch(): void {
+    smartFileModalPrefetch = null;
+}
+
+/** النظام الجزائي — chunk منفصل (CriminalDashboard + store ثقيل) */
+export const LazyCriminalDashboard = lazyWithRetry(() =>
+    import('@/app/components/lawyer/criminal-system/CriminalDashboard').then((m) => ({
+        default: m.CriminalDashboard as unknown as LazyComponent,
+    })),
+);
+export const LazyCriminalCasesList = lazyWithRetry(() =>
+    import('@/app/components/lawyer/criminal-system/CriminalCasesList').then((m) => ({
+        default: m.CriminalCasesList as unknown as LazyComponent,
+    })),
+);
 export const LazyHamiSettings = lazyWithRetry(() =>
-    import('@/app/components/lawyer/HamiSettings').then((m) => ({ default: m.HamiSettings as unknown as LazyComponent }))
+    import('@/app/components/lawyer/HamiSettings/index').then((m) => ({ default: m.HamiSettings as unknown as LazyComponent }))
 );
 export const LazyRoyalLawyerProfile = lazyWithRetry(() =>
     import('@/app/components/lawyer/RoyalLawyerProfile').then((m) => ({ default: m.RoyalLawyerProfile as unknown as LazyComponent }))
@@ -228,11 +221,14 @@ export const LazyGlobalSearchResults = lazyWithRetry(() =>
 export const LazyBackendTestingPanel = lazyWithRetry(() =>
     import('@/app/components/testing/BackendTestingPanel').then((m) => ({ default: m.BackendTestingPanel as unknown as LazyComponent }))
 );
-export const LazyNeuralAlertsCard = lazyWithRetry(() =>
-    import('@/app/components/lawyer/NeuralAlertsCard').then((m) => ({ default: m.NeuralAlertsCard as unknown as LazyComponent }))
+export const LazyLawyerHomeHubCard = lazyWithRetry(() =>
+    import('@/app/components/lawyer/LawyerHomeHubCard').then((m) => ({ default: m.LawyerHomeHubCard as unknown as LazyComponent }))
 );
 
-/** LawyerDashboard shell: defer until home / auth / notifications / messaging */
+/** @deprecated استخدم LazyLawyerHomeHubCard */
+export const LazyNeuralAlertsCard = LazyLawyerHomeHubCard;
+
+/** LawyerDashboard shell: defer until home / auth / notifications */
 export const LazyUnifiedCommandHub = lazyWithRetry(() =>
     import('@/app/components/lawyer/dashboard/UnifiedCommandHub').then((m) => ({ default: m.UnifiedCommandHub as unknown as LazyComponent }))
 );
@@ -249,18 +245,15 @@ export const LazyNotificationPanel = lazyWithRetry(() =>
     import('@/app/components/lawyer/NotificationPanel').then((m) => ({ default: m.NotificationPanel as unknown as LazyComponent }))
 );
 export const LazyScannerModal = lazyWithRetry(() =>
-    import('@/app/components/lawyer/ActionModals').then((m) => ({ default: m.ScannerModal as unknown as LazyComponent }))
+    import('@/app/components/lawyer/ActionModals/ScannerModal').then((m) => ({
+        default: m.ScannerModal as unknown as LazyComponent,
+    })),
 );
 export const LazyVoiceRecorderModal = lazyWithRetry(() =>
-    import('@/app/components/lawyer/ActionModals').then((m) => ({ default: m.VoiceRecorderModal as unknown as LazyComponent }))
+    import('@/app/components/lawyer/ActionModals/VoiceRecorderModal').then((m) => ({
+        default: m.VoiceRecorderModal as unknown as LazyComponent,
+    })),
 );
-export const LazyMessagesList = lazyWithRetry(() =>
-    import('@/app/components/lawyer/messaging/MessagesList').then((m) => ({ default: m.MessagesList as unknown as LazyComponent }))
-);
-export const LazyChatRoom = lazyWithRetry(() =>
-    import('@/app/components/lawyer/messaging/ChatRoom').then((m) => ({ default: m.ChatRoom as unknown as LazyComponent }))
-);
-
 // ═══════════════════════════════════════════════════════════════════════════
 // LOADING FALLBACKS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -340,8 +333,8 @@ export default {
     LazyPaymentCalculator,
     LazySettlementCalculator,
     LazyExecutionDashboard,
+    LazyLawyerNewCase,
     LazyCompleteLawsuitSystem,
-    LazySmartLegalConsultant,
     LazySmartUtilities,
     LazySmartContractGenerator,
     LazyNotepadModal,

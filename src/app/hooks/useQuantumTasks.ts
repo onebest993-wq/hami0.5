@@ -5,55 +5,22 @@ import type {
     LegalTask,
     TaskExpenseEntry,
 } from '@/app/types/TaskEngine';
-import { addDays, isSameLocalDay, parseTaskInput, startOfLocalDay } from '@/app/utils/nlpParser';
+import { addDays, parseTaskInput, startOfLocalDay } from '@/app/utils/nlpParser';
 import { buildFieldGrouping } from '@/app/utils/fieldViewGrouping';
+import { groupTasksByTime, type GroupedByTime } from '@/app/utils/groupTasksByTime';
+import {
+    applySilentPracticalEnrichment,
+    type TaskEnrichmentOptions,
+} from '@/app/utils/quantumTaskEnrichment';
 
-export type AddTaskOptions = {
-    /** عند الإضافة من عمود يوم في الأجندة الأسبوعية: يُثبَّت التاريخ بصمت */
-    scheduledFor?: Date;
-};
-
-export type GroupedByTime = {
-    overdue: LegalTask[];
-    today: LegalTask[];
-    tomorrow: LegalTask[];
-    /** مواعيد لاحقة أو غير مصنفة في نافذة اليوم/الغد */
-    unscheduled: LegalTask[];
-};
+export type { GroupedByTime };
+export type AddTaskOptions = TaskEnrichmentOptions;
 
 function newId(): string {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
         return crypto.randomUUID();
     }
     return `qt-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
-}
-
-/** Phase 34 — تعزيز صامت دون عرض أي شرح للمستخدم */
-function applySilentPracticalEnrichment(
-    trimmed: string,
-    parsed: ReturnType<typeof parseTaskInput>,
-    options?: AddTaskOptions,
-): Pick<LegalTask, 'rawText' | 'title' | 'location' | 'parsedDate' | 'isFatalDeadline' | 'linkedCaseId'> {
-    const silentFatal = /حتمي|تمييز|سقوط/i.test(trimmed);
-    const isFatalDeadline = parsed.isFatalDeadline || silentFatal;
-
-    const location = parsed.location;
-
-    let parsedDate: Date | null = null;
-    if (options?.scheduledFor !== undefined) {
-        parsedDate = startOfLocalDay(options.scheduledFor);
-    } else {
-        parsedDate = parsed.parsedDate;
-    }
-
-    return {
-        rawText: trimmed,
-        title: parsed.title.trim() || trimmed,
-        location,
-        parsedDate,
-        isFatalDeadline,
-        linkedCaseId: parsed.linkedCaseId,
-    };
 }
 
 export function useQuantumTasks(initial: LegalTask[] = []) {
@@ -65,8 +32,10 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
 
         const parsed = parseTaskInput(trimmed);
         const enriched = applySilentPracticalEnrichment(trimmed, parsed, options);
+        const nextId = newId();
+        const linkedCaseId = enriched.linkedCaseId ?? null;
         const next: LegalTask = {
-            id: newId(),
+            id: nextId,
             ...enriched,
             status: 'pending',
             pinnedToFieldCurtain: false,
@@ -77,6 +46,16 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
         };
 
         setTasks((prev) => [...prev, next]);
+        // Audit log: تمت إضافة مهمة (نستخدم title لـ readable message)
+        try {
+            void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                AuditLog.task.created({
+                    taskId: nextId,
+                    title: enriched.title || trimmed,
+                    linkedCaseId: linkedCaseId ?? undefined,
+                });
+            });
+        } catch { /* silent */ }
     }, []);
 
     const addWeeklyLocationBundle = useCallback((scheduledFor: Date, location: string, actionTitles: string[]) => {
@@ -155,7 +134,17 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
     }, []);
 
     const deleteTask = useCallback((id: string) => {
-        setTasks((prev) => prev.filter((t) => t.id !== id));
+        setTasks((prev) => {
+            const target = prev.find((t) => t.id === id);
+            if (target) {
+                try {
+                    void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                        AuditLog.fieldTask.deleted({ taskId: id, title: target.title });
+                    });
+                } catch { /* silent */ }
+            }
+            return prev.filter((t) => t.id !== id);
+        });
     }, []);
 
     const batchTasks = useCallback((taskIds: string[], newDate: Date) => {
@@ -169,9 +158,17 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
     }, []);
 
     const completeTask = useCallback((id: string) => {
-        setTasks((prev) =>
-            prev.map((t) => (t.id === id ? { ...t, status: 'completed' as const } : t)),
-        );
+        setTasks((prev) => {
+            const target = prev.find((t) => t.id === id);
+            if (target && target.status !== 'completed') {
+                try {
+                    void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                        AuditLog.task.completed({ taskId: id, title: target.title });
+                    });
+                } catch { /* silent */ }
+            }
+            return prev.map((t) => (t.id === id ? { ...t, status: 'completed' as const } : t));
+        });
     }, []);
 
     const toggleTaskFatalDeadline = useCallback((id: string) => {
@@ -307,39 +304,7 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
 
     const fieldGrouping = useMemo(() => buildFieldGrouping(pendingTasks), [pendingTasks]);
 
-    const groupedByTime = useMemo((): GroupedByTime => {
-        const todayStart = startOfLocalDay(new Date());
-        const tomorrowStart = addDays(todayStart, 1);
-        const dayAfterTomorrow = addDays(tomorrowStart, 1);
-
-        const overdue: LegalTask[] = [];
-        const today: LegalTask[] = [];
-        const tomorrow: LegalTask[] = [];
-        const unscheduled: LegalTask[] = [];
-
-        const candidates = pendingTasks.filter((t) => !t.isFatalDeadline);
-
-        for (const t of candidates) {
-            if (t.parsedDate === null) {
-                unscheduled.push(t);
-                continue;
-            }
-            const d = startOfLocalDay(t.parsedDate);
-            if (d.getTime() < todayStart.getTime()) {
-                overdue.push(t);
-            } else if (isSameLocalDay(d, todayStart)) {
-                today.push(t);
-            } else if (isSameLocalDay(d, tomorrowStart)) {
-                tomorrow.push(t);
-            } else if (d.getTime() >= dayAfterTomorrow.getTime()) {
-                unscheduled.push(t);
-            } else {
-                unscheduled.push(t);
-            }
-        }
-
-        return { overdue, today, tomorrow, unscheduled };
-    }, [pendingTasks]);
+    const groupedByTime = useMemo(() => groupTasksByTime(pendingTasks), [pendingTasks]);
 
     return {
         tasks,

@@ -3,8 +3,10 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, FileText, Mic, Plus, Save, Book, ChevronDown, Eraser, Edit3 } from 'lucide-react';
 import { notesVault, Note } from '@/app/data/NotesVault';
+import { emitVaultNotesChanged } from '@/app/services/notesSyncBridge';
+import { SmartDialog } from '@/app/components/ui/SmartDialog';
 
-export const NotebookModal = ({ onClose }: { onClose: () => void }) => {
+export const NotebookModal = ({ onClose, userId }: { onClose: () => void; userId?: string }) => {
     const [notes, setNotes] = useState<Note[]>([]);
     const [search, setSearch] = useState('');
     const [isCreating, setIsCreating] = useState(false);
@@ -16,24 +18,29 @@ export const NotebookModal = ({ onClose }: { onClose: () => void }) => {
 
     useEffect(() => {
         setMounted(true);
+        notesVault.setUserScope(userId?.trim() || null);
         setNotes(notesVault.getNotes());
         document.body.style.overflow = 'hidden';
         return () => {
             document.body.style.overflow = 'unset';
         };
-    }, []);
+    }, [userId]);
 
     const filteredNotes = notes.filter(n => String(n.content || '').toLowerCase().includes(search.toLowerCase()));
 
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: string) => {
+        const ok = await SmartDialog.confirm('هل أنت متأكد من حذف هذه الملاحظة؟');
+        if (!ok) return;
         notesVault.deleteNote(id);
         setNotes(notesVault.getNotes());
+        emitVaultNotesChanged();
     };
 
     const handleSaveNewNote = () => {
         if (!newNoteText.trim()) return;
         notesVault.addNote(newNoteText, 'text');
         setNotes(notesVault.getNotes());
+        emitVaultNotesChanged();
         setNewNoteText('');
         setIsCreating(false);
     };
@@ -48,6 +55,7 @@ export const NotebookModal = ({ onClose }: { onClose: () => void }) => {
         if (!editingNote || !editText.trim()) return;
         notesVault.updateNote(editingNote.id, { content: editText });
         setNotes(notesVault.getNotes());
+        emitVaultNotesChanged();
         setIsEditing(false);
         setEditingNote(null);
         setEditText('');
@@ -186,7 +194,7 @@ export const NotebookModal = ({ onClose }: { onClose: () => void }) => {
                                                             <Edit3 size={16} />
                                                         </button>
                                                         <button type="button"
-                                                            onClick={(e) => { e.stopPropagation(); handleDelete(note.id); }}
+                                                            onClick={(e) => { e.stopPropagation(); void handleDelete(note.id); }}
                                                             className="p-2 text-white/40 hover:text-red-500 hover:bg-white/5 rounded-lg transition-all"
                                                             title="مسح الملاحظة"
                                                         >

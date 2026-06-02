@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ✅ PERFORMANCE OPTIMIZED - v11.1 - Zustand modals + useCallback + optimized useEffect
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ✅ PERFORMANCE OPTIMIZED - v11.1 - Zustand modals + useCallback + optimized useEffect
 import React, {
     useState,
     useMemo,
@@ -13,6 +13,11 @@ import React, {
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { debug } from '@/app/utils/debug';
+import { CalendarBridge, normalizeDateToYmd, resolveCalendarUserId } from '@/app/services/calendarBridge';
+import {
+    syncExecutionTaskDue,
+    syncExecutionTimelineAppointment,
+} from '@/app/services/calendarDossierSync';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
 // ✅ NEW: Import fixed calculation functions for 7-day grace period
 import {
@@ -68,16 +73,12 @@ import { ExecutionFinancialLedgerPortalContainer } from './ExecutionDashboard/co
 import { ExecutionHeirsNotificationModalContainer } from './ExecutionDashboard/components/ExecutionHeirsNotificationModalContainer';
 import { PartiesSection } from './ExecutionDashboard/components/PartiesSection';
 import { DebtorsSection } from './ExecutionDashboard/components/DebtorsSection';
-import { ActionGridSection } from './ExecutionDashboard/components/ActionGridSection';
 import { DossierSwitcher } from './ExecutionDashboard/components/DossierSwitcher';
-import { TimelineSection } from './ExecutionDashboard/components/TimelineSection';
 import { DashboardHeaderSection } from './ExecutionDashboard/components/DashboardHeaderSection';
 import { ExecutionModalsContainer } from './ExecutionDashboard/components/ExecutionModalsContainer';
 import { UnifiedSummonsModalContainer } from './ExecutionDashboard/components/UnifiedSummonsModalContainer';
 import { ExecutorWorkflowPortalModals } from './ExecutionDashboard/components/ExecutorWorkflowPortalModals';
 import { ExecutionNotesAndAppointmentModals } from './ExecutionDashboard/components/ExecutionNotesAndAppointmentModals';
-import { ExecutionDecisionsModalContainer } from './ExecutionDashboard/components/ExecutionDecisionsModalContainer';
-import { ExecutionFullTimelineModalContainer } from './ExecutionDashboard/components/ExecutionFullTimelineModalContainer';
 import { ExecutionPaymentModalContainer } from './ExecutionDashboard/components/ExecutionPaymentModalContainer';
 import { ExecutionSeizedAssetsModalContainer } from './ExecutionDashboard/components/ExecutionSeizedAssetsModalContainer';
 import { ExecutionDebtorNotificationMemoModalContainer } from './ExecutionDashboard/components/ExecutionDebtorNotificationMemoModalContainer';
@@ -134,6 +135,22 @@ const ExecutionLawReferencePanel = lazy(() =>
 );
 const ClientWalletExecutionSection = lazy(() =>
     import('./ClientWalletExecutionSection').then((m) => ({ default: m.ClientWalletExecutionSection }))
+);
+const LazyActionGridSection = lazy(() =>
+    import('./ExecutionDashboard/components/ActionGridSection').then((m) => ({ default: m.ActionGridSection }))
+);
+const LazyTimelineSection = lazy(() =>
+    import('./ExecutionDashboard/components/TimelineSection').then((m) => ({ default: m.TimelineSection }))
+);
+const LazyExecutionDecisionsModalContainer = lazy(() =>
+    import('./ExecutionDashboard/components/ExecutionDecisionsModalContainer').then((m) => ({
+        default: m.ExecutionDecisionsModalContainer,
+    }))
+);
+const LazyExecutionFullTimelineModalContainer = lazy(() =>
+    import('./ExecutionDashboard/components/ExecutionFullTimelineModalContainer').then((m) => ({
+        default: m.ExecutionFullTimelineModalContainer,
+    }))
 );
 // 🆕 V10.5: ENHANCED UTILITIES
 import { storageCache } from '@/app/utils/storageCache';
@@ -4183,6 +4200,21 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     source: 'القرارات والطعون — موعد ميداني',
                 };
                 setTimelineEvents((prev) => [newEvent, ...prev]);
+                syncExecutionTimelineAppointment({
+                    executionId: currentFileId,
+                    event: newEvent,
+                    caseNo:
+                        String(executionData?.fileNumber ?? executionData?.caseNo ?? file?.fileNumber ?? '').trim() ||
+                        undefined,
+                    clientName:
+                        String(
+                            executionData?.creditors?.[0]?.name ??
+                                executionData?.clientName ??
+                                file?.creditors?.[0]?.name ??
+                                '',
+                        ).trim() ||
+                        undefined,
+                });
                 showToast('تم ربط الموعد بالسجل الزمني', 'success');
                 void dossierId;
             },
@@ -5276,9 +5308,12 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 queueMicrotask(() => persistExecutionMerge({ timelineEvents: next }));
                 return next;
             });
+            if (String(ev.type || '') === 'appointment') {
+                CalendarBridge.remove('execution', String(currentFileId), String(ev.id));
+            }
             showToast('نُقل الحدث إلى سلة مهملات الإضبارة', 'info');
         },
-        [persistExecutionMerge, showToast]
+        [persistExecutionMerge, showToast, currentFileId]
     );
 
     const toggleTimelineEventPin = useCallback(
@@ -6257,7 +6292,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 const nextTasks = [...prev, task];
                 setTimelineEvents((prevTl) => {
                     const nextTl = [te, ...prevTl];
-                    queueMicrotask(() =>
+                    queueMicrotask(() => {
                         persistExecutionMerge({
                             stay_of_execution: {
                                 active: true,
@@ -6267,8 +6302,26 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                             },
                             timelineEvents: nextTl,
                             caseTasksPending: nextTasks,
-                        })
-                    );
+                        });
+                        syncExecutionTaskDue({
+                            executionId: currentFileId,
+                            task,
+                            caseNo:
+                                String(
+                                    executionData?.fileNumber ??
+                                        executionData?.caseNo ??
+                                        file?.fileNumber ??
+                                        '',
+                                ).trim() || undefined,
+                            clientName:
+                                String(
+                                    executionData?.creditors?.[0]?.name ??
+                                        executionData?.clientName ??
+                                        file?.creditors?.[0]?.name ??
+                                        '',
+                                ).trim() || undefined,
+                        });
+                    });
                     return nextTl;
                 });
                 return nextTasks;
@@ -6276,7 +6329,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             showToast('تم تفعيل الاستئخار وتسجيل المهمة.', 'success');
             return true;
         },
-        [nextTimelineId, persistExecutionMerge, showToast]
+        [nextTimelineId, persistExecutionMerge, showToast, currentFileId, executionData, file]
     );
 
     const handlePartyDeathSave = useCallback(
@@ -8033,21 +8086,58 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         const nextTasks = [...caseTasksPendingRef.current, newTask];
         setCaseTasksPending(nextTasks);
         persistExecutionMerge({ caseTasksPending: nextTasks });
+        syncExecutionTaskDue({
+            executionId: currentFileId,
+            task: newTask,
+            caseNo:
+                String(executionData?.fileNumber ?? executionData?.caseNo ?? file?.fileNumber ?? '').trim() ||
+                undefined,
+            clientName:
+                String(
+                    executionData?.creditors?.[0]?.name ??
+                        executionData?.clientName ??
+                        file?.creditors?.[0]?.name ??
+                        '',
+                ).trim() ||
+                undefined,
+        });
         showToast('تم حفظ المهمة', 'success');
-    }, [persistExecutionMerge, showToast]);
+    }, [persistExecutionMerge, showToast, currentFileId, executionData, file]);
 
     const handleUpdateTask = useCallback((taskId: string, updates: Partial<any>) => {
         const nextTasks = caseTasksPendingRef.current.map(t => t.id === taskId ? { ...t, ...updates } : t);
         setCaseTasksPending(nextTasks);
         persistExecutionMerge({ caseTasksPending: nextTasks });
-    }, [persistExecutionMerge]);
+        const updated = nextTasks.find((t) => t.id === taskId);
+        if (updated) {
+            syncExecutionTaskDue({
+                executionId: currentFileId,
+                task: updated,
+                caseNo:
+                    String(executionData?.fileNumber ?? executionData?.caseNo ?? file?.fileNumber ?? '').trim() ||
+                    undefined,
+                clientName:
+                    String(
+                        executionData?.creditors?.[0]?.name ??
+                            executionData?.clientName ??
+                            file?.creditors?.[0]?.name ??
+                            '',
+                    ).trim() ||
+                    undefined,
+            });
+        }
+    }, [persistExecutionMerge, currentFileId, executionData, file]);
 
     const handleDeleteTask = useCallback((taskId: string) => {
         const now = new Date().toISOString();
         const nextTasks = caseTasksPendingRef.current.map(t => t.id === taskId ? { ...t, trashedAt: now } : t);
         setCaseTasksPending(nextTasks);
         persistExecutionMerge({ caseTasksPending: nextTasks });
-    }, [persistExecutionMerge]);
+        const trashed = nextTasks.find((t) => t.id === taskId);
+        if (trashed) {
+            syncExecutionTaskDue({ executionId: currentFileId, task: trashed });
+        }
+    }, [persistExecutionMerge, currentFileId]);
 
     const handleAddTimelineEvent = useCallback((event: { title: string; body?: string }) => {
         const newEvent: TimelineEvent = {
@@ -8067,6 +8157,10 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         );
         setCaseTasksPending(nextTasks);
         persistExecutionMerge({ caseTasksPending: nextTasks });
+        const done = nextTasks.find((t) => t.id === taskId);
+        if (done) {
+            syncExecutionTaskDue({ executionId: currentFileId, task: done });
+        }
         showToast('تم إنجاز المهمة بنجاح', 'success');
     }, [persistExecutionMerge, showToast]);
 
@@ -8106,6 +8200,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             ? `موعد في ${eventDateLabel} — الساعة ${timePart}`
             : `موعد بتاريخ ${eventDateLabel} (بدون وقت محدد)`;
 
+        let syncedTimelineId = editingAppointmentId ? String(editingAppointmentId) : nextTimelineId();
         if (editingAppointmentId) {
             const nextTimeline = (timelineEventsRef.current || []).map((ev: any) =>
                 String(ev?.id) === String(editingAppointmentId)
@@ -8125,7 +8220,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             showToast('تم تعديل الموعد بنجاح', 'success');
         } else {
             const newEvent: TimelineEvent = {
-                id: nextTimelineId(),
+                id: syncedTimelineId,
                 type: 'appointment',
                 date: eventIso,
                 timestamp: recorded,
@@ -8138,6 +8233,27 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             persistExecutionMerge({ timelineEvents: nextTimeline });
             showToast('تم حفظ الموعد بنجاح', 'success');
         }
+
+        const execYmd = normalizeDateToYmd(appointmentDateOnly) ?? appointmentDateOnly;
+        CalendarBridge.syncExecutionAppointment({
+            executionId: currentFileId,
+            timelineEventId: syncedTimelineId,
+            date: execYmd,
+            time: appointmentTimeOptional || undefined,
+            purpose: appointmentPurpose.trim(),
+            description,
+            caseNo:
+                String(executionData?.fileNumber ?? executionData?.caseNo ?? file?.fileNumber ?? '').trim() ||
+                undefined,
+            clientName:
+                String(
+                    executionData?.creditors?.[0]?.name ??
+                        executionData?.clientName ??
+                        file?.creditors?.[0]?.name ??
+                        '',
+                ).trim() ||
+                undefined,
+        });
         setAppointmentPurpose('');
         setAppointmentDateOnly('');
         setAppointmentTimeOptional('');
@@ -8153,6 +8269,9 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         nextTimelineId,
         persistExecutionMerge,
         triggerCopilotAfterLocalChange,
+        currentFileId,
+        executionData,
+        file,
     ]);
     
     // ✅ OPTIMIZED: useCallback
@@ -8224,6 +8343,24 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         paidDebt: newPaidDebt,
                     });
                 }
+            }
+
+            // Audit log: تسجيل الدفعة (dedupe key يمنع التكرار عند re-renders سريعة)
+            if (executionId && amount > 0) {
+                try {
+                    void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                        const data = executionDataRef.current as Record<string, unknown> | undefined;
+                        const caseNo =
+                            (data?.executionCaseNumber as string | undefined) ||
+                            (data?.caseNo as string | undefined) ||
+                            String(executionId);
+                        AuditLog.execution.paymentReceived({
+                            executionId,
+                            amount,
+                            caseNo,
+                        });
+                    });
+                } catch { /* silent */ }
             }
 
             const newRemaining = totalOwed - newPaidDebt;
@@ -9731,6 +9868,21 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         };
         const nextTimeline = [ev, appointmentEv, ...timelineEvents];
         setTimelineEvents(nextTimeline);
+        syncExecutionTimelineAppointment({
+            executionId: currentFileId,
+            event: appointmentEv,
+            caseNo:
+                String(executionData?.fileNumber ?? executionData?.caseNo ?? file?.fileNumber ?? '').trim() ||
+                undefined,
+            clientName:
+                String(
+                    executionData?.creditors?.[0]?.name ??
+                        executionData?.clientName ??
+                        file?.creditors?.[0]?.name ??
+                        '',
+                ).trim() ||
+                undefined,
+        });
 
         persistExecutionMerge({
             eviction_vacate_deadline: end,
@@ -9825,6 +9977,21 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
 
             const nextTimeline = [ev, ap, ...timelineEventsRef.current];
             setTimelineEvents(nextTimeline);
+            syncExecutionTimelineAppointment({
+                executionId: currentFileId,
+                event: ap,
+                caseNo:
+                    String(executionData?.fileNumber ?? executionData?.caseNo ?? file?.fileNumber ?? '').trim() ||
+                    undefined,
+                clientName:
+                    String(
+                        executionData?.creditors?.[0]?.name ??
+                            executionData?.clientName ??
+                            file?.creditors?.[0]?.name ??
+                            '',
+                    ).trim() ||
+                    undefined,
+            });
             persistExecutionMerge({
                 eviction_police_assistance: {
                     decisionId,
@@ -12854,7 +13021,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 </Suspense>
             ) : null}
             
-            <ExecutionDecisionsModalContainer
+            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+            <LazyExecutionDecisionsModalContainer
                 showDecisionsModal={showDecisionsModal}
                 onCloseDecisionsModal={() => {
                     setShowDecisionsModal(false);
@@ -12924,6 +13092,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         : undefined
                 }
             />
+            </Suspense>
 
             <ExecutionSeizedAssetsModalContainer
                 showSeizedAssetsModal={showSeizedAssetsModal}
@@ -12941,7 +13110,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 handlePayment={handlePayment}
             />
 
-            <ExecutionFullTimelineModalContainer
+            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+            <LazyExecutionFullTimelineModalContainer
                 showTimelineModal={showTimelineModal}
                 setShowTimelineModal={setShowTimelineModal}
                 debtorBrowserTabsMode={debtorBrowserTabsMode}
@@ -12956,6 +13126,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 isHistoricalMode={isHistoricalMode}
                 handleRequestHistoricalSnapshotPreview={handleRequestHistoricalSnapshotPreview}
             />
+            </Suspense>
 
             {/* MAIN DASHBOARD */}
             <div
@@ -13596,7 +13767,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     ) : null}
 
                     {/* إدارة الأموال + المحفظة الخاصة: تُعرضان من «المركز المالي» في أدوات الإضبارة */}
-                    <ActionGridSection
+                    <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                    <LazyActionGridSection
                         BookOpen={BookOpen}
                         Book={Book}
                         Calendar={Calendar}
@@ -13625,9 +13797,11 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                             setShowUnifiedSeizureLogModal(true);
                         }}
                     />
+                    </Suspense>
                     
                     {/* Timeline */}
-                    <TimelineSection
+                    <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                    <LazyTimelineSection
                         timelineAccordionExpanded={timelineAccordionExpanded}
                         setTimelineAccordionExpanded={setTimelineAccordionExpanded}
                         startTransition={startTransition}
@@ -13655,7 +13829,10 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         setShowOnlyActiveFileTimeline={setShowOnlyActiveFileTimeline}
                         subFilesCount={subFiles.length}
                         filteredMergedTimelineEvents={filteredMergedTimelineEvents}
+                        calendarUserId={resolveCalendarUserId(null)}
+                        executionEntityId={String(currentFileId || '')}
                     />
+                    </Suspense>
 
                 <LawReferencePanel
                     isLawReferenceOpen={isLawReferenceOpen}
@@ -18339,6 +18516,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     markHeirSummonsPeriodEnded={markHeirSummonsPeriodEnded}
                 />
 
+            {showGuarantorDetailsModal || showStayOfExecutionModal || Boolean(partyDeathModalParty) || showPauseModal ? (
             <ExecutionModalsContainer
                 EXEC_OVERLAY_LAZY_FALLBACK={EXEC_OVERLAY_LAZY_FALLBACK}
                 isHistoricalMode={isHistoricalMode}
@@ -18391,7 +18569,9 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 pauseReason={pauseReason}
                 setPauseReason={setPauseReason}
             />
+            ) : null}
             
+            {showUnifiedSummonsModal ? (
             <UnifiedSummonsModalContainer
                 showUnifiedSummonsModal={showUnifiedSummonsModal}
                 EXEC_OVERLAY_LAZY_FALLBACK={EXEC_OVERLAY_LAZY_FALLBACK}
@@ -18471,6 +18651,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 nextTimelineId={nextTimelineId}
                 showToast={showToast}
             />
+            ) : null}
 
             {memoWarningDialogOpen && (
                 <div

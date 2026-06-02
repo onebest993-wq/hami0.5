@@ -1,15 +1,15 @@
-import type { LifecyclePanelProps } from '../layout/LifecyclePanelProps';
 import type { useOrderFileCasePathway } from '../hooks/useOrderFileCasePathway';
 import type { useOrderFileLifecycleDerived } from '../hooks/useOrderFileLifecycleDerived';
 import type { useOrderFileLifecycleActions } from '../hooks/useOrderFileLifecycleActions';
+import type { LifecyclePanelStateInput } from './lifecyclePanelStateInput';
 
 export type BuildLifecyclePanelPropsInput = {
     pathway: ReturnType<typeof useOrderFileCasePathway>;
     derived: ReturnType<typeof useOrderFileLifecycleDerived>;
     actions: ReturnType<typeof useOrderFileLifecycleActions>;
-} & Record<string, unknown>;
+} & LifecyclePanelStateInput;
 
-export function buildLifecyclePanelProps(input: BuildLifecyclePanelPropsInput): LifecyclePanelProps {
+export function buildLifecyclePanelProps(input: BuildLifecyclePanelPropsInput) {
     const { pathway, derived, actions, ...s } = input;
     return {
         activeLifecycleStep: s.activeLifecycleStep,
@@ -29,6 +29,7 @@ export function buildLifecyclePanelProps(input: BuildLifecyclePanelPropsInput): 
         cassationFilingGateRef: s.cassationFilingGateRef,
         cassationFilingMinYmd: derived.cassationFilingMinYmd,
         cassationLegalEndDate: derived.cassationLegalEndDate,
+        cassationAdvisoryText: derived.cassationAdvisoryText,
         cassationPhaseFinalizeReady: derived.cassationPhaseFinalizeReady,
         cassationRef: s.cassationRef,
         cassationStepNumber: pathway.cassationStepNumber,
@@ -62,7 +63,6 @@ export function buildLifecyclePanelProps(input: BuildLifecyclePanelPropsInput): 
         grievanceFilingDateChronologyError: derived.grievanceFilingDateChronologyError,
         grievanceFilingMinYmd: derived.grievanceFilingMinYmd,
         grievanceFinalGateRef: s.grievanceFinalGateRef,
-        grievanceFinalSaveReady: derived.grievanceFinalSaveReady,
         grievanceFirstHearingAnchorYmd: derived.grievanceFirstHearingAnchorYmd,
         grievanceFirstHearingDateChronologyError: derived.grievanceFirstHearingDateChronologyError,
         grievanceFirstHearingMinYmd: derived.grievanceFirstHearingMinYmd,
@@ -81,7 +81,6 @@ export function buildLifecyclePanelProps(input: BuildLifecyclePanelPropsInput): 
         grievanceTimingConfirmed: s.grievanceTimingConfirmed,
         grievanceTimingGateReady: derived.grievanceTimingGateReady,
         grievanceWizardInputsLocked: derived.grievanceWizardInputsLocked,
-        grievanceWizardLocked: derived.grievanceWizardLocked,
         guaranteeDetails: s.guaranteeDetails,
         guaranteeGateActive: s.guaranteeGateActive,
         guaranteeSubmitted: s.guaranteeSubmitted,
@@ -158,3 +157,6 @@ export function buildLifecyclePanelProps(input: BuildLifecyclePanelPropsInput): 
         updatePhase2FirstHearingDate: actions.updatePhase2FirstHearingDate,
     };
 }
+
+/** نوع props موحّد لـ LifecyclePanel ومُلتقطات pick — مُستنتج من المُجمّع وليس يدوياً */
+export type LifecyclePanelProps = ReturnType<typeof buildLifecyclePanelProps>;

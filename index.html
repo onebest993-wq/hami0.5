@@ -6,7 +6,14 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://wldjvjnodvyodmgbgzab.supabase.co" crossorigin />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;500;700&display=swap"
+    />
     
     <!-- 🔐 WebAuthn Permissions Policy -->
     <meta http-equiv="Permissions-Policy" content="publickey-credentials-get=*, publickey-credentials-create=*" />
@@ -64,19 +71,12 @@
         }
       };
       
-      // إزالة شاشة التحميل فور جاهزية DOM
-      document.addEventListener('DOMContentLoaded', function() {
-        setTimeout(function() {
-          if (typeof window.removeLoader === 'function') window.removeLoader();
-        }, 80);
-      });
-
       // عند Refresh من ذاكرة المتصفح (bfcache)
       window.addEventListener('pageshow', function() {
         if (typeof window.removeLoader === 'function') window.removeLoader();
       });
 
-      // احتياطي — لا تبقى الشاشة السوداء أكثر من 2.5 ثانية
+      // احتياطي — لا تبقى شاشة التحميل أكثر من 12 ثانية إن تعطّل React
       setTimeout(function() {
         if (typeof window.removeLoader === 'function') {
           window.removeLoader();
@@ -88,7 +88,7 @@
           loader.style.transition = 'opacity 0.5s';
           setTimeout(function() { loader.remove(); }, 500);
         }
-      }, 2500);
+      }, 12000);
     </script>
     <script type="module" src="/src/index.tsx"></script>
   </body>

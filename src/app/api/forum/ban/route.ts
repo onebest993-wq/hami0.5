@@ -4,9 +4,10 @@ import {
   verifyWifeSignature,
   wifeForbiddenResponse,
   wifeUnauthorizedResponse,
-} from '../../security/wifeValidator';
-import { sanitizePayload } from '../../security/sanitizer';
-import { BanDB, type BanRecord } from '@/app/services/lawyer-cloud';
+} from '../../security/wifeValidator.ts';
+import { sanitizePayload } from '../../security/sanitizer.ts';
+import { ForumRepository } from '../../../services/forum/forumRepository.ts';
+import type { BanRecord } from '../../../services/lawyer-cloud.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object';
@@ -47,7 +48,7 @@ export async function GET(request: Request): Promise<Response> {
       });
     }
 
-    const bannedUsers = await BanDB.listBannedUsers();
+    const bannedUsers = await ForumRepository.listBannedUsers();
     return new Response(JSON.stringify({ ok: true, bannedUsers }), {
       status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8' },
     });
@@ -90,7 +91,7 @@ export async function POST(request: Request): Promise<Response> {
         bannedAt: new Date().toISOString(),
         expiresAt: typeof payload.expiresAt === 'string' ? payload.expiresAt : undefined,
       };
-      await BanDB.banUser(record);
+      await ForumRepository.banUser(record);
       return new Response(JSON.stringify({ ok: true, action: 'ban', userId: payload.userId }), {
         status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8' },
       });
@@ -102,7 +103,7 @@ export async function POST(request: Request): Promise<Response> {
           status: 400, headers: { 'Content-Type': 'application/json; charset=utf-8' },
         });
       }
-      await BanDB.unbanUser(payload.userId);
+      await ForumRepository.unbanUser(payload.userId);
       return new Response(JSON.stringify({ ok: true, action: 'unban', userId: payload.userId }), {
         status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8' },
       });

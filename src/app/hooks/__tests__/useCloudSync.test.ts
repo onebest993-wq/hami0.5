@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import { useCloudSync } from '../useCloudSync';
 import { SupabaseService } from '@/app/services/SupabaseService';
 
@@ -62,6 +62,7 @@ describe('useCloudSync Hook', () => {
     vi.clearAllMocks();
     localStorageMock.clear();
     resetSupabaseMocks();
+    vi.stubEnv('VITE_ENABLE_CLOUD_SYNC', 'true');
     Object.defineProperty(window.navigator, 'onLine', {
       writable: true,
       configurable: true,
@@ -110,6 +111,10 @@ describe('useCloudSync Hook', () => {
           enabled: true,
         })
       );
+
+      await act(async () => {
+        await result.current.syncNow();
+      });
 
       await waitFor(() => {
         expect(result.current.isSyncing).toBe(false);
@@ -233,6 +238,10 @@ describe('useCloudSync Hook', () => {
         })
       );
 
+      await act(async () => {
+        await result.current.syncNow();
+      });
+
       await waitFor(() => {
         expect(result.current.syncStatus).toBe('error');
       });
@@ -254,9 +263,15 @@ describe('useCloudSync Hook', () => {
         })
       );
 
+      await act(async () => {
+        await result.current.syncNow();
+      });
+
       await waitFor(() => expect(result.current.syncStatus).toBe('error'));
 
-      await result.current.syncNow();
+      await act(async () => {
+        await result.current.syncNow();
+      });
 
       await waitFor(() => {
         expect(result.current.syncStatus).toBe('success');

@@ -42,11 +42,20 @@ export const SmartToast = {
     listeners.forEach(l => l(event));
     return id;
   },
-  success: (message: string, duration?: number) => SmartToast.show(message, { type: 'success', duration }),
-  error: (message: string, duration?: number) => SmartToast.show(message, { type: 'error', duration }),
-  warning: (message: string, duration?: number) => SmartToast.show(message, { type: 'warning', duration }),
-  loading: (message: string, duration?: number) => SmartToast.show(message, { type: 'loading', duration, icon: Sparkles }),
-  info: (message: string, duration?: number) => SmartToast.show(message, { type: 'info', duration }),
+  success: (message: string, duration?: number) =>
+    SmartToast.show(message, { type: 'success', ...(duration !== undefined ? { duration } : {}) }),
+  error: (message: string, duration?: number) =>
+    SmartToast.show(message, { type: 'error', ...(duration !== undefined ? { duration } : {}) }),
+  warning: (message: string, duration?: number) =>
+    SmartToast.show(message, { type: 'warning', ...(duration !== undefined ? { duration } : {}) }),
+  loading: (message: string, duration?: number) =>
+    SmartToast.show(message, {
+      type: 'loading',
+      icon: Sparkles,
+      ...(duration !== undefined ? { duration } : {}),
+    }),
+  info: (message: string, duration?: number) =>
+    SmartToast.show(message, { type: 'info', ...(duration !== undefined ? { duration } : {}) }),
   dismiss: (id: string) => {
      const event: ToastEvent = { id, message: '', intent: 'dismiss' };
      listeners.forEach(l => l(event));
@@ -178,7 +187,6 @@ const SmartToastItem = ({ toast }: { toast: ToastEvent }) => {
 
     return (
         <motion.div
-            layout
             initial={{ y: -50, opacity: 0, scale: 0.5 }}
             animate={{ y: 100, opacity: 1, scale: 1 }}
             exit={{ y: -50, opacity: 0, scale: 0.5 }}

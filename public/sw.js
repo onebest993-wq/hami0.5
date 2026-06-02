@@ -10,7 +10,7 @@
  * @date 2026-03-06
  */
 
-const CACHE_VERSION = 'v1.0.0';
+const CACHE_VERSION = 'v1.0.2';
 const CACHE_NAME = `legal-system-${CACHE_VERSION}`;
 
 // الملفات المهمة للتخزين المؤقت
@@ -73,9 +73,40 @@ self.addEventListener('activate', (event) => {
 // Fetch Event (Network-First Strategy)
 // =====================================================
 
+function isViteDevBypass(request) {
+  try {
+    const u = new URL(request.url);
+    if (u.origin !== self.location.origin) return true;
+    const p = u.pathname;
+    if (
+      p.startsWith('/@') ||
+      p.startsWith('/src/') ||
+      p.includes('/node_modules/.vite/') ||
+      /\.(tsx?|jsx?|css)(\?|$)/i.test(p)
+    ) {
+      return true;
+    }
+    if (u.search.includes('?t=') || u.search.includes('&t=')) return true;
+  } catch (_) {
+    return false;
+  }
+  return false;
+}
+
 self.addEventListener('fetch', (event) => {
   // تجاهل الطلبات الخارجية
   if (!event.request.url.startsWith(self.location.origin)) {
+    return;
+  }
+
+  if (isViteDevBypass(event.request)) {
+    return;
+  }
+
+  // ملفات Vite hashed — شبكة فقط لتجنب chunks قديمة بعد النشر
+  const url = event.request.url;
+  if (url.includes('/assets/') && /\.(js|css)(\?|$)/i.test(url)) {
+    event.respondWith(fetch(event.request));
     return;
   }
 
@@ -94,18 +125,26 @@ self.addEventListener('fetch', (event) => {
       })
       .catch(() => {
         // في حالة فشل الشبكة، استخدم الـ Cache
-        return caches.match(event.request)
-          .then((cachedResponse) => {
-            if (cachedResponse) {
-              console.log('[Service Worker] Serving from cache:', event.request.url);
-              return cachedResponse;
-            }
-            
-            // في حالة عدم وجود Cache، أرجع صفحة Offline
-            if (event.request.destination === 'document') {
-              return caches.match('/');
-            }
-          });
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) {
+            console.log('[Service Worker] Serving from cache:', event.request.url);
+            return cachedResponse;
+          }
+          
+          if (event.request.destination === 'document') {
+            return caches.match('/').then((fallback) => {
+              return (
+                fallback ??
+                new Response('Service is unavailable.', {
+                  status: 503,
+                  headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+                })
+              );
+            });
+          }
+
+          return new Response('', { status: 504 });
+        });
       })
   );
 });

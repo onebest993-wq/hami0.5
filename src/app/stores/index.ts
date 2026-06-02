@@ -78,9 +78,13 @@ export {
     useNotificationStore,
 } from './notificationStore';
 
+export { useNeuralAlertsStore } from './neuralAlertsStore';
+
 export {
     useRagStore,
 } from './ragStore';
+
+export { useWorkspaceStore } from './workspaceStore';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // RE-EXPORT TYPES

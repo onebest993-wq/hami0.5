@@ -1,0 +1,20 @@
+import { describe, expect, it } from 'vitest';
+import {
+    IRAQI_LAW_CANONICAL_NAMES,
+    LAW_NAME_TO_CODE_TYPE,
+    resolveLawCodeTypeFromName,
+} from '@/app/constants/iraqiLawCatalog';
+import { CODE_TYPE_TO_LAW_NAME } from '@/app/components/lawyer/criminal-system/legalCodes/legalCodesConstants';
+import { LAW_STRUCTURE } from '@/app/components/admin/lawStructure';
+
+describe('iraqiLawCatalog admin ↔ LegalCodesTab linkage', () => {
+    it('maps penal law name to penal tab', () => {
+        expect(resolveLawCodeTypeFromName(IRAQI_LAW_CANONICAL_NAMES.penal)).toBe('penal');
+        expect(LAW_NAME_TO_CODE_TYPE[IRAQI_LAW_CANONICAL_NAMES.penal]).toBe('penal');
+        expect(CODE_TYPE_TO_LAW_NAME.penal).toBe(IRAQI_LAW_CANONICAL_NAMES.penal);
+    });
+
+    it('keeps admin hierarchy and reader on the same penal law_name', () => {
+        expect(LAW_STRUCTURE.penal.lawName).toBe(CODE_TYPE_TO_LAW_NAME.penal);
+    });
+});

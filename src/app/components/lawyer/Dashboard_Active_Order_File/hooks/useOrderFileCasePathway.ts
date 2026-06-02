@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { isIqrarRequest } from '../../Form_Urgent_Actions/constants';
+import { isIqrarRequest } from '@/app/domain/urgent/formPathwayConstants';
+import { resolveProcedureCategory } from '@/app/domain/urgent/procedureCategory';
 import { isPreDecisionNullifyNotes } from '../utils/hearingRules';
 
 export type UseOrderFileCasePathwayArgs = {
@@ -171,7 +172,15 @@ export function useOrderFileCasePathway({
     const isUrgentJustice = useMemo(() => {
         return isUrgentLawsuit || String(caseData?.type ?? '').trim() === 'urgent_justice';
     }, [caseData?.type, isUrgentLawsuit]);
-    const showGrievanceStep = !isUrgentJustice && !isIqrarContext;
+    const procedureCategory = useMemo(
+        () =>
+            resolveProcedureCategory(
+                (caseData as { procedureCategory?: string })?.procedureCategory,
+                resolvedWorkspaceRequestType,
+            ),
+        [(caseData as { procedureCategory?: string })?.procedureCategory, resolvedWorkspaceRequestType],
+    );
+    const showGrievanceStep = procedureCategory === 'petition_orders' && !isIqrarContext;
     const grievanceStepNumber = 2;
     const cassationStepNumber = showGrievanceStep ? 3 : 2;
     const showInitialNotification = isUrgentLawsuit;
@@ -209,6 +218,7 @@ export function useOrderFileCasePathway({
         isOrderOnPetition,
         isStateOrder,
         isUrgentJustice,
+        procedureCategory,
         showGrievanceStep,
         grievanceStepNumber,
         cassationStepNumber,

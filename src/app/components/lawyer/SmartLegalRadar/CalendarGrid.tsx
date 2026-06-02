@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Calendar } from 'lucide-react';
-import { WEEK_DAYS, isToday, dotColorsForDate } from './utils';
+import { WEEK_DAYS, isToday, isPastDay, dotColorsForDate } from './utils';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
 
 interface CalendarGridProps {
@@ -34,6 +34,7 @@ export const CalendarGrid = React.memo(function CalendarGrid({
                     const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                     const isSel = dateStr === selectedDate;
                     const isT = isToday(dateStr);
+                    const isPast = isPastDay(dateStr);
                     const dayEvents = allEventsForMonth.filter((e) => e.date === dateStr);
                     const dots = dotColorsForDate(dayEvents);
                     return (
@@ -41,7 +42,7 @@ export const CalendarGrid = React.memo(function CalendarGrid({
                             key={day}
                             onClick={() => onDateClick(day)}
                             className={`relative h-10 w-full rounded-lg flex flex-col items-center justify-center text-sm font-bold transition-all
-                                ${isSel ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50 scale-105 z-10' : isT ? 'bg-indigo-900/40 text-indigo-300 border border-indigo-500/40' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}
+                                ${isSel ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50 scale-105 z-10' : isT ? 'bg-indigo-900/40 text-indigo-300 border border-indigo-500/40' : isPast ? 'text-slate-500/50 opacity-45 hover:opacity-70 hover:bg-slate-800/50' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}
                             `}
                         >
                             <span>{day}</span>

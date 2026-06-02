@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
 import { motion, AnimatePresence } from 'motion/react';
 import {
     CheckCircle2, X, Plus,
@@ -7,7 +8,9 @@ import {
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { getLegalRole } from './LawyerShared';
 import { Form_Urgent_Actions } from './Form_Urgent_Actions';
-
+const LazyCriminalNewCase = React.lazy(() =>
+    import('./criminal-system/CriminalNewCase').then((m) => ({ default: m.CriminalNewCase })),
+);
 const LazyViewUrgentDashboard = React.lazy(() =>
     import('./View_Urgent_And_Orders_Dashboard').then((m) => ({
         default: m.View_Urgent_And_Orders_Dashboard,
@@ -18,6 +21,7 @@ import { fileDataFromUrgentForm } from '@/app/domain/urgent';
 import { MAIN_GATEWAY, JURISDICTIONS, FIXED_FEE_KEYWORDS } from './LawyerNewCase/constants';
 import type { MainCategory, CaseType, CivilSubView, Party, ThirdParty } from './LawyerNewCase/types';
 import type { LawyerNewCaseProps } from '@/app/types/components';
+import { useCriminalStore } from '@/app/components/lawyer/criminal-system/criminalStore';
 import { GatewayCard } from './LawyerNewCase/components/GatewayCard';
 import { JurisdictionCard } from './LawyerNewCase/components/JurisdictionCard';
 import { PartyCard } from './LawyerNewCase/components/PartyCard';
@@ -29,14 +33,24 @@ import { CivilTabs } from './LawyerNewCase/components/CivilTabs';
 import { SaveButton } from './LawyerNewCase/components/SaveButton';
 import { PartiesSection } from './LawyerNewCase/components/PartiesSection';
 
-export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({ onClose, onSave }) => {
+export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
+    onClose,
+    onSave,
+    onOpenCriminalDashboard,
+    presetSelectedType,
+    criminalSeveranceFormMode = false,
+}) => {
     const debug = (window as unknown as Record<string, { log: (...args: unknown[]) => void }>).debug || { log: (...args: unknown[]) => console.log(...args) };
-    const [step, setStep] = useState<'gateway' | 'selection' | 'form'>('selection');
+    // عند وجود `presetSelectedType` (مثلاً عند مسار تفريق الدعوى): تجاوز خطوة الاختيار
+    // وافتح النموذج مباشرة على النوع المطلوب — لا يُغيِّر سلوك الفتح العادي.
+    const [step, setStep] = useState<'gateway' | 'selection' | 'form'>(
+        presetSelectedType ? 'form' : 'selection',
+    );
     const [mainCategory, setMainCategory] = useState<MainCategory | null>('lawsuit');
-    const [selectedType, setSelectedType] = useState<CaseType>(null);
+    const [selectedType, setSelectedType] = useState<CaseType>(
+        (presetSelectedType as CaseType) ?? null,
+    );
     const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [isExpertMode, setIsExpertMode] = useState(false);
-
     const [civilSubView, setCivilSubView] = useState<CivilSubView>('main-form');
 
     const [activeFileType, setActiveFileType] = useState<'order' | 'discovery' | 'acknowledgment' | null>(null);
@@ -71,6 +85,15 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({ onClose, onSave })
     const typeRef = useRef<HTMLInputElement>(null);
     const stageRef = useRef<HTMLSelectElement>(null);
     const numberRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        const prefs = getLawyerSettingsSnapshot().workflow;
+        if (!prefs.defaultCourt) return;
+        setCaseDetails((prev) => ({
+            ...prev,
+            court: prev.court || prefs.defaultCourt,
+        }));
+    }, []);
 
     useEffect(() => {
         const validationErrors: Record<string, string> = {};
@@ -284,16 +307,12 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({ onClose, onSave })
         setTimeout(() => {
             setIsAnalyzing(false);
             onSave({
-                title: (mainCategory || 'lawsuit') as string,
-                type: (selectedType || 'civil') as 'civil' | 'sharia',
-                parties: [...parties1, ...parties2, ...thirdParties.map((t: ThirdParty) => ({ id: t.id, name: t.name, role: t.entryType || '', isClient: false, phone: '', address: '' }))] as import('@/app/types/common').Party[],
-                court: caseDetails.court || undefined,
-                caseNumber: caseDetails.number || undefined,
-                filingDate: undefined,
-                description: undefined,
-                lawyerName: undefined,
-                lawyerPhone: undefined,
-                subType: caseDetails.type || undefined
+                mainCategory: mainCategory || 'lawsuit',
+                selectedType: selectedType || 'civil',
+                parties1,
+                parties2,
+                thirdParties,
+                details: { ...caseDetails },
             });
         }, 1200);
     };
@@ -406,11 +425,11 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({ onClose, onSave })
             setParties2(demoData.parties2 as Party[]);
             setCaseDetails(demoData.details);
             onSave({
-                title: 'lawsuit',
-                type: 'civil' as 'civil' | 'sharia',
-                parties: [...demoData.parties1, ...demoData.parties2] as import('@/app/types/common').Party[],
-                court: demoData.details.court || undefined,
-                caseNumber: demoData.details.number || undefined
+                mainCategory: 'lawsuit',
+                selectedType: 'civil',
+                parties1: demoData.parties1,
+                parties2: demoData.parties2,
+                details: demoData.details,
             });
         }, 800);
     };
@@ -425,15 +444,15 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({ onClose, onSave })
                 currentStage={caseDetails.stage}
             />
 
-            <CaseHeader
-                step={step}
-                isExpertMode={isExpertMode}
-                onToggleExpert={() => setIsExpertMode(!isExpertMode)}
-                onTriggerDemo={triggerDemoMode}
-                onClose={onClose}
-            />
+            {!(step === 'form' && selectedType === 'criminal') && (
+                <CaseHeader
+                    step={step}
+                    onTriggerDemo={triggerDemoMode}
+                    onClose={onClose}
+                />
+            )}
 
-            <div className="flex-1 overflow-y-auto scrollbar-hide bg-[#0F172A]">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] scrollbar-hide bg-[#0F172A]">
                 <AnimatePresence mode='wait'>
                     {step === 'gateway' && (
                         <motion.div key="gateway" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-4 pt-10 flex flex-col items-center justify-center h-full">
@@ -454,7 +473,13 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({ onClose, onSave })
                                 <JurisdictionCard
                                     key={jur.id}
                                     item={jur}
-                                    onClick={() => { setSelectedType(jur.id as CaseType); setStep('form'); }}
+                                    onClick={() => {
+                                        if (jur.id === 'criminal' && !criminalSeveranceFormMode) {
+                                            useCriminalStore.getState().prepareNormalCriminalCaseForm();
+                                        }
+                                        setSelectedType(jur.id as CaseType);
+                                        setStep('form');
+                                    }}
                                 />
                             ))}
                         </motion.div>
@@ -470,7 +495,31 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({ onClose, onSave })
                                 />
                             )}
 
-                            {(selectedType !== 'civil' || civilSubView === 'main-form') && (
+                            {/* القضاء الجزائي: النموذج الفعلي في criminal-system/CriminalNewCase (نفس DOM z-[100]) */}
+                            {selectedType === 'criminal' && (
+                                <React.Suspense
+                                    fallback={
+                                        <div className="py-12 text-center text-[#E6C673] text-sm font-bold animate-pulse">
+                                            جاري تحميل نموذج الإضبارة الجزائية...
+                                        </div>
+                                    }
+                                >
+                                    <LazyCriminalNewCase
+                                        severanceFormMode={criminalSeveranceFormMode}
+                                        onBack={() => {
+                                            setStep('selection');
+                                            setSelectedType(null);
+                                        }}
+                                        onClose={onClose}
+                                        onCreated={(caseId) => {
+                                            onClose();
+                                            onOpenCriminalDashboard?.(caseId);
+                                        }}
+                                    />
+                                </React.Suspense>
+                            )}
+
+                            {selectedType !== 'criminal' && (selectedType !== 'civil' || civilSubView === 'main-form') && (
                             <>
                             <CaseBasicsForm
                                 caseDetails={caseDetails}
@@ -573,7 +622,7 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({ onClose, onSave })
                 )}
             </div>
 
-            {step === 'form' && (selectedType !== 'civil' || civilSubView === 'main-form') && (
+            {step === 'form' && selectedType !== 'criminal' && (selectedType !== 'civil' || civilSubView === 'main-form') && (
                 <SaveButton
                     isAnalyzing={isAnalyzing}
                     hasCriminalError={Boolean(errorMap['criminal_error'])}

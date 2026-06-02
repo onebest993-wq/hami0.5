@@ -6,7 +6,14 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://wldjvjnodvyodmgbgzab.supabase.co" crossorigin />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;500;700&display=swap"
+    />
     
     <!-- 🔐 WebAuthn Permissions Policy -->
     <meta http-equiv="Permissions-Policy" content="publickey-credentials-get=*, publickey-credentials-create=*" />
@@ -20,14 +27,18 @@
       .loader::after { content: ''; box-sizing: border-box; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 40px; height: 40px; border-radius: 50%; border: 3px solid transparent; border-bottom-color: #E6C673; }
       @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
-    <script type="module" crossorigin src="/assets/index-BiYCN7Um.js"></script>
-    <link rel="modulepreload" crossorigin href="/assets/vendor-react-DeJ5H1_P.js">
-    <link rel="modulepreload" crossorigin href="/assets/vendor-motion-_0uxtkLQ.js">
-    <link rel="modulepreload" crossorigin href="/assets/vendor-icons-DXL4LUhY.js">
+    <script type="module" crossorigin src="/assets/index-CIc0UBnn.js"></script>
     <link rel="modulepreload" crossorigin href="/assets/vendor-supabase-QlJCYhU9.js">
-    <link rel="modulepreload" crossorigin href="/assets/chunk-active-order-file-BK-Ke28p.js">
-    <link rel="modulepreload" crossorigin href="/assets/chunk-urgent-orders-view-4qIO-n5w.js">
-    <link rel="stylesheet" crossorigin href="/assets/index-w6b5U44Q.css">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-react-BBtDkPot.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-icons-Cotfl8t9.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-motion-BRYrnPCQ.js">
+    <link rel="modulepreload" crossorigin href="/assets/chunk-urgent-orders-view-B-eaW5Vz.js">
+    <link rel="modulepreload" crossorigin href="/assets/chunk-active-order-file-Dr44hTPh.js">
+    <link rel="modulepreload" crossorigin href="/assets/chunk-criminal-store-DNC1DbLw.js">
+    <link rel="modulepreload" crossorigin href="/assets/chunk-criminal-ui-bQV_4F1F.js">
+    <link rel="modulepreload" crossorigin href="/assets/chunk-lawyer-dashboard-Ba4YZ5ZE.js">
+    <link rel="modulepreload" crossorigin href="/assets/chunk-lawyer-cloud-alerts-DC84akTn.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-BR5uZPvW.css">
   </head>
   <body>
     <div id="loading-overlay">
@@ -72,19 +83,12 @@
         }
       };
       
-      // إزالة شاشة التحميل فور جاهزية DOM
-      document.addEventListener('DOMContentLoaded', function() {
-        setTimeout(function() {
-          if (typeof window.removeLoader === 'function') window.removeLoader();
-        }, 80);
-      });
-
       // عند Refresh من ذاكرة المتصفح (bfcache)
       window.addEventListener('pageshow', function() {
         if (typeof window.removeLoader === 'function') window.removeLoader();
       });
 
-      // احتياطي — لا تبقى الشاشة السوداء أكثر من 2.5 ثانية
+      // احتياطي — لا تبقى شاشة التحميل أكثر من 12 ثانية إن تعطّل React
       setTimeout(function() {
         if (typeof window.removeLoader === 'function') {
           window.removeLoader();
@@ -96,7 +100,7 @@
           loader.style.transition = 'opacity 0.5s';
           setTimeout(function() { loader.remove(); }, 500);
         }
-      }, 2500);
-    </script>
+      }, 12000);
+    </script>
   </body>
 </html>

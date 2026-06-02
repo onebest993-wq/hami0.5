@@ -21,7 +21,7 @@ interface SmartVaultModalProps {
 
 export const SmartVaultModal: React.FC<SmartVaultModalProps> = ({ onClose, currentUserId }) => {
     const {
-        isLoading, searchQuery, isSearching, activeSummaryDoc,
+        docs, isLoading, searchQuery, isSearching, activeSummaryDoc,
         activeFilter, viewMode, openDropdownId, isUploading, currentUserId: uid,
         fileInputRef, searchInputRef, mounted, filteredDocs,
         setSearchQuery, setActiveFilter, setViewMode, setOpenDropdownId, setActiveSummaryDoc,
@@ -29,7 +29,7 @@ export const SmartVaultModal: React.FC<SmartVaultModalProps> = ({ onClose, curre
     } = useSmartVault(onClose, currentUserId);
 
     const isOwner = (doc: { authorId: string }) => doc.authorId === uid;
-    const totalCount = filteredDocs.length + (activeFilter === 'الكل' ? 0 : 0);
+    const totalCount = docs.length;
     const filteredCount = filteredDocs.length;
 
     if (!mounted) return null;

@@ -15,10 +15,14 @@ import {
 } from '@/app/utils/executionModuleStrategies';
 import { executionTrashDaysRemaining } from '@/app/utils/executionTrash';
 import type { LooseArchiveFile } from '../types';
+import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
+import { buildExecutionWorkspacePin } from '@/app/workspace/workspacePinBuilders';
 import { parseLooseAmount, executionClaimBadgeArabic, executionTotalDemandEstimate } from '../utils';
 
 interface ExecutionSmartCardProps {
     file: any;
+    /** لاستخراج رقم الدعوى المرتبطة عند التثبيت (الربط العنقودي) */
+    lawsuitFilesForCluster?: unknown[];
     onOpen: () => void;
     onPreview: () => void;
     variant: 'active' | 'trash';
@@ -72,6 +76,7 @@ function formatAmount(amount: number) {
 
 function ExecutionSmartCard({
     file,
+    lawsuitFilesForCluster = [],
     onOpen,
     onPreview,
     variant,
@@ -97,7 +102,9 @@ function ExecutionSmartCard({
         unifiedCount > 0 && Number.isFinite(unifiedTotalDemandRaw) ? unifiedTotalDemandRaw : totalDemand;
     const fileNumber = file.fileNumber || file.caseNo || 'غير محدد';
     const year = file.year || new Date().getFullYear();
-    const court = file.court || 'غير محدد';
+    const court = file.court || file.directorate || 'غير محدد';
+    const pinPayload =
+        variant === 'active' ? buildExecutionWorkspacePin(file, lawsuitFilesForCluster) : null;
 
     return (
         <motion.div
@@ -132,19 +139,32 @@ function ExecutionSmartCard({
                 </button>
             )}
 
-            {variant === 'active' && onRequestMoveToTrash && (
-                <button
-                    type="button"
-                    title="نقل إلى سلة المهملات"
-                    aria-label="نقل إلى سلة المهملات"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onRequestMoveToTrash();
-                    }}
-                    className="absolute top-4 left-4 z-30 w-9 h-9 rounded-xl border border-rose-500/35 bg-rose-950/50 text-rose-200 hover:bg-rose-900/60 flex items-center justify-center transition-colors"
-                >
-                    <Trash2 size={18} />
-                </button>
+            {variant === 'active' && (
+                <div className="absolute top-4 left-4 z-30 flex items-center gap-2">
+                    {onRequestMoveToTrash ? (
+                        <button
+                            type="button"
+                            title="نقل إلى سلة المهملات"
+                            aria-label="نقل إلى سلة المهملات"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onRequestMoveToTrash();
+                            }}
+                            className="w-9 h-9 rounded-xl border border-rose-500/35 bg-rose-950/50 text-rose-200 hover:bg-rose-900/60 flex items-center justify-center transition-colors"
+                        >
+                            <Trash2 size={18} />
+                        </button>
+                    ) : null}
+                    {pinPayload ? (
+                        <div
+                            onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => e.stopPropagation()}
+                            role="presentation"
+                        >
+                            <WorkspacePinButton item={pinPayload} />
+                        </div>
+                    ) : null}
+                </div>
             )}
 
             {variant === 'trash' && (
@@ -224,18 +244,15 @@ function ExecutionSmartCard({
                     <span className="text-white font-bold text-sm">{debtor}</span>
                 </div>
 
-                {/* KINSHIP (Sharia Files Only) */}
-                {relationship && (
-                    <div className={`
-                        flex items-center gap-2 mt-2 p-2 rounded-lg
-                        bg-purple-500/5 border border-purple-500/20
-                    `}>
+                {relationship ? (
+                    <div className="flex items-center gap-2 mt-2 p-2 rounded-lg bg-purple-500/5 border border-purple-500/20">
                         <Link2 size={14} className="text-purple-400" />
                         <span className="text-purple-300 text-xs">
-                            🔗 الصلة: <span className="font-bold">({relationship})</span> للمدين <span className="font-bold">{linkedDebtor}</span>
+                            الصلة: <span className="font-bold">({relationship})</span> للمدين{' '}
+                            <span className="font-bold">{linkedDebtor}</span>
                         </span>
                     </div>
-                )}
+                ) : null}
             </div>
 
             {/* BOTTOM ROW: Status & Amount */}
@@ -291,7 +308,6 @@ function ExecutionSmartCard({
                 </div>
             </div>
 
-            {/* Court Name (Bottom) */}
             <div className="mt-4 pt-3 border-t border-white/5">
                 <div className="flex items-center gap-2 text-white/40 text-xs">
                     <Gavel size={12} />

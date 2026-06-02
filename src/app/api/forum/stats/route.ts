@@ -4,8 +4,8 @@ import {
   verifyWifeSignature,
   wifeForbiddenResponse,
   wifeUnauthorizedResponse,
-} from '../../security/wifeValidator';
-import { getForumStats } from '@/app/services/lawyer-cloud';
+} from '../../security/wifeValidator.ts';
+import { getForumStats } from '../../../services/lawyer-cloud.ts';
 
 export async function GET(request: Request): Promise<Response> {
   try {

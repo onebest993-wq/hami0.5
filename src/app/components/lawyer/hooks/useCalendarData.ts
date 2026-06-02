@@ -1,6 +1,22 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useCaseStore } from '@/app/stores/caseStore';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { CalendarDB, CalendarEvent, CalendarEventType, uuidv4 } from '@/app/services/lawyer-cloud';
+import {
+    CALENDAR_UPDATED_EVENT,
+    isBridgedCalendarEvent,
+    propagateBridgedCalendarRemoval,
+    propagateBridgedCalendarUpdate,
+} from '@/app/services/calendarBridge';
+import { cleanupCalendarForUser } from '@/app/services/calendarDossierSync';
+import { isUserAuthoredBridgedCalendarEvent } from '@/app/services/calendarAuthenticity';
+import { resolveCalendarUserId } from '@/app/services/calendarBridge';
+import type { CalendarSourceModule } from '@/app/services/calendarBridge.types';
+
+export type UnifiedEventBridge = {
+    sourceModule: CalendarSourceModule;
+    sourceEntityId: string;
+    sourceEventId: string;
+    calendarRecordId: string;
+};
 
 export type UnifiedEvent = {
     id: string;
@@ -16,6 +32,8 @@ export type UnifiedEvent = {
     caseNo?: string;
     isCompleted?: boolean;
     source: 'deadline' | 'hearing' | 'calendar';
+    isBridged?: boolean;
+    bridge?: UnifiedEventBridge;
 };
 
 function toYmd(date: Date): string {
@@ -30,73 +48,77 @@ function isSameDay(dateStr: string, targetDate: Date): boolean {
 }
 
 export function useCalendarData(userId: string) {
+    const effectiveUserId = resolveCalendarUserId(userId || null);
     const [customEvents, setCustomEvents] = useState<CalendarEvent[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    // يمنع وميض «جاري التحميل» عند كل تحديث خارجي (CALENDAR_UPDATED_EVENT)
+    const hasLoadedOnceRef = useRef(false);
 
-    const cases = useCaseStore((s) => s.cases);
-
-    const fetchEvents = useCallback(async () => {
-        if (!userId) {
-            setLoading(false);
-            return;
+    const fetchEvents = useCallback(async (options?: { skipLoading?: boolean }) => {
+        const showLoading = !options?.skipLoading && !hasLoadedOnceRef.current;
+        if (showLoading) {
+            setLoading(true);
         }
-        setLoading(true);
         setError(null);
         try {
-            const events = await CalendarDB.getEvents(userId);
+            const events = await CalendarDB.getEvents(effectiveUserId);
             setCustomEvents(events);
         } catch {
             setError('فشل تحميل أحداث التقويم');
         } finally {
-            setLoading(false);
+            hasLoadedOnceRef.current = true;
+            if (showLoading) {
+                setLoading(false);
+            }
         }
-    }, [userId]);
+    }, [effectiveUserId]);
 
     useEffect(() => {
-        fetchEvents();
+        // عند تغيّر المحامي، نُعيد ضبط «التحميل لأول مرة»
+        hasLoadedOnceRef.current = false;
+        let cancelled = false;
+        const run = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                await cleanupCalendarForUser(effectiveUserId);
+                if (!cancelled) {
+                    const events = await CalendarDB.getEvents(effectiveUserId);
+                    setCustomEvents(events);
+                }
+            } catch {
+                if (!cancelled) setError('فشل تحميل أحداث التقويم');
+            } finally {
+                if (!cancelled) {
+                    hasLoadedOnceRef.current = true;
+                    setLoading(false);
+                }
+            }
+        };
+        void run();
+        return () => {
+            cancelled = true;
+        };
+    }, [effectiveUserId]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined;
+        const onCalendarUpdated = () => {
+            // التحديثات الخارجية لا تُومض شاشة التحميل
+            void fetchEvents({ skipLoading: true });
+        };
+        window.addEventListener(CALENDAR_UPDATED_EVENT, onCalendarUpdated);
+        return () => window.removeEventListener(CALENDAR_UPDATED_EVENT, onCalendarUpdated);
     }, [fetchEvents]);
 
     const allEvents = useMemo((): UnifiedEvent[] => {
         const result: UnifiedEvent[] = [];
 
-        // 1. Deadlines from caseStore
-        for (const c of cases) {
-            if (c.status === 'deleted') continue;
-            for (const d of c.deadlines || []) {
-                if (d.isDeleted) continue;
-                result.push({
-                    id: `deadline_${d.id}`,
-                    title: d.title,
-                    date: d.date,
-                    type: 'deadline',
-                    caseNo: c.caseNo,
-                    isCompleted: d.isCompleted,
-                    source: 'deadline',
-                });
-            }
-        }
-
-        // 2. Hearings from caseStore
-        for (const c of cases) {
-            if (c.status === 'deleted') continue;
-            for (const h of c.timeline || []) {
-                if (h.isDeleted) continue;
-                result.push({
-                    id: `hearing_${h.id}`,
-                    title: h.title,
-                    date: h.date,
-                    type: 'hearing',
-                    location: c.court,
-                    notes: h.notes,
-                    caseNo: c.caseNo,
-                    source: 'hearing',
-                });
-            }
-        }
-
-        // 3. Custom events from CalendarDB
+        // أحداث CalendarDB فقط (مربوطة فعلياً من الأقسام أو مُدخلة يدوياً في التقويم)
         for (const e of customEvents) {
+            if (!isUserAuthoredBridgedCalendarEvent(e)) continue;
+            const bridged = isBridgedCalendarEvent(e);
             result.push({
                 id: `cal_${e.id}`,
                 title: e.title,
@@ -111,11 +133,21 @@ export function useCalendarData(userId: string) {
                 caseNo: e.caseNo,
                 isCompleted: e.isCompleted,
                 source: 'calendar',
+                isBridged: bridged,
+                bridge:
+                    bridged && e.sourceModule && e.sourceEntityId && e.sourceEventId
+                        ? {
+                              sourceModule: e.sourceModule,
+                              sourceEntityId: e.sourceEntityId,
+                              sourceEventId: e.sourceEventId,
+                              calendarRecordId: e.id,
+                          }
+                        : undefined,
             });
         }
 
         return result;
-    }, [cases, customEvents]);
+    }, [customEvents]);
 
     const getEventsForDate = useCallback(
         (date: Date): UnifiedEvent[] => {
@@ -144,6 +176,7 @@ export function useCalendarData(userId: string) {
             const now = new Date().toISOString();
             const newEvent: CalendarEvent = {
                 ...event,
+                userId: event.userId || effectiveUserId,
                 id: uuidv4(),
                 createdAt: now,
                 updatedAt: now,
@@ -157,7 +190,7 @@ export function useCalendarData(userId: string) {
                 return null;
             }
         },
-        []
+        [effectiveUserId]
     );
 
     const updateEvent = useCallback(
@@ -165,6 +198,9 @@ export function useCalendarData(userId: string) {
             const updated = { ...event, updatedAt: new Date().toISOString() };
             try {
                 await CalendarDB.updateEvent(updated);
+                if (isBridgedCalendarEvent(updated)) {
+                    await propagateBridgedCalendarUpdate(updated);
+                }
                 setCustomEvents((prev) => prev.map((e) => (e.id === event.id ? updated : e)));
                 return updated;
             } catch {
@@ -178,13 +214,17 @@ export function useCalendarData(userId: string) {
     const deleteEvent = useCallback(
         async (eventId: string) => {
             try {
-                await CalendarDB.deleteEvent(eventId, userId);
+                const existing = customEvents.find((e) => e.id === eventId);
+                if (existing && isBridgedCalendarEvent(existing)) {
+                    await propagateBridgedCalendarRemoval(existing);
+                }
+                await CalendarDB.deleteEvent(eventId, effectiveUserId);
                 setCustomEvents((prev) => prev.filter((e) => e.id !== eventId));
             } catch {
                 setError('فشل حذف الموعد');
             }
         },
-        [userId]
+        [effectiveUserId, customEvents]
     );
 
     return {
@@ -192,6 +232,7 @@ export function useCalendarData(userId: string) {
         customEvents,
         loading,
         error,
+        effectiveUserId,
         getEventsForDate,
         getDatesWithEvents,
         addEvent,

@@ -125,14 +125,26 @@ class LegalAICoordinator {
         }
 
         if (type === 'image') {
+            try {
+                const { extractTextFromDocumentImage } = await import('@/app/services/documentOcrService');
+                const blob = input instanceof Blob ? input : null;
+                const dataUrl = typeof input === 'string' ? input : null;
+                const ocr = await extractTextFromDocumentImage(blob ?? dataUrl ?? '');
+                const text = ocr.text.trim();
+                if (text) {
+                    return this.analyzeCaseDescription(text);
+                }
+            } catch {
+                // fall through to placeholder
+            }
             return {
                 title: 'تحليل وثيقة ضوئية',
-                legalContext: 'الوثيقة قيد التحليل. يرجى استخدام الماسح الضوئي للحصول على نتيجة دقيقة.',
+                legalContext: 'لم يُستخرج نص تلقائياً. تأكد من وضوح الصورة أو فعّل مفتاح OpenRouter.',
                 requiredFields: [],
-                text: 'تم استلام الصورة. استخدم الماسح الضوئي لاستخراج النص.',
-                summary: ['تم استلام الصورة بنجاح.', 'استخدم خاصية المسح الضوئي للتعرف على النص.'],
+                text: '',
+                summary: ['تم استلام الصورة.', 'أعد المحاولة من الماسح الضوئي.'],
                 actions: [{ label: 'فتح الماسح الضوئي', type: 'doc' }],
-                docType: 'مسح ضوئي'
+                docType: 'مسح ضوئي',
             };
         }
 

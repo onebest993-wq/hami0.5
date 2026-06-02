@@ -8,9 +8,11 @@ import { TransactionDetailsScreen } from './TransactionDetailsScreen';
 export function TransactionsThreadingSystem({
   onBack,
   userId,
+  initialTransactionId,
 }: {
   onBack: () => void;
   userId: string;
+  initialTransactionId?: string;
 }) {
   const refreshTransactions = useTransactionsThreadingStore((s) => s.refreshTransactions);
   const setUserId = useTransactionsThreadingStore((s) => s.setUserId);
@@ -23,6 +25,12 @@ export function TransactionsThreadingSystem({
       await refreshTransactions();
     })();
   }, [setUserId, userId, refreshTransactions]);
+
+  useEffect(() => {
+    if (!initialTransactionId) return;
+    setSelectedId(initialTransactionId);
+    setView('details');
+  }, [initialTransactionId]);
 
   const openDetails = (tx: Transaction) => {
     setSelectedId(tx.id);

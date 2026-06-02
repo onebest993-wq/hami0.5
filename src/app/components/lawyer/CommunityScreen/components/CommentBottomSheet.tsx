@@ -1,16 +1,23 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  MessageCircle, MessageSquare, User, BadgeCheck,
-  CornerUpLeft, ArrowUp, X, Trash2, Edit2, UserPlus, UserCheck
+  MessageCircle, MessageSquare, User, BadgeCheck, Lock,
+  CornerUpLeft, ArrowUp, X, Trash2, Edit2, UserPlus, UserCheck,
+  ArrowUpCircle, Flag, ArrowDownUp, VolumeX
 } from 'lucide-react';
 import type { CommunityPost, CommunityComment } from '@/app/services/lawyer-cloud';
 import { formatRelativeTime } from '../utils';
 
+/** الحد الأقصى لطول نص التعليق — يجب أن يطابق حدّ السيرفر */
+const COMMENT_MAX_LENGTH = 5_000;
+
+/** خيارات ترتيب التعليقات */
+type CommentSortMode = 'oldest' | 'newest' | 'top';
+
 export interface CommentBottomSheetProps {
   post: CommunityPost;
   onClose: () => void;
-  onAddComment: (postId: string, content: string, parentId?: string) => void;
+  onAddComment: (postId: string, content: string, parentId?: string) => Promise<boolean> | void;
   currentUserId: string;
   onToggleBestAnswer: (postId: string, commentId: string) => void;
   onDeleteComment: (postId: string, commentId: string) => void;
@@ -18,6 +25,11 @@ export interface CommentBottomSheetProps {
   onFollow: (targetUserId: string) => void;
   followingIds: Set<string>;
   userStats: Record<string, { followerCount: number; postCount: number }>;
+  isAdmin?: boolean;
+  onToggleCommentUpvote?: (commentId: string) => void;
+  onReportComment?: (commentId: string) => void;
+  onMuteUser?: (userId: string) => void;
+  mutedUserIds?: Set<string>;
 }
 
 export const CommentBottomSheet = ({
@@ -31,16 +43,24 @@ export const CommentBottomSheet = ({
   onFollow,
   followingIds,
   userStats,
+  isAdmin = false,
+  onToggleCommentUpvote,
+  onReportComment,
+  onMuteUser,
+  mutedUserIds,
 }: CommentBottomSheetProps) => {
   const [comment, setComment] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [sortMode, setSortMode] = useState<CommentSortMode>('oldest');
   const bestCommentId = post.bestCommentId ?? null;
   const canSelectBest = currentUserId === post.authorId;
+  const isLocked = post.isLocked === true;
   const [replyingToCommentId, setReplyingToCommentId] = useState<string | null>(null);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  const { commentById, childrenByParentId, rootComments, bestComment, bestSubtreeIds } = useMemo(() => {
+  const { commentById, childrenByParentId, bestComment, bestSubtreeIds } = useMemo(() => {
     const byId = new Map<string, CommunityComment>();
     for (const c of post.comments) byId.set(c.id, c);
 
@@ -50,16 +70,24 @@ export const CommentBottomSheet = ({
     });
 
     const children = new Map<string | null, CommunityComment[]>();
-    const roots: CommunityComment[] = [];
     for (const c of normalized) {
       const key = c.parentId ?? null;
       if (!children.has(key)) children.set(key, []);
       children.get(key)!.push(c);
-      if (!c.parentId) roots.push(c);
     }
-    const sortByTime = (a: CommunityComment, b: CommunityComment) => Date.parse(a.createdAt) - Date.parse(b.createdAt);
-    for (const list of children.values()) list.sort(sortByTime);
-    roots.sort(sortByTime);
+
+    // ترتيب أولاد كل عقدة وفق sortMode (الجذور تأخذ نفس الترتيب)
+    const compareFn = (a: CommunityComment, b: CommunityComment): number => {
+      if (sortMode === 'newest') return Date.parse(b.createdAt) - Date.parse(a.createdAt);
+      if (sortMode === 'top') {
+        const ua = a.upvoterIds?.length ?? 0;
+        const ub = b.upvoterIds?.length ?? 0;
+        if (ua !== ub) return ub - ua;
+        return Date.parse(a.createdAt) - Date.parse(b.createdAt);
+      }
+      return Date.parse(a.createdAt) - Date.parse(b.createdAt);
+    };
+    for (const list of children.values()) list.sort(compareFn);
 
     const best = bestCommentId ? byId.get(bestCommentId) ?? null : null;
 
@@ -78,17 +106,20 @@ export const CommentBottomSheet = ({
     return {
       commentById: byId,
       childrenByParentId: children,
-      rootComments: roots,
       bestComment: best,
       bestSubtreeIds: subtree,
     };
-  }, [post.comments, bestCommentId]);
+  }, [post.comments, bestCommentId, sortMode]);
 
   const replyingTo = replyingToCommentId ? commentById.get(replyingToCommentId) ?? null : null;
 
   const renderComment = (c: CommunityComment, depth: number, forceBestStyle: boolean) => {
     const isBest = forceBestStyle || (!!bestCommentId && c.id === bestCommentId);
-    const isOwner = currentUserId === c.authorId;
+    const isCommentAuthor = currentUserId === c.authorId;
+    const isPostAuthor = currentUserId === post.authorId;
+    const canDeleteComment = isCommentAuthor || isPostAuthor || isAdmin;
+    // تعليق «أفضل إجابة» مقفل التعديل لمنع التلاعب بعد تمييزه
+    const canEditComment = isCommentAuthor && c.id !== bestCommentId;
     const indentClass = depth === 0 ? '' : depth === 1 ? 'mr-8' : depth === 2 ? 'mr-16' : 'mr-24';
     const threadClass = depth === 0 ? '' : 'border-r-2 border-slate-700/50 pr-4';
     const isEditing = editingCommentId === c.id;
@@ -187,7 +218,7 @@ export const CommentBottomSheet = ({
           {canSelectBest && (
             <button type="button"
               onClick={() => onToggleBestAnswer(post.id, c.id)}
-              className={`opacity-0 group-hover/comment:opacity-100 transition-opacity text-[10px] px-2 py-1 rounded-full border ${
+              className={`text-[10px] px-2 py-1 rounded-full border ${
                 isBest ? 'bg-[#E6C673]/15 border-[#E6C673]/30 text-[#E6C673]' : 'bg-white/5 border-white/10 text-white/50 hover:text-white hover:border-white/20'
               }`}
               title="تمييز أفضل إجابة"
@@ -195,25 +226,29 @@ export const CommentBottomSheet = ({
               {isBest ? 'إلغاء' : 'أفضل'}
             </button>
           )}
-          {isOwner && !confirmDeleteId && (
-            <div className="flex gap-1 opacity-0 group-hover/comment:opacity-100 transition-opacity">
-              <button type="button"
-                onClick={() => { setEditingCommentId(c.id); setEditContent(c.content); }}
-                className="text-[10px] px-2 py-1 rounded-full bg-white/5 border border-white/10 text-white/50 hover:text-white hover:border-white/20 transition-colors"
-                title="تعديل التعليق"
-              >
-                <Edit2 size={10} />
-              </button>
-              <button type="button"
-                onClick={() => setConfirmDeleteId(c.id)}
-                className="text-[10px] px-2 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
-                title="حذف التعليق"
-              >
-                <Trash2 size={10} />
-              </button>
+          {(canEditComment || canDeleteComment) && !confirmDeleteId && (
+            <div className="flex gap-1">
+              {canEditComment && (
+                <button type="button"
+                  onClick={() => { setEditingCommentId(c.id); setEditContent(c.content); }}
+                  className="text-[10px] px-2 py-1 rounded-full bg-white/5 border border-white/10 text-white/50 hover:text-white hover:border-white/20 transition-colors"
+                  title="تعديل التعليق"
+                >
+                  <Edit2 size={10} />
+                </button>
+              )}
+              {canDeleteComment && (
+                <button type="button"
+                  onClick={() => setConfirmDeleteId(c.id)}
+                  className="text-[10px] px-2 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
+                  title="حذف التعليق"
+                >
+                  <Trash2 size={10} />
+                </button>
+              )}
             </div>
           )}
-          {isOwner && confirmDeleteId === c.id && (
+          {canDeleteComment && confirmDeleteId === c.id && (
             <div className="flex gap-1">
               <button type="button"
                 onClick={() => { onDeleteComment(post.id, c.id); setConfirmDeleteId(null); }}
@@ -231,15 +266,57 @@ export const CommentBottomSheet = ({
           )}
         </div>
         <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap">{c.content}</p>
-        <div className="mt-3 flex items-center gap-2">
-          <button type="button"
-            onClick={() => setReplyingToCommentId(c.id)}
-            className="text-[11px] px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/60 hover:text-white hover:border-white/20 transition-colors inline-flex items-center gap-1"
-            title="رد"
-          >
-            <CornerUpLeft size={12} />
-            رد
-          </button>
+        <div className="mt-3 flex items-center gap-2 flex-wrap">
+          {!isLocked && (
+            <button type="button"
+              onClick={() => setReplyingToCommentId(c.id)}
+              className="text-[11px] px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/60 hover:text-white hover:border-white/20 transition-colors inline-flex items-center gap-1"
+              title="رد"
+            >
+              <CornerUpLeft size={12} />
+              رد
+            </button>
+          )}
+          {onToggleCommentUpvote && !isCommentAuthor && (
+            <button type="button"
+              onClick={() => onToggleCommentUpvote(c.id)}
+              className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors inline-flex items-center gap-1 ${
+                (c.upvoterIds ?? []).includes(currentUserId)
+                  ? 'bg-[#E6C673]/15 border-[#E6C673]/30 text-[#E6C673]'
+                  : 'bg-white/5 border-white/10 text-white/60 hover:text-white hover:border-white/20'
+              }`}
+              title="إعجاب بالتعليق"
+            >
+              <ArrowUpCircle size={12} />
+              {c.upvoterIds?.length ?? 0}
+            </button>
+          )}
+          {!onToggleCommentUpvote && (c.upvoterIds?.length ?? 0) > 0 && (
+            <span className="text-[11px] px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/60 inline-flex items-center gap-1">
+              <ArrowUpCircle size={12} />
+              {c.upvoterIds?.length ?? 0}
+            </span>
+          )}
+          {onReportComment && !isCommentAuthor && (
+            <button type="button"
+              onClick={() => onReportComment(c.id)}
+              className="text-[11px] px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/50 hover:text-red-400 hover:border-red-500/30 transition-colors inline-flex items-center gap-1"
+              title="الإبلاغ عن التعليق"
+            >
+              <Flag size={11} />
+              إبلاغ
+            </button>
+          )}
+          {onMuteUser && !isCommentAuthor && (
+            <button type="button"
+              onClick={() => onMuteUser(c.authorId)}
+              className="text-[11px] px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/50 hover:text-white hover:border-white/20 transition-colors inline-flex items-center gap-1"
+              title="كتم المستخدم"
+            >
+              <VolumeX size={11} />
+              {mutedUserIds?.has(c.authorId) ? 'إلغاء الكتم' : 'كتم'}
+            </button>
+          )}
         </div>
       </div>
     );
@@ -281,14 +358,37 @@ export const CommentBottomSheet = ({
             <div className="w-12 h-1.5 rounded-full bg-white/10" />
           </div>
 
-          <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+          <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between gap-3">
             <h3 className="text-white font-bold text-lg flex items-center gap-2">
               <MessageCircle size={20} className="text-[#E6C673]" />
               التعليقات
+              {isLocked && (
+                <span className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-full bg-red-500/10 text-red-200 border border-red-500/30">
+                  <Lock size={11} />
+                  مقفل
+                </span>
+              )}
             </h3>
-            <button type="button" onClick={onClose} className="p-2 hover:bg-white/5 rounded-full text-white/50 hover:text-white">
-              <X size={20} />
-            </button>
+            <div className="flex items-center gap-2">
+              {post.comments.length > 1 && (
+                <div className="flex items-center gap-1 text-[11px]">
+                  <ArrowDownUp size={12} className="text-white/40" />
+                  <select
+                    value={sortMode}
+                    onChange={(e) => setSortMode(e.target.value as CommentSortMode)}
+                    className="bg-white/5 text-white/70 rounded-md px-2 py-1 outline-none border border-white/10"
+                    title="ترتيب التعليقات"
+                  >
+                    <option value="oldest" className="bg-[#1A1E2E]">الأقدم</option>
+                    <option value="newest" className="bg-[#1A1E2E]">الأحدث</option>
+                    <option value="top" className="bg-[#1A1E2E]">الأعلى تصويتاً</option>
+                  </select>
+                </div>
+              )}
+              <button type="button" onClick={onClose} className="p-2 hover:bg-white/5 rounded-full text-white/50 hover:text-white">
+                <X size={20} />
+              </button>
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto scrollbar-hide p-6 space-y-3">
@@ -321,7 +421,13 @@ export const CommentBottomSheet = ({
           </div>
 
           <div className="p-4 border-t border-white/10 bg-[#131620]">
-            {replyingTo && (
+            {isLocked && (
+              <div className="mb-3 flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-2xl px-4 py-2 text-red-200 text-xs">
+                <Lock size={14} />
+                النقاش على هذا المنشور مقفل — لا يمكن إضافة تعليقات جديدة.
+              </div>
+            )}
+            {!isLocked && replyingTo && (
               <div className="mb-3 flex items-center justify-between bg-white/5 border border-white/10 rounded-2xl px-4 py-2">
                 <span className="text-white/70 text-xs">
                   أنت ترد على <span className="text-white font-bold">{replyingTo.authorName}</span>...
@@ -339,22 +445,39 @@ export const CommentBottomSheet = ({
               <div className="flex-1 bg-[#1A1E2E] rounded-2xl border border-white/10 focus-within:border-[#E6C673]/50 transition-colors p-3">
                 <textarea
                   value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  placeholder="اكتب تعليقك هنا..."
-                  className="w-full bg-transparent text-white text-sm placeholder-white/30 outline-none resize-none max-h-24 custom-scrollbar"
+                  onChange={(e) => setComment(e.target.value.slice(0, COMMENT_MAX_LENGTH))}
+                  placeholder={isLocked ? 'النقاش مقفل' : 'اكتب تعليقك هنا...'}
+                  className="w-full bg-transparent text-white text-sm placeholder-white/30 outline-none resize-none max-h-24 custom-scrollbar disabled:cursor-not-allowed"
                   rows={1}
                   style={{ minHeight: '40px' }}
+                  maxLength={COMMENT_MAX_LENGTH}
+                  disabled={submittingComment || isLocked}
                 />
+                {comment.length > COMMENT_MAX_LENGTH * 0.8 && (
+                  <div className="text-[10px] text-white/40 text-left mt-1">
+                    {comment.length} / {COMMENT_MAX_LENGTH}
+                  </div>
+                )}
               </div>
               <button type="button"
-                className={`p-3 rounded-xl transition-all ${comment.trim() ? 'bg-[#E6C673] text-black hover:scale-105' : 'bg-white/5 text-white/20 cursor-not-allowed'}`}
-                disabled={!comment.trim()}
-                onClick={() => {
+                className={`p-3 rounded-xl transition-all ${(comment.trim() && !submittingComment && !isLocked) ? 'bg-[#E6C673] text-black hover:scale-105' : 'bg-white/5 text-white/20 cursor-not-allowed'}`}
+                disabled={!comment.trim() || submittingComment || isLocked}
+                onClick={async () => {
                   const text = comment.trim();
-                  if (!text) return;
-                  onAddComment(post.id, text, replyingToCommentId ?? undefined);
-                  setComment('');
-                  setReplyingToCommentId(null);
+                  if (!text || submittingComment) return;
+                  // حماية النص: لا نمسحه قبل التأكد من النجاح
+                  setSubmittingComment(true);
+                  try {
+                    const result = onAddComment(post.id, text, replyingToCommentId ?? undefined);
+                    // إذا كان handler يرجع Promise<boolean>، ننتظر النتيجة
+                    const ok = result instanceof Promise ? await result : true;
+                    if (ok !== false) {
+                      setComment('');
+                      setReplyingToCommentId(null);
+                    }
+                  } finally {
+                    setSubmittingComment(false);
+                  }
                 }}
               >
                 <ArrowUp size={20} className={comment.trim() ? '' : 'rotate-90'} />

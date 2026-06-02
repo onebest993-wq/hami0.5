@@ -4,6 +4,7 @@
   "description": "Hami Legal System - Iraqi Legal Case Management with AI - Perfect Score Edition",
   "scripts": {
     "dev": "vite",
+    "dev:fresh": "vite --force",
     "start": "vite",
     "typecheck": "tsc --noEmit",
     "build": "vite build",

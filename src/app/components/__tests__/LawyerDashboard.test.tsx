@@ -13,7 +13,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 // Stub LawyerDashboard - tests the props contract without 50+ dependency mocks
-vi.mock('../lawyer/LawyerDashboard', () => ({
+vi.mock('../lawyer/LawyerDashboard.tsx', () => ({
   LawyerDashboard: ({ onLogout, onOpenProfile, onNavigateToCase }: any) => (
     <div data-testid="lawyer-dashboard-stub" role="main">
       <span>نظام حامي القانوني</span>
@@ -24,7 +24,7 @@ vi.mock('../lawyer/LawyerDashboard', () => ({
   ),
 }));
 
-import { LawyerDashboard } from '../lawyer/LawyerDashboard';
+import { LawyerDashboard } from '../lawyer/LawyerDashboard.tsx';
 
 describe('LawyerDashboard', () => {
   const mockOnLogout = vi.fn();

@@ -2,10 +2,21 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Plus, Briefcase } from 'lucide-react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useAuth } from '@/app/context/AuthContext';
-import { addCommunityPost, deleteCommunityPost, getCommunityPostsPaginated, reportCommunityPost, updateCommunityPost, togglePinCommunityPost, FollowDB, notifyFollowers, BanDB, getUserPostCount, type CommunityPost, type CommunityComment, LawyerStorage } from '@/app/services/lawyer-cloud';
+import {
+    FollowDB,
+    notifyFollowers,
+    getUserPostCount,
+    type CommunityPost,
+    type CommunityComment,
+    LawyerStorage,
+} from '@/app/services/lawyer-cloud';
+import { ForumApiService } from '@/app/services/forumApiService';
+import { checkForumRateLimit } from './CommunityScreen/forumRateLimit';
+import { buildCommunityPostShareUrl, setCommunityPostHash } from './CommunityScreen/communityDeepLink';
 import { hasOpenRouterKey, polishLegalTextAI, redactSensitiveDataAI, summarizeLegalFactsAI } from '@/app/services/ai-service';
+import { useMutedUsers } from './CommunityScreen/useMutedUsers';
 
-import type { SpeechRecognitionInstance } from './CommunityScreen/types';
+import type { SpeechRecognitionEvent, SpeechRecognitionInstance } from './CommunityScreen/types';
 import { applyAutoRedaction, normalizeTagLabel, deriveTagsFromContent } from './CommunityScreen/utils';
 import { CommentBottomSheet } from './CommunityScreen/components/CommentBottomSheet';
 import { LegalRepository } from './CommunityScreen/components/LegalRepository';
@@ -16,10 +27,37 @@ import { EditPostModal } from './CommunityScreen/components/EditPostModal';
 import { SearchOverlay } from './CommunityScreen/components/SearchOverlay';
 import { AddQuestionSheet } from './CommunityScreen/components/AddQuestionSheet';
 import { FullscreenImageOverlay } from './CommunityScreen/components/FullscreenImageOverlay';
+import {
+    canDeletePost,
+    canEditPost,
+    canPinPost,
+    canUpvotePost,
+    canDeleteComment,
+    canEditComment,
+} from './CommunityScreen/communityPermissions';
+
+/** تصنيفات الفلترة الثابتة — خارج المكوّن لتفادي إعادة الإنشاء عند كل render */
+const FILTER_LABELS = ['الأحدث', 'الأعلى تصويتاً', 'تنفيذ', 'مدني', 'جنائي', 'أحوال شخصية', 'شركات', 'عقاري'] as const;
+
+/** السقف الأعلى لـ userStatsCache (LRU). يَحُد ذاكرة الجلسات الطويلة */
+const USER_STATS_CACHE_LIMIT = 500;
+
+/** الحد الأعلى لطول محتوى المنشور — يجب أن يطابق حدّ السيرفر */
+const POST_MAX_LENGTH = 10_000;
 
 // --- MAIN SCREEN ---
-export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
-    const DEV_MODE = import.meta.env.DEV;
+export const CommunityScreen = ({
+    onBack,
+    initialPostId = null,
+    initialOpenComments = false,
+    initialSection = 'forum',
+}: {
+    onBack?: () => void;
+    initialPostId?: string | null;
+    initialOpenComments?: boolean;
+    initialSection?: 'forum' | 'repository';
+}) => {
+    const FORUM_DEV_OPEN = import.meta.env.DEV && import.meta.env.VITE_COMMUNITY_DEV_OPEN === 'true';
     const { user: authUser, isLoading: authIsLoading, hasRole } = useAuth();
     const currentUserId = authUser?.id ?? null;
     const [posts, setPosts] = useState<CommunityPost[]>([]);
@@ -31,11 +69,18 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
     const [isAddQuestionOpen, setIsAddQuestionOpen] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isBanned, setIsBanned] = useState(false);
-    const [activeSection, setActiveSection] = useState<'forum' | 'repository'>('forum');
+    const [activeSection, setActiveSection] = useState<'forum' | 'repository'>(initialSection);
+
+    useEffect(() => {
+        setActiveSection(initialSection);
+    }, [initialSection]);
     const isAdmin = hasRole('admin');
     const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
     const [userStats, setUserStats] = useState<Record<string, { followerCount: number; postCount: number }>>({});
     const userStatsCache = useRef<Record<string, { followerCount: number; postCount: number }>>({});
+    // Bookmarks (server-backed) + Muted users (local-only)
+    const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
+    const { mutedIds, isMuted, toggleMute } = useMutedUsers(currentUserId);
     
     const [searchQuery, setSearchQuery] = useState('');
     const [filterHasPdf, setFilterHasPdf] = useState(false);
@@ -52,6 +97,8 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
     const [submittingPost, setSubmittingPost] = useState(false);
     const [isDictating, setIsDictating] = useState(false);
     const speechRecRef = useRef<SpeechRecognitionInstance | null>(null);
+    /** نص المستخدم المكتوب قبل بدء الإملاء — نُضيف الإملاء إليه بدل استبداله */
+    const speechBaseTextRef = useRef<string>('');
     const [showPolishAction, setShowPolishAction] = useState(false);
     const [polishingText, setPolishingText] = useState(false);
     const imageInputRef = useRef<HTMLInputElement>(null);
@@ -64,6 +111,21 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
     const [editingPostId, setEditingPostId] = useState<string | null>(null);
     const [editingText, setEditingText] = useState('');
     const [savingEdit, setSavingEdit] = useState(false);
+    const deepLinkHandledRef = useRef(false);
+    const postsRef = useRef(posts);
+    postsRef.current = posts;
+
+    // تنظيف blob URL المتبقي عند فك تركيب المكوّن (يلتقط حالة الإغلاق المفاجئ)
+    const newAttachmentRef = useRef(newAttachment);
+    newAttachmentRef.current = newAttachment;
+    useEffect(() => {
+        return () => {
+            const att = newAttachmentRef.current;
+            if (att?.url && att.url.startsWith('blob:')) {
+                try { URL.revokeObjectURL(att.url); } catch { /* ignore */ }
+            }
+        };
+    }, []);
 
     useEffect(() => {
         if (authIsLoading) return;
@@ -71,7 +133,7 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
         (async () => {
             setLoadingPosts(true);
             try {
-                const { posts: page } = await getCommunityPostsPaginated(PAGE_SIZE, 0);
+                const { posts: page } = await ForumApiService.listPostsPaginated(PAGE_SIZE, 0);
                 if (cancelled) return;
                 setPosts(page);
                 setHasMore(page.length === PAGE_SIZE);
@@ -88,6 +150,56 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
         };
     }, [authIsLoading]);
 
+    const refreshPosts = useCallback(async (silent = false) => {
+        try {
+            // مسار موحّد مع التحميل الأول: ForumApiService (لا KV قديم)
+            // وإلا فإن البولينج كل 90s يرى صورة منفصلة عن مزامنة الخادم
+            const limit = Math.max(PAGE_SIZE, postsRef.current.length || PAGE_SIZE);
+            const { posts: page } = await ForumApiService.listPostsPaginated(limit, 0);
+            setPosts(page);
+            setHasMore(page.length >= limit);
+        } catch {
+            if (!silent) SmartToast.error('تعذّر تحديث المنشورات');
+        }
+    }, []);
+
+    useEffect(() => {
+        if (authIsLoading || activeSection !== 'forum') return;
+        const interval = window.setInterval(() => {
+            void refreshPosts(true);
+        }, 90_000);
+        return () => window.clearInterval(interval);
+    }, [authIsLoading, activeSection, refreshPosts]);
+
+    useEffect(() => {
+        if (!initialPostId || loadingPosts || deepLinkHandledRef.current) return;
+        let cancelled = false;
+        (async () => {
+            let target = postsRef.current.find((p) => p.id === initialPostId) ?? null;
+            if (!target) {
+                target = await ForumApiService.getPostById(initialPostId);
+                if (target && !cancelled) {
+                    setPosts((prev) => (prev.some((p) => p.id === target!.id) ? prev : [target!, ...prev]));
+                }
+            }
+            if (cancelled || !target) return;
+            setActiveSection('forum');
+            if (initialOpenComments) {
+                setCommentingPostId(initialPostId);
+            }
+            deepLinkHandledRef.current = true;
+            requestAnimationFrame(() => {
+                document.getElementById(`forum-post-${initialPostId}`)?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center',
+                });
+            });
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [initialPostId, initialOpenComments, loadingPosts]);
+
     const loadUserStats = useCallback(async (userIds: string[]) => {
         const uniqueIds = [...new Set(userIds.filter(Boolean))];
         const uncached = uniqueIds.filter((id) => !userStatsCache.current[id]);
@@ -102,12 +214,24 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
             }),
         );
         results.forEach((r) => { if (r.status === 'rejected') { /* silent */ } });
+
+        // LRU cap: عند تجاوز السقف، نُسقط أقدم المداخل من الكاش
+        const cacheKeys = Object.keys(userStatsCache.current);
+        if (cacheKeys.length > USER_STATS_CACHE_LIMIT) {
+            const excess = cacheKeys.length - USER_STATS_CACHE_LIMIT;
+            // نحتفظ بإحصاءات المستخدمين الظاهرين حالياً
+            const visibleIds = new Set(uniqueIds);
+            const droppable = cacheKeys.filter((k) => !visibleIds.has(k)).slice(0, excess);
+            for (const k of droppable) delete userStatsCache.current[k];
+        }
         setUserStats({ ...userStatsCache.current });
     }, []);
 
     useEffect(() => {
         if (!currentUserId) { setIsBanned(false); return; }
-        BanDB.isBanned(currentUserId).then((record) => setIsBanned(!!record)).catch(() => setIsBanned(false));
+        ForumApiService.isUserBanned(currentUserId)
+            .then((banned) => setIsBanned(banned))
+            .catch(() => setIsBanned(false));
     }, [currentUserId]);
 
     useEffect(() => {
@@ -115,6 +239,19 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
         FollowDB.getFollowing(currentUserId).then((records) => {
             setFollowingIds(new Set(records.map((r) => r.followingId)));
         }).catch(() => {});
+    }, [currentUserId]);
+
+    // تحميل قائمة المنشورات المحفوظة (Bookmarks) للمستخدم الحالي
+    useEffect(() => {
+        if (!currentUserId) {
+            setBookmarkedIds(new Set());
+            return;
+        }
+        let cancelled = false;
+        void ForumApiService.listBookmarks().then((ids) => {
+            if (!cancelled) setBookmarkedIds(new Set(ids));
+        });
+        return () => { cancelled = true; };
     }, [currentUserId]);
 
     useEffect(() => {
@@ -127,7 +264,7 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
         if (loadingMore || !hasMore) return;
         setLoadingMore(true);
         try {
-            const { posts: nextPage } = await getCommunityPostsPaginated(PAGE_SIZE, posts.length);
+            const { posts: nextPage } = await ForumApiService.listPostsPaginated(PAGE_SIZE, posts.length);
             setPosts((prev) => [...prev, ...nextPage]);
             setHasMore(nextPage.length === PAGE_SIZE);
         } catch {
@@ -148,18 +285,22 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
         rec.lang = 'ar-IQ';
         rec.interimResults = true;
         rec.continuous = true;
-        rec.onresult = (event: any) => {
-            let fullText = '';
-            for (let i = 0; i < event.results.length; i += 1) {
+        rec.onresult = (event: SpeechRecognitionEvent) => {
+            // تجميع نص الإملاء كاملاً (نهائي + مؤقت)
+            let dictated = '';
+            const len = event.results.length;
+            for (let i = 0; i < len; i += 1) {
                 const r = event.results[i];
                 const t = r?.[0]?.transcript;
-                if (typeof t === 'string') fullText += t;
+                if (typeof t === 'string') dictated += t;
             }
-            const next = fullText.trim();
-            if (next) {
-                setNewPostText(next);
-                setShowPolishAction(true);
-            }
+            const trimmedDictation = dictated.trim();
+            if (!trimmedDictation) return;
+            // إضافة الإملاء للنص الموجود مسبقاً (يحافظ على كتابة المستخدم اليدوية)
+            const base = speechBaseTextRef.current;
+            const next = base ? `${base.replace(/\s+$/, '')} ${trimmedDictation}` : trimmedDictation;
+            setNewPostText(next.slice(0, POST_MAX_LENGTH));
+            setShowPolishAction(true);
         };
         rec.onerror = () => {
             setIsDictating(false);
@@ -195,6 +336,8 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
             return;
         }
         try {
+            // التقاط النص الموجود قبل البدء كي لا يُمسح بالإملاء
+            speechBaseTextRef.current = newPostText;
             rec.start();
             setIsDictating(true);
         } catch {
@@ -222,9 +365,17 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
         }
     };
 
-    const removeAttachment = () => setNewAttachment(null);
+    const removeAttachment = useCallback(() => {
+        setNewAttachment((prev) => {
+            // إلغاء blob URL لمنع تسريب الذاكرة في وضع التطوير (URL.createObjectURL)
+            if (prev?.url && prev.url.startsWith('blob:')) {
+                try { URL.revokeObjectURL(prev.url); } catch { /* ignore */ }
+            }
+            return null;
+        });
+    }, []);
 
-    const filters = ['الأحدث', 'الأعلى تصويتاً', 'تنفيذ', 'مدني', 'جنائي', 'أحوال شخصية', 'شركات', 'عقاري'];
+    const filters = FILTER_LABELS;
     const [selectedFilterIndex, setSelectedFilterIndex] = useState(0);
 
     const activePostForComments = useMemo(() => {
@@ -237,7 +388,9 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
     }, [posts]);
 
     const visiblePosts = useMemo(() => {
-        const list = posts.slice();
+        // تطبيق فلتر الكتم: استبعاد منشورات المستخدمين المكتومين (مع استثناء المنشور لمالكه)
+        const baseList = posts.filter((p) => !mutedIds.has(p.authorId) || p.authorId === currentUserId);
+        const list = baseList.slice();
         if (selectedFilterIndex === 1) {
             list.sort((a, b) => {
                 const aUrg = a.isUrgent === true ? 1 : 0;
@@ -264,9 +417,11 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
             if (aUrg !== bUrg) return bUrg - aUrg;
             return Date.parse(b.createdAt) - Date.parse(a.createdAt);
         });
-    }, [posts, selectedFilterIndex, filters]);
+    }, [posts, selectedFilterIndex, filters, mutedIds, currentUserId]);
 
+    // ⚡ لا نحسب نتائج البحث إلا عند فتح شاشة البحث فعلياً
     const filteredPosts = useMemo(() => {
+        if (!isSearchOpen) return [];
         const q = searchQuery.trim().toLowerCase();
         return posts.filter((p) => {
             const matchesSearch =
@@ -279,20 +434,16 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
             const matchesTag = !selectedTag || p.tags.includes(selectedTag);
             return matchesSearch && matchesPdf && matchesImage && matchesTag;
         });
-    }, [posts, searchQuery, filterHasPdf, filterHasImage, selectedTag]);
-
-    const persistPost = async (post: CommunityPost) => {
-        try {
-            await addCommunityPost(post);
-            return true;
-        } catch {
-            return false;
-        }
-    };
+    }, [isSearchOpen, posts, searchQuery, filterHasPdf, filterHasImage, selectedTag]);
 
     const handleToggleUpvote = async (postId: string) => {
         if (!currentUserId) {
             SmartToast.warning('سجّل الدخول للتصويت');
+            return;
+        }
+        const target = posts.find((p) => p.id === postId);
+        if (target && !canUpvotePost(target, currentUserId)) {
+            SmartToast.warning('لا يمكنك التصويت على منشورك');
             return;
         }
         let nextPost: CommunityPost | null = null;
@@ -309,7 +460,14 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
                 return nextPost;
             }),
         );
-        if (nextPost) void persistPost(nextPost);
+        if (nextPost) {
+            try {
+                const saved = await ForumApiService.syncPost(nextPost);
+                setPosts((prev) => prev.map((p) => (p.id === postId ? saved : p)));
+            } catch {
+                SmartToast.warning('تعذّر حفظ التصويت');
+            }
+        }
         if (wasUpvote && targetUserId && targetUserId !== currentUserId && authUser) {
             import('@/app/services/lawyer-cloud').then(({ NotificationDB }) => {
                 NotificationDB.addNotification({
@@ -326,14 +484,19 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
         }
     };
 
-    const handleAddComment = async (postId: string, content: string, parentId?: string) => {
+    const handleAddComment = async (postId: string, content: string, parentId?: string): Promise<boolean> => {
         if (!currentUserId) {
             SmartToast.warning('سجّل الدخول للتعليق');
-            return;
+            return false;
         }
         if (isBanned) {
             SmartToast.warning('حسابك محظور من التعليق في المنتدى');
-            return;
+            return false;
+        }
+        const rate = checkForumRateLimit('comment', currentUserId);
+        if ('retryAfterSec' in rate) {
+            SmartToast.warning(`انتظر ${rate.retryAfterSec} ثانية قبل تعليق جديد`);
+            return false;
         }
         const commentId =
             typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -354,44 +517,76 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
                 return nextPost;
             }),
         );
-        if (nextPost) {
-            const ok = await persistPost(nextPost);
-            if (ok) {
-                SmartToast.success('تم نشر التعليق');
-            } else {
-                SmartToast.warning('تم حفظ التعليق محلياً');
-            }
+        try {
+            const saved = await ForumApiService.addComment(postId, newComment);
+            setPosts((prev) => prev.map((p) => (p.id === postId ? saved : p)));
+            SmartToast.success('تم نشر التعليق');
+            return true;
+        } catch {
+            setPosts((prev) =>
+                prev.map((p) => {
+                    if (p.id !== postId) return p;
+                    return { ...p, comments: p.comments.filter((c) => c.id !== commentId) };
+                }),
+            );
+            SmartToast.error('تعذّر نشر التعليق');
+            return false;
         }
     };
 
     const handleDeleteComment = async (postId: string, commentId: string) => {
         if (!currentUserId) return;
-        let nextPost: CommunityPost | null = null;
+        const post = posts.find((p) => p.id === postId);
+        const comment = post?.comments.find((c) => c.id === commentId);
+        if (!post || !comment || !canDeleteComment(post, comment, currentUserId, isAdmin)) {
+            SmartToast.warning('لا يمكنك حذف هذا التعليق');
+            return;
+        }
+        const snapshot = posts.find((p) => p.id === postId);
         setPosts((prev) =>
             prev.map((p) => {
                 if (p.id !== postId) return p;
-                const comment = p.comments.find((c) => c.id === commentId);
-                if (!comment || (comment.authorId !== currentUserId && p.authorId !== currentUserId)) return p;
-                const filtered = p.comments.filter((c) => c.id !== commentId && c.parentId !== commentId);
-                nextPost = { ...p, comments: filtered, updatedAt: new Date().toISOString() };
-                return nextPost;
+                const c = p.comments.find((x) => x.id === commentId);
+                if (!c || !canDeleteComment(p, c, currentUserId, isAdmin)) return p;
+                return {
+                    ...p,
+                    comments: p.comments.filter((c) => c.id !== commentId && c.parentId !== commentId),
+                    updatedAt: new Date().toISOString(),
+                };
             }),
         );
-        if (nextPost) {
-            const ok = await persistPost(nextPost);
-            if (ok) SmartToast.success('تم حذف التعليق');
-            else SmartToast.warning('تم حذف التعليق محلياً');
+        try {
+            const saved = await ForumApiService.deleteComment(postId, commentId, isAdmin);
+            setPosts((prev) => prev.map((p) => (p.id === postId ? saved : p)));
+            SmartToast.success('تم حذف التعليق');
+        } catch {
+            if (snapshot) {
+                setPosts((prev) => prev.map((p) => (p.id === postId ? snapshot : p)));
+            }
+            SmartToast.error('تعذّر حذف التعليق');
         }
     };
 
     const handleEditComment = async (postId: string, commentId: string, newContent: string) => {
         if (!currentUserId) return;
+        const post = posts.find((p) => p.id === postId);
+        const comment = post?.comments.find((c) => c.id === commentId);
+        // تمرير post ليتم احترام قفل «أفضل إجابة» في الواجهة (وليس فقط على السيرفر)
+        if (!comment || !post || !canEditComment(comment, currentUserId, post)) {
+            const lockedBest = post && post.bestCommentId === commentId;
+            SmartToast.warning(
+                lockedBest
+                    ? 'لا يمكن تعديل تعليق مميّز كأفضل إجابة'
+                    : 'لا يمكنك تعديل هذا التعليق',
+            );
+            return;
+        }
         let nextPost: CommunityPost | null = null;
         setPosts((prev) =>
             prev.map((p) => {
                 if (p.id !== postId) return p;
-                const comment = p.comments.find((c) => c.id === commentId);
-                if (!comment || comment.authorId !== currentUserId) return p;
+                const c = p.comments.find((x) => x.id === commentId);
+                if (!c || !canEditComment(c, currentUserId, p)) return p;
                 nextPost = {
                     ...p,
                     comments: p.comments.map((c) => (c.id === commentId ? { ...c, content: newContent } : c)),
@@ -400,23 +595,33 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
                 return nextPost;
             }),
         );
-        if (nextPost) {
-            const ok = await persistPost(nextPost);
-            if (ok) SmartToast.success('تم تعديل التعليق');
-            else SmartToast.warning('تم تعديل التعليق محلياً');
+        try {
+            const saved = await ForumApiService.editComment(postId, commentId, newContent);
+            setPosts((prev) => prev.map((p) => (p.id === postId ? saved : p)));
+            SmartToast.success('تم تعديل التعليق');
+        } catch {
+            if (post) {
+                setPosts((prev) => prev.map((p) => (p.id === postId ? post : p)));
+            }
+            SmartToast.error('تعذّر تعديل التعليق');
         }
     };
 
     const handleDeletePost = async (postId: string) => {
         if (!currentUserId) return;
         const post = posts.find((p) => p.id === postId);
-        if (!post || post.authorId !== currentUserId) return;
+        if (!post || !canDeletePost(post, currentUserId, isAdmin)) {
+            SmartToast.warning('لا يمكنك حذف هذا المنشور');
+            return;
+        }
+        const snapshot = posts;
         setPosts((prev) => prev.filter((p) => p.id !== postId));
         try {
-            await deleteCommunityPost(postId, currentUserId ?? undefined);
+            await ForumApiService.deletePost(postId, post.authorId, isAdmin);
             SmartToast.success('تم حذف المنشور');
         } catch {
-            SmartToast.warning('تعذّر حذف المنشور سحابياً، قد يبقى في أجهزة أخرى');
+            setPosts(snapshot);
+            SmartToast.error('تعذّر حذف المنشور');
         }
     };
 
@@ -437,7 +642,14 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
                 return nextPost;
             }),
         );
-        if (nextPost) await persistPost(nextPost);
+        if (nextPost) {
+            try {
+                const saved = await ForumApiService.syncPost(nextPost);
+                setPosts((prev) => prev.map((p) => (p.id === postId ? saved : p)));
+            } catch {
+                SmartToast.error('تعذّر تحديث أفضل إجابة');
+            }
+        }
 
         if (nextBest && post.authorId !== currentUserId) {
             const bestComment = post.comments.find((c) => c.id === commentId);
@@ -459,12 +671,18 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
     };
 
     const handleUploadAttachment = async (file: File, kind: 'image' | 'document') => {
-        if (DEV_MODE && !authUser?.id) {
-            setNewAttachment({
-                type: kind,
-                url: URL.createObjectURL(file),
-                name: file.name,
-                mimeType: file.type,
+        if (FORUM_DEV_OPEN && !authUser?.id) {
+            // إلغاء blob URL سابق إن وُجد لمنع التسريب
+            setNewAttachment((prev) => {
+                if (prev?.url && prev.url.startsWith('blob:')) {
+                    try { URL.revokeObjectURL(prev.url); } catch { /* ignore */ }
+                }
+                return {
+                    type: kind,
+                    url: URL.createObjectURL(file),
+                    name: file.name,
+                    mimeType: file.type,
+                };
             });
             SmartToast.warning('في وضع التطوير: تم إرفاق الملف محلياً (بدون رفع سحابي)');
             return;
@@ -502,6 +720,11 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
         }
         if (isBanned) {
             SmartToast.warning('حسابك محظور من النشر في المنتدى');
+            return;
+        }
+        const postRate = checkForumRateLimit('post', currentUserId);
+        if ('retryAfterSec' in postRate) {
+            SmartToast.warning(`انتظر ${postRate.retryAfterSec} ثانية قبل نشر جديد`);
             return;
         }
         const rawContent = newPostText.trim();
@@ -567,22 +790,23 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
             isAnonymous: newIsAnonymous || undefined,
             isUrgent: newIsUrgent || undefined,
         };
-        setPosts((prev) => [post, ...prev]);
         setIsAddQuestionOpen(false);
         setNewPostText('');
         setNewTagText('');
         setNewIsAnonymous(false);
         setNewIsUrgent(false);
-        setNewAttachment(null);
-        const ok = await persistPost(post);
-        setSubmittingPost(false);
-        if (ok) {
+        removeAttachment(); // يُلغي blob URL إن وُجد
+        try {
+            const saved = await ForumApiService.createPost(post);
+            setPosts((prev) => [saved, ...prev]);
             SmartToast.success('تم نشر الاستشارة');
             if (currentUserId) {
-                notifyFollowers(currentUserId, 'new_post', 'منشور جديد من متابَع', `نشر ${post.authorName} استشارة جديدة`, post.id);
+                notifyFollowers(currentUserId, 'new_post', 'منشور جديد من متابَع', `نشر ${post.authorName} استشارة جديدة`, saved.id);
             }
-        } else {
-            SmartToast.warning('تم حفظ الاستشارة محلياً');
+        } catch {
+            SmartToast.error('تعذّر نشر الاستشارة');
+        } finally {
+            setSubmittingPost(false);
         }
     };
 
@@ -618,8 +842,10 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
 
     const handleEditPost = (postId: string) => {
         const post = posts.find((p) => p.id === postId);
-        if (!post) return;
-        if (post.authorId !== currentUserId) return;
+        if (!post || !canEditPost(post, currentUserId, isAdmin)) {
+            SmartToast.warning('لا يمكنك تعديل هذا المنشور');
+            return;
+        }
         setEditingPostId(postId);
         setEditingText(post.content);
     };
@@ -631,14 +857,32 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
             SmartToast.warning('النص قصير جداً');
             return;
         }
+        if (nextText.length > 10_000) {
+            SmartToast.warning('النص طويل جداً (الحد 10000 حرف)');
+            return;
+        }
+        const targetId = editingPostId;
+        const snapshot = posts.find((p) => p.id === targetId);
+        // تحديث متفائل: المستخدم يرى الإصدار المُعدَّل فوراً مع علامة «معدّل»
+        setPosts((prev) =>
+            prev.map((p) =>
+                p.id === targetId
+                    ? { ...p, content: nextText, isEdited: true, updatedAt: new Date().toISOString() }
+                    : p,
+            ),
+        );
         setSavingEdit(true);
         try {
-            const updated = await updateCommunityPost(editingPostId, nextText, currentUserId ?? undefined);
-            setPosts((prev) => prev.map((p) => (p.id === editingPostId ? updated : p)));
+            const updated = await ForumApiService.updatePost(targetId, nextText);
+            setPosts((prev) => prev.map((p) => (p.id === targetId ? updated : p)));
             SmartToast.success('تم تحديث المنشور');
             setEditingPostId(null);
             setEditingText('');
         } catch {
+            // التراجع عن التحديث المتفائل عند الفشل
+            if (snapshot) {
+                setPosts((prev) => prev.map((p) => (p.id === targetId ? snapshot : p)));
+            }
             SmartToast.error('تعذّر تحديث المنشور');
         } finally {
             setSavingEdit(false);
@@ -650,8 +894,17 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
             SmartToast.warning('سجّل الدخول للإبلاغ');
             return;
         }
+        const reportRate = checkForumRateLimit('report', currentUserId, { postId });
+        if (!reportRate.allowed) {
+            SmartToast.warning('لقد أبلغت عن هذا المنشور مسبقاً أو انتظر قليلاً');
+            return;
+        }
         try {
-            const result = await reportCommunityPost(postId, 'محتوى مخالف', currentUserId);
+            const result = await ForumApiService.reportPost(postId, 'محتوى مخالف');
+            if (result.duplicate) {
+                SmartToast.info('لقد أبلغت عن هذا المنشور مسبقاً');
+                return;
+            }
             if (result.ok) {
                 SmartToast.success('تم رفع البلاغ للإدارة');
             } else {
@@ -663,7 +916,8 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
     };
 
     const handleSharePost = async (postId: string) => {
-        const url = `${window.location.origin}/#community/post/${postId}`;
+        const url = buildCommunityPostShareUrl(postId);
+        setCommunityPostHash(postId);
         try {
             await navigator.clipboard.writeText(url);
             SmartToast.success('تم نسخ الرابط');
@@ -673,16 +927,150 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
     };
 
     const handleTogglePin = async (postId: string) => {
+        if (!canPinPost(isAdmin)) {
+            SmartToast.warning('التثبيت متاح للإدارة فقط');
+            return;
+        }
         const post = posts.find((p) => p.id === postId);
         if (!post) return;
         const nextPinned = !post.isPinned;
         try {
-            const updated = await togglePinCommunityPost(postId, nextPinned);
+            const updated = await ForumApiService.togglePin(postId, nextPinned);
             setPosts((prev) => prev.map((p) => (p.id === postId ? updated : p)));
             SmartToast.success(nextPinned ? 'تم تثبيت المنشور' : 'تم إلغاء تثبيت المنشور');
         } catch {
             SmartToast.error('تعذّر تحديث حالة التثبيت');
         }
+    };
+
+    const handleToggleBookmark = async (postId: string) => {
+        if (!currentUserId) {
+            SmartToast.warning('سجّل الدخول لحفظ المنشور');
+            return;
+        }
+        const wasBookmarked = bookmarkedIds.has(postId);
+        // تحديث متفائل
+        setBookmarkedIds((prev) => {
+            const next = new Set(prev);
+            if (wasBookmarked) next.delete(postId);
+            else next.add(postId);
+            return next;
+        });
+        try {
+            const bookmarked = await ForumApiService.toggleBookmark(postId);
+            setBookmarkedIds((prev) => {
+                const next = new Set(prev);
+                if (bookmarked) next.add(postId);
+                else next.delete(postId);
+                return next;
+            });
+            SmartToast.success(bookmarked ? 'تم حفظ المنشور' : 'تم إلغاء الحفظ');
+        } catch {
+            // التراجع
+            setBookmarkedIds((prev) => {
+                const next = new Set(prev);
+                if (wasBookmarked) next.add(postId);
+                else next.delete(postId);
+                return next;
+            });
+            SmartToast.error('تعذّر تحديث حالة الحفظ');
+        }
+    };
+
+    const handleToggleCommentUpvote = async (commentId: string) => {
+        if (!currentUserId || !commentingPostId) return;
+        // تحديث متفائل: نُبدّل عضوية المستخدم في upvoterIds للتعليق
+        let didOptimisticUpdate = false;
+        setPosts((prev) =>
+            prev.map((p) => {
+                if (p.id !== commentingPostId) return p;
+                return {
+                    ...p,
+                    comments: p.comments.map((c) => {
+                        if (c.id !== commentId) return c;
+                        const set = new Set(c.upvoterIds ?? []);
+                        if (set.has(currentUserId)) set.delete(currentUserId);
+                        else set.add(currentUserId);
+                        didOptimisticUpdate = true;
+                        return { ...c, upvoterIds: [...set] };
+                    }),
+                };
+            }),
+        );
+        try {
+            const { upvoterIds } = await ForumApiService.toggleCommentUpvote(commentId);
+            // مطابقة الحالة من السيرفر (مصدر الحقيقة)
+            setPosts((prev) =>
+                prev.map((p) => {
+                    if (p.id !== commentingPostId) return p;
+                    return {
+                        ...p,
+                        comments: p.comments.map((c) =>
+                            c.id === commentId ? { ...c, upvoterIds } : c,
+                        ),
+                    };
+                }),
+            );
+        } catch {
+            if (didOptimisticUpdate) {
+                // تراجع — نعكس العملية
+                setPosts((prev) =>
+                    prev.map((p) => {
+                        if (p.id !== commentingPostId) return p;
+                        return {
+                            ...p,
+                            comments: p.comments.map((c) => {
+                                if (c.id !== commentId) return c;
+                                const set = new Set(c.upvoterIds ?? []);
+                                if (set.has(currentUserId)) set.delete(currentUserId);
+                                else set.add(currentUserId);
+                                return { ...c, upvoterIds: [...set] };
+                            }),
+                        };
+                    }),
+                );
+            }
+            SmartToast.warning('تعذّر تسجيل الإعجاب');
+        }
+    };
+
+    const handleToggleLock = async (postId: string) => {
+        if (!currentUserId) return;
+        const post = posts.find((p) => p.id === postId);
+        if (!post) return;
+        if (post.authorId !== currentUserId && !isAdmin) {
+            SmartToast.warning('قفل النقاش متاح لصاحب المنشور أو الإدارة');
+            return;
+        }
+        const nextLocked = !post.isLocked;
+        try {
+            const updated = await ForumApiService.toggleLockDiscussion(postId, nextLocked);
+            setPosts((prev) => prev.map((p) => (p.id === postId ? updated : p)));
+            SmartToast.success(nextLocked ? 'تم قفل النقاش' : 'تم فتح النقاش');
+        } catch {
+            SmartToast.error('تعذّر تحديث حالة القفل');
+        }
+    };
+
+    const handleReportComment = async (commentId: string) => {
+        if (!currentUserId) {
+            SmartToast.warning('سجّل الدخول للإبلاغ');
+            return;
+        }
+        try {
+            const r = await ForumApiService.reportComment(commentId, 'محتوى مخالف');
+            if (r.duplicate) SmartToast.info('أبلغت عن هذا التعليق مسبقاً');
+            else if (r.ok) SmartToast.success('تم رفع البلاغ');
+            else SmartToast.error('تعذّر إرسال البلاغ');
+        } catch {
+            SmartToast.error('تعذّر إرسال البلاغ');
+        }
+    };
+
+    const handleMuteUser = (targetUserId: string) => {
+        if (!currentUserId || targetUserId === currentUserId) return;
+        toggleMute(targetUserId);
+        SmartToast.info(isMuted(targetUserId) ? 'تم إلغاء الكتم' : 'تم كتم المستخدم');
     };
 
     const handleFollow = async (targetUserId: string) => {
@@ -706,7 +1094,7 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
     if (authIsLoading) {
         return <div dir="rtl" className="w-full h-full bg-[#151822]" />;
     }
-    if (!DEV_MODE && (!authUser || !hasRole('lawyer'))) {
+    if (!FORUM_DEV_OPEN && (!authUser || !hasRole('lawyer'))) {
         return (
             <div dir="rtl" className="w-full h-full bg-[#151822] flex items-center justify-center p-6 text-center">
                 <div className="bg-white/5 border border-white/10 rounded-3xl p-6 max-w-md w-full">
@@ -761,6 +1149,10 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
                             onTogglePin={handleTogglePin}
                             onFollow={handleFollow}
                             followingIds={followingIds}
+                            bookmarkedIds={bookmarkedIds}
+                            onToggleBookmark={handleToggleBookmark}
+                            onToggleLock={handleToggleLock}
+                            onMuteUser={handleMuteUser}
                             userStats={userStats}
                         />
                     </>
@@ -816,6 +1208,11 @@ export const CommunityScreen = ({ onBack }: { onBack?: () => void }) => {
                     onFollow={handleFollow}
                     followingIds={followingIds}
                     userStats={userStats}
+                    isAdmin={isAdmin}
+                    onToggleCommentUpvote={handleToggleCommentUpvote}
+                    onReportComment={handleReportComment}
+                    onMuteUser={handleMuteUser}
+                    mutedUserIds={mutedIds}
                 />
             )}
 

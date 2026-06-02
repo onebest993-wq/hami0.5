@@ -188,6 +188,7 @@ Deno.serve(async (req: Request) => {
     const lawNameRaw = p.law_name;
     const articleRaw = p.article_number;
     const contentRaw = p.content;
+    const skipEmbeddingRaw = p.skip_embedding;
 
     const law_name = typeof lawNameRaw === "string"
         ? lawNameRaw.trim()
@@ -196,6 +197,7 @@ Deno.serve(async (req: Request) => {
         ? ""
         : String(articleRaw).trim();
     const content = typeof contentRaw === "string" ? contentRaw.trim() : "";
+    const skipEmbedding = skipEmbeddingRaw === true;
 
     if (!law_name) {
         return jsonResponse(
@@ -219,31 +221,39 @@ Deno.serve(async (req: Request) => {
         );
     }
 
-    let embedding: number[];
-    let modelUsed: string;
-    try {
-        const r = await fetchGeminiEmbedding(content, apiKey);
-        embedding = r.values;
-        modelUsed = r.modelUsed;
-    } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        return jsonResponse(
-            { ok: false, error: `فشل توليد التضمين: ${msg}` },
-            502,
-            req,
-        );
+    let embedding: number[] | null = null;
+    let modelUsed: string | null = null;
+    let embeddingFallbackUsed = false;
+    let embeddingWarning: string | null = null;
+    if (!skipEmbedding) {
+        try {
+            const r = await fetchGeminiEmbedding(content, apiKey);
+            embedding = r.values;
+            modelUsed = r.modelUsed;
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            embeddingFallbackUsed = true;
+            embeddingWarning = `Fallback: تعذر توليد embedding للمادة ${article_number}: ${msg}`;
+            // تحذير سيرفر فقط: لا نوقف مسار الحفظ.
+            console.warn(embeddingWarning);
+        }
+    } else {
+        embeddingFallbackUsed = true;
+        embeddingWarning = `Skip embedding requested for article ${article_number}.`;
     }
 
     const supabase = createClient(supabaseUrl, serviceKey, {
         auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    const row = {
+    const row: Record<string, unknown> = {
         law_name,
         article_number,
         content,
-        embedding: vectorLiteral(embedding),
     };
+    if (embedding && embedding.length > 0) {
+        row.embedding = vectorLiteral(embedding);
+    }
 
     const { data, error } = await supabase
         .from("iraqi_laws")
@@ -266,9 +276,13 @@ Deno.serve(async (req: Request) => {
     return jsonResponse(
         {
             ok: true,
-            message: "تم حفظ المادة والتضمين بنجاح.",
+            message: embeddingFallbackUsed
+                ? "تم حفظ المادة بنجاح (مع الاحتفاظ بالنصوص محلياً)."
+                : "تم حفظ المادة والتضمين بنجاح.",
             embedding_model: modelUsed,
-            embedding_dimensions: EMBEDDING_DIM,
+            embedding_dimensions: embedding ? EMBEDDING_DIM : 0,
+            embedding_fallback_used: embeddingFallbackUsed,
+            embedding_warning: embeddingWarning,
             record: data,
         },
         200,

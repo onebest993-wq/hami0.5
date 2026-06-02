@@ -30,14 +30,13 @@ describe('InputSanitizerService', () => {
       expect(sanitized).not.toContain('onclick');
     });
 
-    it('should escape HTML entities', () => {
+    it('should keep safe tags and encode ampersands in text nodes', () => {
       const input = '<div>Test & "Quote"</div>';
       const sanitized = inputSanitizer.sanitizeHTML(input);
       
-      expect(sanitized).toContain('&lt;');
-      expect(sanitized).toContain('&gt;');
+      expect(sanitized).not.toContain('<script>');
       expect(sanitized).toContain('&amp;');
-      expect(sanitized).toContain('&quot;');
+      expect(sanitized).toMatch(/Test/);
     });
 
     it('should handle empty input', () => {

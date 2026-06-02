@@ -1,9 +1,12 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { MapPin, Pin, X } from 'lucide-react';
+import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
+import { buildTaskWorkspacePin } from '@/app/workspace/workspacePinBuilders';
 import type { LegalTask } from '@/app/types/TaskEngine';
-import { useQuantumTasksContext } from '@/app/context/QuantumTasksContext';
+import { useQuantumTasksContext } from '@/app/hooks/useQuantumTasksContext';
+import { useFatalTaskComplete } from '@/app/hooks/useFatalTaskComplete';
 import { delegateLocationLines } from '@/app/utils/taskDelegation';
 import { buildFieldGrouping, type FieldViewRow } from '@/app/utils/fieldViewGrouping';
 import {
@@ -19,6 +22,8 @@ export type FieldTasksBottomSheetProps = {
     open: boolean;
     onClose: () => void;
     onManageAll: () => void;
+    lawsuitFiles?: unknown[];
+    executionFiles?: unknown[];
 };
 
 function rowToLine(r: FieldViewRow): string {
@@ -26,9 +31,16 @@ function rowToLine(r: FieldViewRow): string {
     return `${r.task.title.trim()} ← فرع: ${r.subTask.title.trim()}`;
 }
 
-export const FieldTasksBottomSheet: React.FC<FieldTasksBottomSheetProps> = ({ open, onClose, onManageAll }) => {
+export const FieldTasksBottomSheet: React.FC<FieldTasksBottomSheetProps> = ({
+    open,
+    onClose,
+    onManageAll,
+    lawsuitFiles = [],
+    executionFiles = [],
+}) => {
     const { pendingTasks, completeTask } = useQuantumTasksContext();
-    const [fatalConfirmId, setFatalConfirmId] = useState<string | null>(null);
+    const { fatalOpen, requestComplete, confirmFatalComplete, cancelFatalComplete } =
+        useFatalTaskComplete(completeTask);
 
     const pinnedToCurtain = useMemo(
         () => pendingTasks.filter((t) => t.pinnedToFieldCurtain && !t.isFatalDeadline),
@@ -50,26 +62,7 @@ export const FieldTasksBottomSheet: React.FC<FieldTasksBottomSheetProps> = ({ op
         return { locationEntries: pairs };
     }, [pendingTasks]);
 
-    const requestToggle = useCallback(
-        (task: LegalTask) => {
-            if (task.isFatalDeadline) {
-                setFatalConfirmId(task.id);
-                return;
-            }
-            completeTask(task.id);
-        },
-        [completeTask],
-    );
-
-    const confirmFatalComplete = useCallback(() => {
-        if (fatalConfirmId === null) return;
-        completeTask(fatalConfirmId);
-        setFatalConfirmId(null);
-    }, [fatalConfirmId, completeTask]);
-
     if (typeof document === 'undefined') return null;
-
-    const fatalOpen = fatalConfirmId !== null;
     const hasAny = pinnedToCurtain.length > 0 || locationEntries.length > 0;
 
     return createPortal(
@@ -79,7 +72,7 @@ export const FieldTasksBottomSheet: React.FC<FieldTasksBottomSheetProps> = ({ op
                     <Dialog
                         open={fatalOpen}
                         onOpenChange={(o) => {
-                            if (!o) setFatalConfirmId(null);
+                            if (!o) cancelFatalComplete();
                         }}
                     >
                         <DialogContent className="border-[#D4AF37]/40 bg-[#0B1021] text-white sm:max-w-md [&]:translate-x-[-50%] [&]:translate-y-[-50%]">
@@ -102,7 +95,7 @@ export const FieldTasksBottomSheet: React.FC<FieldTasksBottomSheetProps> = ({ op
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => setFatalConfirmId(null)}
+                                    onClick={cancelFatalComplete}
                                     className="px-4 py-2 rounded-lg border border-white/20 bg-white/5 hover:bg-white/10 text-white text-xs font-bold transition-colors"
                                 >
                                     إلغاء
@@ -184,11 +177,12 @@ export const FieldTasksBottomSheet: React.FC<FieldTasksBottomSheetProps> = ({ op
                                                                     : 'border-white/10 bg-white/[0.04]'
                                                             }`}
                                                         >
-                                                            <label className="flex items-start gap-2 cursor-pointer">
+                                                            <div className="flex items-start gap-2">
+                                                                <label className="flex items-start gap-2 cursor-pointer flex-1 min-w-0">
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={false}
-                                                                    onChange={() => requestToggle(task)}
+                                                                    onChange={() => requestComplete(task)}
                                                                     className="mt-0.5 h-4 w-4 rounded border-white/25 bg-black/30 accent-amber-500 shrink-0"
                                                                 />
                                                                 <span className="min-w-0 flex-1 flex flex-col gap-1">
@@ -207,6 +201,13 @@ export const FieldTasksBottomSheet: React.FC<FieldTasksBottomSheetProps> = ({ op
                                                                     ) : null}
                                                                 </span>
                                                             </label>
+                                                            {(() => {
+                                                                const clusterPin = buildTaskWorkspacePin(task, lawsuitFiles, executionFiles);
+                                                                return clusterPin ? (
+                                                                    <WorkspacePinButton item={clusterPin} className="!w-7 !h-7 shrink-0" size={14} />
+                                                                ) : null;
+                                                            })()}
+                                                            </div>
                                                         </li>
                                                     );
                                                 })}
@@ -248,17 +249,25 @@ export const FieldTasksBottomSheet: React.FC<FieldTasksBottomSheetProps> = ({ op
                                                                         : 'border-white/10 bg-white/[0.04]'
                                                                 }`}
                                                             >
-                                                                <label className="flex items-start gap-2 cursor-pointer">
+                                                                <div className="flex items-start gap-2">
+                                                                    <label className="flex items-start gap-2 cursor-pointer flex-1 min-w-0">
                                                                     <input
                                                                         type="checkbox"
                                                                         checked={false}
-                                                                        onChange={() => requestToggle(task)}
+                                                                        onChange={() => requestComplete(task)}
                                                                         className="mt-0.5 h-4 w-4 rounded border-white/25 bg-black/30 accent-amber-500 shrink-0"
                                                                     />
                                                                     <span className="min-w-0 flex-1 text-white text-sm font-bold leading-snug">
                                                                         {task.title}
                                                                     </span>
-                                                                </label>
+                                                                    </label>
+                                                                    {(() => {
+                                                                        const clusterPin = buildTaskWorkspacePin(task, lawsuitFiles, executionFiles);
+                                                                        return clusterPin ? (
+                                                                            <WorkspacePinButton item={clusterPin} className="!w-7 !h-7 shrink-0" size={14} />
+                                                                        ) : null;
+                                                                    })()}
+                                                                </div>
                                                             </li>
                                                         );
                                                     }

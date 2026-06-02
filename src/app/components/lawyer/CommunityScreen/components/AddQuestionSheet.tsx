@@ -4,6 +4,11 @@ import { X, ImageIcon, Paperclip, FileText, Mic, Loader2, EyeOff } from 'lucide-
 import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 
+/** الحد الأعلى لطول المنشور — يجب أن يطابق حدّ السيرفر (10K) */
+const POST_MAX_LENGTH = 10_000;
+/** الحد الأعلى لطول حقل الوسوم */
+const TAGS_MAX_LENGTH = 200;
+
 interface AddQuestionSheetProps {
     isOpen: boolean;
     newPostText: string;
@@ -91,19 +96,31 @@ export const AddQuestionSheet = ({
                             <textarea
                                 value={newPostText}
                                 onChange={(e) => {
-                                    onNewPostTextChange(e.target.value);
+                                    // قص الإدخال لمنع تجاوز حد السيرفر
+                                    onNewPostTextChange(e.target.value.slice(0, POST_MAX_LENGTH));
                                 }}
                                 className="w-full h-32 bg-[#151822] text-white rounded-xl p-4 border border-white/5 focus:border-[#E6C673]/50 focus:outline-none resize-none placeholder-white/30 text-sm"
                                 placeholder="اكتب تفاصيل استشارتك هنا بوضوح..."
+                                maxLength={POST_MAX_LENGTH}
                             />
+                            {newPostText.length > POST_MAX_LENGTH * 0.7 && (
+                                <div
+                                    className={`text-[11px] text-left mt-1 ${
+                                        newPostText.length >= POST_MAX_LENGTH ? 'text-red-400' : 'text-white/40'
+                                    }`}
+                                >
+                                    {newPostText.length.toLocaleString('ar-EG')} / {POST_MAX_LENGTH.toLocaleString('ar-EG')}
+                                </div>
+                            )}
                         </div>
 
                         <div className="mb-4">
                             <input
                                 value={newTagText}
-                                onChange={(e) => onNewTagTextChange(e.target.value)}
+                                onChange={(e) => onNewTagTextChange(e.target.value.slice(0, TAGS_MAX_LENGTH))}
                                 className="w-full h-12 bg-[#151822] text-white rounded-xl px-4 border border-white/5 focus:border-[#E6C673]/50 focus:outline-none placeholder-white/30 text-sm"
                                 placeholder="وسوم اختيارية: تنفيذ، مدني، عقاري..."
+                                maxLength={TAGS_MAX_LENGTH}
                             />
                         </div>
 

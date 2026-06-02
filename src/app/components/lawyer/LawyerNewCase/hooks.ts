@@ -11,7 +11,6 @@ export interface LawyerNewCaseState {
     mainCategory: MainCategory | null;
     selectedType: CaseType;
     isAnalyzing: boolean;
-    isExpertMode: boolean;
     civilSubView: CivilSubView;
     activeFileType: 'order' | 'discovery' | 'acknowledgment' | null;
     activeFileData: Record<string, unknown> | null;
@@ -42,7 +41,6 @@ export const useLawyerNewCase = () => {
     const [mainCategory, setMainCategory] = useState<MainCategory | null>('lawsuit');
     const [selectedType, setSelectedType] = useState<CaseType>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [isExpertMode, setIsExpertMode] = useState(false);
     const [civilSubView, setCivilSubView] = useState<CivilSubView>('main-form');
     const [activeFileType, setActiveFileType] = useState<'order' | 'discovery' | 'acknowledgment' | null>(null);
     const [activeFileData, setActiveFileData] = useState<Record<string, unknown> | null>(null);
@@ -161,7 +159,6 @@ export const useLawyerNewCase = () => {
         mainCategory, setMainCategory,
         selectedType, setSelectedType,
         isAnalyzing, setIsAnalyzing,
-        isExpertMode, setIsExpertMode,
         civilSubView, setCivilSubView,
         activeFileType, setActiveFileType,
         activeFileData, setActiveFileData,

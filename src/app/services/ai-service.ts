@@ -77,7 +77,11 @@ async function callOpenRouter(
 
     const controller = new AbortController();
     const timeoutMs = typeof opts.timeoutMs === 'number' ? opts.timeoutMs : DEFAULT_TIMEOUT_MS;
-    const timer = setTimeout(() => controller.abort(), Math.max(1500, timeoutMs));
+    let didTimeout = false;
+    const timer = setTimeout(() => {
+        didTimeout = true;
+        controller.abort();
+    }, Math.max(1500, timeoutMs));
 
     try {
         const guardedMessages = withSystemGuard(messages);
@@ -107,6 +111,12 @@ async function callOpenRouter(
         const data = result && typeof result === 'object' ? (result as OpenRouterResponse) : null;
         return cleanupModelText(pickContent(data));
     } catch (e) {
+        if (e instanceof Error && e.name === 'AbortError') {
+            if (didTimeout) {
+                throw new Error('انتهت مهلة الاتصال بالخادم. حاول مرة أخرى.');
+            }
+            throw e;
+        }
         if (opts.debugLogErrors && e instanceof SecureFetchError) {
             console.error('OpenRouter Error:', e.status, e.bodyText);
         }

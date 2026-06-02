@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Clock, AlertCircle, CheckCircle2, Scale, FileText, MapPin, Calendar, Trash2, RotateCcw } from 'lucide-react';
+import { preloadActiveOrderFilePanel } from './DeferredActiveOrderFile';
+import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
+import { buildUrgentWorkspacePin } from '@/app/workspace/workspacePinBuilders';
 
 export type UrgentCaseStatus = 'critical' | 'warning' | 'safe' | 'expired' | 'completed';
 export type UrgentCaseType = 'urgent_action' | 'state_order';
@@ -72,6 +75,8 @@ export interface UrgentCase {
     courtName?: string;
     judgeName?: string;
     specificActionType?: string;
+    /** تصنيف ثنائي: أوامر على عرائض | قضاء مستعجل — يتحكم بمسار التظلم والتمييز */
+    procedureCategory?: 'petition_orders' | 'urgent_judiciary' | null;
     /** Phase 25 — تفاصيل جوهرية للإجراء (مرتبطة بنوع الطلب) */
     procedureDetails?: string | null;
     requestSubject?: string;
@@ -435,11 +440,13 @@ const Component_Urgent_CardInner: React.FC<Props> = ({
     const quickAction = getQuickActionButton();
 
     const config = getStatusConfig();
+    const workspacePin = buildUrgentWorkspacePin(case_data);
     return (
         <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             whileHover={{ scale: 1.02 }}
+            onPointerEnter={() => preloadActiveOrderFilePanel()}
             onClick={() => onCaseClick?.(case_data.id)}
             className={`font-['Tajawal'] group relative bg-gradient-to-br ${config.bg} border-2 ${config.border} rounded-2xl p-5 cursor-pointer transition-all hover:shadow-xl hover:shadow-black/20`}
         >
@@ -449,6 +456,11 @@ const Component_Urgent_CardInner: React.FC<Props> = ({
             </div>
 
             <div className="absolute top-3 left-12 flex items-center gap-1 opacity-100 transition-all">
+                {workspacePin ? (
+                    <div onPointerDown={(e) => e.stopPropagation()} role="presentation">
+                        <WorkspacePinButton item={workspacePin} />
+                    </div>
+                ) : null}
                 {scope === 'trash' ? (
                     <>
                         <button

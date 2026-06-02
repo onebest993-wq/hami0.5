@@ -1,5 +1,4 @@
 /** Barrel: stable import path for tab/modal helpers; modal body uses lazy chunks via lazySmartFileModalWidgets */
-export { GhostAIInsightDeck } from './parts/GhostAIInsightDeck';
 export { StageTabs } from './parts/StageTabs';
 export { FinancialCard } from './parts/FinancialCard';
 export { SmartHeader } from './parts/SmartHeader';

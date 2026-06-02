@@ -121,7 +121,9 @@ export function useRealtime(options: UseRealtimeOptions): UseRealtimeState {
    */
   useEffect(() => {
     if (!enabled || !userId) {
-      debug.log('[useRealtime] التحديثات الفورية معطلة');
+      if (enabled && !userId) {
+        debug.log('[useRealtime] في انتظار معرف المستخدم...');
+      }
       setState(prev => ({ ...prev, isConnected: false }));
       return;
     }

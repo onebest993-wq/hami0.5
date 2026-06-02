@@ -69,7 +69,7 @@ export class RealtimeService {
     // ✅ FIX: تعطيل Realtime لأن جدول execution_files غير موجود
     // النظام يعمل بـ LocalStorage حالياً
     const channelId = `execution-files-${userId}-${++this.subscriptionCount}`;
-    debug.log('[RealtimeService] Realtime disabled - using LocalStorage mode');
+    debug.log('[RealtimeService] ملفات التنفيذ: التحديث الفوري غير مفعّل (وضع محلي)');
     
     // إرجاع subscription ID وهمي
     return channelId;

@@ -3,6 +3,7 @@ import { SmartToast } from '@/app/components/ui/SmartToast';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import { SmartVaultDB, SmartVaultDoc, LawyerStorage, uuidv4 } from '@/app/services/lawyer-cloud';
 import { useAuth } from '@/app/context/AuthContext';
+import { useLawyerSettingsOptional } from '@/app/context/LawyerSettingsContext';
 
 // --- Types ---
 export type FilterTag = 'الكل' | 'عقود' | 'طابو' | 'عرائض' | 'أخرى';
@@ -82,7 +83,7 @@ interface UseSmartVaultReturn {
     // Setters
     setSearchQuery: React.Dispatch<React.SetStateAction<string>>;
     setActiveFilter: React.Dispatch<React.SetStateAction<FilterTag>>;
-    setViewMode: React.Dispatch<React.SetStateAction<ViewMode>>;
+    setViewMode: (mode: ViewMode) => void;
     setOpenDropdownId: React.Dispatch<React.SetStateAction<string | null>>;
     setActiveSummaryDoc: React.Dispatch<React.SetStateAction<SmartVaultDoc | null>>;
 
@@ -109,7 +110,18 @@ export const useSmartVault = (onClose: () => void, propUserId?: string): UseSmar
     const [activeSummaryDoc, setActiveSummaryDoc] = useState<SmartVaultDoc | null>(null);
     const [mounted, setMounted] = useState(false);
     const [activeFilter, setActiveFilter] = useState<FilterTag>('الكل');
-    const [viewMode, setViewMode] = useState<ViewMode>('grid');
+    const lawyerSettings = useLawyerSettingsOptional();
+    const viewMode: ViewMode = lawyerSettings?.settings.workflow.viewMode ?? 'grid';
+
+    const setViewMode = useCallback(
+        (mode: ViewMode) => {
+            lawyerSettings?.setSettings((prev) => ({
+                ...prev,
+                workflow: { ...prev.workflow, viewMode: mode },
+            }));
+        },
+        [lawyerSettings],
+    );
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -138,10 +150,12 @@ export const useSmartVault = (onClose: () => void, propUserId?: string): UseSmar
     }, [currentUserId]);
 
     useEffect(() => {
-        if (currentUserId) loadDocs();
-        else {
-            SmartVaultDB.listDocs().then(setDocs).catch(() => {}).finally(() => setIsLoading(false));
+        if (!currentUserId) {
+            setDocs([]);
+            setIsLoading(false);
+            return;
         }
+        void loadDocs();
     }, [currentUserId, loadDocs]);
 
     useEffect(() => {
@@ -193,7 +207,7 @@ export const useSmartVault = (onClose: () => void, propUserId?: string): UseSmar
                     mimeType: file.type,
                     storagePath: uploadResult.path,
                     signedUrl: uploadResult.downloadUrl || null,
-                    isProcessing: true,
+                    isProcessing: false,
                     boundDossierId: null,
                 };
 
@@ -245,7 +259,7 @@ export const useSmartVault = (onClose: () => void, propUserId?: string): UseSmar
                 tags: newTags.length > 0 ? newTags : inferTags(newTitle),
                 updatedAt: new Date().toISOString(),
             };
-            await SmartVaultDB.updateDoc(updated);
+            await SmartVaultDB.updateDoc(updated, currentUserId);
             SmartToast.success('تم تحديث الملف بنجاح');
             await loadDocs();
         } catch {
@@ -254,11 +268,15 @@ export const useSmartVault = (onClose: () => void, propUserId?: string): UseSmar
     };
 
     const handleBindToDossier = async (doc: SmartVaultDoc) => {
+        if (!currentUserId || doc.authorId !== currentUserId) {
+            SmartToast.error('ليس لديك صلاحية لربط هذا الملف');
+            return;
+        }
         const dossierId = await SmartDialog.prompt('أدخل رقم/معرف الإضبارة لربط الملف بها:', '');
         if (!dossierId || !dossierId.trim()) return;
 
         try {
-            await SmartVaultDB.bindToDossier(doc.id, doc.authorId, dossierId.trim());
+            await SmartVaultDB.bindToDossier(doc.id, currentUserId, dossierId.trim());
             SmartToast.success(`تم ربط الملف بالإضبارة ${dossierId.trim()}`);
             await loadDocs();
         } catch {
@@ -285,16 +303,9 @@ export const useSmartVault = (onClose: () => void, propUserId?: string): UseSmar
     const handleAISearch = async () => {
         if (!searchQuery.trim()) return;
         setIsSearching(true);
-        const q = searchQuery.toLowerCase();
-        const results = filteredDocs.filter(
-            (d) =>
-                d.title.toLowerCase().includes(q) ||
-                d.tags.some((t) => t.includes(q)) ||
-                (d.aiSummary?.toLowerCase().includes(q) ?? false)
-        );
-        await new Promise((r) => setTimeout(r, 300));
-        if (results.length === 0) {
-            SmartToast.info('لم يتم العثور على نتائج للبحث الذكي');
+        await new Promise((r) => setTimeout(r, 120));
+        if (filteredDocs.length === 0) {
+            SmartToast.info('لم يتم العثور على نتائج مطابقة');
         }
         setIsSearching(false);
     };

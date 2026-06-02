@@ -8,6 +8,7 @@ import {
 import type { Transaction, DepartmentType } from '../types';
 import { DEPARTMENTS } from '../constants';
 import { getDepartmentInfo } from '../utils';
+import { useLawyerSettingsOptional } from '@/app/context/LawyerSettingsContext';
 
 export interface ArchiveViewProps {
   transactions: Transaction[];
@@ -17,6 +18,8 @@ export interface ArchiveViewProps {
 }
 
 export const ArchiveView = ({ transactions, onBack, onReopen, onOpenDetails }: ArchiveViewProps) => {
+  const lawyerSettings = useLawyerSettingsOptional();
+  const viewMode = lawyerSettings?.settings.workflow.viewMode ?? 'grid';
   const [searchQuery, setSearchQuery] = useState('');
   const [searchType, setSearchType] = useState<'client' | 'property' | 'vehicle' | 'tax'>('client');
 
@@ -115,7 +118,11 @@ export const ArchiveView = ({ transactions, onBack, onReopen, onOpenDetails }: A
           return (
             <motion.div
               key={tx.id}
-              className="bg-gradient-to-br from-gray-800/30 to-gray-900/20 border border-gray-700/30 rounded-3xl p-5"
+              className={
+                viewMode === 'list'
+                  ? 'bg-gradient-to-br from-gray-800/30 to-gray-900/20 border border-gray-700/30 rounded-2xl p-4 flex gap-4 items-start'
+                  : 'bg-gradient-to-br from-gray-800/30 to-gray-900/20 border border-gray-700/30 rounded-3xl p-5'
+              }
               whileHover={{ y: -2 }}
             >
               <div className="flex items-center gap-3 mb-3">

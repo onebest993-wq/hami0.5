@@ -18,8 +18,7 @@ export const COLORS = {
 // ⚡ PERFORMANCE: Memoized Font Injection
 export const FontInjector = React.memo(() => (
   <style>{`
-    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap');
-    body { font-family: 'Tajawal', sans-serif; background-color: #05060D; color: white; }
+    body { font-family: 'Tajawal', 'Cairo', sans-serif; background-color: #05060D; color: white; }
     
     /* ROYAL TEXTURE PATTERN */
     .royal-texture {
@@ -96,9 +95,9 @@ export const GlassCard = React.memo(({ children, className, onClick, style }: Gl
                 className
             )}
             style={{
-                backgroundColor: themeConfig.cardColor,
-                borderColor: `${themeConfig.accentColor}26`, // 15% opacity
-                boxShadow: `0 4px 30px -5px ${themeConfig.glowColor}0D`, // 5% opacity
+                backgroundColor: `rgba(26, 30, 46, var(--glass-opacity, 0.88))`,
+                borderColor: `${themeConfig.accentColor}26`,
+                boxShadow: `0 4px 30px -5px ${themeConfig.glowColor}0D`,
                 ...style
             }}
         >

@@ -64,22 +64,38 @@ describe('urgent domain', () => {
         expect(list[0]?.archived).toBe(true);
     });
 
-    it('createCaseFromForm builds state_order with default deadline', () => {
+    it('createCaseFromForm builds petition_orders with grievance phase', () => {
         const fixed = new Date('2026-05-01T12:00:00.000Z');
         const c = createCaseFromForm(
             {
                 actionType: 'state_order',
-                specificActionType: 'منع السفر',
+                specificActionType: 'وضع إشارة عدم التصرف',
                 party1Name: 'طالب',
                 courtName: 'محكمة بغداد',
                 requestDate: '2026-05-01',
             },
             { now: fixed },
         );
-        expect(c.type).toBe('state_order');
+        expect(c.procedureCategory).toBe('petition_orders');
+        expect(c.phase).toBe('grievance_window');
         expect(c.applicantName).toBe('طالب');
-        expect(c.deadlineDays).toBe(3);
         expect(c.id).toBeTruthy();
+    });
+
+    it('createCaseFromForm builds urgent_judiciary without grievance phase', () => {
+        const fixed = new Date('2026-05-01T12:00:00.000Z');
+        const c = createCaseFromForm(
+            {
+                specificActionType: 'الحجز الاحتياطي',
+                party1Name: 'طالب',
+                courtName: 'محكمة بغداد',
+                requestDate: '2026-05-01',
+            },
+            { now: fixed },
+        );
+        expect(c.procedureCategory).toBe('urgent_judiciary');
+        expect(c.type).toBe('urgent_action');
+        expect(c.phase).toBe('notification_pending');
     });
 
     it('serializeCaseForStorage ISO-dates deadline fields', () => {

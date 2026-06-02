@@ -3,15 +3,15 @@
  * في التطوير: يُستدعى عبر وسيط Vite على ‎/api/legal-analysis‎.
  */
 
-import { SecureAPIClient, SecureFetchError } from '../../services/SecureAPIClient';
+import { SecureAPIClient, SecureFetchError } from '../../services/SecureAPIClient.ts';
 import {
     extractUserTokenFromRequest,
     isTokenAuthorized,
     verifyWifeSignature,
     wifeForbiddenResponse,
     wifeUnauthorizedResponse,
-} from '../security/wifeValidator';
-import { sanitizePayload } from '../security/sanitizer';
+} from '../security/wifeValidator.ts';
+import { sanitizePayload } from '../security/sanitizer.ts';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 

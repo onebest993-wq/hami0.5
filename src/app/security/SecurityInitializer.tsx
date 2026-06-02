@@ -5,12 +5,9 @@
  */
 
 import { useEffect, type ComponentType } from 'react';
-import {
-  rateLimitService,
-  inputSanitizer,
-  securityHeaders,
-  securityAudit,
-} from '@/app/services';
+import { rateLimitService } from '@/app/services/RateLimitService';
+import { inputSanitizer } from '@/app/services/InputSanitizerService';
+import { securityAudit } from '@/app/services/SecurityAuditService';
 
 /**
  * Security Initializer Component
@@ -38,36 +35,46 @@ export function SecurityInitializer(): null {
       }
     });
 
-    // فحص صحة النظام
-    securityAudit.performHealthCheck().then((health) => {
-      if (!health.healthy) {
-        console.warn('[Security] System health issues:', health.issues);
-        securityAudit.logEvent(
-          'data',
-          'high',
-          'System health check failed',
-          { issues: health.issues }
-        );
-      } else {
-        console.log('[Security] System health check passed ✅');
-      }
-    });
+    const runDeferredBoot = () => {
+      securityAudit.performHealthCheck().then((health) => {
+        if (!health.healthy) {
+          console.warn('[Security] System health issues:', health.issues);
+          securityAudit.logEvent(
+            'data',
+            'high',
+            'System health check failed',
+            { issues: health.issues }
+          );
+        } else if (import.meta.env.DEV) {
+          console.log('[Security] System health check passed ✅');
+        }
+      });
 
-    // تسجيل بدء التطبيق
-    securityAudit.logEvent(
-      'data',
-      'low',
-      'Application started',
-      {
-        timestamp: Date.now(),
-        userAgent: navigator.userAgent,
-      }
-    );
+      securityAudit.logEvent(
+        'data',
+        'low',
+        'Application started',
+        {
+          timestamp: Date.now(),
+          userAgent: navigator.userAgent,
+        }
+      );
 
-    // Inject CSRF token into DOM for client-side access
-    injectCsrfToken();
+      void injectCsrfToken();
+    };
+
+    if (typeof requestIdleCallback !== 'undefined') {
+      const idleId = requestIdleCallback(runDeferredBoot, { timeout: 4000 });
+      return () => {
+        cancelIdleCallback(idleId);
+        unsubscribe();
+      };
+    }
+
+    const bootTimer = window.setTimeout(runDeferredBoot, 300);
 
     return () => {
+      window.clearTimeout(bootTimer);
       unsubscribe();
     };
   }, []);

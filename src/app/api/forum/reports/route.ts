@@ -5,9 +5,9 @@ import {
   verifyWifeSignature,
   wifeForbiddenResponse,
   wifeUnauthorizedResponse,
-} from '../../security/wifeValidator';
-import { getCommunityReports, dismissCommunityReport, deleteCommunityPost, getCommunityPosts } from '@/app/services/lawyer-cloud';
-import { UserRole } from '@/app/types/admin-types';
+} from '../../security/wifeValidator.ts';
+import { ForumRepository } from '../../../services/forum/forumRepository.ts';
+import { UserRole } from '../../../types/admin-types.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object';
@@ -53,10 +53,10 @@ export async function GET(request: Request): Promise<Response> {
       );
     }
 
-    const reports = await getCommunityReports();
+    const reports = await ForumRepository.listReports();
     const pending = reports.filter((r) => r.status === 'pending');
 
-    const posts = await getCommunityPosts();
+    const { posts } = await ForumRepository.listPosts(500, 0);
     const reportsWithPost = pending.map((r) => {
       const post = posts.find((p) => p.id === r.postId);
       return { ...r, post: post ?? null };
@@ -121,7 +121,7 @@ export async function POST(request: Request): Promise<Response> {
           { status: 400, headers: { 'Content-Type': 'application/json; charset=utf-8' } },
         );
       }
-      await dismissCommunityReport(payload.reportId, requesterId);
+      await ForumRepository.dismissReport(payload.reportId, requesterId);
       return new Response(
         JSON.stringify({ ok: true, action: 'report_dismissed', reportId: payload.reportId }),
         { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8' } },
@@ -135,10 +135,14 @@ export async function POST(request: Request): Promise<Response> {
           { status: 400, headers: { 'Content-Type': 'application/json; charset=utf-8' } },
         );
       }
-      await deleteCommunityPost(payload.postId, requesterId, userRole ?? UserRole.SUPER_ADMIN);
+      await ForumRepository.deletePostAuthorized(
+        payload.postId,
+        requesterId,
+        userRole === UserRole.SUPER_ADMIN || userRole === UserRole.MODERATOR,
+      );
 
       if (typeof payload.reportId === 'string' && payload.reportId.trim()) {
-        await dismissCommunityReport(payload.reportId, requesterId);
+        await ForumRepository.dismissReport(payload.reportId, requesterId);
       }
 
       return new Response(

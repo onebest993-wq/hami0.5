@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { verifyFileContentHash } from './fileValidator';
+import { verifyFileContentHash } from './fileValidator.ts';
 
 describe('fileValidator.verifyFileContentHash', () => {
   it('returns true for an exact SHA-256 match', () => {
@@ -21,4 +21,3 @@ describe('fileValidator.verifyFileContentHash', () => {
     expect(verifyFileContentHash(buffer, wrong)).toBe(false);
   });
 });
-

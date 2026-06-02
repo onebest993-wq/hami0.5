@@ -1,46 +1,23 @@
-/** Phase 39 — نوعان مرجعيان في القائمة الموحّدة */
-export const URGENT_PETITION_PRIMARY = 'أمر ولائي / قضاء مستعجل';
-export const JUDICIAL_ACKNOWLEDGMENT_PRIMARY = 'إقرار قضائي / حجة إقرار';
+import type { PathwayType } from '@/app/domain/urgent/formPathwayConstants';
 
-export const actionTypeOptions = {
-    state_order: [
-        'وضع إشارة عدم تصرف/إشارة دعوى',
-        'إيقاف الإجراءات التنفيذية/المزايدة',
-        'إيقاف صرف مبالغ/خطاب ضمان',
-        'منع السفر',
-        'الاستئخار المؤقت',
-    ],
-    urgent_discovery: [
-        'الكشف العقاري',
-        'تثبيت حالة',
-        'رفع التجاوز',
-        'طرد الغاصب المستعجل',
-        'الحراسة القضائية',
-    ],
-    acknowledgment: ['إقرار الملكية', 'إقرار الدين', 'إقرار العقد'],
-};
+export {
+    URGENT_PETITION_PRIMARY,
+    JUDICIAL_ACKNOWLEDGMENT_PRIMARY,
+    actionTypeOptions,
+    isIqrarRequest,
+    resolveStoredPathwayType,
+    type PathwayType,
+} from '@/app/domain/urgent/formPathwayConstants';
 
-export type PathwayType = 'state_order' | 'urgent_discovery' | 'acknowledgment';
-
-/** قائمة موحّدة لحقل «نوع الطلب / الإجراء» — يضم الأمر الولائي والكشف المستعجل والإقرار */
-export function getUnifiedActionTypeOptions(): string[] {
-    const core = [URGENT_PETITION_PRIMARY, JUDICIAL_ACKNOWLEDGMENT_PRIMARY];
-    const merged = [
-        ...actionTypeOptions.state_order,
-        ...actionTypeOptions.urgent_discovery,
-        ...actionTypeOptions.acknowledgment,
-    ];
-    const seen = new Set<string>(core);
-    const out = [...core];
-    for (const o of merged) {
-        const s = String(o);
-        if (!seen.has(s)) {
-            seen.add(s);
-            out.push(s);
-        }
-    }
-    return out;
-}
+export {
+    PETITION_ORDERS_DROPDOWN_OPTIONS,
+    URGENT_JUDICIARY_DROPDOWN_OPTIONS,
+    PETITION_ORDER_MANUAL_OPTION,
+    getUnifiedActionTypeOptions,
+    resolveProcedureCategory,
+    isPetitionOrdersCategory,
+    isUrgentJudiciaryCategory,
+} from '@/app/domain/urgent/procedureCategory';
 
 /** Phase 46 — تسميات الأطراف في الإقرار (المستفيد يبادر) */
 export const IQRAR_PARTY_LABELS = {
@@ -48,23 +25,9 @@ export const IQRAR_PARTY_LABELS = {
     party2: 'المُقِر (المعترف بالحق)',
 } as const;
 
-/** Phase 44 — أي نوع إقرار من القائمة (قضائي، ملكية، دين، عقد، …) */
-export function isIqrarRequest(selectedType: string): boolean {
-    const t = String(selectedType ?? '').trim();
-    if (!t || t === URGENT_PETITION_PRIMARY) return false;
-    return t.includes('إقرار');
-}
-
 /** @deprecated Use isIqrarRequest — kept for existing imports */
 export function isJudicialAcknowledgmentRequest(specificActionType: string): boolean {
     return isIqrarRequest(specificActionType);
-}
-
-export function resolveStoredPathwayType(resolvedSpecificActionType: string): PathwayType {
-    const t = String(resolvedSpecificActionType ?? '').trim();
-    if (isIqrarRequest(t)) return 'acknowledgment';
-    if (actionTypeOptions.urgent_discovery.includes(t)) return 'urgent_discovery';
-    return 'state_order';
 }
 
 export const UNIFIED_URGENT_FORM_HEADER = {
@@ -109,6 +72,42 @@ export function getProcedureDetailsGuidance(
             helper: 'البيانات الشخصية الدقيقة تُسهم في صدور أمر منع دقيق ومحدد.',
         };
     }
+    if (t.includes('المرافق المقطوعة') || t.includes('ماء') || t.includes('كهرباء')) {
+        return {
+            placeholder: 'أدخل عنوان العقار ونوع الخدمة المقطوعة وتاريخ القطع...',
+            helper: 'حدّد الخدمة (ماء/كهرباء/هاتف) والعنوان كما في واقع التعسف المدعى.',
+        };
+    }
+    if (t.includes('الكشف المستعجل') || t.includes('تثبيت الحالة')) {
+        return {
+            placeholder: 'أدخل وصف المحل أو العقار والحالة المراد تثبيتها...',
+            helper: 'صف موضوع الكشف أو الحالة بما يكفي لتحديد موعد الإجراء.',
+        };
+    }
+    if (t.includes('استكتاب السندات') || t.includes('البصمة') || t.includes('التوقيع')) {
+        return {
+            placeholder: 'أدخل نوع السند وموضوعه والأطراف المعنية...',
+            helper: 'بيّن السند المطلوب استكتابه وهل الطلب يتعلق ببصمة أو توقيع محدد.',
+        };
+    }
+    if (t.includes('سماع شاهد')) {
+        return {
+            placeholder: 'أدخل اسم الشاهد وسبب خشية فوات الاستشهاد...',
+            helper: 'اذكر سبب الاستعجال وما يُخشى فواته إن لم يُسمع الشاهد فوراً.',
+        };
+    }
+    if (t.includes('الحراسة القضائية')) {
+        return {
+            placeholder: 'أدخل وصف الأموال أو الحسابات محل الحراسة...',
+            helper: 'حدّد الأموال أو الحسابات المطلوب وضعها تحت الحراسة بدقة.',
+        };
+    }
+    if (t.includes('الاستئذان بالتنفيذ') || t.includes('نفقة الخصم')) {
+        return {
+            placeholder: 'أدخل رقم الإضبارة التنفيذية والعمل المطلوب الاستئذان به...',
+            helper: 'اربط الطلب بملف التنفيذ والعمل المطلوب تنفيذه أو إيقافه.',
+        };
+    }
     if (t.includes('وضع إشارة') || t.includes('إشارة دعوى')) {
         return {
             placeholder: 'أدخل تسلسل العقار والمقاطعة، أو رقم المركبة...',
@@ -151,11 +150,10 @@ export const pathways: Record<PathwayType, PathwayConfig> = {
         color: 'amber',
         gradient: 'from-amber-500 to-yellow-600',
         examples: [
-            'وضع إشارة عدم تصرف/إشارة دعوى',
-            'إيقاف الإجراءات التنفيذية/المزايدة',
-            'إيقاف صرف مبالغ/خطاب ضمان',
             'منع السفر',
-            'الاستئخار المؤقت',
+            'إعادة المرافق المقطوعة تعسفاً (ماء/كهرباء/هاتف)',
+            'الاستئذان بالتنفيذ أو العمل على نفقة الخصم',
+            'استكتاب السندات العادية والإقرار بالبصمة أو التوقيع',
         ],
         description: 'أوامر سرية مباغتة تصدر دون علم الخصم',
     },
@@ -166,7 +164,11 @@ export const pathways: Record<PathwayType, PathwayConfig> = {
         icon: '🔍',
         color: 'blue',
         gradient: 'from-blue-500 to-cyan-600',
-        examples: ['الكشف العقاري', 'رفع التجاوز', 'الحراسة القضائية', 'طرد الغاصب'],
+        examples: [
+            'الكشف المستعجل وتثبيت الحالة',
+            'سماع شاهد يخشى فوات فرصة الاستشهاد به',
+            'وضع الأموال تحت الحراسة القضائية',
+        ],
         description: 'إجراء وجاهي سريع لكشف الحقيقة',
     },
     /** بقية للتوافق مع بيانات قديمة — الواجهة الموحّدة لا تعرض مساراً منفرداً للإقرار */

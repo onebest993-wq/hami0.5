@@ -12,16 +12,11 @@ import {
     LazyScannerModal,
     LazySmartVaultModal,
     LazyVoiceRecorderModal,
-} from '@/app/utils/lazyComponents';
-import { LegalAI } from './LegalAI_Coordinator.tsx';
+} from '@/app/components/lawyer/commandCenterDockLazy';
+import { LegalAI } from './LegalAI_Coordinator';
+import type { CommandCenterNote as Note, NoteType } from './commandCenterTypes';
 
-export type NoteType = 'text' | 'voice' | 'image' | 'schedule';
-export interface Note {
-    id: number;
-    content: string;
-    type: NoteType;
-    date: Date;
-}
+export type { NoteType, CommandCenterNote as Note } from './commandCenterTypes';
 
 interface LegalCommandCenterDockProps {
     onAddNote?: (note: Note) => void;
@@ -62,11 +57,23 @@ export const LegalCommandCenterDock: React.FC<LegalCommandCenterDockProps> = ({
     // Existing Logic State
     const [quickNote, setQuickNote] = useState('');
     const [isRecording, setIsRecording] = useState(false);
-    const [isLongPress, setIsLongPress] = useState(false);
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const isLongPressRef = useRef(false);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
+    const streamRef = useRef<MediaStream | null>(null);
+
+    const requireSignedIn = (feature: string): boolean => {
+        if (userId?.trim()) return true;
+        SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${feature}`);
+        return false;
+    };
 
     useEffect(() => {
-        return () => { if (timerRef.current !== null) clearTimeout(timerRef.current); };
+        return () => {
+            if (timerRef.current !== null) clearTimeout(timerRef.current);
+            streamRef.current?.getTracks().forEach((t) => t.stop());
+        };
     }, []);
 
     // Logic for AI Button (Alive Button) - Unified Royal Touch
@@ -139,66 +146,9 @@ export const LegalCommandCenterDock: React.FC<LegalCommandCenterDockProps> = ({
         setQuickNote('');
     };
 
-    // --- 1. RECORDING UX HANDLERS ---
-    
-    const handleTouchStart = () => {
-        // Start Timer to detect Long Press
-        timerRef.current = setTimeout(() => {
-            setIsLongPress(true);
-            setIsRecording(true);
-            
-            // Haptic Feedback
-            if (navigator.vibrate) navigator.vibrate(100);
-            
-            SmartToast.show("جاري التسجيل... تحدث الآن 🎙️", { type: 'error', duration: Infinity, id: 'recording-toast' });
-        }, 500); // 500ms threshold for long press
-    };
-
-    const handleTouchEnd = () => {
-        if (timerRef.current !== null) {
-            clearTimeout(timerRef.current);
-            timerRef.current = null;
-        }
-
-        if (isLongPress) {
-            // Long Press Logic: Stop & Process
-            setIsLongPress(false);
-            setIsRecording(false);
-            SmartToast.dismiss('recording-toast');
-            processAudioInput();
-        } else {
-            // Short Tap Logic: Open Modal
-            setShowVoiceModal(true);
-        }
-    };
-
-    // --- 2. AI BRAIN LOGIC (AUDIO) ---
-    const processAudioInput = async () => {
+    const processRecordedBlob = async (audioBlob: Blob, mimeType: string) => {
         const loadingToast = SmartToast.loading("جاري معالجة الصوت بالذكاء الاصطناعي...");
-        
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-                ? 'audio/webm;codecs=opus'
-                : 'audio/webm';
-            const recorder = new MediaRecorder(stream, { mimeType });
-            const audioChunks: Blob[] = [];
-
-            recorder.ondataavailable = (e) => {
-                if (e.data.size > 0) audioChunks.push(e.data);
-            };
-
-            const recordingPromise = new Promise<void>((resolve) => {
-                recorder.onstop = () => resolve();
-            });
-
-            recorder.start(250);
-            await new Promise(resolve => setTimeout(resolve, 3000));
-            recorder.stop();
-            stream.getTracks().forEach(t => t.stop());
-            await recordingPromise;
-
-            const audioBlob = new Blob(audioChunks, { type: mimeType });
             const analysis = await LegalAI.processInput(audioBlob, 'audio');
             
             setQuickNote(typeof analysis.text === 'string' ? analysis.text : '');
@@ -228,7 +178,78 @@ export const LegalCommandCenterDock: React.FC<LegalCommandCenterDockProps> = ({
             }
         } catch {
             SmartToast.dismiss(loadingToast);
+            SmartToast.warning("⚠️ تعذر معالجة التسجيل. استخدم التسجيل من النافذة المنبثقة.");
+        }
+    };
+
+    const startLiveRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            streamRef.current = stream;
+            const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+                ? 'audio/webm;codecs=opus'
+                : 'audio/webm';
+            const recorder = new MediaRecorder(stream, { mimeType });
+            audioChunksRef.current = [];
+            recorder.ondataavailable = (e) => {
+                if (e.data.size > 0) audioChunksRef.current.push(e.data);
+            };
+            recorder.start(250);
+            mediaRecorderRef.current = recorder;
+        } catch {
+            isLongPressRef.current = false;
+            setIsRecording(false);
+            SmartToast.dismiss('recording-toast');
             SmartToast.warning("⚠️ تعذر الوصول إلى المايكروفون. استخدم التسجيل من النافذة المنبثقة.");
+        }
+    };
+
+    const stopLiveRecordingAndProcess = async () => {
+        const recorder = mediaRecorderRef.current;
+        const stream = streamRef.current;
+        if (!recorder || recorder.state === 'inactive') {
+            SmartToast.warning('لم يُسجَّل صوت — اضغط مطولاً أثناء التحدث');
+            return;
+        }
+        const mimeType = recorder.mimeType || 'audio/webm';
+        await new Promise<void>((resolve) => {
+            recorder.onstop = () => resolve();
+            recorder.stop();
+        });
+        stream?.getTracks().forEach((t) => t.stop());
+        mediaRecorderRef.current = null;
+        streamRef.current = null;
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        audioChunksRef.current = [];
+        if (audioBlob.size < 1) {
+            SmartToast.warning('التسجيل قصير جداً — حاول مرة أخرى');
+            return;
+        }
+        await processRecordedBlob(audioBlob, mimeType);
+    };
+
+    const handlePressStart = () => {
+        timerRef.current = setTimeout(() => {
+            isLongPressRef.current = true;
+            setIsRecording(true);
+            if (navigator.vibrate) navigator.vibrate(100);
+            SmartToast.show("جاري التسجيل... تحدث الآن 🎙️", { type: 'error', duration: Infinity, id: 'recording-toast' });
+            void startLiveRecording();
+        }, 500);
+    };
+
+    const handlePressEnd = () => {
+        if (timerRef.current !== null) {
+            clearTimeout(timerRef.current);
+            timerRef.current = null;
+        }
+        if (isLongPressRef.current) {
+            isLongPressRef.current = false;
+            setIsRecording(false);
+            SmartToast.dismiss('recording-toast');
+            void stopLiveRecordingAndProcess();
+        } else {
+            setShowVoiceModal(true);
         }
     };
 
@@ -258,6 +279,7 @@ export const LegalCommandCenterDock: React.FC<LegalCommandCenterDockProps> = ({
                         <div className="group relative flex flex-col items-center">
                             <button type="button" 
                                 onClick={() => {
+                                    if (!requireSignedIn('الماسح الضوئي')) return;
                                     SmartToast.info("📸 جاري فتح الكاميرا للمعالجة...");
                                     setShowScanner(true);
                                 }}
@@ -274,7 +296,14 @@ export const LegalCommandCenterDock: React.FC<LegalCommandCenterDockProps> = ({
                                 الماسح الضوئي
                             </span>
                         </div>
-                        <AIButton icon={FolderOpen} tooltip="مخزن الملفات الذكي" onClick={() => setShowVault(true)} />
+                        <AIButton
+                            icon={FolderOpen}
+                            tooltip="مخزن الملفات الذكي"
+                            onClick={() => {
+                                if (!requireSignedIn('مخزن الملفات')) return;
+                                setShowVault(true);
+                            }}
+                        />
                         {/* مهام اليوم — أقصى اليمين: يفتح الستارة الذكية */}
                         <div className="group relative flex flex-col items-center">
                             <button
@@ -355,10 +384,11 @@ export const LegalCommandCenterDock: React.FC<LegalCommandCenterDockProps> = ({
                             
                             {/* Integrated Voice Recorder Button (Dual Action) */}
                             <div 
-                                onMouseDown={handleTouchStart}
-                                onMouseUp={handleTouchEnd}
-                                onTouchStart={handleTouchStart}
-                                onTouchEnd={handleTouchEnd}
+                                onMouseDown={handlePressStart}
+                                onMouseUp={handlePressEnd}
+                                onMouseLeave={isRecording ? handlePressEnd : undefined}
+                                onTouchStart={handlePressStart}
+                                onTouchEnd={handlePressEnd}
                                 className="cursor-pointer"
                             >
                                 <div className={`
@@ -373,9 +403,6 @@ export const LegalCommandCenterDock: React.FC<LegalCommandCenterDockProps> = ({
                             </div>
                         </div>
                         </div>
-                        <p className="text-xs text-gray-500 mt-2 px-1 text-right leading-relaxed">
-                            مثال: غداً مراجعة قلم البداءة لتسديد الرسوم...
-                        </p>
                     </form>
 
                 </div>
@@ -395,7 +422,9 @@ export const LegalCommandCenterDock: React.FC<LegalCommandCenterDockProps> = ({
                 )}
                 
                 {/* Localized Modals to prevent Dashboard Freeze */}
-                {showNotebook && <NotebookModal onClose={() => setShowNotebook(false)} />}
+                {showNotebook && (
+                    <NotebookModal onClose={() => setShowNotebook(false)} userId={userId} />
+                )}
                 {showScanner && (
                     <Suspense fallback={null}>
                         <LazyScannerModal onClose={() => setShowScanner(false)} userId={userId || ''} />

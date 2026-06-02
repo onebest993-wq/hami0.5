@@ -26,7 +26,13 @@ export interface JurisdictionItem {
 
 export const JURISDICTIONS: JurisdictionItem[] = [
     { id: 'civil', title: 'القضاء المدني', subtitle: 'بداءة، استئناف، عمل، تجارة', icon: Scale, color: '#E6C673' },
-    { id: 'criminal', title: 'القضاء الجزائي', subtitle: 'تحقيق، جنح، جنايات', icon: Gavel, color: '#EF4444' },
+    {
+        id: 'criminal',
+        title: 'القضاء الجزائي',
+        subtitle: 'تحقيق، جنح، جنايات، تمييز — الأحداث عبر بطاقة القاصر',
+        icon: Gavel,
+        color: '#EF4444',
+    },
     { id: 'personal', title: 'الأحوال الشخصية', subtitle: 'قانون 2025، قانون 1959', icon: HeartHandshake, color: '#EC4899' },
     { id: 'cassation', title: 'التمييز والتدقيق', subtitle: 'اتحادية، جنايات، استئناف', icon: Eye, color: '#8B5CF6' },
 ];

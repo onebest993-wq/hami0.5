@@ -1,9 +1,12 @@
 import { supabase } from '../lib/supabase-client';
 import { projectId, publicAnonKey } from '@/utils/supabase/info';
-import { SecureAPIClient } from './SecureAPIClient';
+import { SecureAPIClient, getCurrentAccessToken } from './SecureAPIClient';
 import { UserRole } from '../types/admin-types';
 import SecureStoreService from './SecureStoreService';
 import { stripImageMetadata } from '@/app/utils/stripMetadata';
+import { sanitizeLawyerProfile } from '@/app/services/profileSanitizer';
+import { refreshProfileMediaUrl } from '@/app/services/profileMediaService';
+import { isKvProxyNetworkEnabled } from '@/app/services/kvProxyConfig';
 
 // --- INITIALIZATION ---
 // Supabase client imported from singleton
@@ -23,6 +26,13 @@ export function uuidv4(): string {
 
 const CLOUD_KV_TIMEOUT_MS = 6_000;
 
+class KvLocalOnlyError extends Error {
+    constructor() {
+        super('kv_local_only');
+        this.name = 'KvLocalOnlyError';
+    }
+}
+
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
     return new Promise<T>((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error(`${label}: timeout`)), ms);
@@ -39,15 +49,30 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 }
 
 // --- KV PROXY HELPER ---
-// Instead of importing the server file directly, we call the API.
+// 🔐 يستخدم JWT للمستخدم الحالي (وليس publicAnonKey) ليمرّ فحص ownership الجديد على الـ Edge Function.
+// publicAnonKey يبقى احتياطياً للـ headers الإلزامية فقط لـ Supabase (apikey)، أما Authorization فيحمل JWT الحقيقي.
+
+async function buildAuthHeaders(): Promise<Record<string, string>> {
+    const token = await getCurrentAccessToken();
+    // إذا لا توجد جلسة (مستخدم غير مسجّل) — نتعامل كـ local-only لتفادي 401
+    if (!token) throw new KvLocalOnlyError();
+    return {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'apikey': publicAnonKey,
+    };
+}
+
 const kv = {
     async set(key: string, value: unknown) {
+        if (!isKvProxyNetworkEnabled()) throw new KvLocalOnlyError();
+        const headers = await buildAuthHeaders();
         await withTimeout(
             SecureAPIClient.fetchSecure(
                 `${SERVER_URL}/kv-proxy`,
                 {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${publicAnonKey}` },
+                    headers,
                     body: JSON.stringify({ action: 'set', key, value }),
                 },
             ),
@@ -56,12 +81,14 @@ const kv = {
         );
     },
     async get(key: string) {
+        if (!isKvProxyNetworkEnabled()) throw new KvLocalOnlyError();
+        const headers = await buildAuthHeaders();
         return await withTimeout(
             SecureAPIClient.fetchSecure(
                 `${SERVER_URL}/kv-proxy`,
                 {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${publicAnonKey}` },
+                    headers,
                     body: JSON.stringify({ action: 'get', key }),
                 }
             ),
@@ -70,21 +97,25 @@ const kv = {
         );
     },
     async getByPrefix(prefix: string) {
+        if (!isKvProxyNetworkEnabled()) throw new KvLocalOnlyError();
+        const headers = await buildAuthHeaders();
         return await SecureAPIClient.fetchSecure(
             `${SERVER_URL}/kv-proxy`,
             {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${publicAnonKey}` },
+                headers,
                 body: JSON.stringify({ action: 'getByPrefix', prefix }),
             }
         );
     },
     async del(key: string) {
+        if (!isKvProxyNetworkEnabled()) throw new KvLocalOnlyError();
+        const headers = await buildAuthHeaders();
         await SecureAPIClient.fetchSecure(
             `${SERVER_URL}/kv-proxy`,
             {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${publicAnonKey}` },
+                headers,
                 body: JSON.stringify({ action: 'del', key }),
             }
         );
@@ -225,6 +256,8 @@ export type CommunityComment = {
     content: string;
     createdAt: string;
     parentId?: string;
+    /** قائمة معرّفات من صوّت على هذا التعليق */
+    upvoterIds?: string[];
 };
 
 export type CommunityPost = {
@@ -244,6 +277,8 @@ export type CommunityPost = {
     isAnonymous?: boolean;
     isEdited?: boolean;
     isPinned?: boolean;
+    /** قفل التعليقات على المنشور (المالك أو الأدمن) */
+    isLocked?: boolean;
 };
 
 export type NotificationType = 'comment' | 'upvote' | 'best_answer' | 'report_update' | 'system' | 'new_post' | 'new_document';
@@ -390,6 +425,13 @@ function mergePostsById(localPosts: CommunityPost[], remotePosts: CommunityPost[
 export const CommunityDB = {
     async listPosts(): Promise<CommunityPost[]> {
         const localPosts = (await loadLocalCommunityPosts()).map((p) => normalizeCommunityPost(p)).filter((p): p is CommunityPost => p !== null);
+        if (!isKvProxyNetworkEnabled()) {
+            return localPosts.sort((a, b) => {
+                const aPin = a.isPinned ? 1 : 0;
+                const bPin = b.isPinned ? 1 : 0;
+                return bPin - aPin || Date.parse(b.createdAt) - Date.parse(a.createdAt);
+            });
+        }
         try {
             const res = await kv.getByPrefix('community:posts:');
             const remotePosts = Array.isArray(res) ? res.map((p) => normalizeCommunityPost(p)).filter((p): p is CommunityPost => p !== null) : [];
@@ -453,11 +495,25 @@ export const CommunityDB = {
     },
 };
 
+async function listCommunityPostsFromApi(limit: number, offset: number): Promise<{ posts: CommunityPost[]; total: number } | null> {
+    if (typeof window === 'undefined') return null;
+    try {
+        const { ForumApiService } = await import('@/app/services/forumApiService');
+        return await ForumApiService.listPostsPaginated(limit, offset);
+    } catch {
+        return null;
+    }
+}
+
 export async function getCommunityPosts() {
+    const fromApi = await listCommunityPostsFromApi(500, 0);
+    if (fromApi) return fromApi.posts;
     return await CommunityDB.listPosts();
 }
 
 export async function getCommunityPostsPaginated(limit: number, offset: number): Promise<{ posts: CommunityPost[]; total: number }> {
+    const fromApi = await listCommunityPostsFromApi(limit, offset);
+    if (fromApi) return fromApi;
     const all = await CommunityDB.listPosts();
     return {
         posts: all.slice(offset, offset + limit),
@@ -465,11 +521,24 @@ export async function getCommunityPostsPaginated(limit: number, offset: number):
     };
 }
 
+export async function getCommunityPostById(postId: string): Promise<CommunityPost | null> {
+    if (typeof window !== 'undefined') {
+        try {
+            const { ForumApiService } = await import('@/app/services/forumApiService');
+            return await ForumApiService.getPostById(postId);
+        } catch {
+            /* fallback */
+        }
+    }
+    const all = await CommunityDB.listPosts();
+    return all.find((p) => p.id === postId) ?? null;
+}
+
 export async function addCommunityPost(post: CommunityPost) {
     await CommunityDB.savePost(post);
 }
 
-export async function addCommunityComment(postId: string, comment: CommunityComment) {
+export async function addCommunityComment(postId: string, comment: CommunityComment): Promise<CommunityPost> {
     const posts = await CommunityDB.listPosts();
     const post = posts.find((p) => p.id === postId);
     if (!post) throw new Error('المنشور غير موجود');
@@ -488,6 +557,57 @@ export async function addCommunityComment(postId: string, comment: CommunityComm
             createdAt: new Date().toISOString(),
         });
     }
+    return updated;
+}
+
+export async function deleteCommunityComment(
+    postId: string,
+    commentId: string,
+    requesterId: string,
+    requesterRole?: UserRole,
+): Promise<CommunityPost> {
+    const posts = await CommunityDB.listPosts();
+    const post = posts.find((p) => p.id === postId);
+    if (!post) throw new Error('المنشور غير موجود');
+    const comment = post.comments.find((c) => c.id === commentId);
+    if (!comment) throw new Error('التعليق غير موجود');
+    const isAdmin =
+        requesterRole === UserRole.SUPER_ADMIN || requesterRole === UserRole.MODERATOR;
+    if (comment.authorId !== requesterId && post.authorId !== requesterId && !isAdmin) {
+        throw new Error('ليس لديك صلاحية لحذف هذا التعليق');
+    }
+    const updated: CommunityPost = {
+        ...post,
+        comments: post.comments.filter((c) => c.id !== commentId && c.parentId !== commentId),
+        updatedAt: new Date().toISOString(),
+    };
+    await CommunityDB.savePost(updated);
+    return updated;
+}
+
+export async function editCommunityComment(
+    postId: string,
+    commentId: string,
+    newContent: string,
+    requesterId: string,
+): Promise<CommunityPost> {
+    const posts = await CommunityDB.listPosts();
+    const post = posts.find((p) => p.id === postId);
+    if (!post) throw new Error('المنشور غير موجود');
+    const comment = post.comments.find((c) => c.id === commentId);
+    if (!comment) throw new Error('التعليق غير موجود');
+    if (comment.authorId !== requesterId) {
+        throw new Error('ليس لديك صلاحية لتعديل هذا التعليق');
+    }
+    const trimmed = newContent.trim();
+    if (trimmed.length < 2) throw new Error('نص التعليق قصير جداً');
+    const updated: CommunityPost = {
+        ...post,
+        comments: post.comments.map((c) => (c.id === commentId ? { ...c, content: trimmed } : c)),
+        updatedAt: new Date().toISOString(),
+    };
+    await CommunityDB.savePost(updated);
+    return updated;
 }
 
 export async function deleteCommunityPost(
@@ -528,7 +648,17 @@ export async function updateCommunityPost(postId: string, newContent: string, re
     return updated;
 }
 
-export async function togglePinCommunityPost(postId: string, pinned: boolean): Promise<CommunityPost> {
+export async function togglePinCommunityPost(
+    postId: string,
+    pinned: boolean,
+    requesterRole?: UserRole,
+): Promise<CommunityPost> {
+    if (
+        requesterRole !== UserRole.SUPER_ADMIN &&
+        requesterRole !== UserRole.MODERATOR
+    ) {
+        throw new Error('ليس لديك صلاحية تثبيت المنشورات');
+    }
     const posts = await CommunityDB.listPosts();
     const post = posts.find((p) => p.id === postId);
     if (!post) throw new Error('المنشور غير موجود');
@@ -553,9 +683,24 @@ export type CommunityReport = {
     reviewedAt?: string;
 };
 
-export async function reportCommunityPost(postId: string, reason: string, requesterId?: string): Promise<{ ok: boolean; postId: string; reason: string }> {
+export async function reportCommunityPost(
+    postId: string,
+    reason: string,
+    requesterId?: string,
+): Promise<{ ok: boolean; postId: string; reason: string; duplicate?: boolean }> {
     if (!requesterId) {
         return { ok: true, postId, reason };
+    }
+    const existing = await getCommunityReports();
+    if (
+        existing.some(
+            (r) =>
+                r.postId === postId &&
+                r.reporterId === requesterId &&
+                r.status === 'pending',
+        )
+    ) {
+        return { ok: false, postId, reason, duplicate: true };
     }
     const reportId = uuidv4();
     const report: CommunityReport = {
@@ -817,12 +962,15 @@ export const NotificationDB = {
         try {
             const remote = await kv.getByPrefix(`notifications:${userId}:`);
             if (Array.isArray(remote)) {
-                for (const n of remote) {
-                    if (n && typeof n === 'object') {
-                        (n as ForumNotification).read = true;
-                        await kv.set(`notifications:${(n as ForumNotification).userId}:${(n as ForumNotification).id}`, n);
-                    }
-                }
+                // الكتابة بالتوازي بدلاً من sequential — أسرع بـ N× وأقل round-trips ضائعة
+                await Promise.allSettled(
+                    remote
+                        .filter((n): n is ForumNotification => !!n && typeof n === 'object')
+                        .map((n) => {
+                            n.read = true;
+                            return kv.set(`notifications:${n.userId}:${n.id}`, n);
+                        }),
+                );
             }
         } catch { /* silent */ }
     },
@@ -1144,26 +1292,31 @@ function mergeVaultDocs(local: SmartVaultDoc[], remote: SmartVaultDoc[]): SmartV
 
 export const SmartVaultDB = {
     async listDocs(userId?: string): Promise<SmartVaultDoc[]> {
-        const localDocs = await loadLocalVaultDocs();
+        if (!userId?.trim()) return [];
+        const uid = userId.trim();
+        const localDocs = (await loadLocalVaultDocs()).filter((d) => d.authorId === uid);
         try {
-            let raw: unknown;
-            if (userId) {
-                raw = await kv.getByPrefix(`vault:docs:${userId}:`);
-            } else {
-                raw = await kv.getByPrefix('vault:docs:');
-            }
+            const raw = await kv.getByPrefix(`vault:docs:${uid}:`);
             const remoteDocs = Array.isArray(raw)
                 ? raw.filter((d): d is SmartVaultDoc => {
                       if (!d || typeof d !== 'object') return false;
                       const o = d as Record<string, unknown>;
-                      return typeof o.id === 'string' && typeof o.title === 'string';
+                      return (
+                          typeof o.id === 'string' &&
+                          typeof o.title === 'string' &&
+                          o.authorId === uid
+                      );
                   })
                 : [];
-            const merged = mergeVaultDocs(localDocs, remoteDocs).sort(
+            const mergedForUser = mergeVaultDocs(localDocs, remoteDocs)
+                .filter((d) => d.authorId === uid)
+                .sort(
                 (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
             );
-            await saveLocalVaultDocs(merged);
-            return merged;
+            const allLocal = await loadLocalVaultDocs();
+            const others = allLocal.filter((d) => d.authorId !== uid);
+            await saveLocalVaultDocs([...others, ...mergedForUser]);
+            return mergedForUser;
         } catch {
             return localDocs.sort(
                 (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
@@ -1207,7 +1360,10 @@ export const SmartVaultDB = {
         await saveLocalVaultDocs(localDocs);
     },
 
-    async updateDoc(doc: SmartVaultDoc): Promise<void> {
+    async updateDoc(doc: SmartVaultDoc, requesterId?: string): Promise<void> {
+        if (requesterId && doc.authorId !== requesterId) {
+            throw new Error('غير مصرح بتعديل هذا الملف');
+        }
         await this.saveDoc(doc);
     },
 
@@ -1230,6 +1386,7 @@ export const SmartVaultDB = {
             }
         }
         if (!doc) throw new Error('الملف غير موجود');
+        if (doc.authorId !== authorId) throw new Error('غير مصرح بربط هذا الملف');
 
         const updated: SmartVaultDoc = { ...doc, boundDossierId: dossierId, updatedAt: new Date().toISOString() };
         try {
@@ -1270,9 +1427,51 @@ export type CalendarEvent = {
     revenue?: string;
     createdAt: string;
     updatedAt: string;
+    /** حقول اختيارية — ربط التقويم بالأقسام (لا تؤثر على الواجهات القديمة) */
+    sourceModule?:
+        | 'lawsuit'
+        | 'execution'
+        | 'urgent'
+        | 'transaction'
+        | 'criminal'
+        | 'threading'
+        | 'task'
+        | 'note'
+        | 'manual';
+    sourceEntityId?: string;
+    sourceEventId?: string;
+    partiesSummary?: string;
+    court?: string;
+    sourceLabel?: string;
 };
 
 const CALENDAR_LOCAL_KEY = 'hami:calendar:events:v1';
+
+// ============== في-tick dedup لـ kv.getByPrefix ==============
+// المشكلة الأصلية كانت: في tick واحد قد يُستدعى `kv.getByPrefix('calendar:uid:')`
+// عشرات المرات (كل upsert من dossier sync يُستدعيها). نُجمّع هذه الطلبات في
+// promise واحد، ونُلغيها فور انتهائها (لا تُسرّب staleness بين الاختبارات).
+const inFlightPrefixFetches = new Map<string, Promise<unknown[]>>();
+function fetchPrefixOnceInTick(prefix: string): Promise<unknown[]> {
+    const existing = inFlightPrefixFetches.get(prefix);
+    if (existing) return existing;
+    const p = (async (): Promise<unknown[]> => {
+        try {
+            const res = await kv.getByPrefix(prefix);
+            return Array.isArray(res) ? res : [];
+        } catch {
+            return [];
+        }
+    })();
+    inFlightPrefixFetches.set(prefix, p);
+    // تنظيف فوري بعد resolve/reject
+    p.finally(() => {
+        if (inFlightPrefixFetches.get(prefix) === p) {
+            inFlightPrefixFetches.delete(prefix);
+        }
+    });
+    return p;
+}
 
 async function loadLocalCalendarEvents(): Promise<CalendarEvent[]> {
     try {
@@ -1321,18 +1520,42 @@ function mergeCalendarEvents(local: CalendarEvent[], remote: CalendarEvent[]): C
 }
 
 export const CalendarDB = {
+    /** كل الأحداث المحلية بغض النظر عن userId — للتنظيف والترحيل */
+    async getAllStoredEvents(): Promise<CalendarEvent[]> {
+        return loadLocalCalendarEvents();
+    },
+
+    /**
+     * يقرأ أحداث المستخدم. يُسقط الأحداث المحذوفة (tombstones) لمنع
+     * deletion-resurrection بين الأجهزة.
+     *
+     * تحسين الأداء: عند تكرار `kv.getByPrefix` في نفس الـ tick (مثل تركيب
+     * عدة `useEntityCalendarEvents` معاً) → نُجمّعها في طلب واحد.
+     */
     async getEvents(userId: string): Promise<CalendarEvent[]> {
-        const local = await loadLocalCalendarEvents();
-        const userLocal = local.filter((e) => e.userId === userId);
+        // قراءة tombstones سريعة (localStorage فقط، cloud sync في الخلفية)
+        const tombstonesPromise = (async (): Promise<Set<string>> => {
+            try {
+                const m = await import('@/app/services/calendarTombstones');
+                return await m.loadTombstoneIds(userId);
+            } catch {
+                return new Set<string>();
+            }
+        })();
+        const [local, tombstones] = await Promise.all([
+            loadLocalCalendarEvents(),
+            tombstonesPromise,
+        ]);
+        const userLocal = local.filter((e) => e.userId === userId && !tombstones.has(e.id));
+
         try {
-            const res = await kv.getByPrefix(`calendar:${userId}:`);
-            const remote = Array.isArray(res)
-                ? res.filter((e): e is CalendarEvent => {
-                      if (!e || typeof e !== 'object') return false;
-                      const o = e as Record<string, unknown>;
-                      return typeof o.id === 'string' && typeof o.title === 'string';
-                  })
-                : [];
+            const res = await fetchPrefixOnceInTick(`calendar:${userId}:`);
+            const remote = res.filter((e): e is CalendarEvent => {
+                if (!e || typeof e !== 'object') return false;
+                const o = e as Record<string, unknown>;
+                if (typeof o.id !== 'string' || typeof o.title !== 'string') return false;
+                return !tombstones.has(o.id);
+            });
             const merged = mergeCalendarEvents(userLocal, remote).sort(
                 (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
             );
@@ -1357,8 +1580,45 @@ export const CalendarDB = {
         await saveLocalCalendarEvents(merged);
     },
 
+    /**
+     * يحفظ مجموعة أحداث دفعة واحدة (O(N + K) بدل O(N * K)).
+     * - يقرأ localStorage مرة واحدة
+     * - يدمج كل الأحداث في صف واحد
+     * - يكتب localStorage مرة واحدة
+     * - يُرسل kv.set بالتوازي (مع احترام rate limit)
+     *
+     * الفشل في cloud لا يُلقي خطأ (cloud-first).
+     */
+    async saveEventsBatch(events: CalendarEvent[]): Promise<void> {
+        if (!Array.isArray(events) || events.length === 0) return;
+        // فلترة الأحداث بدون userId
+        const valid = events.filter((e) => e && typeof e.userId === 'string' && e.userId);
+        if (valid.length === 0) return;
+
+        const local = await loadLocalCalendarEvents();
+        const merged = mergeCalendarEvents(local, valid);
+        await saveLocalCalendarEvents(merged);
+
+        // الكتابة السحابية بالتوازي — كل failure مستقل
+        await Promise.allSettled(
+            valid.map((e) => kv.set(`calendar:${e.userId}:${e.id}`, e)),
+        );
+    },
+
+    /**
+     * يحذف حدثاً ويُسجّل tombstone لمنع الإحياء من جهاز آخر.
+     */
     async deleteEvent(eventId: string, userId: string): Promise<void> {
         if (!eventId || !userId) throw new Error('معرف الموعد والمستخدم مطلوب');
+
+        // tombstone أولاً (سحابة + محلي) — يمنع الإحياء عند المزامنة التالية
+        try {
+            const tomb = await import('@/app/services/calendarTombstones');
+            await tomb.recordTombstone(userId, eventId);
+        } catch {
+            /* غير حاسم */
+        }
+
         try {
             await kv.del(`calendar:${userId}:${eventId}`);
         } catch {
@@ -1637,11 +1897,21 @@ export { UrgentActionsDB } from './urgent-actions-db';
 
 const PROFILE_LOCAL_KEY_PREFIX = 'hami:profile:v1:';
 
+export const LAWYER_PROFILE_UPDATED = 'hami:lawyer-profile-updated';
+
 export interface LawyerProfileHeader {
     name: string;
     title: string;
     coverImage: string;
     profileImage: string;
+    profileImagePath?: string;
+    coverImagePath?: string;
+    phone?: string;
+    city?: string;
+    workplace?: string;
+    specialization?: string;
+    practiceSinceYear?: number;
+    syndicateId?: string;
 }
 
 export interface ProfileStat {
@@ -1672,17 +1942,17 @@ const DEFAULT_PROFILE: LawyerProfileData = {
     header: {
         name: '',
         title: 'المحامي والمستشار القانوني',
-        coverImage: 'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&q=80&w=1200',
-        profileImage: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=400',
+        coverImage: '',
+        profileImage: '',
+        phone: '',
+        city: '',
+        workplace: '',
+        specialization: '',
     },
     sections: [
-        { id: 'stats-1', type: 'stats', data: [
-            { id: 's1', label: 'سنين الخبرة', value: '0' },
-            { id: 's2', label: 'القضايا', value: '0' },
-            { id: 's3', label: 'الاستشارات', value: '0' },
-        ]},
         { id: 'bio-1', type: 'bio', data: '' },
         { id: 'actions-1', type: 'actions', data: [] },
+        { id: 'gallery-1', type: 'gallery', data: [] },
     ],
 };
 
@@ -1704,18 +1974,33 @@ async function saveLocalProfile(userId: string, profile: LawyerProfileData): Pro
     } catch { /* ignore */ }
 }
 
+async function resolveProfileMedia(header: LawyerProfileHeader): Promise<LawyerProfileHeader> {
+    const next = { ...header };
+    next.profileImage = await refreshProfileMediaUrl(next.profileImagePath, next.profileImage);
+    next.coverImage = await refreshProfileMediaUrl(next.coverImagePath, next.coverImage);
+    return next;
+}
+
+async function finalizeProfile(raw: LawyerProfileData, userId: string): Promise<LawyerProfileData> {
+    const cleaned = sanitizeLawyerProfile(raw);
+    const header = await resolveProfileMedia(cleaned.header);
+    const profile = { ...cleaned, header };
+    await saveLocalProfile(userId, profile);
+    return profile;
+}
+
 export const ProfileDB = {
     async getProfile(userId: string): Promise<LawyerProfileData> {
         try {
             const res = await kv.get(`profile:${userId}`);
             if (res) {
                 const remote = res as LawyerProfileData;
-                await saveLocalProfile(userId, remote);
-                return remote;
+                return finalizeProfile(remote, userId);
             }
         } catch { /* Cloud-First */ }
         const local = await loadLocalProfile(userId);
-        return local || { ...DEFAULT_PROFILE, header: { ...DEFAULT_PROFILE.header } };
+        if (local) return finalizeProfile(local, userId);
+        return { ...DEFAULT_PROFILE, header: { ...DEFAULT_PROFILE.header } };
     },
 
     async saveProfile(userId: string, profile: LawyerProfileData): Promise<void> {
@@ -1723,6 +2008,9 @@ export const ProfileDB = {
             await kv.set(`profile:${userId}`, profile);
         } catch { /* Cloud-First */ }
         await saveLocalProfile(userId, profile);
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent(LAWYER_PROFILE_UPDATED, { detail: { userId } }));
+        }
     },
 };
 

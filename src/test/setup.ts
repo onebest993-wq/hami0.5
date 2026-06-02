@@ -14,6 +14,7 @@ afterEach(() => {
 
 // Mock environment variables
 process.env.NODE_ENV = 'test';
+vi.stubEnv('VITE_ENABLE_CLOUD_SYNC', 'true');
 
 // Mock localStorage
 const localStorageMock = (() => {

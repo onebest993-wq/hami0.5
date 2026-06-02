@@ -5,6 +5,7 @@ import {
     type UrgentCase,
 } from '@/app/components/lawyer/Component_Urgent_Card';
 import { uuidv4 } from '@/app/services/urgent-actions-db';
+import { resolveProcedureCategory } from './procedureCategory';
 
 function asRecord(raw: unknown): Record<string, unknown> | null {
     if (!raw || typeof raw !== 'object') return null;
@@ -84,6 +85,11 @@ export function hydrateCase(raw: unknown): UrgentCase | null {
         courtName: typeof row.courtName === 'string' ? row.courtName : '',
         judgeName: typeof row.judgeName === 'string' ? row.judgeName : '',
         specificActionType: typeof row.specificActionType === 'string' ? row.specificActionType : '',
+        procedureCategory: (() => {
+            const stored = row.procedureCategory;
+            const specific = typeof row.specificActionType === 'string' ? row.specificActionType : '';
+            return resolveProcedureCategory(stored, specific);
+        })(),
         procedureDetails: typeof row.procedureDetails === 'string' ? row.procedureDetails : '',
         requestSubject: typeof row.requestSubject === 'string' ? row.requestSubject : '',
         urgentReason: typeof row.urgentReason === 'string' ? row.urgentReason : '',

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
     Calendar, Plus, AlertTriangle, Bot, Loader2
 } from 'lucide-react';
@@ -12,13 +12,24 @@ import { EventForm } from './SmartLegalRadar/EventForm';
 import { EMPTY_FORM, getDayName, todayYmd, timeValue } from './SmartLegalRadar/utils';
 import type { EventFormData } from './SmartLegalRadar/utils';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
+import { CALENDAR_REQUEST_SYNC_EVENT } from '@/app/services/calendarBridge.types';
 
 interface SmartLegalRadarProps {
     onBack: () => void;
     userId: string;
+    initialDate?: string;
+    initialEventId?: string;
+    /** يفتح المصدر الأصلي لموعد مربوط (إضبارة/ملاحظة/مهمة) */
+    onOpenSource?: (sourceModule: string, sourceEntityId: string) => void;
 }
 
-export const SmartLegalRadar: React.FC<SmartLegalRadarProps> = ({ onBack, userId }) => {
+export const SmartLegalRadar: React.FC<SmartLegalRadarProps> = ({
+    onBack,
+    userId,
+    initialDate,
+    initialEventId,
+    onOpenSource,
+}) => {
     const today = new Date();
     const [viewYear, setViewYear] = useState(today.getFullYear());
     const [viewMonth, setViewMonth] = useState(today.getMonth());
@@ -28,10 +39,36 @@ export const SmartLegalRadar: React.FC<SmartLegalRadarProps> = ({ onBack, userId
     const [formData, setFormData] = useState<EventFormData>(EMPTY_FORM);
     const [saving, setSaving] = useState(false);
     const [showFullMonth, setShowFullMonth] = useState(false);
+    const [highlightEventId, setHighlightEventId] = useState<string | undefined>(initialEventId);
+
+    useEffect(() => {
+        if (!initialDate) return;
+        const d = new Date(`${initialDate}T12:00:00`);
+        if (Number.isNaN(d.getTime())) return;
+        setViewYear(d.getFullYear());
+        setViewMonth(d.getMonth());
+        setSelectedDate(initialDate);
+    }, [initialDate]);
+
+    useEffect(() => {
+        if (!initialEventId) return;
+        setHighlightEventId(initialEventId);
+        const t = window.setTimeout(() => setHighlightEventId(undefined), 8000);
+        return () => window.clearTimeout(t);
+    }, [initialEventId]);
+
+    useEffect(() => {
+        try {
+            window.dispatchEvent(new CustomEvent(CALENDAR_REQUEST_SYNC_EVENT));
+        } catch {
+            /* ignore */
+        }
+    }, [userId]);
 
     const {
         allEvents,
         customEvents,
+        effectiveUserId,
         getEventsForDate,
         getDatesWithEvents,
         addEvent,
@@ -86,6 +123,10 @@ export const SmartLegalRadar: React.FC<SmartLegalRadarProps> = ({ onBack, userId
     }, [selectedDate]);
 
     const openEditForm = useCallback((event: UnifiedEvent) => {
+        if (event.bridge?.sourceEventId?.startsWith('field_')) {
+            SmartToast.info('هذا التاريخ مكتشف تلقائياً من إضبارته — حرّره من المصدر الأصلي');
+            return;
+        }
         setEditingEvent(event);
         setFormData({
             title: event.title,
@@ -130,7 +171,7 @@ export const SmartLegalRadar: React.FC<SmartLegalRadarProps> = ({ onBack, userId
                 SmartToast.success('تم تحديث الموعد');
             } else {
                 await addEvent({
-                    userId,
+                    userId: effectiveUserId,
                     title: formData.title.trim(),
                     date: formData.date,
                     time: formData.time || undefined,
@@ -149,9 +190,17 @@ export const SmartLegalRadar: React.FC<SmartLegalRadarProps> = ({ onBack, userId
         } finally {
             setSaving(false);
         }
-    }, [formData, editingEvent, userId, addEvent, updateEvent, customEvents]);
+    }, [formData, editingEvent, effectiveUserId, addEvent, updateEvent, customEvents]);
 
     const handleDelete = useCallback(async (event: UnifiedEvent) => {
+        if (event.bridge?.sourceEventId?.startsWith('field_')) {
+            SmartToast.info('هذا التاريخ مكتشف تلقائياً من إضبارته — حرّره أو احذفه من المصدر الأصلي');
+            return;
+        }
+        if (event.isBridged) {
+            SmartToast.info('هذا الموعد مربوط بإضبارة — احذفه من داخل الإضبارة (الدعوى/التنفيذ)');
+            return;
+        }
         if (event.source !== 'calendar') {
             SmartToast.info('يمكن حذف المواعيد المخصصة فقط');
             return;
@@ -304,8 +353,14 @@ export const SmartLegalRadar: React.FC<SmartLegalRadarProps> = ({ onBack, userId
                                     key={event.id}
                                     event={event}
                                     index={idx}
+                                    highlighted={highlightEventId != null && String(event.id) === String(highlightEventId)}
                                     onEdit={openEditForm}
                                     onDelete={handleDelete}
+                                    onOpenSource={onOpenSource ? (ev) => {
+                                        const mod = ev.bridge?.sourceModule;
+                                        const entId = ev.bridge?.sourceEntityId;
+                                        if (mod && entId) onOpenSource(mod, entId);
+                                    } : undefined}
                                 />
                             ))}
                         </div>

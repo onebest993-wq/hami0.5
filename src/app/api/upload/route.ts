@@ -7,9 +7,9 @@ import {
   verifyWifeSignature,
   wifeForbiddenResponse,
   wifeUnauthorizedResponse,
-} from '../security/wifeValidator';
-import { validateFileBuffer, verifyFileContentHash } from '../security/fileValidator';
-import { scanBufferForMalware } from '../../services/server/MalwareScanService';
+} from '../security/wifeValidator.ts';
+import { validateFileBuffer, verifyFileContentHash } from '../security/fileValidator.ts';
+import { scanBufferForMalware } from '../../services/server/MalwareScanService.ts';
 
 export const runtime = 'nodejs';
 
@@ -143,4 +143,3 @@ export async function POST(request: Request): Promise<Response> {
     return json(500, { ok: false, error: 'Internal upload error' });
   }
 }
-

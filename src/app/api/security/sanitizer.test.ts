@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sanitizePayload } from './sanitizer';
+import { sanitizePayload } from './sanitizer.ts';
 
 describe('sanitizePayload', () => {
   it('strips script tags and keeps safe text', () => {
@@ -41,4 +41,3 @@ describe('sanitizePayload', () => {
     expect(sanitizePayload(undefined)).toBe(undefined);
   });
 });
-

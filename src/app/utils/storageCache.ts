@@ -105,7 +105,7 @@ class StorageCacheClass {
   clearAll(): void {
     this.cache.clear();
     try {
-      const appKeyPrefixes = ['hami_', 'lawyer_', 'execution_', 'lawsuit_', 'client_', 'notes_', 'cache_'];
+      const appKeyPrefixes = ['hami_', 'hami:', 'lawyer_', 'execution_', 'lawsuit_', 'client_', 'notes_', 'cache_'];
       const keys = SecureStoreService.listKeysSync();
       keys.forEach((k) => {
         if (appKeyPrefixes.some((p) => k.startsWith(p))) {

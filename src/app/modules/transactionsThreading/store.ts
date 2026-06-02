@@ -4,6 +4,7 @@ import { FinanceRecordType, TransactionStatus, type TransactionDocumentOwnerTag 
 import { PersistentTransactionsThreadingRepository } from './persistentRepository';
 import { InMemoryTransactionsThreadingRepository, type TransactionsThreadingRepository } from './repository';
 import { TransactionsThreadingService, buildTaskTree } from './service';
+import { bumpThreadingCalendarSync } from '@/app/hooks/useIncrementalCalendarSync';
 
 let repo: TransactionsThreadingRepository = new InMemoryTransactionsThreadingRepository({
   transactions: [],
@@ -13,6 +14,10 @@ let repo: TransactionsThreadingRepository = new InMemoryTransactionsThreadingRep
 });
 let service = new TransactionsThreadingService(repo);
 let boundUserId: string | null = null;
+
+function syncThreadingToCalendar(): void {
+    bumpThreadingCalendarSync(boundUserId ?? useTransactionsThreadingStore.getState().userId);
+}
 
 interface TransactionsThreadingState {
   userId: string | null;
@@ -116,30 +121,50 @@ export const useTransactionsThreadingStore = create<TransactionsThreadingState>(
   createTransaction: async (input) => {
     const tx = await service.createTransaction(input);
     await get().refreshTransactions();
+    try {
+      const { AuditLog } = await import('@/app/services/auditLogPublisher');
+      AuditLog.threading.created({
+        txId: tx.id,
+        title: tx.title,
+        clientName: tx.clientName,
+      });
+    } catch { /* silent */ }
     return tx;
   },
 
   addTask: async (input) => {
     const task = await service.addTask(input);
     await get().refreshTransactionData(task.transactionId);
+    syncThreadingToCalendar();
     return task;
   },
 
   updateTaskStatus: async (taskId, status) => {
     const task = await service.updateTaskStatus(taskId, status);
     await get().refreshTransactionData(task.transactionId);
+    syncThreadingToCalendar();
     return task;
   },
 
   completeTask: async (taskId, officialReference) => {
     const task = await service.completeTask(taskId, officialReference ?? null);
     await get().refreshTransactionData(task.transactionId);
+    syncThreadingToCalendar();
+    try {
+      const { AuditLog } = await import('@/app/services/auditLogPublisher');
+      AuditLog.threading.taskCompleted({
+        txId: task.transactionId,
+        taskId: task.id,
+        title: task.title,
+      });
+    } catch { /* silent */ }
     return task;
   },
 
   updateTask: async (taskId, updates) => {
     const task = await service.updateTask(taskId, updates);
     await get().refreshTransactionData(task.transactionId);
+    syncThreadingToCalendar();
     return task;
   },
 
@@ -168,11 +193,27 @@ export const useTransactionsThreadingStore = create<TransactionsThreadingState>(
       await service.deleteTask(id);
     }
     await get().refreshTransactionData(transactionId);
+    syncThreadingToCalendar();
   },
 
   addFinanceRecord: async (input) => {
     const record = await service.addFinanceRecord(input);
     await get().refreshTransactionData(record.transactionId);
+    try {
+      const { AuditLog } = await import('@/app/services/auditLogPublisher');
+      if (record.type === FinanceRecordType.AdvancePayment) {
+        AuditLog.threading.advancePaid({
+          txId: record.transactionId,
+          amount: record.amount,
+        });
+      } else if (record.type === FinanceRecordType.Expense) {
+        AuditLog.threading.expenseAdded({
+          txId: record.transactionId,
+          amount: record.amount,
+          description: record.description,
+        });
+      }
+    } catch { /* silent */ }
     return record;
   },
 
@@ -204,6 +245,15 @@ export const useTransactionsThreadingStore = create<TransactionsThreadingState>(
     const tx = await service.setTransactionStatus(transactionId, status);
     await get().refreshTransactions();
     await get().refreshTransactionData(transactionId);
+    syncThreadingToCalendar();
+    try {
+      const { AuditLog } = await import('@/app/services/auditLogPublisher');
+      AuditLog.threading.statusChanged({
+        txId: tx.id,
+        title: tx.title,
+        toStatus: String(status),
+      });
+    } catch { /* silent */ }
     return tx;
   },
 

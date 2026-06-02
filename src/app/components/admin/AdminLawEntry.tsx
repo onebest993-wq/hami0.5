@@ -1,17 +1,42 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FunctionsHttpError } from "@supabase/functions-js";
 import { supabase } from "@/app/lib/supabase-client";
 import { cn } from "@/app/components/ui/utils";
 import { SmartDialog } from "@/app/components/ui/SmartDialog";
-import { Scale } from "lucide-react";
+import { Pin, Scale } from "lucide-react";
+import { IRAQI_LAW_CANONICAL_NAMES, resolveLawCodeTypeFromName } from "@/app/constants/iraqiLawCatalog";
+import { invalidateLegalCodeArticlesCache } from "@/app/components/lawyer/criminal-system/legalCodes/legalCodesDataCache";
+import {
+    articleNumberInRange,
+    clearPinnedLawFilter,
+    extractArticleSortNumber,
+    LAW_STRUCTURE,
+    LAW_STRUCTURE_SECTION_IDS,
+    readPinnedLawFilter,
+    writePinnedLawFilter,
+    type LawStructureSectionId,
+    type PinnedLawFilterPath,
+} from "@/app/components/admin/lawStructure";
 
 type AddLawInvokeBody = {
     law_name: string;
     article_number: string;
     content: string;
+    skip_embedding?: boolean;
 };
 
-type AdminLawEntryTab = "single" | "bulk";
+type AdminLawEntryTab = "single" | "bulk" | "browse";
+
+type BrowseLawRow = {
+    id: string;
+    lawName: string;
+    articleNumber: string;
+    content: string;
+};
+
+const BROWSE_TABLE_PAGE_SIZE = 40;
+type LawDomain = "execution" | "criminal";
+type CriminalLawTab = "penal" | "procedure" | "juvenile";
 
 type BulkProgress = {
     total: number;
@@ -27,13 +52,70 @@ type AddLawResponse = {
     details?: string;
     record?: unknown;
     deletedCount?: number;
+    embedding_fallback_used?: boolean;
 };
+
+type ClearLawsInvokeBody = {
+    law_name: string;
+    article_from?: number;
+    article_to?: number;
+};
+
+type AddLawInvokeResult = {
+    message: string;
+    embeddingFallbackUsed: boolean;
+};
+
+function isEmbeddingFailureMessage(msg: string): boolean {
+    const text = String(msg || "").toLowerCase();
+    return text.includes("فشل توليد التضمين") ||
+        text.includes("gemini-embedding-001") ||
+        text.includes("denied access") ||
+        text.includes("quota");
+}
+
+const LAW_DOMAIN_LABELS: Record<LawDomain, string> = {
+    execution: "قسم التنفيذ",
+    criminal: "القسم القضائي الجزائي",
+};
+
+const CRIMINAL_LAW_TAB_LABELS: Record<CriminalLawTab, string> = {
+    penal: "قانون العقوبات",
+    procedure: "أصول المحاكمات الجزائية",
+    juvenile: "قانون رعاية الأحداث",
+};
+
+const LAW_NAME_BY_TARGET: Record<LawDomain, string | null> & Record<CriminalLawTab, string> = {
+    execution: "قانون التنفيذ العراقي رقم 45 لسنة 1980",
+    criminal: null,
+    penal: "قانون العقوبات العراقي رقم 111 لسنة 1969",
+    procedure: "قانون أصول المحاكمات الجزائية العراقي رقم 23 لسنة 1971",
+    juvenile: "قانون رعاية الأحداث العراقي رقم 76 لسنة 1983",
+};
+function refreshLegalCodesReaderCache(lawName: string): void {
+    const codeType = resolveLawCodeTypeFromName(lawName);
+    if (codeType) invalidateLegalCodeArticlesCache(codeType);
+}
 
 function formatInvokeError(err: unknown): string {
     if (err && typeof err === "object" && "message" in err) {
         return String((err as { message: unknown }).message);
     }
     return String(err);
+}
+
+/** يقبل article_number كنص أو رقم (مثل 1 أو "المادة 1"). */
+function normalizeBulkArticleNumber(raw: unknown): string {
+    if (typeof raw === "string") return raw.trim();
+    if (typeof raw === "number" && Number.isFinite(raw)) {
+        return String(Math.trunc(raw));
+    }
+    return "";
+}
+
+function normalizeBulkContent(raw: unknown): string {
+    if (typeof raw === "string") return raw.trim();
+    return "";
 }
 
 async function errorBodyFromHttpError(
@@ -65,7 +147,25 @@ export interface AdminLawEntryProps {
  * مكوّن مستقل: يستورد عميل Supabase فقط ولا يعدّل التوجيه أو الشاشات الأخرى.
  */
 export function AdminLawEntry({ className }: AdminLawEntryProps) {
+    const initialPin = readPinnedLawFilter();
     const [activeTab, setActiveTab] = useState<AdminLawEntryTab>("single");
+    const [hierarchySectionId, setHierarchySectionId] = useState<LawStructureSectionId>(
+        initialPin?.sectionId ?? "penal",
+    );
+    const [hierarchyFilterId, setHierarchyFilterId] = useState<string | null>(
+        initialPin?.filterId ?? null,
+    );
+    const [pinnedFilterPath, setPinnedFilterPath] = useState<PinnedLawFilterPath | null>(
+        initialPin,
+    );
+    const [browseRows, setBrowseRows] = useState<BrowseLawRow[]>([]);
+    const [browseLoading, setBrowseLoading] = useState(false);
+    const [browseLoadError, setBrowseLoadError] = useState<string | null>(null);
+    const [browseVisibleCount, setBrowseVisibleCount] = useState(BROWSE_TABLE_PAGE_SIZE);
+    const hasLoadedBrowseRef = useRef(false);
+    const [activeDomain, setActiveDomain] = useState<LawDomain>("execution");
+    const [activeCriminalLawTab, setActiveCriminalLawTab] =
+        useState<CriminalLawTab>("penal");
     const [lawName, setLawName] = useState("");
     const [articleNumber, setArticleNumber] = useState("");
     const [content, setContent] = useState("");
@@ -81,8 +181,115 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
     const [success, setSuccess] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [clearLoading, setClearLoading] = useState(false);
+    const [clearArticleFrom, setClearArticleFrom] = useState("");
+    const [clearArticleTo, setClearArticleTo] = useState("");
+    const [bulkEmbeddingStats, setBulkEmbeddingStats] = useState<{
+        smartEmbedded: number;
+        fallbackSaved: number;
+    } | null>(null);
 
-    const invokeAddLaw = useCallback(async (body: AddLawInvokeBody) => {
+    const resolvedLawName =
+        activeDomain === "execution"
+            ? LAW_NAME_BY_TARGET.execution
+            : LAW_NAME_BY_TARGET[activeCriminalLawTab];
+
+    const activeHierarchySection = LAW_STRUCTURE[hierarchySectionId];
+    const activeHierarchyFilter = activeHierarchySection.filters.find(
+        (f) => f.id === hierarchyFilterId,
+    ) ?? null;
+
+    const loadBrowseArticles = useCallback(async () => {
+        setBrowseLoading(true);
+        setBrowseLoadError(null);
+        try {
+            const { data, error: fnError } = await supabase.functions.invoke<{
+                ok?: boolean;
+                error?: string;
+                details?: string;
+                items?: Array<{
+                    id?: string;
+                    law_name?: string;
+                    article_number?: string;
+                    content?: string;
+                }>;
+            }>("list-laws", { body: {} });
+            if (fnError) {
+                throw new Error(fnError.message || "تعذر تحميل المواد.");
+            }
+            if (!data || data.ok === false) {
+                throw new Error(
+                    (data?.error || data?.details || "تعذر تحميل المواد.").trim(),
+                );
+            }
+            const rows = Array.isArray(data.items) ? data.items : [];
+            const mapped: BrowseLawRow[] = rows
+                .map((row) => ({
+                    id: String(row?.id ?? `${row?.law_name}-${row?.article_number}`),
+                    lawName: String(row?.law_name ?? "").trim(),
+                    articleNumber: String(row?.article_number ?? "").trim() || "—",
+                    content: String(row?.content ?? "").trim() || "—",
+                }))
+                .filter((r) => r.lawName.length > 0);
+            setBrowseRows(mapped);
+        } catch (e) {
+            setBrowseLoadError(e instanceof Error ? e.message : "تعذر تحميل المواد.");
+        } finally {
+            setBrowseLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (activeTab !== "browse" || hasLoadedBrowseRef.current) return;
+        hasLoadedBrowseRef.current = true;
+        void loadBrowseArticles();
+    }, [activeTab, loadBrowseArticles]);
+
+    useEffect(() => {
+        if (activeTab !== "browse") return;
+        setBrowseVisibleCount(BROWSE_TABLE_PAGE_SIZE);
+    }, [activeTab, hierarchySectionId, hierarchyFilterId]);
+
+    const hierarchyFilteredRows = useMemo(() => {
+        const lawName = activeHierarchySection.lawName;
+        let rows = browseRows.filter((r) => r.lawName === lawName);
+        if (activeHierarchyFilter) {
+            const { from, to } = activeHierarchyFilter;
+            rows = rows.filter((r) =>
+                articleNumberInRange(r.articleNumber, from, to),
+            );
+        }
+        return rows.slice().sort((a, b) => {
+            const aNum = extractArticleSortNumber(a.articleNumber);
+            const bNum = extractArticleSortNumber(b.articleNumber);
+            if (aNum !== null && bNum !== null && aNum !== bNum) return aNum - bNum;
+            if (aNum !== null && bNum === null) return -1;
+            if (aNum === null && bNum !== null) return 1;
+            return a.articleNumber.localeCompare(b.articleNumber, "ar");
+        });
+    }, [activeHierarchyFilter, activeHierarchySection.lawName, browseRows]);
+
+    const visibleHierarchyRows = useMemo(
+        () => hierarchyFilteredRows.slice(0, browseVisibleCount),
+        [hierarchyFilteredRows, browseVisibleCount],
+    );
+
+    const handlePinHierarchyFilter = useCallback(
+        (sectionId: LawStructureSectionId, filterId: string) => {
+            const path: PinnedLawFilterPath = { sectionId, filterId };
+            writePinnedLawFilter(path);
+            setPinnedFilterPath(path);
+            setHierarchySectionId(sectionId);
+            setHierarchyFilterId(filterId);
+        },
+        [],
+    );
+
+    const handleUnpinHierarchyFilter = useCallback(() => {
+        clearPinnedLawFilter();
+        setPinnedFilterPath(null);
+    }, []);
+
+    const invokeAddLaw = useCallback(async (body: AddLawInvokeBody): Promise<AddLawInvokeResult> => {
         const { data, error: fnError } = await supabase.functions.invoke<
             AddLawResponse
         >("add-law", { body });
@@ -113,46 +320,90 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
         }
 
         if (data.ok === true) {
-            return typeof data.message === "string" && data.message.trim()
-                ? data.message
-                : "تم حفظ المادة في قاعدة البيانات الذكية بنجاح.";
+            return {
+                message: typeof data.message === "string" && data.message.trim()
+                    ? data.message
+                    : "تم حفظ المادة في قاعدة البيانات الذكية بنجاح.",
+                embeddingFallbackUsed: data.embedding_fallback_used === true,
+            };
         }
 
         throw new Error("استجابة غير متوقعة من الخادم.");
     }, []);
 
+    const invokeAddLawTextOnlyFallback = useCallback(
+        async (body: AddLawInvokeBody): Promise<AddLawInvokeResult> => {
+            return await invokeAddLaw({
+                ...body,
+                skip_embedding: true,
+            });
+        },
+        [invokeAddLaw],
+    );
+
     const handleSubmit = useCallback(async () => {
-        const law_name = lawName.trim();
+        const law_name = String(resolvedLawName ?? "").trim();
         const article_number = articleNumber.trim();
         const contentTrimmed = content.trim();
 
         if (!law_name || !article_number || !contentTrimmed) {
-            setError("يرجى تعبئة اسم القانون ورقم المادة والنص الحرفي.");
+            setError("يرجى تعبئة رقم المادة والنص الحرفي بعد اختيار القسم القانوني.");
             setSuccess(null);
             return;
         }
 
         setError(null);
         setSuccess(null);
+        setBulkEmbeddingStats(null);
         setSingleLoading(true);
 
         try {
-            const message = await invokeAddLaw({
+            const result = await invokeAddLaw({
                 law_name,
                 article_number,
                 content: contentTrimmed,
             });
-            setSuccess(message);
+            setSuccess(result.message);
+            refreshLegalCodesReaderCache(law_name);
             setArticleNumber("");
             setContent("");
+            hasLoadedBrowseRef.current = false;
+            if (activeTab === "browse") void loadBrowseArticles();
         } catch (e) {
-            setError(
-                e instanceof Error ? e.message : "خطأ غير متوقع أثناء الإرسال.",
-            );
+            const msg = e instanceof Error ? e.message : String(e);
+            if (isEmbeddingFailureMessage(msg)) {
+                try {
+                    const fallbackResult = await invokeAddLawTextOnlyFallback({
+                        law_name,
+                        article_number,
+                        content: contentTrimmed,
+                    });
+                    setSuccess(fallbackResult.message);
+                    refreshLegalCodesReaderCache(law_name);
+                    setArticleNumber("");
+                    setContent("");
+                } catch (fallbackErr) {
+                    setError(
+                        fallbackErr instanceof Error
+                            ? fallbackErr.message
+                            : "خطأ غير متوقع أثناء الحفظ المحلي.",
+                    );
+                }
+            } else {
+                setError(msg || "خطأ غير متوقع أثناء الإرسال.");
+            }
         } finally {
             setSingleLoading(false);
         }
-    }, [lawName, articleNumber, content, invokeAddLaw]);
+    }, [
+        resolvedLawName,
+        articleNumber,
+        content,
+        invokeAddLaw,
+        invokeAddLawTextOnlyFallback,
+        activeTab,
+        loadBrowseArticles,
+    ]);
 
     const sleep = useCallback(
         (ms: number) => new Promise((resolve) => setTimeout(resolve, ms)),
@@ -162,6 +413,7 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
     const handleBulkSubmit = useCallback(async () => {
         setError(null);
         setSuccess(null);
+        setBulkEmbeddingStats(null);
 
         let parsed: unknown;
         try {
@@ -184,18 +436,12 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                 return;
             }
             const o = row as Record<string, unknown>;
-            const law_name = typeof o.law_name === "string"
-                ? o.law_name.trim()
-                : "";
-            const article_number = typeof o.article_number === "string"
-                ? o.article_number.trim()
-                : "";
-            const bodyContent = typeof o.content === "string"
-                ? o.content.trim()
-                : "";
+            const law_name = String(resolvedLawName ?? "").trim();
+            const article_number = normalizeBulkArticleNumber(o.article_number);
+            const bodyContent = normalizeBulkContent(o.content);
             if (!law_name || !article_number || !bodyContent) {
                 setError(
-                    `العنصر رقم ${i + 1} ناقص. يجب أن يحتوي law_name و article_number و content.`,
+                    `العنصر رقم ${i + 1} ناقص. يجب أن يحتوي article_number (نص أو رقم) و content، مع اختيار القسم القانوني الصحيح (مثل «قانون رعاية الأحداث»).`,
                 );
                 return;
             }
@@ -212,16 +458,34 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
 
         let successCount = 0;
         let failedCount = 0;
+        let fallbackSavedCount = 0;
         const failedMessages: string[] = [];
 
         for (let i = 0; i < items.length; i++) {
             try {
-                await invokeAddLaw(items[i]);
+                const result = await invokeAddLaw(items[i]);
                 successCount++;
+                if (result.embeddingFallbackUsed) {
+                    fallbackSavedCount++;
+                }
             } catch (e) {
-                failedCount++;
                 const msg = e instanceof Error ? e.message : String(e);
-                failedMessages.push(`فشل المادة ${i + 1}: ${msg}`);
+                if (isEmbeddingFailureMessage(msg)) {
+                    try {
+                        await invokeAddLawTextOnlyFallback(items[i]);
+                        successCount++;
+                        fallbackSavedCount++;
+                    } catch (fallbackErr) {
+                        failedCount++;
+                        const fbMsg = fallbackErr instanceof Error
+                            ? fallbackErr.message
+                            : String(fallbackErr);
+                        failedMessages.push(`فشل المادة ${i + 1}: ${fbMsg}`);
+                    }
+                } else {
+                    failedCount++;
+                    failedMessages.push(`فشل المادة ${i + 1}: ${msg}`);
+                }
             }
 
             setBulkProgress({
@@ -237,7 +501,12 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
         }
 
         if (failedCount === 0) {
-            setSuccess(`اكتمل الرفع الجماعي بنجاح: ${successCount} من ${items.length}.`);
+            refreshLegalCodesReaderCache(String(resolvedLawName ?? "").trim());
+            setSuccess("تم رفع المواد بنجاح (مع الاحتفاظ بالنصوص محلياً).");
+            setBulkEmbeddingStats({
+                smartEmbedded: Math.max(0, successCount - fallbackSavedCount),
+                fallbackSaved: fallbackSavedCount,
+            });
             setBulkJson("");
         } else {
             setError(
@@ -246,25 +515,70 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                 }`,
             );
             if (successCount > 0) {
+                refreshLegalCodesReaderCache(String(resolvedLawName ?? "").trim());
                 setSuccess(`تم رفع ${successCount} مادة بنجاح.`);
+                setBulkEmbeddingStats({
+                    smartEmbedded: Math.max(0, successCount - fallbackSavedCount),
+                    fallbackSaved: fallbackSavedCount,
+                });
             }
         }
 
         setBulkLoading(false);
-    }, [bulkJson, invokeAddLaw, sleep]);
+        hasLoadedBrowseRef.current = false;
+        if (activeTab === "browse") void loadBrowseArticles();
+    }, [
+        bulkJson,
+        resolvedLawName,
+        invokeAddLaw,
+        sleep,
+        invokeAddLawTextOnlyFallback,
+        activeTab,
+        loadBrowseArticles,
+    ]);
 
     const handleClearDatabase = useCallback(async () => {
+        const targetLawName = String(resolvedLawName ?? "").trim();
+        if (!targetLawName) {
+            setError("تعذر تحديد القسم القانوني الحالي للحذف.");
+            setSuccess(null);
+            return;
+        }
+        const fromRaw = clearArticleFrom.trim();
+        const toRaw = clearArticleTo.trim();
+        const hasRange = Boolean(fromRaw || toRaw);
+        const article_from = fromRaw ? Number.parseInt(fromRaw, 10) : null;
+        const article_to = toRaw ? Number.parseInt(toRaw, 10) : null;
+        if (hasRange) {
+            if (
+                article_from === null ||
+                article_to === null ||
+                !Number.isFinite(article_from) ||
+                !Number.isFinite(article_to) ||
+                article_from > article_to
+            ) {
+                setError("لحذف نطاق محدد، أدخل رقم مادة البداية والنهاية (مثل 1 و 300).");
+                setSuccess(null);
+                return;
+            }
+        }
         const confirmed = await SmartDialog.confirm(
-            "تحذير: سيتم حذف جميع المواد القانونية من قاعدة البيانات. هل أنت متأكد؟",
+            hasRange
+                ? `تحذير: سيتم حذف مواد (${targetLawName}) من المادة ${article_from} إلى ${article_to}. هل أنت متأكد؟`
+                : `تحذير: سيتم حذف جميع مواد (${targetLawName}) فقط. هل أنت متأكد؟`,
         );
         if (!confirmed) return;
         setError(null);
         setSuccess(null);
+        setBulkEmbeddingStats(null);
         setClearLoading(true);
         try {
-            const { data, error: fnError } = await supabase.functions.invoke<AddLawResponse>(
+            const clearBody: ClearLawsInvokeBody = hasRange
+                ? { law_name: targetLawName, article_from: article_from!, article_to: article_to! }
+                : { law_name: targetLawName };
+            const { data, error: fnError } = await supabase.functions.invoke<AddLawResponse, ClearLawsInvokeBody>(
                 "clear-laws",
-                { body: {} },
+                { body: clearBody },
             );
             if (fnError) {
                 throw new Error(
@@ -278,12 +592,15 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                 throw new Error(data.error || "فشل تنظيف قاعدة البيانات.");
             }
             setSuccess(
-                `تم حذف جميع المواد القانونية بنجاح. العدد المحذوف: ${data.deletedCount ?? 0}.`,
+                `تم حذف مواد (${targetLawName}) بنجاح. العدد المحذوف: ${data.deletedCount ?? 0}.`,
             );
+            refreshLegalCodesReaderCache(targetLawName);
             setBulkProgress({ total: 0, processed: 0, success: 0, failed: 0 });
             setBulkJson("");
             setArticleNumber("");
             setContent("");
+            hasLoadedBrowseRef.current = false;
+            if (activeTab === "browse") void loadBrowseArticles();
         } catch (e) {
             setError(
                 e instanceof Error ? e.message : "خطأ غير متوقع أثناء التنظيف.",
@@ -291,7 +608,7 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
         } finally {
             setClearLoading(false);
         }
-    }, []);
+    }, [activeTab, clearArticleFrom, clearArticleTo, loadBrowseArticles, resolvedLawName]);
 
     return (
         <section
@@ -320,15 +637,87 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
             </header>
 
             <div className="space-y-5">
-                <div className="grid grid-cols-2 gap-2 rounded-xl border border-[#E6C673]/20 bg-[#05060D]/70 p-1.5">
+                <div className="space-y-3 rounded-2xl border border-[#E6C673]/20 bg-[#05060D]/70 p-3">
+                    <div className="grid grid-cols-2 gap-2 rounded-xl border border-[#E6C673]/20 bg-[#05060D]/70 p-1.5">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setActiveDomain("execution");
+                                setSuccess(null);
+                                setError(null);
+                                setBulkEmbeddingStats(null);
+                            }}
+                            disabled={singleLoading || bulkLoading}
+                            className={cn(
+                                "rounded-lg px-3 py-2 text-sm font-semibold transition",
+                                activeDomain === "execution"
+                                    ? "bg-[#E6C673] text-[#05060D]"
+                                    : "text-[#E6C673] hover:bg-[#E6C673]/10",
+                            )}
+                        >
+                            {LAW_DOMAIN_LABELS.execution}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setActiveDomain("criminal");
+                                setSuccess(null);
+                                setError(null);
+                                setBulkEmbeddingStats(null);
+                            }}
+                            disabled={singleLoading || bulkLoading}
+                            className={cn(
+                                "rounded-lg px-3 py-2 text-sm font-semibold transition",
+                                activeDomain === "criminal"
+                                    ? "bg-[#E6C673] text-[#05060D]"
+                                    : "text-[#E6C673] hover:bg-[#E6C673]/10",
+                            )}
+                        >
+                            {LAW_DOMAIN_LABELS.criminal}
+                        </button>
+                    </div>
+
+                    {activeDomain === "criminal" && (
+                        <div className="grid grid-cols-1 gap-2 rounded-xl border border-white/10 bg-[#0A0F1C]/80 p-2 sm:grid-cols-3">
+                            {(Object.keys(CRIMINAL_LAW_TAB_LABELS) as CriminalLawTab[]).map((tab) => (
+                                <button
+                                    key={tab}
+                                    type="button"
+                                    onClick={() => {
+                                        setActiveCriminalLawTab(tab);
+                                        setSuccess(null);
+                                        setError(null);
+                                        setBulkEmbeddingStats(null);
+                                    }}
+                                    disabled={singleLoading || bulkLoading}
+                                    className={cn(
+                                        "rounded-lg px-3 py-2 text-xs font-bold transition",
+                                        activeCriminalLawTab === tab
+                                            ? "bg-[#E6C673] text-[#05060D]"
+                                            : "text-[#E6C673] hover:bg-[#E6C673]/10",
+                                    )}
+                                >
+                                    {CRIMINAL_LAW_TAB_LABELS[tab]}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-100">
+                        الوجهة الحالية للحقن: {resolvedLawName}
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2 rounded-xl border border-[#E6C673]/20 bg-[#05060D]/70 p-1.5 sm:grid-cols-3">
                     <button
                         type="button"
                         onClick={() => {
                             setActiveTab("single");
                             setError(null);
                             setSuccess(null);
+                            setBulkEmbeddingStats(null);
                         }}
-                        disabled={singleLoading || bulkLoading}
+                        disabled={singleLoading || bulkLoading || browseLoading}
                         className={cn(
                             "rounded-lg px-3 py-2 text-sm font-semibold transition",
                             activeTab === "single"
@@ -344,8 +733,9 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                             setActiveTab("bulk");
                             setError(null);
                             setSuccess(null);
+                            setBulkEmbeddingStats(null);
                         }}
-                        disabled={singleLoading || bulkLoading}
+                        disabled={singleLoading || bulkLoading || browseLoading}
                         className={cn(
                             "rounded-lg px-3 py-2 text-sm font-semibold transition",
                             activeTab === "bulk"
@@ -354,6 +744,24 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                         )}
                     >
                         إدخال جماعي (JSON)
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setActiveTab("browse");
+                            setError(null);
+                            setSuccess(null);
+                            setBulkEmbeddingStats(null);
+                        }}
+                        disabled={singleLoading || bulkLoading}
+                        className={cn(
+                            "rounded-lg px-3 py-2 text-sm font-semibold transition",
+                            activeTab === "browse"
+                                ? "bg-[#E6C673] text-[#05060D]"
+                                : "text-[#E6C673] hover:bg-[#E6C673]/10",
+                        )}
+                    >
+                        استعراض وتصفية
                     </button>
                 </div>
 
@@ -370,14 +778,10 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                                 id="admin-law-name"
                                 type="text"
                                 autoComplete="off"
-                                placeholder="مثال: قانون التنفيذ العراقي رقم 45 لسنة 1980"
-                                value={lawName}
-                                onChange={(e) => {
-                                    setLawName(e.target.value);
-                                    setSuccess(null);
-                                    setError(null);
-                                }}
-                                disabled={singleLoading || bulkLoading}
+                                placeholder="يُحدد تلقائياً حسب القسم المختار"
+                                value={resolvedLawName}
+                                onChange={() => void 0}
+                                disabled
                                 className="w-full rounded-xl border border-white/10 bg-[#05060D]/80 px-4 py-3 text-sm text-white outline-none ring-[#E6C673]/30 transition-[border-color,box-shadow] placeholder:text-gray-500 focus:border-[#E6C673]/45 focus:ring-2 disabled:opacity-60"
                             />
                         </div>
@@ -429,6 +833,214 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                     </>
                 )}
 
+                {activeTab === "browse" && (
+                    <div className="space-y-4 rounded-2xl border border-[#E6C673]/20 bg-[#05060D]/70 p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="text-sm font-bold text-[#E6C673]">
+                                التصفية الهرمية للمواد المحقونة
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    hasLoadedBrowseRef.current = false;
+                                    void loadBrowseArticles();
+                                }}
+                                disabled={browseLoading}
+                                className="rounded-lg border border-white/15 px-3 py-1.5 text-xs font-bold text-white/80 hover:bg-white/5 disabled:opacity-60"
+                            >
+                                {browseLoading ? "جاري التحديث…" : "تحديث الجدول"}
+                            </button>
+                        </div>
+
+                        {/* Primary Filter Bar — الأقسام العامة */}
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            {LAW_STRUCTURE_SECTION_IDS.map((sectionId) => {
+                                const section = LAW_STRUCTURE[sectionId];
+                                return (
+                                    <button
+                                        key={sectionId}
+                                        type="button"
+                                        onClick={() => {
+                                            setHierarchySectionId(sectionId);
+                                            setHierarchyFilterId(null);
+                                        }}
+                                        className={cn(
+                                            "rounded-lg border px-3 py-2 text-xs font-bold transition",
+                                            hierarchySectionId === sectionId
+                                                ? "border-[#E6C673] bg-[#E6C673] text-[#05060D]"
+                                                : "border-white/10 text-[#E6C673] hover:bg-[#E6C673]/10",
+                                        )}
+                                    >
+                                        {section.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Secondary Filter Bar — أزرار النطاق */}
+                        <div className="space-y-2 rounded-xl border border-white/10 bg-[#0A0F1C]/80 p-2">
+                            <p className="text-xs font-semibold text-gray-400">
+                                تصنيفات {activeHierarchySection.label}
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                                {activeHierarchySection.filters.map((filter) => {
+                                    const isActive = hierarchyFilterId === filter.id;
+                                    const isPinned =
+                                        pinnedFilterPath?.sectionId === hierarchySectionId &&
+                                        pinnedFilterPath?.filterId === filter.id;
+                                    return (
+                                        <div
+                                            key={filter.id}
+                                            className={cn(
+                                                "inline-flex items-center gap-1 rounded-lg border",
+                                                isActive
+                                                    ? "border-[#E6C673] bg-[#E6C673]/15"
+                                                    : "border-white/10 bg-white/[0.03]",
+                                            )}
+                                        >
+                                            <button
+                                                type="button"
+                                                onClick={() => setHierarchyFilterId(filter.id)}
+                                                className={cn(
+                                                    "px-3 py-2 text-xs font-bold transition",
+                                                    isActive
+                                                        ? "text-[#E6C673]"
+                                                        : "text-white/80 hover:text-[#E6C673]",
+                                                )}
+                                            >
+                                                {filter.label}
+                                                <span className="mr-1 text-[10px] font-medium text-gray-400">
+                                                    ({filter.from}–{filter.to === 9999 ? "∞" : filter.to})
+                                                </span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                title={
+                                                    isPinned
+                                                        ? "إلغاء التثبيت"
+                                                        : "تثبيت هذا النطاق"
+                                                }
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (isPinned) {
+                                                        handleUnpinHierarchyFilter();
+                                                    } else {
+                                                        handlePinHierarchyFilter(
+                                                            hierarchySectionId,
+                                                            filter.id,
+                                                        );
+                                                    }
+                                                }}
+                                                className={cn(
+                                                    "rounded-lg p-2 transition",
+                                                    isPinned
+                                                        ? "text-[#E6C673]"
+                                                        : "text-white/40 hover:text-[#E6C673]",
+                                                )}
+                                            >
+                                                <Pin
+                                                    className={cn(
+                                                        "h-3.5 w-3.5",
+                                                        isPinned && "fill-current",
+                                                    )}
+                                                />
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            {pinnedFilterPath ? (
+                                <p className="text-[11px] text-emerald-300/90">
+                                    مثبت: {LAW_STRUCTURE[pinnedFilterPath.sectionId].label} —{" "}
+                                    {LAW_STRUCTURE[pinnedFilterPath.sectionId].filters.find(
+                                        (f) => f.id === pinnedFilterPath.filterId,
+                                    )?.label ?? pinnedFilterPath.filterId}
+                                </p>
+                            ) : null}
+                        </div>
+
+                        {browseLoadError ? (
+                            <p className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                                {browseLoadError}
+                            </p>
+                        ) : null}
+
+                        <div className="overflow-hidden rounded-xl border border-white/10">
+                            <div className="flex items-center justify-between border-b border-white/10 bg-[#0A0F1C]/90 px-3 py-2">
+                                <span className="text-xs font-bold text-white/80">
+                                    {activeHierarchyFilter
+                                        ? `المواد ${activeHierarchyFilter.from}–${
+                                              activeHierarchyFilter.to === 9999
+                                                  ? "∞"
+                                                  : activeHierarchyFilter.to
+                                          }`
+                                        : "اختر نطاقاً لعرض المواد"}
+                                </span>
+                                <span className="text-xs text-gray-400">
+                                    {hierarchyFilteredRows.length} مادة
+                                </span>
+                            </div>
+                            {browseLoading ? (
+                                <p className="px-4 py-6 text-center text-sm text-gray-400">
+                                    جاري تحميل المواد…
+                                </p>
+                            ) : !activeHierarchyFilter ? (
+                                <p className="px-4 py-6 text-center text-sm text-gray-400">
+                                    اختر زر تصنيف خاص لعرض المواد ضمن النطاق العددي.
+                                </p>
+                            ) : visibleHierarchyRows.length === 0 ? (
+                                <p className="px-4 py-6 text-center text-sm text-gray-400">
+                                    لا توجد مواد في هذا النطاق للقسم المحدد.
+                                </p>
+                            ) : (
+                                <div className="max-h-[420px] overflow-y-auto">
+                                    <table className="w-full text-right text-sm">
+                                        <thead className="sticky top-0 bg-[#0A0F1C] text-xs text-[#E6C673]/90">
+                                            <tr>
+                                                <th className="px-3 py-2 font-bold">رقم المادة</th>
+                                                <th className="px-3 py-2 font-bold">النص</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {visibleHierarchyRows.map((row) => (
+                                                <tr
+                                                    key={row.id}
+                                                    className="border-t border-white/5 hover:bg-white/[0.03]"
+                                                >
+                                                    <td className="whitespace-nowrap px-3 py-2 align-top font-bold text-[#E6C673]">
+                                                        {row.articleNumber}
+                                                    </td>
+                                                    <td className="px-3 py-2 align-top text-xs leading-relaxed text-white/85">
+                                                        {row.content.length > 220
+                                                            ? `${row.content.slice(0, 220)}…`
+                                                            : row.content}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+
+                        {hierarchyFilteredRows.length > visibleHierarchyRows.length ? (
+                            <div className="flex justify-center">
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setBrowseVisibleCount(
+                                            (v) => v + BROWSE_TABLE_PAGE_SIZE,
+                                        )
+                                    }
+                                    className="rounded-lg border border-[#E6C673]/30 px-4 py-2 text-xs font-bold text-[#E6C673] hover:bg-[#E6C673]/10"
+                                >
+                                    تحميل المزيد
+                                </button>
+                            </div>
+                        ) : null}
+                    </div>
+                )}
+
                 {activeTab === "bulk" && (
                     <>
                         <div>
@@ -441,7 +1053,7 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                             <textarea
                                 id="admin-law-bulk-json"
                                 rows={14}
-                                placeholder={`[\n  { \"law_name\": \"اسم القانون\", \"article_number\": \"المادة 1\", \"content\": \"النص...\" },\n  { \"law_name\": \"اسم القانون\", \"article_number\": \"المادة 2\", \"content\": \"النص...\" }\n]`}
+                                placeholder={`[\n  { \"article_number\": \"المادة 1\", \"content\": \"النص...\" },\n  { \"article_number\": 2, \"content\": \"النص...\" }\n]\n\nملاحظة: law_name يُحدد تلقائياً حسب القسم/التبويب الحالي. article_number يقبل نصاً أو رقماً.`}
                                 value={bulkJson}
                                 onChange={(e) => {
                                     setBulkJson(e.target.value);
@@ -479,12 +1091,24 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                 )}
 
                 {success && (
-                    <p
-                        className="rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-300"
-                        role="status"
-                    >
-                        {success}
-                    </p>
+                    <div className="space-y-2">
+                        <p
+                            className="rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-300"
+                            role="status"
+                        >
+                            {success}
+                        </p>
+                        {bulkEmbeddingStats ? (
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="inline-flex items-center rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-200 backdrop-blur-sm">
+                                    ✨ بتضمين ذكي: {bulkEmbeddingStats.smartEmbedded}
+                                </span>
+                                <span className="inline-flex items-center rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-200 backdrop-blur-sm">
+                                    📝 نص محلي فقط: {bulkEmbeddingStats.fallbackSaved}
+                                </span>
+                            </div>
+                        ) : null}
+                    </div>
                 )}
 
                 {error && (
@@ -496,6 +1120,7 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                     </p>
                 )}
 
+                {activeTab !== "browse" ? (
                 <button
                     type="button"
                     onClick={activeTab === "single" ? handleSubmit : handleBulkSubmit}
@@ -516,7 +1141,38 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                         ? "حفظ المادة في قاعدة البيانات الذكية"
                         : "بدء الرفع الجماعي"}
                 </button>
+                ) : null}
 
+                {activeTab !== "browse" ? (
+                <div className="grid grid-cols-2 gap-2">
+                    <label className="flex flex-col gap-1 text-xs text-gray-400">
+                        من مادة (اختياري)
+                        <input
+                            type="number"
+                            min={1}
+                            value={clearArticleFrom}
+                            onChange={(e) => setClearArticleFrom(e.target.value)}
+                            disabled={singleLoading || bulkLoading || clearLoading}
+                            className="rounded-lg border border-white/10 bg-[#05060D]/80 px-3 py-2 text-sm text-white"
+                            placeholder="1"
+                        />
+                    </label>
+                    <label className="flex flex-col gap-1 text-xs text-gray-400">
+                        إلى مادة (اختياري)
+                        <input
+                            type="number"
+                            min={1}
+                            value={clearArticleTo}
+                            onChange={(e) => setClearArticleTo(e.target.value)}
+                            disabled={singleLoading || bulkLoading || clearLoading}
+                            className="rounded-lg border border-white/10 bg-[#05060D]/80 px-3 py-2 text-sm text-white"
+                            placeholder="300"
+                        />
+                    </label>
+                </div>
+                ) : null}
+
+                {activeTab !== "browse" ? (
                 <button
                     type="button"
                     onClick={handleClearDatabase}
@@ -531,8 +1187,11 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                 >
                     {clearLoading
                         ? "جاري تنظيف قاعدة البيانات…"
+                        : clearArticleFrom.trim() && clearArticleTo.trim()
+                        ? "حذف نطاق المواد المحدد"
                         : "حذف جميع المواد القانونية"}
                 </button>
+                ) : null}
             </div>
         </section>
     );

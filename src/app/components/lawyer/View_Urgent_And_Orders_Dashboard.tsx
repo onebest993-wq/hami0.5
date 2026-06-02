@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
     AlertTriangle, Clock, CheckCircle2,
@@ -16,13 +16,22 @@ import { DashboardControls } from './View_Urgent_And_Orders_Dashboard/DashboardC
 import { DashboardSection } from './View_Urgent_And_Orders_Dashboard/DashboardSection';
 import type { ViewMode, FilterStatus, Props } from './View_Urgent_And_Orders_Dashboard/types';
 import { useAuth } from '@/app/context/AuthContext';
-import { DeferredActiveOrderFile } from './DeferredActiveOrderFile';
-import { Form_Urgent_Actions } from './Form_Urgent_Actions';
+import { useLawyerSettingsOptional } from '@/app/context/LawyerSettingsContext';
+import { DeferredActiveOrderFile, preloadActiveOrderFilePanel } from './DeferredActiveOrderFile';
 import { ErrorBoundary } from '@/app/components/ui/ErrorBoundary';
+import { lazyWithRetry, type LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
+import DossierOpeningFallback from '@/app/components/lawyer/LawyerDashboardParts/components/DossierOpeningFallback';
 import { createCaseFromForm } from '@/app/domain/urgent';
 import { useUrgentCasesStorage } from './View_Urgent_And_Orders_Dashboard/hooks/useUrgentCasesStorage';
 import { useUrgentCasesFilter } from './View_Urgent_And_Orders_Dashboard/hooks/useUrgentCasesFilter';
 import { useUrgentDossierPanel } from './View_Urgent_And_Orders_Dashboard/hooks/useUrgentDossierPanel';
+import { unpinWorkspaceItem } from '@/app/workspace/unpinWorkspaceEntity';
+
+const LazyFormUrgentActions = lazyWithRetry(() =>
+    import('./Form_Urgent_Actions').then((m) => ({
+        default: m.Form_Urgent_Actions as unknown as LazyComponent,
+    })),
+);
 
 function DossierPanelErrorFallback({
     onClose,
@@ -94,6 +103,7 @@ export const View_Urgent_And_Orders_Dashboard: React.FC<Props> = ({
     onBack,
     onCreateNew,
     onViewDetails,
+    focusCaseId,
     embeddedInWorkspace = false,
 }) => {
     const { user: authUser, isLoading: authLoading } = useAuth();
@@ -102,7 +112,18 @@ export const View_Urgent_And_Orders_Dashboard: React.FC<Props> = ({
         return authUser?.id ?? 'dev-user-uuid-1';
     }, [authUser?.id, authLoading]);
 
-    const [viewMode, setViewMode] = useState<ViewMode>('grid');
+    const lawyerSettings = useLawyerSettingsOptional();
+    const viewMode: ViewMode = lawyerSettings?.settings.workflow.viewMode ?? 'grid';
+
+    const handleViewModeChange = useCallback(
+        (mode: ViewMode) => {
+            lawyerSettings?.setSettings((prev) => ({
+                ...prev,
+                workflow: { ...prev.workflow, viewMode: mode },
+            }));
+        },
+        [lawyerSettings],
+    );
     const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
     const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -138,6 +159,27 @@ export const View_Urgent_And_Orders_Dashboard: React.FC<Props> = ({
         openDossierForCase,
         handleCaseUpdated,
     } = useUrgentDossierPanel({ cases, setCases, pendingCasesPersistRef });
+
+    const focusAppliedRef = useRef(false);
+    useEffect(() => {
+        if (!focusCaseId) {
+            focusAppliedRef.current = false;
+            return;
+        }
+        if (focusAppliedRef.current) return;
+        if (!cases.some((c) => c.id === focusCaseId)) return;
+        focusAppliedRef.current = true;
+        preloadActiveOrderFilePanel();
+        openDossierForCase(focusCaseId);
+    }, [focusCaseId, cases, openDossierForCase]);
+
+    const handleCaseClickWithPreload = useCallback(
+        (caseId: string) => {
+            preloadActiveOrderFilePanel();
+            handleCaseClick(caseId);
+        },
+        [handleCaseClick],
+    );
 
     const [scope, setScope] = useState<'active' | 'archive' | 'trash'>('active');
 
@@ -293,11 +335,13 @@ export const View_Urgent_And_Orders_Dashboard: React.FC<Props> = ({
 
     const confirmPermanentDelete = () => {
         if (!permanentDeleteModal.caseId) return;
+        const removedId = permanentDeleteModal.caseId;
         setCases((prev) => {
-            const next = prev.filter((c) => c.id !== permanentDeleteModal.caseId);
+            const next = prev.filter((c) => c.id !== removedId);
             pendingCasesPersistRef.current = true;
             return next;
         });
+        unpinWorkspaceItem(removedId, 'urgent');
         setPermanentDeleteModal({ isOpen: false, caseId: '', countdown: 5 });
     };
 
@@ -370,7 +414,7 @@ export const View_Urgent_And_Orders_Dashboard: React.FC<Props> = ({
                     filterStatus={filterStatus}
                     onFilterChange={setFilterStatus}
                     viewMode={viewMode}
-                    onViewModeChange={setViewMode}
+                    onViewModeChange={handleViewModeChange}
                 />
             </div>
 
@@ -389,7 +433,7 @@ export const View_Urgent_And_Orders_Dashboard: React.FC<Props> = ({
                     cases={criticalCases}
                     viewMode={viewMode}
                     onQuickAction={handleQuickAction}
-                    onCaseClick={handleCaseClick}
+                    onCaseClick={handleCaseClickWithPreload}
                     onArchive={(caseId) => openArchiveModal(caseId, 'manual')}
                     onTrash={openTrashModal}
                     scope="active"
@@ -411,7 +455,7 @@ export const View_Urgent_And_Orders_Dashboard: React.FC<Props> = ({
                     cases={pendingCases}
                     viewMode={viewMode}
                     onQuickAction={handleQuickAction}
-                    onCaseClick={handleCaseClick}
+                    onCaseClick={handleCaseClickWithPreload}
                     onArchive={(caseId) => openArchiveModal(caseId, 'manual')}
                     onTrash={openTrashModal}
                     scope="active"
@@ -433,7 +477,7 @@ export const View_Urgent_And_Orders_Dashboard: React.FC<Props> = ({
                     cases={completedCases}
                     viewMode={viewMode}
                     onQuickAction={handleQuickAction}
-                    onCaseClick={handleCaseClick}
+                    onCaseClick={handleCaseClickWithPreload}
                     onArchive={(caseId) => openArchiveModal(caseId, 'manual')}
                     onTrash={openTrashModal}
                     scope="active"
@@ -455,7 +499,7 @@ export const View_Urgent_And_Orders_Dashboard: React.FC<Props> = ({
                     cases={archivedCases}
                     viewMode={viewMode}
                     onQuickAction={handleQuickAction}
-                    onCaseClick={handleCaseClick}
+                    onCaseClick={handleCaseClickWithPreload}
                     onUnarchive={unarchiveCase}
                     onTrash={openTrashModal}
                     scope="archive"
@@ -477,7 +521,7 @@ export const View_Urgent_And_Orders_Dashboard: React.FC<Props> = ({
                     cases={trashedCases}
                     viewMode={viewMode}
                     onQuickAction={handleQuickAction}
-                    onCaseClick={handleCaseClick}
+                    onCaseClick={handleCaseClickWithPreload}
                     onRestore={restoreFromTrash}
                     onPermanentDelete={openPermanentDeleteModal}
                     scope="trash"
@@ -698,7 +742,16 @@ export const View_Urgent_And_Orders_Dashboard: React.FC<Props> = ({
                         console.error('[UrgentOrders] form modal error:', error, info.componentStack);
                     }}
                 >
-                    <Form_Urgent_Actions
+                    <Suspense
+                        fallback={
+                            <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                                <div className="rounded-2xl border border-white/10 bg-[#0B1021] px-6 py-5 text-center">
+                                    <p className="text-white font-extrabold text-sm">جاري تحميل نموذج الطلب…</p>
+                                </div>
+                            </div>
+                        }
+                    >
+                        <LazyFormUrgentActions
                         onClose={() => setShowFormModal(false)}
                         onSave={(data: Record<string, unknown>) => {
                         SmartToast.success('✅ تم حفظ الطلب بنجاح');
@@ -712,24 +765,29 @@ export const View_Urgent_And_Orders_Dashboard: React.FC<Props> = ({
                         openDossierForCase(newCase.id);
                         }}
                         initialActionType="state_order"
-                    />
+                        />
+                    </Suspense>
                 </ErrorBoundary>
             )}
 
             {showDetailsModal && selectedCaseForDetails && (
-                <ErrorBoundary
-                    key={`${selectedCaseForDetails}-${dossierMountKey}`}
-                    fallback={<DossierPanelErrorFallback onClose={closeDossierPanel} onRetry={retryDossierPanel} />}
-                    onError={(error, info) => {
-                        console.error('[UrgentOrders] dossier panel error:', error, info.componentStack);
-                    }}
-                >
-                    <DeferredActiveOrderFile
-                        fileData={selectedCaseFile ?? { id: selectedCaseForDetails }}
-                        onCaseUpdated={handleCaseUpdated}
-                        onClose={closeDossierPanel}
-                    />
-                </ErrorBoundary>
+                selectedCaseFile ? (
+                    <ErrorBoundary
+                        key={`${selectedCaseForDetails}-${dossierMountKey}`}
+                        fallback={<DossierPanelErrorFallback onClose={closeDossierPanel} onRetry={retryDossierPanel} />}
+                        onError={(error, info) => {
+                            console.error('[UrgentOrders] dossier panel error:', error, info.componentStack);
+                        }}
+                    >
+                        <DeferredActiveOrderFile
+                            fileData={selectedCaseFile}
+                            onCaseUpdated={handleCaseUpdated}
+                            onClose={closeDossierPanel}
+                        />
+                    </ErrorBoundary>
+                ) : (
+                    <DossierOpeningFallback />
+                )
             )}
         </div>
     );

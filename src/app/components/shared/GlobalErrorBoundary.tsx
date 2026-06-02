@@ -12,6 +12,12 @@ interface State {
   errorInfo: ErrorInfo | null;
 }
 
+const CHUNK_RELOAD_SESSION_KEY = "hami:chunk-reload-once";
+
+function isStaleChunkLoadError(error: Error): boolean {
+  return /Failed to fetch dynamically imported module/i.test(error.message);
+}
+
 export class GlobalErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
@@ -24,6 +30,19 @@ export class GlobalErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    if (isStaleChunkLoadError(error)) {
+      try {
+        if (!sessionStorage.getItem(CHUNK_RELOAD_SESSION_KEY)) {
+          sessionStorage.setItem(CHUNK_RELOAD_SESSION_KEY, "1");
+          window.location.reload();
+          return;
+        }
+        sessionStorage.removeItem(CHUNK_RELOAD_SESSION_KEY);
+      } catch {
+        /* ignore storage errors */
+      }
+    }
+
     debug.error("❌ [GlobalErrorBoundary] Uncaught error:", error, errorInfo);
     
     // Log to external service (e.g., Sentry) if configured

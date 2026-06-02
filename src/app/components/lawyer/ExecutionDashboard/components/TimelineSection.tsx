@@ -1,7 +1,9 @@
-import React, { Suspense, useMemo } from 'react';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import type { Dispatch, ElementType, SetStateAction, TransitionStartFunction } from 'react';
 import type { TimelineEvent } from '@/app/types/execution';
+import { useEntityCalendarEvents } from '@/app/hooks/useEntityCalendarEvents';
+import { mergeTimelineEventsWithCalendar } from '@/app/utils/calendarTimelineMerge';
 
 interface TimelineSectionProps {
     timelineAccordionExpanded: boolean;
@@ -46,6 +48,9 @@ interface TimelineSectionProps {
     setShowOnlyActiveFileTimeline?: Dispatch<SetStateAction<boolean>>;
     subFilesCount?: number;
     filteredMergedTimelineEvents?: TimelineEvent[];
+    /** عند التوفير: مواعيد السجل تُعرض بتواريخ التقويم المركزي */
+    calendarUserId?: string | null;
+    executionEntityId?: string | null;
 }
 
 export const TimelineSection: React.FC<TimelineSectionProps> = ({
@@ -76,9 +81,35 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
     setShowOnlyActiveFileTimeline,
     subFilesCount,
     filteredMergedTimelineEvents,
+    calendarUserId,
+    executionEntityId,
 }) => {
+    const TIMELINE_PAGE_SIZE = 100;
+    const [timelineVisibleCount, setTimelineVisibleCount] = useState(TIMELINE_PAGE_SIZE);
+    const [activeAppointmentsVisibleCount, setActiveAppointmentsVisibleCount] = useState(TIMELINE_PAGE_SIZE);
+    const [endedAppointmentsVisibleCount, setEndedAppointmentsVisibleCount] = useState(TIMELINE_PAGE_SIZE);
     const effectiveEvents = filteredMergedTimelineEvents ?? filteredTimelineEvents;
     const hasSubFiles = (subFilesCount ?? 0) > 0;
+
+    const entityCal = useEntityCalendarEvents(
+        calendarUserId,
+        executionEntityId ? 'execution' : null,
+        executionEntityId,
+    );
+
+    const radarEventsRaw = debtorBrowserTabsMode
+        ? activeTimelineEventsDebtorScoped
+        : activeTimelineEvents;
+
+    const radarEvents = useMemo(() => {
+        if (!executionEntityId || entityCal.length === 0) return radarEventsRaw;
+        return mergeTimelineEventsWithCalendar(
+            radarEventsRaw,
+            entityCal,
+            'execution',
+            executionEntityId,
+        );
+    }, [radarEventsRaw, entityCal, executionEntityId]);
 
     const appointmentsSplit = useMemo(() => {
         if (activeTimelineFilter !== 'مواعيد') return null;
@@ -101,6 +132,12 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
         return { active, ended };
     }, [activeTimelineFilter, effectiveEvents, todayYmd]);
 
+    useEffect(() => {
+        setTimelineVisibleCount(TIMELINE_PAGE_SIZE);
+        setActiveAppointmentsVisibleCount(TIMELINE_PAGE_SIZE);
+        setEndedAppointmentsVisibleCount(TIMELINE_PAGE_SIZE);
+    }, [activeTimelineFilter, debtorBrowserTabsMode, showOnlyActiveFileTimeline, effectiveEvents.length]);
+
     return (
         <div className="mx-3 mt-3 rounded-xl border border-slate-500/25 bg-[#0A0F1C]/30 p-0.5 shadow-md shadow-black/25 ring-1 ring-white/[0.05] backdrop-blur-xl">
             <button type="button"
@@ -119,15 +156,10 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
                 </div>
             </button>
 
-            {!timelineAccordionExpanded &&
-                (debtorBrowserTabsMode ? activeTimelineEventsDebtorScoped : activeTimelineEvents).length > 0 && (
+            {!timelineAccordionExpanded && radarEvents.length > 0 && (
                     <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
                         <SmartTimelineRadar
-                            events={
-                                debtorBrowserTabsMode
-                                    ? activeTimelineEventsDebtorScoped
-                                    : activeTimelineEvents
-                            }
+                            events={radarEvents}
                             onTogglePin={toggleTimelineEventPin}
                             onOpenFull={() => setShowTimelineModal(true)}
                             previewLimit={timelineRadarPreviewLimit}
@@ -192,7 +224,7 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
                                         </p>
                                         <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
                                             <PremiumTimelineAuditLog
-                                                events={appointmentsSplit.active.slice(0, 100)}
+                                                events={appointmentsSplit.active.slice(0, activeAppointmentsVisibleCount)}
                                                 onTogglePin={toggleTimelineEventPin}
                                                 onRequestTrash={moveTimelineEventToTrash}
                                                 onRequestEdit={onRequestEditTimelineEvent}
@@ -202,6 +234,17 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
                                                 }
                                             />
                                         </Suspense>
+                                        {appointmentsSplit.active.length > activeAppointmentsVisibleCount ? (
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setActiveAppointmentsVisibleCount((v) => v + TIMELINE_PAGE_SIZE)
+                                                }
+                                                className="mt-2 rounded-lg border border-slate-600/45 bg-slate-800/40 px-3 py-1.5 text-[11px] font-bold text-slate-200 hover:border-[#E6C673]/35"
+                                            >
+                                                تحميل المزيد
+                                            </button>
+                                        ) : null}
                                     </div>
                                     <div className="space-y-2">
                                         <p className="text-xs font-black text-slate-200">
@@ -209,7 +252,7 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
                                         </p>
                                         <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
                                             <PremiumTimelineAuditLog
-                                                events={appointmentsSplit.ended.slice(0, 100)}
+                                                events={appointmentsSplit.ended.slice(0, endedAppointmentsVisibleCount)}
                                                 onTogglePin={toggleTimelineEventPin}
                                                 onRequestTrash={moveTimelineEventToTrash}
                                                 onRequestEdit={onRequestEditTimelineEvent}
@@ -219,12 +262,23 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
                                                 }
                                             />
                                         </Suspense>
+                                        {appointmentsSplit.ended.length > endedAppointmentsVisibleCount ? (
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setEndedAppointmentsVisibleCount((v) => v + TIMELINE_PAGE_SIZE)
+                                                }
+                                                className="mt-2 rounded-lg border border-slate-600/45 bg-slate-800/40 px-3 py-1.5 text-[11px] font-bold text-slate-200 hover:border-[#E6C673]/35"
+                                            >
+                                                تحميل المزيد
+                                            </button>
+                                        ) : null}
                                     </div>
                                 </div>
                             ) : (
                                 <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
                                     <PremiumTimelineAuditLog
-                                        events={effectiveEvents.slice(0, 100)}
+                                        events={effectiveEvents.slice(0, timelineVisibleCount)}
                                         onTogglePin={toggleTimelineEventPin}
                                         onRequestTrash={moveTimelineEventToTrash}
                                         onRequestEdit={onRequestEditTimelineEvent}
@@ -235,6 +289,15 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
                                     />
                                 </Suspense>
                             )}
+                            {activeTimelineFilter !== 'مواعيد' && effectiveEvents.length > timelineVisibleCount ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setTimelineVisibleCount((v) => v + TIMELINE_PAGE_SIZE)}
+                                    className="mt-2 rounded-lg border border-slate-600/45 bg-slate-800/40 px-3 py-1.5 text-[11px] font-bold text-slate-200 hover:border-[#E6C673]/35"
+                                >
+                                    تحميل المزيد
+                                </button>
+                            ) : null}
                         </div>
 
                         <div className="p-3 pt-0">

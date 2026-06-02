@@ -3,6 +3,7 @@ import {
     type UrgentCase,
 } from '@/app/components/lawyer/Component_Urgent_Card';
 import { uuidv4 } from '@/app/services/urgent-actions-db';
+import { resolveProcedureCategory } from './procedureCategory';
 import type { UrgentFormSavePayload } from './types';
 
 const DEFAULT_MS_PER_DAY = 1000 * 60 * 60 * 24;
@@ -36,8 +37,18 @@ export function createCaseFromForm(data: UrgentFormSavePayload, opts?: CreateCas
     const nowYmd = now.toISOString().slice(0, 10);
     const requestDateRaw = typeof data.requestDate === 'string' ? data.requestDate : null;
     const requestDate = requestDateRaw ? new Date(requestDateRaw) : now;
+    const specificActionType =
+        typeof data.specificActionType === 'string' ? data.specificActionType.trim() : 'طلب مستعجل';
+    const procedureCategory =
+        data.procedureCategory === 'petition_orders' || data.procedureCategory === 'urgent_judiciary'
+            ? data.procedureCategory
+            : resolveProcedureCategory(null, specificActionType);
     const pathway =
-        data.actionType === 'urgent_discovery' || data.actionType === 'acknowledgment' ? 'urgent_action' : 'state_order';
+        procedureCategory === 'urgent_judiciary' ||
+        data.actionType === 'urgent_discovery' ||
+        data.actionType === 'acknowledgment'
+            ? 'urgent_action'
+            : 'state_order';
     const startAtGrievance = data?.initialEntryMode === 'grievance';
     const startDefenderPhase2 = data?.initialEntryMode === 'defender_phase2';
     const startDefenderPhase3 = data?.initialEntryMode === 'defender_phase3';
@@ -64,14 +75,15 @@ export function createCaseFromForm(data: UrgentFormSavePayload, opts?: CreateCas
     const newCaseBase: UrgentCase = {
         id: uuidv4(),
         type: pathway === 'state_order' ? 'state_order' : 'urgent_action',
-        actionType: typeof data.specificActionType === 'string' ? data.specificActionType : 'طلب مستعجل',
+        actionType: specificActionType,
         applicantName: typeof data.party1Name === 'string' ? data.party1Name : 'مقدم الطلب',
         court: typeof data.courtName === 'string' ? data.courtName : 'غير محدد',
         requestNumber: typeof data.requestNumber === 'string' ? data.requestNumber : '',
         requestDate: typeof data.requestDate === 'string' ? data.requestDate : '',
         courtName: typeof data.courtName === 'string' ? data.courtName : '',
         judgeName: typeof data.judgeName === 'string' ? data.judgeName : '',
-        specificActionType: typeof data.specificActionType === 'string' ? data.specificActionType : '',
+        specificActionType,
+        procedureCategory,
         procedureDetails: typeof data.procedureDetails === 'string' ? data.procedureDetails.trim() : '',
         requestSubject: typeof data.requestSubject === 'string' ? data.requestSubject : '',
         urgentReason: typeof data.urgentReason === 'string' ? data.urgentReason : '',
@@ -126,7 +138,7 @@ export function createCaseFromForm(data: UrgentFormSavePayload, opts?: CreateCas
             ? 'cassation_window'
             : startDefenderPhase2 || startAtGrievance
               ? 'grievance_window'
-              : pathway === 'state_order'
+              : procedureCategory === 'petition_orders'
                 ? 'grievance_window'
                 : 'notification_pending',
         defenderEntryPhase:

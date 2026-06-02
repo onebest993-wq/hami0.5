@@ -49,6 +49,16 @@ class DocsVaultService {
         };
         this.docs.unshift(newDoc);
         this.save();
+        // Audit log: تمت إضافة مستند
+        try {
+            void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                AuditLog.document.added({
+                    docId: newDoc.id,
+                    name: newDoc.name,
+                    linkedCaseId: newDoc.caseId,
+                });
+            });
+        } catch { /* silent */ }
         return newDoc;
     }
 

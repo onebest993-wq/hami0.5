@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
 import {
     type AdditionalExecutionCreditor,
     type AdditionalExecutionDebtor,
@@ -13,16 +13,9 @@ import { formatDateToLocalYmd, getLocalTodayYmd } from '@/app/utils/executionSta
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { loadExecutionFilesRaw, saveExecutionFilesRaw, EXECUTION_FILES_STORAGE_KEY } from '@/app/utils/executionFilesStorage';
 import { storageCache } from '@/app/utils/storageCache';
+import { createSecureJSONStorage } from '@/app/services/securePersistStorage';
 
-const secureStateStorage = {
-    getItem: (name: string) => SecureStoreService.getItemSync(name),
-    setItem: (name: string, value: string) => {
-        try { SecureStoreService.setItemSync(name, value); } catch { /* quota */ }
-    },
-    removeItem: (name: string) => {
-        try { SecureStoreService.deleteItemSync(name); } catch { /* ignore */ }
-    },
-};
+const secureStateStorage = createSecureJSONStorage();
 
 export const INABA_SUB_FILE_ID = '__inaba__';
 export const INABA_SUB_FILE_PREFIX = INABA_SUB_FILE_ID;
@@ -594,7 +587,7 @@ export const useExecutionDashboardStore = create<ExecutionDashboardState>()(
         }),
         {
             name: 'execution-dashboard-storage',
-            storage: createJSONStorage(() => secureStateStorage),
+            storage: secureStateStorage,
             partialize: (state) => ({
                 ui: state.ui,
                 noteForm: state.noteForm,

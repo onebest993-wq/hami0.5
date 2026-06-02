@@ -7,7 +7,7 @@ import {
     User, Building2, Phone, Save, UserPlus, Trash2
 } from 'lucide-react';
 import { HamiDateInput } from '@/app/components/ui/HamiDateInput';
-import { pathways, actionTypeOptions, PathwayType, getProcedureDetailsGuidance, getUnifiedActionTypeOptions, isIqrarRequest, IQRAR_PARTY_LABELS, resolveStoredPathwayType, UNIFIED_URGENT_FORM_HEADER, JUDICIAL_ACKNOWLEDGMENT_PRIMARY } from './Form_Urgent_Actions/constants';
+import { pathways, actionTypeOptions, PathwayType, getProcedureDetailsGuidance, getUnifiedActionTypeOptions, isIqrarRequest, IQRAR_PARTY_LABELS, resolveStoredPathwayType, resolveProcedureCategory, PETITION_ORDER_MANUAL_OPTION, UNIFIED_URGENT_FORM_HEADER, JUDICIAL_ACKNOWLEDGMENT_PRIMARY } from './Form_Urgent_Actions/constants';
 
 interface Props {
     onClose: () => void;
@@ -87,6 +87,7 @@ export const Form_Urgent_Actions: React.FC<Props> = ({
         defenderPhase3GrievanceDecisionDate: '',
     });
     const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+    const [showProcedureDetails, setShowProcedureDetails] = useState(false);
     useEffect(() => {
         return () => {
             isMountedRef.current = false;
@@ -132,9 +133,9 @@ export const Form_Urgent_Actions: React.FC<Props> = ({
                 requestNumber: '2026/كشف/789',
                 courtName: 'محكمة بداءة الديوانية',
                 judgeName: 'القاضي سامي عبد الكريم',
-                specificActionType: 'الكشف العقاري',
+                specificActionType: 'الكشف المستعجل وتثبيت الحالة',
                 procedureDetails: 'العقار: قطعة 12 من قاطع 5 — نزاع حدود مع الجار الشرقي.',
-                requestSubject: 'طلب كشف عقاري لتحديد حدود العقار المتنازع عليه',
+                requestSubject: 'طلب كشف مستعجل وتثبيت حالة لتحديد حدود العقار المتنازع عليه',
                 urgentReason: 'وجود تجاوزات مستمرة على العقار',
                 legalBasis: 'المادة 68 من قانون المرافعات المدنية',
                 notes: 'يرجى تحديد موعد الكشف خلال 48 ساعة'
@@ -251,7 +252,9 @@ export const Form_Urgent_Actions: React.FC<Props> = ({
 
 
     const resolvedSpecificActionTypeLive = useMemo(() => {
-        if (selectedSubActionType === 'other') return customSpecificActionType.trim();
+        if (selectedSubActionType === 'other' || selectedSubActionType === PETITION_ORDER_MANUAL_OPTION) {
+            return customSpecificActionType.trim();
+        }
         return String(selectedSubActionType || formData.specificActionType || '').trim();
     }, [selectedSubActionType, customSpecificActionType, formData.specificActionType]);
 
@@ -355,9 +358,6 @@ export const Form_Urgent_Actions: React.FC<Props> = ({
         return party2List.some((p) => !!p.isRepresented);
     }, [isIqrarContext, party2Hidden, party2List, selectedPathway]);
 
-    const exampleSnippetForSubject =
-        pathways[guidancePathwayForCopy]?.examples?.[0] ?? pathways.state_order.examples[0];
-
     const partyCardTitle = (side: 'party1' | 'party2', index: number) => {
         const base = side === 'party1' ? partyLabels.party1 : partyLabels.party2;
         return `${base} ${ordinalOf(index)}`;
@@ -373,7 +373,7 @@ export const Form_Urgent_Actions: React.FC<Props> = ({
         e.stopPropagation();
 
         const resolvedSpecificActionType =
-            selectedSubActionType === 'other'
+            selectedSubActionType === 'other' || selectedSubActionType === PETITION_ORDER_MANUAL_OPTION
                 ? customSpecificActionType.trim()
                 : String(formData.specificActionType || '').trim();
         
@@ -410,7 +410,10 @@ export const Form_Urgent_Actions: React.FC<Props> = ({
         }
 
         if (!resolvedSpecificActionType) errors.specificActionType = 'حقل نوع الطلب / الإجراء إلزامي';
-        if (selectedSubActionType === 'other' && !customSpecificActionType.trim()) {
+        if (
+            (selectedSubActionType === 'other' || selectedSubActionType === PETITION_ORDER_MANUAL_OPTION) &&
+            !customSpecificActionType.trim()
+        ) {
             errors.customSpecificActionType = 'يرجى كتابة نوع الإجراء يدوياً';
         }
         if (!isIqrarSubmit && !String(formData.procedureDetails || '').trim()) {
@@ -441,6 +444,7 @@ export const Form_Urgent_Actions: React.FC<Props> = ({
         }
 
         setValidationErrors(errors);
+        if (errors.procedureDetails) setShowProcedureDetails(true);
         if (Object.keys(errors).length > 0) return;
 
         const allParty2Norm = party2List.map((p) => ({ ...p, isClient: !!p.isRepresented }));
@@ -463,6 +467,7 @@ export const Form_Urgent_Actions: React.FC<Props> = ({
             actionPath: UNIFIED_URGENT_FORM_HEADER.title,
             createdAt: new Date().toISOString(),
             specificActionType: resolvedSpecificActionType,
+            procedureCategory: resolveProcedureCategory(null, resolvedSpecificActionType),
             procedureDetails: isIqrarSubmit ? '' : String(formData.procedureDetails || '').trim(),
             firstHearingDate: null,
             deadlineGrievance3Days: isIqrarSubmit ? false : formData.deadlineGrievance3Days,
@@ -613,7 +618,8 @@ export const Form_Urgent_Actions: React.FC<Props> = ({
                                             const next = e.target.value;
                                             setSelectedSubActionType(next);
                                             updateField('procedureDetails', '');
-                                            if (next === 'other') {
+                                            setShowProcedureDetails(false);
+                                            if (next === 'other' || next === PETITION_ORDER_MANUAL_OPTION) {
                                                 setCustomSpecificActionType('');
                                                 updateField('specificActionType', '');
                                                 return;
@@ -642,10 +648,13 @@ export const Form_Urgent_Actions: React.FC<Props> = ({
                                     {validationErrors.specificActionType && (
                                         <div className="text-red-300 text-xs mt-2 font-bold">{validationErrors.specificActionType}</div>
                                     )}
-                                    {selectedSubActionType === 'other' && (
+                                    {(selectedSubActionType === 'other' || selectedSubActionType === PETITION_ORDER_MANUAL_OPTION) && (
                                         <div className="mt-3">
                                             <label className="block text-white/70 text-sm mb-2">
-                                                تحديد نوع الإجراء يدوياً <span className="text-red-400">*</span>
+                                                {selectedSubActionType === PETITION_ORDER_MANUAL_OPTION
+                                                    ? 'تحديد الأمر الولائي يدوياً'
+                                                    : 'تحديد نوع الإجراء يدوياً'}{' '}
+                                                <span className="text-red-400">*</span>
                                             </label>
                                             <input
                                                 type="text"
@@ -664,25 +673,7 @@ export const Form_Urgent_Actions: React.FC<Props> = ({
                                         </div>
                                     )}
 
-                                    {!isIqrarContext ? (
-                                    <div className="mt-4">
-                                        <label className="block text-white/70 text-sm mb-2">
-                                            تفاصيل الإجراء (إلزامي) <span className="text-red-400">*</span>
-                                        </label>
-                                        <textarea
-                                            value={formData.procedureDetails}
-                                            onChange={(e) => updateField('procedureDetails', e.target.value)}
-                                            placeholder={procedureDetailsGuidance.placeholder}
-                                            dir="rtl"
-                                            rows={4}
-                                            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder:text-white/30 focus:border-[#E6C673]/50 focus:outline-none resize-y min-h-[96px]"
-                                        />
-                                        <span className="text-xs text-gray-500 block mt-2 leading-relaxed">{procedureDetailsGuidance.helper}</span>
-                                        {validationErrors.procedureDetails && (
-                                            <div className="text-red-300 text-xs mt-2 font-bold">{validationErrors.procedureDetails}</div>
-                                        )}
-                                    </div>
-                                    ) : (
+                                    {isIqrarContext ? (
                                         <div className="mt-4">
                                             <label className="block text-white/70 text-sm mb-2">
                                                 موضوع الإقرار وقيمة الحق <span className="text-red-400">*</span>
@@ -704,22 +695,58 @@ export const Form_Urgent_Actions: React.FC<Props> = ({
                                                 الإقرار حجة طوعية — لا يُطبَّق عليه مسار التظلم (3 أيام) أو التمييز (7 أيام).
                                             </p>
                                         </div>
-                                    )}
+                                    ) : null}
                                 </div>
 
                                 {/* 🔥 REMOVED: المرحلة الحالية field (Redundant in Fast-Track) */}
                                 {!isIqrarContext ? (
-                                <div>
-                                    <label className="block text-white/70 text-sm mb-2">
-                                        رقم الطلب
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={formData.requestNumber}
-                                        onChange={(e) => updateField('requestNumber', e.target.value)}
-                                        placeholder="مثال: 2026/ولائي/123"
-                                        className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder:text-white/30 focus:border-[#E6C673]/50 focus:outline-none"
-                                    />
+                                <div className="md:col-span-2">
+                                    <label className="block text-white/70 text-sm mb-2">رقم الطلب</label>
+                                    <div className="flex items-stretch gap-2">
+                                        <input
+                                            type="text"
+                                            value={formData.requestNumber}
+                                            onChange={(e) => updateField('requestNumber', e.target.value)}
+                                            placeholder="مثال: 2026/ولائي/123"
+                                            className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder:text-white/30 focus:border-[#E6C673]/50 focus:outline-none"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowProcedureDetails((v) => !v)}
+                                            aria-expanded={showProcedureDetails}
+                                            className={`shrink-0 h-[42px] px-3 rounded-lg border text-xs font-bold transition-all whitespace-nowrap ${
+                                                showProcedureDetails
+                                                    ? 'border-[#E6C673]/50 bg-[#E6C673]/20 text-[#E6C673]'
+                                                    : 'border-white/15 bg-white/5 text-white/80 hover:border-[#E6C673]/40 hover:text-[#E6C673]'
+                                            }`}
+                                        >
+                                            {showProcedureDetails ? 'إخفاء' : 'تفاصيل'}
+                                        </button>
+                                    </div>
+                                    {showProcedureDetails ? (
+                                        <motion.div
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: 'auto' }}
+                                            className="mt-3 overflow-hidden"
+                                        >
+                                            <label className="block text-white/70 text-xs mb-1.5">
+                                                تفاصيل الإجراء <span className="text-red-400">*</span>
+                                            </label>
+                                            <textarea
+                                                value={formData.procedureDetails}
+                                                onChange={(e) => updateField('procedureDetails', e.target.value)}
+                                                placeholder={procedureDetailsGuidance.placeholder}
+                                                dir="rtl"
+                                                rows={4}
+                                                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder:text-white/30 focus:border-[#E6C673]/50 focus:outline-none resize-y min-h-[96px]"
+                                            />
+                                            {validationErrors.procedureDetails ? (
+                                                <div className="text-red-300 text-xs mt-2 font-bold">
+                                                    {validationErrors.procedureDetails}
+                                                </div>
+                                            ) : null}
+                                        </motion.div>
+                                    ) : null}
                                 </div>
                                 ) : null}
                                 <div>
@@ -1079,30 +1106,6 @@ export const Form_Urgent_Actions: React.FC<Props> = ({
                                 ) : null}
                             </div>
                         )}
-                        {!isIqrarContext ? (
-                        <div className="bg-[#0B1021] border border-white/10 rounded-xl p-6">
-                            <h2 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
-                                <FileText size={20} className="text-[#E6C673]" />
-                                خلاصة الطلب
-                            </h2>
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-white/70 text-sm mb-2">خلاصة الطلب (اختياري)</label>
-                                    <textarea
-                                        value={formData.requestSubject}
-                                        onChange={(e) => updateField('requestSubject', e.target.value)}
-                                        placeholder={`مثال: ${exampleSnippetForSubject}`}
-                                        rows={2}
-                                        className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/30 focus:border-[#E6C673]/50 focus:outline-none resize-none"
-                                    />
-                                    {validationErrors.requestSubject && (
-                                        <div className="text-red-300 text-xs mt-2 font-bold">{validationErrors.requestSubject}</div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                        ) : null}
-
                         <div className="flex items-center justify-end gap-4 pb-2">
                             <button
                                 type="button"

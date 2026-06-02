@@ -1,10 +1,11 @@
 import React, { Suspense, useState } from 'react';
 import { Mail, Lock, UserPlus, LogIn } from 'lucide-react';
-import { PageWrapper, GlassCard, GoldButton, InputField } from '@/app/components/SharedComponents';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useAuth } from '@/app/context/AuthContext';
 import { supabase } from '../../../lib/supabase';
 import { logAction } from '@/app/utils/auditLog';
+import { requestOpenCriminalCasesList } from '@/app/components/lawyer/criminal-system/criminalDevEntry';
+import { LoginGlassCard, LoginGoldButton, LoginInputField } from './loginScreenPrimitives';
 
 const DevSecurityPanel = React.lazy(() =>
     import('@/app/components/shared/DevSecurityPanel').then((m) => ({ default: m.DevSecurityPanel })),
@@ -54,16 +55,16 @@ export const LoginScreen = () => {
     };
 
     return (
-        <PageWrapper>
-            <div dir="rtl" className="min-h-screen flex items-center justify-center px-4 py-10 bg-[#000510]">
+        <div dir="rtl" className="min-h-screen font-['Tajawal'] bg-[#000510] text-white">
+            <div className="min-h-screen flex items-center justify-center px-4 py-10">
                 <div className="w-full max-w-md">
                     <div className="text-center mb-6">
                         <h1 className="text-2xl font-black text-white tracking-tight">تسجيل الدخول</h1>
                         <p className="text-xs text-white/40 mt-1">منتدى المحامين المغلق • وصول آمن</p>
                     </div>
 
-                    <GlassCard className="p-6 space-y-5 border-[#D4AF37]/30">
-                        <InputField
+                    <LoginGlassCard className="p-6 space-y-5 border-[#D4AF37]/30">
+                        <LoginInputField
                             label="البريد الإلكتروني"
                             icon={Mail}
                             type="email"
@@ -71,7 +72,7 @@ export const LoginScreen = () => {
                             onChange={(e) => setEmail(e.target.value)}
                             placeholder="example@domain.com"
                         />
-                        <InputField
+                        <LoginInputField
                             label="كلمة المرور"
                             icon={Lock}
                             type="password"
@@ -80,7 +81,7 @@ export const LoginScreen = () => {
                             placeholder="••••••••"
                         />
 
-                        <GoldButton
+                        <LoginGoldButton
                             fullWidth
                             onClick={() => {
                                 if (mode === 'login') {
@@ -119,7 +120,7 @@ export const LoginScreen = () => {
                                 : mode === 'login'
                                   ? 'تسجيل الدخول'
                                   : 'إنشاء حساب جديد كـ محامي'}
-                        </GoldButton>
+                        </LoginGoldButton>
                         {errorMessage ? <p className="text-red-500 text-sm text-center">{errorMessage}</p> : null}
 
                         <button
@@ -132,7 +133,28 @@ export const LoginScreen = () => {
                         </button>
 
                         {import.meta.env.DEV ? (
-                            <div className="space-y-2">
+                            <div className="space-y-2 pt-1 border-t border-white/10">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        void (async () => {
+                                            setIsLoading(true);
+                                            try {
+                                                requestOpenCriminalCasesList();
+                                                await devBypassLogin();
+                                                SmartToast.success('فتح مخزن القضاء الجنائي');
+                                            } catch {
+                                                SmartToast.error('فشل فتح مخزن القضاء الجنائي');
+                                            } finally {
+                                                setIsLoading(false);
+                                            }
+                                        })();
+                                    }}
+                                    className="w-full rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-3 py-2.5 text-xs font-black text-emerald-200 hover:bg-emerald-500/15 transition-colors"
+                                    disabled={isLoading}
+                                >
+                                    ⚖️ اختصار القضاء الجنائي — مخزن الإضابير
+                                </button>
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -175,7 +197,7 @@ export const LoginScreen = () => {
                                 </button>
                             </div>
                         ) : null}
-                    </GlassCard>
+                    </LoginGlassCard>
                 </div>
             </div>
             {import.meta.env.DEV ? (
@@ -183,6 +205,6 @@ export const LoginScreen = () => {
                     <DevSecurityPanel />
                 </Suspense>
             ) : null}
-        </PageWrapper>
+        </div>
     );
 };

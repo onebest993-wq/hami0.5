@@ -7,9 +7,9 @@
  * - Canonical payload MUST stay aligned with client logic in:
  *   src/app/services/RequestSigningService.ts
  */
-import { consumeNonceWithTtl } from './wifeNonceStore';
-import { detectStolenToken, registerTokenSession } from '@/app/services/StolenTokenRegistry';
-import { createCsrfToken } from './csrfToken';
+import { consumeNonceWithTtl } from './wifeNonceStore.ts';
+import { detectStolenToken, registerTokenSession } from '../../services/StolenTokenRegistry.ts';
+import { createCsrfToken } from './csrfToken.ts';
 
 const HMAC_ALGORITHM = 'HMAC';
 const HASH_ALGORITHM = 'SHA-256';
@@ -72,7 +72,7 @@ export async function verifyCsrfToken(req: Request, userToken: string): Promise<
  * Generate CSRF token from a user session token.
  * Same-site derivation ensures the token is tied to the authenticated session.
  */
-export { createCsrfToken } from './csrfToken';
+export { createCsrfToken } from './csrfToken.ts';
 
 function normalizeMethod(method: string | undefined): string {
   return (method ?? 'GET').toUpperCase();
@@ -621,4 +621,3 @@ export async function verifyWifeSignature(req: Request, userToken: string): Prom
     return false;
   }
 }
-

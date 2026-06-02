@@ -1,0 +1,109 @@
+import { describe, expect, it, vi } from 'vitest';
+import type { CaseStage } from '../../../LawyerShared';
+import { buildFileDataFromNewCaseSave, filterLawsuitWorkspaceFiles } from '@/app/domain/lawsuit/lawsuitFileFactory';
+import { loadLawsuitFilesRaw, saveLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
+import { buildCloudSavePayload } from '../cloudSavePayload';
+import { buildInitialParentDataFromFile } from '../parentDataInit';
+import { buildInitialStagesFromFile, isViewingArchivedStage, resolveInitialStageIndex } from '../stageInit';
+import SecureStoreService from '@/app/services/SecureStoreService';
+import { LAWSUIT_FILES_STORAGE_KEY } from '@/app/utils/lawsuitFilesStorage';
+import { patchActiveStage } from '../stageMutations';
+import { printDossier } from '../printDossier';
+
+describe('civil lawsuit flow (integration)', () => {
+    it('new case → stages → cloud payload → workspace filter', () => {
+        const file = buildFileDataFromNewCaseSave({
+            mainCategory: 'lawsuit',
+            details: { number: '100/2026', court: 'بداءة الكرخ', type: 'مدنية' },
+            parties1: [{ name: 'المدعي', isClient: true }],
+            parties2: [{ name: 'المدعى عليه' }],
+        });
+        expect(file).not.toBeNull();
+        expect(file!.type).toBe('lawsuit');
+
+        const stages = buildInitialStagesFromFile(file as unknown as Record<string, unknown>);
+        expect(stages.length).toBeGreaterThan(0);
+        expect(stages[0]!.stageName).toBeTruthy();
+
+        const parent = buildInitialParentDataFromFile(file as unknown as Record<string, unknown>);
+        const payload = buildCloudSavePayload(stages, parent, 0, 'نشطة');
+        expect(payload.caseNo).toBe('100/2026');
+
+        const workspace = filterLawsuitWorkspaceFiles([
+            file!,
+            { type: 'execution', status: 'active' },
+            { type: 'lawsuit', status: 'deleted' },
+        ]);
+        expect(workspace).toHaveLength(1);
+    });
+
+    it('archived stage is read-only (viewing past stage)', () => {
+        const completed: CaseStage = {
+            id: 's0',
+            name: 'أولى',
+            status: 'completed',
+        };
+        const active: CaseStage = { id: 's1', name: 'ثانية', status: 'active' };
+        expect(isViewingArchivedStage(completed)).toBe(true);
+        expect(isViewingArchivedStage(active)).toBe(false);
+    });
+
+    it('storage round-trip preserves lawsuit files', () => {
+        SecureStoreService.listKeysSync().forEach((k) => SecureStoreService.deleteItemSync(k));
+        const payload = [
+            {
+                id: 1,
+                type: 'lawsuit',
+                status: 'active',
+                caseNo: '1/2026',
+                parties: [],
+                stages: [],
+            },
+        ];
+        saveLawsuitFilesRaw(payload);
+        const loaded = loadLawsuitFilesRaw();
+        expect(loaded).toHaveLength(1);
+        expect((loaded[0] as { caseNo?: string })?.caseNo).toBe('1/2026');
+    });
+
+    it('printDossier invokes browser print', () => {
+        const print = vi.fn();
+        vi.stubGlobal('window', { print });
+        printDossier();
+        expect(print).toHaveBeenCalledOnce();
+        vi.unstubAllGlobals();
+    });
+
+    it('cloud save payload survives reload (F5 simulation)', () => {
+        const file = buildFileDataFromNewCaseSave({
+            mainCategory: 'lawsuit',
+            details: { number: '200/2026', court: 'استئناف', type: 'مدنية' },
+            parties1: [{ name: 'أ', isClient: true }],
+            parties2: [{ name: 'ب' }],
+        });
+        expect(file).not.toBeNull();
+
+        const stages = buildInitialStagesFromFile(file as unknown as Record<string, unknown>);
+        const parent = buildInitialParentDataFromFile(file as unknown as Record<string, unknown>);
+        const withTask: CaseStage[] = patchActiveStage(stages, 0, {
+            tasks: [{ id: 't1', title: 'مهمة', isCompleted: false }],
+            isPleadingsClosed: true,
+        });
+        const saved = buildCloudSavePayload(withTask, parent, 0, 'نشطة');
+
+        const reloadedStages = buildInitialStagesFromFile(saved);
+        expect(reloadedStages).toHaveLength(withTask.length);
+        expect(reloadedStages[0]?.tasks?.[0]?.title).toBe('مهمة');
+        expect(reloadedStages[0]?.isPleadingsClosed).toBe(true);
+        expect(resolveInitialStageIndex(saved, reloadedStages.length)).toBe(0);
+        expect(saved.caseNo).toBe('200/2026');
+    });
+
+    it('patchActiveStage updates active stage for save', () => {
+        const stages: CaseStage[] = [
+            { id: 'a', name: 'أ', stageName: 'أ', status: 'active', caseNo: '1' },
+        ];
+        const next = patchActiveStage(stages, 0, { court: 'استئناف' });
+        expect((next[0] as CaseStage).court).toBe('استئناف');
+    });
+});

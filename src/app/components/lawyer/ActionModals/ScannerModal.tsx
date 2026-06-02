@@ -2,8 +2,11 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Camera, Upload, Scan, FileText, Loader2, CheckCircle2 } from 'lucide-react';
-import { LawyerStorage } from '@/app/services/lawyer-cloud';
+import { LawyerStorage, SmartVaultDB, uuidv4 } from '@/app/services/lawyer-cloud';
+import { inferTags, inferDocType } from '@/app/components/lawyer/hooks/useSmartVault';
+import { extractTextFromDocumentImage, ocrFallbackMessage } from '@/app/services/documentOcrService';
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
 
 interface ScannerResult {
     text: string;
@@ -30,6 +33,8 @@ export const ScannerModal = ({ onClose, onScanComplete, userId }: ScannerModalPr
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
+    const uid = userId?.trim() || '';
+
     useEffect(() => {
         return () => {
             if (stream) {
@@ -38,22 +43,34 @@ export const ScannerModal = ({ onClose, onScanComplete, userId }: ScannerModalPr
         };
     }, [stream]);
 
+    useEffect(() => {
+        if (phase !== 'camera' || !stream) return;
+        const video = videoRef.current;
+        if (!video) return;
+        video.srcObject = stream;
+        void video.play().catch(() => {});
+    }, [phase, stream]);
+
+    const ensureSignedIn = useCallback((): boolean => {
+        if (uid) return true;
+        SmartToast.error('يرجى تسجيل الدخول أولاً لرفع المستندات');
+        return false;
+    }, [uid]);
+
     const startCamera = useCallback(async () => {
+        if (!ensureSignedIn()) return;
         setError(null);
         try {
             const mediaStream = await navigator.mediaDevices.getUserMedia({
                 video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
             });
             setStream(mediaStream);
-            if (videoRef.current) {
-                videoRef.current.srcObject = mediaStream;
-            }
             setPhase('camera');
         } catch {
             setError('تعذر الوصول إلى الكاميرا. يرجى رفع صورة من الجهاز بدلاً من ذلك.');
             setPhase('idle');
         }
-    }, []);
+    }, [ensureSignedIn]);
 
     const captureFromCamera = useCallback(() => {
         if (!videoRef.current || !canvasRef.current) return;
@@ -74,6 +91,7 @@ export const ScannerModal = ({ onClose, onScanComplete, userId }: ScannerModalPr
     }, [stream]);
 
     const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!ensureSignedIn()) return;
         const file = e.target.files?.[0];
         if (!file) return;
         if (!file.type.startsWith('image/')) {
@@ -86,10 +104,11 @@ export const ScannerModal = ({ onClose, onScanComplete, userId }: ScannerModalPr
             setPhase('capturing');
         };
         reader.readAsDataURL(file);
-    }, []);
+    }, [ensureSignedIn]);
 
     const uploadScan = useCallback(async () => {
         if (!capturedImage) return;
+        if (!ensureSignedIn()) return;
         setPhase('uploading');
         setError(null);
 
@@ -97,10 +116,38 @@ export const ScannerModal = ({ onClose, onScanComplete, userId }: ScannerModalPr
             const blob = await (await fetch(capturedImage)).blob();
             const file = new File([blob], `scan_${Date.now()}.jpg`, { type: 'image/jpeg' });
 
-            const uploaded = await LawyerStorage.uploadSmartFile(userId, file, 'scans');
+            const [uploaded, ocr] = await Promise.all([
+                LawyerStorage.uploadSmartFile(uid, file, 'scans'),
+                extractTextFromDocumentImage(capturedImage),
+            ]);
+
+            const ocrText = ocr.text.trim();
+            const autoSummary = getLawyerSettingsSnapshot().workflow.autoSummary;
+            const title = `مسح ضوئي ${new Date().toLocaleDateString('ar-IQ')}`;
+            const docId = uuidv4();
+
+            await SmartVaultDB.saveDoc({
+                id: docId,
+                title,
+                type: inferDocType(file.type),
+                tags: inferTags(title),
+                authorId: uid,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                fileSize: file.size,
+                fileName: file.name,
+                mimeType: file.type,
+                storagePath: uploaded.path,
+                signedUrl: uploaded.downloadUrl || null,
+                isProcessing: false,
+                aiSummary: autoSummary && ocrText ? ocrText.slice(0, 2000) : null,
+                boundDossierId: null,
+            });
+
+            const displayText = ocrText || ocrFallbackMessage(true);
 
             const resultData: ScannerResult = {
-                text: 'تم مسح المستند ضوئياً',
+                text: displayText,
                 image: capturedImage,
                 storagePath: uploaded.path,
                 signedUrl: uploaded.downloadUrl,
@@ -108,13 +155,15 @@ export const ScannerModal = ({ onClose, onScanComplete, userId }: ScannerModalPr
 
             setResult(resultData);
             setPhase('result');
-            SmartToast.success('تم رفع المستند بنجاح');
+            SmartToast.success(
+                ocrText ? 'تم رفع المستند واستخراج النص بنجاح' : 'تم رفع المستند وإضافته للمخزن',
+            );
             onScanComplete?.(resultData);
         } catch {
             setError('فشل رفع المستند. يرجى المحاولة مرة أخرى.');
             setPhase('capturing');
         }
-    }, [capturedImage, userId, onScanComplete]);
+    }, [capturedImage, uid, onScanComplete, ensureSignedIn]);
 
     const retake = useCallback(() => {
         setCapturedImage(null);
@@ -124,9 +173,10 @@ export const ScannerModal = ({ onClose, onScanComplete, userId }: ScannerModalPr
     }, []);
 
     const modal = (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center pointer-events-auto">
+        <motion.div className="fixed inset-0 z-[99999] flex items-center justify-center pointer-events-auto">
             <AnimatePresence>
                 <motion.div
+                    key="overlay"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
@@ -135,6 +185,7 @@ export const ScannerModal = ({ onClose, onScanComplete, userId }: ScannerModalPr
                 />
 
                 <motion.div
+                    key="panel"
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.9 }}
@@ -142,26 +193,26 @@ export const ScannerModal = ({ onClose, onScanComplete, userId }: ScannerModalPr
                     className="bg-[#1A1E2E] w-full max-w-lg mx-4 rounded-2xl border border-[#E6C673]/20 shadow-2xl overflow-hidden relative z-10"
                 >
                     {/* Header */}
-                    <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between bg-[#131620]">
+                    <motion.div className="px-5 py-4 border-b border-white/5 flex items-center justify-between bg-[#131620]">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-[#E6C673]/10 rounded-lg text-[#E6C673]">
+                            <motion.div className="p-2 bg-[#E6C673]/10 rounded-lg text-[#E6C673]">
                                 <Scan size={20} />
-                            </div>
+                            </motion.div>
                             <h3 className="text-white font-bold text-lg">ماسح المستندات الذكي</h3>
                         </div>
                         <button type="button" onClick={onClose} className="p-2 hover:bg-white/5 rounded-full text-white/50 hover:text-white transition-colors">
                             <X size={20} />
                         </button>
-                    </div>
+                    </motion.div>
 
                     {/* Body */}
-                    <div className="p-5">
+                    <motion.div className="p-5">
                         {phase === 'idle' && (
-                            <div className="flex flex-col gap-4">
+                            <motion.div className="flex flex-col gap-4">
                                 {error && (
-                                    <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm">
+                                    <motion.div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm">
                                         {error}
-                                    </div>
+                                    </motion.div>
                                 )}
                                 <button type="button"
                                     onClick={startCamera}
@@ -185,19 +236,20 @@ export const ScannerModal = ({ onClose, onScanComplete, userId }: ScannerModalPr
                                     onChange={handleFileSelect}
                                 />
                                 <p className="text-white/30 text-xs text-center">يدعم الصور فقط — JPG, PNG</p>
-                            </div>
+                            </motion.div>
                         )}
 
                         {phase === 'camera' && (
-                            <div className="flex flex-col gap-4">
-                                <div className="relative rounded-xl overflow-hidden bg-black">
+                            <motion.div className="flex flex-col gap-4">
+                                <motion.div className="relative rounded-xl overflow-hidden bg-black">
                                     <video
                                         ref={videoRef}
                                         autoPlay
                                         playsInline
+                                        muted
                                         className="w-full h-[400px] object-cover"
                                     />
-                                </div>
+                                </motion.div>
                                 <button type="button"
                                     onClick={captureFromCamera}
                                     className="flex items-center justify-center gap-3 bg-[#E6C673] hover:bg-[#D4B360] text-black font-bold py-4 rounded-xl transition-all"
@@ -205,15 +257,15 @@ export const ScannerModal = ({ onClose, onScanComplete, userId }: ScannerModalPr
                                     <Camera size={22} />
                                     التقاط الصورة
                                 </button>
-                            </div>
+                            </motion.div>
                         )}
 
                         {phase === 'capturing' && capturedImage && (
-                            <div className="flex flex-col gap-4">
-                                <div className="relative rounded-xl overflow-hidden bg-black">
+                            <motion.div className="flex flex-col gap-4">
+                                <motion.div className="relative rounded-xl overflow-hidden bg-black">
                                     <img src={capturedImage} alt="ممسوح ضوئياً" className="w-full h-[400px] object-contain" />
-                                </div>
-                                <div className="flex gap-3">
+                                </motion.div>
+                                <motion.div className="flex gap-3">
                                     <button type="button"
                                         onClick={retake}
                                         className="flex-1 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-xl transition-all"
@@ -228,26 +280,32 @@ export const ScannerModal = ({ onClose, onScanComplete, userId }: ScannerModalPr
                                         <Upload size={18} />
                                         رفع المستند
                                     </button>
-                                </div>
-                            </div>
+                                </motion.div>
+                            </motion.div>
                         )}
 
                         {phase === 'uploading' && (
-                            <div className="flex flex-col items-center justify-center py-16 gap-4">
+                            <motion.div className="flex flex-col items-center justify-center py-16 gap-4">
                                 <Loader2 size={48} className="text-[#E6C673] animate-spin" />
                                 <p className="text-white/60 text-sm">جاري رفع المستند إلى الخادم...</p>
-                            </div>
+                            </motion.div>
                         )}
 
                         {phase === 'result' && result && (
-                            <div className="flex flex-col gap-4">
-                                <div className="flex items-center justify-center gap-3 py-6">
+                            <motion.div className="flex flex-col gap-4">
+                                <motion.div className="flex items-center justify-center gap-3 py-6">
                                     <CheckCircle2 size={48} className="text-emerald-500" />
-                                    <div>
+                                    <motion.div>
                                         <p className="text-white font-bold text-lg">تم المسح والرفع بنجاح</p>
-                                        <p className="text-white/40 text-xs">تم حفظ المستند في المخزن</p>
+                                        <p className="text-white/40 text-xs">تم حفظ المستند في المخزن الذكي</p>
+                                    </motion.div>
+                                </motion.div>
+                                {result.text ? (
+                                    <div className="max-h-40 overflow-y-auto rounded-xl bg-white/5 border border-white/10 p-3 text-right">
+                                        <p className="text-white/50 text-[10px] mb-1">النص المستخرج</p>
+                                        <p className="text-white/80 text-xs leading-relaxed whitespace-pre-wrap">{result.text}</p>
                                     </div>
-                                </div>
+                                ) : null}
                                 {result.signedUrl && (
                                     <a
                                         href={result.signedUrl}
@@ -266,14 +324,14 @@ export const ScannerModal = ({ onClose, onScanComplete, userId }: ScannerModalPr
                                     <Camera size={16} />
                                     مسح مستند آخر
                                 </button>
-                            </div>
+                            </motion.div>
                         )}
-                    </div>
+                    </motion.div>
 
                     <canvas ref={canvasRef} className="hidden" />
                 </motion.div>
             </AnimatePresence>
-        </div>
+        </motion.div>
     );
 
     if (typeof document === 'undefined') return null;

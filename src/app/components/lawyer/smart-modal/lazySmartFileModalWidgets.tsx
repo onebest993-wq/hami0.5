@@ -6,9 +6,6 @@ export const LazySmartHeader = lazy(() =>
 export const LazyFinancialCard = lazy(() =>
   import('./parts/FinancialCard').then((m) => ({ default: m.FinancialCard }))
 );
-export const LazyGhostAIInsightDeck = lazy(() =>
-  import('./parts/GhostAIInsightDeck').then((m) => ({ default: m.GhostAIInsightDeck }))
-);
 export const LazyQuickActions = lazy(() =>
   import('./parts/QuickActions').then((m) => ({ default: m.QuickActions }))
 );

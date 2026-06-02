@@ -16,9 +16,30 @@ import type { ModalProps, CaseFile, Party, Stage } from './common';
 // LAWYER NEW CASE TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
+/** حمولة حفظ LawyerNewCase — النموذج المنظّم (يُحوَّل عبر lawsuitFileFactory). */
+export type LawyerNewCaseStructuredSave = {
+    mainCategory: string;
+    selectedType: string | null;
+    parties1: unknown[];
+    parties2: unknown[];
+    thirdParties?: unknown[];
+    details: Record<string, unknown>;
+};
+
+export type LawyerNewCaseSavePayload = CaseFormData | LawyerNewCaseStructuredSave;
+
 export interface LawyerNewCaseProps extends ModalProps {
-    onSave: (caseData: CaseFormData) => void;
+    onSave: (caseData: LawyerNewCaseSavePayload) => void;
     initialData?: Partial<CaseFormData>;
+    onOpenCriminalDashboard?: (caseId: string) => void;
+    /**
+     * تهيئة مسبقة لاختيار نوع القضية (criminal/civil/...). عند تمريرها
+     * تُتجاوز خطوة اختيار النوع وتُفتح شاشة النموذج مباشرة. تُستخدم في مسار
+     * تفريق الدعوى (شطر إضبارة) للقفز مباشرة لشاشة «إضبارة جديدة جزائية».
+     */
+    presetSelectedType?: 'civil' | 'criminal' | 'personal' | 'administrative' | 'cassation' | 'special';
+    /** فتح نموذج الإضبارة الجزائية في وضع إكمال التفريق (لا يمسّ المسودّة العادية). */
+    criminalSeveranceFormMode?: boolean;
 }
 
 export interface CaseFormData {

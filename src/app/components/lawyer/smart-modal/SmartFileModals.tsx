@@ -4,6 +4,28 @@ import { DocumentCategory, IncidentalType, TimelineEvent, getLegalRole } from '.
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import { addCalendarDaysYmd } from '@/app/utils/employeeSummonsAssignment';
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import { CIVIL_LAWSUIT_TEST_IDS } from './smartFile/civilLawsuitTestIds';
+import type {
+    AddActionModalProps,
+    AddAppointmentModalProps,
+    AddDocumentModalProps,
+    AddIncidentalCaseModalProps,
+    AddNoteModalProps,
+    AddPaymentModalProps,
+    AddProvisionalOrderModalProps,
+    AddTaskModalProps,
+    AppealRegistrationModalProps,
+    EditCaseInfoModalProps,
+    ExtraordinaryAppealModalProps,
+    InterlocutoryAppealModalProps,
+    InterruptionModalProps,
+    JudicialNotificationModalProps,
+    ObjectionJudgmentModalProps,
+    ObjectionRegistrationModalProps,
+    PauseCaseModalProps,
+    ResumeInterruptionModalProps,
+    TransitionModalProps,
+} from './smartFile/modalFormTypes';
 
 export const getLegalRoleTitle = (baseRole: string, count: number) => {
     if (!baseRole) return "الطرف";
@@ -39,7 +61,7 @@ export const getLegalRoleTitle = (baseRole: string, count: number) => {
     }
 };
 
-export const ExtraordinaryAppealModal = ({ isOpen, onClose, onConfirm, type, currentCourt }: any) => {
+export const ExtraordinaryAppealModal = ({ isOpen, onClose, onConfirm, type, currentCourt }: ExtraordinaryAppealModalProps) => {
     const [appealDate, setAppealDate] = useState(getLocalTodayYmd());
     const [targetCourt, setTargetCourt] = useState(currentCourt || '');
     const [reasons, setReasons] = useState('');
@@ -117,7 +139,7 @@ export const ExtraordinaryAppealModal = ({ isOpen, onClose, onConfirm, type, cur
     );
 };
 
-export const AddTaskModal = ({ isOpen, onClose, onAdd, editMode = false, editData }: any) => {
+export const AddTaskModal = ({ isOpen, onClose, onAdd, editMode = false, editData }: AddTaskModalProps) => {
     const [title, setTitle] = useState('');
     const [dueDate, setDueDate] = useState('');
 
@@ -142,7 +164,10 @@ export const AddTaskModal = ({ isOpen, onClose, onAdd, editMode = false, editDat
 
     return (
         <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-['Tajawal']">
-            <div className="bg-[#1A1E2E] border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div
+                data-testid={CIVIL_LAWSUIT_TEST_IDS.taskModal}
+                className="bg-[#1A1E2E] border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200"
+            >
                 <div className="bg-blue-500 p-4 text-white flex justify-between items-center">
                     <h3 className="font-bold flex items-center gap-2">
                         <CheckSquare size={18}/> 
@@ -153,14 +178,28 @@ export const AddTaskModal = ({ isOpen, onClose, onAdd, editMode = false, editDat
                 <div className="p-5 space-y-4">
                     <div>
                         <label className="block text-xs font-bold text-white/60 mb-1.5">عنوان المهمة <span className="text-red-500">*</span></label>
-                        <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="مثال: سحب قيد عقار..." className="w-full bg-[#0F172A] border border-white/10 rounded-lg p-3 text-sm text-white outline-none focus:border-blue-500" autoFocus />
+                        <input
+                            type="text"
+                            data-testid={CIVIL_LAWSUIT_TEST_IDS.taskTitle}
+                            value={title}
+                            onChange={e => setTitle(e.target.value)}
+                            placeholder="مثال: سحب قيد عقار..."
+                            className="w-full bg-[#0F172A] border border-white/10 rounded-lg p-3 text-sm text-white outline-none focus:border-blue-500"
+                            autoFocus
+                        />
                     </div>
                  
                     <div>
                         <label className="block text-xs font-bold text-white/60 mb-1.5">تاريخ الإنجاز (اختياري)</label>
                         <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full bg-[#0F172A] border border-white/10 rounded-lg p-3 text-sm text-white outline-none focus:border-blue-500 [color-scheme:dark]" />
                     </div>
-                    <button type="button" onClick={handleSubmit} disabled={!title} className="w-full bg-blue-500 text-white py-3 rounded-lg font-bold text-sm hover:bg-blue-600 transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <button
+                        type="button"
+                        data-testid={CIVIL_LAWSUIT_TEST_IDS.taskSubmit}
+                        onClick={handleSubmit}
+                        disabled={!title}
+                        className="w-full bg-blue-500 text-white py-3 rounded-lg font-bold text-sm hover:bg-blue-600 transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                         {editMode ? 'تحديث البيانات' : 'حفظ المهمة'}
                     </button>
                 </div>
@@ -169,7 +208,7 @@ export const AddTaskModal = ({ isOpen, onClose, onAdd, editMode = false, editDat
     );
 };
 
-export const AddDocumentModal = ({ isOpen, onClose, onAdd, editMode = false, editData }: any) => {
+export const AddDocumentModal = ({ isOpen, onClose, onAdd, editMode = false, editData }: AddDocumentModalProps) => {
     const [title, setTitle] = useState('');
     const [category, setCategory] = useState('');
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -330,7 +369,7 @@ export const AddDocumentModal = ({ isOpen, onClose, onAdd, editMode = false, edi
     );
 };
 
-export const AddNoteModal = ({ isOpen, onClose, onAdd, editMode = false, editData }: any) => {
+export const AddNoteModal = ({ isOpen, onClose, onAdd, editMode = false, editData }: AddNoteModalProps) => {
     const [title, setTitle] = useState('');
     const [details, setDetails] = useState('');
     const [selectedTags, setSelectedTags] = useState<string[]>([]); // 🔥 NEW: Tags State
@@ -411,7 +450,7 @@ export const AddNoteModal = ({ isOpen, onClose, onAdd, editMode = false, editDat
     );
 };
 
-export const AddPaymentModal = ({ isOpen, onClose, onAdd }: any) => {
+export const AddPaymentModal = ({ isOpen, onClose, onAdd }: AddPaymentModalProps) => {
     const [amount, setAmount] = useState('');
     const [date, setDate] = useState(getLocalTodayYmd());
 
@@ -441,12 +480,16 @@ export const AddPaymentModal = ({ isOpen, onClose, onAdd }: any) => {
     );
 };
 
-export const AddIncidentalCaseModal = ({ isOpen, onClose, onAdd, currentStage, editMode = false, editData }: any) => {
+export const AddIncidentalCaseModal = ({ isOpen, onClose, onAdd, currentStage, editMode = false, editData }: AddIncidentalCaseModalProps) => {
     const [type, setType] = useState<string>('joined');
     const [partyName, setPartyName] = useState('');
     const [details, setDetails] = useState('');
 
-    const isAppeal = (currentStage || '').includes('استئناف') || (currentStage || '').includes('Appeal');
+    const stageLabel =
+        typeof currentStage === 'string'
+            ? currentStage
+            : (currentStage?.stageName || currentStage?.name || '');
+    const isAppeal = stageLabel.includes('استئناف') || stageLabel.includes('Appeal');
 
     React.useEffect(() => {
         if (isOpen) {
@@ -520,7 +563,7 @@ export const AddIncidentalCaseModal = ({ isOpen, onClose, onAdd, currentStage, e
     );
 };
 
-export const AddAppointmentModal = ({ isOpen, onClose, onAdd, editMode = false, editData }: any) => {
+export const AddAppointmentModal = ({ isOpen, onClose, onAdd, editMode = false, editData }: AddAppointmentModalProps) => {
     const [title, setTitle] = useState('');
     const [date, setDate] = useState('');
     const [details, setDetails] = useState('');
@@ -602,7 +645,7 @@ export const AddAppointmentModal = ({ isOpen, onClose, onAdd, editMode = false, 
     );
 };
 
-export const PauseCaseModal = ({ isOpen, onClose, onConfirm, editMode = false, editData }: any) => {
+export const PauseCaseModal = ({ isOpen, onClose, onConfirm, editMode = false, editData }: PauseCaseModalProps) => {
     const [reason, setReason] = useState('');
     const [linkedCaseNo, setLinkedCaseNo] = useState('');
 
@@ -694,7 +737,7 @@ export const PauseCaseModal = ({ isOpen, onClose, onConfirm, editMode = false, e
     );
 };
 
-export const InterruptionModal = ({ isOpen, onClose, onConfirm, currentParties = [], editMode = false, editData }: any) => {
+export const InterruptionModal = ({ isOpen, onClose, onConfirm, currentParties = [], editMode = false, editData }: InterruptionModalProps) => {
     const [reason, setReason] = useState('');
     const [affectedParty, setAffectedParty] = useState('');
     const [date, setDate] = useState(getLocalTodayYmd());
@@ -833,7 +876,7 @@ export const InterruptionModal = ({ isOpen, onClose, onConfirm, currentParties =
     );
 };
 
-export const ResumeInterruptionModal = ({ isOpen, onClose, onConfirm }: any) => {
+export const ResumeInterruptionModal = ({ isOpen, onClose, onConfirm }: ResumeInterruptionModalProps) => {
     if (!isOpen) return null;
 
     return (
@@ -877,7 +920,7 @@ export const ResumeInterruptionModal = ({ isOpen, onClose, onConfirm }: any) => 
     );
 };
 
-export const TransitionModal = ({ isOpen, onClose, onConfirm, nextStageName, currentParties = [] }: any) => {
+export const TransitionModal = ({ isOpen, onClose, onConfirm, nextStageName, currentParties = [] }: TransitionModalProps) => {
     const [newStage, setNewStage] = useState('');
     const [newCourt, setNewCourt] = useState('');
     const [newCaseNo, setNewCaseNo] = useState('');
@@ -1042,7 +1085,7 @@ export const TransitionModal = ({ isOpen, onClose, onConfirm, nextStageName, cur
     );
 };
 
-export const InterlocutoryAppealModal = ({ isOpen, onClose, onConfirm, editMode = false, editData }: any) => {
+export const InterlocutoryAppealModal = ({ isOpen, onClose, onConfirm, editMode = false, editData }: InterlocutoryAppealModalProps) => {
     const [decisionType, setDecisionType] = useState('');
     const [decisionDate, setDecisionDate] = useState(getLocalTodayYmd());
     const [calculatedDeadline, setCalculatedDeadline] = useState('');
@@ -1161,7 +1204,7 @@ export const InterlocutoryAppealModal = ({ isOpen, onClose, onConfirm, editMode 
 };
 
 // 🔥 NEW: AddActionModal (Session Record & Stay Logic)
-export const AddActionModal = ({ isOpen, onClose, onAdd, editMode = false, editData }: any) => {
+export const AddActionModal = ({ isOpen, onClose, onAdd, editMode = false, editData }: AddActionModalProps) => {
     const [actionType, setActionType] = useState('regular'); // 'regular' | 'incidental'
     const [title, setTitle] = useState('');
     const [date, setDate] = useState(getLocalTodayYmd());
@@ -1544,7 +1587,7 @@ export const TrashModal = ({ isOpen, onClose, deletedItems, onRestore, onPermane
     );
 };
 
-export const AddProvisionalOrderModal = ({ isOpen, onClose, onConfirm, currentParties = [] }: any) => {
+export const AddProvisionalOrderModal = ({ isOpen, onClose, onConfirm, currentParties = [] }: AddProvisionalOrderModalProps) => {
     const [orderType, setOrderType] = useState('');
     const [targetParty, setTargetParty] = useState('');
 
@@ -1632,7 +1675,7 @@ export const AddProvisionalOrderModal = ({ isOpen, onClose, onConfirm, currentPa
     );
 };
 
-export const EditCaseInfoModal = ({ isOpen, onClose, formData, onSave }: any) => {
+export const EditCaseInfoModal = ({ isOpen, onClose, formData, onSave }: EditCaseInfoModalProps) => {
     const [caseNo, setCaseNo] = useState('');
     const [court, setCourt] = useState('');
     const [judge, setJudge] = useState('');
@@ -1653,7 +1696,7 @@ export const EditCaseInfoModal = ({ isOpen, onClose, formData, onSave }: any) =>
     const [thirdParties, setThirdParties] = useState<any[]>([]);
     
     // 🆕 Represented Party
-    const [representedParty, setRepresentedParty] = useState<'المدعي' | 'المدعى عليه' | null>(null);
+    const [representedParty, setRepresentedParty] = useState<string | null>(null);
 
     const [plaintiffs, setPlaintiffs] = useState<any[]>([]);
     const [defendants, setDefendants] = useState<any[]>([]);
@@ -2298,7 +2341,7 @@ export const EditCaseInfoModal = ({ isOpen, onClose, formData, onSave }: any) =>
     );
 };
 
-export const AppealRegistrationModal = ({ isOpen, onClose, onConfirm }: any) => {
+export const AppealRegistrationModal = ({ isOpen, onClose, onConfirm }: AppealRegistrationModalProps) => {
     const [appealMethod, setAppealMethod] = useState('');
     const [appealCaseNo, setAppealCaseNo] = useState('');
     const [appealCourt, setAppealCourt] = useState('');
@@ -2407,7 +2450,7 @@ export const AppealRegistrationModal = ({ isOpen, onClose, onConfirm }: any) => 
     );
 };
 
-export const JudicialNotificationModal = ({ isOpen, onClose, onConfirm }: any) => {
+export const JudicialNotificationModal = ({ isOpen, onClose, onConfirm }: JudicialNotificationModalProps) => {
     const [targetPerson, setTargetPerson] = useState('');
     const [reason, setReason] = useState('');
     const [isCompleted, setIsCompleted] = useState(false);
@@ -2489,7 +2532,7 @@ export const JudicialNotificationModal = ({ isOpen, onClose, onConfirm }: any) =
     );
 };
 
-export const ObjectionRegistrationModal = ({ isOpen, onClose, onConfirm }: any) => {
+export const ObjectionRegistrationModal = ({ isOpen, onClose, onConfirm }: ObjectionRegistrationModalProps) => {
     const [objectionDate, setObjectionDate] = useState(getLocalTodayYmd());
     const [sessionDate, setSessionDate] = useState('');
     const [receiptNumber, setReceiptNumber] = useState('');
@@ -2559,7 +2602,7 @@ export const ObjectionRegistrationModal = ({ isOpen, onClose, onConfirm }: any) 
     );
 };
 
-export const ObjectionJudgmentModal = ({ isOpen, onClose, onConfirm }: any) => {
+export const ObjectionJudgmentModal = ({ isOpen, onClose, onConfirm }: ObjectionJudgmentModalProps) => {
     const [outcome, setOutcome] = useState('');
     const [details, setDetails] = useState('');
 

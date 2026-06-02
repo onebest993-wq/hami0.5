@@ -407,37 +407,19 @@ export type ShapeKey = 'pill' | 'rounded' | 'square' | 'circle';
 // SETTINGS TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
-export interface SettingsState {
-    themeMode: ThemeMode;
-    theme: ThemeKey;
-    shape: ShapeKey;
-    language: Language;
-    notifications: boolean;
-    biometric: boolean;
-    glassOpacity: number;
-    wallpaper?: string;
-    fontSize?: FontSize | number;
-    autoSave?: boolean;
-    cloudSync?: boolean;
-    /** Extended fields used by `HamiSettings` + lawyer dashboard persistence. */
-    privacyBlur?: boolean;
-    watermark?: boolean;
-    viewMode?: 'list' | 'grid';
-    autoSummary?: boolean;
-    smartAlerts?: boolean;
-    brandColor?: string;
-}
+/** @deprecated Use `AppSettingsState` from `@/app/services/settings` — alias kept for imports. */
+export type { AppSettingsState as SettingsState } from '@/app/services/settings/types';
 
 export type Language = 'ar' | 'en';
-export type FontSize = 'small' | 'medium' | 'large';
+export type FontSize = 'small' | 'medium' | 'large' | 'xlarge';
 
 export interface HamiSettingsProps {
     onClose: () => void;
+    onLogout?: () => void;
     onOpenArchive?: () => void;
-    currentTheme: ThemeKey;
-    onThemeChange: (theme: ThemeKey) => void;
-    settingsState: SettingsState;
-    setSettingsState: React.Dispatch<React.SetStateAction<SettingsState>>;
+    onOpenProfile?: () => void;
+    onOpenPrivacy?: () => void;
+    onOpenSupport?: () => void;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -523,15 +505,33 @@ export interface ArchivePortalProps {
     embedded?: boolean;
     hideHeader?: boolean;
     hideTopActionBar?: boolean;
+    /** دعاوى نشطة لاستخراج الربط العنقودي عند تثبيت إضبارة تنفيذ */
+    lawsuitFilesForCluster?: unknown[];
+    /** إضابير جزائية من المخزن */
+    criminalCases?: unknown[];
+    onOpenCriminalCase?: (caseId: string) => void;
+    onDeleteCriminalCase?: (caseId: string) => void;
+    /** تبويب اختصاص أولي في مخزن الدعاوى (القضاء المدني / الأحوال الشخصية) */
+    initialLawsuitJurisdictionTab?: 'all' | 'civil' | 'personal' | 'criminal';
     /** مخزن التنفيذ: نقل إلى سلة المهملات (حذف ناعم) */
     onMoveExecutionToTrash?: (fileId: string | number) => void;
     /** استرجاع من السلة */
     onRestoreExecutionFromTrash?: (fileId: string | number) => void;
     /** حذف نهائي من السلة (بعد العد التنازلي في الواجهة) */
     onPermanentlyDeleteExecutions?: (fileIds: Array<string | number>) => void;
+    /** الدعاوى المدنية: نقل إلى سلة المهملات */
+    onMoveLawsuitToTrash?: (fileId: string | number) => void;
+    /** استرجاع دعوى من السلة */
+    onRestoreLawsuitFromTrash?: (fileId: string | number) => void;
+    /** أرشفة دعوى (مخزن الأرشيف) */
+    onArchiveLawsuit?: (fileId: string | number) => void;
+    /** إعادة دعوى مؤرشفة إلى النشطة */
+    onRestoreArchivedLawsuit?: (fileId: string | number) => void;
+    /** حذف نهائي لدعاوى من السلة */
+    onPermanentlyDeleteLawsuits?: (fileIds: Array<string | number>) => void;
 }
 
-export type ArchiveType = 'lawsuits' | 'executions' | 'all' | 'transaction' | 'deleted';
+export type ArchiveType = 'lawsuits' | 'executions' | 'criminal' | 'all' | 'transaction' | 'deleted';
 
 export interface EnrichedFile extends BaseFile {
     smartStatus: FileSmartStatus;
@@ -544,36 +544,6 @@ export interface FileSmartStatus {
     label: string;
     color: string;
     icon: string;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// COMMUNICATION HUB TYPES
-// ═══════════════════════════════════════════════════════════════════════════
-
-export interface CommunicationHubProps {
-    onClose: () => void;
-    startDemo?: boolean;
-    contextFile?: CaseFile | ExecutionArchiveFile | null;
-}
-
-export interface Message {
-    id: string;
-    type: MessageType;
-    content: string;
-    sender: MessageSender;
-    timestamp: string;
-    actions?: MessageAction[];
-    attachments?: Attachment[];
-}
-
-export type MessageType = 'text' | 'action' | 'file' | 'system';
-export type MessageSender = 'user' | 'ai' | 'system';
-
-export interface MessageAction {
-    id: string;
-    label: string;
-    action: string;
-    data?: Record<string, unknown>;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

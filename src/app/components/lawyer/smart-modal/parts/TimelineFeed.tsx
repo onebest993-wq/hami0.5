@@ -100,7 +100,11 @@ export const TimelineFeed = ({ events, onDelete, onEdit }: { events: TimelineEve
                 const evidentiaryBadge = event.evidentiaryWeight ? getEvidentiaryBadge(event.evidentiaryWeight) : null;
 
                 return (
-                    <div key={event.id} className="relative flex items-start gap-4 group">
+                    <div
+                        key={event.id}
+                        data-event-id={event.id}
+                        className="relative flex items-start gap-4 group"
+                    >
                         {/* Timeline Dot - Right aligned for RTL */}
                         <div className={dotClasses} />
                         

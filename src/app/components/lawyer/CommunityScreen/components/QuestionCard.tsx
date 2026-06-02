@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   User, ArrowUp, MessageCircle,
   FileText, ZoomIn, EyeOff, Loader2, Sparkles,
-  Trash2, Pencil, Flag, Link2, X, Eye, Pin, UserPlus, UserCheck
+  Trash2, Pencil, Flag, Link2, X, Eye, Pin, UserPlus, UserCheck,
+  Bookmark, Lock, Unlock, VolumeX
 } from 'lucide-react';
 import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
@@ -28,6 +29,13 @@ export interface QuestionCardProps {
   onFollow: (targetUserId: string) => void;
   followingIds: Set<string>;
   userStats: Record<string, { followerCount: number; postCount: number }>;
+  /** Bookmark/Save (اختياري) */
+  isBookmarked?: boolean;
+  onToggleBookmark?: (postId: string) => void;
+  /** قفل/فتح النقاش (للمالك أو الأدمن) */
+  onToggleLock?: (postId: string) => void;
+  /** كتم مستخدم */
+  onMuteUser?: (userId: string) => void;
 }
 
 export const QuestionCard = ({
@@ -49,6 +57,10 @@ export const QuestionCard = ({
   onFollow,
   followingIds,
   userStats,
+  isBookmarked = false,
+  onToggleBookmark,
+  onToggleLock,
+  onMuteUser,
 }: QuestionCardProps) => {
   const [showUserPopup, setShowUserPopup] = useState(false);
   const isUpvoted = currentUserId ? post.upvoterIds.includes(currentUserId) : false;
@@ -57,6 +69,8 @@ export const QuestionCard = ({
   const isAnonymous = post.isAnonymous === true;
   const isUrgent = post.isUrgent === true;
   const isPinned = post.isPinned === true;
+  const isLocked = post.isLocked === true;
+  const canLockUnlock = isOwner || isAdmin;
   const displayName = isAnonymous ? 'زميل مجهول' : post.authorName;
   const isEdited = post.isEdited === true;
   const isFollowing = currentUserId ? followingIds.has(post.authorId) : false;
@@ -66,7 +80,10 @@ export const QuestionCard = ({
   const postCount = stats?.postCount ?? 0;
 
   return (
-    <div className="group rounded-xl p-4 shadow-lg border transition-all duration-500 bg-[#25293C] border-white/5 hover:border-white/10 relative">
+    <motion.div
+      id={`forum-post-${post.id}`}
+      className="group rounded-xl p-4 shadow-lg border transition-all duration-500 bg-[#25293C] border-white/5 hover:border-white/10 relative"
+    >
       {isUrgent && (
         <>
           <div className="absolute inset-0 rounded-xl border border-red-500/40 animate-pulse pointer-events-none" />
@@ -105,7 +122,9 @@ export const QuestionCard = ({
                   </div>
                   <div>
                     <p className="text-white font-bold text-sm">{displayName}</p>
-                    <p className="text-gray-500 text-[10px]">{post.authorId.slice(0, 12)}...</p>
+                    {isAdmin && (
+                      <p className="text-gray-500 text-[10px]">معرّف داخلي (إدارة)</p>
+                    )}
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3 mb-4">
@@ -154,13 +173,51 @@ export const QuestionCard = ({
         <span className="text-gray-500 text-xs">{formatRelativeTime(post.createdAt)}</span>
         {isEdited && <span className="text-xs text-slate-500">(مُعدّل)</span>}
         <div className="flex-1" />
+        {/* قفل النقاش — للمالك أو الأدمن */}
+        {canLockUnlock && onToggleLock && (
+          <button type="button"
+            onClick={() => onToggleLock(post.id)}
+            className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+              isLocked
+                ? 'bg-red-950/40 text-red-300 hover:bg-red-950/60'
+                : 'bg-white/5 hover:bg-white/10 text-white/40 hover:text-white'
+            }`}
+            title={isLocked ? 'فتح النقاش' : 'قفل النقاش'}
+          >
+            {isLocked ? <Lock size={15} /> : <Unlock size={15} />}
+          </button>
+        )}
+        {/* Bookmark — يتطلب تسجيل دخول، يظهر لو لم يكن المنشور للمالك */}
+        {onToggleBookmark && currentUserId && (
+          <button type="button"
+            onClick={() => onToggleBookmark(post.id)}
+            className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+              isBookmarked
+                ? 'bg-[#E6C673]/15 text-[#E6C673] hover:bg-[#E6C673]/25'
+                : 'bg-white/5 hover:bg-white/10 text-white/40 hover:text-white'
+            }`}
+            title={isBookmarked ? 'إلغاء الحفظ' : 'حفظ للقراءة لاحقاً'}
+          >
+            <Bookmark size={15} fill={isBookmarked ? 'currentColor' : 'none'} />
+          </button>
+        )}
+        {/* Mute — لا يظهر للمالك ولا للمنشور المجهول */}
+        {!isOwner && !isAnonymous && onMuteUser && (
+          <button type="button"
+            onClick={() => onMuteUser(post.authorId)}
+            className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-white/40 hover:text-white flex items-center justify-center"
+            title="كتم منشورات هذا المستخدم"
+          >
+            <VolumeX size={15} />
+          </button>
+        )}
         {isAdmin && (
           <button type="button"
             onClick={() => onTogglePin(post.id)}
             className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
               isPinned
                 ? 'bg-amber-950/40 text-amber-300 hover:bg-amber-950/60'
-                : 'opacity-0 group-hover:opacity-100 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white'
+                : 'bg-white/5 hover:bg-white/10 text-white/40 hover:text-white'
             }`}
             title={isPinned ? 'إلغاء التثبيت' : 'تثبيت المنشور'}
           >
@@ -171,23 +228,31 @@ export const QuestionCard = ({
           <div className="flex items-center gap-2">
             <button type="button"
               onClick={() => onEdit(post.id)}
-              className="opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-white/40 hover:text-white flex items-center justify-center"
+              className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-white/40 hover:text-white flex items-center justify-center"
               title="تعديل"
             >
               <Pencil size={16} />
             </button>
             <button type="button"
               onClick={() => onDelete(post.id)}
-              className="opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 rounded-full bg-white/5 hover:bg-rose-500/15 text-white/40 hover:text-rose-300 flex items-center justify-center"
+              className="w-8 h-8 rounded-full bg-white/5 hover:bg-rose-500/15 text-white/40 hover:text-rose-300 flex items-center justify-center"
               title="حذف"
             >
               <Trash2 size={16} />
             </button>
           </div>
+        ) : isAdmin ? (
+          <button type="button"
+            onClick={() => onDelete(post.id)}
+            className="w-8 h-8 rounded-full bg-white/5 hover:bg-rose-500/15 text-white/40 hover:text-rose-300 flex items-center justify-center"
+            title="حذف (إدارة)"
+          >
+            <Trash2 size={16} />
+          </button>
         ) : (
           <button type="button"
             onClick={() => onReport(post.id)}
-            className="opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 rounded-full bg-white/5 hover:bg-rose-500/15 text-white/40 hover:text-rose-200 flex items-center justify-center"
+            className="w-8 h-8 rounded-full bg-white/5 hover:bg-rose-500/15 text-white/40 hover:text-rose-200 flex items-center justify-center"
             title="إبلاغ"
           >
             <Flag size={16} />
@@ -357,6 +422,6 @@ export const QuestionCard = ({
           <span className="text-gray-400 text-sm group-hover/s:text-white transition-colors">مشاركة 🔗</span>
         </button>
       </div>
-    </div>
+    </motion.div>
   );
 };

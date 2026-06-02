@@ -192,24 +192,6 @@ export const Modal_Quick_Log: React.FC<Props> = ({
                             />
                         </div>
 
-                        {/* Validation Warning */}
-                        {(!actionDate || !actionDateValid || (config.needsResult && !result)) && (
-                            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
-                                <div className="flex items-start gap-2">
-                                    <AlertCircle className="text-amber-400 mt-0.5" size={14} />
-                                    <div className="text-amber-300 text-xs">
-                                        <div className="font-bold mb-1">الحقول المطلوبة:</div>
-                                        <ul className="space-y-1 mr-4">
-                                            {!actionDate && <li>• تاريخ الإجراء</li>}
-                                            {!!actionDate && !actionDateValid && minYmd && (
-                                                <li>• تاريخ الإجراء يجب أن يكون بعد {minYmd} (ترتيب زمني)</li>
-                                            )}
-                                            {config.needsResult && !result && <li>• نتيجة التظلم</li>}
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
                     </div>
 
                     {/* Footer */}

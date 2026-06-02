@@ -2,11 +2,13 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { defineConfig, loadEnv, type ViteDevServer } from 'vite'
 import path from 'path'
-import { fileURLToPath } from 'url'
+import { fileURLToPath, pathToFileURL } from 'url'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
+import { preferFileOverDirectory } from './src/vite-plugins/preferFileOverDirectory'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const projectRoot = __dirname
 
 function readRequestBody(req: IncomingMessage): Promise<Buffer> {
     return new Promise((resolve, reject) => {
@@ -93,7 +95,8 @@ function legalAnalysisDevApiPlugin() {
                             : null
                 if (!routeFile) return next()
                 try {
-                    const { POST } = await import(routeFile)
+                    const absRoute = path.join(projectRoot, routeFile.replace(/^\.\//, ''))
+                    const { POST } = await import(pathToFileURL(absRoute).href)
                     const raw = await readRequestBody(req)
                     const body = raw.byteLength ? raw : undefined
                     const forwardedHeaders = forwardRequestHeaders(req)
@@ -127,6 +130,7 @@ function legalAnalysisDevApiPlugin() {
 // Uses .mts extension to force ESM loading (fixes require() of ESM modules)
 export default defineConfig(({ command }) => ({
   plugins: [
+    preferFileOverDirectory(projectRoot),
     react(),
     tailwindcss(),
     legalAnalysisDevApiPlugin(),
@@ -148,8 +152,23 @@ export default defineConfig(({ command }) => ({
     strictPort: false,
     open: true,
     allowedHosts: true,
+    warmup: {
+      clientFiles: [
+        './src/index.tsx',
+        './src/app/App.tsx',
+        './src/app/components/auth/LoginScreen.tsx',
+        './src/styles/index.css',
+      ],
+    },
     headers: {
       'Cache-Control': 'no-store',
+    },
+    /** WebSocket HMR — ثابت على localhost لتجنب فشل الاتصال مع host:true */
+    hmr: {
+      protocol: 'ws',
+      host: 'localhost',
+      port: 8080,
+      clientPort: 8080,
     },
   },
   preview: {
@@ -160,6 +179,15 @@ export default defineConfig(({ command }) => ({
   },
   optimizeDeps: {
     exclude: ['expo-secure-store', 'expo-modules-core'],
+    include: [
+      'react',
+      'react-dom',
+      'react/jsx-runtime',
+      'react/jsx-dev-runtime',
+      'motion/react',
+      '@supabase/supabase-js',
+      'zustand',
+    ],
   },
   build: {
     outDir: 'dist',
@@ -184,8 +212,51 @@ export default defineConfig(({ command }) => ({
             if (id.includes('@sentry')) return 'vendor-sentry';
             return;
           }
-          if (id.includes('Dashboard_Active_Order_File')) return 'chunk-active-order-file';
-          if (id.includes('View_Urgent_And_Orders_Dashboard')) return 'chunk-urgent-orders-view';
+          if (
+            id.includes('Dashboard_Active_Order_File') ||
+            id.includes('DeferredActiveOrderFile')
+          ) {
+            return 'chunk-active-order-file';
+          }
+          if (
+            id.includes('View_Urgent_And_Orders_Dashboard') ||
+            id.includes('Form_Urgent_Actions')
+          ) {
+            return 'chunk-urgent-orders-view';
+          }
+          // Keep admin/legal tools separate from core lawyer shell
+          if (
+            id.includes('/components/admin/') ||
+            id.includes('\\components\\admin\\') ||
+            id.includes('/app/admin/') ||
+            id.includes('\\app\\admin\\')
+          ) {
+            return 'chunk-admin-tools';
+          }
+          if (
+            id.includes('criminal-system/criminalStore') ||
+            id.includes('criminal-system\\criminalStore')
+          ) {
+            return 'chunk-criminal-store';
+          }
+          if (
+            id.includes('criminal-system/') ||
+            id.includes('criminal-system\\')
+          ) {
+            return 'chunk-criminal-ui';
+          }
+          if (
+            id.includes('SecretaryOrchestrator') ||
+            id.includes('services/lawyer-cloud')
+          ) {
+            return 'chunk-lawyer-cloud-alerts';
+          }
+          if (
+            id.includes('LawyerDashboardBackgroundServices') ||
+            id.includes('LawyerDashboard.tsx')
+          ) {
+            return 'chunk-lawyer-dashboard';
+          }
         },
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',

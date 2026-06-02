@@ -5,8 +5,8 @@ import {
   verifyWifeSignature,
   wifeForbiddenResponse,
   wifeUnauthorizedResponse,
-} from '../../security/wifeValidator';
-import { sanitizePayload } from '../../security/sanitizer';
+} from '../../security/wifeValidator.ts';
+import { sanitizePayload } from '../../security/sanitizer.ts';
 
 type LegalRequestRow = {
   id: string;

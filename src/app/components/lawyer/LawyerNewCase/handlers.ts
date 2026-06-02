@@ -113,7 +113,6 @@ export const handleFormSubmit = (
 
 export const triggerDemoData = (
     setCaseDetails: React.Dispatch<React.SetStateAction<{ number: string; court: string; type: string; judge: string; stage: string; claimValue: string; totalAgreedFees: string }>>,
-    setIsExpertMode: React.Dispatch<React.SetStateAction<boolean>>,
     setIsAnalyzing: React.Dispatch<React.SetStateAction<boolean>>,
     setParties1: React.Dispatch<React.SetStateAction<Party[]>>,
     setParties2: React.Dispatch<React.SetStateAction<Party[]>>,
@@ -129,7 +128,6 @@ export const triggerDemoData = (
         claimValue: '500000',
         totalAgreedFees: '250000'
     });
-    setIsExpertMode(true);
     setIsAnalyzing(true);
     setParties1([{ id: 'p1_1', name: 'حسن عبد الله', status: 'مدعي', isClient: true, phone: '07701234567', address: 'بغداد - الكرادة' }]);
     setParties2([{ id: 'p2_1', name: 'علي كريم', status: 'مدعى عليه', isClient: false, phone: '07807654321', address: 'بغداد - زيونة' }]);

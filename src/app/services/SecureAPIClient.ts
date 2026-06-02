@@ -50,7 +50,11 @@ function isSameOriginApiRoute(resolved: URL): boolean {
     return resolved.origin === window.location.origin && isApiRoute(resolved.pathname);
 }
 
-async function getCurrentAccessToken(): Promise<string | null> {
+/**
+ * يُعيد access token الحالي للمستخدم من جلسة Supabase.
+ * يُستخدم لتوقيع طلبات API الداخلية + استدعاءات Edge Functions المحمية.
+ */
+export async function getCurrentAccessToken(): Promise<string | null> {
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token?.trim() ?? '';
     return token || null;
@@ -261,7 +265,11 @@ export class SecureAPIClient {
         }
 
         const controller = new AbortController();
-        const timeoutId = window.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+        let didTimeout = false;
+        const timeoutId = window.setTimeout(() => {
+            didTimeout = true;
+            controller.abort();
+        }, FETCH_TIMEOUT_MS);
         const upstreamSignal = options.signal;
         if (upstreamSignal) {
             if (upstreamSignal.aborted) controller.abort();
@@ -276,6 +284,12 @@ export class SecureAPIClient {
             return await nativeFetch(endpoint, fetchInit);
         } catch (err) {
             if (err instanceof DOMException && err.name === 'AbortError') {
+                if (!didTimeout) {
+                    const aborted = new Error('تم إلغاء الطلب');
+                    aborted.name = 'AbortError';
+                    (aborted as { cause?: unknown }).cause = err;
+                    throw aborted;
+                }
                 throw new Error('انتهت مهلة الاتصال بالخادم. حاول مرة أخرى.');
             }
             throw err;

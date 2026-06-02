@@ -189,8 +189,6 @@ interface SmartHeaderProps {
     notificationStatus?: string;
     onToggleNotification?: () => void;
     caseType?: string;
-    isExpertMode?: boolean;
-    onToggleExpertMode?: () => void;
     onCassationDecision?: (type: string) => void;
     isPleadingsClosed?: boolean;
     wasReopened?: boolean;
@@ -219,7 +217,7 @@ interface SmartHeaderProps {
     currentStage?: Record<string, unknown>;
 }
 
-export const SmartHeader = ({ formData, onToggleClient, isPaused, incidentalCases = [], stages = [], currentStageId = '', pauseReason = '', onResume, onPause, status = 'نشطة', isInterrupted = false, interruptionData = null, linkedCaseNo = '', onInterrupt, onAbandon, onNotification, onStageClick, stageHistory = [], isReadOnly = false, hasCrossAppeal = false, onCancelCrossAppeal, onAddCrossAppeal, notificationStatus = 'waiting', onToggleNotification, caseType, isExpertMode = false, onToggleExpertMode, onCassationDecision, isPleadingsClosed = false, wasReopened = false, onClosePleadings, onReopenPleadings, onRegisterOpponentAppeal, hasJudgment = false, onDefaultObjection, onWaiveObjection, onOtherAppeals, isUnderObjection = false, onObjectionJudgment, provisionalOrders = [], onAddProvisionalOrder, thirdParties = [], representedParty = null, onExtraordinaryAppeal, onJudgeRecusal, onTransferJurisdiction, onCaseConsolidation, onAttorneyResignation, onExecutionTransfer, onExportPDF, onMaterialErrorCorrection, caseData, currentStage }: SmartHeaderProps) => {
+export const SmartHeader = ({ formData, onToggleClient, isPaused, incidentalCases = [], stages = [], currentStageId = '', pauseReason = '', onResume, onPause, status = 'نشطة', isInterrupted = false, interruptionData = null, linkedCaseNo = '', onInterrupt, onAbandon, onNotification, onStageClick, stageHistory = [], isReadOnly = false, hasCrossAppeal = false, onCancelCrossAppeal, onAddCrossAppeal, notificationStatus = 'waiting', onToggleNotification, caseType, onCassationDecision, isPleadingsClosed = false, wasReopened = false, onClosePleadings, onReopenPleadings, onRegisterOpponentAppeal, hasJudgment = false, onDefaultObjection, onWaiveObjection, onOtherAppeals, isUnderObjection = false, onObjectionJudgment, provisionalOrders = [], onAddProvisionalOrder, thirdParties = [], representedParty = null, onExtraordinaryAppeal, onJudgeRecusal, onTransferJurisdiction, onCaseConsolidation, onAttorneyResignation, onExecutionTransfer, onExportPDF, onMaterialErrorCorrection, caseData, currentStage }: SmartHeaderProps) => {
     // 🛡️ COMPUTE PARTIES DYNAMICALLY (Including Third Parties)
     const thirdPartiesList = formData.parties.filter((p: any) => p.role && p.role.includes('شخص ثالث'));
     const plaintiffs = formData.parties.filter((p: any) => !p.role.includes('شخص ثالث') && (p.role === 'plaintiff' || p.role === 'client' || p.side === 'right'));
@@ -266,11 +264,6 @@ export const SmartHeader = ({ formData, onToggleClient, isPaused, incidentalCase
 
     return (
         <div className={containerStyle}>
-            {/* EXPERT MODE GLOW */}
-            {isExpertMode && (
-                <div className="absolute inset-0 border-2 border-[#E6C673]/30 rounded-3xl pointer-events-none z-50 shadow-[inset_0_0_20px_rgba(230,198,115,0.1)]" />
-            )}
-            
             {/* HEADER CONTENT - Reduced Padding */}
             <div className="px-3 pt-2.5 pb-1 relative z-10">
                 {/* 1. ROW 1: COURT NAME & LOCK BUTTON (Top Bar) */}

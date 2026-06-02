@@ -13,95 +13,145 @@ import { TIMING, PERFORMANCE, STORAGE_KEYS } from '@/app/utils/constants';
 import logger from '@/app/utils/logger';
 
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
+import { CALENDAR_SOURCE_PATCHED_EVENT } from '@/app/services/calendarBridge.types';
+import type { CalendarSourcePatchDetail } from '@/app/services/calendarBridgePersistence';
+import { loadLawsuitFilesRaw, saveLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
+import {
+    syncExecutionFileToCalendar,
+    syncLawsuitFileToCalendar,
+} from '@/app/services/calendarDossierSync';
 import { SafeView } from '@/app/components/shared/SafeView';
-import type { Note } from './LegalCommandCenterDock';
+import type { CommandCenterNote as Note } from './commandCenterTypes';
+import { notesVault } from '@/app/data/NotesVault';
+import {
+    bidirectionalMerge,
+    NOTES_VAULT_CHANGED,
+    linkGlobalToVault,
+    vaultIdForGlobal,
+    unlinkGlobal,
+} from '@/app/services/notesSyncBridge';
+import { normalizeNotesList, dashboardNoteToCloudPayload } from '@/app/services/notesCloudAdapter';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 
-import { LawyerDB } from '../../services/lawyer-cloud';
 import { supabase } from '../../lib/supabase-client';
 import { useAuth } from '@/app/context/AuthContext';
-import { SecretaryOrchestrator, type SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
+import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
+import { useDismissedAlertIds } from '@/app/hooks/useDismissedAlertIds';
+import { filterVisibleAlerts } from '@/app/services/appAlertDismiss';
+import { PushNotificationService } from '@/app/services/PushNotificationService';
+import { markAlertSeenForPush } from '@/app/services/appAlertPushSync';
+import { resolveAlertNavigation } from '@/app/services/alertNavigation';
+import { parseWorkspaceRoute } from '@/app/workspace/workspaceRoutes';
+import { unpinWorkspaceForDeletedFile, unpinWorkspaceItem } from '@/app/workspace/unpinWorkspaceEntity';
+import { parseCommunityDeepLinkFromLocation } from '@/app/components/lawyer/CommunityScreen/communityDeepLink';
 // Removed: AlternativePrivacyProtocol (deleted in refactoring)
-// Removed: LawyerNewCase (unused - integrated into CompleteLawsuitSystem)
+// LawyerNewCase — استيراد مباشر (تجنّب lazy/HMR الذي يسبب ReferenceError)
 import { useCaseStore, type LegalCase } from '@/app/stores/caseStore';
-import { useRagStore } from '@/app/stores/ragStore';
+import { consumeOpenCriminalCasesListRequest } from './criminal-system/criminalDevEntry';
+import { LazyLawyerNewCase } from '@/app/utils/lazy/lawyerNewCaseModal';
 import {
     LazyArchivePortal,
     LazyBackendTestingPanel,
-    LazyChatRoom,
     LazyClientRequestsHub,
-    LazyCommunicationHub,
     LazyCommunityScreen,
-    LazyCompleteLawsuitSystem,
     LazyExecutionCreationView,
     LazyExecutionDashboard,
     LazyGlobalSearchOverlay,
-    LazyGlobalSearchResults,
     LazyHamiSettings,
     LazyLawyerAuth,
-    LazyLeadManagement,
     LazyLegalCommandCenterDock,
     LazyLawsuitsWorkspace,
-    LazyMessagesList,
-    LazyNeuralAlertsCard,
+    LazyLawyerHomeHubCard,
     LazyNotepadModal,
     LazyNotificationPanel,
     LazyRoyalLawyerProfile,
     LazyScannerModal,
     LazySmartContractGenerator,
     LazySmartCriminalLibrary,
+    LazyCriminalDashboard,
+    prefetchCriminalDashboard,
+    prefetchDossierShells,
+    prefetchSmartFileModal,
     LazySmartFileModal,
-    LazySmartLegalConsultant,
     LazySmartLegalRadar,
     LazySmartVaultModal,
     LazyTransactionsSystem,
     LazyUnifiedCommandHub,
     LazyTasksManager,
+    LazyViewUrgentAndOrdersDashboard,
 } from '@/app/utils/lazyComponents';
 import { HamiShieldLogoPlaceholder } from '../../assets/logo-placeholders';
 import { useNotificationStore } from '@/app/stores/notificationStore';
 import { useAutoSave } from '@/app/hooks/useAutoSave';
 import { useAutoSync } from '@/app/hooks/useAutoSync';
-// ✅ NEW: Cloud Sync Hook - Backend Integration v1.0
-import { useCloudSync } from '@/app/hooks/useCloudSync';
 import { SupabaseService } from '@/app/services/SupabaseService';
 import { EXECUTION_FILES_STORAGE_KEY, loadExecutionFilesRaw, saveExecutionFilesRaw } from '@/app/utils/executionFilesStorage';
-// ✅ NEW: Real-time Updates - Phase 3
-import { useRealtime } from '@/app/hooks/useRealtime';
-// ✅ NEW: Advanced Features - Phase 4
-import { PushNotificationService } from '@/app/services/PushNotificationService';
 // CacheService removed — unused (415 lines of dead code)
 
 // --- SHARED & REFACTORED COMPONENTS ---
 import { 
     normalizeArabic, HighlightedText, THEMES, SHAPES, useThemeStyles, 
-    CaseType, ThemeKey, ShapeKey, FileData, Party, Alert 
+    CaseType, ThemeKey, ShapeKey, FileData, Party 
 } from './LawyerShared';
-// SmartAlertCard merged into NeuralAlertsCard
-import { UrgentRequestCard } from './UrgentRequestCard';
+// مركز الممارسة: تنبيهات + رادار 48س (التثبيت عبر أزرار الأقسام فقط)
 // 🆕 V10.5: Enhanced Utilities
 import { storageCache } from '@/app/utils/storageCache';
 import { removeExecutionStorageBundle } from '@/app/utils/executionStorageKeys';
+import { isBackgroundPhase, useRuntimePhase } from '@/app/runtime/runtimePhase';
 import {
-    prefetchLawyerDashboardLazyChunks,
-    prefetchLawyerHeavyDeferredChunks,
-} from '@/app/utils/screenPrefetch';
+    CriminalDashboardBridgeProvider,
+    useCriminalDashboardBridge,
+} from '@/app/components/lawyer/criminal-system/criminalDashboardBridge';
 import { purgeExpiredExecutionsFromTrash, stripExecutionTrashFields } from '@/app/utils/executionTrash';
-import { SystemToasts } from '@/app/utils/toastMessages';
-import ControlMenu from './LawyerDashboard/components/ControlMenu';
-import DossierOpeningFallbackComponent from './LawyerDashboard/components/DossierOpeningFallback';
-import AddClientModal from './LawyerDashboard/components/AddClientModal';
-import { Header } from './LawyerDashboard/components/Header';
+import {
+    purgeExpiredLawsuitsFromTrash,
+    shouldAutoPurgeLawsuitFromTrash,
+} from '@/app/utils/lawsuitTrash';
+import {
+    cleanupCalendarForUser,
+    pruneOrphanedBridgeEvents,
+    removeAllBridgedEventsForEntity,
+} from '@/app/services/calendarDossierSync';
+import { resolveCalendarUserId } from '@/app/services/calendarBridge';
+import {
+    QUANTUM_TASKS_CHANGED_EVENT,
+    useIncrementalCalendarSync,
+} from '@/app/hooks/useIncrementalCalendarSync';
+import { useClusterScanSources } from '@/app/workspace/useClusterScanSources';
+import { useWorkspacePinMaintenance } from '@/app/workspace/useWorkspacePinMaintenance';
+import ControlMenu from './LawyerDashboardParts/components/ControlMenu';
+import DossierOpeningFallbackComponent from './LawyerDashboardParts/components/DossierOpeningFallback';
+import AddClientModal from './LawyerDashboardParts/components/AddClientModal';
+import { Header } from './LawyerDashboardParts/components/Header';
 import { FieldTasksBottomSheet } from './dashboard/FieldTasksBottomSheet';
-import { QuantumTasksProvider, useQuantumTasksContext } from '@/app/context/QuantumTasksContext';
-import { CAIRO_FONT_STYLE, HEADER_BTN_BG_STYLE, LAWYER_LAZY_FALLBACK } from './LawyerDashboard/constants';
-import type { ArchiveType, ClientRequest, SettingsState, ThemeConfig } from '@/app/types/common';
+import {
+    QuantumTasksContext,
+    type QuantumTasksContextValue,
+} from '@/app/context/QuantumTasksContext';
+import { useQuantumTasks } from '@/app/hooks/useQuantumTasks';
+import {
+    deserializeQuantumTasks,
+    QUANTUM_TASKS_STORAGE_KEY,
+    serializeQuantumTasks,
+} from '@/app/utils/quantumTasksStorage';
+import { LawyerSettingsProvider, useLawyerSettings } from '@/app/context/LawyerSettingsContext';
+import { resolveThemeMode, loadPersistedWallpaper } from '@/app/services/settings';
+import { useAppLock } from '@/app/hooks/useAppLock';
+import { AppLockOverlay } from '@/app/components/lawyer/AppLockOverlay';
+import { maybeShowWeeklyBackupReminder } from '@/app/services/settings/backupReminder';
+import { countPendingFieldTasks } from '@/app/utils/quantumTasksStorage';
+import { buildFileDataFromNewCaseSave } from '@/app/domain/lawsuit/lawsuitFileFactory';
+import { CAIRO_FONT_STYLE, HEADER_BTN_BG_STYLE, LAWYER_LAZY_FALLBACK } from './LawyerDashboardParts/constants';
+import type { ArchiveType, ClientRequest, ThemeConfig } from '@/app/types/common';
+import { mapFileStatusToCaseStatus, isFileData, isRecord, coerceExecutionFilePreserveId, coerceExecutionFile, coerceLawsuitStage, getNavUnderlayStyle, lawyerOverlayToArchivePortalType } from './LawyerDashboardParts/utils';
+import type { GlobalNote, WizardNoteSeed, WizardInitialData, ExecutionFile } from './LawyerDashboardParts/types';
 
 const EXECUTION_FILES_KEY = EXECUTION_FILES_STORAGE_KEY;
 const DOSSIER_OPENING_FALLBACK = <DossierOpeningFallbackComponent />;
 
-import { mapFileStatusToCaseStatus, isFileData, isRecord, coerceExecutionFilePreserveId, coerceExecutionFile, coerceLawsuitStage, getNavUnderlayStyle, lawyerOverlayToArchivePortalType } from './LawyerDashboard/utils';
-import type { GlobalNote, WizardNoteSeed, WizardInitialData, ExecutionFile } from './LawyerDashboard/types';
+const LazyLawyerDashboardBackgroundServices = React.lazy(
+    () => import('@/app/components/lawyer/dashboard/LawyerDashboardBackgroundServices'),
+);
 
 type LawyerArchiveOverlay =
     | 'client_requests'
@@ -119,25 +169,153 @@ type LawyerDashboardProps = {
     onLogout: () => void;
     onOpenProfile?: () => void;
     onNavigateToCase?: (caseId: string) => void;
+    onAppNavigate?: (target: 'privacy' | 'support' | 'settings') => void;
 };
 
-const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: LawyerDashboardProps) => {
+type LawyerDashboardInnerProps = LawyerDashboardProps & {
+    quantum: QuantumTasksContextValue;
+};
+
+function LawyerDashboardQuantumShell(props: LawyerDashboardProps) {
+    const initial = useMemo(() => {
+        const blob = persistenceRepository.load<unknown>(QUANTUM_TASKS_STORAGE_KEY);
+        return deserializeQuantumTasks(blob);
+    }, []);
+
+    const quantum = useQuantumTasks(initial);
+
+    useEffect(() => {
+        persistenceRepository.save(QUANTUM_TASKS_STORAGE_KEY, serializeQuantumTasks(quantum.tasks));
+        try {
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent(QUANTUM_TASKS_CHANGED_EVENT));
+            }
+        } catch {
+            /* ignore */
+        }
+    }, [quantum.tasks]);
+
+    return (
+        <QuantumTasksContext.Provider value={quantum}>
+            <LawyerDashboardInner {...props} quantum={quantum} />
+        </QuantumTasksContext.Provider>
+    );
+}
+
+const LawyerDashboardInner = (props: LawyerDashboardInnerProps) => {
+    const runtimePhase = useRuntimePhase();
+    const backgroundRuntimeEnabled = isBackgroundPhase(runtimePhase);
+    const { user: authUser } = useAuth();
+    const bridgeLawyerId = resolveCalendarUserId(authUser?.id ?? null);
+
+    return (
+        <CriminalDashboardBridgeProvider enabled={backgroundRuntimeEnabled} lawyerId={bridgeLawyerId}>
+            <LawyerDashboardCore {...props} backgroundRuntimeEnabled={backgroundRuntimeEnabled} />
+        </CriminalDashboardBridgeProvider>
+    );
+};
+
+type LawyerDashboardCoreProps = LawyerDashboardInnerProps & {
+    backgroundRuntimeEnabled: boolean;
+};
+
+const LawyerDashboardCore = ({
+    onLogout,
+    onOpenProfile,
+    onNavigateToCase,
+    onAppNavigate,
+    quantum,
+    backgroundRuntimeEnabled,
+}: LawyerDashboardCoreProps) => {
+    const criminalBridge = useCriminalDashboardBridge();
+    const { settings, currentTheme, currentShape, pushAllowed } = useLawyerSettings();
+    const {
+        locked: appLocked,
+        unlocking: appUnlocking,
+        requiresBiometricToUnlock,
+        unlockWithBiometric,
+        unlockContinue,
+    } = useAppLock(settings.security);
+    const localAutoSave = settings.data.autoSave;
+    const syncNotesOn = settings.data.cloudSync && settings.data.syncNotes;
+    const syncFilesOn = settings.data.cloudSync && settings.data.syncFiles;
+    const syncExecutionOn = settings.data.cloudSync && settings.data.syncExecution;
+
     // --- AUTH & CLOUD STATE ---
     const [user, setUser] = useState<User | null>(null);
     const { user: authUser } = useAuth();
-    const unreadCount = useNotificationStore((s) => s.unreadCount);
     const fetchNotifications = useNotificationStore((s) => s.fetchNotifications);
     const notifications = useNotificationStore((s) => s.notifications);
+    const setNotificationUserId = useNotificationStore((s) => s.setUserId);
     const [showNotifications, setShowNotifications] = useState(false);
+
+    // 🔑 سجّل الـ userId مبكراً في الـ notificationStore حتى تتمكن AuditLog من حفظ الإشعارات
+    // محلياً حتى قبل أن يفتح المستخدم لوحة الإشعارات.
+    useEffect(() => {
+        const uid = user?.id || authUser?.id || 'demo_user';
+        setNotificationUserId(uid);
+    }, [user?.id, authUser?.id, setNotificationUserId]);
+
+    // افتح fetch فور التشغيل (لا ننتظر فتح اللوحة) حتى يدمج النظام الإشعارات الفورية مع المخزّنة.
+    useEffect(() => {
+        const uid = user?.id || authUser?.id;
+        if (!uid) return;
+        void fetchNotifications(uid);
+    }, [user?.id, authUser?.id, fetchNotifications]);
     const [notificationPanelMounted, setNotificationPanelMounted] = useState(false);
-    const [secretaryAlerts, setSecretaryAlerts] = useState<SecretaryAlert[]>([]);
+    const [showUrgentDashboard, setShowUrgentDashboard] = useState(false);
+    const [urgentFocusCaseId, setUrgentFocusCaseId] = useState<string | undefined>();
     const [showAddClientModal, setShowAddClientModal] = useState(false);
     const [newClientName, setNewClientName] = useState('');
     const [newClientPhone, setNewClientPhone] = useState('');
+    const calendarCleanedOnceRef = useRef(false);
 
     useEffect(() => {
         if (showNotifications) setNotificationPanelMounted(true);
     }, [showNotifications]);
+
+    useEffect(() => {
+        if (calendarCleanedOnceRef.current) return;
+        const uid = resolveCalendarUserId(user?.id ?? authUser?.id ?? null);
+        calendarCleanedOnceRef.current = true;
+        void cleanupCalendarForUser(uid);
+    }, [user?.id, authUser?.id]);
+
+    const resolveNotesUserId = useCallback(
+        () => user?.id ?? authUser?.id ?? null,
+        [user?.id, authUser?.id],
+    );
+
+    const mergeNotesStores = useCallback((rawNotes?: unknown) => {
+        const uid = resolveNotesUserId();
+        if (!uid) return;
+        notesVault.setUserScope(uid);
+        setGlobalNotes((prev) => {
+            const base = rawNotes !== undefined ? normalizeNotesList(rawNotes) : prev;
+            const { mergedGlobal, mergedVault } = bidirectionalMerge(uid, base, notesVault.getNotes());
+            notesVault.replaceAll(mergedVault);
+            return mergedGlobal;
+        });
+    }, [resolveNotesUserId]);
+
+    useEffect(() => {
+        notesVault.setUserScope(resolveNotesUserId());
+    }, [resolveNotesUserId]);
+
+    useEffect(() => {
+        const uid = resolveNotesUserId();
+        if (!uid) return;
+        mergeNotesStores();
+    }, [resolveNotesUserId, mergeNotesStores]);
+
+    useEffect(() => {
+        const onVaultChanged = () => {
+            mergeNotesStores();
+            setSearchIndexVersion((v) => v + 1);
+        };
+        window.addEventListener(NOTES_VAULT_CHANGED, onVaultChanged);
+        return () => window.removeEventListener(NOTES_VAULT_CHANGED, onVaultChanged);
+    }, [mergeNotesStores]);
 
     // Initial Fetch
     useEffect(() => {
@@ -148,6 +326,10 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
 
     // Router Handler (Bridge from Notifications to App)
     const handleNotificationRouting = (path: string, payload: Record<string, unknown> | null) => {
+        if (path === 'schedule') {
+            setActiveTab('schedule');
+            return;
+        }
         if (path === 'case_details') {
             const caseId = payload && typeof payload.caseId === 'string' ? payload.caseId : null;
             if (caseId) {
@@ -163,7 +345,8 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
                 setArchiveType('all');
             }
         } else if (path === 'ai_drafter') {
-            setShowPetitionWizard(true);
+            setArchiveType('all');
+            SmartToast.info('افتح الإضبارة من الأرشيف');
         } else if (path === 'scan_document') {
             setShowScanner(true);
         } else if (path === 'vault') {
@@ -171,8 +354,30 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
         }
     };
     const [authLoading, setAuthLoading] = useState(true);
-    const prefetchOnceRef = useRef(false);
-    const advancedServicesOnceRef = useRef(false);
+    const [appAlerts, setAppAlerts] = useState<SecretaryAlert[]>([]);
+    const [appAlertsLoading, setAppAlertsLoading] = useState(false);
+    const [appAlertsError, setAppAlertsError] = useState<string | null>(null);
+    const refreshAppAlertsRef = useRef<() => void>(() => {});
+    const syncExecutionFilesNowRef = useRef<() => void>(() => {});
+    const syncLawsuitFilesNowRef = useRef<() => void>(() => {});
+    const syncNotesNowRef = useRef<() => void>(() => {});
+    const refreshAppAlerts = useCallback(() => {
+        refreshAppAlertsRef.current();
+    }, []);
+    const handleAlertsFromBackground = useCallback(
+        (payload: {
+            alerts: SecretaryAlert[];
+            loading: boolean;
+            error: string | null;
+            refresh: () => void;
+        }) => {
+            setAppAlerts(payload.alerts);
+            setAppAlertsLoading(payload.loading);
+            setAppAlertsError(payload.error);
+            refreshAppAlertsRef.current = payload.refresh;
+        },
+        [],
+    );
 
     // --- CHECK AUTH & DEADLINES ON MOUNT ---
     useEffect(() => {
@@ -196,11 +401,26 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
                 if (session?.user) {
                     setUser(session.user);
                     setAuthLoading(false);
-                    LawyerDB.checkUpcomingDeadlines(session.user.id).then(due => {
-                        if (due && due.length > 0) {
-                            SmartToast.warning(`⚠️ تنبيه قضائي: لديك ${due.length} مواعيد تنتهي غداً!`, 8000);
-                        }
-                    }).catch(debug.error);
+                    const runDeadlineCheck = () => {
+                        void import('../../services/lawyer-cloud')
+                            .then(({ LawyerDB }) =>
+                                LawyerDB.checkUpcomingDeadlines(session.user.id),
+                            )
+                            .then((due) => {
+                                if (due && due.length > 0) {
+                                    SmartToast.warning(
+                                        `⚠️ تنبيه قضائي: لديك ${due.length} مواعيد تنتهي غداً!`,
+                                        8000,
+                                    );
+                                }
+                            })
+                            .catch(debug.error);
+                    };
+                    if (typeof requestIdleCallback !== 'undefined') {
+                        requestIdleCallback(runDeadlineCheck, { timeout: 8_000 });
+                    } else {
+                        window.setTimeout(runDeadlineCheck, 2_000);
+                    }
                 } else {
                     setAuthLoading(false);
                 }
@@ -213,25 +433,10 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
 
     useEffect(() => {
         if (authLoading || !user) return;
-        if (prefetchOnceRef.current) return;
-        prefetchOnceRef.current = true;
-
-        const runPrefetch = () => {
-            prefetchLawyerDashboardLazyChunks();
-            if (!import.meta.env.DEV) prefetchLawyerHeavyDeferredChunks();
-        };
-
-        if (typeof requestIdleCallback !== 'undefined') {
-            const id = requestIdleCallback(runPrefetch, { timeout: import.meta.env.DEV ? 12_000 : 2500 });
-            return () => cancelIdleCallback(id);
-        }
-
-        const t = setTimeout(runPrefetch, import.meta.env.DEV ? 8_000 : 250);
-        return () => clearTimeout(t);
-    }, [authLoading, user]);
+        maybeShowWeeklyBackupReminder(settings.data.weeklyBackupReminder);
+    }, [authLoading, user, settings.data.weeklyBackupReminder]);
 
     // New Action Modals State
-    const [showPetitionWizard, setShowPetitionWizard] = useState(false);
     const [showScanner, setShowScanner] = useState(false);
     const [showContractGenerator, setShowContractGenerator] = useState(false);
 
@@ -239,7 +444,40 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
     const [showControlMenu, setShowControlMenu] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
     const [showSmartLib, setShowSmartLib] = useState(false); // NEW STATE FOR SMART LIBRARY
-    const [showGlobalSearch, setShowGlobalSearch] = useState(false); // Global Smart Search
+    const [showGlobalSearch, setShowGlobalSearch] = useState(false);
+    const [globalSearchInitialQuery, setGlobalSearchInitialQuery] = useState('');
+    const [searchIndexVersion, setSearchIndexVersion] = useState(0);
+    const [calendarSearchFocus, setCalendarSearchFocus] = useState<{ date?: string; eventId?: string } | null>(null);
+    const [tasksManagerFocusTaskId, setTasksManagerFocusTaskId] = useState<string | undefined>();
+    const [transactionsFocusId, setTransactionsFocusId] = useState<string | undefined>();
+    const [notepadFocusNoteId, setNotepadFocusNoteId] = useState<string | undefined>();
+
+    const openGlobalSearch = useCallback((seed = '') => {
+        setGlobalSearchInitialQuery(seed);
+        setShowGlobalSearch(true);
+    }, []);
+
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                openGlobalSearch();
+            }
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [openGlobalSearch]);
+
+    const searchNotifications = useMemo(
+        () =>
+            notifications.map((n) => ({
+                id: n.id,
+                title: n.title,
+                message: n.message,
+                type: n.type,
+            })),
+        [notifications],
+    );
     const [showDocs, setShowDocs] = useState(false); // NEW STATE FOR DOCS VAULT
     /** Phase 28 — ستارة المهام الميدانية (بديل الويدجت الأفقي) */
     const [fieldTasksSheetOpen, setFieldTasksSheetOpen] = useState(false);
@@ -249,65 +487,86 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
     // 🔐 SECURITY: Check Alternative Privacy Mode (must be defined early)
     const [isAlternativeMode, setIsAlternativeMode] = useState(false);
     
-    const lawyerSettingsDefaults: SettingsState = {
-        themeMode: 'dark',
-        theme: 'gold',
-        shape: 'pill',
-        language: 'ar',
-        notifications: true,
-        biometric: false,
-        glassOpacity: 0.85,
-        brandColor: '#E6C673',
-        fontSize: 16,
-        viewMode: 'list',
-        privacyBlur: true,
-        watermark: false,
-        smartAlerts: true,
-        autoSummary: false,
-    };
-
-    const [settingsState, setSettingsState] = useState<SettingsState>(() => {
-        const raw = persistenceRepository.load<Partial<SettingsState>>('lawyer_settings');
-        return { ...lawyerSettingsDefaults, ...raw };
-    });
-    
-    useAutoSave('lawyer_settings', settingsState);
-
-    // Privacy Blur Effect
     useEffect(() => {
-        const handleVisibilityChange = () => {
-            if (document.hidden && settingsState.privacyBlur) {
-                document.body.style.filter = 'blur(15px)';
-            } else {
-                document.body.style.filter = 'none';
-            }
-        };
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-    }, [settingsState.privacyBlur]);
+        setIsAlternativeMode(settings.security.decoyMode);
+    }, [settings.security.decoyMode]);
 
     // New Feature States (Refactored for Tab Navigation)
-    const [activeTab, setActiveTab] = useState<'home' | 'chat' | 'notifications' | 'profile' | 'schedule' | 'community'>('home');
-    const [messagingView, setMessagingView] = useState<'list' | 'room'>('list');
-    const [activeChatId, setActiveChatId] = useState<string | null>(null);
-    const [showLeads, setShowLeads] = useState(false);
-    const [showCommHub, setShowCommHub] = useState(false);
+    const [activeTab, setActiveTab] = useState<'home' | 'notifications' | 'profile' | 'schedule' | 'community'>('home');
+    const [communityDeepLink, setCommunityDeepLink] = useState<{
+        postId?: string;
+        openComments?: boolean;
+        section?: 'forum' | 'repository';
+    } | null>(() => {
+        if (typeof window === 'undefined') return null;
+        const target = parseCommunityDeepLinkFromLocation(window.location);
+        return target
+            ? { postId: target.postId, openComments: target.openComments, section: 'forum' as const }
+            : null;
+    });
     const [showTransactions, setShowTransactions] = useState(false); // NEW: Transactions System
     const [showLawsuitsWorkspace, setShowLawsuitsWorkspace] = useState(false);
+    const [lawsuitsWorkspaceTab, setLawsuitsWorkspaceTab] = useState<'civil' | 'urgent'>('civil');
+    const [lawsuitsDossierSection, setLawsuitsDossierSection] = useState<
+        'all' | 'civil' | 'personal' | 'criminal'
+    >('all');
+    const [criminalDashboardCaseId, setCriminalDashboardCaseId] = useState<string | null>(null);
+    const isCriminalDossierOpen = Boolean(criminalDashboardCaseId);
+    type CriminalReturnTarget = 'lawsuits_workspace' | 'main';
+    type OpenCriminalCaseOptions = {
+        /** فتح من مخزن الإضابير — الرجوع يعيد المخزن */
+        fromLawsuitsWorkspace?: boolean;
+        /** تبديل إضبارة داخل اللوحة دون تغيير وجهة الرجوع */
+        keepReturnTarget?: boolean;
+    };
+    const criminalReturnTargetRef = useRef<CriminalReturnTarget>('main');
+    const openCriminalCase = useCallback((caseId: string, options?: OpenCriminalCaseOptions) => {
+        const trimmed = String(caseId ?? '').trim();
+        if (!trimmed) return;
+        prefetchCriminalDashboard();
 
-    const [currentTheme, setCurrentTheme] = useState<ThemeKey>(() => persistenceRepository.load<ThemeKey>('lawyer_theme') || 'gold');
-    const [currentShape, setCurrentShape] = useState<ShapeKey>(() => persistenceRepository.load<ShapeKey>('lawyer_shape') || 'pill');
-    
-    useAutoSave('lawyer_theme', currentTheme);
-    useAutoSave('lawyer_shape', currentShape);
+        if (options?.keepReturnTarget) {
+            setCriminalDashboardCaseId(trimmed);
+            return;
+        }
+
+        if (options?.fromLawsuitsWorkspace) {
+            criminalReturnTargetRef.current = 'lawsuits_workspace';
+        } else {
+            criminalReturnTargetRef.current = 'main';
+            setShowLawsuitsWorkspace(false);
+            setArchiveType(null);
+        }
+
+        setCriminalDashboardCaseId(trimmed);
+    }, []);
+    const closeCriminalCase = useCallback(() => {
+        const returnTarget = criminalReturnTargetRef.current;
+        setCriminalDashboardCaseId(null);
+        criminalReturnTargetRef.current = 'main';
+
+        if (returnTarget === 'lawsuits_workspace') {
+            setShowLawsuitsWorkspace(true);
+        }
+    }, []);
+
+    useEffect(() => {
+        const syncCommunityHash = () => {
+            const target = parseCommunityDeepLinkFromLocation(window.location);
+            if (target) {
+                setCommunityDeepLink({ postId: target.postId, openComments: target.openComments });
+                setActiveTab('community');
+            }
+        };
+        syncCommunityHash();
+        window.addEventListener('hashchange', syncCommunityHash);
+        return () => window.removeEventListener('hashchange', syncCommunityHash);
+    }, []);
     
     // THEME AND SHAPE
     const { theme, shapeClass } = useThemeStyles(currentTheme, currentShape);
 
     // --- NEW SETTINGS STATE ---
-    const [glassMode, setGlassMode] = useState(false);
-    const [enableAnimations, setEnableAnimations] = useState(true);
-
     const [isEditMode, setIsEditMode] = useState(false);
     
     const [activeFile, setActiveFile] = useState<FileData | ExecutionFile | null>(null);
@@ -326,90 +585,11 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
     const [showReferences, setShowReferences] = useState(false);
     const [isDemoScenario, setIsDemoScenario] = useState(false); // For the specific "Al-Amal" demo flow
 
-    const [globalNotes, setGlobalNotes] = useState<GlobalNote[]>(() => persistenceRepository.load<GlobalNote[]>(STORAGE_KEYS.LAWYER_NOTES) || [
-        { id: 101, title: 'فكرة مرافعة', body: 'يجب التركيز على الدفوع الشكلية في دعوى احمد...', isPinned: true, color: '#1A1E2E', date: '2026-02-01' }
-    ]);
-    useAutoSave(STORAGE_KEYS.LAWYER_NOTES, globalNotes);
+    const [globalNotes, setGlobalNotes] = useState<GlobalNote[]>(
+        () => persistenceRepository.load<GlobalNote[]>(STORAGE_KEYS.LAWYER_NOTES) || [],
+    );
+    useAutoSave(STORAGE_KEYS.LAWYER_NOTES, globalNotes, 2_000, localAutoSave);
     
-    // ✅ NEW: Cloud Sync for Global Notes (Backend Integration v1.0)
-    const { 
-        isSyncing: isNotesSyncing,
-        syncNow: syncNotesNow
-    } = useCloudSync({
-        localKey: STORAGE_KEYS.LAWYER_NOTES,
-        syncInterval: 30000,
-        enabled: !!user && !isAlternativeMode,
-        onSyncSuccess: () => {
-            debug.log('[LawyerDashboard] ✅ تمت مزامنة الملاحظات مع السحابة');
-        },
-        onSyncError: (error) => {
-            debug.error('[LawyerDashboard] ❌ فشلت مزامنة الملاحظات:', error);
-        }
-    });
-    
-    // ✅ NEW: Real-time Updates - Phase 3 (subscription + toasts; live badge UI removed)
-    useRealtime({
-        userId: user?.id || '',
-        enabled: !!user && !isAlternativeMode,
-        showToasts: true,
-        onExecutionUpdate: async (payload) => {
-            debug.log('[LawyerDashboard] 📩 Realtime: تحديث ملف تنفيذ', payload);
-            // إعادة تحميل الملفات
-            syncExecutionFilesNow();
-            // ✅ Phase 4: Push Notification
-            if (payload.eventType === 'INSERT' && payload.new) {
-                await PushNotificationService.notifyNewExecution(payload.new.case_no || 'جديد');
-            }
-        },
-        onLawsuitUpdate: async (payload) => {
-            debug.log('[LawyerDashboard] 📩 Realtime: تحديث ملف دعوى', payload);
-            // إعادة تحميل الملفات
-            syncLawsuitFilesNow();
-            // ✅ Phase 4: Push Notification
-            if (payload.eventType === 'INSERT' && payload.new) {
-                await PushNotificationService.notifyNewLawsuit(payload.new.case_no || 'جديد');
-            }
-        },
-        onNoteUpdate: async (payload) => {
-            debug.log('[LawyerDashboard] 📩 Realtime: تحديث ملاحظة', payload);
-            // إعادة تحميل الملاحظات
-            syncNotesNow();
-        }
-    });
-    
-    // ✅ NEW: Phase 4 - Initialize Advanced Services
-    useEffect(() => {
-        const initAdvancedServices = async () => {
-            if (!user || isAlternativeMode) return;
-            if (advancedServicesOnceRef.current) return;
-            advancedServicesOnceRef.current = true;
-            
-            debug.log('[LawyerDashboard] Initializing Phase 4 services...');
-            
-            if (settingsState.notifications) {
-                try {
-                    const initialized = await PushNotificationService.initialize();
-                    if (initialized && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-                        const permission = await PushNotificationService.requestPermission();
-                        debug.log('[LawyerDashboard] Push permission:', permission);
-                    }
-                } catch (e) {
-                    debug.error('[LawyerDashboard] Push init failed:', e);
-                }
-            }
-
-            // CacheService removed — unused (415 lines of dead code)
-        };
-        
-        if (typeof requestIdleCallback !== 'undefined') {
-            const id = requestIdleCallback(() => void initAdvancedServices(), { timeout: 4000 });
-            return () => cancelIdleCallback(id);
-        }
-
-        const t = setTimeout(() => void initAdvancedServices(), 500);
-        return () => clearTimeout(t);
-    }, [user, isAlternativeMode, settingsState.notifications]);
-
     const [files, setFiles] = useState<FileData[]>(() => {
         const loaded = persistenceRepository.load<FileData[]>(STORAGE_KEYS.LAWYER_FILES) || [];
         // Clean up known stale mock case from previous sessions
@@ -419,62 +599,38 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
         }
         return loaded;
     });
-    useAutoSave(STORAGE_KEYS.LAWYER_FILES, files);
-
-    const filesRef = useRef(files);
-    const globalNotesRef = useRef(globalNotes);
-    filesRef.current = files;
-    globalNotesRef.current = globalNotes;
+    useAutoSave(STORAGE_KEYS.LAWYER_FILES, files, 2_000, localAutoSave);
 
     useEffect(() => {
-        let cancelled = false;
-        let intervalId: number | null = null;
-
-        const refresh = async () => {
-            if (!user?.id) return;
-            try {
-                const alerts = await SecretaryOrchestrator.getUnifiedAlerts({
-                    lawyerId: user.id,
-                    files: filesRef.current,
-                    notes: globalNotesRef.current,
-                });
-                if (!cancelled) setSecretaryAlerts(alerts);
-            } catch (e) {
-                debug.error('[LawyerDashboard] Secretary alerts refresh failed:', e);
-            }
-        };
-
-        void refresh();
-        intervalId = window.setInterval(() => {
-            void refresh();
-        }, 60_000);
-
-        return () => {
-            cancelled = true;
-            if (intervalId !== null) window.clearInterval(intervalId);
-        };
-    }, [user?.id, files.length, globalNotes.length]);
-    
-    // ✅ NEW: Cloud Sync for Lawsuit Files (Backend Integration v1.0)
-    const { 
-        isSyncing: isLawsuitSyncing,
-        syncNow: syncLawsuitFilesNow
-    } = useCloudSync({
-        localKey: STORAGE_KEYS.LAWYER_FILES,
-        syncInterval: 30000,
-        enabled: !!user && !isAlternativeMode,
-        onSyncSuccess: () => {
-            const merged = persistenceRepository.load<FileData[]>(STORAGE_KEYS.LAWYER_FILES);
-            if (Array.isArray(merged)) {
+        const handler = (ev: Event) => {
+            const detail = (ev as CustomEvent<CalendarSourcePatchDetail>).detail;
+            if (!detail?.sourceModule) return;
+            if (detail.sourceModule === 'lawsuit') {
+                const merged = loadLawsuitFilesRaw() as FileData[];
+                if (!Array.isArray(merged)) return;
                 setFiles(merged);
+                try {
+                    persistenceRepository.save(STORAGE_KEYS.LAWYER_FILES, merged);
+                } catch {
+                    /* ignore in tests */
+                }
+                return;
             }
-            debug.log('[LawyerDashboard] ✅ تمت مزامنة ملفات الدعاوى مع السحابة');
-        },
-        onSyncError: (error) => {
-            debug.error('[LawyerDashboard] ❌ فشلت مزامنة ملفات الدعاوى:', error);
-        }
-    });
-    
+            if (detail.sourceModule === 'execution') {
+                const merged = loadExecutionFilesRaw();
+                if (!Array.isArray(merged)) return;
+                setExecutionFiles(merged);
+                try {
+                    saveExecutionFilesRaw(merged);
+                } catch {
+                    /* ignore in tests */
+                }
+            }
+        };
+        window.addEventListener(CALENDAR_SOURCE_PATCHED_EVENT, handler);
+        return () => window.removeEventListener(CALENDAR_SOURCE_PATCHED_EVENT, handler);
+    }, []);
+
     // 🛡️ Auto-Sync للحماية من فقدان البيانات (Local storage only - Cloud disabled)
     const { syncNow: syncFiles, isSyncing: isSyncingFiles, lastSyncTime: filesLastSync } = useAutoSync('lawyer-files', files, {
         enabled: false,
@@ -488,37 +644,256 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
 
     // --- EXECUTION FILES STATE (PROMPT 1) ---
     const [executionFiles, setExecutionFiles] = useState<ExecutionFile[]>([]);  // RESET: Start with empty array
-    useAutoSave(EXECUTION_FILES_KEY, executionFiles);
-    
-    // ✅ NEW: Cloud Sync for Execution Files (Backend Integration v1.0)
-    const { 
-        isSyncing: isCloudSyncing, 
-        lastSyncTime: cloudLastSyncTime, 
-        syncStatus: cloudSyncStatus,
-        syncError: cloudSyncError,
-        isOnline,
-        syncNow: syncExecutionFilesNow
-    } = useCloudSync({
-        localKey: EXECUTION_FILES_KEY,
-        syncInterval: 30000, // 30 ثانية
-        enabled: !!user && !isAlternativeMode,
-        onSyncSuccess: () => {
-            debug.log('[LawyerDashboard] ✅ تمت مزامنة ملفات التنفيذ مع السحابة');
-        },
-        onSyncError: (error) => {
-            debug.error('[LawyerDashboard] ❌ فشلت مزامنة ملفات التنفيذ:', error);
-            // لا نعرض رسالة خطأ للمستخدم - البيانات محفوظة محلياً
-        }
+    useAutoSave(EXECUTION_FILES_KEY, executionFiles, 2_000, localAutoSave);
+
+    const calendarUserId = resolveCalendarUserId(user?.id ?? authUser?.id ?? null);
+    const { pendingTasks: quantumPendingForField, tasks: quantumTasks } = quantum;
+    const criminalCasesForCluster = criminalBridge.ready ? criminalBridge.criminalCases : [];
+    useIncrementalCalendarSync(
+        calendarUserId,
+        files,
+        executionFiles,
+        globalNotes,
+        quantumTasks,
+        criminalCasesForCluster,
+    );
+    const clusterScanSources = useClusterScanSources({
+        lawyerId: calendarUserId,
+        lawsuitFiles: files,
+        executionFiles,
+        criminalCases: criminalCasesForCluster,
+        notes: globalNotes,
+        fieldTasks: quantumTasks,
     });
-    
-    // ✅ NO ENCRYPTION - Migration removed
-    
+    useWorkspacePinMaintenance({ clusterScanSources });
+    const homeHubClusterInput = useMemo(
+        () => ({
+            lawsuitFiles: clusterScanSources.lawsuitFiles,
+            executionFiles: clusterScanSources.executionFiles,
+            criminalCases: clusterScanSources.criminalCases,
+            urgentCases: clusterScanSources.urgentCases,
+            threadingTransactions: clusterScanSources.threadingTransactions,
+            notes: clusterScanSources.notes,
+            fieldTasks: clusterScanSources.fieldTasks,
+            pinnedItems: [],
+        }),
+        [clusterScanSources],
+    );
+
+    const { dismissedIds, dismiss: dismissAppAlertBase } = useDismissedAlertIds();
+    const markAsReadNotification = useNotificationStore((s) => s.markAsRead);
+
+    const dismissAppAlert = useCallback(
+        (alertId: string) => {
+            dismissAppAlertBase(alertId);
+            markAlertSeenForPush(alertId);
+            if (alertId.startsWith('notif:') && user?.id) {
+                const notifId = alertId.slice('notif:'.length);
+                void markAsReadNotification(user.id, notifId);
+            }
+        },
+        [dismissAppAlertBase, markAsReadNotification, user?.id, calendarUserId],
+    );
+
+    const visibleAppAlerts = useMemo(
+        () => filterVisibleAlerts(appAlerts, dismissedIds),
+        [appAlerts, dismissedIds],
+    );
+
+    // الجرس مستقل تماماً عن SecretaryAlerts (تلك مسؤولية البطاقة العامة).
+    // headerUnreadCount = عدد إشعارات NotificationDB غير المقروءة فقط.
+    const notificationsUnreadCount = useNotificationStore((s) => s.unreadCount);
+    const headerUnreadCount = notificationsUnreadCount;
+
+    const handleAlertResolved = useCallback(
+        (alert: SecretaryAlert) => {
+            dismissAppAlert(alert.id);
+            void refreshAppAlerts();
+        },
+        [dismissAppAlert, refreshAppAlerts],
+    );
+
+    const openSecretaryAlert = useCallback(
+        (a: SecretaryAlert) => {
+            markAlertSeenForPush(a.id);
+            setShowNotifications(false);
+            const nav = resolveAlertNavigation(a, {
+                lawsuitFiles: files,
+                fieldTasks: quantumTasks,
+            });
+
+            switch (nav.kind) {
+                case 'tab':
+                    setActiveTab(nav.tab);
+                    return;
+                case 'notepad':
+                    setNotepadMode('list');
+                    if (nav.noteId) setNotepadFocusNoteId(nav.noteId);
+                    else if (a.entityId) setNotepadFocusNoteId(String(a.entityId));
+                    setIsNotepadOpen(true);
+                    return;
+                case 'client_requests':
+                    setArchiveType('client_requests');
+                    setActiveTab('home');
+                    return;
+                case 'transactions': {
+                    const txId = nav.entityId ?? a.entityId;
+                    if (txId) {
+                        const txFile = files.find(
+                            (file) => String(file.id) === String(txId) && file.type === 'transaction',
+                        );
+                        if (txFile && isFileData(txFile)) {
+                            setActiveFile(txFile);
+                            void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                                AuditLog.dossier.opened({
+                                    module: 'threading',
+                                    entityId: String(txFile.id),
+                                    caseNo: (txFile as { caseNo?: string }).caseNo,
+                                });
+                            }).catch(() => {});
+                            return;
+                        }
+                        setTransactionsFocusId(String(txId));
+                    }
+                    setShowTransactions(true);
+                    return;
+                }
+                case 'threading_tx':
+                    setActiveTab('home');
+                    setTransactionsFocusId(nav.entityId);
+                    setShowTransactions(true);
+                    return;
+                case 'urgent_dashboard':
+                    if (nav.entityId) setUrgentFocusCaseId(nav.entityId);
+                    else if (a.entityId) setUrgentFocusCaseId(String(a.entityId));
+                    setShowUrgentDashboard(true);
+                    return;
+                case 'open_lawsuit': {
+                    const f = files.find((file) => String(file.id) === nav.entityId);
+                    if (f && isFileData(f)) {
+                        setActiveFile(f);
+                        void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                            void import('@/app/domain/lawsuit/lawsuitJurisdiction').then(({ resolveLawsuitJurisdiction }) => {
+                                const j = resolveLawsuitJurisdiction(f as Record<string, unknown>);
+                                const module = j === 'personal' ? 'personal' : 'civil';
+                                AuditLog.dossier.opened({ module, entityId: String(f.id), caseNo: (f as { caseNo?: string }).caseNo });
+                            }).catch(() => {});
+                        }).catch(() => {});
+                        return;
+                    }
+                    SmartToast.info('لم يُعثر على إضبارة الدعوى — ربما نُقلت للأرشيف أو السلة');
+                    return;
+                }
+                case 'open_execution': {
+                    const ex = executionFiles.find((file) => String(file.id ?? '') === nav.entityId);
+                    if (ex) {
+                        setActiveFile(coerceExecutionFilePreserveId(ex));
+                        void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                            AuditLog.dossier.opened({ module: 'execution', entityId: String(ex.id ?? ''), caseNo: (ex as { caseNo?: string }).caseNo });
+                        }).catch(() => {});
+                        return;
+                    }
+                    SmartToast.info('لم يُعثر على إضبارة التنفيذ');
+                    return;
+                }
+                case 'open_criminal':
+                    openCriminalCase(nav.entityId);
+                    void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                        AuditLog.dossier.opened({ module: 'criminal', entityId: nav.entityId });
+                    }).catch(() => {});
+                    return;
+                case 'open_field_tasks':
+                    setActiveTab('home');
+                    setFieldTasksSheetOpen(true);
+                    return;
+                default:
+                    return;
+            }
+        },
+        [files, executionFiles, quantumTasks, user?.id, calendarUserId],
+    );
+
+    const navigateWorkspaceRoute = useCallback(
+        (routePath: string) => {
+            if (routePath === 'workspace:schedule:calendar') {
+                setActiveTab('schedule');
+                return;
+            }
+            const parsed = parseWorkspaceRoute(routePath);
+            if (!parsed) return;
+            switch (parsed.type) {
+                case 'lawsuit': {
+                    const f = files.find((file) => String(file.id) === parsed.id);
+                    if (f && isFileData(f)) {
+                        setActiveFile(f);
+                        void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                            void import('@/app/domain/lawsuit/lawsuitJurisdiction').then(({ resolveLawsuitJurisdiction }) => {
+                                const j = resolveLawsuitJurisdiction(f as Record<string, unknown>);
+                                const module = j === 'personal' ? 'personal' : 'civil';
+                                AuditLog.dossier.opened({ module, entityId: String(f.id), caseNo: (f as { caseNo?: string }).caseNo });
+                            }).catch(() => {});
+                        }).catch(() => {});
+                        return;
+                    }
+                    SmartToast.info('لم يُعثر على إضبارة الدعوى');
+                    return;
+                }
+                case 'execution': {
+                    const ex = executionFiles.find((file) => String(file.id ?? '') === parsed.id);
+                    if (ex) {
+                        setActiveFile(coerceExecutionFilePreserveId(ex));
+                        void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                            AuditLog.dossier.opened({ module: 'execution', entityId: String(ex.id ?? ''), caseNo: (ex as { caseNo?: string }).caseNo });
+                        }).catch(() => {});
+                        return;
+                    }
+                    SmartToast.info('لم يُعثر على إضبارة التنفيذ');
+                    return;
+                }
+                case 'criminal':
+                    openCriminalCase(parsed.id);
+                    void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                        AuditLog.dossier.opened({ module: 'criminal', entityId: parsed.id });
+                    }).catch(() => {});
+                    return;
+                case 'urgent':
+                    setUrgentFocusCaseId(parsed.id);
+                    setShowUrgentDashboard(true);
+                    return;
+                case 'transaction': {
+                    const f = files.find((file) => String(file.id) === parsed.id);
+                    if (f && isFileData(f)) {
+                        setActiveFile(f);
+                        void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                            AuditLog.dossier.opened({ module: 'threading', entityId: String(f.id), caseNo: (f as { caseNo?: string }).caseNo });
+                        }).catch(() => {});
+                        return;
+                    }
+                    SmartToast.info('لم يُعثر على ملف المعاملة');
+                    return;
+                }
+                case 'threading':
+                    setTransactionsFocusId(parsed.id);
+                    setShowTransactions(true);
+                    return;
+                case 'notepad':
+                    setNotepadFocusNoteId(parsed.id);
+                    setNotepadMode('list');
+                    setIsNotepadOpen(true);
+                    return;
+                case 'task':
+                    setTasksManagerFocusTaskId(parsed.id);
+                    setShowTasksManager(true);
+                    return;
+                default:
+                    return;
+            }
+        },
+        [files, executionFiles, openCriminalCase],
+    );
+
     useEffect(() => {
         const checkPrivacyMode = () => {
-            // ✅ FIXED: Alternative mode removed - always use real data
-            const isAlt = false;
-            setIsAlternativeMode(isAlt);
-            
             // 🆕 V10.5: استخدام storageCache بدلاً من persistenceRepository
             const primary = storageCache.get(EXECUTION_FILES_KEY);
             const rawList: unknown[] = Array.isArray(primary) ? primary : loadExecutionFilesRaw();
@@ -537,14 +912,52 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
 
             storageCache.set(EXECUTION_FILES_KEY, validFiles);
             setExecutionFiles(validFiles);
-
-            if (validFiles.length > 0) {
-                SystemToasts.info.loading();
-            }
         };
         
         checkPrivacyMode();
     }, []);
+
+    useEffect(() => {
+        const reloadFromStorage = (opts?: { clear?: boolean }) => {
+            const mergedLawsuits = loadLawsuitFilesRaw() as FileData[];
+            if (Array.isArray(mergedLawsuits)) {
+                setFiles(mergedLawsuits);
+                try {
+                    persistenceRepository.save(STORAGE_KEYS.LAWYER_FILES, mergedLawsuits);
+                } catch {
+                }
+            } else {
+                setFiles([]);
+            }
+
+            const nextNotes = persistenceRepository.load<GlobalNote[]>(STORAGE_KEYS.LAWYER_NOTES) || [];
+            setGlobalNotes(Array.isArray(nextNotes) ? nextNotes : []);
+
+            const rawList: unknown[] = loadExecutionFilesRaw();
+            const coerced = rawList.map(coerceExecutionFilePreserveId);
+            const validFiles = purgeExpiredExecutionsFromTrash(
+                coerced.filter((file) => file && (String(file.fileNumber || '').trim() || String(file.caseNo || '').trim())),
+            );
+            storageCache.set(EXECUTION_FILES_KEY, validFiles);
+            setExecutionFiles(validFiles);
+
+            if (opts?.clear) {
+                setActiveFile(null);
+                setArchiveType(null);
+            }
+
+            void refreshAppAlerts();
+        };
+
+        const onImported = () => reloadFromStorage();
+        const onCleared = () => reloadFromStorage({ clear: true });
+        window.addEventListener('hami:data-imported', onImported);
+        window.addEventListener('hami:data-cleared', onCleared);
+        return () => {
+            window.removeEventListener('hami:data-imported', onImported);
+            window.removeEventListener('hami:data-cleared', onCleared);
+        };
+    }, [refreshAppAlerts]);
     
     // 🛡️ Auto-Sync لملفات التنفيذ (Local storage only - Cloud disabled)
     const { syncNow: syncExecutionFiles, isSyncing: isSyncingExecution } = useAutoSync('execution-files', executionFiles, {
@@ -561,48 +974,203 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
         });
     }, [archiveType]);
 
-    const moveExecutionToTrash = useCallback((fileId: string | number) => {
-        const idStr = String(fileId);
-        setExecutionFiles((prev) => {
-            const next = prev.map((f) => {
-                const fId = String(f.id ?? '');
-                return fId === idStr
-                    ? { ...f, executionTrashDeletedAt: new Date().toISOString() }
-                    : f;
+    const moveExecutionToTrash = useCallback(
+        (fileId: string | number) => {
+            const idStr = String(fileId);
+            setExecutionFiles((prev) => {
+                const next = prev.map((f) => {
+                    const fId = String(f.id ?? '');
+                    return fId === idStr
+                        ? { ...f, executionTrashDeletedAt: new Date().toISOString() }
+                        : f;
+                });
+                saveExecutionFilesRaw(next);
+                storageCache.set(EXECUTION_FILES_KEY, next);
+                return next;
             });
-            saveExecutionFilesRaw(next);
-            storageCache.set(EXECUTION_FILES_KEY, next);
-            return next;
-        });
-        setActiveFile((cur) => {
-            if (!cur) return null;
-            return String(cur.id ?? '') === idStr ? null : cur;
-        });
-    }, []);
+            setActiveFile((cur) => {
+                if (!cur) return null;
+                return String(cur.id ?? '') === idStr ? null : cur;
+            });
+            void removeAllBridgedEventsForEntity(
+                'execution',
+                fileId,
+                resolveCalendarUserId(user?.id ?? authUser?.id ?? null),
+            );
+            void pruneOrphanedBridgeEvents(resolveCalendarUserId(user?.id ?? authUser?.id ?? null));
+            unpinWorkspaceItem(fileId, 'execution');
+            void refreshAppAlerts();
+        },
+        [user?.id, authUser?.id, refreshAppAlerts],
+    );
 
-    const restoreExecutionFromTrash = useCallback((fileId: string | number) => {
-        const idStr = String(fileId);
-        setExecutionFiles((prev) => {
-            const next = prev.map((f) => (String(f.id) !== idStr ? f : stripExecutionTrashFields(f)));
-            saveExecutionFilesRaw(next);
-            storageCache.set(EXECUTION_FILES_KEY, next);
-            return next;
-        });
-    }, []);
+    const restoreExecutionFromTrash = useCallback(
+        (fileId: string | number) => {
+            const idStr = String(fileId);
+            setExecutionFiles((prev) => {
+                const next = prev.map((f) => (String(f.id) !== idStr ? f : stripExecutionTrashFields(f)));
+                saveExecutionFilesRaw(next);
+                storageCache.set(EXECUTION_FILES_KEY, next);
+                const restored = next.find((f) => String(f.id) === idStr);
+                if (restored) {
+                    syncExecutionFileToCalendar(restored as unknown as Record<string, unknown>, user?.id);
+                }
+                return next;
+            });
+        },
+        [user?.id],
+    );
 
-    const permanentlyDeleteExecutions = useCallback((ids: Array<string | number>) => {
-        const idSet = new Set(ids.map(String));
-        idSet.forEach((id) => {
-            removeExecutionStorageBundle(id);
+    const permanentlyDeleteExecutions = useCallback(
+        (ids: Array<string | number>) => {
+            const idSet = new Set(ids.map(String));
+            idSet.forEach((id) => {
+                removeExecutionStorageBundle(id);
+                void removeAllBridgedEventsForEntity('execution', id, user?.id);
+            });
+            setExecutionFiles((prev) => {
+                const next = prev.filter((f) => !idSet.has(String(f.id)));
+                saveExecutionFilesRaw(next);
+                storageCache.set(EXECUTION_FILES_KEY, next);
+                return next;
+            });
+            setActiveFile((cur) => (cur && idSet.has(String(cur?.id)) ? null : cur));
+            void pruneOrphanedBridgeEvents(user?.id);
+        },
+        [user?.id],
+    );
+
+    const moveLawsuitToTrash = useCallback(
+        (fileId: string | number) => {
+            const idStr = String(fileId);
+            const calendarUid = resolveCalendarUserId(user?.id ?? authUser?.id ?? null);
+            setFiles((prev) => {
+                const next = prev.map((f) =>
+                    String(f.id) === idStr
+                        ? { ...f, status: 'deleted' as const, deletedAt: Date.now() }
+                        : f,
+                );
+                saveLawsuitFilesRaw(next as unknown[]);
+                try {
+                    persistenceRepository.save(STORAGE_KEYS.LAWYER_FILES, next);
+                } catch {
+                    /* ignore in tests */
+                }
+                return next;
+            });
+            setActiveFile((cur) => (cur && String(cur.id) === idStr ? null : cur));
+            void removeAllBridgedEventsForEntity('lawsuit', fileId, calendarUid);
+            void pruneOrphanedBridgeEvents(calendarUid);
+            void refreshAppAlerts();
+        },
+        [user?.id, authUser?.id, refreshAppAlerts],
+    );
+
+    const restoreLawsuitFromTrash = useCallback(
+        (fileId: string | number) => {
+            const idStr = String(fileId);
+            setFiles((prev) => {
+                const next = prev.map((f) =>
+                    String(f.id) === idStr
+                        ? { ...f, status: 'active' as const, deletedAt: undefined }
+                        : f,
+                );
+                const restored = next.find((f) => String(f.id) === idStr);
+                if (restored) {
+                    syncLawsuitFileToCalendar(restored as unknown as Record<string, unknown>, user?.id);
+                }
+                return next;
+            });
+        },
+        [user?.id],
+    );
+
+    const archiveLawsuit = useCallback(
+        (fileId: string | number) => {
+            const idStr = String(fileId);
+            const calendarUid = resolveCalendarUserId(user?.id ?? authUser?.id ?? null);
+            setFiles((prev) => {
+                const next = prev.map((f) =>
+                    String(f.id) === idStr ? { ...f, status: 'archived' as const } : f,
+                );
+                saveLawsuitFilesRaw(next as unknown[]);
+                try {
+                    persistenceRepository.save(STORAGE_KEYS.LAWYER_FILES, next);
+                } catch {
+                    /* ignore in tests */
+                }
+                return next;
+            });
+            setActiveFile((cur) => (cur && String(cur.id) === idStr ? null : cur));
+            void removeAllBridgedEventsForEntity('lawsuit', fileId, calendarUid);
+            void pruneOrphanedBridgeEvents(calendarUid);
+            void refreshAppAlerts();
+        },
+        [user?.id, authUser?.id, refreshAppAlerts],
+    );
+
+    const restoreArchivedLawsuit = useCallback(
+        (fileId: string | number) => {
+            const idStr = String(fileId);
+            setFiles((prev) => {
+                const next = prev.map((f) =>
+                    String(f.id) === idStr ? { ...f, status: 'active' as const } : f,
+                );
+                const restored = next.find((f) => String(f.id) === idStr);
+                if (restored) {
+                    syncLawsuitFileToCalendar(restored as unknown as Record<string, unknown>, user?.id);
+                }
+                return next;
+            });
+        },
+        [user?.id],
+    );
+
+    const permanentlyDeleteLawsuits = useCallback(
+        (ids: Array<string | number>) => {
+            const idSet = new Set(ids.map(String));
+            idSet.forEach((id) => {
+                void removeAllBridgedEventsForEntity('lawsuit', id, user?.id);
+            });
+            setFiles((prev) => {
+                const next = prev.filter((f) => !idSet.has(String(f.id)));
+                saveLawsuitFilesRaw(next as unknown[]);
+                try {
+                    persistenceRepository.save(STORAGE_KEYS.LAWYER_FILES, next);
+                } catch {
+                    /* ignore in tests */
+                }
+                return next;
+            });
+            setActiveFile((cur) => (cur && idSet.has(String(cur?.id)) ? null : cur));
+            void pruneOrphanedBridgeEvents(user?.id);
+        },
+        [user?.id],
+    );
+
+    useEffect(() => {
+        if (archiveType !== 'lawsuit') return;
+        setArchiveType(null);
+        setShowLawsuitsWorkspace(true);
+    }, [archiveType]);
+
+    useEffect(() => {
+        if (!showLawsuitsWorkspace) return;
+        setFiles((prev) => {
+            const purged = purgeExpiredLawsuitsFromTrash(prev);
+            const expiredIds = prev
+                .filter((f) => shouldAutoPurgeLawsuitFromTrash(f))
+                .map((f) => f.id);
+            if (purged.length === prev.length && expiredIds.length === 0) return prev;
+            expiredIds.forEach((id) => {
+                void removeAllBridgedEventsForEntity('lawsuit', id, user?.id);
+            });
+            if (expiredIds.length > 0) {
+                void pruneOrphanedBridgeEvents(user?.id);
+            }
+            return purged;
         });
-        setExecutionFiles((prev) => {
-            const next = prev.filter((f) => !idSet.has(String(f.id)));
-            saveExecutionFilesRaw(next);
-            storageCache.set(EXECUTION_FILES_KEY, next);
-            return next;
-        });
-        setActiveFile((cur) => (cur && idSet.has(String(cur?.id)) ? null : cur));
-    }, []);
+    }, [showLawsuitsWorkspace, user?.id]);
     
     const [isExecutionModalOpen, setIsExecutionModalOpen] = useState(false);
     
@@ -674,7 +1242,9 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
         if (user) {
             // LawyerDB.saveExecutionFile(user.id, updatedFile).catch(debug.error);
         }
-    }, [user]);
+        syncExecutionFileToCalendar(updatedFile as unknown as Record<string, unknown>, user?.id);
+        void refreshAppAlerts();
+    }, [user, refreshAppAlerts]);
 
 
     // --- SMART FILES PROTOCOL INTEGRATION ---
@@ -682,6 +1252,34 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
     const selectCase = useCaseStore((s) => s.selectCase);
     const storeCases = useCaseStore((s) => s.cases);
     const [isNewCaseModalOpen, setIsNewCaseModalOpen] = useState(false);
+    /** علم انتقال «تفريق الدعوى» — يفتح شاشة «إضبارة جديدة» مع تخطّي اختيار النوع. */
+    const [isCriminalSeveranceRedirect, setIsCriminalSeveranceRedirect] = useState(false);
+    const openNormalNewCaseModal = useCallback(() => {
+        criminalBridge.prepareNormalCriminalCaseForm();
+        setIsCriminalSeveranceRedirect(false);
+        setIsNewCaseModalOpen(true);
+    }, [criminalBridge]);
+
+    const openSeveranceNewCaseModal = useCallback(() => {
+        if (!criminalBridge.resumePendingSeveranceForm()) return;
+        setIsCriminalSeveranceRedirect(true);
+        setIsNewCaseModalOpen(true);
+    }, [criminalBridge]);
+
+    useEffect(() => {
+        if (consumeOpenCriminalCasesListRequest()) {
+            prefetchCriminalDashboard();
+            setLawsuitsDossierSection('criminal');
+            setLawsuitsWorkspaceTab('civil');
+            setShowLawsuitsWorkspace(true);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (showLawsuitsWorkspace) {
+            prefetchDossierShells();
+        }
+    }, [showLawsuitsWorkspace]);
 
     // Sync initial files to store once
     useEffect(() => {
@@ -736,11 +1334,7 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
         setFiles(prev => [newFile, ...prev]);
     };
 
-    // --- GLOBAL SEARCH ENGINE (FUSE.JS) ---
-    const [searchQuery, setSearchQuery] = useState('');
-
     // --- LEGAL COMMAND CENTER HANDLERS ---
-    // PERFORMANCE FIX: useCallback to prevent re-creating function on every render
     const handleAddNote = useCallback((note: Note) => {
         setGlobalNotes((prev) => [{
             id: note.id,
@@ -752,124 +1346,46 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
         }, ...prev]);
         SmartToast.success('تمت إضافة الملاحظة للمفكرة');
     }, []);
-    const [searchFilter, setSearchFilter] = useState('all');
-    const [searchResults, setSearchResults] = useState<Array<Record<string, unknown>>>([]);
-    
-    // --- RAG SEARCH INTEGRATION ---
-    const ragResults = useRagStore((s) => s.results);
-    const searchLegalMemory = useRagStore((s) => s.searchLegalMemory);
-    const isRagSearching = useRagStore((s) => s.isSearching);
-
-    const combinedSearchData = React.useMemo(() => {
-        const fileData = files.map(f => ({
-            ...f,
-            itemType: 'file',
-            _searchStr: normalizeArabic(`
-                ${f.caseNo || ''} 
-                ${f.court || ''} 
-                ${(f.parties || []).map((p: Party) => (p.name || '') + " " + (p.phone || '')).join(" ")} 
-                ${(f.notes || []).map((n: FileData['notes'][number]) => n.text || '').join(" ")}
-            `),
-            _partiesNames: (f.parties || []).map((p: Party) => p.name || '').join(" "),
-            _notesText: (f.notes || []).map((n: FileData['notes'][number]) => n.text || '').join(" "),
-            _phoneNumbers: (f.parties || []).map((p: Party) => p.phone || '').join(" ")
-        }));
-
-        const noteData = globalNotes.map(n => ({
-            ...n,
-            type: 'note',
-            itemType: 'note',
-            status: 'active',
-            caseNo: n.title,
-            court: 'المفكرة',
-            parties: [{ name: 'ملاحظة شخصية' }],
-            _searchStr: normalizeArabic(`${n.title} ${n.body}`),
-            _notesText: n.body,
-            _partiesNames: '',
-            _phoneNumbers: ''
-        }));
-
-        return [...fileData, ...noteData];
-    }, [files, globalNotes]);
-
-    const [fuseSearch, setFuseSearch] = React.useState(null);
-
-    React.useEffect(() => {
-        let cancelled = false;
-        setFuseSearch(null);
-        import('fuse.js').then((mod) => {
-            if (cancelled) return;
-            const Fuse = mod.default;
-            setFuseSearch(
-                new Fuse(combinedSearchData, {
-                    keys: [
-                        { name: 'caseNo', weight: 2 },
-                        { name: '_partiesNames', weight: 1.5 },
-                        { name: '_phoneNumbers', weight: 1.5 },
-                        { name: '_notesText', weight: 0.8 },
-                        { name: '_searchStr', weight: 0.5 }
-                    ],
-                    threshold: PERFORMANCE.FUSE_THRESHOLD,
-                    ignoreLocation: true,
-                    includeMatches: true,
-                    minMatchCharLength: PERFORMANCE.FUSE_MIN_MATCH_LENGTH
-                })
-            );
-        });
-        return () => {
-            cancelled = true;
-        };
-    }, [combinedSearchData]);
-
-    useEffect(() => {
-        if (!searchQuery) {
-            setSearchResults([]);
-            return;
-        }
-        if (!fuseSearch) {
-            return;
-        }
-
-        const searchTimer = setTimeout(() => {
-            const normalizedQuery = normalizeArabic(searchQuery);
-            let results = fuseSearch.search(normalizedQuery);
-
-            results = results.filter((r: { item: { status?: string } }) => r.item.status !== 'deleted');
-
-            setSearchResults(results);
-
-            if (searchQuery.length > PERFORMANCE.MIN_SEARCH_LENGTH) {
-                searchLegalMemory(searchQuery);
-            }
-        }, TIMING.SEARCH_DEBOUNCE);
-
-        return () => clearTimeout(searchTimer);
-    }, [searchQuery, fuseSearch, searchLegalMemory]);
-
-    const [alerts, setAlerts] = useState<Alert[]>([{ id: 1, title: 'جلسة مرافعة', subtitle: 'أمام بداءة الكرخ', time: '09:00', urgent: true }]);
 
     // --- NOTEPAD HANDLERS ---
     const handleSaveNote = async (note: GlobalNote) => {
-        setGlobalNotes(prev => {
-            const exists = prev.find(n => n.id === note.id);
-            if (exists) return prev.map(n => n.id === note.id ? note : n);
+        const uid = resolveNotesUserId();
+        const exists = globalNotes.some((n) => n.id === note.id);
+
+        setGlobalNotes((prev) => {
+            const found = prev.find((n) => n.id === note.id);
+            if (found) return prev.map((n) => (n.id === note.id ? note : n));
             return [...prev, note];
         });
+
+        if (uid && (note.body || '').trim()) {
+            const mappedId = vaultIdForGlobal(uid, note.id);
+            const vaultId = notesVault.syncFromGlobal(
+                uid,
+                { id: note.id, body: note.body, type: note.type },
+                !exists,
+                mappedId,
+            );
+            if (vaultId) linkGlobalToVault(uid, note.id, vaultId);
+        }
         
         // ✅ Backend Integration: Save to Supabase Cloud
         if (user && !isAlternativeMode) {
             try {
-                const category = note.category ?? 'عام';
-                await SupabaseService.saveGlobalNote({
-                    title: note.title,
-                    content: note.body,
-                    category,
-                    tags: note.tags || []
-                });
+                await SupabaseService.saveGlobalNote(
+                    dashboardNoteToCloudPayload(note),
+                    exists ? { id: String(note.id) } : undefined,
+                );
                 debug.log('[LawyerDashboard] ✅ Note saved to cloud');
             } catch (error) {
                 debug.error('[LawyerDashboard] ⚠️ Cloud note save failed:', error);
             }
+        }
+
+        void refreshAppAlerts();
+
+        if (note.apptDate || note.reminder_at) {
+            SmartToast.success('تم ربط الموعد بالتقويم');
         }
 
         // COPY TO LINKED FILE LOGIC
@@ -882,6 +1398,7 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
                         meta: note.title, 
                         stageCtx: f.currentStage || 'عام',
                         date: new Date().toLocaleDateString('ar-EG'),
+                        apptDate: note.apptDate || note.reminder_at,
                         isPinned: note.isPinned
                     };
                     return { ...f, notes: [newFileNote, ...f.notes] };
@@ -892,8 +1409,15 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
     };
 
     const handleDeleteNote = async (id: string) => {
-        setGlobalNotes(prev => prev.filter(n => String(n.id) !== id));
-        
+        const uid = resolveNotesUserId();
+        if (uid) {
+            const vaultId = vaultIdForGlobal(uid, id);
+            if (vaultId) notesVault.deleteNote(vaultId);
+            unlinkGlobal(uid, id);
+        }
+        setGlobalNotes((prev) => prev.filter((n) => String(n.id) !== id));
+        unpinWorkspaceItem(id, 'notepad');
+
         // ✅ Backend Integration: Delete from Supabase Cloud
         if (user && !isAlternativeMode) {
             try {
@@ -903,6 +1427,7 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
                 debug.error('[LawyerDashboard] ⚠️ Cloud note delete failed:', error);
             }
         }
+        void refreshAppAlerts();
     };
 
     const handleConvertNote = (note: Pick<GlobalNote, 'body'>, targetType: CaseType) => {
@@ -963,34 +1488,182 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
     };
 
     const handleUpdateFile = (updatedFile: FileData) => {
-        setFiles((prev) => prev.map((f) => f.id === updatedFile.id ? updatedFile : f));
-        setActiveFile(updatedFile);
+        const updatedId = String((updatedFile as FileData & { id?: unknown }).id ?? '');
+        const mergeFile = (prev: FileData): FileData => ({ ...prev, ...updatedFile, id: prev.id });
+
+        // 🔑 Audit log: نلتقط الـ before قبل الـ setFiles لمقارنة التغييرات ذات القيمة
+        const before = files.find((f) => String(f.id) === updatedId);
+
+        setFiles((prev) =>
+            prev.map((f) => (String(f.id) === updatedId ? mergeFile(f) : f)),
+        );
+        setActiveFile((prev) => {
+            if (prev && String(prev.id) === updatedId) {
+                return mergeFile(prev as FileData);
+            }
+            return updatedFile;
+        });
         
         // ✅ CRITICAL FIX: Save to Cloud when updating file
         if (user) {
             LawyerDB.saveCase(user.id, updatedFile as unknown as Record<string, unknown>).catch(debug.error);
         }
+        syncLawsuitFileToCalendar(updatedFile as unknown as Record<string, unknown>, user?.id);
+
+        // 🔑 Audit log: تسجيل تغييرات ذات قيمة فقط (status / المراحل / المواعيد / المهام)
+        if (before) {
+            try {
+                void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                    const caseNo = updatedFile.caseNo || `#${updatedFile.id}`;
+                    // 1. تغيير الحالة (active / paused / finished / deleted)
+                    if (before.status && updatedFile.status && before.status !== updatedFile.status) {
+                        if (updatedFile.status !== 'deleted') {
+                            AuditLog.civil.statusChanged({
+                                caseId: updatedFile.id,
+                                caseNo,
+                                fromStatus: String(before.status),
+                                toStatus: String(updatedFile.status),
+                            });
+                        }
+                    }
+                    // 2. إضافة مرحلة جديدة (stages.length زاد)
+                    const beforeStages = Array.isArray((before as { stages?: unknown[] }).stages)
+                        ? ((before as { stages: unknown[] }).stages).length
+                        : 0;
+                    const afterStages = Array.isArray((updatedFile as { stages?: unknown[] }).stages)
+                        ? ((updatedFile as { stages: unknown[] }).stages).length
+                        : 0;
+                    if (afterStages > beforeStages) {
+                        const lastStage = (updatedFile as { stages?: Array<{ stageName?: string }> })
+                            .stages?.[afterStages - 1];
+                        AuditLog.civil.stageAdded({
+                            caseId: updatedFile.id,
+                            caseNo,
+                            stageName: lastStage?.stageName || 'مرحلة جديدة',
+                        });
+                    }
+                    // 3. إضافة موعد/جلسة (timeline event داخل أي stage) — نحسب الإجمالي
+                    const countTimeline = (file: FileData): number => {
+                        const stages = (file as { stages?: Array<{ timeline?: unknown[] }> }).stages ?? [];
+                        let n = 0;
+                        for (const s of stages) {
+                            if (Array.isArray(s?.timeline)) n += s.timeline.length;
+                        }
+                        return n;
+                    };
+                    const beforeTimeline = countTimeline(before);
+                    const afterTimeline = countTimeline(updatedFile);
+                    if (afterTimeline > beforeTimeline) {
+                        const stages = (updatedFile as { stages?: Array<{ timeline?: Array<{ id?: string; date?: string; title?: string; type?: string }> }> }).stages ?? [];
+                        // ابحث عن الـ id الجديد (موجود في after وليس في before)
+                        const beforeIds = new Set<string>();
+                        const beforeStagesArr = (before as { stages?: Array<{ timeline?: Array<{ id?: string }> }> }).stages ?? [];
+                        for (const s of beforeStagesArr) {
+                            for (const t of s?.timeline ?? []) {
+                                if (t?.id) beforeIds.add(String(t.id));
+                            }
+                        }
+                        for (const s of stages) {
+                            for (const ev of s?.timeline ?? []) {
+                                if (!ev?.id || beforeIds.has(String(ev.id))) continue;
+                                if (ev.date) {
+                                    AuditLog.civil.hearingAdded({
+                                        caseId: updatedFile.id,
+                                        caseNo,
+                                        date: ev.date,
+                                        title: ev.title,
+                                    });
+                                }
+                            }
+                        }
+                    }
+
+                    // 4. إضافة/إكمال مهمة في القضية المدنية
+                    type TaskShape = { id?: string; title?: string; dueDate?: string; isCompleted?: boolean };
+                    const collectTasks = (file: FileData): TaskShape[] => {
+                        const stages = (file as { stages?: Array<{ tasks?: TaskShape[] }> }).stages ?? [];
+                        const out: TaskShape[] = [];
+                        for (const s of stages) {
+                            if (Array.isArray(s?.tasks)) out.push(...s.tasks);
+                        }
+                        return out;
+                    };
+                    const beforeTasks = collectTasks(before);
+                    const afterTasks = collectTasks(updatedFile);
+                    const beforeMap = new Map(beforeTasks.map((t) => [String(t.id ?? ''), t] as const));
+                    // مهام مكتملة الآن لم تكن قبلاً
+                    for (const t of afterTasks) {
+                        const prev = beforeMap.get(String(t.id ?? ''));
+                        if (prev && !prev.isCompleted && t.isCompleted && t.title) {
+                            AuditLog.civil.taskCompleted({
+                                caseId: updatedFile.id,
+                                caseNo,
+                                title: t.title,
+                            });
+                        } else if (!prev && t.title) {
+                            AuditLog.civil.taskAdded({
+                                caseId: updatedFile.id,
+                                caseNo,
+                                title: t.title,
+                                dueDate: t.dueDate,
+                            });
+                        }
+                    }
+                });
+            } catch { /* silent */ }
+        }
+
+        void refreshAppAlerts();
     };
 
     // PERFORMANCE FIX: useCallback with functional update - stable deps
-    const handleAddAlert = useCallback((newAlert: Alert) => {
-        setAlerts((prev: Alert[]) => [newAlert, ...prev]);
-    }, []);
-    
     // PERFORMANCE FIX: useCallback with functional update - stable deps
-    const handleDeleteFile = useCallback((fileToDelete: FileData) => {
-        if (fileToDelete.status === 'deleted') {
-            setFiles((prev) => prev.filter((f) => f.id !== fileToDelete.id));
-        } else {
-            const updated: FileData = { ...fileToDelete, status: 'deleted', deletedAt: Date.now() };
-            setFiles((prev) => prev.map((f) => f.id === fileToDelete.id ? updated : f));
-        }
-    }, []);
+    const handleDeleteFile = useCallback(
+        (fileToDelete: FileData) => {
+            const isHardDelete = fileToDelete.status === 'deleted';
+            if (isHardDelete) {
+                void removeAllBridgedEventsForEntity('lawsuit', fileToDelete.id, user?.id);
+                setFiles((prev) => {
+                    const next = prev.filter((f) => f.id !== fileToDelete.id);
+                    saveLawsuitFilesRaw(next as unknown[]);
+                    return next;
+                });
+            } else {
+                const updated: FileData = { ...fileToDelete, status: 'deleted', deletedAt: Date.now() };
+                setFiles((prev) => prev.map((f) => (f.id === fileToDelete.id ? updated : f)));
+                void removeAllBridgedEventsForEntity('lawsuit', fileToDelete.id, user?.id);
+            }
+            // 🔑 Audit log: تسجيل في سجل النشاطات (للـ soft delete و hard delete على حدٍّ سواء)
+            try {
+                void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                    AuditLog.civil.archived({
+                        caseId: fileToDelete.id,
+                        caseNo: fileToDelete.caseNo || `#${fileToDelete.id}`,
+                    });
+                });
+            } catch { /* silent */ }
+            unpinWorkspaceForDeletedFile(fileToDelete);
+            void refreshAppAlerts();
+        },
+        [user?.id, refreshAppAlerts],
+    );
     
     const handleRestoreFile = (fileToRestore: FileData) => {
         const updated: FileData = { ...fileToRestore, status: 'active', deletedAt: undefined };
         setFiles((prev) => prev.map((f) => f.id === fileToRestore.id ? updated : f));
         setActiveFile(updated);
+        // 🔑 Audit log: استعادة من السلة = تغيير حالة
+        try {
+            void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                AuditLog.civil.statusChanged({
+                    caseId: fileToRestore.id,
+                    caseNo: fileToRestore.caseNo || `#${fileToRestore.id}`,
+                    fromStatus: 'محذوف',
+                    toStatus: 'نشط',
+                });
+            });
+        } catch { /* silent */ }
+        void refreshAppAlerts();
     };
 
     const initiateSubFile = (parentFile: FileData) => {
@@ -998,17 +1671,10 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
         setIsWizardOpen(true);
     };
 
-    const [order, setOrder] = useState(['alerts', 'hub', 'notepad']);
+    const homeSectionOrder = settings.workflow.homeSectionOrder;
 
-    const { pendingTasks: quantumPendingForField } = useQuantumTasksContext();
     const pendingFieldTasksCount = useMemo(
-        () =>
-            quantumPendingForField.filter(
-                (t) =>
-                    t.pinnedToFieldCurtain ||
-                    (t.location !== null && t.location.trim().length > 0) ||
-                    t.subTasks.some((st) => !st.isCompleted && !!st.location?.trim()),
-            ).length,
+        () => countPendingFieldTasks(quantumPendingForField),
         [quantumPendingForField],
     );
 
@@ -1028,7 +1694,7 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
     };
 
     // Logic to hide header when any modal/overlay is active or not in Home
-    const shouldHideHeader = showSettings || isWizardOpen || isNotepadOpen || (activeTab !== 'home') || showLeads || activeFile || archiveType || showLawsuitsWorkspace || searchQuery || showCommHub || showDocs || showNotebook || showUtilities || showSmartLib || showPetitionWizard || showScanner || showContractGenerator;
+    const shouldHideHeader = showSettings || isWizardOpen || isNotepadOpen || (activeTab !== 'home') || activeFile || archiveType || showLawsuitsWorkspace || showUrgentDashboard || showDocs || showNotebook || showUtilities || showSmartLib || showScanner || showContractGenerator;
 
     // --- AUTH GUARD ---
     if (authLoading) {
@@ -1046,8 +1712,6 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
         );
     }
 
-    debug.log('🎨 [LawyerDashboard] Rendering! isExecutionModalOpen =', isExecutionModalOpen, 'archiveType =', archiveType);
-
     const hexToRgba = (hex: string, alpha: number) => {
         const h = (hex || '').trim();
         const a = Math.min(1, Math.max(0, alpha));
@@ -1064,29 +1728,66 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
         background: `linear-gradient(to top, ${theme.bg} 0%, ${hexToRgba(theme.bg, 0.94)} 60%, rgba(0,0,0,0) 100%)`,
     } as const;
 
+    const hasWallpaper = !!(settings.appearance.wallpaper || loadPersistedWallpaper());
+    const resolvedColorMode = resolveThemeMode(settings.appearance.themeMode);
+    const dashboardBg = hasWallpaper
+        ? 'transparent'
+        : resolvedColorMode === 'light'
+          ? '#e8ecf4'
+          : theme.bg;
+
     return (
-        <SafeView className={`min-h-screen w-full text-right pb-10 relative overflow-x-hidden font-sans transition-colors duration-500`} style={{ backgroundColor: theme.bg, fontSize: `${settingsState.fontSize}px` }} statusBarColor={theme.bg}>
-            
-            {/* ☁️ CLOUD SYNC STATUS INDICATOR (Backend Integration v1.0) */}
-            {isCloudSyncing && (
-                <div className="fixed top-4 right-4 z-[9999] bg-gradient-to-r from-[#1e3a8a] to-[#3b82f6] text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 text-sm">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>مزامنة مع السحابة...</span>
-                </div>
+        <SafeView
+            data-hami-lawyer-dashboard=""
+            className={`min-h-screen w-full text-right pb-10 relative overflow-x-hidden font-sans transition-colors duration-500`}
+            style={{ backgroundColor: dashboardBg, fontSize: `${settings.appearance.fontSize}px` }}
+            statusBarColor={hasWallpaper ? theme.bg : dashboardBg}
+        >
+            {backgroundRuntimeEnabled && user && calendarUserId ? (
+                <Suspense fallback={null}>
+                    <LazyLawyerDashboardBackgroundServices
+                        user={user}
+                        isAlternativeMode={isAlternativeMode}
+                        syncNotesOn={syncNotesOn}
+                        syncFilesOn={syncFilesOn}
+                        syncExecutionOn={syncExecutionOn}
+                        pushAllowed={pushAllowed}
+                        smartAlertsEnabled={settings.workflow.smartAlerts}
+                        files={files}
+                        executionFiles={executionFiles}
+                        criminalCases={criminalCasesForCluster}
+                        globalNotes={globalNotes}
+                        fieldTasks={quantumPendingForField}
+                        lawyerId={calendarUserId}
+                        onAlerts={handleAlertsFromBackground}
+                        onNotesSynced={(merged) => mergeNotesStores(merged)}
+                        onLawsuitFilesSynced={(merged) => setFiles(merged)}
+                        mergeNotesStores={mergeNotesStores}
+                        syncExecutionFilesNowRef={syncExecutionFilesNowRef}
+                        syncLawsuitFilesNowRef={syncLawsuitFilesNowRef}
+                        syncNotesNowRef={syncNotesNowRef}
+                        refreshAppAlertsRef={refreshAppAlertsRef}
+                    />
+                </Suspense>
+            ) : null}
+            {appLocked && (
+                <AppLockOverlay
+                    requiresBiometric={requiresBiometricToUnlock}
+                    unlocking={appUnlocking}
+                    onUnlockBiometric={unlockWithBiometric}
+                    onUnlockContinue={unlockContinue}
+                    onLogout={onLogout}
+                />
             )}
-            
-            {/* 🌐 OFFLINE INDICATOR */}
-            {!isOnline && (
-                <div className="fixed top-4 right-4 z-[9999] bg-orange-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 text-sm">
-                    <div className="w-2 h-2 bg-white rounded-full"></div>
-                    <span>وضع عدم الاتصال</span>
-                </div>
-            )}
-            
+
             {/* ✅ NO ENCRYPTION - Migration indicator removed */}
             
             {notificationPanelMounted && (
                 <Suspense fallback={null}>
+                    {/*
+                     * NotificationPanel = Audit Log (events of past).
+                     * مستقل تماماً عن SecretaryAlerts (تلك مسؤولية LawyerHomeHubCard).
+                     */}
                     <LazyNotificationPanel
                         isOpen={showNotifications}
                         onClose={() => setShowNotifications(false)}
@@ -1097,66 +1798,51 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
             )}
 
             <Header
-                shouldShow={!shouldHideHeader && activeTab === 'home'}
-                unreadCount={unreadCount}
+                shouldShow={!shouldHideHeader && activeTab === 'home' && !isCriminalDossierOpen}
+                unreadCount={headerUnreadCount}
                 onProfileClick={() => setActiveTab('profile')}
-                onSearchClick={() => setShowGlobalSearch(true)}
+                onSearchClick={() => openGlobalSearch()}
                 onNotificationsClick={() => setShowNotifications(true)}
-                onSettingsClick={() => setShowControlMenu(true)}
+                onSettingsClick={() => setShowSettings(true)}
             />
 
+            {/* شريط التفريق المعلّق يُعرض داخل لوحة الإضبارة الأم فقط — لا على الواجهة الرئيسية. */}
+
             {/* INDEXED STACK BODY */}
-            <div className="flex-1 relative min-h-screen">
+            <div className={isCriminalDossierOpen ? 'hidden' : 'flex-1 relative min-h-screen'}>
                 
                 {/* 1. HOME TAB */}
                 <div className={activeTab === 'home' ? 'flex flex-col h-[100dvh] pt-[110px] pb-[80px]' : 'hidden'}>
                     <div className="flex-1 flex flex-col px-6 w-full gap-6">
-                        <div dir="rtl" className="flex overflow-x-auto snap-x gap-4 pb-4 [&::-webkit-scrollbar]:hidden items-stretch" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                            {secretaryAlerts.length > 0 ? (
-                                secretaryAlerts.slice(0, 8).map((alert) => (
-                                    <UrgentRequestCard
-                                        key={alert.id}
-                                        alert={alert}
-                                        onNavigate={(a) => {
-                                            if (a.target === 'schedule') {
-                                                setActiveTab('schedule');
-                                                return;
-                                            }
-                                            if (a.target === 'notepad') {
-                                                setNotepadMode('list');
-                                                setIsNotepadOpen(true);
-                                                return;
-                                            }
-                                            if (a.target === 'client_requests') {
-                                                setArchiveType('client_requests');
-                                                return;
-                                            }
-                                            if (a.target === 'transactions') {
-                                                setShowTransactions(true);
-                                                return;
-                                            }
-                                            if (a.target === 'community') {
-                                                setActiveTab('community');
-                                            }
-                                        }}
-                                        onAcceptedConvertToCase={(a) => {
-                                            const req = a.request;
-                                            if (!req) return;
-                                            const clientName = a.clientName ?? 'موكل';
-                                            setWizardInitialData({
-                                                mainCategory: 'lawsuit',
-                                                details: { type: req.title || 'طلب قانوني', court: 'بداءة الكرخ' },
-                                                parties1: [{ id: Date.now(), name: clientName, status: 'المدعي', type: 'person' }],
-                                                parties2: [],
-                                                notes: [{ text: req.ai_metadata?.summary ?? req.smart_summary ?? 'طلب قانوني جديد' }],
-                                            });
-                                            setArchiveType('client_requests');
-                                            setIsNewCaseModalOpen(true);
-                                        }}
-                                    />
-                                ))
-                            ) : null}
-                        </div>
+                        {homeSectionOrder.includes('alerts') ? (
+                            <Suspense fallback={null}>
+                                <LazyLawyerHomeHubCard
+                                    lawyerId={calendarUserId}
+                                    secretaryAlerts={visibleAppAlerts}
+                                    alertsLoading={appAlertsLoading}
+                                    alertsError={appAlertsError}
+                                    clusterInput={homeHubClusterInput}
+                                    onNavigateRoute={navigateWorkspaceRoute}
+                                    onOpenEntity={openSecretaryAlert}
+                                    onDismissAlert={dismissAppAlert}
+                                    onResolved={handleAlertResolved}
+                                    onAcceptedConvertToCase={(a) => {
+                                        const req = a.request;
+                                        if (!req) return;
+                                        const clientName = a.clientName ?? 'موكل';
+                                        setWizardInitialData({
+                                            mainCategory: 'lawsuit',
+                                            details: { type: req.title || 'طلب قانوني', court: 'بداءة الكرخ' },
+                                            parties1: [{ id: Date.now(), name: clientName, status: 'المدعي', type: 'person' }],
+                                            parties2: [],
+                                            notes: [{ text: req.ai_metadata?.summary ?? req.smart_summary ?? 'طلب قانوني جديد' }],
+                                        });
+                                        setArchiveType('client_requests');
+                                        openNormalNewCaseModal();
+                                    }}
+                                />
+                            </Suspense>
+                        ) : null}
 
                         <button
                             type="button"
@@ -1165,25 +1851,15 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
                         >
                             <div className="flex flex-col items-start text-right">
                                 <div className="text-white font-bold text-sm">المنتدى القانوني</div>
-                                <div className="text-white/60 text-[11px]">قسم مستقل للنقاشات والاستشارات والمشاركة</div>
                             </div>
                             <div className="w-10 h-10 rounded-xl flex items-center justify-center border border-white/10 bg-white/5 text-[#FFD700]">
                                 <MessageCircle size={20} strokeWidth={1.5} />
                             </div>
                         </button>
 
-                        {order.map((item, index) => (
-                            <div key={item} className="contents">
+                        {homeSectionOrder.filter((item) => item !== 'alerts').map((item, index) => (
+                            <div key={item ? `${item}-${index}` : `section-${index}`} className="contents">
                                 <div className={`shrink-0 ${item === 'notepad' ? '-mt-10' : ''}`}>
-                                {item === 'alerts' && (
-                                    <Suspense fallback={null}>
-                                        <LazyNeuralAlertsCard
-                                            onOpenDrafter={(caseId: string) => { selectCase(caseId); setShowPetitionWizard(true); }}
-                                            onOpenScanner={(caseId: string) => { selectCase(caseId); setShowScanner(true); }}
-                                            onOpenWhatsApp={(phone: string, msg: string) => { window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank'); }}
-                                        />
-                                    </Suspense>
-                                )}
                                 {item === 'hub' && (
                                     <>
                                         <Suspense fallback={LAWYER_LAZY_FALLBACK}>
@@ -1191,8 +1867,7 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
                                                 theme={theme}
                                                 shapeClass={shapeClass}
                                                 isEditMode={isEditMode}
-                                                glassMode={glassMode}
-                                                onAddClick={() => setIsNewCaseModalOpen(true)}
+                                                onAddClick={openNormalNewCaseModal}
                                                 onOpenArchive={(id: string) => {
                                                     if (id === 'notepad') {
                                                         setNotepadMode('list');
@@ -1200,12 +1875,19 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
                                                     } else if (id === 'transaction') {
                                                         setShowTransactions(true);
                                                     } else if (id === 'lawsuit') {
+                                                        setLawsuitsDossierSection('all');
+                                                        setLawsuitsWorkspaceTab('civil');
+                                                        setShowLawsuitsWorkspace(true);
+                                                    } else if (id === 'criminal_cases') {
+                                                        prefetchCriminalDashboard();
+                                                        setLawsuitsDossierSection('criminal');
+                                                        setLawsuitsWorkspaceTab('civil');
                                                         setShowLawsuitsWorkspace(true);
                                                     } else {
                                                         setArchiveType(id as LawyerArchiveOverlay);
                                                     }
                                                 }}
-                                                onSearch={setSearchQuery}
+                                                onSearch={openGlobalSearch}
                                                 onFilter={() => {}}
                                             />
                                         </Suspense>
@@ -1218,7 +1900,6 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
                                             theme={theme as ThemeConfig}
                                             userId={user?.id || ''}
                                             onOpenCalendar={() => setActiveTab('schedule')}
-                                            onOpenAutoDraft={() => setShowPetitionWizard(true)}
                                             onOpenFieldTasksSheet={() => setFieldTasksSheetOpen(true)}
                                             pendingFieldTasksCount={pendingFieldTasksCount}
                                             onAddNote={(note) => {
@@ -1242,42 +1923,86 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
                     </div>
                 </div>
 
-                {/* 2. CHAT TAB (FULL SCREEN) */}
-                <div className={activeTab === 'chat' ? 'block' : 'hidden'}>
-                    <div className="h-full w-full bg-[#0B1021]">
-                        {messagingView === 'room' && activeChatId ? (
-                            <Suspense fallback={LAWYER_LAZY_FALLBACK}>
-                                <LazyChatRoom chatId={activeChatId} onBack={() => setMessagingView('list')} />
-                            </Suspense>
-                        ) : (
-                            <div className="flex flex-col h-full pt-6">
-                                <div className="px-6 pb-4 flex items-center gap-3">
-                                    <button type="button" onClick={() => setActiveTab('home')} className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center text-white/50 hover:text-white">
-                                        <ChevronRight size={20} />
-                                    </button>
-                                    <h2 className="text-xl font-bold text-white">الرسائل</h2>
-                                </div>
-                                <div className="flex-1 px-6 pb-32 overflow-y-auto scrollbar-hide">
-                                    <Suspense fallback={LAWYER_LAZY_FALLBACK}>
-                                        <LazyMessagesList onSelectChat={(id: string) => { setActiveChatId(id); setMessagingView('room'); }} />
-                                    </Suspense>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
                 {/* COMMUNITY TAB */}
                 <div className={activeTab === 'community' ? 'block h-[100dvh]' : 'hidden'}>
                     <Suspense fallback={LAWYER_LAZY_FALLBACK}>
-                        <LazyCommunityScreen onBack={() => setActiveTab('home')} />
+                        <LazyCommunityScreen
+                            onBack={() => setActiveTab('home')}
+                            initialPostId={communityDeepLink?.postId ?? null}
+                            initialOpenComments={communityDeepLink?.openComments ?? false}
+                            initialSection={communityDeepLink?.section ?? 'forum'}
+                        />
                     </Suspense>
                 </div>
 
                 {/* SCHEDULE TAB */}
                 <div className={activeTab === 'schedule' ? 'block h-[100dvh]' : 'hidden'}>
                     <Suspense fallback={LAWYER_LAZY_FALLBACK}>
-                        <LazySmartLegalRadar onBack={() => setActiveTab('home')} userId={user?.id || ''} />
+                        <LazySmartLegalRadar
+                            onBack={() => {
+                                setCalendarSearchFocus(null);
+                                setActiveTab('home');
+                            }}
+                            userId={resolveCalendarUserId(user?.id ?? authUser?.id ?? null)}
+                            initialDate={calendarSearchFocus?.date}
+                            initialEventId={calendarSearchFocus?.eventId}
+                            onOpenSource={(sourceModule, sourceEntityId) => {
+                                switch (sourceModule) {
+                                    case 'lawsuit': {
+                                        const f = files.find((file) => String(file.id) === sourceEntityId);
+                                        if (f && isFileData(f)) {
+                                            setActiveFile(f);
+                                            setActiveTab('home');
+                                            return;
+                                        }
+                                        SmartToast.info('الإضبارة غير متاحة');
+                                        return;
+                                    }
+                                    case 'execution': {
+                                        const ex = executionFiles.find((file) => String(file.id ?? '') === sourceEntityId);
+                                        if (ex) {
+                                            setActiveFile(coerceExecutionFilePreserveId(ex));
+                                            setActiveTab('home');
+                                            return;
+                                        }
+                                        SmartToast.info('إضبارة التنفيذ غير متاحة');
+                                        return;
+                                    }
+                                    case 'criminal':
+                                        openCriminalCase(sourceEntityId);
+                                        return;
+                                    case 'urgent':
+                                        setUrgentFocusCaseId(sourceEntityId);
+                                        setShowUrgentDashboard(true);
+                                        return;
+                                    case 'transaction': {
+                                        const f = files.find((file) => String(file.id) === sourceEntityId);
+                                        if (f && isFileData(f)) {
+                                            setActiveFile(f);
+                                            return;
+                                        }
+                                        setTransactionsFocusId(sourceEntityId);
+                                        setShowTransactions(true);
+                                        return;
+                                    }
+                                    case 'threading':
+                                        setTransactionsFocusId(sourceEntityId);
+                                        setShowTransactions(true);
+                                        return;
+                                    case 'note':
+                                        setNotepadMode('list');
+                                        setNotepadFocusNoteId(sourceEntityId);
+                                        setIsNotepadOpen(true);
+                                        return;
+                                    case 'task':
+                                        setActiveTab('home');
+                                        setFieldTasksSheetOpen(true);
+                                        return;
+                                    default:
+                                        SmartToast.info('المصدر غير معروف');
+                                }
+                            }}
+                        />
                     </Suspense>
                 </div>
 
@@ -1285,7 +2010,7 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
                 <div className={activeTab === 'profile' ? 'block' : 'hidden'}>
                     <div className="h-full">
                         <Suspense fallback={LAWYER_LAZY_FALLBACK}>
-                            <LazyRoyalLawyerProfile isScreenMode={true} />
+                            <LazyRoyalLawyerProfile isScreenMode onBack={() => setActiveTab('home')} />
                         </Suspense>
                     </div>
                 </div>
@@ -1296,12 +2021,14 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
                 open={fieldTasksSheetOpen}
                 onClose={() => setFieldTasksSheetOpen(false)}
                 onManageAll={() => setShowTasksManager(true)}
+                lawsuitFiles={files}
+                executionFiles={executionFiles}
             />
 
             {/* --- SMART CRIMINAL LIBRARY MODAL --- */}
             <AnimatePresence>
                 {showSmartLib && (
-                    <Suspense fallback={LAWYER_LAZY_FALLBACK}>
+                    <Suspense key="smart-lib" fallback={LAWYER_LAZY_FALLBACK}>
                         <LazySmartCriminalLibrary onClose={() => setShowSmartLib(false)} />
                     </Suspense>
                 )}
@@ -1309,38 +2036,15 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
 
             <AnimatePresence>
                 {showTasksManager && (
-                    <Suspense fallback={LAWYER_LAZY_FALLBACK}>
-                        <LazyTasksManager onClose={() => setShowTasksManager(false)} />
-                    </Suspense>
-                )}
-            </AnimatePresence>
-
-            <AnimatePresence>
-                {searchQuery && (
-                    <Suspense fallback={LAWYER_LAZY_FALLBACK}>
-                        <LazyGlobalSearchResults
-                            results={searchResults}
-                            ragResults={ragResults}
-                            isRagSearching={isRagSearching}
-                            query={searchQuery}
-                            onSelect={(item: unknown) => {
-                                if (item && typeof item === 'object') {
-                                    const rec = item as Record<string, unknown>;
-                                    if (rec.itemType === 'note') {
-                                        setIsNotepadOpen(true);
-                                        setNotepadMode('list');
-                                        setSearchQuery('');
-                                        return;
-                                    }
-                                }
-                                if (isFileData(item)) {
-                                    setActiveFile(item);
-                                    setSearchQuery('');
-                                }
+                    <Suspense key="tasks-manager" fallback={LAWYER_LAZY_FALLBACK}>
+                        <LazyTasksManager
+                            onClose={() => {
+                                setTasksManagerFocusTaskId(undefined);
+                                setShowTasksManager(false);
                             }}
-                            onClose={() => setSearchQuery('')}
-                            activeFilter={searchFilter}
-                            setActiveFilter={setSearchFilter}
+                            focusTaskId={tasksManagerFocusTaskId}
+                            lawsuitFiles={files}
+                            executionFiles={executionFiles}
                         />
                     </Suspense>
                 )}
@@ -1348,7 +2052,8 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
 
             <AnimatePresence>
                 {showControlMenu && (
-                    <ControlMenu 
+                    <ControlMenu
+                        key="control-menu"
                         onClose={() => setShowControlMenu(false)}
                         onLogout={onLogout}
                         onOpenSettings={() => { setShowControlMenu(false); setShowSettings(true); }}
@@ -1357,26 +2062,39 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
                     />
                 )}
                 {showSettings && (
-                    <Suspense fallback={LAWYER_LAZY_FALLBACK}>
+                    <Suspense key="hami-settings" fallback={LAWYER_LAZY_FALLBACK}>
                         <LazyHamiSettings
                             onClose={() => setShowSettings(false)}
+                            onLogout={onLogout}
                             onOpenProfile={() => { setShowSettings(false); setActiveTab('profile'); }}
                             onOpenArchive={() => { setShowSettings(false); setArchiveType('all'); }}
-                            currentTheme={currentTheme}
-                            onThemeChange={setCurrentTheme}
-                            settingsState={settingsState}
-                            setSettingsState={setSettingsState}
+                            onOpenPrivacy={() => {
+                                setShowSettings(false);
+                                onAppNavigate?.('privacy');
+                            }}
+                            onOpenSupport={() => {
+                                setShowSettings(false);
+                                onAppNavigate?.('support');
+                            }}
                         />
                     </Suspense>
                 )}
-                {isWizardOpen && <div className="fixed inset-0 z-[100] flex items-center justify-center">Wizard Placeholder (Please implement CreationWizard extraction if needed)</div>}
-                
-                <Suspense fallback={LAWYER_LAZY_FALLBACK}>
-                    <LazyNotepadModal
-                        key="notepad"
-                        isOpen={isNotepadOpen}
-                        onClose={() => setIsNotepadOpen(false)}
+                {isWizardOpen && (
+                    <motion.div key="creation-wizard" className="fixed inset-0 z-[100] flex items-center justify-center">
+                        Wizard Placeholder (Please implement CreationWizard extraction if needed)
+                    </motion.div>
+                )}
+
+                {isNotepadOpen && (
+                    <Suspense key="notepad" fallback={LAWYER_LAZY_FALLBACK}>
+                        <LazyNotepadModal
+                            isOpen={isNotepadOpen}
+                        onClose={() => {
+                            setNotepadFocusNoteId(undefined);
+                            setIsNotepadOpen(false);
+                        }}
                         startMode={notepadMode}
+                        focusNoteId={notepadFocusNoteId}
                         notes={globalNotes}
                         onSave={handleSaveNote}
                         onDelete={handleDeleteNote}
@@ -1384,10 +2102,26 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
                         files={files}
                         theme={theme}
                         shapeClass={shapeClass}
-                    />
-                </Suspense>
+                        />
+                    </Suspense>
+                )}
             </AnimatePresence>
             
+            {showUrgentDashboard && (
+                <Suspense fallback={LAWYER_LAZY_FALLBACK}>
+                    <motion.div className="fixed inset-0 z-[85] bg-[#05060D]">
+                        <LazyViewUrgentAndOrdersDashboard
+                            focusCaseId={urgentFocusCaseId}
+                            onBack={() => {
+                                setShowUrgentDashboard(false);
+                                setUrgentFocusCaseId(undefined);
+                                void refreshAppAlerts();
+                            }}
+                        />
+                    </motion.div>
+                </Suspense>
+            )}
+
             {activeFile && (
                 <Suspense
                     fallback={DOSSIER_OPENING_FALLBACK}
@@ -1408,7 +2142,7 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
                             theme={theme}
                             shapeClass={shapeClass}
                             onAddStage={initiateSubFile}
-                            onAddAlert={(a) => handleAddAlert(a as Alert)}
+                            onAddAlert={() => void refreshAppAlerts()}
                         />
                     )}
                 </Suspense>
@@ -1429,7 +2163,7 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
                                 notes: [{ text: data.description }]
                             });
                             setArchiveType(null);
-                            setIsNewCaseModalOpen(true);
+                            openNormalNewCaseModal();
                         }}
                     />
                 </Suspense>
@@ -1453,6 +2187,15 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
                                     const exec = coerceExecutionFilePreserveId(f);
                                     setActiveFile(exec);
                                     setArchiveType(null);
+                                    void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                                        const fr = f as Record<string, unknown>;
+                                        AuditLog.dossier.opened({
+                                            module: 'execution',
+                                            entityId: String(exec.id ?? ''),
+                                            caseNo: typeof fr.caseNo === 'string' ? fr.caseNo : typeof fr.caseNumber === 'string' ? fr.caseNumber : undefined,
+                                            clientName: typeof fr.clientName === 'string' ? fr.clientName : undefined,
+                                        });
+                                    }).catch(() => {});
                                     return;
                                 }
                                 if (!isFileData(f)) return;
@@ -1462,6 +2205,29 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
                                     selectCase(f.id.toString());
                                     setActiveFile(f);
                                     setArchiveType(null);
+                                    void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                                        const fr = f as Record<string, unknown> & { type?: string };
+                                        const fileType = fr.type;
+                                        if (fileType === 'transaction') {
+                                            AuditLog.dossier.opened({
+                                                module: 'threading',
+                                                entityId: String(f.id),
+                                                caseNo: typeof fr.caseNo === 'string' ? fr.caseNo : undefined,
+                                                clientName: typeof fr.clientName === 'string' ? fr.clientName : undefined,
+                                            });
+                                            return;
+                                        }
+                                        void import('@/app/domain/lawsuit/lawsuitJurisdiction').then(({ resolveLawsuitJurisdiction }) => {
+                                            const j = resolveLawsuitJurisdiction(fr);
+                                            const module = j === 'personal' ? 'personal' : j === 'criminal' ? 'criminal' : 'civil';
+                                            AuditLog.dossier.opened({
+                                                module: module as 'civil' | 'personal' | 'criminal',
+                                                entityId: String(f.id),
+                                                caseNo: typeof fr.caseNo === 'string' ? fr.caseNo : undefined,
+                                                clientName: typeof fr.clientName === 'string' ? fr.clientName : undefined,
+                                            });
+                                        }).catch(() => {});
+                                    }).catch(() => {});
                                 }
                             }}
                             onAddAction={() => {
@@ -1479,10 +2245,17 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
                                     } else {
                                         setWizardInitialData({ type: 'lawsuit' });
                                     }
-                                    setIsNewCaseModalOpen(true);
+                                    // 🪪 LazyLawyerNewCase نفسه يعرض شاشة اختيار النوع (مدني/شخصي/جزائي)
+                                    // فلا حاجة لاستهداف الجزائي بشكل مختلف من هنا — المستخدم يختار النوع من الـ wizard.
+                                    openNormalNewCaseModal();
                                     setArchiveType(null);
                                 }
                             }}
+                            lawsuitFilesForCluster={
+                                archiveType === 'execution'
+                                    ? files.filter((f) => f.status !== 'deleted')
+                                    : undefined
+                            }
                             onMoveExecutionToTrash={archiveType === 'execution' ? moveExecutionToTrash : undefined}
                             onRestoreExecutionFromTrash={archiveType === 'execution' ? restoreExecutionFromTrash : undefined}
                             onPermanentlyDeleteExecutions={archiveType === 'execution' ? permanentlyDeleteExecutions : undefined}
@@ -1491,64 +2264,94 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
                 )
             )}
 
-            {/* NEW FEATURES INTEGRATION */}
-            <AnimatePresence>
-                {/* Profile and NotificationDrawer removed as they are now Tabs */}
-            </AnimatePresence>
-            {/* NotificationDrawer logic moved to Tab */}
-            
-            <AnimatePresence>
-                {/* ChatRoom logic moved to Tab, but Leads might still be overlay */}
-                {showLeads && (
-                    <Suspense fallback={LAWYER_LAZY_FALLBACK}>
-                        <LazyLeadManagement onClose={() => setShowLeads(false)} />
-                    </Suspense>
-                )}
-            </AnimatePresence>
-
-            <AnimatePresence>
-                {showCommHub && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60]">
-                        <Suspense fallback={LAWYER_LAZY_FALLBACK}>
-                            <LazyCommunicationHub onClose={() => setShowCommHub(false)} />
-                        </Suspense>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
             <AnimatePresence>
                 {showTransactions && (
-                    <Suspense fallback={LAWYER_LAZY_FALLBACK}>
-                        <LazyTransactionsSystem onBack={() => setShowTransactions(false)} userId={user?.id || 'dev-user-uuid-1'} />
+                    <Suspense key="transactions" fallback={LAWYER_LAZY_FALLBACK}>
+                        <LazyTransactionsSystem
+                            onBack={() => {
+                                setTransactionsFocusId(undefined);
+                                setShowTransactions(false);
+                            }}
+                            userId={user?.id || 'dev-user-uuid-1'}
+                            initialTransactionId={transactionsFocusId}
+                            key={transactionsFocusId ?? 'threading-list'}
+                        />
                     </Suspense>
                 )}
             </AnimatePresence>
 
             <AnimatePresence>
                 {showLawsuitsWorkspace && (
-                    <Suspense fallback={LAWYER_LAZY_FALLBACK}>
+                    <Suspense key="lawsuits-workspace" fallback={LAWYER_LAZY_FALLBACK}>
                         <LazyLawsuitsWorkspace
                             files={files as FileData[]}
+                            criminalCases={criminalCasesForCluster}
                             theme={theme as ThemeConfig}
                             shapeClass={shapeClass}
+                            defaultTab={lawsuitsWorkspaceTab}
+                            initialDossierSection={lawsuitsDossierSection}
                             onClose={() => setShowLawsuitsWorkspace(false)}
+                            onOpenCriminalCase={(id: string) => {
+                                openCriminalCase(id, { fromLawsuitsWorkspace: true });
+                                void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                                    AuditLog.dossier.opened({ module: 'criminal', entityId: id });
+                                }).catch(() => {});
+                            }}
+                            onDeleteCriminalCase={(id: string) => criminalBridge.deleteCriminalCase(id)}
                             onOpenFile={(f: unknown) => {
                                 if (isRecord(f) && f.type === 'execution') {
+                                    void import('@/app/components/lawyer/ExecutionDashboard');
                                     const exec = coerceExecutionFilePreserveId(f);
                                     setActiveFile(exec);
                                     setShowLawsuitsWorkspace(false);
+                                    void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                                        const fr = f as Record<string, unknown>;
+                                        AuditLog.dossier.opened({
+                                            module: 'execution',
+                                            entityId: String(exec.id ?? ''),
+                                            caseNo: typeof fr.caseNo === 'string' ? fr.caseNo : undefined,
+                                            clientName: typeof fr.clientName === 'string' ? fr.clientName : undefined,
+                                        });
+                                    }).catch(() => {});
                                     return;
                                 }
                                 if (!isFileData(f)) return;
+                                prefetchSmartFileModal();
                                 selectCase(f.id.toString());
                                 setActiveFile(f);
                                 setShowLawsuitsWorkspace(false);
+                                void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                                    const fr = f as Record<string, unknown> & { type?: string };
+                                    if (fr.type === 'transaction') {
+                                        AuditLog.dossier.opened({
+                                            module: 'threading',
+                                            entityId: String(f.id),
+                                            caseNo: typeof fr.caseNo === 'string' ? fr.caseNo : undefined,
+                                            clientName: typeof fr.clientName === 'string' ? fr.clientName : undefined,
+                                        });
+                                        return;
+                                    }
+                                    void import('@/app/domain/lawsuit/lawsuitJurisdiction').then(({ resolveLawsuitJurisdiction }) => {
+                                        const j = resolveLawsuitJurisdiction(fr);
+                                        const module = j === 'personal' ? 'personal' : j === 'criminal' ? 'criminal' : 'civil';
+                                        AuditLog.dossier.opened({
+                                            module: module as 'civil' | 'personal' | 'criminal',
+                                            entityId: String(f.id),
+                                            caseNo: typeof fr.caseNo === 'string' ? fr.caseNo : undefined,
+                                            clientName: typeof fr.clientName === 'string' ? fr.clientName : undefined,
+                                        });
+                                    }).catch(() => {});
+                                }).catch(() => {});
                             }}
                             onAddNewCase={() => {
                                 setWizardInitialData({ type: 'lawsuit' });
-                                setIsNewCaseModalOpen(true);
-                                setShowLawsuitsWorkspace(false);
+                                openNormalNewCaseModal();
                             }}
+                            onMoveLawsuitToTrash={moveLawsuitToTrash}
+                            onRestoreLawsuitFromTrash={restoreLawsuitFromTrash}
+                            onArchiveLawsuit={archiveLawsuit}
+                            onRestoreArchivedLawsuit={restoreArchivedLawsuit}
+                            onPermanentlyDeleteLawsuits={permanentlyDeleteLawsuits}
                         />
                     </Suspense>
                 )}
@@ -1564,31 +2367,6 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
                     )}
                     
                     {/* New Action Modals */}
-                    {showPetitionWizard && (
-                        <Suspense fallback={LAWYER_LAZY_FALLBACK}>
-                            <LazySmartLegalConsultant
-                                key="smart-consultant"
-                                onClose={() => setShowPetitionWizard(false)}
-                                files={files}
-                                onSaveToCase={(caseId: string, content: string) => {
-                                    const newDoc = {
-                                        id: Date.now().toString(),
-                                        name: `عريضة قانونية - ${new Date().toLocaleDateString('ar-IQ')}.docx`,
-                                        url: '#',
-                                        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                                        size: 1024,
-                                        uploadedAt: new Date().toISOString()
-                                    };
-                                    const currentCase = useCaseStore.getState().getCase(caseId);
-                                    if (currentCase) {
-                                        useCaseStore.getState().updateCase(caseId, {
-                                            linkedDocuments: [...(currentCase.linkedDocuments || []), newDoc]
-                                        });
-                                    }
-                                }}
-                            />
-                        </Suspense>
-                    )}
                     {showScanner && (
                         <Suspense fallback={LAWYER_LAZY_FALLBACK}>
                             <LazyScannerModal key="scanner" onClose={() => setShowScanner(false)} userId={user?.id || ''} />
@@ -1619,9 +2397,8 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
             />
             
             <AnimatePresence>
-                {/* 10. Execution File Modal (Prompt 1) - UPDATED TO ENTERPRISE VIEW */}
                 {isExecutionModalOpen && (
-                    <Suspense fallback={LAWYER_LAZY_FALLBACK}>
+                    <Suspense key="execution-create" fallback={LAWYER_LAZY_FALLBACK}>
                         <LazyExecutionCreationView
                             isOpen={isExecutionModalOpen}
                             onClose={() => {
@@ -1634,85 +2411,190 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
                     </Suspense>
                 )}
 
-                {/* 11. Complete Lawsuit System (الشامل) */}
-                {isNewCaseModalOpen && (
-                    <Suspense fallback={null}>
-                        <LazyCompleteLawsuitSystem
-                            onClose={() => setIsNewCaseModalOpen(false)}
+                {isNewCaseModalOpen ? (
+                    <Suspense fallback={LAWYER_LAZY_FALLBACK}>
+                        <LazyLawyerNewCase
+                            key={isCriminalSeveranceRedirect ? 'new-case-modal-severance' : 'new-case-modal'}
+                            isOpen={isNewCaseModalOpen}
+                            presetSelectedType={isCriminalSeveranceRedirect ? 'criminal' : undefined}
+                            criminalSeveranceFormMode={isCriminalSeveranceRedirect}
+                            onClose={() => {
+                                setIsNewCaseModalOpen(false);
+                                setWizardInitialData(null);
+                                setIsCriminalSeveranceRedirect(false);
+                            }}
+                            onOpenCriminalDashboard={(caseId: string) => {
+                                openCriminalCase(caseId);
+                                setIsCriminalSeveranceRedirect(false);
+                            }}
                             onSave={(data: unknown) => {
-                                if (!data || typeof data !== 'object') return;
-                                const d = data as Record<string, unknown>;
-                                const details = (d.details && typeof d.details === 'object' ? (d.details as Record<string, unknown>) : {}) as Record<string, unknown>;
-                                const mainCategory =
-                                    d.mainCategory === 'lawsuit' || d.mainCategory === 'transaction' || d.mainCategory === 'execution'
-                                        ? (d.mainCategory as CaseType)
-                                        : 'lawsuit';
-                                const caseNo = typeof details.number === 'string' && details.number.trim() ? details.number.trim() : 'جديد';
-                                const court = typeof details.court === 'string' ? details.court : 'بداءة الكرخ';
-                                const docType = typeof details.type === 'string' ? details.type : undefined;
-                                const feesRaw = typeof details.totalAgreedFees === 'string' ? details.totalAgreedFees : '';
-                                const feesTotal = feesRaw ? feesRaw.replace(/[^0-9.]/g, '') : '0';
-
-                                const parties1 = Array.isArray(d.parties1) ? (d.parties1 as Array<Record<string, unknown>>) : [];
-                                const parties2 = Array.isArray(d.parties2) ? (d.parties2 as Array<Record<string, unknown>>) : [];
-                                const parties: Party[] = [
-                                    ...parties1
-                                        .map((p, idx) => ({
-                                            id: typeof p.id === 'number' ? p.id : Date.now() + idx,
-                                            name: typeof p.name === 'string' ? p.name : 'موكل',
-                                            role: typeof p.status === 'string' ? p.status : 'المدعي',
-                                            isClient: true,
-                                            phone: typeof p.phone === 'string' ? p.phone : undefined,
-                                            side: 'right' as const,
-                                        }))
-                                        .filter((x) => x.name.trim().length > 0),
-                                    ...parties2
-                                        .map((p, idx) => ({
-                                            id: typeof p.id === 'number' ? p.id : Date.now() + 100 + idx,
-                                            name: typeof p.name === 'string' ? p.name : 'خصم',
-                                            role: typeof p.status === 'string' ? p.status : 'المدعى عليه',
-                                            isClient: false,
-                                            phone: typeof p.phone === 'string' ? p.phone : undefined,
-                                            side: 'left' as const,
-                                        }))
-                                        .filter((x) => x.name.trim().length > 0),
-                                ];
-
-                                const newFile: FileData = {
-                                    id: Date.now(),
-                                    type: mainCategory,
-                                    status: 'active',
-                                    caseNo,
-                                    caseNoParts: { year: new Date().getFullYear().toString(), type: '', seq: '' },
-                                    court,
-                                    docType,
-                                    feesTotal,
-                                    feesPaid: '0',
-                                    date: new Date().toLocaleDateString('ar-EG'),
-                                    parties,
-                                    history: [],
-                                    notes: [],
-                                    images: [],
-                                };
+                                const newFile = buildFileDataFromNewCaseSave(data);
+                                if (!newFile) return;
 
                                 setFiles((prev) => [newFile, ...prev]);
+                                // 🔑 Audit log: تسجيل إنشاء إضبارة مدنية في سجل النشاطات
+                                try {
+                                    const clientName = newFile.parties?.find(
+                                        (p: Party) => p.isClient,
+                                    )?.name;
+                                    void import('@/app/services/auditLogPublisher').then(
+                                        ({ AuditLog }) => {
+                                            AuditLog.civil.caseCreated({
+                                                caseId: newFile.id,
+                                                caseNo: newFile.caseNo || `#${newFile.id}`,
+                                                clientName,
+                                            });
+                                        },
+                                    );
+                                } catch { /* silent */ }
                                 SmartToast.success('تم إنشاء الملف بنجاح');
                                 setIsNewCaseModalOpen(false);
+                                setWizardInitialData(null);
                                 setActiveFile(newFile);
                             }}
                         />
                     </Suspense>
-                )}
+                ) : null}
             </AnimatePresence>
+
+            {criminalDashboardCaseId ? (
+                <Suspense fallback={DOSSIER_OPENING_FALLBACK}>
+                    <LazyCriminalDashboard
+                        key={criminalDashboardCaseId}
+                        id={criminalDashboardCaseId}
+                        onClose={closeCriminalCase}
+                        onOpenCase={(caseId: string) => {
+                            openCriminalCase(caseId, { keepReturnTarget: true });
+                            void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                                AuditLog.dossier.opened({ module: 'criminal', entityId: caseId });
+                            }).catch(() => {});
+                        }}
+                        onRequestNewCaseFromSeverance={() => {
+                            // احتياطي قديم — التفريق يُكمَل داخل لوحة الإضبارة الأم (نموذج مضمّن).
+                            criminalBridge.resumePendingSeveranceForm();
+                        }}
+                    />
+                </Suspense>
+            ) : null}
             
             <AnimatePresence>
                 {showGlobalSearch && (
-                    <Suspense fallback={LAWYER_LAZY_FALLBACK}>
+                    <Suspense key="global-search" fallback={LAWYER_LAZY_FALLBACK}>
                         <LazyGlobalSearchOverlay
-                            onClose={() => setShowGlobalSearch(false)}
-                            onNavigateToCase={(caseId: string) => {
-                                selectCase(caseId);
-                                onNavigateToCase?.(caseId);
+                            files={files}
+                            executionFiles={executionFiles}
+                            globalNotes={globalNotes}
+                            notifications={searchNotifications}
+                            userId={user?.id ?? null}
+                            initialQuery={globalSearchInitialQuery}
+                            indexVersion={searchIndexVersion}
+                            onClose={() => {
+                                setShowGlobalSearch(false);
+                                setGlobalSearchInitialQuery('');
+                            }}
+                            onNavigate={(nav) => {
+                                setShowGlobalSearch(false);
+                                setGlobalSearchInitialQuery('');
+                                if (nav.type === 'notifications') {
+                                    setShowNotifications(true);
+                                    return;
+                                }
+                                if (nav.type === 'calendar') {
+                                    setCalendarSearchFocus({
+                                        date: nav.date,
+                                        eventId: nav.eventId,
+                                    });
+                                    setActiveTab('schedule');
+                                    return;
+                                }
+                                if (nav.type === 'repository') {
+                                    setActiveTab('community');
+                                    setCommunityDeepLink({ section: 'repository' });
+                                    return;
+                                }
+                                if (nav.type === 'community') {
+                                    setActiveTab('community');
+                                    if (nav.postId) {
+                                        setCommunityDeepLink({ postId: nav.postId, openComments: false });
+                                    }
+                                    return;
+                                }
+                                if (nav.type === 'profile') {
+                                    setActiveTab('profile');
+                                    return;
+                                }
+                                if (nav.type === 'urgent') {
+                                    setActiveTab('home');
+                                    setUrgentFocusCaseId(nav.urgentId);
+                                    setShowUrgentDashboard(true);
+                                    return;
+                                }
+                                if (nav.type === 'criminal') {
+                                    openCriminalCase(nav.criminalId);
+                                    return;
+                                }
+                                if (nav.type === 'transactions') {
+                                    setActiveTab('home');
+                                    setTransactionsFocusId(nav.transactionId);
+                                    setShowTransactions(true);
+                                    return;
+                                }
+                                if (nav.type === 'tasks_manager') {
+                                    setActiveTab('home');
+                                    setTasksManagerFocusTaskId(nav.taskId);
+                                    setShowTasksManager(true);
+                                    return;
+                                }
+                                if (nav.type === 'note' || nav.type === 'voice') {
+                                    setActiveTab('home');
+                                    setNotepadMode(nav.type === 'voice' ? 'voice' : 'list');
+                                    setNotepadFocusNoteId(nav.noteId);
+                                    setIsNotepadOpen(true);
+                                    return;
+                                }
+                                if (nav.type === 'vault') {
+                                    setActiveTab('home');
+                                    setShowDocs(true);
+                                    return;
+                                }
+                                setActiveTab('home');
+                                if (nav.type === 'file') {
+                                    const id = String(nav.fileId);
+                                    const target =
+                                        files.find((f) => String(f.id) === id) ||
+                                        executionFiles.find((f) => String(f.id) === id);
+                                    if (target) {
+                                        // Deep-link: إن جاء من بحث على stage event/task/incidental،
+                                        // نُمرّر activeStageIndex ليُفتح الـ SmartFileModal على المرحلة الصحيحة،
+                                        // و __searchFocusEventId ليتم scroll-to إلى الحدث المحدد.
+                                        if (
+                                            typeof nav.stageIndex === 'number' ||
+                                            typeof nav.eventId === 'string'
+                                        ) {
+                                            const enriched = {
+                                                ...(target as unknown as Record<string, unknown>),
+                                                ...(typeof nav.stageIndex === 'number'
+                                                    ? { activeStageIndex: nav.stageIndex }
+                                                    : {}),
+                                                ...(typeof nav.eventId === 'string'
+                                                    ? { __searchFocusEventId: nav.eventId }
+                                                    : {}),
+                                            } as unknown as FileData;
+                                            setActiveFile(enriched);
+                                        } else {
+                                            setActiveFile(target as FileData);
+                                        }
+                                    }
+                                    return;
+                                }
+                                if (nav.type === 'case') {
+                                    selectCase(nav.caseId);
+                                    const target =
+                                        files.find((f) => String(f.id) === nav.caseId) ||
+                                        executionFiles.find((f) => String(f.id) === nav.caseId);
+                                    if (target) setActiveFile(target as FileData);
+                                    onNavigateToCase?.(nav.caseId);
+                                }
                             }}
                         />
                     </Suspense>
@@ -1734,9 +2616,9 @@ const LawyerDashboardInner = ({ onLogout, onOpenProfile, onNavigateToCase }: Law
 };
 
 const LawyerDashboardComponent = (props: LawyerDashboardProps) => (
-    <QuantumTasksProvider>
-        <LawyerDashboardInner {...props} />
-    </QuantumTasksProvider>
+    <LawyerSettingsProvider>
+        <LawyerDashboardQuantumShell {...props} />
+    </LawyerSettingsProvider>
 );
 
 // ✅ Memoize LawyerDashboard to prevent unnecessary re-renders

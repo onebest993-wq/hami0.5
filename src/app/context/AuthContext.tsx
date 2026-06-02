@@ -15,6 +15,7 @@ import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { UserRole } from '@/app/types/admin-types';
 import { logAction } from '@/app/utils/auditLog';
+import { readPersistedSupabaseAuth } from '@/app/utils/authStorage';
 
 async function deriveKeyFromSessionSecret(secret: string): Promise<CryptoKey> {
   const encoder = new TextEncoder();
@@ -79,13 +80,13 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const bootAuth = readPersistedSupabaseAuth();
+  const [user, setUser] = useState<User | null>(bootAuth.user);
+  const [session, setSession] = useState<Session | null>(bootAuth.session);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     let mounted = true;
-    setIsLoading(true);
 
     const AUTH_BOOT_TIMEOUT_MS = 8_000;
     const timeoutId = window.setTimeout(() => {

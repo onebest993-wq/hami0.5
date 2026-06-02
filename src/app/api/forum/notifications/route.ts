@@ -5,9 +5,9 @@ import {
   verifyWifeSignature,
   wifeForbiddenResponse,
   wifeUnauthorizedResponse,
-} from '../../security/wifeValidator';
-import { sanitizePayload } from '../../security/sanitizer';
-import { NotificationDB } from '@/app/services/lawyer-cloud';
+} from '../../security/wifeValidator.ts';
+import { sanitizePayload } from '../../security/sanitizer.ts';
+import { NotificationDB } from '../../../services/lawyer-cloud.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object';

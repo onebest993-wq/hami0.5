@@ -263,8 +263,9 @@ export const THEMES = {
 
 export const SHAPES = {
     square: 'rounded-none',
-    circle: 'rounded-[3rem]', 
-    pill: 'rounded-2xl', 
+    rounded: 'rounded-xl',
+    pill: 'rounded-2xl',
+    circle: 'rounded-[3rem]',
 };
 
 // --- TYPES ---
@@ -300,6 +301,8 @@ export interface FileData {
     feesTotal?: number | string;
     feesPaid?: number | string;
     clientPhone?: string;
+    /** اختصاص الدعوى عند الإنشاء (القضاء المدني أو الأحوال الشخصية) — لفلترة مخزن الإضابير */
+    lawsuitJurisdiction?: 'civil' | 'personal';
 }
 
 export interface Party {
@@ -341,7 +344,15 @@ export const useThemeStyles = (activeTheme: ThemeKey, activeShape: ShapeKey) => 
 };
 
 // SmartFileModal Types
-export type EventType = 'appointment' | 'note' | 'document' | 'decision' | 'expert';
+export type EventType =
+    | 'appointment'
+    | 'note'
+    | 'document'
+    | 'decision'
+    | 'expert'
+    | 'milestone'
+    | 'alert'
+    | 'action';
 export type AppointmentType = 'pleading' | 'investigation' | 'witness' | 'verdict' | 'other';
 export type DocumentCategory = 'agency' | 'regulations' | 'identity' | 'evidence' | 'decision';
 export type IncidentalType = 'joined' | 'counter' | 'thirdParty' | 'joinder_appeal' | 'counter_appeal';
@@ -364,6 +375,15 @@ export interface TimelineEvent {
     isStayed?: boolean; // 🔥 New: Stay of Proceedings
     isSessionRecord?: boolean; // 🔥 New: To distinguish session records
     evidentiaryWeight?: 'official' | 'ordinary' | 'beginning' | 'other'; // 🔥 New: Smart Evidence Portfolio
+    color?: string;
+    isAttachment?: boolean;
+    attachmentStatus?: string;
+    isFastTrack?: boolean;
+    fastTrackStatus?: string;
+    description?: string;
+    icon?: string;
+    text?: string;
+    isPause?: boolean;
 }
 
 export interface ProvisionalOrder {
@@ -382,7 +402,7 @@ export interface ThirdParty {
 export interface CaseStage {
     id: string;
     name: string;
-    status: 'locked' | 'active' | 'completed' | 'abandoned' | 'future';
+    status: 'locked' | 'active' | 'completed' | 'abandoned' | 'future' | 'voided';
     defendantNotificationStatus?: NotificationStatus;
     hasCrossAppeal?: boolean;
     incidentalCases?: IncidentalCase[];
@@ -402,6 +422,50 @@ export interface CaseStage {
     abandonmentDate?: string;
     abandonmentCount?: number;
     isVoided?: boolean;
+    /** Smart File — بيانات المرحلة النشطة */
+    caseNo?: string;
+    court?: string;
+    judge?: string;
+    parties?: Array<Party & { notificationStatus?: NotificationStatus }>;
+    tasks?: Task[];
+    createdDate?: string;
+    finalDecision?: string | null;
+    decisionDate?: string | null;
+    type?: string;
+    isPleadingsClosed?: boolean;
+    appealDeadline?: string;
+    judgmentForm?: string;
+    wasReopened?: boolean;
+    isUnderObjection?: boolean;
+    interruptionDate?: string;
+    consolidatedWith?: string;
+    fastTrackPetitions?: unknown[];
+    attachments?: unknown[];
+    legalTimers?: {
+        appealDeadline?: string;
+        cassationDeadline?: string;
+        reviewDeadline?: string;
+        finalAppealDeadline?: string;
+        defaultObjectionDeadline?: string;
+    };
+    previousCaseNumber?: string;
+    appealMetadata?: {
+        appealType?: string;
+        appellant?: string;
+        filingDate?: string;
+        previousCaseNumber?: string;
+        previousStage?: string;
+        hasCrossAppeal?: boolean;
+        crossAppealDate?: string;
+        crossAppealReceipt?: string;
+    };
+    isJudgeRecusalPending?: boolean;
+    judgeRecusalData?: { reason: string; requestDate: string };
+    isAttorneyResigned?: boolean;
+    resignationData?: Record<string, unknown>;
+    isInExecution?: boolean;
+    executionData?: Record<string, unknown>;
+    stayReason?: string;
 }
 
 export interface Task {
@@ -410,6 +474,8 @@ export interface Task {
     details?: string;
     dueDate?: string;
     isCompleted: boolean;
+    priority?: string;
+    isNew?: boolean;
 }
 
 export interface IncidentalCase {

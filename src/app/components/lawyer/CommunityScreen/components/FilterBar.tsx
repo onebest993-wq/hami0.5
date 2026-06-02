@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface FilterBarProps {
-    filters: string[];
+    filters: readonly string[];
     selectedFilterIndex: number;
     onFilterSelect: (index: number) => void;
 }

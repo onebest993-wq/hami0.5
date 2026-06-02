@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CheckSquare, Plus, Clock, Check, Edit3 } from 'lucide-react';
 import type { Task } from '../../LawyerShared';
+import { CIVIL_LAWSUIT_TEST_IDS } from '../smartFile/civilLawsuitTestIds';
 
 export const ToDoList = ({ tasks, onAddTask, onToggleTask, onEditTask }: { tasks: Task[], onAddTask: () => void, onToggleTask: (id: string) => void, onEditTask: (task: Task) => void }) => {
     const sortedTasks = [...tasks].sort((a, b) => (a.isCompleted === b.isCompleted) ? 0 : a.isCompleted ? 1 : -1);
@@ -14,8 +15,10 @@ export const ToDoList = ({ tasks, onAddTask, onToggleTask, onEditTask }: { tasks
                     المهام الإدارية
                     <CheckSquare size={14} className="text-[#E6C673]" />
                 </h3>
-                <button type="button" 
-                    onClick={onAddTask} 
+                <button
+                    type="button"
+                    data-testid={CIVIL_LAWSUIT_TEST_IDS.taskAdd}
+                    onClick={onAddTask}
                     className="w-6 h-6 flex items-center justify-center rounded-full bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-all"
                     title="إضافة مهمة جديد"
                 >
@@ -36,8 +39,9 @@ export const ToDoList = ({ tasks, onAddTask, onToggleTask, onEditTask }: { tasks
                         </motion.div>
                     ) : (
                         sortedTasks.map((task, idx) => (
-                            <motion.div 
+                            <motion.div
                                 key={task.id}
+                                data-testid={CIVIL_LAWSUIT_TEST_IDS.taskRow(task.id)}
                                 initial={{ opacity: 0, y: -5 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, height: 0 }}

@@ -1,9 +1,18 @@
 /**
  * تخزين الطلبات المستعجلة — محلي 100% افتراضياً (صفر kv-proxy حتى تفعيل VITE_URGENT_CLOUD_SYNC=true)
  */
-import { SecureAPIClient } from './SecureAPIClient';
+import { SecureAPIClient, getCurrentAccessToken } from './SecureAPIClient';
 import { projectId, publicAnonKey } from '@/utils/supabase/info';
 import SecureStoreService from './SecureStoreService';
+
+async function urgentKvHeaders(): Promise<Record<string, string>> {
+    const token = await getCurrentAccessToken();
+    return {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token ?? publicAnonKey}`,
+        'apikey': publicAnonKey,
+    };
+}
 
 const SERVER_URL = `https://${projectId}.supabase.co/functions/v1/make-server-f09713ba`;
 const CLOUD_KV_TIMEOUT_MS = 6_000;
@@ -37,10 +46,11 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 const kv = {
     async set(key: string, value: unknown) {
         if (!CLOUD_SYNC_ENABLED) return;
+        const headers = await urgentKvHeaders();
         await withTimeout(
             SecureAPIClient.fetchSecure(`${SERVER_URL}/kv-proxy`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${publicAnonKey}` },
+                headers,
                 body: JSON.stringify({ action: 'set', key, value }),
             }),
             CLOUD_KV_TIMEOUT_MS,
@@ -49,10 +59,11 @@ const kv = {
     },
     async get(key: string) {
         if (!CLOUD_SYNC_ENABLED) return null;
+        const headers = await urgentKvHeaders();
         return await withTimeout(
             SecureAPIClient.fetchSecure(`${SERVER_URL}/kv-proxy`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${publicAnonKey}` },
+                headers,
                 body: JSON.stringify({ action: 'get', key }),
             }),
             CLOUD_KV_TIMEOUT_MS,

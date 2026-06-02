@@ -12,34 +12,61 @@ import { ErrorBoundary } from '@/app/components/ui/ErrorBoundary';
 import type { ThemeConfig } from '@/app/types/common';
 import type { FileData } from './LawyerShared';
 import type { ArchiveType } from '@/app/types/common';
+import {
+    allLawsuitFilesForArchive,
+    lawsuitFilesToArchiveRows,
+} from '@/app/domain/lawsuit/lawsuitFileFactory';
+import type { CaseFile } from '@/app/types/common';
+import { CIVIL_LAWSUIT_TEST_IDS } from '@/app/components/lawyer/smart-modal/smartFile/civilLawsuitTestIds';
+import type { LawsuitJurisdictionTab } from '@/app/domain/lawsuit/lawsuitJurisdiction';
 
 type TabKey = 'civil' | 'urgent';
 
 type Props = {
     files: FileData[];
+    criminalCases: unknown[];
     theme: ThemeConfig;
     shapeClass: string;
     onClose: () => void;
     onOpenFile: (file: unknown) => void;
+    onOpenCriminalCase: (caseId: string) => void;
+    onDeleteCriminalCase?: (caseId: string) => void;
     onAddNewCase: () => void;
     defaultTab?: TabKey;
+    /** تبويب الاختصاص داخل مخزن الدعاوى (مثلاً جزائي) */
+    initialDossierSection?: LawsuitJurisdictionTab;
+    onMoveLawsuitToTrash?: (fileId: string | number) => void;
+    onRestoreLawsuitFromTrash?: (fileId: string | number) => void;
+    onArchiveLawsuit?: (fileId: string | number) => void;
+    onRestoreArchivedLawsuit?: (fileId: string | number) => void;
+    onPermanentlyDeleteLawsuits?: (fileIds: Array<string | number>) => void;
 };
 
 export const LawsuitsWorkspace: React.FC<Props> = ({
     files,
+    criminalCases,
     theme,
     shapeClass,
     onClose,
     onOpenFile,
+    onOpenCriminalCase,
+    onDeleteCriminalCase,
     onAddNewCase,
     defaultTab = 'civil',
+    initialDossierSection = 'all',
+    onMoveLawsuitToTrash,
+    onRestoreLawsuitFromTrash,
+    onArchiveLawsuit,
+    onRestoreArchivedLawsuit,
+    onPermanentlyDeleteLawsuits,
 }) => {
     const [tab, setTab] = useState<TabKey>(defaultTab);
     const [urgentPanelKey, setUrgentPanelKey] = useState(0);
 
-    const lawsuitFiles = useMemo(
-        () => files.filter((f) => f.type === 'lawsuit' && f.status !== 'deleted'),
-        [files],
+    const lawsuitArchiveFiles = useMemo(() => allLawsuitFilesForArchive(files), [files]);
+    const archiveRows = useMemo(
+        () => lawsuitFilesToArchiveRows(lawsuitArchiveFiles) as unknown as CaseFile[],
+        [lawsuitArchiveFiles],
     );
 
     const archiveType: ArchiveType = 'lawsuits';
@@ -72,12 +99,15 @@ export const LawsuitsWorkspace: React.FC<Props> = ({
     );
 
     return (
-        <div className="fixed inset-0 z-[70] bg-[#0B1021] font-['Tajawal'] flex flex-col">
+        <div
+            className="fixed inset-0 z-[70] bg-[#0B1021] font-['Tajawal'] flex flex-col"
+            data-testid={CIVIL_LAWSUIT_TEST_IDS.workspace}
+        >
             <motion.div className="shrink-0 border-b border-white/10 bg-[#0B1021]">
                 <div className="px-4 pt-4 pb-3 flex items-center justify-between">
                     <div className="text-right">
-                        <h2 className="text-white font-extrabold text-lg">مساحة عمل الدعاوى</h2>
-                        <p className="text-white/40 text-xs mt-0.5">الدعاوى المدنية والطلبات المستعجلة فقط</p>
+                        <h2 className="text-white font-extrabold text-lg">مخزن الإضابير</h2>
+                        <p className="text-white/40 text-xs mt-0.5">دعاوى · مستعجل</p>
                     </div>
                     <button
                         type="button"
@@ -93,27 +123,29 @@ export const LawsuitsWorkspace: React.FC<Props> = ({
                     <div className="grid grid-cols-2 gap-2 bg-white/5 border border-white/10 rounded-2xl p-1.5">
                         <button
                             type="button"
+                            data-testid={CIVIL_LAWSUIT_TEST_IDS.tabCivil}
                             onClick={() => setTab('civil')}
-                            className={`h-11 rounded-xl text-sm font-bold transition-all ${
+                            className={`h-11 rounded-xl text-xs font-bold transition-all ${
                                 tab === 'civil'
                                     ? 'bg-[#E6C673] text-[#0B1021]'
                                     : 'bg-transparent text-white/70 hover:bg-white/10 hover:text-white'
                             }`}
                         >
-                            ⚖️ الدعاوى المدنية
+                            ⚖️ الدعاوى
                         </button>
                         <button
                             type="button"
+                            data-testid={CIVIL_LAWSUIT_TEST_IDS.tabUrgent}
                             onPointerEnter={() => prefetchUrgentOrdersView()}
                             onFocus={() => prefetchUrgentOrdersView()}
                             onClick={() => setTab('urgent')}
-                            className={`h-11 rounded-xl text-sm font-bold transition-all ${
+                            className={`h-11 rounded-xl text-xs font-bold transition-all ${
                                 tab === 'urgent'
                                     ? 'bg-[#E6C673] text-[#0B1021]'
                                     : 'bg-transparent text-white/70 hover:bg-white/10 hover:text-white'
                             }`}
                         >
-                            ⚡ الطلبات المستعجلة
+                            ⚡ مستعجل
                         </button>
                     </div>
                 </div>
@@ -134,7 +166,8 @@ export const LawsuitsWorkspace: React.FC<Props> = ({
                             >
                                 <LazyArchivePortal
                                     type={archiveType}
-                                    files={lawsuitFiles as unknown as any[]}
+                                    files={archiveRows}
+                                    criminalCases={criminalCases}
                                     theme={theme}
                                     shapeClass={shapeClass}
                                     onClose={onClose}
@@ -142,6 +175,15 @@ export const LawsuitsWorkspace: React.FC<Props> = ({
                                     onAddAction={onAddNewCase}
                                     embedded={true}
                                     hideHeader={true}
+                                    hideTopActionBar={false}
+                                    initialLawsuitJurisdictionTab={initialDossierSection}
+                                    onOpenCriminalCase={onOpenCriminalCase}
+                                    onDeleteCriminalCase={onDeleteCriminalCase}
+                                    onMoveLawsuitToTrash={onMoveLawsuitToTrash}
+                                    onRestoreLawsuitFromTrash={onRestoreLawsuitFromTrash}
+                                    onArchiveLawsuit={onArchiveLawsuit}
+                                    onRestoreArchivedLawsuit={onRestoreArchivedLawsuit}
+                                    onPermanentlyDeleteLawsuits={onPermanentlyDeleteLawsuits}
                                 />
                             </Suspense>
                         </ErrorBoundary>

@@ -182,6 +182,7 @@ export function useCloudSync(options: CloudSyncOptions): CloudSyncState & {
   const syncIntervalRef = useRef<number | null>(null);
   const isMountedRef = useRef(true);
   const isSyncingRef = useRef(false); // حماية من التكرار دون إعادة إنشاء performSync
+  const disabledLoggedRef = useRef(false);
   const callbacksRef = useRef({ onSyncSuccess, onSyncError });
   callbacksRef.current = { onSyncSuccess, onSyncError };
 
@@ -196,19 +197,12 @@ export function useCloudSync(options: CloudSyncOptions): CloudSyncState & {
    */
   const performSync = useCallback(async () => {
     if (!enabled) return;
-    const cloudNetworkEnabled =
-      import.meta.env.VITE_ENABLE_CLOUD_SYNC === 'true' || !import.meta.env.DEV;
+    const cloudNetworkEnabled = import.meta.env.VITE_ENABLE_CLOUD_SYNC === 'true';
     if (!cloudNetworkEnabled) {
-      if (isMountedRef.current) {
-        setState((prev) => ({
-          ...prev,
-          isSyncing: false,
-          syncStatus: 'success',
-          lastSyncTime: new Date(),
-          pendingChanges: 0,
-        }));
+      if (import.meta.env.DEV && !disabledLoggedRef.current) {
+        disabledLoggedRef.current = true;
+        debug.log('[CloudSync] مزامنة السحابة غير مفعلة في هذا الإصدار');
       }
-      callbacksRef.current?.onSyncSuccess?.();
       return;
     }
     if (!checkOnlineStatus()) {
@@ -353,9 +347,13 @@ export function useCloudSync(options: CloudSyncOptions): CloudSyncState & {
    */
   useEffect(() => {
     if (!enabled) {
-      debug.log('[CloudSync] المزامنة معطلة');
+      if (!disabledLoggedRef.current) {
+        disabledLoggedRef.current = true;
+        debug.log('[CloudSync] في انتظار تسجيل الدخول لتفعيل المزامنة');
+      }
       return;
     }
+    disabledLoggedRef.current = false;
     if (typeof window === 'undefined') return;
 
     // تأجيل المزامنة الأولى حتى يكتمل رسم الواجهة (يمنع تجمّد/شريط التحميل عند Refresh)
