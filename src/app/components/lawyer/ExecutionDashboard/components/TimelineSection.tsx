@@ -1,9 +1,17 @@
-import React, { Suspense, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Dispatch, ElementType, SetStateAction, TransitionStartFunction } from 'react';
 import type { TimelineEvent } from '@/app/types/execution';
 import { useEntityCalendarEvents } from '@/app/hooks/useEntityCalendarEvents';
 import { mergeTimelineEventsWithCalendar } from '@/app/utils/calendarTimelineMerge';
+import {
+    EXECUTION_TIMELINE_FILTER_OPTIONS,
+    adjacentExecutionTimelineFilter,
+    filterExecutionTimelineEvents,
+    type ExecutionTimelineFilterLabel,
+} from '@/app/utils/timelineCategoryFilter';
+import { dedupeTimelineEventsForDisplay } from '@/app/utils/timelineDedup';
 
 interface TimelineSectionProps {
     timelineAccordionExpanded: boolean;
@@ -22,24 +30,20 @@ interface TimelineSectionProps {
         onOpenFull: () => void;
         previewLimit: number;
         isHistoricalMode: boolean;
-        onRequestHistoricalPreview: (event: TimelineEvent) => void;
     }>;
     toggleTimelineEventPin: (ev: TimelineEvent) => void;
     setShowTimelineModal: (show: boolean) => void;
     timelineRadarPreviewLimit: number;
     isHistoricalMode: boolean;
-    handleRequestHistoricalSnapshotPreview: (event: TimelineEvent) => void;
     activeTimelineFilter: string;
     setActiveTimelineFilter: Dispatch<SetStateAction<string>>;
     todayYmd: string;
-    filteredTimelineEvents: TimelineEvent[];
     PremiumTimelineAuditLog: React.ComponentType<{
         events: TimelineEvent[];
         onTogglePin: (ev: TimelineEvent) => void;
         onRequestTrash: (ev: TimelineEvent) => void;
         onRequestEdit: (ev: TimelineEvent) => void;
         isHistoricalMode: boolean;
-        onRequestHistoricalPreview: (event: TimelineEvent) => void;
     }>;
     moveTimelineEventToTrash: (ev: TimelineEvent) => void;
     onRequestEditTimelineEvent: (ev: TimelineEvent) => void;
@@ -47,10 +51,11 @@ interface TimelineSectionProps {
     showOnlyActiveFileTimeline?: boolean;
     setShowOnlyActiveFileTimeline?: Dispatch<SetStateAction<boolean>>;
     subFilesCount?: number;
-    filteredMergedTimelineEvents?: TimelineEvent[];
     /** عند التوفير: مواعيد السجل تُعرض بتواريخ التقويم المركزي */
     calendarUserId?: string | null;
     executionEntityId?: string | null;
+    /** تصنيفات السجل الظاهرة — مزامنة مع إخفاء أقسام التنفيذ */
+    timelineFilterOptions?: readonly ExecutionTimelineFilterLabel[];
 }
 
 export const TimelineSection: React.FC<TimelineSectionProps> = ({
@@ -69,26 +74,42 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
     setShowTimelineModal,
     timelineRadarPreviewLimit,
     isHistoricalMode,
-    handleRequestHistoricalSnapshotPreview,
     activeTimelineFilter,
     setActiveTimelineFilter,
     todayYmd,
-    filteredTimelineEvents,
     PremiumTimelineAuditLog,
     moveTimelineEventToTrash,
     onRequestEditTimelineEvent,
     showOnlyActiveFileTimeline,
     setShowOnlyActiveFileTimeline,
     subFilesCount,
-    filteredMergedTimelineEvents,
     calendarUserId,
     executionEntityId,
+    timelineFilterOptions = EXECUTION_TIMELINE_FILTER_OPTIONS,
 }) => {
     const TIMELINE_PAGE_SIZE = 100;
     const [timelineVisibleCount, setTimelineVisibleCount] = useState(TIMELINE_PAGE_SIZE);
     const [activeAppointmentsVisibleCount, setActiveAppointmentsVisibleCount] = useState(TIMELINE_PAGE_SIZE);
     const [endedAppointmentsVisibleCount, setEndedAppointmentsVisibleCount] = useState(TIMELINE_PAGE_SIZE);
-    const effectiveEvents = filteredMergedTimelineEvents ?? filteredTimelineEvents;
+    const filterChipRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+    const dedupedAllEvents = useMemo(() => {
+        const base = debtorBrowserTabsMode ? activeTimelineEventsDebtorScoped : activeTimelineEvents;
+        return dedupeTimelineEventsForDisplay(base);
+    }, [debtorBrowserTabsMode, activeTimelineEventsDebtorScoped, activeTimelineEvents]);
+
+    const effectiveEvents = useMemo(
+        () => filterExecutionTimelineEvents(dedupedAllEvents, activeTimelineFilter),
+        [dedupedAllEvents, activeTimelineFilter]
+    );
+
+    const filterCounts = useMemo(() => {
+        const counts: Record<string, number> = {};
+        for (const label of timelineFilterOptions) {
+            counts[label] = filterExecutionTimelineEvents(dedupedAllEvents, label).length;
+        }
+        return counts;
+    }, [dedupedAllEvents, timelineFilterOptions]);
+
     const hasSubFiles = (subFilesCount ?? 0) > 0;
 
     const entityCal = useEntityCalendarEvents(
@@ -138,6 +159,14 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
         setEndedAppointmentsVisibleCount(TIMELINE_PAGE_SIZE);
     }, [activeTimelineFilter, debtorBrowserTabsMode, showOnlyActiveFileTimeline, effectiveEvents.length]);
 
+    useEffect(() => {
+        filterChipRefs.current[activeTimelineFilter]?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+            inline: 'nearest',
+        });
+    }, [activeTimelineFilter]);
+
     return (
         <div className="mx-3 mt-3 rounded-xl border border-slate-500/25 bg-[#0A0F1C]/30 p-0.5 shadow-md shadow-black/25 ring-1 ring-white/[0.05] backdrop-blur-xl">
             <button type="button"
@@ -164,7 +193,6 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
                             onOpenFull={() => setShowTimelineModal(true)}
                             previewLimit={timelineRadarPreviewLimit}
                             isHistoricalMode={isHistoricalMode}
-                            onRequestHistoricalPreview={handleRequestHistoricalSnapshotPreview}
                         />
                     </Suspense>
                 )}
@@ -178,26 +206,69 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
                         className="border-t border-slate-600/30"
                     >
                         <div className="p-3 pb-0">
+                            <div className="mb-2 flex items-center justify-between gap-2" dir="rtl">
+                                <button
+                                    type="button"
+                                    aria-label="التصنيف التالي"
+                                    onClick={() =>
+                                        setActiveTimelineFilter(
+                                            adjacentExecutionTimelineFilter(
+                                                activeTimelineFilter,
+                                                1,
+                                                timelineFilterOptions
+                                            )
+                                        )
+                                    }
+                                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-700/50 bg-slate-800/40 px-2 py-1 text-[10px] font-bold text-slate-300 hover:bg-slate-700/50"
+                                >
+                                    <ChevronLeft size={14} />
+                                    التالي
+                                </button>
+                                <p className="min-w-0 truncate text-center text-[10px] font-bold text-slate-300">
+                                    {activeTimelineFilter}
+                                    <span className="mx-1 text-slate-500">·</span>
+                                    <span className="text-amber-200/90">
+                                        {filterCounts[activeTimelineFilter] ?? 0}
+                                    </span>
+                                </p>
+                                <button
+                                    type="button"
+                                    aria-label="التصنيف السابق"
+                                    onClick={() =>
+                                        setActiveTimelineFilter(
+                                            adjacentExecutionTimelineFilter(
+                                                activeTimelineFilter,
+                                                -1,
+                                                timelineFilterOptions
+                                            )
+                                        )
+                                    }
+                                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-700/50 bg-slate-800/40 px-2 py-1 text-[10px] font-bold text-slate-300 hover:bg-slate-700/50"
+                                >
+                                    السابق
+                                    <ChevronRight size={14} />
+                                </button>
+                            </div>
                             <div className="flex items-center gap-2 overflow-x-auto pb-3 scrollbar-hide">
-                                {[
-                                    { label: 'الكل', icon: null },
-                                    { label: 'تبليغات وإخبار', icon: 'notification' },
-                                    { label: 'مواعيد', icon: 'appointment' },
-                                    { label: 'حركة الأموال والرسوم', icon: 'payment' },
-                                    { label: 'محجوزات وتنفيذ جبري', icon: 'coercive' },
-                                    { label: 'قرارات ومحاضر', icon: 'decision' },
-                                    { label: 'مستندات وملاحظات', icon: 'other' },
-                                ].map((filter) => (
+                                {timelineFilterOptions.map((label) => (
                                     <button type="button"
-                                        key={filter.label}
-                                        onClick={() => setActiveTimelineFilter(filter.label)}
+                                        key={label}
+                                        ref={(el) => {
+                                            filterChipRefs.current[label] = el;
+                                        }}
+                                        onClick={() => setActiveTimelineFilter(label)}
                                         className={`px-3 py-1.5 rounded-full text-[10px] font-semibold whitespace-nowrap transition-all ${
-                                            activeTimelineFilter === filter.label
+                                            activeTimelineFilter === label
                                                 ? 'bg-[#E6C673]/14 text-amber-100 border border-[#E6C673]/38'
                                                 : 'bg-slate-800/30 text-slate-300 border border-slate-700/40 hover:bg-slate-700/45'
                                         }`}
                                     >
-                                        {filter.label}
+                                        {label}
+                                        {(filterCounts[label] ?? 0) > 0 && label !== 'الكل' ? (
+                                            <span className="mr-1 text-[9px] opacity-70">
+                                                ({filterCounts[label]})
+                                            </span>
+                                        ) : null}
                                     </button>
                                 ))}
                                 {hasSubFiles && setShowOnlyActiveFileTimeline ? (
@@ -229,9 +300,6 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
                                                 onRequestTrash={moveTimelineEventToTrash}
                                                 onRequestEdit={onRequestEditTimelineEvent}
                                                 isHistoricalMode={isHistoricalMode}
-                                                onRequestHistoricalPreview={
-                                                    handleRequestHistoricalSnapshotPreview
-                                                }
                                             />
                                         </Suspense>
                                         {appointmentsSplit.active.length > activeAppointmentsVisibleCount ? (
@@ -257,9 +325,6 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
                                                 onRequestTrash={moveTimelineEventToTrash}
                                                 onRequestEdit={onRequestEditTimelineEvent}
                                                 isHistoricalMode={isHistoricalMode}
-                                                onRequestHistoricalPreview={
-                                                    handleRequestHistoricalSnapshotPreview
-                                                }
                                             />
                                         </Suspense>
                                         {appointmentsSplit.ended.length > endedAppointmentsVisibleCount ? (
@@ -283,9 +348,6 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
                                         onRequestTrash={moveTimelineEventToTrash}
                                         onRequestEdit={onRequestEditTimelineEvent}
                                         isHistoricalMode={isHistoricalMode}
-                                        onRequestHistoricalPreview={
-                                            handleRequestHistoricalSnapshotPreview
-                                        }
                                     />
                                 </Suspense>
                             )}

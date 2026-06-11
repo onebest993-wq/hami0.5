@@ -1,0 +1,87 @@
+import { describe, expect, it } from 'vitest';
+import {
+    executionLawData,
+    filterExecutionLawsByHierarchy,
+    resolveExecutionLawLeaf,
+} from '../executionLaws';
+import {
+    EXECUTION_LAW_HIERARCHY,
+    buildExecutionLawAdminBrowseFilters,
+} from '../executionLawHierarchy';
+
+describe('executionLawHierarchy', () => {
+    it('defines 6 task-oriented parent tabs', () => {
+        expect(EXECUTION_LAW_HIERARCHY).toHaveLength(6);
+        expect(EXECUTION_LAW_HIERARCHY[0].id).toBe('instruments_prelude');
+        expect(EXECUTION_LAW_HIERARCHY[3].id).toBe('executive_seizure');
+    });
+
+    it('maps article 20 to voluntary execution notice', () => {
+        const leaf = resolveExecutionLawLeaf(20);
+        expect(leaf.id).toBe('voluntary_execution_notice');
+        expect(leaf.parentId).toBe('instruments_prelude');
+    });
+
+    it('maps article 82 to salary garnishment under seizure tab', () => {
+        const leaf = resolveExecutionLawLeaf(82);
+        expect(leaf.id).toBe('salary_garnishment');
+        expect(leaf.parentId).toBe('executive_seizure');
+    });
+
+    it('maps article 103 to adjudication delivery (eviction)', () => {
+        const leaf = resolveExecutionLawLeaf(103);
+        expect(leaf.id).toBe('adjudication_delivery');
+        expect(leaf.parentId).toBe('auctions_eviction');
+    });
+
+    it('maps article 130 to closing provisions', () => {
+        const leaf = resolveExecutionLawLeaf(130);
+        expect(leaf.id).toBe('closing_provisions');
+        expect(leaf.parentId).toBe('distribution_appeals');
+    });
+
+    it('filters by parent and leaf without cross-tab bleed', () => {
+        const parentOnly = filterExecutionLawsByHierarchy(
+            executionLawData,
+            'instruments_prelude',
+            'all_in_parent',
+            ''
+        );
+        expect(parentOnly.every((a) => a.parentId === 'instruments_prelude')).toBe(true);
+        expect(parentOnly.some((a) => a.number === 1)).toBe(true);
+        expect(parentOnly.some((a) => a.number === 40)).toBe(false);
+
+        const leafOnly = filterExecutionLawsByHierarchy(
+            executionLawData,
+            'settlements_emergency',
+            'bail_travel_ban',
+            ''
+        );
+        expect(leafOnly.every((a) => a.number === 30)).toBe(true);
+    });
+
+    it('exports admin browse filters aligned with leaf taxonomy', () => {
+        const filters = buildExecutionLawAdminBrowseFilters();
+        expect(filters.length).toBe(
+            EXECUTION_LAW_HIERARCHY.reduce((n, p) => n + p.children.length, 0)
+        );
+        expect(filters.some((f) => f.id === 'exec-movables_seizure' && f.from === 63 && f.to === 70)).toBe(
+            true
+        );
+    });
+
+    it('covers all 130 articles in exactly one leaf range', () => {
+        const covered = new Set<number>();
+        for (const parent of EXECUTION_LAW_HIERARCHY) {
+            for (const child of parent.children) {
+                for (let n = child.articleFrom; n <= child.articleTo; n += 1) {
+                    covered.add(n);
+                }
+            }
+        }
+        for (let n = 1; n <= 130; n += 1) {
+            expect(covered.has(n), `article ${n} missing from taxonomy`).toBe(true);
+        }
+        expect(covered.size).toBe(130);
+    });
+});

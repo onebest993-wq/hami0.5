@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ClipboardList, X } from 'lucide-react';
+import { History, X } from 'lucide-react';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { useQuantumTasksContext } from '@/app/hooks/useQuantumTasksContext';
 import { useFatalTaskComplete } from '@/app/hooks/useFatalTaskComplete';
@@ -8,14 +8,16 @@ import { WORK_WEEK } from './tasksManager/constants';
 import { DistantTasksSection } from './tasksManager/DistantTasksSection';
 import { FatalDeadlinesSection } from './tasksManager/FatalDeadlinesSection';
 import { TaskCard } from './tasksManager/TaskCard';
-import { TasksManagerModals } from './tasksManager/TasksManagerModals';
+import { TasksManagerModals, type EditSubTaskDraft } from './tasksManager/TasksManagerModals';
 import type { DetailPanel, WeekAddState } from './tasksManager/types';
 import {
     dateFromYmdInput,
     getSaturdayOfWeekContaining,
+    isTaskInCurrentAgendaWeek,
     snoozeAfterDays,
 } from './tasksManager/utils';
 import { WeeklyAgendaSection } from './tasksManager/WeeklyAgendaSection';
+import { CompletedTasksArchiveSection } from './tasksManager/CompletedTasksArchiveSection';
 import { unpinWorkspaceItem } from '@/app/workspace/unpinWorkspaceEntity';
 
 export type TasksManagerProps = {
@@ -32,12 +34,14 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
     executionFiles = [],
 }) => {
     const {
+        tasks,
         pendingTasks,
         addWeeklyLocationBundle,
         addSnoozedBacklogTask,
         updateTask,
         deleteTask,
         completeTask,
+        reopenTask,
         toggleTaskFatalDeadline,
         toggleTaskPinnedToFieldCurtain,
         setTaskLocation,
@@ -73,8 +77,10 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
     const [editTaskId, setEditTaskId] = useState<string | null>(null);
     const [editTitle, setEditTitle] = useState('');
     const [editLocation, setEditLocation] = useState('');
+    const [editSubTasks, setEditSubTasks] = useState<EditSubTaskDraft[]>([]);
 
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+    const [showCompletedArchive, setShowCompletedArchive] = useState(false);
 
     useEffect(() => {
         if (!focusTaskId) return;
@@ -85,31 +91,37 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
     const fatalTasks = useMemo(() => pendingTasks.filter((t) => t.isFatalDeadline), [pendingTasks]);
 
     const weeklyDayBlocks = useMemo(() => {
-        const weekStart = getSaturdayOfWeekContaining(new Date());
+        const weekStart = getSaturdayOfWeekContaining(now);
         return WORK_WEEK.map((d) => {
             const dayDate = addDays(weekStart, d.offset);
             const tasksThisDay = pendingTasks.filter(
                 (t) =>
                     !t.isFatalDeadline &&
                     t.parsedDate !== null &&
+                    isTaskInCurrentAgendaWeek(t, now) &&
                     isSameLocalDay(t.parsedDate, dayDate),
             );
             return { ...d, dayDate, tasks: tasksThisDay };
         });
-    }, [pendingTasks]);
+    }, [pendingTasks, now]);
 
     const distantTasks = useMemo(() => {
-        const ws = getSaturdayOfWeekContaining(new Date());
+        const ws = getSaturdayOfWeekContaining(now);
         const we = addDays(ws, 5);
         const wsT = ws.getTime();
         const weT = we.getTime();
+        const thisWeekT = ws.getTime();
         return pendingTasks.filter((t) => {
             if (t.isFatalDeadline) return false;
             if (t.parsedDate === null) return true;
+            if (!isTaskInCurrentAgendaWeek(t, now)) {
+                const taskWeek = getSaturdayOfWeekContaining(t.parsedDate).getTime();
+                return taskWeek > thisWeekT;
+            }
             const pt = startOfLocalDay(t.parsedDate).getTime();
             return pt < wsT || pt > weT;
         });
-    }, [pendingTasks]);
+    }, [pendingTasks, now]);
 
     const reminderModalTask = useMemo(
         () => (reminderModalTaskId ? pendingTasks.find((t) => t.id === reminderModalTaskId) ?? null : null),
@@ -166,6 +178,14 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
         setEditTaskId(task.id);
         setEditTitle(task.title);
         setEditLocation(task.location ?? '');
+        setEditSubTasks(
+            task.subTasks.map((st) => ({
+                id: st.id,
+                title: st.title,
+                location: st.location ?? '',
+                isCompleted: st.isCompleted,
+            })),
+        );
         setEditOpen(true);
     };
 
@@ -178,9 +198,18 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
             title,
             rawText: title,
             location: loc.length > 0 ? loc : null,
+            subTasks: editSubTasks
+                .map((st) => ({
+                    id: st.id,
+                    title: st.title.trim(),
+                    location: st.location.trim() ? st.location.trim() : null,
+                    isCompleted: st.isCompleted,
+                }))
+                .filter((st) => st.title.length > 0),
         });
         setEditOpen(false);
         setEditTaskId(null);
+        setEditSubTasks([]);
     };
 
     const requestDelete = (task: LegalTask) => {
@@ -204,8 +233,9 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
             executionFiles={executionFiles}
             now={now}
             onCompleteRequest={requestComplete}
+            onReopenTask={(t) => reopenTask(t.id)}
             onToggleFatal={toggleTaskFatalDeadline}
-            onTogglePin={toggleTaskPinnedToFieldCurtain}
+            onToggleFieldCurtainPin={toggleTaskPinnedToFieldCurtain}
             onSetLocation={setTaskLocation}
             locationPickFor={locationPickFor}
             onToggleLocationPicker={setLocationPickFor}
@@ -242,17 +272,28 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
                     if (!o) {
                         setEditOpen(false);
                         setEditTaskId(null);
+                        setEditSubTasks([]);
                     }
                 }}
                 onCancelEdit={() => {
                     setEditOpen(false);
                     setEditTaskId(null);
+                    setEditSubTasks([]);
                 }}
                 editTarget={editTarget}
                 editTitle={editTitle}
                 onEditTitleChange={setEditTitle}
                 editLocation={editLocation}
                 onEditLocationChange={setEditLocation}
+                editSubTasks={editSubTasks}
+                onEditSubTaskChange={(subId, patch) => {
+                    setEditSubTasks((prev) =>
+                        prev.map((st) => (st.id === subId ? { ...st, ...patch } : st)),
+                    );
+                }}
+                onRemoveEditSubTask={(subId) => {
+                    setEditSubTasks((prev) => prev.filter((st) => st.id !== subId));
+                }}
                 onSaveEdit={saveEdit}
                 reminderModalTaskId={reminderModalTaskId}
                 onDismissReminder={() => setReminderModalTaskId(null)}
@@ -281,29 +322,43 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
             />
 
             <header className="shrink-0 border-b border-slate-800/80 px-5 py-5 flex items-center justify-between gap-3 bg-slate-900/80 backdrop-blur-xl">
-                <div className="flex items-center gap-3 min-w-0 flex-row-reverse">
-                    <div className="w-12 h-12 rounded-2xl border border-slate-700/60 bg-slate-800/60 backdrop-blur-md flex items-center justify-center text-amber-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                        <ClipboardList size={24} />
-                    </div>
-                    <div className="min-w-0 text-right">
-                        <h1 className="text-slate-50 font-extrabold text-xl truncate tracking-tight">أجندة المهام</h1>
-                        <p className="text-slate-500 text-xs font-medium mt-1">
-                            مخطط أسبوعي وتخطيط لاحق — موحّد مع ستارة الميدان
-                        </p>
-                    </div>
+                <div className="min-w-0 text-right">
+                    <h1 className="text-slate-50 font-extrabold text-xl truncate tracking-tight">أجندة المهام</h1>
                 </div>
-                <button
-                    type="button"
-                    onClick={onClose}
-                    className="shrink-0 w-11 h-11 rounded-xl border border-slate-700 bg-slate-800/50 backdrop-blur-md flex items-center justify-center text-slate-300 hover:bg-slate-800 hover:text-white hover:border-slate-500 transition-all"
-                    aria-label="إغلاق"
-                >
-                    <X size={22} />
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                    <button
+                        type="button"
+                        onClick={() => setShowCompletedArchive((v) => !v)}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-extrabold transition-all ${
+                            showCompletedArchive
+                                ? 'border-amber-500/50 bg-amber-500/15 text-amber-100'
+                                : 'border-slate-700 bg-slate-800/50 text-slate-300 hover:bg-slate-800 hover:text-white'
+                        }`}
+                    >
+                        <History size={16} />
+                        {showCompletedArchive ? 'الأجندة الحالية' : 'المهام المنتهية'}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="w-11 h-11 rounded-xl border border-slate-700 bg-slate-800/50 backdrop-blur-md flex items-center justify-center text-slate-300 hover:bg-slate-800 hover:text-white hover:border-slate-500 transition-all"
+                        aria-label="إغلاق"
+                    >
+                        <X size={22} />
+                    </button>
+                </div>
             </header>
 
             <div className="flex-1 overflow-y-auto px-4 py-6 pb-16 max-w-3xl mx-auto w-full space-y-10">
-                <FatalDeadlinesSection fatalTasks={fatalTasks} renderTaskCard={renderTaskCard} />
+                {showCompletedArchive ? (
+                    <CompletedTasksArchiveSection
+                        tasks={tasks}
+                        now={now}
+                        onBack={() => setShowCompletedArchive(false)}
+                    />
+                ) : (
+                    <>
+                        <FatalDeadlinesSection fatalTasks={fatalTasks} renderTaskCard={renderTaskCard} />
 
                 <WeeklyAgendaSection
                     weeklyDayBlocks={weeklyDayBlocks}
@@ -325,6 +380,8 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
                     applySnoozeChoice={applySnoozeChoice}
                     renderTaskCard={renderTaskCard}
                 />
+                    </>
+                )}
             </div>
         </div>
     );

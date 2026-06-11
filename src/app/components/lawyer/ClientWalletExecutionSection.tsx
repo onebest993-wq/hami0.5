@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Wallet, X, DollarSign } from 'lucide-react';
+import { Wallet, X, DollarSign, Scale, Plus } from 'lucide-react';
 import {
     CLIENT_WALLET_UPDATED_EVENT,
     type ClientWalletPaymentTarget,
@@ -33,6 +33,8 @@ export interface ClientWalletExecutionSectionProps {
     /** دفعات مسجّلة سابقاً على الملف (قبل محفظة الإضبارة) — تُستورد مرة واحدة إن كانت المحفظة فارغة */
     legacyPaidClientFees?: number;
     onPaidTotalSync: (totalPaidFromWallet: number) => void;
+    /** تحديث «أتعاب المحاماة المتفق عليها مع الموكل» على ملف الإضبارة */
+    onAgreedClientFeesUpdate?: (amount: number) => void;
     /** داخل نافذة المركز المالي — بدون هوامش mx-3 الخارجية */
     embedded?: boolean;
 }
@@ -42,10 +44,13 @@ export const ClientWalletExecutionSection: React.FC<ClientWalletExecutionSection
     agreedClientFees,
     legacyPaidClientFees = 0,
     onPaidTotalSync,
+    onAgreedClientFeesUpdate,
     embedded = false,
 }) => {
     const [store, setStore] = useState<ClientWalletStore>(() => readClientWallet(executionId));
     const [modalOpen, setModalOpen] = useState(false);
+    const [agreedFeesModalOpen, setAgreedFeesModalOpen] = useState(false);
+    const [agreedFeesInput, setAgreedFeesInput] = useState('');
     const [payAmount, setPayAmount] = useState('');
     const [payTarget, setPayTarget] = useState<ClientWalletPaymentTarget>('agreed_fees');
     const [oopInput, setOopInput] = useState('');
@@ -124,8 +129,30 @@ export const ClientWalletExecutionSection: React.FC<ClientWalletExecutionSection
         setPayAmount('');
     };
 
+    const openAgreedFeesModal = () => {
+        setAgreedFeesInput(agreedClientFees > 0 ? String(agreedClientFees) : '');
+        setAgreedFeesModalOpen(true);
+    };
+
+    const saveAgreedFees = () => {
+        const amt = parseAmount(agreedFeesInput);
+        if (!Number.isFinite(amt) || amt < 0 || !onAgreedClientFeesUpdate) return;
+        onAgreedClientFeesUpdate(amt);
+        setAgreedFeesModalOpen(false);
+    };
+
     return (
         <div className={embedded ? '' : `mx-3 mt-3 ${CARD_OUTER}`} dir="rtl">
+            {onAgreedClientFeesUpdate ? (
+                <button
+                    type="button"
+                    onClick={openAgreedFeesModal}
+                    className="mb-3 w-full inline-flex flex-row-reverse items-center justify-center gap-2 rounded-xl border border-[#E6C673]/35 bg-[#E6C673]/10 px-4 py-2.5 text-[11px] font-bold text-[#F5E6A8] transition hover:bg-[#E6C673]/15"
+                >
+                    <Scale size={15} className="shrink-0" />
+                    {agreedClientFees > 0 ? 'تعديل الأتعاب المتفق عليها مع الموكل' : 'تحديد الأتعاب المتفق عليها مع الموكل'}
+                </button>
+            ) : null}
             <button
                 type="button"
                 onClick={() => {
@@ -149,7 +176,9 @@ export const ClientWalletExecutionSection: React.FC<ClientWalletExecutionSection
                             <p className="font-bold tabular-nums text-white">
                                 {Math.max(0, agreedClientFees).toLocaleString('ar-IQ')} د.ع
                             </p>
-                            <p className="text-[8px] text-slate-600 mt-1 leading-snug">من واجهة فتح الإضبارة</p>
+                            <p className="text-[8px] text-slate-600 mt-1 leading-snug">
+                                {agreedClientFees > 0 ? 'متفق عليها مع الموكل' : 'لم تُحدَّد بعد'}
+                            </p>
                         </div>
                         <div className="rounded-lg border border-emerald-500/15 bg-emerald-950/20 p-2.5 text-right">
                             <p className="text-slate-500 text-[9px] mb-1">مصاريف المحامي المدفوعة مسبقاً</p>
@@ -192,6 +221,59 @@ export const ClientWalletExecutionSection: React.FC<ClientWalletExecutionSection
             {typeof document !== 'undefined' &&
                 createPortal(
                     <AnimatePresence>
+                        {agreedFeesModalOpen && onAgreedClientFeesUpdate ? (
+                            <motion.div
+                                key="agreed-fees-overlay"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md"
+                                onClick={() => setAgreedFeesModalOpen(false)}
+                            >
+                                <motion.div
+                                    initial={{ scale: 0.96, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    exit={{ scale: 0.96, opacity: 0 }}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="w-full max-w-md rounded-2xl bg-[#0A1122]/85 backdrop-blur-xl border border-white/10 p-5 space-y-4 shadow-2xl"
+                                >
+                                    <div className="flex items-center justify-between flex-row-reverse">
+                                        <h4 className="text-sm font-bold text-[#E6C673] flex flex-row-reverse items-center gap-2">
+                                            <Plus size={16} />
+                                            الأتعاب المتفق عليها مع الموكل
+                                        </h4>
+                                        <button
+                                            type="button"
+                                            onClick={() => setAgreedFeesModalOpen(false)}
+                                            className="p-2 rounded-full hover:bg-white/10 text-slate-400"
+                                            aria-label="إغلاق"
+                                        >
+                                            <X size={18} />
+                                        </button>
+                                    </div>
+                                    <p className="text-[10px] text-slate-500 text-right leading-relaxed">
+                                        مبلغ الأتعاب الذي اتفقت عليه مع الموكل — حساب خاص مستقل عن أتعاب المحكوم
+                                        بها في الوعاء الموحّد.
+                                    </p>
+                                    <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        placeholder="مبلغ الأتعاب (د.ع)"
+                                        value={agreedFeesInput}
+                                        onChange={(e) => setAgreedFeesInput(e.target.value)}
+                                        className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-3 text-white text-right text-sm font-bold tabular-nums placeholder:text-slate-500"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={saveAgreedFees}
+                                        disabled={!Number.isFinite(parseAmount(agreedFeesInput))}
+                                        className="w-full rounded-xl bg-gradient-to-l from-[#E6C673] to-amber-700 py-3 text-[#0A0F1C] text-xs font-black disabled:opacity-40"
+                                    >
+                                        حفظ المبلغ
+                                    </button>
+                                </motion.div>
+                            </motion.div>
+                        ) : null}
                         {modalOpen && (
                             <motion.div
                                 key="client-wallet-overlay"

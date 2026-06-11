@@ -10,7 +10,6 @@ export { DossierMetaEditSection } from './DossierMetaEditSection';
 export type { DossierMetaEditSectionProps } from './DossierMetaEditSection';
 export { EvictionProceduresSection } from './EvictionProceduresSection';
 export type { EvictionProceduresSectionProps } from './EvictionProceduresSection';
-export { ActionGridSection } from './ActionGridSection';
 export { SeizureRequestsTab } from './SeizureRequestsTab';
 export type { SeizureRequestsTabProps } from './SeizureRequestsTab';
 export { RequestsTab } from './RequestsTab';
@@ -24,7 +23,15 @@ export { PersonalTab } from './PersonalTab';
 export type { PersonalTabProps } from './PersonalTab';
 export { CoerciveTab } from './CoerciveTab';
 export type { CoerciveTabProps } from './CoerciveTab';
+export { EncroachmentRemovalRequestCards } from './EncroachmentRemovalRequestCards';
+export type { EncroachmentRemovalRequestCardsProps } from './EncroachmentRemovalRequestCards';
 export { InlineActionGate, type InlineActionGateProps } from './InlineActionGate';
+export {
+    FollowupFlowBackButton,
+    FollowupNestedPanel,
+    type FollowupFlowBackButtonProps,
+    type FollowupNestedPanelProps,
+} from './FollowupFlowBackButton';
 export { CoerciveActionFormModal } from './CoerciveActionFormModal';
 export { DashboardHeaderSection } from './DashboardHeaderSection';
 export { DebtorsSection } from './DebtorsSection';
@@ -50,7 +57,7 @@ export { ExecutionSeizedAssetsModalContainer } from './ExecutionSeizedAssetsModa
 export type { ExecutionSeizedAssetsModalContainerProps, ModalSeizedAssetsManagerLikeProps } from './ExecutionSeizedAssetsModalContainer';
 export { ExecutionSolidaryAndEvictionFollowupModalsContainer } from './ExecutionSolidaryAndEvictionFollowupModalsContainer';
 export type { ExecutionSolidaryAndEvictionFollowupModalsContainerProps, SolidaryTargetDebtorRow, EvictionExpensePayMode, LawyerFeeDisburseMode } from './ExecutionSolidaryAndEvictionFollowupModalsContainer';
-export { ExecutionToast, type ExecutionToastProps, type ToastAction } from './ExecutionToast';
+export { ExecutionToast, type ExecutionToastProps } from './ExecutionToast';
 export { ExecutionTrashModal, type ExecutionTrashModalProps } from './ExecutionTrashModal';
 export { ExecutorWorkflowPortalModals, type ExecutorWorkflowPortalModalsProps } from './ExecutorWorkflowPortalModals';
 export { ExecutionFinancialHubPortal, type ExecutionFinancialHubPortalProps } from './ExecutionFinancialHubPortal';
@@ -58,6 +65,10 @@ export { FinancialLedgerSection, type FinancialLedgerSectionProps } from './Fina
 export { PartiesSection } from './PartiesSection';
 export { PermanentDeleteConfirmDialog, type PermanentDeleteConfirmDialogProps } from './PermanentDeleteConfirmDialog';
 export { LawReferencePanel, type LawReferencePanelProps } from './LawReferencePanel';
+export { VisitationScheduleModule } from './VisitationScheduleModule';
+export type { VisitationScheduleModuleProps } from './VisitationScheduleModule';
+export { VisitationCalendarModal } from './VisitationCalendarModal';
+export type { VisitationCalendarModalProps } from './VisitationCalendarModal';
 export { DossierLifecyclePanel, type DossierLifecyclePanelProps } from './DossierLifecyclePanel';
 export { TimelineEditModal, type TimelineEditModalProps } from './TimelineEditModal';
 export { TimelineSection } from './TimelineSection';

@@ -46,10 +46,11 @@ export function useFinancialTotals(
         [evictionCaseExpensesSum, isEvictionExecutionModule, judicialCustodianSalariesExpenseIqd]
     );
 
-    const evictionLawyerFeesInTotals =
-        isEvictionExecutionModule && (ed?.eviction_lawyer_fee_waived_at_intake as boolean)
-            ? 0
-            : parsedLawyerFees;
+    const evictionLawyerFeesInTotals = isEvictionExecutionModule
+        ? ed?.eviction_initial_notice_lawyer_fees_included === true
+            ? parsedLawyerFees
+            : 0
+        : parsedLawyerFees;
 
     const totalOwed =
         principalDebtAmount +

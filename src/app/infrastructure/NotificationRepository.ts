@@ -147,6 +147,25 @@ export function deriveNotificationCategory(n: NotificationModel): NotificationCa
     }
 }
 
+const ACTIVITY_AUDIT_TYPES = new Set<NotificationType>([
+    'audit_log_civil',
+    'audit_log_criminal',
+    'audit_log_execution',
+    'audit_log_task',
+    'deadline',
+]);
+
+/** إشعار «سجل النشاطات» — مُعطّل في المنتج (لا يُعرض ولا يُخزَّن). */
+export function isActivityLogNotification(n: Pick<NotificationModel, 'type' | 'category'>): boolean {
+    if (ACTIVITY_AUDIT_TYPES.has(n.type)) return true;
+    const cat = n.category ?? deriveNotificationCategory(n as NotificationModel);
+    return cat === 'civil' || cat === 'criminal' || cat === 'execution' || cat === 'task';
+}
+
+export function isActivityAuditNotificationType(type: NotificationType): boolean {
+    return ACTIVITY_AUDIT_TYPES.has(type);
+}
+
 const LOCAL_KEY_PREFIX = 'hami:notifications:v1:';
 
 function getLocalKey(userId: string): string {
@@ -298,5 +317,32 @@ export const NotificationRepository = {
         } catch {
             return true;
         }
-    }
+    },
+
+    /** استبدال القائمة كاملة — يُستخدم عند تنظيف سجل النشاطات المحفوظ. */
+    replaceAllNotifications: async (userId: string, list: NotificationModel[]) => {
+        const capped = list.length > 400 ? list.slice(0, 400) : list;
+        saveLocal(userId, capped);
+
+        if (import.meta.env.DEV) {
+            return capped;
+        }
+        try {
+            const headers = await buildKvAuthHeaders();
+            await SecureAPIClient.fetchSecure(
+                `https://${projectId}.supabase.co/functions/v1/make-server-f09713ba/kv-proxy`,
+                {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        action: 'set',
+                        key: `notifications_${userId}`,
+                        value: capped,
+                    }),
+                },
+                '127.0.0.1',
+            );
+        } catch { /* local already saved */ }
+        return capped;
+    },
 };

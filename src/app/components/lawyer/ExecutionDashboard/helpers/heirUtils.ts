@@ -1,3 +1,6 @@
+import type { ExecutionFile, Party } from '@/app/types/execution';
+import { getPartyDeathCaseForRole } from '@/app/utils/partyDeathCaseScope';
+
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * 👥 Heir Utilities - دوال مساعدة للورثة
@@ -96,4 +99,55 @@ export function heirRowHasAnyText(h: { name: string; phone: string; address: str
         /\S/.test(String(h.phone || '')) ||
         /\S/.test(String(h.address || ''))
     );
+}
+
+/** يجمع كل مصادر الورثة (الطرف + مسار الوفاة) دون إسقاط أسماء من `heirs[]` */
+export function collectPartyHeirDetailRows(
+    party: Party | null | undefined,
+    file: ExecutionFile | null | undefined,
+    partyKind: 'creditor' | 'debtor'
+): HeirDetailRow[] {
+    const bucket: HeirDetailRow[] = [];
+
+    const push = (raw: Partial<HeirDetailRow>) => {
+        const name = String(raw.name || '').trim();
+        if (!/\S/.test(name)) return;
+        bucket.push({
+            name,
+            phone: String(raw.phone || '').trim(),
+            address: String(raw.address || '').trim(),
+            isClient: Boolean(raw.isClient),
+        });
+    };
+
+    if (party) {
+        const details = (party as Party & { heirs_details?: unknown[] }).heirs_details;
+        if (Array.isArray(details)) {
+            details.forEach((h) => {
+                const row = h as { name?: string; phone?: string; address?: string; isClient?: boolean };
+                push({
+                    name: row?.name,
+                    phone: row?.phone,
+                    address: row?.address,
+                    isClient: row?.isClient,
+                });
+            });
+        }
+        (party.heirs || []).forEach((name) => push({ name: String(name || '') }));
+    }
+
+    const deathCase = getPartyDeathCaseForRole(file, partyKind);
+    if (deathCase) {
+        (deathCase.heir_details || []).forEach((h) => {
+            push({
+                name: h?.name,
+                phone: h?.phone,
+                address: h?.address,
+                isClient: (h as { isClient?: boolean })?.isClient,
+            });
+        });
+        (deathCase.heir_names || []).forEach((name) => push({ name: String(name || '') }));
+    }
+
+    return dedupeHeirDetailRowsByName(bucket);
 }

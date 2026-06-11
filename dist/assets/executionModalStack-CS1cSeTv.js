@@ -1,0 +1,1 @@
+const e={unifiedFollowUp:180,decisionsShell:160,nestedOverUnified:230,nestedOverFollowUpPortal:280,unifiedSummonsAndLegacyNotification:235,nestedOverDecisions:240,timelineFullModal:245,lawReferencePanel:250,toastAboveExecution:5e4},o="bg-slate-950/90 backdrop-blur-md";export{e as E,o as a};

@@ -26,8 +26,12 @@ export { useCreditorWorkspace } from './useCreditorWorkspace';
 export { useDebtorScopedTimeline } from './useDebtorScopedTimeline';
 export { useDossierDeathStatus } from './useDossierDeathStatus';
 export { useDossierHeaderMetadata } from './useDossierHeaderMetadata';
-export { useExecutionData } from './useExecutionData';
+export {
+    executionFileContentSignature,
+    useExecutionData,
+    useStableExecutionFileForStore,
+} from './useExecutionData';
 export { useShareTimeline } from './useShareTimeline';
-export { useSeizureRegistryAssets } from './useSeizureRegistryAssets';
+export { useSeizureRegistryAssets, isSalarySeizureAsset } from './useSeizureRegistryAssets';
 export { useCaseTasksAndNotes } from './useCaseTasksAndNotes';
 export { useDebtorTags } from './useDebtorTags';

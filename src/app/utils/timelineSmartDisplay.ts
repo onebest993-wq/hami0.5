@@ -1,5 +1,6 @@
 import type { TimelineEvent, TimelineSmartPriority } from '@/app/types/execution';
 import { stripPendingLabelsFromExecutorSubject } from '@/app/utils/executorDecisionTitles';
+import { mergeResidentialGraceTimelineForDisplay } from '@/app/utils/residentialGraceTimeline';
 
 const MS_DAY = 86400000;
 
@@ -117,78 +118,18 @@ export function ensureUniqueTimelineRowIds(events: TimelineEvent[]): TimelineEve
     });
 }
 
-function parseGraceBoundsFromEvictionDescription(desc: string): { start?: string; end?: string } {
-    const startM = desc.match(/بداية احتساب المهلة:\s*(\d{4}-\d{2}-\d{2})/);
-    const endM = desc.match(/انتهاء المهلة:\s*(\d{4}-\d{2}-\d{2})/);
-    return { start: startM?.[1], end: endM?.[1] };
-}
-
-function parseGraceStartFromAppointmentDescription(desc: string): string | undefined {
-    const m = desc.match(/بدأت (\d{4}-\d{2}-\d{2})/);
-    return m?.[1];
-}
-
 /**
- * يدمج زوج الحدثين القديمين (مهلة تخلية + موعد انتهاء) في سطر واحد للعرض فقط.
+ * يدمج أحداث المهلة السكنية (تسجيل + موعد انتهاء) ويزيل التكرار — للعرض فقط.
  */
 export function mergeLegacyEvictionResidentialGracePairs(events: TimelineEvent[]): TimelineEvent[] {
-    const consumed = new Set<string>();
-    const out: TimelineEvent[] = [];
-
-    for (const e of events) {
-        const eid = String(e.id);
-        if (consumed.has(eid)) continue;
-
-        const isLegacyApptEnd =
-            e.type === 'appointment' &&
-            typeof e.title === 'string' &&
-            e.title.includes('انتهاء مهلة التخلية السكنية');
-
-        if (isLegacyApptEnd && /^\d{4}-\d{2}-\d{2}$/.test(String(e.date))) {
-            const startGuess = parseGraceStartFromAppointmentDescription(e.description || '');
-            const endYmd = String(e.date);
-            const partner = events.find(
-                (x) =>
-                    String(x.id) !== eid &&
-                    !consumed.has(String(x.id)) &&
-                    Boolean((x.metadata as Record<string, unknown> | undefined)?.evictionResidentialGraceModal) &&
-                    (() => {
-                        const { start, end } = parseGraceBoundsFromEvictionDescription(x.description || '');
-                        return start === startGuess && end === endYmd;
-                    })()
-            );
-            if (partner) {
-                consumed.add(eid);
-                consumed.add(String(partner.id));
-                const { start, end } = parseGraceBoundsFromEvictionDescription(partner.description || '');
-                const daysM = (partner.description || '').match(/المدة:\s*(\d+)/);
-                const days = daysM ? Number(daysM[1]) : 0;
-                out.push({
-                    ...partner,
-                    title: 'مهلة التخلية السكنية',
-                    description:
-                        start && end
-                            ? `من ${start} إلى ${end}${days > 0 ? ` — ${days} يوماً تقويمياً` : ''}`
-                            : partner.description,
-                    metadata: {
-                        ...partner.metadata,
-                        mergedLegacyGracePair: [partner.id, e.id],
-                    },
-                });
-                continue;
-            }
-        }
-
-        out.push(e);
-    }
-
-    return out;
+    return mergeResidentialGraceTimelineForDisplay(events);
 }
 
 /** مصدر السجل للعرض (توحيد تسمية المُحلل) */
 export function timelineSourceForDisplay(source: string | undefined): string | undefined {
     if (!source) return undefined;
     if (source === 'AI Copilot') return 'مُحلل حامي الذكي';
+    if (source === 'المهلة') return 'الإجراءات الجبرية — تخلية';
     return source;
 }
 
@@ -230,6 +171,23 @@ export function cleanTimelineCardTitle(event: TimelineEvent): string {
         .replace(TIMELINE_TITLE_EMOJI_RE, '')
         .replace(/\s+/g, ' ')
         .trim();
+}
+
+function normTimelineText(s: string): string {
+    return s.replace(TIMELINE_TITLE_EMOJI_RE, '').replace(/\s+/g, ' ').trim();
+}
+
+/** وصف العرض — يُخفى إن كان مكرراً للعنوان أو فارغاً بعد التنظيف */
+export function timelineDescriptionForDisplay(event: TimelineEvent): string {
+    const raw = String(event.description ?? event.details ?? '').trim();
+    if (!raw) return '';
+    const title = normTimelineText(cleanTimelineCardTitle(event));
+    const desc = normTimelineText(raw);
+    if (!desc) return '';
+    if (title && (desc === title || desc.startsWith(title))) return '';
+    const lines = desc.split('\n').map((l) => l.trim()).filter(Boolean);
+    const unique = lines.filter((line, idx) => lines.indexOf(line) === idx);
+    return unique.join('\n');
 }
 
 /** لون عنوان بطاقة السجل الزمني (وضع ليلي هادئ) — بديل الأيقونات */

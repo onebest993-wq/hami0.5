@@ -1,7 +1,7 @@
 {
   "name": "hami-app",
   "version": "10.5.0",
-  "description": "Hami Legal System - Iraqi Legal Case Management with AI - Perfect Score Edition",
+  "description": "Hami Legal System - Iraqi Legal Case Management - V1 Admin Edition",
   "scripts": {
     "dev": "vite",
     "dev:fresh": "vite --force",
@@ -29,13 +29,12 @@
     "tools:help": "cat scripts/README.md",
     "tools:test": "ts-node scripts/comprehensive-test.ts",
     "organize:docs": "node scripts/organize-docs.js",
-    "report": "cat FINAL_REPORT.md",
+    "report": "cat docs/archive/FINAL_REPORT.md",
     "health:utf8": "node scripts/clean-mojibake.mjs --check",
     "health:security": "node scripts/security-audit.mjs",
     "health": "npm run health:utf8 && npm run health:security && npm run typecheck"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-aspect-ratio": "^1.1.8",

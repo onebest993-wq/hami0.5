@@ -4,6 +4,54 @@ export type LazyComponent = ComponentType<Record<string, unknown>>;
 
 const LAZY_IMPORT_TIMEOUT_MS = 18_000;
 
+function isDynamicImportFetchError(error: unknown): boolean {
+    const msg = error instanceof Error ? error.message : String(error);
+    return (
+        /Failed to fetch dynamically imported module/i.test(msg) ||
+        /Importing a module script failed/i.test(msg) ||
+        /error loading dynamically imported module/i.test(msg)
+    );
+}
+
+function toLoadError(error: unknown): Error {
+    const generic = 'فشل في تحميل المكون. تأكد من الاتصال ثم أعد المحاولة.';
+    const cause =
+        error instanceof Error
+            ? error.message
+            : typeof error === 'string'
+              ? error
+              : '';
+    const message =
+        import.meta.env.DEV && cause && !cause.includes(generic)
+            ? `${generic} (${cause})`
+            : generic;
+    if (error instanceof Error && import.meta.env.DEV) {
+        const wrapped = new Error(message);
+        wrapped.stack = error.stack;
+        wrapped.cause = error;
+        return wrapped;
+    }
+    if (error instanceof Error && !isDynamicImportFetchError(error)) return error;
+    return new Error(message);
+}
+
+async function loadLazyModule(
+    componentImport: () => Promise<{ default: LazyComponent }>,
+    retriesLeft: number,
+    attempt = 0,
+): Promise<{ default: LazyComponent }> {
+    try {
+        return await componentImport();
+    } catch (error) {
+        if (retriesLeft > 0) {
+            const delayMs = Math.min(200 * 2 ** attempt, 2_000);
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+            return loadLazyModule(componentImport, retriesLeft - 1, attempt + 1);
+        }
+        throw toLoadError(error);
+    }
+}
+
 function importWithTimeout(
     componentImport: () => Promise<{ default: LazyComponent }>,
     retries: number,
@@ -23,15 +71,6 @@ function importWithTimeout(
             fn();
         };
 
-        const toLoadError = (error: unknown): Error => {
-            const msg = error instanceof Error ? error.message : String(error);
-            if (/Failed to fetch dynamically imported module/i.test(msg)) {
-                return new Error('فشل في تحميل المكون. تأكد من الاتصال ثم أعد المحاولة.');
-            }
-            if (error instanceof Error) return error;
-            return new Error('فشل في تحميل المكون. تأكد من الاتصال ثم أعد المحاولة.');
-        };
-
         const attemptImport = (retriesLeft: number) => {
             componentImport()
                 .then((mod) => finish(() => resolve(mod)))
@@ -40,13 +79,7 @@ function importWithTimeout(
                         finish(() => reject(toLoadError(error)));
                         return;
                     }
-
-                    window.setTimeout(() => {
-                        if (import.meta.env.DEV) {
-                            console.log(`Retrying component import... (${retriesLeft} retries left)`);
-                        }
-                        attemptImport(retriesLeft - 1);
-                    }, 1000);
+                    window.setTimeout(() => attemptImport(retriesLeft - 1), 1000);
                 });
         };
 
@@ -54,21 +87,13 @@ function importWithTimeout(
     });
 }
 
-/** في التطوير: بدون مهلة زمنية — Vite قد يُجمّع الـ chunk أول مرة دون اعتبار ذلك «فشل اتصال». */
+/** إعادة محاولة عند فشل dynamic import — بدون إعادة تحميل الصفحة (تُدار عبر GlobalErrorBoundary). */
 export function lazyWithRetry(
     componentImport: () => Promise<{ default: LazyComponent }>,
     retries: number = 3,
 ): LazyExoticComponent<LazyComponent> {
     if (import.meta.env.DEV) {
-        return lazy(() =>
-            componentImport().catch((error: unknown) => {
-                const msg = error instanceof Error ? error.message : String(error);
-                if (/Failed to fetch dynamically imported module/i.test(msg)) {
-                    throw new Error('فشل في تحميل المكون (تطوير). أعد تشغيل npm run dev ثم حدّث الصفحة.');
-                }
-                throw error;
-            }),
-        );
+        return lazy(() => loadLazyModule(componentImport, 4));
     }
     return lazy(() => importWithTimeout(componentImport, retries));
 }

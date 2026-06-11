@@ -1,4 +1,10 @@
 import type { TimelineEvent } from '@/app/types/execution';
+import {
+    isResidentialGraceAppointmentEvent,
+    isResidentialGraceRegistrationEvent,
+    residentialGraceBoundsFromEvent,
+    residentialGraceBoundsKey,
+} from '@/app/utils/residentialGraceTimeline';
 
 const DEFAULT_SIMILAR_WINDOW_MS = 5000;
 
@@ -21,6 +27,16 @@ function norm(s: string): string {
     return s.replace(/\s+/g, ' ').trim();
 }
 
+/** توحيد أحداث قاضي البداءة القديمة (coercive) والجديدة (decision) */
+function executiveDetentionJudgeAlias(title: string): string | null {
+    const t = norm(title)
+        .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+        .trim();
+    if (/وافق\s+قاضي\s+البداءة.*حبس/i.test(t)) return 'judge_approved';
+    if (/رفض\s+قاضي\s+البداءة.*حبس/i.test(t)) return 'judge_rejected';
+    return null;
+}
+
 /** مفتاح تطابق: نوع + عنوان + مصدر + معرّف قرار اختياري */
 export function timelineEventSimilarityKey(e: TimelineEvent): string {
     const meta = e.metadata;
@@ -28,6 +44,20 @@ export function timelineEventSimilarityKey(e: TimelineEvent): string {
     if (meta && typeof meta === 'object') {
         const m = meta as Record<string, unknown>;
         decisionKey = String(m.decisionRowId ?? m.decisionId ?? '');
+    }
+    const judgeAlias = executiveDetentionJudgeAlias(String(e.title ?? ''));
+    if (judgeAlias) {
+        return ['judge_detention', judgeAlias, norm(String(e.source ?? '')), decisionKey].join('\u0001');
+    }
+    if (isResidentialGraceAppointmentEvent(e) || isResidentialGraceRegistrationEvent(e)) {
+        const boundsKey = residentialGraceBoundsKey(residentialGraceBoundsFromEvent(e));
+        if (boundsKey) {
+            return [
+                'residential_grace',
+                isResidentialGraceRegistrationEvent(e) ? 'registration' : 'appointment',
+                boundsKey,
+            ].join('\u0001');
+        }
     }
     return [
         String(e.type ?? ''),
@@ -52,6 +82,78 @@ function normalizeId(e: TimelineEvent, fallbackIndex: number): TimelineEvent {
     const ms = parseEventMs(e);
     const basis = ms != null ? String(ms) : String(e.timestamp || e.date || '').replace(/\s/g, '');
     return { ...e, id: `tl_${basis || 'x'}_${fallbackIndex}` };
+}
+
+function threadOrDecisionDedupeKey(e: TimelineEvent): string | null {
+    const meta = e.metadata;
+    const judgeAlias = executiveDetentionJudgeAlias(String(e.title ?? ''));
+    if (judgeAlias) {
+        return `judge:${judgeAlias}:${norm(String(e.source ?? ''))}`;
+    }
+    if (!meta || typeof meta !== 'object') return null;
+    const m = meta as Record<string, unknown>;
+    const thread = String(m.timelineThreadKey ?? '').trim();
+    if (thread) return `thread:${thread}`;
+    const decisionId = String(m.decisionRowId ?? m.decisionId ?? '').trim();
+    if (decisionId) return `decision:${decisionId}`;
+    return null;
+}
+
+function eventTimeMs(e: TimelineEvent): number {
+    return parseEventMs(e) ?? 0;
+}
+
+/**
+ * دمج الأحداث المربوطة بنفس قرار المنفذ/الخيط الزمني — يُبقي الأحدث.
+ */
+export function dedupeTimelineEventsByThreadOrDecision(events: TimelineEvent[]): TimelineEvent[] {
+    const out: TimelineEvent[] = [];
+    const indexByKey = new Map<string, number>();
+
+    for (let i = 0; i < events.length; i += 1) {
+        const e = normalizeId(events[i], i);
+        if (e.trashedAt) {
+            out.push(e);
+            continue;
+        }
+        const linkKey = threadOrDecisionDedupeKey(e);
+        if (!linkKey) {
+            out.push(e);
+            continue;
+        }
+        const existingIndex = indexByKey.get(linkKey);
+        if (existingIndex == null) {
+            indexByKey.set(linkKey, out.length);
+            out.push(e);
+            continue;
+        }
+        const head = out[existingIndex];
+        if (!head) continue;
+        const keepIncoming = eventTimeMs(e) >= eventTimeMs(head);
+        const winner = keepIncoming ? { ...head, ...e, id: head.id } : head;
+        const loser = keepIncoming ? head : e;
+        out[existingIndex] = {
+            ...winner,
+            description: combineText(winner.description, loser.description),
+            details: combineText(winner.details, loser.details),
+            metadata:
+                winner.metadata || loser.metadata
+                    ? {
+                          ...(typeof winner.metadata === 'object' && winner.metadata ? winner.metadata : {}),
+                          ...(typeof loser.metadata === 'object' && loser.metadata ? loser.metadata : {}),
+                      }
+                    : undefined,
+        };
+    }
+
+    return out;
+}
+
+/**
+ * ترتيب العرض: خيط/قرار ثم نفس الثانية.
+ */
+export function dedupeTimelineEventsForDisplay(events: TimelineEvent[]): TimelineEvent[] {
+    return dedupeTimelineEventsSameSecond(dedupeTimelineEventsByThreadOrDecision(events));
 }
 
 /**

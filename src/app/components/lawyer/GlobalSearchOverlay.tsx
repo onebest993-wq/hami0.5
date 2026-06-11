@@ -38,7 +38,6 @@ import {
     type GroupedSearchResults,
 } from '@/app/services/globalSearchIndex';
 import { SEARCH_LIFECYCLE_LABELS } from '@/app/services/searchLifecycle';
-import { useRagStore } from '@/app/stores/ragStore';
 import { PERFORMANCE } from '@/app/utils/constants';
 import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
 import {
@@ -113,6 +112,7 @@ function ResultRow({
     accent,
     onClick,
     pinItem,
+    relatedLinkCount,
     resultIndex,
     active,
     onActivate,
@@ -286,50 +286,6 @@ function ResultsBody({
                 );
             })}
         </div>
-    );
-}
-
-function RagSection({ query }: { query: string }) {
-    const ragResults = useRagStore((s) => s.results);
-    const searchLegalMemory = useRagStore((s) => s.searchLegalMemory);
-    const isRagSearching = useRagStore((s) => s.isSearching);
-
-    useEffect(() => {
-        if (query.trim().length >= PERFORMANCE.MIN_SEARCH_LENGTH) {
-            searchLegalMemory(query);
-        }
-    }, [query, searchLegalMemory]);
-
-    if (!query.trim() || query.trim().length < PERFORMANCE.MIN_SEARCH_LENGTH) return null;
-    if (!isRagSearching && (!ragResults || ragResults.length === 0)) return null;
-
-    return (
-        <section className="mt-8 pt-6 border-t border-white/10">
-            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-emerald-400">
-                <Sparkles size={18} />
-                الذاكرة القانونية العميقة
-            </h3>
-            {isRagSearching ? (
-                <div className="flex items-center gap-3 p-4 rounded-xl bg-white/5 animate-pulse">
-                    <Loader2 size={20} className="text-emerald-400 animate-spin" />
-                    <span className="text-white/40 text-sm">جاري البحث في الذاكرة القانونية...</span>
-                </div>
-            ) : (
-                <div className="space-y-2">
-                    {ragResults.map((item) => (
-                        <div
-                            key={item.id}
-                            className="p-3 rounded-xl bg-emerald-950/20 border border-emerald-500/20 text-sm text-emerald-100/90 line-clamp-3"
-                        >
-                            <HighlightedText
-                                text={String(item.metadata?.text ?? '')}
-                                query={query}
-                            />
-                        </div>
-                    ))}
-                </div>
-            )}
-        </section>
     );
 }
 
@@ -565,7 +521,6 @@ export const GlobalSearchOverlay = ({
                     <div className="text-center py-20">
                         <Search size={48} className="mx-auto text-white/10 mb-4" />
                         <p className="text-white/30">لا توجد نتائج مطابقة لـ «{query}»</p>
-                        <RagSection query={debouncedQuery} />
                     </div>
                 ) : (
                     <>
@@ -581,7 +536,6 @@ export const GlobalSearchOverlay = ({
                                 setActiveIndex(i);
                             }}
                         />
-                        <RagSection query={debouncedQuery} />
                     </>
                 )}
             </div>

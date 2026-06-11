@@ -1,5 +1,15 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import {
+    formatNumberInput,
+    parseAmount,
+} from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
+import {
+    BADGE_POPOVER_Z_INDEX,
+    computeFixedPopoverLayout,
+    refinePopoverLayoutWithMeasuredHeight,
+    type FixedPopoverLayout,
+} from './anchoredPopoverPosition';
 import type {
     ExecutionFile,
     RealEstateSeizureAsset,
@@ -8,11 +18,9 @@ import type {
     StandaloneExecutionMark,
 } from '@/app/types/execution';
 import {
-    Building2,
     Briefcase,
     Bell,
     Calendar,
-    Car,
     CheckCircle,
     Gavel,
     EyeOff,
@@ -25,11 +33,9 @@ import {
     ShieldAlert,
     Timer,
     TrendingUp,
-    Unlock,
     UserX,
     X,
     Wallet,
-    Package,
     UserRoundX,
     Pin,
 } from 'lucide-react';
@@ -37,7 +43,13 @@ import type { LucideIcon } from 'lucide-react';
 import { buildSeizedAssetDetailLines } from '@/app/utils/seizedAssetDisplay';
 import { parseLocalNotificationDate } from '@/app/utils/executionStateMachine';
 import SecureStoreService from '@/app/services/SecureStoreService';
-import { resolvePrimaryDebtorCoerciveStack } from './coerciveStackUtils';
+import {
+    isExecutiveDetentionBadgeSuppressed,
+    isExecutiveDetentionPathEnforceable,
+    isExecutiveDetentionPeriodActive,
+    isTravelBanEnforceable,
+    resolvePrimaryDebtorCoerciveStack,
+} from './coerciveStackUtils';
 
 export type PartyBadgeParty = 'creditor' | 'debtor';
 
@@ -121,15 +133,18 @@ export type PartyInteractiveBadge = {
 };
 
 const toneRing: Record<PartyInteractiveBadge['tone'], string> = {
-    amber: 'border-amber-500/45 bg-amber-950/40 text-amber-100',
-    slate: 'border-slate-500/40 bg-slate-900/70 text-slate-200',
-    emerald: 'border-emerald-500/40 bg-emerald-950/40 text-emerald-100',
-    sky: 'border-sky-500/40 bg-sky-950/45 text-sky-100',
-    rose: 'border-rose-500/45 bg-rose-950/45 text-rose-100',
-    orange: 'border-orange-500/45 bg-orange-950/40 text-orange-100',
-    indigo: 'border-indigo-500/40 bg-indigo-950/45 text-indigo-100',
-    violet: 'border-violet-500/40 bg-violet-950/40 text-violet-100',
+    amber: 'bg-amber-900/30 border-amber-500/50 text-amber-300',
+    slate: 'bg-slate-900/30 border-slate-500/50 text-slate-300',
+    emerald: 'bg-emerald-900/30 border-emerald-500/50 text-emerald-300',
+    sky: 'bg-sky-900/30 border-sky-500/50 text-sky-300',
+    rose: 'bg-rose-900/30 border-rose-500/50 text-rose-300',
+    orange: 'bg-orange-900/30 border-orange-500/50 text-orange-300',
+    indigo: 'bg-indigo-900/30 border-indigo-500/50 text-indigo-300',
+    violet: 'bg-violet-900/30 border-violet-500/50 text-violet-300',
 };
+
+const BADGE_PILL_CLASS =
+    'group inline-flex flex-row-reverse items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-bold transition-all hover:brightness-110 hover:shadow-[0_0_16px_rgba(0,0,0,0.25)] cursor-pointer';
 
 /** ترتيب ثابت للشارات — المهل والسياق القانوني أولاً، ثم الجبري الشخصي، ثم المالي */
 const BADGE_DISPLAY_ORDER: Record<string, number> = {
@@ -183,8 +198,6 @@ function loadHidden(executionId: string): string[] {
         return [];
     }
 }
-
-const BADGE_POPOVER_Z = 25010;
 
 function saveHidden(executionId: string, ids: string[]) {
     try {
@@ -266,10 +279,13 @@ export function buildPartyBadgeDefinitions(args: {
     personalCoerciveDecisionBadges?: boolean;
     /** لقراءة طلبات التنفيذ الجبري الشخصي من التخزين (تحديث الشارات عند القرارات) */
     decisionsExecutionId?: string;
+    /** المدين موظف — حجز الراتب يظهر للموظف فقط (لا يُخلط مع راتب الكفيل للكاسب) */
+    debtorIsEmployee?: boolean;
     /** يتغيّر عند إعادة تحميل قرارات المنفذ */
     decisionsReloadEpoch?: number;
     activeDebtorKey?: string;
     primaryDebtorKey?: string;
+    onWithdrawTravelBan?: () => void;
 }): PartyInteractiveBadge[] {
     void args.decisionsReloadEpoch;
     const ed = args.executionData;
@@ -289,12 +305,11 @@ export function buildPartyBadgeDefinitions(args: {
               primaryDebtorKey: args.primaryDebtorKey,
           })
         : null;
-    const travelSt = coerciveStack?.travelSt ?? null;
-    const detentionSt = coerciveStack?.detentionSt ?? null;
-    const arrestSt = coerciveStack?.arrestSt ?? null;
     const detentionAbsentia = Boolean(
         coerciveStack?.detentionAbsentia ?? ed?.executive_detention_request_in_absentia
     );
+    const detentionBadgeSuppressed = isExecutiveDetentionBadgeSuppressed(ed);
+    const travelBanEnforceable = isTravelBanEnforceable(ed);
 
     const stay = ed?.stay_of_execution;
     if (stay?.active) {
@@ -327,9 +342,13 @@ export function buildPartyBadgeDefinitions(args: {
     }
 
     const sched = ed?.salary_garnishment_installment_schedule;
+    const debtorIsEmployee = args.debtorIsEmployee === true;
     const salaryAction =
-        args.activeCoerciveActions.includes('salary') || Boolean(sched);
-    const salarySeizedAsset = activeSeized.find((a) => /راتب|salary|خُمس|خمس/i.test(String(a.type)));
+        debtorIsEmployee &&
+        (args.activeCoerciveActions.includes('salary') || Boolean(sched));
+    const salarySeizedAsset = debtorIsEmployee
+        ? activeSeized.find((a) => /راتب|salary|خُمس|خمس/i.test(String(a.type)))
+        : undefined;
     if (salaryAction && args.party === 'debtor' && args.isPrimaryDebtor) {
         let salarySub = salarySeizedAsset ? linesForSeizedAssetPopover(salarySeizedAsset) : [];
         const hasSeizDate = salarySub.some((l) => l.k === 'تاريخ الحجز');
@@ -349,7 +368,7 @@ export function buildPartyBadgeDefinitions(args: {
         });
     }
 
-    if (ed?.debtor_executive_detention_active && args.party === 'debtor' && args.isPrimaryDebtor) {
+    if (isExecutiveDetentionPeriodActive(ed) && args.party === 'debtor' && args.isPrimaryDebtor) {
         out.push({
             id: 'executive_detention',
             shortLabel: detentionAbsentia ? 'حبس تنفيذي (غيابي)' : 'حبس تنفيذي',
@@ -368,9 +387,8 @@ export function buildPartyBadgeDefinitions(args: {
             ],
         });
     } else if (
-        pcDecisions &&
-        detentionSt?.approved &&
-        !ed?.debtor_executive_detention_active &&
+        isExecutiveDetentionPathEnforceable(ed, detentionBadgeSuppressed) &&
+        !isExecutiveDetentionPeriodActive(ed) &&
         args.party === 'debtor' &&
         args.isPrimaryDebtor
     ) {
@@ -384,67 +402,28 @@ export function buildPartyBadgeDefinitions(args: {
                 {
                     k: 'الحالة',
                     v: detentionAbsentia
-                        ? 'موافقة المنفذ — حبس غيابي؛ ثبّت المدة من محضر المتابعة.'
-                        : 'موافقة المنفذ — ثبّت مدة الحبس من محضر المتابعة (التنفيذ الجبري الشخصي).',
-                },
-            ],
-        });
-    } else if (pcDecisions && detentionSt?.pending && args.party === 'debtor' && args.isPrimaryDebtor) {
-        out.push({
-            id: 'executive_detention_request',
-            shortLabel: detentionAbsentia ? 'طلب حبس (غيابي)' : 'طلب حبس',
-            Icon: Lock,
-            tone: 'orange',
-            dismissMode: 'local',
-            detailLines: [
-                {
-                    k: 'الحالة',
-                    v: detentionAbsentia
-                        ? 'طلب حبس تنفيذي غيابي — قيد البت لدى المنفذ'
-                        : 'طلب حبس تنفيذي — قيد البت لدى المنفذ',
+                        ? 'مسار حبس غيابي نافذ — ثبّت المدة من محضر المتابعة.'
+                        : 'مسار حبس تنفيذي نافذ — ثبّت المدة من محضر المتابعة.',
                 },
             ],
         });
     }
 
-    if (ed?.debtor_travel_ban_active && args.party === 'debtor' && args.isPrimaryDebtor) {
+    if (
+        travelBanEnforceable &&
+        args.party === 'debtor' &&
+        args.isPrimaryDebtor
+    ) {
         const issued = findTimelineDate(args.timelineEvents, ['منع سفر', 'سفر']);
         out.push({
             id: 'travel_ban',
             shortLabel: 'منع سفر',
             Icon: Plane,
             tone: 'sky',
-            dismissMode: 'local',
+            dismissMode: args.onWithdrawTravelBan ? 'callback' : 'local',
+            dismissLabel: args.onWithdrawTravelBan ? 'التراجع عن الطلب' : undefined,
+            onDismiss: args.onWithdrawTravelBan,
             detailLines: [{ k: 'تاريخ الإصدار', v: issued !== '—' ? issued : 'راجع السجل الزمني' }],
-        });
-    } else if (pcDecisions && travelSt?.pending && args.party === 'debtor' && args.isPrimaryDebtor) {
-        out.push({
-            id: 'travel_ban_pending',
-            shortLabel: 'منع سفر',
-            Icon: Plane,
-            tone: 'sky',
-            dismissMode: 'local',
-            detailLines: [{ k: 'الحالة', v: 'طلب منع سفر — قيد البت لدى المنفذ' }],
-        });
-    } else if (
-        pcDecisions &&
-        travelSt?.approved &&
-        !ed?.debtor_travel_ban_active &&
-        args.party === 'debtor' &&
-        args.isPrimaryDebtor
-    ) {
-        out.push({
-            id: 'travel_ban_approved_inactive',
-            shortLabel: 'منع سفر',
-            Icon: Plane,
-            tone: 'sky',
-            dismissMode: 'local',
-            detailLines: [
-                {
-                    k: 'الحالة',
-                    v: 'وافق المنفذ — سُجّلت الإشارة عند اعتماد التنفيذ في القرارات أو من المتابعة.',
-                },
-            ],
         });
     }
 
@@ -461,37 +440,32 @@ export function buildPartyBadgeDefinitions(args: {
         });
     }
 
-    const arrestStage = ed?.personal_arrest_warrant_stage;
     if (debtorPrimary && coerciveStack?.showArrestWarrantBadge) {
-        let statusLine = 'مطلوب بمذكرة قبض — راجع الإجراءات الجبرية والسجل';
-        if (pcDecisions && arrestSt?.pending) statusLine = 'طلب مفاتحة لأمر قبض — قيد البت لدى المنفذ';
-        else if (pcDecisions && arrestSt?.approved && !ed?.debtor_wanted_arrest_warrant)
-            statusLine = 'موافقة المنفذ — سجّل «تم صدور أمر القبض» من محضر المتابعة';
-        else if (arrestStage === 'pending_court') statusLine = 'مفاتحة محكمة التحقيق — بانتظار المذكرة';
         out.push({
             id: 'arrest_warrant',
             shortLabel: 'مذكرة قبض',
             Icon: ShieldAlert,
             tone: 'rose',
             dismissMode: 'local',
-            detailLines: [{ k: 'الحالة', v: statusLine }],
+            detailLines: [
+                {
+                    k: 'الحالة',
+                    v: 'صدرت مذكرة قبض — مطلوب تأمين الإحضار.',
+                },
+            ],
         });
     }
 
     /** إخفاء إحضار جبري عند أي تفعيل لمسار مذكرة القبض (لا تكديس مع شارة القبض) */
     if (debtorPrimary && coerciveStack?.showForcedAttendance) {
         const statusLine = coerciveStack.forcedNeedsOutcome
-            ? 'موافقة المنفذ على الإحضار الجبري — سجّل النتيجة (تم الإحضار / متخفي).'
-            : coerciveStack.forcedSt?.pending
-              ? 'طلب إحضار جبري — قيد المعالجة.'
-              : 'مسار إحضار جبري — راجع محضر المتابعة.';
+            ? 'إحضار جبري نافذ — سجّل النتيجة (تم الإحضار / متخفي).'
+            : 'مسار إحضار جبري نافذ — راجع محضر المتابعة.';
         out.push({
             id: 'forced_attendance',
             shortLabel: coerciveStack.forcedNeedsOutcome
                 ? 'الإحضار الجبري — تسجيل النتيجة'
-                : coerciveStack.forcedSt?.pending
-                  ? 'الإحضار الجبري — قيد المعالجة'
-                  : 'إحضار جبري',
+                : 'إحضار جبري',
             Icon: Gavel,
             tone: 'rose',
             dismissMode: 'local',
@@ -504,112 +478,6 @@ export function buildPartyBadgeDefinitions(args: {
         });
     }
 
-    const propAsset = activeSeized.find(
-        (a) => a.type === 'real_estate' || /عقار|property|أرض|دار/i.test(String(a.type))
-    );
-    const hasProperty =
-        Boolean((args.realEstateSeizureAssets || []).some((a) => String(a.status) !== 'archived')) ||
-        args.activeCoerciveActions.includes('property') ||
-        Boolean(propAsset);
-    const activeRealEstate = (args.realEstateSeizureAssets || []).filter(
-        (a) => String(a.status) !== 'archived'
-    );
-    const latestRealEstate = activeRealEstate.length
-        ? activeRealEstate[activeRealEstate.length - 1]
-        : null;
-    if (latestRealEstate && args.party === 'debtor' && args.isPrimaryDebtor) {
-        const est =
-            typeof latestRealEstate.estimatedPriceIqd === 'number' &&
-            Number.isFinite(latestRealEstate.estimatedPriceIqd) &&
-            latestRealEstate.estimatedPriceIqd > 0
-                ? `${latestRealEstate.estimatedPriceIqd.toLocaleString('ar-IQ')} د.ع`
-                : '—';
-        out.push({
-            id: 'real_estate_seizure',
-            shortLabel: 'يوجد عقار محجوز',
-            Icon: Building2,
-            tone: 'sky',
-            dismissMode: 'local',
-            detailLines: [
-                { k: 'رقم العقار والمقاطعة', v: latestRealEstate.propertyNoAndDistrict || '—' },
-                { k: 'جنس العقار', v: latestRealEstate.propertyGender || '—' },
-                { k: 'السعر التقديري', v: est },
-            ],
-        });
-    } else {
-        if (hasProperty && args.party === 'debtor' && args.isPrimaryDebtor) {
-            out.push({
-                id: 'property_seizure',
-                shortLabel: 'حجز عقار',
-                Icon: Building2,
-                tone: 'indigo',
-                dismissMode: 'local',
-                detailLines: propAsset
-                    ? linesForSeizedAssetPopover(propAsset)
-                    : [{ k: 'الملاحظة', v: 'عقار — راجع قائمة المحجوزات' }],
-            });
-        }
-    }
-
-    const vehAsset = activeSeized.find((a) => {
-        const t = String(a.type);
-        if (a.type === 'vehicle' || /مركبة|سيارة/i.test(t)) return true;
-        if (/عقار|real_estate|أرض/i.test(t)) return false;
-        return /مال\s*منقول|طلب\s*حجز\s*مال\s*منقول/i.test(t);
-    });
-    const hasVehicle = args.activeCoerciveActions.includes('vehicle') || Boolean(vehAsset);
-    if (hasVehicle && args.party === 'debtor' && args.isPrimaryDebtor) {
-        out.push({
-            id: 'vehicle_seizure',
-            shortLabel: 'حجز مال منقول',
-            Icon: Car,
-            tone: 'indigo',
-            dismissMode: 'local',
-            detailLines: vehAsset
-                ? linesForSeizedAssetPopover(vehAsset)
-                : [{ k: 'الملاحظة', v: 'مال منقول — راجع قائمة المحجوزات' }],
-        });
-    }
-
-    const movable = activeSeized.find((a) => {
-        const t = String(a.type);
-        if (a.type === 'vehicle' || /مركبة|سيارة/i.test(t)) return false;
-        if (a.type === 'real_estate' || /عقار|real_estate|أرض/i.test(t)) return false;
-        if (/مال\s*منقول|طلب\s*حجز\s*مال\s*منقول/i.test(t)) return false;
-        return a.type === 'movable' || a.type === 'bank_account' || a.type === 'other';
-    });
-    if (
-        movable &&
-        !hasProperty &&
-        !hasVehicle &&
-        args.party === 'debtor' &&
-        args.isPrimaryDebtor
-    ) {
-        out.push({
-            id: 'movable_seizure',
-            shortLabel: 'حجز مال / غير منقول',
-            Icon: Package,
-            tone: 'indigo',
-            dismissMode: 'local',
-            detailLines: linesForSeizedAssetPopover(movable),
-        });
-    }
-
-    const lockedReleased = args.seizedAssets.filter(
-        (a) => a.seizure_record_locked && String(a.status) === 'released'
-    );
-    for (const a of lockedReleased) {
-        if (args.party === 'debtor' && args.isPrimaryDebtor) {
-            out.push({
-                id: `seizure_released_${a.id}`,
-                shortLabel: 'فُك حجز',
-                Icon: Unlock,
-                tone: 'slate',
-                dismissMode: 'local',
-                detailLines: linesForSeizedAssetPopover(a),
-            });
-        }
-    }
     const lockedSold = args.seizedAssets.filter(
         (a) => a.seizure_record_locked && String(a.status) === 'sold'
     );
@@ -622,63 +490,6 @@ export function buildPartyBadgeDefinitions(args: {
                 tone: 'violet',
                 dismissMode: 'local',
                 detailLines: linesForSeizedAssetPopover(a),
-            });
-        }
-    }
-
-    if (args.party === 'debtor' && args.isPrimaryDebtor) {
-        const thirdParty = (args.thirdPartySeizureAssets || []).filter(
-            (a) => String(a.status || '') !== 'archived'
-        );
-        if (thirdParty.length > 0) {
-            const latest = thirdParty[thirdParty.length - 1];
-            const expected =
-                typeof latest.expectedAmountIqd === 'number' &&
-                Number.isFinite(latest.expectedAmountIqd) &&
-                latest.expectedAmountIqd > 0
-                    ? `${latest.expectedAmountIqd.toLocaleString('ar-IQ')} د.ع`
-                    : '—';
-            out.push({
-                id: `third_party_money_${latest.id}`,
-                shortLabel: 'توجد أموال لدى الغير',
-                Icon: Wallet,
-                tone: 'sky',
-                dismissMode: 'local',
-                detailLines: [
-                    { k: 'الجهة', v: latest.thirdPartyName || '—' },
-                    { k: 'المبلغ المتوقع', v: expected },
-                    {
-                        k: 'الحالة',
-                        v:
-                            latest.status === 'waiting'
-                                ? 'بانتظار إجابة الجهة المحجوز لديها'
-                                : 'تم الاستلام',
-                    },
-                    { k: 'الكتاب', v: latest.letterDetails || '—' },
-                ],
-            });
-        }
-
-        const marks = (args.standaloneExecutionMarks || []).filter(
-            (m) => String(m.status || '') !== 'archived'
-        );
-        if (marks.length > 0) {
-            const latest = marks[marks.length - 1];
-            out.push({
-                id: `standalone_mark_${latest.id}`,
-                shortLabel: 'تعميم/حجز احتياطي',
-                Icon: Pin,
-                tone: 'amber',
-                dismissMode: 'local',
-                detailLines: [
-                    { k: 'النوع', v: latest.markType },
-                    { k: 'الجهة', v: latest.targetEntity },
-                    { k: 'الكتاب', v: latest.letterDetails || '—' },
-                    {
-                        k: 'الحالة',
-                        v: latest.isMarkConfirmed ? 'تم وضع الشارة رسمياً' : 'بانتظار التأييد',
-                    },
-                ],
             });
         }
     }
@@ -712,6 +523,8 @@ export type ExecutionPartyInteractiveBadgesProps = {
     forcedAttendancePending?: boolean;
     /** افتراضياً true؛ عيّن false للمدين الموظف (لا شارات طلبات التنفيذ الجبري الشخصي من القرارات) */
     personalCoerciveDecisionBadges?: boolean;
+    /** المدين موظف — شارة «حجز راتب» للمدين فقط (الكفيل له مسار منفصل) */
+    debtorIsEmployee?: boolean;
     /** يزيد عند تحديث قرارات المنفذ المحلية لتمرير الشارات */
     decisionsReloadEpoch?: number;
     activeDebtorKey?: string;
@@ -734,8 +547,12 @@ export type ExecutionPartyInteractiveBadgesProps = {
     policeAssistanceBadge?: PoliceAssistanceBadgeInfo | null;
     onPoliceAssistanceActivate?: () => void;
     onCompletePoliceAssistance?: () => void;
+    /** تراجع عن منع السفر — إخفاء الشارة وإعادة دورة الطلب */
+    onWithdrawTravelBan?: () => void;
     /** معاينة تاريخية — منع فتح الشارات والتعديل */
     isHistoricalMode?: boolean;
+    /** داخل صف موحّد مع شارات المحجوزات — بدون غلاف flex منفصل */
+    embeddedInRow?: boolean;
 };
 
 export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractiveBadgesProps> = ({
@@ -779,7 +596,10 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
     policeAssistanceBadge = null,
     onPoliceAssistanceActivate,
     onCompletePoliceAssistance,
+    onWithdrawTravelBan,
     isHistoricalMode = false,
+    debtorIsEmployee = false,
+    embeddedInRow = false,
 }) => {
     const [hiddenLocal, setHiddenLocal] = useState<string[]>(() => loadHidden(executionId));
     const [openId, setOpenId] = useState<string | null>(null);
@@ -794,7 +614,7 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
     const guarantorSalaryInputRef = useRef<HTMLInputElement>(null);
     const guarantorDeductionInputRef = useRef<HTMLInputElement>(null);
     const btnRefs = useRef<Record<string, HTMLButtonElement | null>>({});
-    const [popoverPos, setPopoverPos] = useState<{ top: number; left: number; width: number } | null>(null);
+    const [popoverPos, setPopoverPos] = useState<FixedPopoverLayout | null>(null);
 
     useEffect(() => {
         setHiddenLocal(loadHidden(executionId));
@@ -928,11 +748,14 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
                 decisionsReloadEpoch,
                 activeDebtorKey,
                 primaryDebtorKey,
+                onWithdrawTravelBan: isHistoricalMode ? undefined : onWithdrawTravelBan,
+                debtorIsEmployee,
             }),
         [
             party,
             isPrimaryDebtor,
             executionData,
+            debtorIsEmployee,
             activeCoerciveActions,
             seizedAssets,
             realEstateSeizureAssets,
@@ -940,6 +763,8 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
             standaloneExecutionMarks,
             timelineEvents,
             hasGuarantor,
+            isHistoricalMode,
+            onWithdrawTravelBan,
             debtorArrested,
             forcedAttendancePending,
             personalCoerciveDecisionBadges,
@@ -1276,26 +1101,40 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
         const btn = btnRefs.current[openId];
         if (!btn) return;
         const r = btn.getBoundingClientRect();
-        const width = Math.min(272, window.innerWidth - 16);
-        let left = r.right - width;
-        left = Math.max(8, Math.min(left, window.innerWidth - width - 8));
-        setPopoverPos({ top: r.bottom + 4, left, width });
-    }, [openId]);
+        const openBadgeHit = visible.find((x) => x.id === openId);
+        const lineCount = openBadgeHit?.detailLines?.length ?? 0;
+        const isGuarantorForm = openId === 'guarantor_followup';
+        const estimatedHeight = isGuarantorForm ? 320 : Math.min(280, 88 + lineCount * 22);
+        const base = computeFixedPopoverLayout(r, {
+            preferredWidth: 272,
+            estimatedHeight,
+            gap: 4,
+        });
+        const el = popoverRef.current;
+        if (el) {
+            setPopoverPos(refinePopoverLayoutWithMeasuredHeight(base, r, el.offsetHeight, 4));
+        } else {
+            setPopoverPos(base);
+        }
+    }, [openId, visible]);
 
     useLayoutEffect(() => {
+        if (!openId) return;
         updatePopoverPosition();
+        const id = requestAnimationFrame(() => updatePopoverPosition());
+        return () => cancelAnimationFrame(id);
     }, [openId, updatePopoverPosition, visible]);
 
     useEffect(() => {
         if (!openId) return;
-        const onScrollResize = () => setOpenId(null);
+        const onScrollResize = () => updatePopoverPosition();
         window.addEventListener('scroll', onScrollResize, true);
         window.addEventListener('resize', onScrollResize);
         return () => {
             window.removeEventListener('scroll', onScrollResize, true);
             window.removeEventListener('resize', onScrollResize);
         };
-    }, [openId]);
+    }, [openId, updatePopoverPosition]);
 
     useEffect(() => {
         if (!openId) return;
@@ -1346,7 +1185,9 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
                     top: popoverPos.top,
                     left: popoverPos.left,
                     width: popoverPos.width,
-                    zIndex: BADGE_POPOVER_Z,
+                    maxHeight: popoverPos.maxHeight,
+                    overflowY: 'auto',
+                    zIndex: BADGE_POPOVER_Z_INDEX,
                 }}
                 dir="rtl"
                 onClick={(e) => e.stopPropagation()}
@@ -1392,7 +1233,7 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
                                 type="text"
                                 inputMode="decimal"
                                 value={guarantorSalaryDraft}
-                                onChange={(e) => setGuarantorSalaryDraft(e.target.value)}
+                                onChange={(e) => setGuarantorSalaryDraft(formatNumberInput(e.target.value))}
                                 className="w-full rounded-lg border border-white/12 bg-white/5 px-2 py-1.5 text-[11px] text-slate-100 placeholder:text-slate-600 font-mono text-right"
                                 placeholder="اختياري"
                                 dir="ltr"
@@ -1405,7 +1246,7 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
                                 type="text"
                                 inputMode="decimal"
                                 value={guarantorDeductionDraft}
-                                onChange={(e) => setGuarantorDeductionDraft(e.target.value)}
+                                onChange={(e) => setGuarantorDeductionDraft(formatNumberInput(e.target.value))}
                                 className="w-full rounded-lg border border-white/12 bg-white/5 px-2 py-1.5 text-[11px] text-slate-100 placeholder:text-slate-600 font-mono text-right"
                                 placeholder="اختياري"
                                 dir="ltr"
@@ -1418,10 +1259,8 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
                                 const w = guarantorWorkplaceDraft.trim();
                                 if (!n || !w) return;
                                 const parseIqd = (s: string): number | null => {
-                                    const t = String(s).replace(/,/g, '').replace(/\s/g, '').trim();
-                                    if (!t) return null;
-                                    const x = Number(t);
-                                    return Number.isFinite(x) ? x : null;
+                                    const n = parseAmount(s);
+                                    return Number.isFinite(n) ? n : null;
                                 };
                                 onPersistGuarantorFollowup(n, w, {
                                     salaryIqd: parseIqd(guarantorSalaryDraft),
@@ -1509,15 +1348,20 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
         <>
             <div
                 ref={rootRef}
-                className={`flex min-w-0 flex-1 flex-row-reverse flex-wrap content-start items-center justify-start gap-1.5${
-                    isHistoricalMode ? ' pointer-events-none opacity-60' : ''
-                }`}
+                className={
+                    embeddedInRow
+                        ? `contents${isHistoricalMode ? ' pointer-events-none opacity-60' : ''}`
+                        : `flex min-w-0 flex-1 flex-row-reverse flex-wrap content-start items-center justify-start gap-2${
+                              isHistoricalMode ? ' pointer-events-none opacity-60' : ''
+                          }`
+                }
             >
                 {visible.map((b) => {
                     const Icon = b.Icon;
                     return (
                         <div key={b.id} className="relative shrink-0">
-                            <button type="button"
+                            <button
+                                type="button"
                                 ref={(el) => {
                                     btnRefs.current[b.id] = el;
                                 }}
@@ -1527,9 +1371,9 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
                                     if (isHistoricalMode) return;
                                     setOpenId((id) => (id === b.id ? null : b.id));
                                 }}
-                                className={`inline-flex flex-row-reverse items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-normal leading-tight transition hover:brightness-110 ${toneRing[b.tone]}`}
+                                className={`${BADGE_PILL_CLASS} ${toneRing[b.tone]}`}
                             >
-                                <Icon size={10} className="shrink-0 opacity-90" strokeWidth={2} />
+                                <Icon size={14} className="shrink-0 opacity-90" strokeWidth={2} />
                                 <span className="whitespace-nowrap">{b.shortLabel}</span>
                             </button>
                         </div>

@@ -18,6 +18,8 @@ export const EXEC_MODAL_Z = {
     unifiedSummonsAndLegacyNotification: 235,
     /** نافذة فرعية فوق مركز القرارات (إضافة قرار / نتيجة طعن) */
     nestedOverDecisions: 240,
+    /** نافذة «السجل الزمني الكامل» — فوق غلاف التنفيذ */
+    timelineFullModal: 245,
     /** لوحة جانبية «قانون التنفيذ» (مرجع تشريعي) */
     lawReferencePanel: 250,
     /**

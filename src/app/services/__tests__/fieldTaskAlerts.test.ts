@@ -20,6 +20,7 @@ function pendingTask(partial: Partial<LegalTask> & Pick<LegalTask, 'id' | 'title
         isFatalDeadline: partial.isFatalDeadline ?? false,
         linkedCaseId: partial.linkedCaseId ?? null,
         status: 'pending',
+        completedAt: partial.completedAt ?? null,
         pinnedToFieldCurtain: partial.pinnedToFieldCurtain ?? false,
         subTasks: partial.subTasks ?? [],
         documentRequirements: partial.documentRequirements ?? [],

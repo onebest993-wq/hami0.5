@@ -9,24 +9,36 @@ import {
     type CommunityPost,
     type CommunityComment,
     LawyerStorage,
+    RepositoryDB,
+    type RepositoryDocument,
 } from '@/app/services/lawyer-cloud';
 import { ForumApiService } from '@/app/services/forumApiService';
+import { mergeCommunityPostsById, sortCommunityPosts } from '@/app/services/lawyer-cloud';
+import { readPersistedSupabaseAuth } from '@/app/utils/authStorage';
 import { checkForumRateLimit } from './CommunityScreen/forumRateLimit';
 import { buildCommunityPostShareUrl, setCommunityPostHash } from './CommunityScreen/communityDeepLink';
-import { hasOpenRouterKey, polishLegalTextAI, redactSensitiveDataAI, summarizeLegalFactsAI } from '@/app/services/ai-service';
+import {
+    persistCommunitySection,
+    readPersistedCommunitySection,
+    type CommunitySection,
+} from './CommunityScreen/communitySectionState';
+import { cacheForumAttachmentFile } from '@/app/services/forumAttachmentService';
+import { buildForumEditPatch } from '@/app/services/forum/forumEditUtils';
+import { repositoryDocMatchesTag, communityTagMatchesFilter, resolveCommunityPostTags, resolveRepositoryDocTags, repositoryDocMatchesSearch, formatRepositoryTag } from './CommunityScreen/repositoryTagUtils';
+import type { RepositorySortKey } from './CommunityScreen/repositoryListFilters';
+import { getRepositoryMediaKind } from './CommunityScreen/components/repositoryMedia';
+import { applyAutoRedaction } from './CommunityScreen/utils';
 import { useMutedUsers } from './CommunityScreen/useMutedUsers';
-
-import type { SpeechRecognitionEvent, SpeechRecognitionInstance } from './CommunityScreen/types';
-import { applyAutoRedaction, normalizeTagLabel, deriveTagsFromContent } from './CommunityScreen/utils';
 import { CommentBottomSheet } from './CommunityScreen/components/CommentBottomSheet';
 import { LegalRepository } from './CommunityScreen/components/LegalRepository';
 import { ForumAppBar } from './CommunityScreen/components/ForumAppBar';
-import { FilterBar } from './CommunityScreen/components/FilterBar';
+import { FORUM_FILTER_LABELS } from './CommunityScreen/forumFilters';
 import { ForumPostList } from './CommunityScreen/components/ForumPostList';
 import { EditPostModal } from './CommunityScreen/components/EditPostModal';
 import { SearchOverlay } from './CommunityScreen/components/SearchOverlay';
 import { AddQuestionSheet } from './CommunityScreen/components/AddQuestionSheet';
 import { FullscreenImageOverlay } from './CommunityScreen/components/FullscreenImageOverlay';
+import { ForumDeleteConfirmModal } from './CommunityScreen/components/ForumDeleteConfirmModal';
 import {
     canDeletePost,
     canEditPost,
@@ -36,26 +48,28 @@ import {
     canEditComment,
 } from './CommunityScreen/communityPermissions';
 
-/** تصنيفات الفلترة الثابتة — خارج المكوّن لتفادي إعادة الإنشاء عند كل render */
-const FILTER_LABELS = ['الأحدث', 'الأعلى تصويتاً', 'تنفيذ', 'مدني', 'جنائي', 'أحوال شخصية', 'شركات', 'عقاري'] as const;
+/** تصنيفات الفلترة — خارج المكوّن لتفادي إعادة الإنشاء عند كل render */
+const FILTER_LABELS = FORUM_FILTER_LABELS;
 
 /** السقف الأعلى لـ userStatsCache (LRU). يَحُد ذاكرة الجلسات الطويلة */
 const USER_STATS_CACHE_LIMIT = 500;
 
-/** الحد الأعلى لطول محتوى المنشور — يجب أن يطابق حدّ السيرفر */
-const POST_MAX_LENGTH = 10_000;
+/** الحد الأعلى لمرفقات المنشور (25MB — يطابق التخزين) */
+const FORUM_ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024;
+/** نص افتراضي لمنشور صوتي فقط (يجب ≥10 أحرف لتحقق السيرفر) */
+const VOICE_POST_DEFAULT_CONTENT = 'استشارة صوتية — استمع للمقطع المرفق.';
+/** أقصى مدة للتسجيل الصوتي (3 دقائق) */
+const VOICE_RECORD_MAX_SEC = 180;
 
 // --- MAIN SCREEN ---
 export const CommunityScreen = ({
     onBack,
     initialPostId = null,
     initialOpenComments = false,
-    initialSection = 'forum',
 }: {
     onBack?: () => void;
     initialPostId?: string | null;
     initialOpenComments?: boolean;
-    initialSection?: 'forum' | 'repository';
 }) => {
     const FORUM_DEV_OPEN = import.meta.env.DEV && import.meta.env.VITE_COMMUNITY_DEV_OPEN === 'true';
     const { user: authUser, isLoading: authIsLoading, hasRole } = useAuth();
@@ -68,12 +82,21 @@ export const CommunityScreen = ({
 
     const [isAddQuestionOpen, setIsAddQuestionOpen] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const [repositoryDocs, setRepositoryDocs] = useState<RepositoryDocument[]>([]);
+    const [repositorySearchTerm, setRepositorySearchTerm] = useState('');
+    const [repositorySortBy, setRepositorySortBy] = useState<RepositorySortKey>('newest');
+    const [repositorySelectedType, setRepositorySelectedType] = useState('الكل');
+    const [repositorySelectedTag, setRepositorySelectedTag] = useState<string | null>(null);
     const [isBanned, setIsBanned] = useState(false);
-    const [activeSection, setActiveSection] = useState<'forum' | 'repository'>(initialSection);
+    const [activeSection, setActiveSectionState] = useState<CommunitySection>(() => readPersistedCommunitySection());
+    const postsBootstrappedRef = useRef(false);
+    const hadAuthenticatedUserRef = useRef(false);
+    if (authUser) hadAuthenticatedUserRef.current = true;
 
-    useEffect(() => {
-        setActiveSection(initialSection);
-    }, [initialSection]);
+    const setActiveSection = useCallback((section: CommunitySection) => {
+        setActiveSectionState(section);
+        persistCommunitySection(section);
+    }, []);
     const isAdmin = hasRole('admin');
     const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
     const [userStats, setUserStats] = useState<Record<string, { followerCount: number; postCount: number }>>({});
@@ -95,22 +118,22 @@ export const CommunityScreen = ({
     const [newAttachment, setNewAttachment] = useState<CommunityPost['attachment']>(null);
     const [uploadingAttachment, setUploadingAttachment] = useState(false);
     const [submittingPost, setSubmittingPost] = useState(false);
-    const [isDictating, setIsDictating] = useState(false);
-    const speechRecRef = useRef<SpeechRecognitionInstance | null>(null);
-    /** نص المستخدم المكتوب قبل بدء الإملاء — نُضيف الإملاء إليه بدل استبداله */
-    const speechBaseTextRef = useRef<string>('');
-    const [showPolishAction, setShowPolishAction] = useState(false);
-    const [polishingText, setPolishingText] = useState(false);
+    const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+    const [voiceRecordingSec, setVoiceRecordingSec] = useState(0);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const voiceChunksRef = useRef<Blob[]>([]);
+    const voiceStreamRef = useRef<MediaStream | null>(null);
+    const voiceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
     const docInputRef = useRef<HTMLInputElement>(null);
-    
+
     const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
-    const [aiAnalysisByPostId, setAiAnalysisByPostId] = useState<Record<string, { loading: boolean; text: string | null }>>({});
-    const aiRunIdByPostIdRef = useRef<Record<string, string>>({});
 
     const [editingPostId, setEditingPostId] = useState<string | null>(null);
     const [editingText, setEditingText] = useState('');
     const [savingEdit, setSavingEdit] = useState(false);
+    const [pendingDeletePostId, setPendingDeletePostId] = useState<string | null>(null);
+    const [deletingPost, setDeletingPost] = useState(false);
     const deepLinkHandledRef = useRef(false);
     const postsRef = useRef(posts);
     postsRef.current = posts;
@@ -129,13 +152,22 @@ export const CommunityScreen = ({
 
     useEffect(() => {
         if (authIsLoading) return;
+        if (postsBootstrappedRef.current) return;
         let cancelled = false;
         (async () => {
             setLoadingPosts(true);
             try {
                 const { posts: page } = await ForumApiService.listPostsPaginated(PAGE_SIZE, 0);
                 if (cancelled) return;
-                setPosts(page);
+                postsBootstrappedRef.current = true;
+                setPosts((prev) =>
+                    sortCommunityPosts(
+                        mergeCommunityPostsById(
+                            prev,
+                            page.map((p) => ({ ...p, tags: resolveCommunityPostTags(p.content, p.tags) })),
+                        ),
+                    ),
+                );
                 setHasMore(page.length === PAGE_SIZE);
             } catch {
                 if (!cancelled) {
@@ -156,7 +188,14 @@ export const CommunityScreen = ({
             // وإلا فإن البولينج كل 90s يرى صورة منفصلة عن مزامنة الخادم
             const limit = Math.max(PAGE_SIZE, postsRef.current.length || PAGE_SIZE);
             const { posts: page } = await ForumApiService.listPostsPaginated(limit, 0);
-            setPosts(page);
+            setPosts((prev) =>
+                sortCommunityPosts(
+                    mergeCommunityPostsById(
+                        prev,
+                        page.map((p) => ({ ...p, tags: resolveCommunityPostTags(p.content, p.tags) })),
+                    ),
+                ),
+            );
             setHasMore(page.length >= limit);
         } catch {
             if (!silent) SmartToast.error('تعذّر تحديث المنشورات');
@@ -179,7 +218,8 @@ export const CommunityScreen = ({
             if (!target) {
                 target = await ForumApiService.getPostById(initialPostId);
                 if (target && !cancelled) {
-                    setPosts((prev) => (prev.some((p) => p.id === target!.id) ? prev : [target!, ...prev]));
+                    const resolved = { ...target, tags: resolveCommunityPostTags(target.content, target.tags) };
+                    setPosts((prev) => (prev.some((p) => p.id === resolved.id) ? prev : [resolved, ...prev]));
                 }
             }
             if (cancelled || !target) return;
@@ -198,7 +238,7 @@ export const CommunityScreen = ({
         return () => {
             cancelled = true;
         };
-    }, [initialPostId, initialOpenComments, loadingPosts]);
+    }, [initialPostId, initialOpenComments, loadingPosts, setActiveSection]);
 
     const loadUserStats = useCallback(async (userIds: string[]) => {
         const uniqueIds = [...new Set(userIds.filter(Boolean))];
@@ -248,7 +288,7 @@ export const CommunityScreen = ({
             return;
         }
         let cancelled = false;
-        void ForumApiService.listBookmarks().then((ids) => {
+        void ForumApiService.listBookmarks(currentUserId).then((ids) => {
             if (!cancelled) setBookmarkedIds(new Set(ids));
         });
         return () => { cancelled = true; };
@@ -265,103 +305,15 @@ export const CommunityScreen = ({
         setLoadingMore(true);
         try {
             const { posts: nextPage } = await ForumApiService.listPostsPaginated(PAGE_SIZE, posts.length);
-            setPosts((prev) => [...prev, ...nextPage]);
+            setPosts((prev) => [
+                ...prev,
+                ...nextPage.map((p) => ({ ...p, tags: resolveCommunityPostTags(p.content, p.tags) })),
+            ]);
             setHasMore(nextPage.length === PAGE_SIZE);
         } catch {
             SmartToast.error('تعذّر جلب المزيد من المنشورات');
         } finally {
             setLoadingMore(false);
-        }
-    };
-
-    useEffect(() => {
-        const w = window as unknown as {
-            SpeechRecognition?: new () => SpeechRecognitionInstance;
-            webkitSpeechRecognition?: new () => SpeechRecognitionInstance;
-        };
-        const Ctor = w.SpeechRecognition || w.webkitSpeechRecognition;
-        if (!Ctor) return;
-        const rec = new Ctor();
-        rec.lang = 'ar-IQ';
-        rec.interimResults = true;
-        rec.continuous = true;
-        rec.onresult = (event: SpeechRecognitionEvent) => {
-            // تجميع نص الإملاء كاملاً (نهائي + مؤقت)
-            let dictated = '';
-            const len = event.results.length;
-            for (let i = 0; i < len; i += 1) {
-                const r = event.results[i];
-                const t = r?.[0]?.transcript;
-                if (typeof t === 'string') dictated += t;
-            }
-            const trimmedDictation = dictated.trim();
-            if (!trimmedDictation) return;
-            // إضافة الإملاء للنص الموجود مسبقاً (يحافظ على كتابة المستخدم اليدوية)
-            const base = speechBaseTextRef.current;
-            const next = base ? `${base.replace(/\s+$/, '')} ${trimmedDictation}` : trimmedDictation;
-            setNewPostText(next.slice(0, POST_MAX_LENGTH));
-            setShowPolishAction(true);
-        };
-        rec.onerror = () => {
-            setIsDictating(false);
-            SmartToast.error('تعذّر تشغيل الإملاء الصوتي');
-        };
-        rec.onend = () => {
-            setIsDictating(false);
-        };
-        speechRecRef.current = rec;
-        return () => {
-            try {
-                rec.stop();
-            } catch {
-                /* ignore */
-            }
-            speechRecRef.current = null;
-        };
-    }, []);
-
-    const toggleDictation = () => {
-        const rec = speechRecRef.current;
-        if (!rec) {
-            SmartToast.warning('الإملاء الصوتي غير مدعوم في هذا المتصفح');
-            return;
-        }
-        if (isDictating) {
-            try {
-                rec.stop();
-            } catch {
-                /* ignore */
-            }
-            setIsDictating(false);
-            return;
-        }
-        try {
-            // التقاط النص الموجود قبل البدء كي لا يُمسح بالإملاء
-            speechBaseTextRef.current = newPostText;
-            rec.start();
-            setIsDictating(true);
-        } catch {
-            SmartToast.error('تعذّر بدء التسجيل');
-        }
-    };
-
-    const handlePolishLegalText = async () => {
-        const draft = newPostText.trim();
-        if (!draft) return;
-        if (!hasOpenRouterKey()) {
-            SmartToast.warning('مفتاح OpenRouter غير متوفر');
-            return;
-        }
-        setPolishingText(true);
-        try {
-            const polished = await polishLegalTextAI(draft);
-            setNewPostText(polished);
-            setShowPolishAction(false);
-            SmartToast.success('تمت الصياغة القانونية');
-        } catch {
-            SmartToast.error('تعذّرت الصياغة القانونية');
-        } finally {
-            setPolishingText(false);
         }
     };
 
@@ -375,6 +327,29 @@ export const CommunityScreen = ({
         });
     }, []);
 
+    useEffect(() => {
+        return () => {
+            if (voiceTimerRef.current) clearInterval(voiceTimerRef.current);
+            if (mediaRecorderRef.current?.state !== 'inactive') {
+                try { mediaRecorderRef.current?.stop(); } catch { /* ignore */ }
+            }
+            voiceStreamRef.current?.getTracks().forEach((t) => t.stop());
+        };
+    }, []);
+
+    useEffect(() => {
+        if (isAddQuestionOpen || !isRecordingVoice) return;
+        const rec = mediaRecorderRef.current;
+        if (rec && rec.state !== 'inactive') {
+            try { rec.stop(); } catch { /* ignore */ }
+        }
+        if (voiceTimerRef.current) {
+            clearInterval(voiceTimerRef.current);
+            voiceTimerRef.current = null;
+        }
+        setIsRecordingVoice(false);
+    }, [isAddQuestionOpen, isRecordingVoice]);
+
     const filters = FILTER_LABELS;
     const [selectedFilterIndex, setSelectedFilterIndex] = useState(0);
 
@@ -386,6 +361,27 @@ export const CommunityScreen = ({
     const allTags = useMemo(() => {
         return Array.from(new Set(posts.flatMap((p) => p.tags || [])));
     }, [posts]);
+
+    useEffect(() => {
+        if (!isSearchOpen) return;
+        let cancelled = false;
+        void RepositoryDB.listDocuments().then((docs) => {
+            if (!cancelled) {
+                setRepositoryDocs(
+                    docs.map((doc) => ({
+                        ...doc,
+                        tags: resolveRepositoryDocTags(doc.title, doc.description, doc.tags),
+                    })),
+                );
+            }
+        });
+        return () => { cancelled = true; };
+    }, [isSearchOpen]);
+
+    const allSearchTags = useMemo(() => {
+        const fromRepo = repositoryDocs.flatMap((d) => d.tags ?? []);
+        return Array.from(new Set([...allTags, ...fromRepo])).slice(0, 40);
+    }, [allTags, repositoryDocs]);
 
     const visiblePosts = useMemo(() => {
         // تطبيق فلتر الكتم: استبعاد منشورات المستخدمين المكتومين (مع استثناء المنشور لمالكه)
@@ -401,9 +397,11 @@ export const CommunityScreen = ({
             return list;
         }
         if (selectedFilterIndex >= 2) {
-            const wanted = `#${normalizeTagLabel(filters[selectedFilterIndex])}`;
+            const topicLabel = filters[selectedFilterIndex];
             return list
-                .filter((p) => p.tags.includes(wanted))
+                .filter((p) =>
+                    communityTagMatchesFilter(resolveCommunityPostTags(p.content, p.tags), topicLabel),
+                )
                 .sort((a, b) => {
                     const aUrg = a.isUrgent === true ? 1 : 0;
                     const bUrg = b.isUrgent === true ? 1 : 0;
@@ -431,10 +429,26 @@ export const CommunityScreen = ({
                 p.tags.some((t) => t.toLowerCase().includes(q));
             const matchesPdf = !filterHasPdf || (p.attachment?.type === 'document');
             const matchesImage = !filterHasImage || (p.attachment?.type === 'image');
-            const matchesTag = !selectedTag || p.tags.includes(selectedTag);
+            const matchesTag = communityTagMatchesFilter(
+                resolveCommunityPostTags(p.content, p.tags),
+                selectedTag,
+            );
             return matchesSearch && matchesPdf && matchesImage && matchesTag;
         });
     }, [isSearchOpen, posts, searchQuery, filterHasPdf, filterHasImage, selectedTag]);
+
+    const filteredRepositoryDocs = useMemo(() => {
+        if (!isSearchOpen) return [];
+        return repositoryDocs.filter((doc) => {
+            const matchesSearch = repositoryDocMatchesSearch(doc, searchQuery);
+            const docTags = resolveRepositoryDocTags(doc.title, doc.description, doc.tags);
+            const matchesTag = repositoryDocMatchesTag(docTags, selectedTag);
+            const mediaKind = getRepositoryMediaKind(doc.mimeType, doc.fileName);
+            const matchesPdf = !filterHasPdf || mediaKind === 'pdf';
+            const matchesImage = !filterHasImage || mediaKind === 'image';
+            return matchesSearch && matchesTag && matchesPdf && matchesImage;
+        });
+    }, [isSearchOpen, repositoryDocs, searchQuery, selectedTag, filterHasPdf, filterHasImage]);
 
     const handleToggleUpvote = async (postId: string) => {
         if (!currentUserId) {
@@ -615,15 +629,46 @@ export const CommunityScreen = ({
             return;
         }
         const snapshot = posts;
-        setPosts((prev) => prev.filter((p) => p.id !== postId));
+        setDeletingPost(true);
         try {
-            await ForumApiService.deletePost(postId, post.authorId, isAdmin);
+            await ForumApiService.deletePost(
+                postId,
+                post.author_id ?? post.authorId,
+                isAdmin,
+                currentUserId,
+            );
+            setPosts((prev) => prev.filter((p) => p.id !== postId));
             SmartToast.success('تم حذف المنشور');
-        } catch {
+        } catch (err) {
             setPosts(snapshot);
-            SmartToast.error('تعذّر حذف المنشور');
+            const message =
+                err instanceof Error && err.message.trim() ? err.message : 'تعذّر حذف المنشور';
+            SmartToast.error(message);
+        } finally {
+            setDeletingPost(false);
         }
     };
+
+    const requestDeletePost = (postId: string) => {
+        if (!currentUserId) return;
+        const post = posts.find((p) => p.id === postId);
+        if (!post || !canDeletePost(post, currentUserId, isAdmin)) {
+            SmartToast.warning('لا يمكنك حذف هذا المنشور');
+            return;
+        }
+        setPendingDeletePostId(postId);
+    };
+
+    const confirmDeletePost = async () => {
+        if (!pendingDeletePostId) return;
+        const postId = pendingDeletePostId;
+        setPendingDeletePostId(null);
+        await handleDeletePost(postId);
+    };
+
+    const pendingDeletePost = pendingDeletePostId
+        ? posts.find((p) => p.id === pendingDeletePostId) ?? null
+        : null;
 
     const handleToggleBestAnswer = async (postId: string, commentId: string) => {
         if (!currentUserId) return;
@@ -670,48 +715,178 @@ export const CommunityScreen = ({
         }
     };
 
-    const handleUploadAttachment = async (file: File, kind: 'image' | 'document') => {
-        if (FORUM_DEV_OPEN && !authUser?.id) {
-            // إلغاء blob URL سابق إن وُجد لمنع التسريب
+    const attachForumFileLocally = useCallback(async (file: File, kind: 'image' | 'document' | 'audio') => {
+        const fallbackMime =
+            kind === 'image' ? 'image/jpeg' : kind === 'audio' ? 'audio/webm' : 'application/octet-stream';
+        const cached = await cacheForumAttachmentFile(file);
+        setNewAttachment((prev) => {
+            if (prev?.url?.startsWith('blob:')) {
+                try { URL.revokeObjectURL(prev.url); } catch { /* ignore */ }
+            }
+            return {
+                type: kind,
+                url: cached.url,
+                name: file.name,
+                mimeType: file.type || fallbackMime,
+                storagePath: cached.storagePath,
+            };
+        });
+    }, []);
+
+    const handleUploadAttachment = useCallback(async (file: File, kind: 'image' | 'document' | 'audio') => {
+        if (file.size > FORUM_ATTACHMENT_MAX_BYTES) {
+            SmartToast.warning('حجم الملف كبير جداً (الحد 25MB)');
+            return;
+        }
+        if (
+            kind === 'image' &&
+            !file.type.startsWith('image/') &&
+            !/\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(file.name)
+        ) {
+            SmartToast.warning('يرجى اختيار صورة صالحة');
+            return;
+        }
+        if (
+            kind === 'audio' &&
+            !file.type.startsWith('audio/') &&
+            !/\.(webm|ogg|mp3|m4a|wav)$/i.test(file.name)
+        ) {
+            SmartToast.warning('يرجى تسجيل مقطع صوتي صالح');
+            return;
+        }
+
+        const userId = currentUserId ?? readPersistedSupabaseAuth().user?.id ?? null;
+
+        // بدون جلسة: إرفاق محلي فقط (كافٍ للمعاينة والنشر المحلي)
+        if (!userId) {
+            await attachForumFileLocally(file, kind);
+            SmartToast.success(kind === 'audio' ? 'تم إرفاق المقطع الصوتي' : 'تم إرفاق الملف');
+            return;
+        }
+
+        setUploadingAttachment(true);
+        try {
+            const storageCategory = kind === 'audio' ? 'audio' : 'drafts';
+            const uploaded = await LawyerStorage.uploadSmartFile(userId, file, storageCategory);
+            if (!uploaded?.downloadUrl) {
+                throw new Error('missing download url');
+            }
             setNewAttachment((prev) => {
-                if (prev?.url && prev.url.startsWith('blob:')) {
+                if (prev?.url?.startsWith('blob:')) {
                     try { URL.revokeObjectURL(prev.url); } catch { /* ignore */ }
                 }
                 return {
                     type: kind,
-                    url: URL.createObjectURL(file),
+                    url: uploaded.downloadUrl,
                     name: file.name,
                     mimeType: file.type,
+                    storagePath: uploaded.path ?? uploaded.fullPath,
                 };
             });
-            SmartToast.warning('في وضع التطوير: تم إرفاق الملف محلياً (بدون رفع سحابي)');
-            return;
-        }
-        if (!authUser?.id) {
-            SmartToast.warning('سجّل الدخول لإرفاق ملف');
-            return;
-        }
-        setUploadingAttachment(true);
-        try {
-            const uploaded = await LawyerStorage.uploadSmartFile(authUser.id, file, 'drafts');
-            if (!uploaded?.downloadUrl) {
-                SmartToast.error('تعذّر إنشاء رابط للملف');
-                return;
-            }
-            setNewAttachment({
-                type: kind,
-                url: uploaded.downloadUrl,
-                name: file.name,
-                mimeType: file.type,
-                storagePath: uploaded.fullPath,
-            });
-            SmartToast.success('تم إرفاق الملف');
+            SmartToast.success(kind === 'audio' ? 'تم إرفاق المقطع الصوتي' : 'تم إرفاق الملف');
         } catch {
-            SmartToast.error('فشل رفع الملف');
+            // Supabase/RLS/JWT غالباً يفشل في التطوير — نُبقي تجربة الإرفاق تعمل محلياً
+            await attachForumFileLocally(file, kind);
+            SmartToast.success(
+                import.meta.env.DEV
+                    ? kind === 'audio'
+                        ? 'تم إرفاق المقطع الصوتي (معاينة محلية)'
+                        : 'تم إرفاق الملف (معاينة محلية)'
+                    : kind === 'audio'
+                      ? 'تم إرفاق المقطع الصوتي على هذا الجهاز'
+                      : 'تم إرفاق الملف على هذا الجهاز',
+            );
         } finally {
             setUploadingAttachment(false);
         }
-    };
+    }, [attachForumFileLocally, currentUserId]);
+
+    const stopVoiceRecording = useCallback(() => {
+        const rec = mediaRecorderRef.current;
+        if (rec && rec.state !== 'inactive') {
+            try { rec.stop(); } catch { /* ignore */ }
+        }
+        if (voiceTimerRef.current) {
+            clearInterval(voiceTimerRef.current);
+            voiceTimerRef.current = null;
+        }
+        setIsRecordingVoice(false);
+    }, []);
+
+    const toggleVoiceRecording = useCallback(async () => {
+        if (uploadingAttachment) return;
+
+        if (isRecordingVoice) {
+            stopVoiceRecording();
+            return;
+        }
+
+        if (!navigator.mediaDevices?.getUserMedia) {
+            SmartToast.warning('التسجيل الصوتي غير مدعوم في هذا المتصفح');
+            return;
+        }
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            voiceStreamRef.current = stream;
+            voiceChunksRef.current = [];
+
+            const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+                ? 'audio/webm;codecs=opus'
+                : 'audio/webm';
+
+            const recorder = new MediaRecorder(stream, { mimeType });
+            mediaRecorderRef.current = recorder;
+
+            recorder.ondataavailable = (e) => {
+                if (e.data.size > 0) voiceChunksRef.current.push(e.data);
+            };
+
+            recorder.onstop = async () => {
+                stream.getTracks().forEach((t) => t.stop());
+                voiceStreamRef.current = null;
+
+                const blob = new Blob(voiceChunksRef.current, { type: mimeType });
+                if (blob.size === 0) {
+                    SmartToast.warning('لم يُسجَّل أي صوت');
+                    return;
+                }
+                const ext = mimeType.includes('webm') ? 'webm' : 'ogg';
+                const fileName = `forum-voice-${Date.now()}.${ext}`;
+                const file = new File([blob], fileName, { type: mimeType.split(';')[0] ?? 'audio/webm' });
+                await handleUploadAttachment(file, 'audio');
+            };
+
+            recorder.onerror = () => {
+                SmartToast.error('تعذّر التسجيل الصوتي');
+                stopVoiceRecording();
+            };
+
+            recorder.start(250);
+            setIsRecordingVoice(true);
+            setVoiceRecordingSec(0);
+            voiceTimerRef.current = setInterval(() => {
+                setVoiceRecordingSec((prev) => {
+                    const next = prev + 1;
+                    if (next >= VOICE_RECORD_MAX_SEC) {
+                        const activeRec = mediaRecorderRef.current;
+                        if (activeRec && activeRec.state !== 'inactive') {
+                            try { activeRec.stop(); } catch { /* ignore */ }
+                        }
+                        if (voiceTimerRef.current) {
+                            clearInterval(voiceTimerRef.current);
+                            voiceTimerRef.current = null;
+                        }
+                        setIsRecordingVoice(false);
+                        SmartToast.info('تم الوصول للحد الأقصى للتسجيل (3 دقائق)');
+                    }
+                    return next;
+                });
+            }, 1000);
+        } catch {
+            SmartToast.warning('لم نتمكن من الوصول إلى المايكروفون. تأكد من الإذن.');
+        }
+    }, [handleUploadAttachment, isRecordingVoice, stopVoiceRecording, uploadingAttachment]);
 
     const handleAddPost = async () => {
         if (!currentUserId) {
@@ -722,43 +897,28 @@ export const CommunityScreen = ({
             SmartToast.warning('حسابك محظور من النشر في المنتدى');
             return;
         }
-        const postRate = checkForumRateLimit('post', currentUserId);
-        if ('retryAfterSec' in postRate) {
-            SmartToast.warning(`انتظر ${postRate.retryAfterSec} ثانية قبل نشر جديد`);
-            return;
-        }
+        const hasVoiceAttachment = newAttachment?.type === 'audio';
         const rawContent = newPostText.trim();
-        if (rawContent.length < 10) {
-            SmartToast.warning('اكتب تفاصيل أوضح (10 أحرف على الأقل)');
+        const contentForPublish =
+            rawContent.length >= 10
+                ? rawContent
+                : hasVoiceAttachment
+                  ? VOICE_POST_DEFAULT_CONTENT
+                  : '';
+        if (contentForPublish.length < 10) {
+            SmartToast.warning('اكتب تفاصيل أوضح (10 أحرف على الأقل) أو سجّل مقطعاً صوتياً');
             return;
         }
         setSubmittingPost(true);
-        let finalContent = rawContent;
-        try {
-            if (hasOpenRouterKey()) {
-                finalContent = (await redactSensitiveDataAI(rawContent)).trim();
-                if (finalContent !== rawContent) {
-                    SmartToast.show('درع الخصوصية فعّال', {
-                        type: 'info',
-                        description: 'تم تنقيح البيانات حفاظاً على سرية الموكل.',
-                        duration: 3500,
-                    });
-                }
-            } else {
-                const redaction = applyAutoRedaction(rawContent);
-                finalContent = redaction.redacted.trim();
-                if (redaction.changed) {
-                    SmartToast.show('درع الخصوصية فعّال', {
-                        type: 'info',
-                        description: 'تم تنقيح البيانات حفاظاً على سرية الموكل.',
-                        duration: 3500,
-                    });
-                }
-            }
-        } catch {
-            const redaction = applyAutoRedaction(rawContent);
-            finalContent = redaction.redacted.trim();
-            SmartToast.warning('تعذّر تنقيح الذكاء الاصطناعي، تم استخدام تنقيح سريع');
+        let finalContent = contentForPublish;
+        const redaction = applyAutoRedaction(contentForPublish);
+        finalContent = redaction.redacted.trim();
+        if (redaction.changed) {
+            SmartToast.show('درع الخصوصية فعّال', {
+                type: 'info',
+                description: 'تم تنقيح البيانات حفاظاً على سرية الموكل.',
+                duration: 3500,
+            });
         }
         if (!finalContent) {
             SmartToast.warning('لا يمكن نشر محتوى فارغ');
@@ -771,9 +931,9 @@ export const CommunityScreen = ({
             .split(/[,|\s]+/g)
             .map((x) => x.trim())
             .filter(Boolean)
-            .map((x) => (x.startsWith('#') ? x : `#${x}`))
-            .map((x) => `#${normalizeTagLabel(x.replace(/^#/, ''))}`);
-        const tags = Array.from(new Set([...deriveTagsFromContent(rawContent), ...manualTags]));
+            .map((x) => formatRepositoryTag(x))
+            .filter(Boolean);
+        const tags = resolveCommunityPostTags(contentForPublish, manualTags);
         const now = new Date().toISOString();
         const post: CommunityPost = {
             id,
@@ -798,46 +958,23 @@ export const CommunityScreen = ({
         removeAttachment(); // يُلغي blob URL إن وُجد
         try {
             const saved = await ForumApiService.createPost(post);
-            setPosts((prev) => [saved, ...prev]);
+            setPosts((prev) => [
+                { ...saved, tags: resolveCommunityPostTags(saved.content, saved.tags) },
+                ...prev,
+            ]);
             SmartToast.success('تم نشر الاستشارة');
             if (currentUserId) {
                 notifyFollowers(currentUserId, 'new_post', 'منشور جديد من متابَع', `نشر ${post.authorName} استشارة جديدة`, saved.id);
             }
-        } catch {
-            SmartToast.error('تعذّر نشر الاستشارة');
+        } catch (err) {
+            const message =
+                err instanceof Error && err.message.trim()
+                    ? err.message
+                    : 'تعذّر نشر الاستشارة';
+            SmartToast.error(message);
         } finally {
             setSubmittingPost(false);
         }
-    };
-
-    const handleAnalyzeAI = async (postId: string) => {
-        const post = posts.find((p) => p.id === postId);
-        if (!post) return;
-        const runId =
-            typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-        aiRunIdByPostIdRef.current[postId] = runId;
-        setAiAnalysisByPostId((prev) => ({
-            ...prev,
-            [postId]: { loading: true, text: prev[postId]?.text ?? null },
-        }));
-        try {
-            const text = await summarizeLegalFactsAI(post.content);
-            if (aiRunIdByPostIdRef.current[postId] !== runId) return;
-            setAiAnalysisByPostId((prev) => ({ ...prev, [postId]: { loading: false, text } }));
-        } catch {
-            if (aiRunIdByPostIdRef.current[postId] !== runId) return;
-            setAiAnalysisByPostId((prev) => ({ ...prev, [postId]: { loading: false, text: prev[postId]?.text ?? null } }));
-            SmartToast.error('تعذّر تلخيص الوقائع حالياً');
-        }
-    };
-
-    const handleCloseSummary = (postId: string) => {
-        delete aiRunIdByPostIdRef.current[postId];
-        setAiAnalysisByPostId((prev) => {
-            const next = { ...prev };
-            delete next[postId];
-            return next;
-        });
     };
 
     const handleEditPost = (postId: string) => {
@@ -863,27 +1000,40 @@ export const CommunityScreen = ({
         }
         const targetId = editingPostId;
         const snapshot = posts.find((p) => p.id === targetId);
+        const editPatch = snapshot ? buildForumEditPatch(snapshot, nextText) : null;
         // تحديث متفائل: المستخدم يرى الإصدار المُعدَّل فوراً مع علامة «معدّل»
         setPosts((prev) =>
             prev.map((p) =>
-                p.id === targetId
-                    ? { ...p, content: nextText, isEdited: true, updatedAt: new Date().toISOString() }
+                p.id === targetId && editPatch
+                    ? { ...p, ...editPatch }
                     : p,
             ),
         );
         setSavingEdit(true);
         try {
-            const updated = await ForumApiService.updatePost(targetId, nextText);
-            setPosts((prev) => prev.map((p) => (p.id === targetId ? updated : p)));
+            const updated = await ForumApiService.updatePost(targetId, nextText, currentUserId);
+            const reconciled =
+                updated.content.trim() === nextText
+                    ? updated
+                    : editPatch
+                      ? { ...updated, ...editPatch }
+                      : {
+                            ...updated,
+                            content: nextText,
+                            isEdited: true,
+                            updatedAt: new Date().toISOString(),
+                        };
+            setPosts((prev) => prev.map((p) => (p.id === targetId ? reconciled : p)));
             SmartToast.success('تم تحديث المنشور');
             setEditingPostId(null);
             setEditingText('');
-        } catch {
+        } catch (err) {
             // التراجع عن التحديث المتفائل عند الفشل
             if (snapshot) {
                 setPosts((prev) => prev.map((p) => (p.id === targetId ? snapshot : p)));
             }
-            SmartToast.error('تعذّر تحديث المنشور');
+            const message = err instanceof Error && err.message.trim() ? err.message : 'تعذّر تحديث المنشور';
+            SmartToast.error(message);
         } finally {
             setSavingEdit(false);
         }
@@ -957,7 +1107,7 @@ export const CommunityScreen = ({
             return next;
         });
         try {
-            const bookmarked = await ForumApiService.toggleBookmark(postId);
+            const bookmarked = await ForumApiService.toggleBookmark(postId, currentUserId);
             setBookmarkedIds((prev) => {
                 const next = new Set(prev);
                 if (bookmarked) next.add(postId);
@@ -1043,12 +1193,33 @@ export const CommunityScreen = ({
             return;
         }
         const nextLocked = !post.isLocked;
+        const snapshot = post.isLocked;
+        setPosts((prev) =>
+            prev.map((p) =>
+                p.id === postId
+                    ? { ...p, isLocked: nextLocked || undefined, updatedAt: new Date().toISOString() }
+                    : p,
+            ),
+        );
         try {
-            const updated = await ForumApiService.toggleLockDiscussion(postId, nextLocked);
+            const updated = await ForumApiService.toggleLockDiscussion(
+                postId,
+                nextLocked,
+                currentUserId,
+                isAdmin,
+                post.author_id ?? post.authorId,
+            );
             setPosts((prev) => prev.map((p) => (p.id === postId ? updated : p)));
             SmartToast.success(nextLocked ? 'تم قفل النقاش' : 'تم فتح النقاش');
-        } catch {
-            SmartToast.error('تعذّر تحديث حالة القفل');
+        } catch (err) {
+            setPosts((prev) =>
+                prev.map((p) =>
+                    p.id === postId ? { ...p, isLocked: snapshot || undefined } : p,
+                ),
+            );
+            const message =
+                err instanceof Error && err.message.trim() ? err.message : 'تعذّر تحديث حالة القفل';
+            SmartToast.error(message);
         }
     };
 
@@ -1091,7 +1262,28 @@ export const CommunityScreen = ({
         }
     };
 
-    if (authIsLoading) {
+    const handleNavigateToPost = useCallback((postId: string) => {
+        setActiveSection('forum');
+        window.setTimeout(() => {
+            document.getElementById(`forum-post-${postId}`)?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+            });
+        }, 120);
+    }, [setActiveSection]);
+
+    const handleSearchOpenPost = useCallback((postId: string) => {
+        setIsSearchOpen(false);
+        handleNavigateToPost(postId);
+    }, [handleNavigateToPost]);
+
+    const handleSearchOpenDocument = useCallback((doc: RepositoryDocument) => {
+        setActiveSection('repository');
+        setRepositorySearchTerm(doc.title);
+        setIsSearchOpen(false);
+    }, [setActiveSection]);
+
+    if (authIsLoading && !authUser && !FORUM_DEV_OPEN && !hadAuthenticatedUserRef.current) {
         return <div dir="rtl" className="w-full h-full bg-[#151822]" />;
     }
     if (!FORUM_DEV_OPEN && (!authUser || !hasRole('lawyer'))) {
@@ -1115,74 +1307,83 @@ export const CommunityScreen = ({
                 activeSection={activeSection}
                 onSectionChange={setActiveSection}
                 onSearchOpen={() => setIsSearchOpen(true)}
+                onNavigateToPost={handleNavigateToPost}
                 userId={currentUserId}
+                selectedFilterIndex={selectedFilterIndex}
+                onFilterSelect={setSelectedFilterIndex}
+                repositorySearchTerm={repositorySearchTerm}
+                onRepositorySearchTermChange={setRepositorySearchTerm}
+                repositorySortBy={repositorySortBy}
+                onRepositorySortChange={setRepositorySortBy}
+                repositorySelectedType={repositorySelectedType}
+                onRepositoryTypeChange={setRepositorySelectedType}
+                repositorySelectedTag={repositorySelectedTag}
+                onRepositoryTagChange={setRepositorySelectedTag}
             />
 
             {/* Content Body */}
             <div className="flex-1 overflow-y-auto scrollbar-hide pb-36">
-                {activeSection === 'forum' ? (
-                    <>
-                        <FilterBar
-                            filters={filters}
-                            selectedFilterIndex={selectedFilterIndex}
-                            onFilterSelect={setSelectedFilterIndex}
-                        />
-
-                        <ForumPostList
-                            loadingPosts={loadingPosts}
-                            hasMore={hasMore}
-                            loadingMore={loadingMore}
-                            visiblePosts={visiblePosts}
-                            currentUserId={currentUserId}
-                            onToggleUpvote={handleToggleUpvote}
-                            onImageClick={(url) => setFullscreenImage(url)}
-                            onCommentClick={(id) => setCommentingPostId(id)}
-                            onDelete={handleDeletePost}
-                            onEdit={handleEditPost}
-                            onReport={handleReportPost}
-                            onShare={handleSharePost}
-                            aiAnalysisByPostId={aiAnalysisByPostId}
-                            onAnalyzeAI={handleAnalyzeAI}
-                            onCloseSummary={handleCloseSummary}
-                            onLoadMore={handleLoadMore}
-                            isAdmin={isAdmin}
-                            onTogglePin={handleTogglePin}
-                            onFollow={handleFollow}
-                            followingIds={followingIds}
-                            bookmarkedIds={bookmarkedIds}
-                            onToggleBookmark={handleToggleBookmark}
-                            onToggleLock={handleToggleLock}
-                            onMuteUser={handleMuteUser}
-                            userStats={userStats}
-                        />
-                    </>
-                ) : (
-                    <LegalRepository />
-                )}
+                <div className={activeSection === 'forum' ? 'block' : 'hidden'} aria-hidden={activeSection !== 'forum'}>
+                    <ForumPostList
+                        loadingPosts={loadingPosts}
+                        hasMore={hasMore}
+                        loadingMore={loadingMore}
+                        visiblePosts={visiblePosts}
+                        currentUserId={currentUserId}
+                        onToggleUpvote={handleToggleUpvote}
+                        onImageClick={(url) => setFullscreenImage(url)}
+                        onCommentClick={(id) => setCommentingPostId(id)}
+                        onDelete={requestDeletePost}
+                        onEdit={handleEditPost}
+                        onReport={handleReportPost}
+                        onShare={handleSharePost}
+                        onLoadMore={handleLoadMore}
+                        isAdmin={isAdmin}
+                        onTogglePin={handleTogglePin}
+                        onFollow={handleFollow}
+                        followingIds={followingIds}
+                        bookmarkedIds={bookmarkedIds}
+                        onToggleBookmark={handleToggleBookmark}
+                        onToggleLock={handleToggleLock}
+                        onMuteUser={handleMuteUser}
+                        userStats={userStats}
+                    />
+                </div>
+                <div className={activeSection === 'repository' ? 'block' : 'hidden'} aria-hidden={activeSection !== 'repository'}>
+                    <LegalRepository
+                        searchTerm={repositorySearchTerm}
+                        selectedType={repositorySelectedType}
+                        sortBy={repositorySortBy}
+                        selectedTag={repositorySelectedTag}
+                    />
+                </div>
             </div>
 
             <div className="fixed bottom-0 left-0 right-0 h-[180px] bg-gradient-to-t from-[#151822] via-[#151822]/95 to-transparent pointer-events-none z-10" />
 
-            {/* FAB */}
-            <div className="absolute bottom-6 left-6 z-20">
-                <button type="button"
-                    onClick={() => {
-                        if (!currentUserId) {
-                            SmartToast.warning('سجّل الدخول أولاً');
-                            return;
-                        }
-                        setIsAddQuestionOpen(true);
-                    }}
-                    className={`flex items-center gap-2 font-bold py-3 px-5 rounded-2xl shadow-xl shadow-black/30 transition-transform active:scale-95 ${
-                        currentUserId
-                            ? 'bg-[#E6C673] hover:bg-[#d4b560] text-black'
-                            : 'bg-white/10 text-white/40 cursor-not-allowed'
-                    }`}
-                >
-                    <Plus size={20} />
-                    <span>طرح استشارة للزملاء</span>
-                </button>
-            </div>
+            {/* FAB — المنتدى فقط */}
+            {activeSection === 'forum' ? (
+                <div className="absolute bottom-6 left-6 z-20">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (!currentUserId) {
+                                SmartToast.warning('سجّل الدخول أولاً');
+                                return;
+                            }
+                            setIsAddQuestionOpen(true);
+                        }}
+                        className={`flex items-center gap-2 font-bold py-3 px-5 rounded-2xl shadow-xl shadow-black/30 transition-transform active:scale-95 ${
+                            currentUserId
+                                ? 'bg-[#E6C673] hover:bg-[#d4b560] text-black'
+                                : 'bg-white/10 text-white/40 cursor-not-allowed'
+                        }`}
+                    >
+                        <Plus size={20} />
+                        <span>طرح استشارة للزملاء</span>
+                    </button>
+                </div>
+            ) : null}
 
             <EditPostModal
                 editingPostId={editingPostId}
@@ -1226,9 +1427,12 @@ export const CommunityScreen = ({
                 onFilterHasImageChange={setFilterHasImage}
                 selectedTag={selectedTag}
                 onSelectedTagChange={setSelectedTag}
-                allTags={allTags}
+                allTags={allSearchTags}
                 filteredPosts={filteredPosts}
+                filteredDocuments={filteredRepositoryDocs}
                 onClose={() => setIsSearchOpen(false)}
+                onOpenPost={handleSearchOpenPost}
+                onOpenDocument={handleSearchOpenDocument}
             />
 
             <AddQuestionSheet
@@ -1245,13 +1449,11 @@ export const CommunityScreen = ({
                 onRemoveAttachment={removeAttachment}
                 submittingPost={submittingPost}
                 uploadingAttachment={uploadingAttachment}
-                isDictating={isDictating}
-                showPolishAction={showPolishAction}
-                polishingText={polishingText}
+                isRecordingVoice={isRecordingVoice}
+                voiceRecordingSec={voiceRecordingSec}
                 imageInputRef={imageInputRef}
                 docInputRef={docInputRef}
-                onPolishLegalText={handlePolishLegalText}
-                onToggleDictation={toggleDictation}
+                onToggleVoiceRecording={() => void toggleVoiceRecording()}
                 onImageUpload={(file) => handleUploadAttachment(file, 'image')}
                 onDocUpload={(file) => handleUploadAttachment(file, 'document')}
                 onSubmit={handleAddPost}
@@ -1261,6 +1463,21 @@ export const CommunityScreen = ({
             <FullscreenImageOverlay
                 imageUrl={fullscreenImage}
                 onClose={() => setFullscreenImage(null)}
+            />
+
+            <ForumDeleteConfirmModal
+                open={pendingDeletePostId !== null}
+                title="تأكيد حذف المنشور"
+                message={
+                    pendingDeletePost
+                        ? `هل أنت متأكد من حذف هذه الاستشارة؟ لا يمكن التراجع عن الحذف.\n\n«${pendingDeletePost.content.slice(0, 80)}${pendingDeletePost.content.length > 80 ? '…' : ''}»`
+                        : 'هل أنت متأكد من حذف هذا المنشور؟ لا يمكن التراجع عن الحذف.'
+                }
+                loading={deletingPost}
+                onConfirm={() => void confirmDeletePost()}
+                onCancel={() => {
+                    if (!deletingPost) setPendingDeletePostId(null);
+                }}
             />
         </div>
     );

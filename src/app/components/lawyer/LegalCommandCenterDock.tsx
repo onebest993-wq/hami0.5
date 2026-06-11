@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, Suspense } from 'react';
 import { 
-    Book, Scan, Mic, 
+    Book, Mic, 
     Edit3, ListChecks, FolderOpen,
     Calendar as CalendarIcon,
     type LucideIcon,
@@ -9,11 +9,9 @@ import { SmartToast } from '@/app/components/ui/SmartToast';
 import { motion } from 'motion/react';
 import { NotebookModal } from './NotebookModal';
 import {
-    LazyScannerModal,
     LazySmartVaultModal,
     LazyVoiceRecorderModal,
 } from '@/app/components/lawyer/commandCenterDockLazy';
-import { LegalAI } from './LegalAI_Coordinator';
 import type { CommandCenterNote as Note, NoteType } from './commandCenterTypes';
 
 export type { NoteType, CommandCenterNote as Note } from './commandCenterTypes';
@@ -50,7 +48,6 @@ export const LegalCommandCenterDock: React.FC<LegalCommandCenterDockProps> = ({
 }) => {
     // Internal State for ALL Modals (Decoupled from Dashboard to prevent freezing)
     const [showNotebook, setShowNotebook] = useState(false);
-    const [showScanner, setShowScanner] = useState(false);
     const [showVault, setShowVault] = useState(false);
     const [showVoiceModal, setShowVoiceModal] = useState(false);
     
@@ -102,84 +99,31 @@ export const LegalCommandCenterDock: React.FC<LegalCommandCenterDockProps> = ({
         );
     };
 
-    // Quick Note AI Processor (TEXT)
-    const _aiProcessQuickNote = async (text: string) => {
+    const saveQuickNote = (text: string) => {
         const cleanText = text.trim();
-        if (!cleanText) return;
-        
-        // Use Central AI
-        const analysis = await LegalAI.processInput(cleanText, 'text');
-        
-        // Process Actions
-        if (analysis.actions.length > 0) {
-            analysis.actions.forEach((action) => {
-                if (action.type === 'calendar') {
-                    if (onOpenCalendar) onOpenCalendar();
-                    else SmartToast.info(action.label);
-                    return;
-                }
-                if (action.type === 'doc') {
-                    SmartToast.info(action.label);
-                    return;
-                }
-                SmartToast.info(action.label);
-            });
-        }
+        if (!cleanText || !onAddNote) return;
 
         const isSchedule = cleanText.includes("موعد") || cleanText.includes("جلسة") || cleanText.includes("تذكير");
-        
-        if (onAddNote) {
-            onAddNote({
-                id: Date.now(),
-                content: cleanText,
-                type: isSchedule ? 'schedule' : 'text',
-                date: new Date()
-            });
-            
-            if (isSchedule) {
-                SmartToast.success("تمت جدولة الموعد في التقويم 📅");
-            } else {
-                SmartToast.success("تم حفظ الملاحظة الذكية 📝");
-            }
+
+        onAddNote({
+            id: Date.now(),
+            content: cleanText,
+            type: isSchedule ? 'schedule' : 'text',
+            date: new Date()
+        });
+
+        if (isSchedule) {
+            SmartToast.success("تمت جدولة الموعد في التقويم 📅");
+        } else {
+            SmartToast.success("تم حفظ الملاحظة 📝");
         }
-        
+
         setQuickNote('');
     };
 
-    const processRecordedBlob = async (audioBlob: Blob, mimeType: string) => {
-        const loadingToast = SmartToast.loading("جاري معالجة الصوت بالذكاء الاصطناعي...");
-        try {
-            const analysis = await LegalAI.processInput(audioBlob, 'audio');
-            
-            setQuickNote(typeof analysis.text === 'string' ? analysis.text : '');
-            SmartToast.dismiss(loadingToast);
-            SmartToast.success("تم التفريغ النصي بنجاح ✅");
-            
-            analysis.actions.forEach((action) => {
-                if (action.type === 'calendar') {
-                    SmartToast.show("تم رصد موعد في التسجيل", {
-                        description: action.label,
-                        action: {
-                            label: "إضافة",
-                            onClick: () => SmartToast.success("تمت الإضافة للجدول الزمني")
-                        },
-                        duration: 5000,
-                    });
-                    return;
-                }
-                SmartToast.info(action.label);
-            });
-
-            if (analysis.summary && analysis.summary.length > 0) {
-                SmartToast.show("ملخص التسجيل", {
-                    description: analysis.summary.join('\n'),
-                    duration: 6000
-                });
-            }
-        } catch {
-            SmartToast.dismiss(loadingToast);
-            SmartToast.warning("⚠️ تعذر معالجة التسجيل. استخدم التسجيل من النافذة المنبثقة.");
-        }
+    const processRecordedBlob = async (audioBlob: Blob, _mimeType: string) => {
+        SmartToast.info('تم حفظ التسجيل الصوتي. استخدم نافذة التسجيل لإضافة ملاحظة نصية.');
+        void audioBlob;
     };
 
     const startLiveRecording = async () => {
@@ -260,7 +204,7 @@ export const LegalCommandCenterDock: React.FC<LegalCommandCenterDockProps> = ({
             <div className="bg-[#0F172A]/60 rounded-[30px] shadow-[0_20px_60px_rgba(0,0,0,0.7)] p-5 pb-6 w-full border border-[#D4AF37] backdrop-blur-[30px]">
                 <div className="flex flex-col gap-5">
                     
-                    {/* 1. صف أدوات الذكاء الاصطناعي (الصف العلوي) */}
+                    {/* 1. صف الأدوات السريعة (الصف العلوي) */}
                     <div className="flex justify-evenly items-center w-full px-2">
                         <AIButton 
                             icon={Book} 
@@ -275,35 +219,26 @@ export const LegalCommandCenterDock: React.FC<LegalCommandCenterDockProps> = ({
                                 else SmartToast.info('📅 فتح التقويم...');
                             }}
                         />
-                        {/* Scanner FAB — محور الشريط السفلي */}
+                        {/* مخزن الملفات + الماسح — محور الشريط */}
                         <div className="group relative flex flex-col items-center">
                             <button type="button" 
                                 onClick={() => {
-                                    if (!requireSignedIn('الماسح الضوئي')) return;
-                                    SmartToast.info("📸 جاري فتح الكاميرا للمعالجة...");
-                                    setShowScanner(true);
+                                    if (!requireSignedIn('مخزن الملفات')) return;
+                                    setShowVault(true);
                                 }}
-                                title="الماسح الضوئي"
+                                title="مخزن الملفات والمسح الضوئي"
                                 className="w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 border-2 active:scale-90 shadow-[0_4px_25px_rgba(212,175,55,0.4)]"
                                 style={{
                                     background: 'linear-gradient(180deg, rgba(212,175,55,0.25) 0%, rgba(212,175,55,0.1) 100%)',
                                     borderColor: '#D4AF37'
                                 }}
                             >
-                                <Scan size={26} className="text-[#D4AF37]" />
+                                <FolderOpen size={26} className="text-[#D4AF37]" />
                             </button>
                             <span className="absolute -top-10 text-[10px] text-[#D4AF37] opacity-0 group-hover:opacity-100 transition-opacity bg-black/90 border border-[#D4AF37]/30 px-2 py-1 rounded-md pointer-events-none whitespace-nowrap shadow-lg z-50">
-                                الماسح الضوئي
+                                مخزن الملفات والمسح
                             </span>
                         </div>
-                        <AIButton
-                            icon={FolderOpen}
-                            tooltip="مخزن الملفات الذكي"
-                            onClick={() => {
-                                if (!requireSignedIn('مخزن الملفات')) return;
-                                setShowVault(true);
-                            }}
-                        />
                         {/* مهام اليوم — أقصى اليمين: يفتح الستارة الذكية */}
                         <div className="group relative flex flex-col items-center">
                             <button
@@ -341,7 +276,7 @@ export const LegalCommandCenterDock: React.FC<LegalCommandCenterDockProps> = ({
                         className="relative group"
                         onSubmit={(e) => {
                             e.preventDefault();
-                            void _aiProcessQuickNote(quickNote);
+                            saveQuickNote(quickNote);
                         }}
                     >
                         <div className="relative group">
@@ -424,11 +359,6 @@ export const LegalCommandCenterDock: React.FC<LegalCommandCenterDockProps> = ({
                 {/* Localized Modals to prevent Dashboard Freeze */}
                 {showNotebook && (
                     <NotebookModal onClose={() => setShowNotebook(false)} userId={userId} />
-                )}
-                {showScanner && (
-                    <Suspense fallback={null}>
-                        <LazyScannerModal onClose={() => setShowScanner(false)} userId={userId || ''} />
-                    </Suspense>
                 )}
             </div>
         </div>

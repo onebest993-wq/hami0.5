@@ -10,7 +10,7 @@ export type ProfileMediaUploadResult = {
     source: 'cloud' | 'local';
 };
 
-async function compressImageToDataUrl(file: File): Promise<string> {
+export async function compressImageToDataUrl(file: File): Promise<string> {
     const objectUrl = URL.createObjectURL(file);
     try {
         const image = await new Promise<HTMLImageElement>((resolve, reject) => {

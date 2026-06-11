@@ -12,6 +12,13 @@ import {
 import { WORK_WEEK } from './constants';
 import { formatShortDate } from './utils';
 
+export type EditSubTaskDraft = {
+    id: string;
+    title: string;
+    location: string;
+    isCompleted: boolean;
+};
+
 export type TasksManagerModalsProps = {
     fatalOpen: boolean;
     onFatalOpenChange: (open: boolean) => void;
@@ -27,6 +34,9 @@ export type TasksManagerModalsProps = {
     onEditTitleChange: (value: string) => void;
     editLocation: string;
     onEditLocationChange: (value: string) => void;
+    editSubTasks: EditSubTaskDraft[];
+    onEditSubTaskChange: (subId: string, patch: Partial<Pick<EditSubTaskDraft, 'title' | 'location'>>) => void;
+    onRemoveEditSubTask: (subId: string) => void;
     onSaveEdit: () => void;
     reminderModalTaskId: string | null;
     onDismissReminder: () => void;
@@ -54,6 +64,9 @@ export function TasksManagerModals({
     onEditTitleChange,
     editLocation,
     onEditLocationChange,
+    editSubTasks,
+    onEditSubTaskChange,
+    onRemoveEditSubTask,
     onSaveEdit,
     reminderModalTaskId,
     onDismissReminder,
@@ -122,7 +135,7 @@ export function TasksManagerModals({
             </Dialog>
 
             <Dialog open={editOpen} onOpenChange={onEditOpenChange}>
-                <DialogContent className="border-slate-700 bg-slate-900 text-slate-100 sm:max-w-md [&]:translate-x-[-50%] [&]:translate-y-[-50%]">
+                <DialogContent className="border-slate-700 bg-slate-900 text-slate-100 sm:max-w-lg max-h-[90dvh] overflow-y-auto [&]:translate-x-[-50%] [&]:translate-y-[-50%]">
                     <DialogHeader className="text-right space-y-2">
                         <DialogTitle className="text-slate-100 text-base font-extrabold">✏️ تعديل المهمة</DialogTitle>
                         <DialogDescription className="text-slate-400 text-xs">
@@ -134,6 +147,9 @@ export function TasksManagerModals({
                         onEditTitleChange={onEditTitleChange}
                         editLocation={editLocation}
                         onEditLocationChange={onEditLocationChange}
+                        editSubTasks={editSubTasks}
+                        onEditSubTaskChange={onEditSubTaskChange}
+                        onRemoveEditSubTask={onRemoveEditSubTask}
                     />
                     <DialogFooter className="flex flex-row-reverse gap-2 sm:justify-start">
                         <button
@@ -204,11 +220,17 @@ function EditTaskFields({
     onEditTitleChange,
     editLocation,
     onEditLocationChange,
+    editSubTasks,
+    onEditSubTaskChange,
+    onRemoveEditSubTask,
 }: {
     editTitle: string;
     onEditTitleChange: (v: string) => void;
     editLocation: string;
     onEditLocationChange: (v: string) => void;
+    editSubTasks: EditSubTaskDraft[];
+    onEditSubTaskChange: (subId: string, patch: Partial<Pick<EditSubTaskDraft, 'title' | 'location'>>) => void;
+    onRemoveEditSubTask: (subId: string) => void;
 }) {
     return (
         <div className="space-y-3 text-right py-2">
@@ -231,6 +253,46 @@ function EditTaskFields({
                     placeholder="اسم المحكمة أو الدائرة إن وُجد"
                 />
             </div>
+            {editSubTasks.length > 0 ? (
+                <div className="border-t border-slate-700/60 pt-3">
+                    <p className="text-[11px] font-bold text-sky-300/90 mb-2">الإجراءات الفرعية</p>
+                    <ul className="space-y-2 max-h-48 overflow-y-auto pr-0.5">
+                        {editSubTasks.map((st, idx) => (
+                            <li
+                                key={st.id}
+                                className="rounded-xl border border-slate-700/70 bg-slate-950/40 p-2.5 space-y-2"
+                            >
+                                <div className="flex flex-row-reverse items-center justify-between gap-2">
+                                    <span className="text-[10px] font-bold text-slate-500 tabular-nums">
+                                        {idx + 1}. {st.isCompleted ? '(منجز)' : ''}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => onRemoveEditSubTask(st.id)}
+                                        className="text-[10px] font-bold text-rose-300 hover:text-rose-200"
+                                    >
+                                        حذف
+                                    </button>
+                                </div>
+                                <input
+                                    dir="rtl"
+                                    className="w-full rounded-lg border border-slate-600 bg-slate-900/70 px-2.5 py-1.5 text-sm text-slate-100 outline-none focus:border-sky-500/45"
+                                    value={st.title}
+                                    onChange={(e) => onEditSubTaskChange(st.id, { title: e.target.value })}
+                                    placeholder="عنوان الإجراء الفرعي"
+                                />
+                                <input
+                                    dir="rtl"
+                                    className="w-full rounded-lg border border-slate-600 bg-slate-900/70 px-2.5 py-1.5 text-[11px] text-slate-100 outline-none focus:border-emerald-500/45"
+                                    value={st.location}
+                                    onChange={(e) => onEditSubTaskChange(st.id, { location: e.target.value })}
+                                    placeholder="موقع الفرع (اختياري)"
+                                />
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            ) : null}
         </div>
     );
 }

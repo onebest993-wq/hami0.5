@@ -11,27 +11,10 @@ afterEach(() => {
 });
 
 describe('checkForumRateLimit (client)', () => {
-    describe('post action (30s burst + 25/hour)', () => {
-        it('يسمح بأول منشور دائماً', () => {
-            const res = checkForumRateLimit('post', 'user-1');
-            expect(res.allowed).toBe(true);
-        });
-
-        it('يمنع منشور ثانٍ خلال 30 ثانية (burst guard)', () => {
-            const first = checkForumRateLimit('post', 'user-1');
-            expect(first.allowed).toBe(true);
-            const second = checkForumRateLimit('post', 'user-1');
-            expect(second.allowed).toBe(false);
-            if (second.allowed === false) {
-                expect(second.retryAfterSec).toBeGreaterThan(0);
-                expect(second.retryAfterSec).toBeLessThanOrEqual(30);
-            }
-        });
-
-        it('يفصل المستخدمين عن بعضهم', () => {
-            checkForumRateLimit('post', 'user-1');
-            const otherUser = checkForumRateLimit('post', 'user-2');
-            expect(otherUser.allowed).toBe(true);
+    describe('post action', () => {
+        it('لا يفرض انتظاراً بين المنشورات', () => {
+            expect(checkForumRateLimit('post', 'user-1').allowed).toBe(true);
+            expect(checkForumRateLimit('post', 'user-1').allowed).toBe(true);
         });
     });
 

@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { isPartyDeathCaseForRole } from '@/app/utils/partyDeathCaseScope';
 
 export function useDossierDeathStatus(
     executionData: any,
@@ -6,7 +7,7 @@ export function useDossierDeathStatus(
 ) {
     const isDebtorDeceasedForEvictionHeirs =
         executionData?.is_debtor_deceased === true ||
-        executionData?.party_death_case?.deceased_party === 'debtor' ||
+        isPartyDeathCaseForRole(executionData, 'debtor') ||
         Boolean(debtors[0] && (debtors[0] as { isDeceased?: boolean }).isDeceased);
 
     const creditorDeathMarked = useMemo(() => {

@@ -1,15 +1,31 @@
 import { useMemo, useCallback } from 'react';
 
+/** الأنواع المتاحة حالياً لإنشاء إضبارة جديدة */
 export const EXECUTION_DOC_TYPE_OPTIONS: { value: string; label: string }[] = [
     { value: 'قرارات وأحكام المحاكم', label: 'قرارات المحاكم' },
-    { value: 'الحجج الشرعية', label: 'الحجج الشرعية' },
-    { value: 'الأوراق التجارية', label: 'الأوراق التجارية (صك/كمبيالة)' },
-    { value: 'السندات المتضمنة إقراراً بدين', label: 'السندات العادية (إقرار بدين)' },
-    { value: 'السندات المثبتة لحق عيني', label: 'سندات التسجيل العقاري' },
-    { value: 'الكفالة الواقعة أمام المنفذ العدل', label: 'كفالات المنفذ العدل' },
-    { value: 'تنفيذ الأحكام الأجنبية', label: 'الأحكام الأجنبية' },
-    { value: 'قرارات المحكمين المصدقة', label: 'قرارات المحكمين المصدقة' },
 ];
+
+/** أنواع سندات تُعرض للمعلومة فقط — قيد الدراسة والتطوير */
+export const EXECUTION_DOC_TYPE_COMING_SOON: { label: string }[] = [
+    { label: 'الحجج الشرعية' },
+    { label: 'الأوراق التجارية (صك/كمبيالة)' },
+    { label: 'السندات العادية (إقرار بدين)' },
+    { label: 'سندات التسجيل العقاري' },
+    { label: 'كفالات المنفذ العدل' },
+    { label: 'الأحكام الأجنبية' },
+    { label: 'قرارات المحكمين المصدقة' },
+];
+
+const EXECUTION_DOC_TYPE_LABEL_BY_VALUE: Record<string, string> = {
+    'قرارات وأحكام المحاكم': 'قرارات المحاكم',
+    'الحجج الشرعية': 'الحجج الشرعية',
+    'الأوراق التجارية': 'الأوراق التجارية (صك/كمبيالة)',
+    'السندات المتضمنة إقراراً بدين': 'السندات العادية (إقرار بدين)',
+    'السندات المثبتة لحق عيني': 'سندات التسجيل العقاري',
+    'الكفالة الواقعة أمام المنفذ العدل': 'كفالات المنفذ العدل',
+    'تنفيذ الأحكام الأجنبية': 'الأحكام الأجنبية',
+    'قرارات المحكمين المصدقة': 'قرارات المحكمين المصدقة',
+};
 
 function getClassificationOptions(docType: string) {
     if (!docType) return [];
@@ -18,7 +34,7 @@ function getClassificationOptions(docType: string) {
         case 'قرارات وأحكام المحاكم':
             return [
                 { value: 'مدني', label: 'مدني' },
-                { value: 'شرعي', label: 'شرعي / أحوال شخصية' }
+                { value: 'شرعي', label: 'أحوال شخصية' }
             ];
         case 'الأوراق التجارية':
         case 'السندات المتضمنة إقراراً بدين':
@@ -84,18 +100,19 @@ function getClaimTypeOptions(docType: string, classification: string) {
                 { value: 'استحصال دين مالي', label: 'استحصال دين مالي' },
                 { value: 'eviction', label: 'تخلية المأجور/ تسليم عقار' },
                 { value: 'إزالة تجاوز', label: 'إزالة / رفع تجاوز' },
-                { value: 'تسليم شيء معين', label: 'تسليم شيء معين' }
+                { value: 'تسليم شيء معين', label: 'تسليم شيء معين' },
             ];
         case 'قرارات وأحكام المحاكم_شرعي':
             return [
-                { value: 'نفقة', label: 'استحصال نفقة' },
+                { value: 'نفقة', label: 'نفقة مستمرة' },
+                { value: 'نفقة ماضية', label: 'نفقة ماضية' },
                 { value: 'نفقة عدة', label: 'نفقة عدة' },
                 { value: 'مهر مؤجل', label: 'مهر مؤجل' },
                 { value: 'تعويض عن طلاق تعسفي', label: 'تعويض عن طلاق تعسفي' },
                 { value: 'تسليم ولد', label: 'تسليم حضانة' },
                 { value: 'مشاهدة', label: 'مشاهدة واستصحاب' },
                 { value: 'أثاث زوجية', label: 'أثاث زوجية' },
-                { value: 'مطاوعة', label: 'مطاوعة (رجوع للعشرة الزوجية)' }
+                { value: 'مطاوعة', label: 'المطاوعة/ ترك النشوز' }
             ];
         case 'تنفيذ الأحكام الأجنبية_مدني':
             return [
@@ -115,7 +132,8 @@ function getClaimTypeOptions(docType: string, classification: string) {
 export function useExecutionCreationFormOptions(
     docType: string,
     classification: string,
-    claimType: string
+    claimType: string,
+    activeClaimTypes: string[] = []
 ) {
     const classificationOptionsList = useMemo(() => getClassificationOptions(docType), [docType]);
 
@@ -135,14 +153,20 @@ export function useExecutionCreationFormOptions(
     );
 
     const currentDocTypeLabel = useMemo(
-        () => EXECUTION_DOC_TYPE_OPTIONS.find((o) => o.value === docType)?.label ?? '',
+        () =>
+            EXECUTION_DOC_TYPE_LABEL_BY_VALUE[docType] ??
+            EXECUTION_DOC_TYPE_OPTIONS.find((o) => o.value === docType)?.label ??
+            '',
         [docType]
     );
 
-    const currentClaimTypeLabel = useMemo(
-        () => claimTypeOptionsList.find((o) => o.value === claimType)?.label ?? '',
-        [claimTypeOptionsList, claimType]
-    );
+    const currentClaimTypeLabel = useMemo(() => {
+        const keys = activeClaimTypes.length > 0 ? activeClaimTypes : claimType ? [claimType] : [];
+        if (keys.length === 0) return '';
+        return keys
+            .map((k) => claimTypeOptionsList.find((o) => o.value === k)?.label ?? k)
+            .join(' + ');
+    }, [claimTypeOptionsList, claimType, activeClaimTypes]);
 
     return {
         classificationOptionsList,

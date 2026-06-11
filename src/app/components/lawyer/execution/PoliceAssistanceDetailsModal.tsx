@@ -1,14 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import { X, Shield } from 'lucide-react';
 import { EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
+import { PoliceAssistanceInlineForm } from '@/app/components/lawyer/execution/PoliceAssistanceInlineForm';
 
 export interface PoliceAssistanceDetailsModalProps {
     open: boolean;
     requestTitle: string;
     initialAgencyName?: string;
     onClose: () => void;
-    onConfirm: (payload: { agencyName: string }) => void;
+    onConfirm: (payload: { agencyName: string; linkToTasks: boolean }) => void;
 }
 
 export const PoliceAssistanceDetailsModal: React.FC<PoliceAssistanceDetailsModalProps> = ({
@@ -18,13 +19,11 @@ export const PoliceAssistanceDetailsModal: React.FC<PoliceAssistanceDetailsModal
     onClose,
     onConfirm,
 }) => {
-    const [agencyName, setAgencyName] = useState('');
+    const wasOpenRef = useRef(false);
 
     useEffect(() => {
-        if (open) {
-            setAgencyName(String(initialAgencyName || '').trim());
-        }
-    }, [open, initialAgencyName]);
+        wasOpenRef.current = open;
+    }, [open]);
 
     if (!open) return null;
 
@@ -56,34 +55,14 @@ export const PoliceAssistanceDetailsModal: React.FC<PoliceAssistanceDetailsModal
                         <X size={24} />
                     </button>
                 </div>
-                <p className="text-gray-400 text-xs text-right mb-4 leading-relaxed">{requestTitle}</p>
-
-                <div className="space-y-4">
-                    <div>
-                        <label className="text-gray-400 text-sm mb-2 block">الجهة المرافقة</label>
-                        <input
-                            type="text"
-                            value={agencyName}
-                            onChange={(e) => setAgencyName(e.target.value)}
-                            className="w-full backdrop-blur-xl bg-slate-800/30 border border-amber-500/20 rounded-2xl p-3 text-white focus:outline-none focus:border-amber-500/50 transition-all"
-                            placeholder="مثال: مركز شرطة ... / قوات ..."
-                        />
-                    </div>
-                </div>
-
-                <button
-                    type="button"
-                    disabled={!agencyName.trim()}
-                    onClick={() => {
-                        const v = agencyName.trim();
-                        if (!v) return;
-                        onConfirm({ agencyName: v });
-                        onClose();
+                <PoliceAssistanceInlineForm
+                    embedded
+                    requestTitle={requestTitle}
+                    initialAgencyName={initialAgencyName}
+                    onSave={({ agencyName, linkToTasks }) => {
+                        onConfirm({ agencyName, linkToTasks });
                     }}
-                    className="w-full bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3 rounded-2xl transition-all shadow-lg shadow-amber-500/20 hover:shadow-amber-500/35 mt-4"
-                >
-                    حفظ وربطه بالمواعيد والسجل
-                </button>
+                />
             </motion.div>
         </div>
     );

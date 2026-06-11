@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { Debtor, ExecutionFile } from '@/app/types/execution';
+import { resolvePartyStoredName } from '@/app/utils/executionPartyNormalize';
 import type { UnifiedExecutionDebtorRow } from '../types';
 import { executionDebtorRowCleared } from '../helpers';
 
@@ -16,7 +17,7 @@ export function useAllDebtorsUnified(
                 primary.id != null && String(primary.id).trim() !== ''
                     ? String(primary.id)
                     : 'primary_debtor';
-            const name = String(primary.name || 'مدين').trim() || 'مدين';
+            const name = resolvePartyStoredName(primary) || 'مدين';
             const allocRaw = Number(primary.allocated_debt);
             const paidRaw = Number(primary.paid_amount);
             const alloc = Number.isFinite(allocRaw) ? Math.max(0, allocRaw) : 0;
@@ -35,7 +36,7 @@ export function useAllDebtorsUnified(
             const paid = Math.max(0, Number(ad.paid_amount) || 0);
             rows.push({
                 id: String(ad.id ?? ''),
-                name: String(ad.name || 'مدين').trim() || 'مدين',
+                name: resolvePartyStoredName(ad) || 'مدين',
                 source: 'additional',
                 allocated_debt: alloc,
                 paid_amount: paid,

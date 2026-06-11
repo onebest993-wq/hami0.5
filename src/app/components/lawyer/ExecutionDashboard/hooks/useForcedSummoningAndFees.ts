@@ -120,7 +120,7 @@ export function useForcedSummoningAndFees(
     ]);
 
     const shouldCalculateExecutionFeeBase =
-        !isAlimonyClaim && initiator === 'الدائن' && daysSinceNoticeCalculated > 7 && paidDebt < totalOwed;
+        initiator === 'الدائن' && daysSinceNoticeCalculated > 7 && paidDebt < totalOwed;
     const shouldCalculateExecutionFee =
         shouldCalculateExecutionFeeBase &&
         (!isEvictionExecutionModule || Boolean(executionData?.eviction_lawyer_fee_requested));

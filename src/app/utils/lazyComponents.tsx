@@ -27,17 +27,27 @@ export const LazySmartFileModal = lazyWithRetry(
 );
 
 export const LazyCommunityScreen = lazyWithRetry(() =>
-    import('@/app/components/lawyer/CommunityScreen').then((m) => ({ default: m.CommunityScreen as unknown as LazyComponent }))
+    import('@/app/components/lawyer/CommunityScreen.tsx').then((m) => ({ default: m.CommunityScreen as unknown as LazyComponent }))
 );
+
+let communityScreenPrefetch: Promise<unknown> | null = null;
+
+/** تحميل مسبق لمنتدى الزملاء قبل فتح التبويب */
+export function prefetchCommunityScreen(): void {
+    if (typeof window === 'undefined') return;
+    if (!communityScreenPrefetch) {
+        communityScreenPrefetch = import('@/app/components/lawyer/CommunityScreen.tsx');
+    }
+}
+
+export function resetCommunityScreenPrefetch(): void {
+    communityScreenPrefetch = null;
+}
 
 export const LazyDecisionsAndAppealsEngine = lazyWithRetry(() =>
-    import('@/app/components/lawyer/DecisionsAndAppealsEngine').then((m) => ({
+    import('@/app/components/lawyer/DecisionsAndAppealsEngine.tsx').then((m) => ({
         default: m.DecisionsAndAppealsEngine as unknown as LazyComponent,
     }))
-);
-
-export const LazyDocumentVault = lazyWithRetry(() =>
-    import('@/app/components/lawyer/DocumentVault').then((m) => ({ default: m.DocumentVault as unknown as LazyComponent }))
 );
 
 export const LazyAlimonyEngine = lazyWithRetry(() =>
@@ -54,16 +64,12 @@ export const LazyPremiumTimelineAuditLog = lazyWithRetry(() =>
     }))
 );
 
-export const LazyAILegalAssistant = lazyWithRetry(() =>
-    import('@/app/components/lawyer/AILegalAssistant').then((m) => ({ default: m.default as unknown as LazyComponent }))
-);
-
 export const LazyFinancialOperationsCenter = lazyWithRetry(
-    () => import('@/app/components/lawyer/FinancialOperationsCenter').then((m) => ({ default: m.FinancialOperationsCenter as unknown as LazyComponent }))
+    () => import('@/app/components/lawyer/FinancialOperationsCenter.tsx').then((m) => ({ default: m.FinancialOperationsCenter as unknown as LazyComponent }))
 );
 
 export const LazyUnifiedSummonsHub = lazyWithRetry(
-    () => import('@/app/components/lawyer/Modal_Unified_Summons_Hub').then((m) => ({ default: m.UnifiedSummonsHub as unknown as LazyComponent }))
+    () => import('@/app/components/lawyer/Modal_Unified_Summons_Hub.tsx').then((m) => ({ default: m.UnifiedSummonsHub as unknown as LazyComponent }))
 );
 
 export const LazyClientRequestsHub = lazyWithRetry(() =>
@@ -89,15 +95,15 @@ export const LazySettlementCalculator = lazyWithRetry(
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const LazyExecutionDashboard = lazyWithRetry(
-    () => import('@/app/components/lawyer/ExecutionDashboard').then((m) => ({ default: m.ExecutionDashboard as unknown as LazyComponent }))
+    () => import('@/app/components/lawyer/ExecutionDashboard.tsx').then((m) => ({ default: m.ExecutionDashboard as unknown as LazyComponent }))
 );
 
 export const LazySmartUtilities = lazyWithRetry(() =>
-    import('@/app/components/lawyer/SmartUtilities').then((m) => ({ default: m.SmartUtilities as unknown as LazyComponent }))
+    import('@/app/components/lawyer/SmartUtilities.tsx').then((m) => ({ default: m.SmartUtilities as unknown as LazyComponent }))
 );
 
 export const LazySmartContractGenerator = lazyWithRetry(() =>
-    import('@/app/components/lawyer/SmartContractGenerator').then((m) => ({ default: m.SmartContractGenerator as unknown as LazyComponent }))
+    import('@/app/components/lawyer/SmartContractGenerator.tsx').then((m) => ({ default: m.SmartContractGenerator as unknown as LazyComponent }))
 );
 
 export const LazyNotepadModal = lazyWithRetry(() =>
@@ -105,7 +111,7 @@ export const LazyNotepadModal = lazyWithRetry(() =>
 );
 
 export const LazyArchivePortal = lazyWithRetry(() =>
-    import('@/app/components/lawyer/ArchivePortal').then((m) => ({
+    import('@/app/components/lawyer/ArchivePortal.tsx').then((m) => ({
         default: m.ArchivePortal as unknown as LazyComponent,
     }))
 );
@@ -128,7 +134,7 @@ let urgentOrdersViewPrefetch: Promise<unknown> | null = null;
 export function prefetchUrgentOrdersView(): void {
     if (typeof window === 'undefined') return;
     if (!urgentOrdersViewPrefetch) {
-        urgentOrdersViewPrefetch = import('@/app/components/lawyer/View_Urgent_And_Orders_Dashboard');
+        urgentOrdersViewPrefetch = import('@/app/components/lawyer/View_Urgent_And_Orders_Dashboard.tsx');
     }
 }
 
@@ -138,12 +144,12 @@ export function resetUrgentOrdersViewPrefetch(): void {
 }
 
 export const LazyViewUrgentAndOrdersDashboard = lazyWithRetry(() =>
-    import('@/app/components/lawyer/View_Urgent_And_Orders_Dashboard').then((m) => ({
+    import('@/app/components/lawyer/View_Urgent_And_Orders_Dashboard.tsx').then((m) => ({
         default: m.View_Urgent_And_Orders_Dashboard as unknown as LazyComponent,
     }))
 );
 export const LazySmartVaultModal = lazyWithRetry(() =>
-    import('@/app/components/lawyer/SmartVaultModal').then((m) => ({ default: m.SmartVaultModal as unknown as LazyComponent }))
+    import('@/app/components/lawyer/SmartVaultModal.tsx').then((m) => ({ default: m.SmartVaultModal as unknown as LazyComponent }))
 );
 export const LazySmartCriminalLibrary = lazyWithRetry(() =>
     import('@/app/components/lawyer/dashboard/SmartCriminalLibrary').then((m) => ({ default: m.SmartCriminalLibrary as unknown as LazyComponent }))
@@ -173,12 +179,25 @@ export function prefetchSmartFileModal(): void {
     }
 }
 
+let executionDashboardPrefetch: Promise<unknown> | null = null;
+
+/** تحميل مسبق إضبارة التنفيذ (chunk ثقيل ~750KB) */
+export function prefetchExecutionDashboard(): void {
+    if (typeof window === 'undefined') return;
+    if (!executionDashboardPrefetch) {
+        executionDashboardPrefetch = import('@/app/components/lawyer/ExecutionDashboard.tsx');
+    }
+}
+
+export function resetExecutionDashboardPrefetch(): void {
+    executionDashboardPrefetch = null;
+}
+
 /** تحميل مسبق كل أنواع الإضابير (مدني + جزائي + تنفيذ) */
 export function prefetchDossierShells(): void {
     prefetchSmartFileModal();
     prefetchCriminalDashboard();
-    if (typeof window === 'undefined') return;
-    void import('@/app/components/lawyer/ExecutionDashboard');
+    prefetchExecutionDashboard();
 }
 
 export function resetCriminalDashboardPrefetch(): void {
@@ -207,13 +226,13 @@ export const LazyRoyalLawyerProfile = lazyWithRetry(() =>
     import('@/app/components/lawyer/RoyalLawyerProfile').then((m) => ({ default: m.RoyalLawyerProfile as unknown as LazyComponent }))
 );
 export const LazySmartLegalRadar = lazyWithRetry(() =>
-    import('@/app/components/lawyer/SmartLegalRadar').then((m) => ({ default: m.SmartLegalRadar as unknown as LazyComponent }))
+    import('@/app/components/lawyer/SmartLegalRadar.tsx').then((m) => ({ default: m.SmartLegalRadar as unknown as LazyComponent }))
 );
 export const LazyExecutionCreationView = lazyWithRetry(() =>
-    import('@/app/components/lawyer/ExecutionCreationView').then((m) => ({ default: m.ExecutionCreationView as unknown as LazyComponent }))
+    import('@/app/components/lawyer/ExecutionCreationView.tsx').then((m) => ({ default: m.ExecutionCreationView as unknown as LazyComponent }))
 );
 export const LazyGlobalSearchOverlay = lazyWithRetry(() =>
-    import('@/app/components/lawyer/GlobalSearchOverlay').then((m) => ({ default: m.GlobalSearchOverlay as unknown as LazyComponent }))
+    import('@/app/components/lawyer/GlobalSearchOverlay.tsx').then((m) => ({ default: m.GlobalSearchOverlay as unknown as LazyComponent }))
 );
 export const LazyGlobalSearchResults = lazyWithRetry(() =>
     import('@/app/components/lawyer/dashboard/GlobalSearchResults').then((m) => ({ default: m.GlobalSearchResults as unknown as LazyComponent }))
@@ -236,7 +255,7 @@ export const LazyLegalCommandCenterDock = lazyWithRetry(() =>
     import('@/app/components/lawyer/LegalCommandCenterDock').then((m) => ({ default: m.LegalCommandCenterDock as unknown as LazyComponent }))
 );
 export const LazyTasksManager = lazyWithRetry(() =>
-    import('@/app/components/lawyer/dashboard/TasksManager').then((m) => ({ default: m.TasksManager as unknown as LazyComponent }))
+    import('@/app/components/lawyer/dashboard/TasksManager.tsx').then((m) => ({ default: m.TasksManager as unknown as LazyComponent }))
 );
 export const LazyLawyerAuth = lazyWithRetry(() =>
     import('@/app/components/lawyer/LawyerAuth').then((m) => ({ default: m.LawyerAuth as unknown as LazyComponent }))
@@ -322,11 +341,9 @@ export const ComponentErrorFallback = ({ error, resetErrorBoundary }: ComponentE
 export default {
     LazySmartFileModal,
     LazyDecisionsAndAppealsEngine,
-    LazyDocumentVault,
     LazyAlimonyEngine,
     LazyAssetSeizureEngine,
     LazyPremiumTimelineAuditLog,
-    LazyAILegalAssistant,
     LazyFinancialOperationsCenter,
     LazyUnifiedSummonsHub,
     LazyClientRequestsHub,

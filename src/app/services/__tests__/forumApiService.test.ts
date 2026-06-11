@@ -5,10 +5,14 @@ import type { CommunityPost } from '@/app/services/lawyer-cloud';
 vi.mock('@/app/services/SecureAPIClient', () => {
     class SecureFetchError extends Error {
         status: number;
-        constructor(message: string, status: number) {
+        bodyText: string;
+        url: string;
+        constructor(message: string, status: number, bodyText = '', url = '') {
             super(message);
             this.name = 'SecureFetchError';
             this.status = status;
+            this.bodyText = bodyText;
+            this.url = url;
         }
     }
     return {
@@ -32,6 +36,8 @@ vi.mock('@/app/lib/supabase-client', () => ({
 // محاكاة lawyer-cloud (مسار fallback)
 const lawyerCloudMocks = {
     listPosts: vi.fn(),
+    savePost: vi.fn(),
+    persistPostsBatch: vi.fn(),
     addCommunityPost: vi.fn(),
     deleteCommunityPost: vi.fn(),
     addCommunityComment: vi.fn(),
@@ -44,8 +50,28 @@ const lawyerCloudMocks = {
 };
 
 vi.mock('@/app/services/lawyer-cloud', () => ({
+    mergeCommunityPostsById: (local: CommunityPost[], remote: CommunityPost[]) => {
+        const map = new Map<string, CommunityPost>();
+        for (const p of local) map.set(p.id, p);
+        for (const p of remote) {
+            const prev = map.get(p.id);
+            if (!prev) {
+                map.set(p.id, p);
+                continue;
+            }
+            const prevTime = Date.parse(prev.updatedAt);
+            const nextTime = Date.parse(p.updatedAt);
+            map.set(p.id, nextTime >= prevTime ? p : prev);
+        }
+        return Array.from(map.values());
+    },
+    filterDeletedCommunityPosts: (posts: CommunityPost[], _deleted: Set<string>) => posts,
+    getDeletedCommunityPostIds: vi.fn().mockResolvedValue(new Set<string>()),
+    sortCommunityPosts: (posts: CommunityPost[]) => posts,
     CommunityDB: {
         listPosts: lawyerCloudMocks.listPosts,
+        savePost: lawyerCloudMocks.savePost,
+        persistPostsBatch: lawyerCloudMocks.persistPostsBatch,
     },
     addCommunityPost: lawyerCloudMocks.addCommunityPost,
     deleteCommunityPost: lawyerCloudMocks.deleteCommunityPost,
@@ -103,8 +129,9 @@ afterEach(() => {
 
 describe('ForumApiService.withFallback', () => {
     describe('listPostsPaginated', () => {
-        it('يستخدم API عند نجاح الاستدعاء', async () => {
+        it('يستخدم API عند نجاح الاستدعاء ويدمج مع المحلي', async () => {
             const apiPosts = [makePost('p1'), makePost('p2')];
+            lawyerCloudMocks.listPosts.mockResolvedValueOnce([]);
             (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
                 ok: true,
                 posts: apiPosts,
@@ -117,32 +144,42 @@ describe('ForumApiService.withFallback', () => {
                 expect.stringContaining('limit=20'),
                 { method: 'GET' },
             );
-            // الـ fallback لم يُستخدم
-            expect(lawyerCloudMocks.listPosts).not.toHaveBeenCalled();
+            expect(lawyerCloudMocks.listPosts).toHaveBeenCalled();
         });
 
         it('يستخدم fallback عند فشل عام (شبكة/500)', async () => {
-            (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('network'));
             lawyerCloudMocks.listPosts.mockResolvedValueOnce([makePost('legacy-1')]);
+            (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('network'));
             const res = await ForumApiService.listPostsPaginated(10, 0);
             expect(res.posts[0]?.id).toBe('legacy-1');
             expect(lawyerCloudMocks.listPosts).toHaveBeenCalled();
         });
 
         it('يرمي الخطأ مباشرة عند 401 (لا fallback لأخطاء المصادقة)', async () => {
+            lawyerCloudMocks.listPosts.mockResolvedValueOnce([]);
             (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
                 new SecureFetchError('unauthorized', 401, '', '/api/forum/posts'),
             );
             await expect(ForumApiService.listPostsPaginated(10, 0)).rejects.toThrow('unauthorized');
-            expect(lawyerCloudMocks.listPosts).not.toHaveBeenCalled();
+            expect(lawyerCloudMocks.listPosts).toHaveBeenCalled();
         });
 
         it('يرمي الخطأ مباشرة عند 403 (banned)', async () => {
+            lawyerCloudMocks.listPosts.mockResolvedValueOnce([makePost('local-only')]);
+            (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+                new SecureFetchError('forbidden', 403, JSON.stringify({ error: 'حسابك محظور من المنتدى' }), '/api/forum/posts'),
+            );
+            await expect(ForumApiService.listPostsPaginated(10, 0)).rejects.toThrow('forbidden');
+        });
+
+        it('يستخدم المحلي عند 403 توقيع (غير حظر)', async () => {
+            const local = [makePost('local-only')];
+            lawyerCloudMocks.listPosts.mockResolvedValueOnce(local);
             (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
                 new SecureFetchError('forbidden', 403, '', '/api/forum/posts'),
             );
-            await expect(ForumApiService.listPostsPaginated(10, 0)).rejects.toThrow('forbidden');
-            expect(lawyerCloudMocks.listPosts).not.toHaveBeenCalled();
+            const res = await ForumApiService.listPostsPaginated(10, 0);
+            expect(res.posts[0]?.id).toBe('local-only');
         });
     });
 
@@ -215,7 +252,50 @@ describe('ForumApiService.withFallback', () => {
         });
     });
 
+    describe('updatePost', () => {
+        it('يحفظ محلياً أولاً ثم يُزامِن مع API', async () => {
+            const updated = makePost('p-edit', { content: 'نص محدّث', isEdited: true });
+            lawyerCloudMocks.updateCommunityPost.mockResolvedValueOnce(updated);
+            (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+                ok: true,
+                post: updated,
+            });
+            const result = await ForumApiService.updatePost('p-edit', 'نص محدّث');
+            expect(result.content).toBe('نص محدّث');
+            expect(lawyerCloudMocks.updateCommunityPost).toHaveBeenCalledWith(
+                'p-edit',
+                'نص محدّث',
+                'session-user',
+            );
+            expect(SecureAPIClient.fetchSecure).toHaveBeenCalled();
+        });
+
+        it('يُرجع النسخة المحلية إذا فشل API', async () => {
+            const updated = makePost('p-edit', { content: 'نص محدّث', isEdited: true });
+            lawyerCloudMocks.updateCommunityPost.mockResolvedValueOnce(updated);
+            (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+                new SecureFetchError('forbidden', 403, '', '/api/forum/update'),
+            );
+            const result = await ForumApiService.updatePost('p-edit', 'نص محدّث');
+            expect(result.content).toBe('نص محدّث');
+        });
+    });
+
     describe('deletePost', () => {
+        it('يحذف محلياً حتى بدون جلسة Supabase عند تمرير requesterId', async () => {
+            (supabaseModule.supabase.auth.getSession as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+                data: { session: null },
+            });
+            lawyerCloudMocks.deleteCommunityPost.mockResolvedValueOnce(undefined);
+            await ForumApiService.deletePost('p1', 'session-user', false, 'session-user');
+            expect(lawyerCloudMocks.deleteCommunityPost).toHaveBeenCalledWith(
+                'p1',
+                'session-user',
+                undefined,
+                'session-user',
+            );
+        });
+
         it('يرمي بدون تسجيل دخول', async () => {
             (supabaseModule.supabase.auth.getSession as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
                 data: { session: null },

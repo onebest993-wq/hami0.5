@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { resolvePartyStoredName } from '@/app/utils/executionPartyNormalize';
 
 export function useCreditorWorkspace(
     effectiveCreditors: any[],
@@ -21,14 +22,16 @@ export function useCreditorWorkspace(
             });
         });
         additionalCreditorsPm.forEach((ac) => {
+            const occ = ac.occupation ?? ac.employmentType ?? 'كاسب';
             out.push({
                 key: `pmc-${ac.id}`,
                 c: {
                     id: ac.id,
-                    name: ac.name,
+                    name: resolvePartyStoredName(ac),
                     phone: ac.phone ?? '',
-                    address: '',
-                    isClient: false,
+                    address: ac.address ?? '',
+                    occupation: occ,
+                    isClient: Boolean(ac.isClient),
                 },
                 isPmCreditor: true,
                 ecIndex: -1,
@@ -39,10 +42,8 @@ export function useCreditorWorkspace(
     }, [effectiveCreditors, additionalCreditorsPm]);
 
     const creditorNamesTextList = useMemo(() => {
-        const fromMain = effectiveCreditors
-            .map((c: { name?: string }) => String(c?.name ?? '').trim())
-            .filter(Boolean);
-        const fromPm = additionalCreditorsPm.map((c) => String(c.name ?? '').trim()).filter(Boolean);
+        const fromMain = effectiveCreditors.map((c) => resolvePartyStoredName(c)).filter(Boolean);
+        const fromPm = additionalCreditorsPm.map((c) => resolvePartyStoredName(c)).filter(Boolean);
         const merged = [...fromMain, ...fromPm];
         return merged.length ? merged.join('، ') : '';
     }, [effectiveCreditors, additionalCreditorsPm]);

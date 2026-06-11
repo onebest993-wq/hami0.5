@@ -6,7 +6,7 @@ import {
     BrainCircuit, Sparkles, MessageSquare, Check, FileDigit
 } from 'lucide-react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { LegalAI, AnalysisResult } from '../LegalAI_Coordinator';
+import { analyzeCaseDescription, type CaseAnalysisResult } from '@/app/utils/caseDescriptionAnalysis';
 import type { ModalProps, FormField, FormFieldType } from '@/app/types/common';
 
 interface PetitionWizardModalProps extends ModalProps {
@@ -26,7 +26,7 @@ function normalizeFormFieldType(t?: string): FormFieldType {
     return 'text';
 }
 
-function analysisRequiredToFormFields(fields: AnalysisResult['requiredFields']): FormField[] {
+function analysisRequiredToFormFields(fields: CaseAnalysisResult['requiredFields']): FormField[] {
     return fields.map((f) => ({
         key: f.key,
         label: f.label,
@@ -35,7 +35,7 @@ function analysisRequiredToFormFields(fields: AnalysisResult['requiredFields']):
     }));
 }
 
-type PetitionWizardAIContext = Pick<AnalysisResult, 'title' | 'legalContext'> & {
+type PetitionWizardAIContext = Pick<CaseAnalysisResult, 'title' | 'legalContext'> & {
     requiredFields: FormField[];
     draftTemplate?: (data: InterviewData) => string;
 };
@@ -115,7 +115,7 @@ const ProcessingPhase = () => (
         </div>
         <div className="text-center space-y-2">
             <h3 className="text-xl font-bold text-white">جاري تحليل الوقائع...</h3>
-            <p className="text-white/40 text-sm">البحث في: قانون المرافعات، القانون المدني، قانون الإيجار</p>
+            <p className="text-white/40 text-sm">البحث في: قانون العقوبات، أصول المحاكمات، رعاية الأحداث، قانون التنفيذ</p>
         </div>
     </motion.div>
 );
@@ -247,7 +247,7 @@ export const PetitionWizardModal = ({ onClose, onOpenArchive }: PetitionWizardMo
     const handleInitialSubmit = async () => {
         if (!userDescription.trim()) return;
         setPhase('processing');
-        const analysis = await LegalAI.analyzeCaseDescription(userDescription);
+        const analysis = analyzeCaseDescription(userDescription);
         const requiredFields = analysisRequiredToFormFields(analysis.requiredFields);
         setAiContext({
             title: analysis.title,
@@ -286,9 +286,9 @@ export const PetitionWizardModal = ({ onClose, onOpenArchive }: PetitionWizardMo
                     <div>
                         <h3 className="text-xl font-bold text-white flex items-center gap-2">
                             <BrainCircuit className="text-amber-400" size={24} />
-                            المستشار القانوني الذكي
+                            معالج صياغة العرائض
                         </h3>
-                        <p className="text-white/40 text-xs mt-1">نظام صياغة تفاعلي (RAG) متصل بقاعدة القوانين العراقية</p>
+                        <p className="text-white/40 text-xs mt-1">نظام صياغة تفاعلي متصل بقاعدة القوانين العراقية</p>
                     </div>
                     <button type="button" onClick={onClose} className="p-2 rounded-full hover:bg-white/10 text-white/50 transition-colors">
                         <X size={20} />

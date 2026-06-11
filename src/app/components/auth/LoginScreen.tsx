@@ -1,18 +1,81 @@
-import React, { Suspense, useState } from 'react';
-import { Mail, Lock, UserPlus, LogIn } from 'lucide-react';
+import React, { useState } from 'react';
+import { Mail, Lock, UserPlus, LogIn, Shield, LayoutDashboard } from 'lucide-react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useAuth } from '@/app/context/AuthContext';
 import { supabase } from '../../../lib/supabase';
 import { logAction } from '@/app/utils/auditLog';
-import { requestOpenCriminalCasesList } from '@/app/components/lawyer/criminal-system/criminalDevEntry';
 import { LoginGlassCard, LoginGoldButton, LoginInputField } from './loginScreenPrimitives';
 
-const DevSecurityPanel = React.lazy(() =>
-    import('@/app/components/shared/DevSecurityPanel').then((m) => ({ default: m.DevSecurityPanel })),
-);
+/** شاشة التطوير — دخول التطبيق أو المدير */
+const DevAdminLoginScreen = () => {
+    const { adminBypassLogin, devBypassLogin } = useAuth();
+    const [loadingAction, setLoadingAction] = useState<'app' | 'admin' | null>(null);
 
-export const LoginScreen = () => {
-    const { signup, devBypassLogin, adminBypassLogin } = useAuth();
+    return (
+        <div dir="rtl" className="min-h-screen font-['Tajawal'] bg-[#000510] text-white">
+            <div className="min-h-screen flex items-center justify-center px-4 py-10">
+                <div className="w-full max-w-md">
+                    <div className="text-center mb-6">
+                        <h1 className="text-2xl font-black text-white tracking-tight">وضع التطوير</h1>
+                        <p className="text-xs text-white/40 mt-1">اختصار محلي — التطبيق أو لوحة المدير</p>
+                    </div>
+
+                    <LoginGlassCard className="p-6 space-y-5 border-[#D4AF37]/30">
+                        <p className="text-xs text-white/50 text-center leading-relaxed">
+                            تسجيل الدخول بالبريد وكلمة المرور مُعطّل مؤقتاً أثناء مرحلة التطوير.
+                        </p>
+                        <LoginGoldButton
+                            fullWidth
+                            onClick={() => {
+                                void (async () => {
+                                    setLoadingAction('app');
+                                    try {
+                                        await devBypassLogin();
+                                        SmartToast.success('تم الدخول إلى التطبيق');
+                                    } catch {
+                                        SmartToast.error('فشل الدخول إلى التطبيق');
+                                    } finally {
+                                        setLoadingAction(null);
+                                    }
+                                })();
+                            }}
+                            disabled={loadingAction !== null}
+                            icon={LayoutDashboard}
+                        >
+                            {loadingAction === 'app' ? 'جاري الدخول...' : 'الدخول للتطبيق'}
+                        </LoginGoldButton>
+
+                        <button
+                            type="button"
+                            onClick={() => {
+                                void (async () => {
+                                    setLoadingAction('admin');
+                                    try {
+                                        await adminBypassLogin();
+                                        SmartToast.success('تم تسجيل الدخول كمدير أعلى');
+                                    } catch {
+                                        SmartToast.error('فشل تسجيل الدخول كمدير');
+                                    } finally {
+                                        setLoadingAction(null);
+                                    }
+                                })();
+                            }}
+                            disabled={loadingAction !== null}
+                            className="w-full flex items-center justify-center gap-2 rounded-xl border border-[#D4AF37]/35 bg-[#D4AF37]/10 px-3 py-2.5 text-xs font-bold text-[#E6C673] hover:bg-[#D4AF37]/15 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                            <Shield className="w-4 h-4" />
+                            {loadingAction === 'admin' ? 'جاري الدخول...' : 'الدخول كمدير أعلى'}
+                        </button>
+                    </LoginGlassCard>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+/** شاشة الإنتاج — تسجيل دخول عادي للمحامين */
+const ProductionLoginScreen = () => {
+    const { signup } = useAuth();
     const [mode, setMode] = useState<'login' | 'signup'>('login');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -131,80 +194,11 @@ export const LoginScreen = () => {
                         >
                             {mode === 'login' ? 'إنشاء حساب جديد كـ محامي' : 'لدي حساب بالفعل'}
                         </button>
-
-                        {import.meta.env.DEV ? (
-                            <div className="space-y-2 pt-1 border-t border-white/10">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        void (async () => {
-                                            setIsLoading(true);
-                                            try {
-                                                requestOpenCriminalCasesList();
-                                                await devBypassLogin();
-                                                SmartToast.success('فتح مخزن القضاء الجنائي');
-                                            } catch {
-                                                SmartToast.error('فشل فتح مخزن القضاء الجنائي');
-                                            } finally {
-                                                setIsLoading(false);
-                                            }
-                                        })();
-                                    }}
-                                    className="w-full rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-3 py-2.5 text-xs font-black text-emerald-200 hover:bg-emerald-500/15 transition-colors"
-                                    disabled={isLoading}
-                                >
-                                    ⚖️ اختصار القضاء الجنائي — مخزن الإضابير
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        void (async () => {
-                                            setIsLoading(true);
-                                            try {
-                                                await devBypassLogin();
-                                                SmartToast.success('تم تفعيل تخطي المطور');
-                                            } catch {
-                                                SmartToast.error('فشل تخطي المطور');
-                                            } finally {
-                                                setIsLoading(false);
-                                            }
-                                        })();
-                                    }}
-                                    className="w-full text-xs text-[#DAA520] hover:text-[#E6C673] transition-colors"
-                                    disabled={isLoading}
-                                >
-                                    تخطي المطور - Dev Bypass
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        void (async () => {
-                                            setIsLoading(true);
-                                            try {
-                                                await adminBypassLogin();
-                                                SmartToast.success('تم تسجيل الدخول كمدير أعلى (DEV)');
-                                            } catch {
-                                                SmartToast.error('فشل تسجيل الدخول كمدير');
-                                            } finally {
-                                                setIsLoading(false);
-                                            }
-                                        })();
-                                    }}
-                                    className="w-full text-xs text-[#ffbf47] hover:text-[#ffd37a] transition-colors"
-                                    disabled={isLoading}
-                                >
-                                    الدخول كمدير أعلى - Dev Admin Login
-                                </button>
-                            </div>
-                        ) : null}
                     </LoginGlassCard>
                 </div>
             </div>
-            {import.meta.env.DEV ? (
-                <Suspense fallback={null}>
-                    <DevSecurityPanel />
-                </Suspense>
-            ) : null}
         </div>
     );
 };
+
+export const LoginScreen = () => (import.meta.env.DEV ? <DevAdminLoginScreen /> : <ProductionLoginScreen />);

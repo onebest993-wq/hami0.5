@@ -1,6 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { motion } from 'motion/react';
-import { Send } from 'lucide-react';
+import {
+    AppealResultChip,
+    ArchiveDecisionButton,
+    DECISION_NOTICE_GLASS,
+    DECISION_META_CHIP,
+} from '../decisionCardPresentation';
 import type {
     DecisionsDispatcherHubProps,
 } from '../../DecisionsAndAppealsEngine';
@@ -13,6 +18,8 @@ import {
     formatCreditorPartyDeathSummaryAr,
     parseCreditorPartyDeathPayload,
 } from '@/app/utils/creditorPartyDeathPersistence';
+import { isPersonalStatusCourtDecisionsDossier } from '@/app/utils/followupSpecializationVisibility';
+import { isSeizureDecisionFollowupComplete } from '../seizureFollowupComplete';
 import {
     DECISION_GLASS_CARD,
     cleanTitle,
@@ -22,13 +29,29 @@ import {
     appealWindowsFromClockYmd,
     decisionAppealClockYmd,
     cassationButtonTitles,
-    inferAppealMethodsUsed,
     deriveDecisionHubStatus,
     appealPipelineRowForCard,
-    formatRegisteredAppealPathForDecision,
-    effectiveExecutorOutcomeForCreditorHubPill,
+    buildAppealProceedingsForDecision,
+    resolveCreditorRequestAppealGate,
+    isCreditorRequestFlowContinues,
+    isExecutorRequestAppealCycleSuperseded,
+    resolveCreditorDecisionEnforcementState,
+    resolveRequestFilerFromDebtorAgentView,
+    resolveUnderlyingDecisionHub,
+    isCreditorPartyRequest,
+    resolveDebtorAgentRequestFateLine,
+    shouldHideDebtorAgentFateLine,
+    shouldShowAppealResultChipSeparate,
+    resolveAppealResultActorForClient,
+    resolveEffectiveAppealActor,
+    resolveEffectiveAwaitingCassationParty,
+    COMPACT_APPEAL_PROCEEDINGS_MAX,
+    decisionCardSurfaceClasses,
+    isExecutorDecisionAppealFinal,
 } from '../utils';
+import { AppealProceedingsSummary } from './AppealProceedingsSummary';
 import type { AppealDeadlineWindows, DecisionsAppealsAppealSlot } from '../utils';
+import type { AppealUiPerspective } from '../appealUiLabels';
 
 type DecisionCardProps = {
     decision: Decision;
@@ -41,21 +64,15 @@ type DecisionCardProps = {
         appealWindowClosed: boolean,
         allDecisions: Decision[]
     ) => { statusPillEl: React.ReactNode };
-    appealActorDraftById: Record<string, 'lawyer' | 'debtor' | null>;
     hubNoteById: Record<string, string>;
     setHubNoteById: React.Dispatch<React.SetStateAction<Record<string, string>>>;
     handleExecutorResolveById: (id: string, resolution: 'approved' | 'rejected') => void;
     goToAppealsWithScroll: (id: string) => void;
     canShowAppealInitialForDecision: (d: Decision) => boolean;
-    renderAppealInitialButtons: (
+    renderAppealEntryButtons: (
         decision: Decision,
-        opts?: { lockedBecauseActiveCopy?: boolean }
-    ) => React.ReactNode;
-    renderAppealTadhallumTamyeezDraft: (
-        decision: Decision,
-        actorDraft: 'lawyer' | 'debtor',
         windows: AppealDeadlineWindows,
-        opts?: { pathLockedOnOriginal?: boolean }
+        opts?: { pathLockedOnOriginal?: boolean; lockedBecauseActiveCopy?: boolean }
     ) => React.ReactNode;
     renderAppealGrievanceDecideButtons: (
         decision: Decision,
@@ -81,6 +98,7 @@ type DecisionCardProps = {
     onDeleteDecision: (id: string) => void;
     onArchiveDecision: (id: string) => void;
     decisionsHubTab: 'current' | 'previous' | 'appeals' | 'archive';
+    appealPerspective?: AppealUiPerspective;
 };
 
 function DecisionCard({
@@ -91,14 +109,12 @@ function DecisionCard({
     executionId,
     requestNeedsExecutorOutcome,
     buildDecisionCardStatus,
-    appealActorDraftById,
     hubNoteById,
     setHubNoteById,
     handleExecutorResolveById,
     goToAppealsWithScroll,
     canShowAppealInitialForDecision,
-    renderAppealInitialButtons,
-    renderAppealTadhallumTamyeezDraft,
+    renderAppealEntryButtons,
     renderAppealGrievanceDecideButtons,
     renderAppealAwaitingCassationButtons,
     renderAppealTamyeezPhasePanel,
@@ -109,6 +125,7 @@ function DecisionCard({
     btnSecondaryFlex,
     onDeleteDecision,
     onArchiveDecision,
+    appealPerspective = 'creditor_agent',
 }: DecisionCardProps) {
     const titleClean = (() => {
         const t = cleanTitle(decision.title);
@@ -158,12 +175,10 @@ function DecisionCard({
     const hubStatus = deriveDecisionHubStatus(decision, requestNeedsExecutorOutcome);
     const showExecutorPendingFooter = hubStatus === 'pending';
     const workflowState = decision.appealWorkflowState ?? 'NONE';
-    const actorDraft = appealActorDraftById[decision.id] ?? null;
     const windows = appealWindowsFromClockYmd(decisionAppealClockYmd(decision));
     const appealWindowClosed = !windows.canTamyeez;
     const appealBusyOnCopy = Boolean(decision.activeAppealCopyId);
     const canManageAppealHere = true;
-    const isCassated = decision.appealResult === 'نقض القرار';
     const hasAppealActivity =
         decision.appealActor === 'lawyer' ||
         decision.appealActor === 'debtor' ||
@@ -184,22 +199,41 @@ function DecisionCard({
         workflowState === 'FINAL_REJECTED' ||
         workflowState === 'REVOKED_BY_APPEAL';
     const hasActiveAppeal = hasAppealActivity || Boolean(decision.activeAppealCopyId);
-    const cassTips = cassationButtonTitles(decision);
+    const cassTips = cassationButtonTitles(decision, appealPerspective);
 
     const { statusPillEl } = buildDecisionCardStatus(decision, appealWindowClosed, decisions);
     const pipelineRow = appealPipelineRowForCard(decision, decisions);
-    const appealMethodsUsed = inferAppealMethodsUsed(pipelineRow);
-    const appealClosedForSummary =
-        decision.appealStatus === 'final' ||
-        workflowState === 'FINAL_ACCEPTED' ||
-        workflowState === 'FINAL_REJECTED' ||
-        workflowState === 'REVOKED_BY_APPEAL' ||
-        Boolean(decision.appealResult);
-    const registeredAppealPath = formatRegisteredAppealPathForDecision(pipelineRow);
-    const showRegisteredAppealPathLine =
-        Boolean(registeredAppealPath) &&
-        ((appealClosedForSummary && (appealMethodsUsed.tadhallum || appealMethodsUsed.tamyeez)) ||
-            (Array.isArray(pipelineRow.appealTimelineLogs) && pipelineRow.appealTimelineLogs.length > 0));
+    const appealProceedings = buildAppealProceedingsForDecision(pipelineRow, appealPerspective);
+    const showRegisteredAppealPathLine = appealProceedings.length > 0;
+    const compactAppealProceedings =
+        showRegisteredAppealPathLine &&
+        appealProceedings.length <= COMPACT_APPEAL_PROCEEDINGS_MAX;
+    const expandableAppealProceedings =
+        showRegisteredAppealPathLine &&
+        appealProceedings.length > COMPACT_APPEAL_PROCEEDINGS_MAX;
+    const requestAppealGate = resolveCreditorRequestAppealGate(
+        decision,
+        pipelineRow,
+        appealPerspective
+    );
+    const requestFlowContinues = isCreditorRequestFlowContinues(
+        decision,
+        pipelineRow,
+        appealPerspective
+    );
+    const appealCycleSealed = isExecutorRequestAppealCycleSuperseded(
+        decision,
+        decisions,
+        appealPerspective
+    );
+    /** عند إيقاف/إعادة دورة الطلب تُعرض الإجراءات في لوحة البوابة أعلاه — لا تكرار المسار القديم */
+    const legacyAppealActionsVisible = requestAppealGate.kind === 'continue';
+    const awaitingCreditorCassationEntry =
+        appealPerspective === 'debtor_agent' &&
+        requestAppealGate.kind === 'paused' &&
+        resolveEffectiveAwaitingCassationParty(pipelineRow, decision) === 'lawyer' &&
+        pipelineRow.appealStatus !== 'tamyeez_filed' &&
+        pipelineRow.appealPhase !== 'cassation';
     const dateStr = formatDateNumeric(decision.date);
     const heirsParty: 'creditor' | 'debtor' | null =
         decision.requestKind === 'creditor_party_death'
@@ -248,7 +282,6 @@ function DecisionCard({
 
     const canOpenHeirsEntry = heirsNeedEntry && isLatestHeirsRequestForParty;
 
-    const [seizureCompletionConfirming, setSeizureCompletionConfirming] = useState(false);
     const [seizureCompletionBusy, setSeizureCompletionBusy] = useState(false);
     const [selectedAction, setSelectedAction] = useState<'approved' | 'rejected' | null>(null);
     const [showReasoning, setShowReasoning] = useState(false);
@@ -256,17 +289,26 @@ function DecisionCard({
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
     const decisionEffectivelyApproved = (d: Decision): boolean => {
+        if (d.executorOutcome === 'withdrawn' || d.lawyerWithdrawn === true) return false;
         const pipeline = appealPipelineRowForCard(d, decisions);
-        const eff = effectiveExecutorOutcomeForCreditorHubPill(d, pipeline);
-        if (eff === 'approved' || eff === 'alternative') return true;
-        if (eff === 'rejected') return false;
-        if (d.executorOutcome === 'approved' || d.executorOutcome === 'alternative') return true;
-        if (d.executorOutcome !== 'rejected') return false;
-        if (d.appealStatus === 'overturned') return true;
-        if (d.appealResult === 'نقض القرار') return true;
-        if ((d as any).appealWorkflowState === 'REVOKED_BY_APPEAL') return true;
-        return false;
+        const windowsForD = appealWindowsFromClockYmd(decisionAppealClockYmd(d));
+        const appealWindowClosedForD = !windowsForD.canTamyeez;
+        const appealLegallyFinalForD = isExecutorDecisionAppealFinal(d, pipeline, {
+            appealWindowClosed: appealWindowClosedForD,
+            appealTrackActive: false,
+        });
+        const state = resolveCreditorDecisionEnforcementState(d, pipeline, {
+            hubTab: decisionsHubTab,
+            appealLegallyFinal: appealLegallyFinalForD,
+            needsExecutor: requestNeedsExecutorOutcome(d),
+            appealPerspective,
+            allDecisions: decisions,
+        });
+        return state.enforced;
     };
+    const creditorPartyRequest = isCreditorPartyRequest(decision, appealPerspective);
+    const showCreditorFollowupActions =
+        appealPerspective !== 'debtor_agent' || !creditorPartyRequest;
     const seizureSubtype = String(decision.seizureSubtype || '').trim();
     const seizureSubtypeIsFinalNoCompletion =
         seizureSubtype === 'movable_auction' ||
@@ -277,21 +319,30 @@ function DecisionCard({
         seizureSubtype === 'property_buyer_delivery' ||
         seizureSubtype === 'property_proceeds_disburse' ||
         seizureSubtype === 'movable_final_award' ||
+        seizureSubtype === 'property_increase_10' ||
+        seizureSubtype === 'movable_increase_10' ||
         seizureSubtype === 'movable_buyer_delivery' ||
         seizureSubtype === 'movable_proceeds_disburse';
+    const executionFile = dispatcherHub?.executionData;
+    const personalStatusCourtCoerciveBlocked = isPersonalStatusCourtDecisionsDossier(
+        executionFile?.docType,
+        executionFile?.classification,
+        (executionFile as { category?: string } | undefined)?.category,
+    );
+    const seizureFollowupComplete = isSeizureDecisionFollowupComplete(decision, executionFile);
     const seizureCompletionReady =
         decision.requestKind === 'seizure' &&
         decisionEffectivelyApproved(decision) &&
+        requestFlowContinues &&
         Boolean(seizureSubtype) &&
         !seizureSubtypeIsFinalNoCompletion &&
-        !Boolean(String(decision.seizureRequestSavedAt || '').trim()) &&
+        !seizureFollowupComplete &&
         !requestNeedsExecutorOutcome(decision);
     const propertyStepFromSubtype = (st: string):
         | 'init'
         | 'experts'
         | 'auction'
         | 'award'
-        | 'increase10'
         | 'reauction_default'
         | null => {
         if (st === 'property') return 'init';
@@ -304,9 +355,6 @@ function DecisionCard({
         return null;
     };
     const seizureCompletionLabel =
-        seizureSubtype === 'property_increase_10' || seizureSubtype === 'movable_increase_10'
-            ? 'تسجيل نتيجة الضم 10%'
-            : 
         propertyStepFromSubtype(seizureSubtype) === 'init'
             ? 'إكمال بيانات العقار'
             : propertyStepFromSubtype(seizureSubtype) === 'experts'
@@ -328,9 +376,92 @@ function DecisionCard({
                                 : seizureSubtype === 'movable_reauction_default'
                                   ? 'تسجيل النكول/إعادة المزايدة'
                                   : 'إكمال بيانات الحجز';
+    const runSeizureCompletion = useCallback(() => {
+        if (seizureCompletionBusy) return;
+        setSeizureCompletionBusy(true);
+        try {
+            const step = propertyStepFromSubtype(seizureSubtype);
+            if (step === 'init') {
+                window.dispatchEvent(
+                    new CustomEvent('hami-open-seized-property-init', {
+                        detail: { executionId, decisionId: decision.id },
+                    })
+                );
+            } else if (seizureSubtype === 'movable_auction') {
+                window.dispatchEvent(
+                    new CustomEvent('hami-open-seized-movable-init', {
+                        detail: { executionId, decisionId: decision.id },
+                    })
+                );
+            } else if (step) {
+                let seizedPropertyId = '';
+                const rawJson = String((decision as any).seizurePayloadJson || '').trim();
+                if (rawJson) {
+                    try {
+                        const v = JSON.parse(rawJson) as any;
+                        seizedPropertyId = String(v?.seizedPropertyId ?? '').trim();
+                    } catch {
+                        /* ignore */
+                    }
+                }
+                window.dispatchEvent(
+                    new CustomEvent('hami-open-seized-property-step', {
+                        detail: {
+                            executionId,
+                            decisionId: decision.id,
+                            seizedPropertyId,
+                            step,
+                        },
+                    })
+                );
+            } else if (
+                seizureSubtype === 'movable_expert' ||
+                seizureSubtype === 'movable_expert_committee' ||
+                seizureSubtype === 'movable_auction_date' ||
+                seizureSubtype === 'movable_reauction_default'
+            ) {
+                let seizedMovableId = '';
+                const rawJson = String((decision as any).seizurePayloadJson || '').trim();
+                if (rawJson) {
+                    try {
+                        const v = JSON.parse(rawJson) as any;
+                        seizedMovableId = String(v?.seizedMovableId ?? '').trim();
+                    } catch {
+                        /* ignore */
+                    }
+                }
+                const movableStep =
+                    seizureSubtype === 'movable_expert' || seizureSubtype === 'movable_expert_committee'
+                        ? 'experts'
+                        : seizureSubtype === 'movable_auction_date'
+                          ? 'auction'
+                          : 'reauction_default';
+                window.dispatchEvent(
+                    new CustomEvent('hami-open-seized-movable-step', {
+                        detail: {
+                            executionId,
+                            decisionId: decision.id,
+                            seizedMovableId,
+                            step: movableStep,
+                        },
+                    })
+                );
+            } else {
+                window.dispatchEvent(
+                    new CustomEvent('hami-open-seizure-completion', {
+                        detail: { executionId, decisionId: decision.id },
+                    })
+                );
+            }
+        } catch {
+            /* ignore */
+        }
+        setSeizureCompletionBusy(false);
+    }, [decision, executionId, seizureCompletionBusy, seizureSubtype]);
     const evictionWorkflowBranch =
         decision.requestKind === 'eviction_procedure' &&
         decisionEffectivelyApproved(decision) &&
+        requestFlowContinues &&
         !requestNeedsExecutorOutcome(decision)
             ? inferExecutorApprovalDecisionType(decision)
             : 'other';
@@ -344,6 +475,7 @@ function DecisionCard({
     const trustDisburseShortcutReady =
         decision.requestKind === 'trust_disburse' &&
         decisionEffectivelyApproved(decision) &&
+        requestFlowContinues &&
         !requestNeedsExecutorOutcome(decision);
     const guarantorDetailsAlreadySaved =
         Boolean(String((decision as any).guarantorDetailsSavedAt || '').trim()) ||
@@ -351,25 +483,44 @@ function DecisionCard({
     const guarantorShortcutReady =
         decision.requestKind === 'guarantor_request' &&
         decisionEffectivelyApproved(decision) &&
+        requestFlowContinues &&
         !guarantorDetailsAlreadySaved &&
         !requestNeedsExecutorOutcome(decision);
     const settled = !requestNeedsExecutorOutcome(decision);
 
-    const resolvedBorderClass =
-        decisionsHubTab === 'previous'
-            ? decision.executorOutcome === 'approved' || decision.executorOutcome === 'alternative'
-                ? 'border-l-[4px] border-l-emerald-500'
-                : decision.executorOutcome === 'rejected'
-                  ? 'border-l-[4px] border-l-rose-500'
-                  : ''
-            : '';
+    const appealLegallyFinal = isExecutorDecisionAppealFinal(decision, pipelineRow, {
+        appealWindowClosed,
+        appealTrackActive: hasActiveAppeal && !appealWindowClosed,
+    });
+    const enforcementState = resolveCreditorDecisionEnforcementState(decision, pipelineRow, {
+        hubTab: decisionsHubTab,
+        appealLegallyFinal,
+        needsExecutor: requestNeedsExecutorOutcome(decision),
+        appealPerspective,
+        allDecisions: decisions,
+    });
+    const isCassated =
+        pipelineRow.appealResult === 'نقض القرار' &&
+        pipelineRow.appealStatus === 'final' &&
+        requestAppealGate.kind === 'lifecycle_reset';
+    const cardClassName = decisionCardSurfaceClasses(enforcementState.visual, decisionsHubTab);
+    const hideDebtorFateLine = shouldHideDebtorAgentFateLine(
+        enforcementState.pillLabel,
+        requestAppealGate
+    );
+    const showAppealResultChip =
+        Boolean(pipelineRow.appealResult) &&
+        shouldShowAppealResultChipSeparate(enforcementState.pillLabel, appealPerspective);
+    const appealResultActor =
+        resolveAppealResultActorForClient(pipelineRow, decision, appealPerspective) ??
+        resolveEffectiveAppealActor(pipelineRow, decision, appealPerspective);
 
     return (
         <motion.div
             id={`hami-decision-card-${decision.id}`}
             initial={false}
             animate={{ opacity: 1, y: 0 }}
-            className={`${DECISION_GLASS_CARD} ${resolvedBorderClass}`}
+            className={cardClassName}
             dir="rtl"
         >
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -379,6 +530,14 @@ function DecisionCard({
                             status={decision.appealStatus}
                             outcome={decision.executorOutcome}
                             origin={decision.appealRequestOrigin}
+                            perspective={appealPerspective}
+                            requestFiler={
+                                appealPerspective === 'debtor_agent'
+                                    ? resolveRequestFilerFromDebtorAgentView(
+                                          resolveUnderlyingDecisionHub(decision, decisions)
+                                      )
+                                    : undefined
+                            }
                         />
                         <h4 className="break-words text-sm font-bold text-slate-100">{titleClean}</h4>
                     </div>
@@ -396,28 +555,36 @@ function DecisionCard({
                             </button>
                         ) : null}
                         {decisionsHubTab === 'previous' && settled && !decision.isArchived ? (
-                            <button
-                                type="button"
-                                onClick={() => onArchiveDecision(decision.id)}
-                                className="text-slate-500 hover:text-slate-300 transition-colors text-[10px] font-medium"
-                                title="أرشفة القرار"
-                            >
-                                📦 أرشفة
-                            </button>
+                            <ArchiveDecisionButton onClick={() => onArchiveDecision(decision.id)} />
                         ) : null}
                         {statusPillEl}
                     </div>
                 </div>
 
-                <div className="mb-2 flex items-center justify-between text-[10px] text-slate-400">
-                    <div className="flex items-center gap-2">
-                        <span>{dateStr}</span>
-                        <AppealOriginBadge decision={decision} />
+                <div className="mb-2 flex flex-col gap-1.5 text-[10px] text-slate-400">
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                            <span>{dateStr}</span>
+                            <AppealOriginBadge decision={decision} perspective={appealPerspective} />
+                        </div>
+                        {decision.tamyeezDecisionNumber?.trim() ? (
+                            <span className={DECISION_META_CHIP}>
+                                تمييز: {decision.tamyeezDecisionNumber}
+                            </span>
+                        ) : null}
                     </div>
-                    {decision.tamyeezDecisionNumber?.trim() ? (
-                        <span className="rounded-md border border-white/10 bg-white/[0.05] px-1.5 py-0.5 text-[9px] font-medium text-slate-300">
-                            تمييز: {decision.tamyeezDecisionNumber}
-                        </span>
+                    {appealPerspective === 'debtor_agent' && settled && !hideDebtorFateLine ? (
+                        <p
+                            className={`${DECISION_META_CHIP} inline-flex w-full justify-end text-[10px] leading-relaxed ${
+                                enforcementState.enforced
+                                    ? 'border-rose-400/20 text-rose-200/90'
+                                    : enforcementState.pillLabel.includes('لصالح موكّلنا')
+                                      ? 'border-emerald-400/20 text-emerald-100/90'
+                                      : 'border-white/12 text-slate-200/90'
+                            }`}
+                        >
+                            {resolveDebtorAgentRequestFateLine(enforcementState, requestAppealGate)}
+                        </p>
                     ) : null}
                 </div>
 
@@ -428,60 +595,35 @@ function DecisionCard({
                                 {debtorName}
                             </p>
                         ) : null}
-                        {showRegisteredAppealPathLine ? (
-                            <div className="flex items-center gap-2 text-[11px] text-gray-400">
-                                <span>الطاعن: {(() => {
-                                    const origin = decision.appealRequestOrigin;
-                                    if (origin === 'debtor_side') return 'المدين';
-                                    if (origin === 'creditor_side') return 'الدائن';
-                                    return 'المنفذ';
-                                })()}</span>
-                                <span className="text-gray-600">|</span>
-                                <span className={`font-bold ${
-                                    decision.appealResult === 'نقض القرار' ? 'text-amber-400' :
-                                    decision.appealResult === 'تصديق القرار' ? 'text-emerald-400' :
-                                    decision.appealResult === 'رد اللائحة' ? 'text-red-400' : 'text-gray-400'
-                                }`}>
-                                    النتيجة: {decision.appealResult || 'قيد النظر'}
-                                    {decision.appealResult && decision.appealDecisionDate ? (
-                                        <span className="text-[10px] text-slate-500 font-normal mr-1">
-                                            (بتاريخ: {formatDateNumeric(decision.appealDecisionDate)})
-                                        </span>
-                                    ) : null}
-                                </span>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowDetails(!showDetails)}
-                                    className="text-gray-500 hover:text-white transition-colors underline decoration-dotted underline-offset-2"
-                                >
-                                    تفاصيل الطعن
-                                </button>
+                        {compactAppealProceedings ? (
+                            <div className="rounded-lg border border-white/5 bg-white/[0.03] p-2.5">
+                                <AppealProceedingsSummary
+                                    row={pipelineRow}
+                                    perspective={appealPerspective}
+                                />
                             </div>
-                        ) : null}
-                        {showDetails && registeredAppealPath ? (
-                            <div className="transition-all duration-300 ease-in-out overflow-hidden">
-                                <div className="mt-2 rounded-lg border border-white/5 bg-white/[0.03] p-3 space-y-1">
-                                    <p className="text-sm font-semibold text-gray-200">
-                                        {(() => {
-                                            const parts = registeredAppealPath.split(' ← ').map(s => s.trim()).filter(Boolean);
-                                            return parts.length > 0 ? parts[parts.length - 1] : registeredAppealPath;
-                                        })()}
-                                    </p>
-                                    {(() => {
-                                        const parts = registeredAppealPath.split(' ← ').map(s => s.trim()).filter(Boolean);
-                                        return parts.length > 1 ? (
-                                            <details className="group">
-                                                <summary className="cursor-pointer list-none text-[10px] text-blue-400 hover:text-blue-300 transition-colors">
-                                                    عرض مسار الطعن الكامل
-                                                </summary>
-                                                <p className="mt-1 text-[11px] leading-relaxed text-gray-400">
-                                                    {registeredAppealPath}
-                                                </p>
-                                            </details>
-                                        ) : null;
-                                    })()}
+                        ) : expandableAppealProceedings ? (
+                            <>
+                                <div className="flex items-center gap-2 text-[11px] text-gray-400">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowDetails(!showDetails)}
+                                        className="text-gray-500 hover:text-white transition-colors underline decoration-dotted underline-offset-2"
+                                    >
+                                        {showDetails ? 'إخفاء مسار الطعن' : 'تفاصيل الطعن'}
+                                    </button>
                                 </div>
-                            </div>
+                                {showDetails ? (
+                                    <div className="transition-all duration-300 ease-in-out overflow-hidden">
+                                        <div className="mt-2 rounded-lg border border-white/5 bg-white/[0.03] p-3">
+                                            <AppealProceedingsSummary
+                                                row={pipelineRow}
+                                                perspective={appealPerspective}
+                                            />
+                                        </div>
+                                    </div>
+                                ) : null}
+                            </>
                         ) : null}
 
                     </div>
@@ -489,7 +631,49 @@ function DecisionCard({
             </div>
 
             <div className="mt-2 flex min-w-0 flex-col gap-1.5 text-right">
+                {requestAppealGate.kind !== 'continue' &&
+                !decision.isArchived &&
+                !appealCycleSealed ? (
+                    <div className="space-y-2">
+                        {!awaitingCreditorCassationEntry ? (
+                            <div
+                                className={`${DECISION_NOTICE_GLASS} ${
+                                    requestAppealGate.kind === 'lifecycle_reset'
+                                        ? 'border-violet-400/15 text-violet-100/90'
+                                        : requestAppealGate.kind === 'paused'
+                                          ? 'border-amber-400/15 text-amber-100/90'
+                                          : 'border-rose-400/15 text-rose-100/90'
+                                }`}
+                            >
+                                {requestAppealGate.message}
+                            </div>
+                        ) : null}
+                        <div className="flex flex-col gap-2">
+                            {requestAppealGate.kind === 'paused' ? (
+                                <>
+                                    {awaitingCreditorCassationEntry ||
+                                    requestAppealGate.showWaiveCassation
+                                        ? renderAppealAwaitingCassationButtons(
+                                              pipelineRow,
+                                              'previousCard',
+                                              appealWindowClosed,
+                                              canManageAppealHere
+                                          )
+                                        : pipelineRow.appealStatus === 'tadhallum_filed' ||
+                                            pipelineRow.appealPhase === 'grievance'
+                                          ? renderAppealGrievanceDecideButtons(
+                                                pipelineRow,
+                                                'previousCard'
+                                            )
+                                          : null}
+                                </>
+                            ) : null}
+                        </div>
+                    </div>
+                ) : null}
                 {settled &&
+                requestFlowContinues &&
+                showCreditorFollowupActions &&
                 (canOpenHeirsEntry ||
                     seizureCompletionReady ||
                     guarantorShortcutReady ||
@@ -516,142 +700,14 @@ function DecisionCard({
                             </button>
                         ) : null}
                         {seizureCompletionReady ? (
-                            <div className="relative">
-                                <button
-                                    type="button"
-                                    onClick={() => setSeizureCompletionConfirming(true)}
-                                    className={btnPrimaryWFull}
-                                >
-                                    {seizureCompletionLabel}
-                                </button>
-                                {seizureCompletionConfirming ? (
-                                    <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-lg bg-slate-950/45 px-2 backdrop-blur-xl">
-                                        <button
-                                            type="button"
-                                            disabled={seizureCompletionBusy}
-                                            onClick={() => {
-                                                if (seizureCompletionBusy) return;
-                                                setSeizureCompletionBusy(true);
-                                                try {
-                                                    const step = propertyStepFromSubtype(seizureSubtype);
-                                                    if (step === 'init') {
-                                                        window.dispatchEvent(
-                                                            new CustomEvent('hami-open-seized-property-init', {
-                                                                detail: { executionId, decisionId: decision.id },
-                                                            })
-                                                        );
-                                                    } else if (
-                                                        seizureSubtype === 'property_increase_10' ||
-                                                        seizureSubtype === 'movable_increase_10'
-                                                    ) {
-                                                        const rawJson = String((decision as any).seizurePayloadJson || '').trim();
-                                                        let seizedPropertyId = '';
-                                                        let seizedMovableId = '';
-                                                        if (rawJson) {
-                                                            try {
-                                                                const v = JSON.parse(rawJson) as any;
-                                                                seizedPropertyId = String(v?.seizedPropertyId ?? '').trim();
-                                                                seizedMovableId = String(v?.seizedMovableId ?? '').trim();
-                                                            } catch {}
-                                                        }
-                                                        window.dispatchEvent(
-                                                            new CustomEvent('hami-open-increase10-result', {
-                                                                detail: {
-                                                                    executionId,
-                                                                    decisionId: decision.id,
-                                                                    entityKind:
-                                                                        seizureSubtype === 'movable_increase_10' ? 'movable' : 'property',
-                                                                    entityId:
-                                                                        seizureSubtype === 'movable_increase_10'
-                                                                            ? seizedMovableId
-                                                                            : seizedPropertyId,
-                                                                },
-                                                            })
-                                                        );
-                                                    } else if (seizureSubtype === 'movable_auction') {
-                                                        window.dispatchEvent(
-                                                            new CustomEvent('hami-open-seized-movable-init', {
-                                                                detail: { executionId, decisionId: decision.id },
-                                                            })
-                                                        );
-                                                    } else if (step) {
-                                                        let seizedPropertyId = '';
-                                                        const rawJson = String((decision as any).seizurePayloadJson || '').trim();
-                                                        if (rawJson) {
-                                                            try {
-                                                                const v = JSON.parse(rawJson) as any;
-                                                                seizedPropertyId = String(v?.seizedPropertyId ?? '').trim();
-                                                            } catch {}
-                                                        }
-                                                        window.dispatchEvent(
-                                                            new CustomEvent('hami-open-seized-property-step', {
-                                                                detail: {
-                                                                    executionId,
-                                                                    decisionId: decision.id,
-                                                                    seizedPropertyId,
-                                                                    step,
-                                                                },
-                                                            })
-                                                        );
-                                                    } else if (
-                                                        seizureSubtype === 'movable_expert' ||
-                                                        seizureSubtype === 'movable_expert_committee' ||
-                                                        seizureSubtype === 'movable_auction_date' ||
-                                                        seizureSubtype === 'movable_reauction_default'
-                                                    ) {
-                                                        let seizedMovableId = '';
-                                                        const rawJson = String((decision as any).seizurePayloadJson || '').trim();
-                                                        if (rawJson) {
-                                                            try {
-                                                                const v = JSON.parse(rawJson) as any;
-                                                                seizedMovableId = String(v?.seizedMovableId ?? '').trim();
-                                                            } catch {}
-                                                        }
-                                                        const movableStep =
-                                                            seizureSubtype === 'movable_expert' || seizureSubtype === 'movable_expert_committee'
-                                                                ? 'experts'
-                                                                : seizureSubtype === 'movable_auction_date'
-                                                                  ? 'auction'
-                                                                    : 'reauction_default';
-                                                        window.dispatchEvent(
-                                                            new CustomEvent('hami-open-seized-movable-step', {
-                                                                detail: {
-                                                                    executionId,
-                                                                    decisionId: decision.id,
-                                                                    seizedMovableId,
-                                                                    step: movableStep,
-                                                                },
-                                                            })
-                                                        );
-                                                    } else {
-                                                        window.dispatchEvent(
-                                                            new CustomEvent('hami-open-seizure-completion', {
-                                                                detail: { executionId, decisionId: decision.id },
-                                                            })
-                                                        );
-                                                    }
-                                                } catch {}
-                                                setSeizureCompletionBusy(false);
-                                                setSeizureCompletionConfirming(false);
-                                            }}
-                                            className="rounded-xl border border-amber-500 bg-amber-600/20 px-3 py-2 text-[11px] font-black text-amber-100 hover:bg-amber-600/25 disabled:opacity-50"
-                                        >
-                                            <span className="flex flex-row-reverse items-center justify-center gap-2">
-                                                <Send size={14} className="text-amber-200" />
-                                                تأكيد
-                                            </span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            disabled={seizureCompletionBusy}
-                                            onClick={() => setSeizureCompletionConfirming(false)}
-                                            className="rounded-xl bg-slate-800 px-3 py-2 text-[11px] font-bold text-slate-100 hover:bg-slate-700 disabled:opacity-50"
-                                        >
-                                            إلغاء
-                                        </button>
-                                    </div>
-                                ) : null}
-                            </div>
+                            <button
+                                type="button"
+                                disabled={seizureCompletionBusy}
+                                onClick={runSeizureCompletion}
+                                className={btnPrimaryWFull}
+                            >
+                                {seizureCompletionLabel}
+                            </button>
                         ) : null}
                         {guarantorShortcutReady ? (
                             <button
@@ -687,42 +743,45 @@ function DecisionCard({
                                 فتح تنفيذ الصرف
                             </button>
                         ) : null}
-                        {evictionScheduleReady || evictionGraceReady || evictionPoliceReady ? (
-                            <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] font-bold text-slate-200 text-right">
-                                أكمل هذا الطلب من تبويب «الإجراءات الجبرية» داخل قسم التنفيذ.
-                            </div>
+                        {(evictionScheduleReady || evictionGraceReady || evictionPoliceReady) &&
+                        !personalStatusCourtCoerciveBlocked ? (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    try {
+                                        window.dispatchEvent(
+                                            new CustomEvent('hami-open-execution-coercive-tab', {
+                                                detail: { executionId, decisionId: decision.id },
+                                            })
+                                        );
+                                    } catch {}
+                                }}
+                                className={btnPrimaryWFull}
+                            >
+                                فتح الإجراءات الجبرية
+                            </button>
                         ) : null}
 
                     </div>
                 ) : null}
 
                 {canManageAppealHere && (
-                    <div className="flex justify-between items-start gap-2">
-                        <div className="flex flex-col gap-2">
-                            {!appealWindowClosed &&
-                                !hasActiveAppeal &&
-                                !actorDraft &&
-                                canShowAppealInitialForDecision(decision) && (
-                                    renderAppealInitialButtons(decision, { lockedBecauseActiveCopy: appealBusyOnCopy })
-                                )}
-                            {actorDraft &&
-                                !appealWindowClosed &&
-                                canShowAppealInitialForDecision(decision) &&
-                                renderAppealTadhallumTamyeezDraft(decision, actorDraft, windows, {
-                                    pathLockedOnOriginal: appealBusyOnCopy,
-                                })}
-                        </div>
-                        {decision.appealResult ? (
-                            <div className={`pointer-events-none select-none shrink-0 font-bold px-3 py-1 rounded-md border-2 uppercase tracking-wider inline-block text-center text-[11px] ${
-                                decision.appealResult === 'نقض القرار'
-                                    ? 'bg-red-900/30 text-red-400 border-red-500/50'
-                                    : decision.appealResult === 'تصديق القرار'
-                                    ? 'bg-emerald-900/30 text-emerald-400 border-emerald-500/50'
-                                    : decision.appealResult === 'رد اللائحة'
-                                    ? 'bg-rose-900/30 text-rose-400 border-rose-500/50'
-                                    : 'bg-gray-800/50 text-gray-400 border-gray-600/50'
-                            }`}>
-                                {decision.appealResult === 'نقض القرار' ? '⚖️ ' : decision.appealResult === 'تصديق القرار' ? '✅ ' : decision.appealResult === 'رد اللائحة' ? '❌ ' : ''}{decision.appealResult}
+                    <div className="flex w-full min-w-0 flex-col gap-2">
+                        {!appealWindowClosed &&
+                            !hasActiveAppeal &&
+                            canShowAppealInitialForDecision(decision) &&
+                            renderAppealEntryButtons(decision, windows, {
+                                pathLockedOnOriginal: appealBusyOnCopy,
+                                lockedBecauseActiveCopy: appealBusyOnCopy,
+                            })}
+                        {showAppealResultChip && pipelineRow.appealResult ? (
+                            <div className="flex justify-end">
+                                <AppealResultChip
+                                    result={pipelineRow.appealResult}
+                                    flowGateKind={requestAppealGate.kind}
+                                    perspective={appealPerspective}
+                                    appealActor={appealResultActor}
+                                />
                             </div>
                         ) : null}
                     </div>
@@ -855,9 +914,10 @@ function DecisionCard({
                     </div>
                 )}
 
-                {decision.appealStatus === 'tadhallum_filed' &&
-                    (workflowState === 'PENDING_APPEAL_LAWYER' ||
-                        workflowState === 'PENDING_APPEAL_DEBTOR') && (
+                {legacyAppealActionsVisible &&
+                    pipelineRow.appealStatus === 'tadhallum_filed' &&
+                    (pipelineRow.appealWorkflowState === 'PENDING_APPEAL_LAWYER' ||
+                        pipelineRow.appealWorkflowState === 'PENDING_APPEAL_DEBTOR') && (
                     <>
                         {canManageAppealHere ? (
                             renderAppealGrievanceDecideButtons(decision, 'previousCard')
@@ -868,12 +928,23 @@ function DecisionCard({
                         )}
                     </>
                 )}
-                {renderAppealAwaitingCassationButtons(decision, 'previousCard', appealWindowClosed, canManageAppealHere)}
-                {decision.appealStatus === 'tamyeez_filed' &&
-                    decision.appealMethod === 'tamyeez' &&
-                    renderAppealTamyeezPhasePanel(decision, 'previousCard', cassTips, (v) => {
-                        patchDecisionRow(decision.id, { tamyeezDecisionNumber: v });
-                        logAppealTimeline('حفظ رقم التمييز', `${decision.title}\nرقم التمييز: ${v}`);
+                {legacyAppealActionsVisible
+                    ? renderAppealAwaitingCassationButtons(
+                          pipelineRow,
+                          'previousCard',
+                          appealWindowClosed,
+                          canManageAppealHere
+                      )
+                    : null}
+                {legacyAppealActionsVisible &&
+                    pipelineRow.appealStatus === 'tamyeez_filed' &&
+                    pipelineRow.appealMethod === 'tamyeez' &&
+                    renderAppealTamyeezPhasePanel(pipelineRow, 'previousCard', cassTips, (v) => {
+                        patchDecisionRow(pipelineRow.id, { tamyeezDecisionNumber: v });
+                        logAppealTimeline(
+                            'حفظ رقم التمييز',
+                            `${pipelineRow.title}\nرقم التمييز: ${v}`
+                        );
                     })}
 
                 {!requestNeedsExecutorOutcome(decision) && decision.executorNote ? (

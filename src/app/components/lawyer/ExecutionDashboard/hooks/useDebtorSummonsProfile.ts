@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { isDebtorRowEmployee } from '@/app/stores';
 import {
     getDebtorSummonsProfile,
     shouldShowEmployeeSalaryCapture,
@@ -6,7 +7,7 @@ import {
 import type { DebtorSummonsProfile } from '@/app/utils/debtorSummonsProfile';
 
 export function useDebtorSummonsProfile(
-    debtors: { occupation?: string }[],
+    debtors: { occupation?: string; isEmployee?: boolean; employmentType?: string }[],
     principalDebtAmount: number,
     parsedLawyerFees: number,
     claimType: string | undefined,
@@ -15,12 +16,16 @@ export function useDebtorSummonsProfile(
     activeWorkspaceDebtorForFollowup: { d: { occupation?: string }; isPrimary?: boolean } | null,
 ) {
     const debtorOccupation = debtors[0]?.occupation?.toLowerCase() || '';
-    const isDebtorGovernmentEmployee = debtorOccupation.includes('موظف') || 
-                                       debtorOccupation.includes('حكومي') || 
-                                       debtorOccupation === 'موظف';
-    const isDebtorFreelancer = debtorOccupation.includes('كاسب') || 
-                              debtorOccupation.includes('خاص') || 
-                              debtorOccupation === 'كاسب';
+    const isDebtorGovernmentEmployee =
+        isDebtorRowEmployee(debtors[0]) ||
+        debtorOccupation.includes('موظف') ||
+        debtorOccupation.includes('حكومي') ||
+        debtorOccupation === 'موظف';
+    const isDebtorFreelancer =
+        (!isDebtorRowEmployee(debtors[0]) && Boolean(debtors[0])) ||
+        debtorOccupation.includes('كاسب') ||
+        debtorOccupation.includes('خاص') ||
+        debtorOccupation === 'كاسب';
 
     const isDebtorRetired =
         debtorOccupation.includes('متقاعد') || debtorOccupation.includes('تقاعد');
@@ -48,10 +53,17 @@ export function useDebtorSummonsProfile(
         if (!debtorBrowserTabsMode || !activeWorkspaceDebtorForFollowup) {
             return debtorSummonsProfile;
         }
-        const d = activeWorkspaceDebtorForFollowup.d as { occupation?: string };
+        const d = activeWorkspaceDebtorForFollowup.d as {
+            occupation?: string;
+            isEmployee?: boolean;
+            employmentType?: string;
+        };
         const occ = String(d?.occupation || '').toLowerCase();
         const fe =
-            occ.includes('موظف') || occ.includes('حكومي') || occ === 'موظف';
+            isDebtorRowEmployee(d) ||
+            occ.includes('موظف') ||
+            occ.includes('حكومي') ||
+            occ === 'موظف';
         const ret = occ.includes('متقاعد') || occ.includes('تقاعد');
         return getDebtorSummonsProfile({
             isGovernmentEmployee: fe || ret,
@@ -77,8 +89,7 @@ export function useDebtorSummonsProfile(
         if (activeWorkspaceDebtorForFollowup.isPrimary) {
             return isDebtorGovernmentEmployee;
         }
-        const occ = String(activeWorkspaceDebtorForFollowup.d.occupation || '').toLowerCase();
-        return occ.includes('موظف') || occ.includes('حكومي') || occ === 'موظف';
+        return isDebtorRowEmployee(activeWorkspaceDebtorForFollowup.d);
     }, [debtorBrowserTabsMode, activeWorkspaceDebtorForFollowup, isDebtorGovernmentEmployee]);
 
     const followupIsDebtorRetired = useMemo(() => {

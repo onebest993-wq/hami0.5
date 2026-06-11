@@ -130,9 +130,15 @@ export const AlertCardItem: React.FC<AlertCardItemProps> = React.memo(({
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
                     onClick={() => onNavigate(source)}
-                    className={`w-full rounded-xl border p-3 flex flex-col gap-2 relative overflow-hidden select-none cursor-pointer bg-black/25 ${styles.border}`}
-                    style={{ boxShadow: `0 0 10px ${styles.glow}` }}
+                    className={`w-full rounded-[18px] border p-4 flex flex-col gap-2 relative overflow-hidden select-none cursor-pointer bg-[#0F172A]/70 backdrop-blur-md shadow-xl ${styles.border}`}
+                    style={{
+                        boxShadow: `0 4px 24px rgba(0,0,0,0.35), 0 0 14px ${styles.glow}`,
+                    }}
                 >
+                    <div
+                        className="absolute -top-10 -right-10 w-24 h-24 rounded-full blur-[50px] opacity-20 pointer-events-none"
+                        style={{ backgroundColor: styles.glow }}
+                    />
                     <div className="flex items-center justify-between gap-2 relative z-10">
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-[#D4AF37]/25 bg-[#D4AF37]/10 text-[9px] font-bold text-[#E6C673] truncate max-w-[52%]">
                             <span className="shrink-0">{sectionIcon}</span>

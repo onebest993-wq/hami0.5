@@ -1,15 +1,8 @@
 /**
- * Audit Log Publisher — خدمة مركزية لنشر أحداث "ما حدث" إلى NotificationStore.
+ * Audit Log Publisher — واجهة أحداث داخلية (اختيارية).
  *
- * فلسفة المنتج:
- *  - يسجّل كل **إجراء ذي قيمة** (تغيير حالة، إنشاء، إنجاز، تسجيل دفعة، ...)
- *  - لا يسجّل **التنقّلات** (فتح شاشة، ضغطة بدون أثر، تكبير، ...)
- *  - "ذكاء": Dedupe ضمن نافذة زمنية (نفس الحدث خلال 30 ثانية لا يُكرَّر)
- *
- * الـ Stores تستدعي publish*() عند الأحداث المهمة.
- * NotificationPanel يقرأها كـ Audit Log زمني.
- *
- * هذا الـ publisher لا يحلّ محل SecretaryAlerts (تلك للأفعال المستقبلية القادمة).
+ * ⚠️ سجل النشاطات (audit_log_*) **لا يُنشر إلى NotificationStore** — أُزيل من المنتج.
+ * ما زال يُستخدم لـ: المنتدى، النظام، المستندات، الوارد.
  */
 
 import { useNotificationStore } from '@/app/stores/notificationStore';
@@ -19,6 +12,12 @@ import type {
     NotificationModel,
     NotificationType,
 } from '@/app/infrastructure/NotificationRepository';
+import { isActivityAuditNotificationType } from '@/app/infrastructure/NotificationRepository';
+import {
+    buildAuditActivityMessage,
+    formatAuditCaseReference,
+    sanitizeNotificationDisplayMessage,
+} from '@/app/services/notificationMessageFormat';
 
 // ============================================================
 // Dedupe + Throttling (الذكاء)
@@ -33,6 +32,7 @@ import type {
  *   - حلقات set/persist في zustand
  */
 const DEDUPE_WINDOW_MS = 30_000;
+const DOSSIER_OPEN_SESSION_PREFIX = 'hami_audit:dossier:open:';
 
 /** آخر زمن نشر لكل dedupeKey (in-memory cache). */
 const dedupeCache = new Map<string, number>();
@@ -55,6 +55,39 @@ function shouldDedupe(dedupeKey: string | undefined, now: number): boolean {
 /** للاختبار: تنظيف الـ cache بين الـ runs. */
 export function _resetAuditLogDedupe(): void {
     dedupeCache.clear();
+    if (typeof sessionStorage !== 'undefined') {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < sessionStorage.length; i++) {
+            const k = sessionStorage.key(i);
+            if (k?.startsWith(DOSSIER_OPEN_SESSION_PREFIX)) keysToRemove.push(k);
+        }
+        for (const k of keysToRemove) sessionStorage.removeItem(k);
+    }
+}
+
+function buildDossierOpenMessage(p: {
+    module: string;
+    entityId: string | number;
+    caseNo?: string;
+    clientName?: string;
+    fileNumber?: string;
+}): string {
+    return formatAuditCaseReference({
+        caseNo: p.caseNo,
+        fileNumber: p.fileNumber,
+        clientName: p.clientName,
+        module: p.module,
+        fallback: 'إضبارة مفتوحة',
+    });
+}
+
+/** أول فتح للإضبارة في الجلسة فقط — لا تكرار عند الخروج والعودة. */
+function shouldSkipDossierOpenSession(dedupeKey: string): boolean {
+    if (typeof sessionStorage === 'undefined') return false;
+    const storageKey = `${DOSSIER_OPEN_SESSION_PREFIX}${dedupeKey}`;
+    if (sessionStorage.getItem(storageKey)) return true;
+    sessionStorage.setItem(storageKey, String(Date.now()));
+    return false;
 }
 
 // ============================================================
@@ -104,14 +137,23 @@ function makeId(prefix: string): string {
 }
 
 function publish(params: PublishParams): NotificationModel | null {
+    if (isActivityAuditNotificationType(params.type)) return null;
+
     const now = Date.now();
     if (shouldDedupe(params.dedupeKey, now)) return null;
 
     const direction = params.direction ?? defaultDirectionForCategory(params.category);
+    const message = sanitizeNotificationDisplayMessage({
+        message: params.message,
+        title: params.title,
+        category: params.category,
+        type: params.type,
+    });
+    if (!message.trim()) return null;
     const notif: NotificationModel = {
         id: makeId(params.category),
         title: params.title,
-        message: params.message,
+        message,
         type: params.type,
         category: params.category,
         direction,
@@ -266,19 +308,44 @@ export const AuditLog = {
             return publish({
                 type: 'audit_log_criminal',
                 category: 'criminal',
-                title: 'تم إنشاء قضية جزائية',
-                message: `${p.caseNo ?? p.caseId}${p.clientName ? ` — ${p.clientName}` : ''}`,
-                actionPayload: { criminalId: p.caseId },
+                title: 'تم إنشاء إضبارة جزائية',
+                message: buildAuditActivityMessage({
+                    caseNo: p.caseNo,
+                    clientName: p.clientName,
+                    detail: 'إضبارة جديدة',
+                    module: 'criminal',
+                }),
+                actionPayload: {
+                    criminalId: p.caseId,
+                    caseNo: p.caseNo,
+                    clientName: p.clientName,
+                    detail: 'إضبارة جديدة',
+                },
                 dedupeKey: `criminal:create:${p.caseId}`,
             });
         },
-        sessionAdded(p: { caseId: string; sessionDate: string }) {
+        sessionAdded(p: {
+            caseId: string;
+            sessionDate: string;
+            caseNo?: string;
+            clientName?: string;
+        }) {
             return publish({
                 type: 'audit_log_criminal',
                 category: 'criminal',
                 title: 'تمت إضافة جلسة جزائية',
-                message: `جلسة ${p.sessionDate}`,
-                actionPayload: { criminalId: p.caseId },
+                message: buildAuditActivityMessage({
+                    caseNo: p.caseNo,
+                    clientName: p.clientName,
+                    detail: `جلسة ${p.sessionDate}`,
+                    module: 'criminal',
+                }),
+                actionPayload: {
+                    criminalId: p.caseId,
+                    caseNo: p.caseNo,
+                    clientName: p.clientName,
+                    detail: `جلسة ${p.sessionDate}`,
+                },
                 dedupeKey: `criminal:session-add:${p.caseId}:${p.sessionDate}`,
             });
         },
@@ -302,24 +369,75 @@ export const AuditLog = {
                 dedupeKey: `criminal:verdict:${p.caseId}`,
             });
         },
-        appealFiled(p: { caseId: string; kind: 'تمييز' | 'استئناف' | string }) {
+        appealFiled(p: {
+            caseId: string;
+            kind: 'تمييز' | 'استئناف' | string;
+            caseNo?: string;
+            clientName?: string;
+        }) {
             return publish({
                 type: 'audit_log_criminal',
                 category: 'criminal',
                 title: `تم تقديم ${p.kind}`,
-                message: `قضية ${p.caseId}`,
+                message: formatAuditCaseReference({
+                    caseNo: p.caseNo,
+                    clientName: p.clientName,
+                    module: 'criminal',
+                    fallback: 'إجراء استئنافي/تمييز',
+                }),
                 actionPayload: { criminalId: p.caseId },
                 dedupeKey: `criminal:appeal:${p.caseId}:${p.kind}`,
             });
         },
-        detentionDecision(p: { caseId: string; decision: 'توقيف' | 'إخلاء' | string }) {
+        detentionDecision(p: {
+            caseId: string;
+            decision: 'توقيف' | 'إخلاء' | string;
+            caseNo?: string;
+            clientName?: string;
+        }) {
             return publish({
                 type: 'audit_log_criminal',
                 category: 'criminal',
                 title: `قرار ${p.decision}`,
-                message: `قضية ${p.caseId}`,
-                actionPayload: { criminalId: p.caseId },
+                message: buildAuditActivityMessage({
+                    caseNo: p.caseNo,
+                    clientName: p.clientName,
+                    detail: `قرار ${p.decision}`,
+                    module: 'criminal',
+                }),
+                actionPayload: {
+                    criminalId: p.caseId,
+                    caseNo: p.caseNo,
+                    clientName: p.clientName,
+                    detail: `قرار ${p.decision}`,
+                },
                 dedupeKey: `criminal:detention:${p.caseId}:${p.decision}`,
+            });
+        },
+        activityRecorded(p: {
+            caseId: string;
+            title: string;
+            detail: string;
+            caseNo?: string;
+            clientName?: string;
+        }) {
+            return publish({
+                type: 'audit_log_criminal',
+                category: 'criminal',
+                title: p.title,
+                message: buildAuditActivityMessage({
+                    caseNo: p.caseNo,
+                    clientName: p.clientName,
+                    detail: p.detail,
+                    module: 'criminal',
+                }),
+                actionPayload: {
+                    criminalId: p.caseId,
+                    caseNo: p.caseNo,
+                    clientName: p.clientName,
+                    detail: p.detail,
+                },
+                dedupeKey: `criminal:activity:${p.caseId}:${p.title}:${p.detail.slice(0, 48)}`,
             });
         },
     },
@@ -532,46 +650,17 @@ export const AuditLog = {
     },
 
     // ============================================================
-    // Dossier open events — فتح إضبارة (إجراء ذو قيمة: المحامي رجع لقضية معينة)
+    // Dossier navigation — لا يُسجَّل (التنقّلات ليست أحداثاً ذات قيمة)
     // ============================================================
     dossier: {
-        opened(p: {
+        opened(_p: {
             module: 'civil' | 'personal' | 'criminal' | 'execution' | 'threading';
             entityId: string | number;
             caseNo?: string;
             clientName?: string;
+            fileNumber?: string;
         }) {
-            const moduleLabels: Record<typeof p.module, string> = {
-                civil: 'مدنية',
-                personal: 'أحوال شخصية',
-                criminal: 'جزائية',
-                execution: 'تنفيذ',
-                threading: 'معاملة',
-            };
-            // الفئة تتبع نوع الإضبارة
-            const categoryMap: Record<typeof p.module, NotificationCategory> = {
-                civil: 'civil',
-                personal: 'civil',
-                criminal: 'criminal',
-                execution: 'execution',
-                threading: 'task',
-            };
-            const typeMap: Record<typeof p.module, NotificationType> = {
-                civil: 'audit_log_civil',
-                personal: 'audit_log_civil',
-                criminal: 'audit_log_criminal',
-                execution: 'audit_log_execution',
-                threading: 'audit_log_task',
-            };
-            return publish({
-                type: typeMap[p.module],
-                category: categoryMap[p.module],
-                title: `فتح إضبارة ${moduleLabels[p.module]}`,
-                message: `${p.caseNo ?? p.entityId}${p.clientName ? ` — ${p.clientName}` : ''}`,
-                actionPayload: { entityId: p.entityId, module: p.module },
-                // dedupe قوي: فتح نفس الإضبارة خلال 30s لا يُسجَّل مكرراً
-                dedupeKey: `dossier:open:${p.module}:${p.entityId}`,
-            });
+            return null;
         },
     },
 
@@ -804,12 +893,12 @@ export const AuditLog = {
                 dedupeKey: `doc:scan:${p.docId}`,
             });
         },
-        linked(p: { docId: string; name: string; linkedCaseId: string }) {
+        linked(p: { docId: string; name: string; linkedCaseId: string; linkedCaseLabel?: string }) {
             return publish({
                 type: 'new_document',
                 category: 'document',
                 title: 'ربط مستند بقضية',
-                message: `${p.name} → قضية ${p.linkedCaseId}`,
+                message: `${p.name} — ${p.linkedCaseLabel?.trim() || 'قضية مرتبطة'}`,
                 actionPayload: { docId: p.docId, caseId: p.linkedCaseId },
                 dedupeKey: `doc:link:${p.docId}:${p.linkedCaseId}`,
             });

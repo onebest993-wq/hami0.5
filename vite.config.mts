@@ -33,23 +33,6 @@ function forwardRequestHeaders(req: IncomingMessage): Record<string, string> {
     return out
 }
 
-/** مفاتيح OpenRouter المقروءة من ‎.env‎ لتمريرها إلى ‎process.env‎ (وسيط التطوير لا يحمّل ‎.env‎ تلقائياً) */
-const OPENROUTER_ENV_KEYS = [
-    'OPENROUTER_API_KEY',
-    'OPENROUTER_MODEL',
-    'OPENROUTER_HTTP_REFERER',
-    'OPENROUTER_APP_TITLE',
-] as const
-
-function applyOpenRouterEnvToProcess(env: Record<string, string>): void {
-    for (const key of OPENROUTER_ENV_KEYS) {
-        const fromFile = env[key]?.trim()
-        const fromProcess = process.env[key]?.trim()
-        const value = fromFile || fromProcess
-        if (value) process.env[key] = value
-    }
-}
-
 async function pipeWebBodyToNode(res: ServerResponse, body: ReadableStream<Uint8Array>): Promise<void> {
     const reader = body.getReader()
     try {
@@ -63,49 +46,52 @@ async function pipeWebBodyToNode(res: ServerResponse, body: ReadableStream<Uint8
     }
 }
 
-/** يمرّر ‎POST /api/legal-analysis‎ إلى ‎route.ts‎ (OpenRouter) في وضع التطوير فقط */
+/** يمرّر مسارات ‎/api/*‎ إلى ‎route.ts‎ في وضع التطوير فقط */
+const DEV_API_ROUTE_FILES: Record<string, string> = {
+    '/api/forum/posts': './src/app/api/forum/posts/route.ts',
+    '/api/forum/delete': './src/app/api/forum/delete/route.ts',
+    '/api/forum/report': './src/app/api/forum/report/route.ts',
+    '/api/forum/update': './src/app/api/forum/update/route.ts',
+    '/api/forum/comment': './src/app/api/forum/comment/route.ts',
+    '/api/forum/pin': './src/app/api/forum/pin/route.ts',
+    '/api/forum/status': './src/app/api/forum/status/route.ts',
+    '/api/forum/bookmark': './src/app/api/forum/bookmark/route.ts',
+    '/api/forum/comment-upvote': './src/app/api/forum/comment-upvote/route.ts',
+    '/api/forum/lock': './src/app/api/forum/lock/route.ts',
+    '/api/forum/comment-report': './src/app/api/forum/comment-report/route.ts',
+    '/api/requests/create': './src/app/api/requests/create/route.ts',
+    '/api/requests/update': './src/app/api/requests/update/route.ts',
+    '/api/requests/list': './src/app/api/requests/list/route.ts',
+    '/api/upload': './src/app/api/upload/route.ts',
+}
+
 function legalAnalysisDevApiPlugin() {
     return {
-        name: 'legal-analysis-dev-api',
+        name: 'dev-api-routes',
         configureServer(server: ViteDevServer) {
-            const envDir = server.config.envDir ?? server.config.root
-            const loaded = loadEnv(server.config.mode, envDir, '')
-            applyOpenRouterEnvToProcess(loaded)
-
             server.middlewares.use(async (req: IncomingMessage, res: ServerResponse, next: () => void) => {
                 const url = req.url?.split('?')[0] ?? ''
-                if (req.method !== 'POST') {
-                    return next()
-                }
-                const routeFile =
-                    url === '/api/legal-analysis'
-                        ? './src/app/api/legal-analysis/route.ts'
-                        : url === '/api/forum/delete'
-                          ? './src/app/api/forum/delete/route.ts'
-                          : url === '/api/forum/report'
-                            ? './src/app/api/forum/report/route.ts'
-                            : url === '/api/requests/create'
-                              ? './src/app/api/requests/create/route.ts'
-                              : url === '/api/requests/update'
-                                ? './src/app/api/requests/update/route.ts'
-                                : url === '/api/requests/list'
-                                  ? './src/app/api/requests/list/route.ts'
-                                : url === '/api/upload'
-                                  ? './src/app/api/upload/route.ts'
-                            : null
+                const method = (req.method ?? 'GET').toUpperCase()
+                const routeFile = DEV_API_ROUTE_FILES[url]
                 if (!routeFile) return next()
+                if (method !== 'GET' && method !== 'POST') return next()
                 try {
                     const absRoute = path.join(projectRoot, routeFile.replace(/^\.\//, ''))
-                    const { POST } = await import(pathToFileURL(absRoute).href)
-                    const raw = await readRequestBody(req)
+                    const routeModule = await import(pathToFileURL(absRoute).href) as {
+                        GET?: (request: Request) => Promise<Response>
+                        POST?: (request: Request) => Promise<Response>
+                    }
+                    const handler = method === 'GET' ? routeModule.GET : routeModule.POST
+                    if (!handler) return next()
+                    const raw = method === 'POST' ? await readRequestBody(req) : Buffer.alloc(0)
                     const body = raw.byteLength ? raw : undefined
                     const forwardedHeaders = forwardRequestHeaders(req)
                     const webReq = new Request(`http://127.0.0.1${req.url}`, {
-                        method: 'POST',
+                        method,
                         headers: forwardedHeaders,
-                        body,
+                        body: method === 'POST' ? body : undefined,
                     })
-                    const webRes = await POST(webReq)
+                    const webRes = await handler(webReq)
                     res.statusCode = webRes.status
                     const skip = new Set(['content-encoding', 'content-length', 'transfer-encoding'])
                     webRes.headers.forEach((v: string, k: string) => {
@@ -116,7 +102,7 @@ function legalAnalysisDevApiPlugin() {
                     }
                     res.end()
                 } catch (e) {
-                    console.error('[legal-analysis API]', e)
+                    console.error('[dev-api]', e)
                     if (!res.headersSent) res.statusCode = 500
                     res.setHeader('Content-Type', 'application/json; charset=utf-8')
                     res.end(JSON.stringify({ error: 'خطأ داخلي في خادم التطوير' }))
@@ -149,13 +135,17 @@ export default defineConfig(({ command }) => ({
   server: {
     host: true,
     port: 8080,
-    strictPort: false,
+    /** منفذ واحد فقط — تجنّب تشغيل عدة خوادم (8080/8081/8082) مع HMR مكسور */
+    strictPort: true,
     open: true,
     allowedHosts: true,
     warmup: {
       clientFiles: [
         './src/index.tsx',
         './src/app/App.tsx',
+        './src/app/components/lawyer/CommunityScreen.tsx',
+        './src/app/components/lawyer/LawyerDashboard.tsx',
+        './src/app/components/lawyer/LawyerHomeHubCard.tsx',
         './src/app/components/auth/LoginScreen.tsx',
         './src/styles/index.css',
       ],
@@ -163,13 +153,7 @@ export default defineConfig(({ command }) => ({
     headers: {
       'Cache-Control': 'no-store',
     },
-    /** WebSocket HMR — ثابت على localhost لتجنب فشل الاتصال مع host:true */
-    hmr: {
-      protocol: 'ws',
-      host: 'localhost',
-      port: 8080,
-      clientPort: 8080,
-    },
+    /** يتبع منفذ الخادم الفعلي — لا تثبيت 8080 يدوياً (كان يسبب stale imports عند 8081/8082) */
   },
   preview: {
     host: true,

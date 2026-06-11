@@ -9,6 +9,7 @@ import {
 import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 import { formatRelativeTime } from '../utils';
+import { useForumAttachmentUrl } from '../useForumAttachmentUrl';
 
 export interface QuestionCardProps {
   post: CommunityPost;
@@ -20,10 +21,6 @@ export interface QuestionCardProps {
   onEdit: (postId: string) => void;
   onReport: (postId: string) => void;
   onShare: (postId: string) => void;
-  aiAnalysisText: string | null;
-  aiAnalysisLoading: boolean;
-  onAnalyzeAI: (postId: string) => void;
-  onCloseSummary: (postId: string) => void;
   isAdmin: boolean;
   onTogglePin: (postId: string) => void;
   onFollow: (targetUserId: string) => void;
@@ -48,10 +45,6 @@ export const QuestionCard = ({
   onEdit,
   onReport,
   onShare,
-  aiAnalysisText,
-  aiAnalysisLoading,
-  onAnalyzeAI,
-  onCloseSummary,
   isAdmin,
   onTogglePin,
   onFollow,
@@ -63,6 +56,8 @@ export const QuestionCard = ({
   onMuteUser,
 }: QuestionCardProps) => {
   const [showUserPopup, setShowUserPopup] = useState(false);
+  const [showEditInfo, setShowEditInfo] = useState(false);
+  const { url: attachmentUrl, loading: attachmentLoading } = useForumAttachmentUrl(post.attachment);
   const isUpvoted = currentUserId ? post.upvoterIds.includes(currentUserId) : false;
   const upvoteCount = post.upvoterIds.length;
   const isOwner = !!currentUserId && post.authorId === currentUserId;
@@ -73,6 +68,7 @@ export const QuestionCard = ({
   const canLockUnlock = isOwner || isAdmin;
   const displayName = isAnonymous ? 'زميل مجهول' : post.authorName;
   const isEdited = post.isEdited === true;
+  const editCount = post.editCount ?? (isEdited ? 1 : 0);
   const isFollowing = currentUserId ? followingIds.has(post.authorId) : false;
   const canFollow = !!currentUserId && !isOwner && !isAnonymous;
   const stats = userStats[post.authorId];
@@ -171,7 +167,42 @@ export const QuestionCard = ({
         )}
         <span className="text-gray-500 text-xs">•</span>
         <span className="text-gray-500 text-xs">{formatRelativeTime(post.createdAt)}</span>
-        {isEdited && <span className="text-xs text-slate-500">(مُعدّل)</span>}
+        {isEdited && (
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowEditInfo((v) => !v)}
+              className="text-xs text-[#E6C673]/80 hover:text-[#E6C673] transition-colors underline-offset-2 hover:underline"
+              aria-expanded={showEditInfo}
+            >
+              (مُعدّل{editCount > 0 ? ` · ${editCount}` : ''})
+            </button>
+            {showEditInfo && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowEditInfo(false)} aria-hidden />
+                <div className="absolute top-full right-0 mt-2 z-50 w-[min(320px,calc(100vw-2rem))] bg-[#1E2235] border border-white/10 rounded-xl shadow-2xl p-4">
+                  <p className="text-white font-bold text-sm mb-1">سجل التعديل</p>
+                  <p className="text-white/50 text-[11px] mb-3">
+                    عدد مرات التعديل:{' '}
+                    <span className="text-[#E6C673] font-bold">{editCount || 1}</span>
+                  </p>
+                  <p className="text-white/40 text-[10px] mb-1">النص الحالي (بعد التعديل):</p>
+                  <p className="text-white/90 text-[13px] leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto">
+                    {post.content}
+                  </p>
+                  {(post.editHistory?.length ?? 0) > 0 && (
+                    <div className="mt-3 pt-3 border-t border-white/5">
+                      <p className="text-white/40 text-[10px] mb-2">آخر نسخة قبل التعديل:</p>
+                      <p className="text-white/60 text-[12px] leading-relaxed whitespace-pre-wrap line-clamp-4">
+                        {post.editHistory![post.editHistory!.length - 1]?.content}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
         <div className="flex-1" />
         {/* قفل النقاش — للمالك أو الأدمن */}
         {canLockUnlock && onToggleLock && (
@@ -268,26 +299,60 @@ export const QuestionCard = ({
         <div className="mb-4 mt-2">
           {post.attachment.type === 'image' && (
             <div
-              className="w-full h-[150px] relative rounded-xl overflow-hidden group/att cursor-pointer border border-white/10"
-              onClick={() => onImageClick(post.attachment?.url ?? '')}
+              className="w-full h-[150px] relative rounded-xl overflow-hidden group/att cursor-pointer border border-white/10 bg-[#1E2235]"
+              onClick={() => attachmentUrl && onImageClick(attachmentUrl)}
             >
-              <div className="absolute inset-0 bg-black/40 group-hover/att:bg-black/20 transition-colors z-10" />
-              <ImageWithFallback
-                src={post.attachment.url || ''}
-                alt={post.attachment.name || 'Attachment'}
-                className="w-full h-full object-cover blur-[2px] group-hover/att:blur-0 transition-all duration-300"
-              />
-              <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
-                <div className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center border border-white/20">
-                  <ZoomIn size={20} className="text-white" />
+              {attachmentLoading ? (
+                <div className="absolute inset-0 flex items-center justify-center z-10">
+                  <Loader2 size={22} className="animate-spin text-white/40" />
                 </div>
-              </div>
+              ) : attachmentUrl ? (
+                <>
+                  <div className="absolute inset-0 bg-black/20 group-hover/att:bg-black/10 transition-colors z-10" />
+                  <ImageWithFallback
+                    src={attachmentUrl}
+                    alt={post.attachment.name || 'Attachment'}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none opacity-0 group-hover/att:opacity-100 transition-opacity">
+                    <div className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center border border-white/20">
+                      <ZoomIn size={20} className="text-white" />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-white/40 text-xs px-4 text-center">
+                  تعذّر تحميل الصورة — قد يكون الرابط منتهياً
+                </div>
+              )}
+            </div>
+          )}
+
+          {post.attachment.type === 'audio' && (
+            <div className="w-full bg-[#1E2235] rounded-xl p-3 border border-white/10">
+              <p className="text-white/50 text-[10px] mb-2">مقطع صوتي</p>
+              {attachmentLoading ? (
+                <div className="flex items-center gap-2 text-white/40 text-xs">
+                  <Loader2 size={14} className="animate-spin" />
+                  جاري تحميل المقطع...
+                </div>
+              ) : attachmentUrl ? (
+                <audio
+                  src={attachmentUrl}
+                  controls
+                  preload="metadata"
+                  className="w-full h-10"
+                />
+              ) : (
+                <p className="text-white/40 text-xs">تعذّر تحميل المقطع الصوتي</p>
+              )}
             </div>
           )}
 
           {post.attachment.type === 'document' && (
+            attachmentUrl ? (
             <a
-              href={post.attachment.url}
+              href={attachmentUrl}
               target="_blank"
               rel="noreferrer"
               className="w-full bg-[#1E2235] rounded-xl p-3 border border-white/10 flex items-center gap-3 hover:bg-[#25293C] transition-colors cursor-pointer group/doc"
@@ -303,6 +368,19 @@ export const QuestionCard = ({
                 <Eye size={16} className="text-white/50" />
               </div>
             </a>
+            ) : (
+              <div className="w-full bg-[#1E2235] rounded-xl p-3 border border-white/10 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-[#E6C673]/10 flex items-center justify-center border border-[#E6C673]/20">
+                  <FileText size={20} className="text-[#E6C673]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white/90 text-sm font-medium truncate">{post.attachment.name}</p>
+                  <p className="text-white/40 text-[10px]">
+                    {attachmentLoading ? 'جاري التحميل...' : 'تعذّر فتح الملف'}
+                  </p>
+                </div>
+              </div>
+            )
           )}
         </div>
       )}
@@ -318,66 +396,6 @@ export const QuestionCard = ({
       )}
 
       <div className="h-px bg-white/5 w-full mb-3" />
-
-      {(aiAnalysisLoading || aiAnalysisText) && (
-        <AnimatePresence mode="wait">
-          {aiAnalysisLoading ? (
-            <motion.div
-              key="ai-loading"
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 6 }}
-              className="mb-4"
-            >
-              <div className="p-4 bg-[#151822] rounded-xl border border-[#E6C673]/25 relative">
-                <button type="button"
-                  onClick={() => onCloseSummary(post.id)}
-                  className="absolute top-2 left-2 text-slate-400 hover:text-white transition-colors"
-                  title="إغلاق"
-                >
-                  <X size={14} />
-                </button>
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-6 h-6 rounded bg-[#E6C673]/15 border border-[#E6C673]/25 flex items-center justify-center">
-                    <Loader2 size={14} className="text-[#E6C673] animate-spin" />
-                  </div>
-                  <span className="text-[#E6C673] font-bold text-sm">ملخص الوقائع الذكي</span>
-                </div>
-                <div className="space-y-2">
-                  <div className="h-3 w-full bg-white/5 rounded animate-pulse" />
-                  <div className="h-3 w-4/5 bg-white/5 rounded animate-pulse" />
-                </div>
-              </div>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="ai-text"
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 6 }}
-              className="mb-4"
-            >
-              <div className="p-4 bg-[#151822] rounded-xl border border-[#E6C673]/40 shadow-[0_0_30px_rgba(230,198,115,0.12)] relative">
-                <button type="button"
-                  onClick={() => onCloseSummary(post.id)}
-                  className="absolute top-2 left-2 text-slate-400 hover:text-white transition-colors"
-                  title="إغلاق"
-                >
-                  <X size={14} />
-                </button>
-                <div className="flex items-center gap-2 mb-3 border-b border-white/5 pb-3">
-                  <div className="w-6 h-6 rounded bg-[#E6C673] flex items-center justify-center text-black shadow-[0_0_10px_#E6C673]">
-                    <Sparkles size={14} fill="black" />
-                  </div>
-                  <span className="text-[#E6C673] font-bold text-sm">ملخص الوقائع الذكي</span>
-                </div>
-                <p className="text-white/85 text-[14px] leading-relaxed whitespace-pre-wrap">{aiAnalysisText}</p>
-                <p className="text-xs text-amber-500/50 mt-3">هذا التلخيص مُولد آلياً لاختصار وقت القراءة، يُرجى مراجعة المنشور الأصلي للتفاصيل.</p>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      )}
 
       <div className="flex items-center gap-6 mt-2">
         <button type="button"
@@ -401,16 +419,6 @@ export const QuestionCard = ({
         >
           <MessageCircle size={20} className="text-gray-500 group-hover/c:text-[#E6C673] transition-colors" />
           <span className="text-gray-400 text-sm group-hover/c:text-white transition-colors">{post.comments.length} تعليقات زملاء</span>
-        </button>
-
-        <button type="button"
-          onClick={() => onAnalyzeAI(post.id)}
-          className="flex items-center gap-1 group/a transition-all duration-200 active:scale-95 p-1 rounded-lg hover:bg-white/5"
-          disabled={aiAnalysisLoading}
-          title="تلخيص الوقائع"
-        >
-          <FileText size={20} className={`transition-colors ${aiAnalysisLoading ? 'text-[#E6C673]' : 'text-gray-500 group-hover/a:text-[#E6C673]'}`} />
-          <span className="text-gray-400 text-sm group-hover/a:text-white transition-colors">تلخيص الوقائع 📝</span>
         </button>
 
         <button type="button"

@@ -4,6 +4,8 @@ import {
     executionMonetaryStrictPath,
 } from '@/app/utils/debtorSummonsProfile';
 
+import { hasOngoingAlimonyInExecution } from '@/app/components/lawyer/ExecutionCreationView/hooks/executionFormUtils';
+
 export function useExecutionFlags(
     executionData: unknown,
     debtorNotificationDate: string | null,
@@ -25,7 +27,7 @@ export function useExecutionFlags(
         [ed?.debtorNotificationDate, debtorNotificationDate, effectiveDebtors]
     );
 
-    const isAlimonyClaim = claimType?.includes('نفقة') && !claimType?.includes('نفقة عدة') && !claimType?.includes('مهر');
+    const isAlimonyClaim = hasOngoingAlimonyInExecution(ed ?? null, claimType);
 
     const isHybridFeesNonMonetary = useMemo(
         () =>

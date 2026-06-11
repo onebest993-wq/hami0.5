@@ -1,20 +1,15 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Search, FileText, Scale, FilePen, BookOpen, FolderOpen, ChevronDown, ArrowUpDown, X, Download } from 'lucide-react';
+import { FileText, FolderOpen, X, Download, Upload, FileImage } from 'lucide-react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useAuth } from '@/app/context/AuthContext';
 import { RepositoryDB, LawyerStorage, notifyFollowers, uuidv4, type RepositoryDocument } from '@/app/services/lawyer-cloud';
 import { RepositoryCard } from './RepositoryCard';
 import { UploadDocumentModal } from './UploadDocumentModal';
-
-const DOCUMENT_TYPES = ['الكل', 'عقد', 'قرار حكم', 'عريضة', 'بحث قانوني', 'أخرى'] as const;
-
-const TYPE_ICONS: Record<string, React.ReactNode> = {
-    'عقد': <FileText size={14} />,
-    'قرار حكم': <Scale size={14} />,
-    'عريضة': <FilePen size={14} />,
-    'بحث قانوني': <BookOpen size={14} />,
-    'أخرى': <FolderOpen size={14} />,
-};
+import { ForumDeleteConfirmModal } from './ForumDeleteConfirmModal';
+import { getRepositoryMediaKind, getRepositoryMediaIconKind, inferRepositoryMimeType } from './repositoryMedia';
+import { repositorySortLabel, type RepositorySortKey } from '../repositoryListFilters';
+import { repositoryDocMatchesTag, repositoryDocMatchesSearch, resolveRepositoryDocTags } from '../repositoryTagUtils';
+import { cacheRepositoryFileLocally, resolveRepositoryStorageUrl } from '../repositoryStorageService';
 
 const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 بايت';
@@ -38,13 +33,57 @@ const PreviewModal = ({
     onClose: () => void;
     onDownload: (doc: RepositoryDocument) => void;
 }) => {
-    const isImage = doc.mimeType?.startsWith('image/');
-    const isPdf = doc.mimeType === 'application/pdf';
+    const isImage = getRepositoryMediaKind(doc.mimeType, doc.fileName) === 'image';
+    const isPdf = getRepositoryMediaKind(doc.mimeType, doc.fileName) === 'pdf';
+
+    if (isImage) {
+        return (
+            <>
+                <div
+                    className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-sm"
+                    onClick={onClose}
+                    aria-hidden
+                />
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pointer-events-none">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="absolute top-[max(1rem,env(safe-area-inset-top))] right-[max(1rem,env(safe-area-inset-right))] w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors pointer-events-auto"
+                        aria-label="إغلاق"
+                    >
+                        <X size={22} />
+                    </button>
+                    {isLoading ? (
+                        <svg
+                            className="animate-spin h-8 w-8 text-white/30 pointer-events-auto"
+                            viewBox="0 0 24 24"
+                        >
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                    ) : signedUrl ? (
+                        <img
+                            src={signedUrl}
+                            alt={doc.title}
+                            className="max-w-full max-h-[min(85vh,720px)] w-auto h-auto object-contain pointer-events-auto select-none"
+                            onClick={(e) => e.stopPropagation()}
+                            draggable={false}
+                        />
+                    ) : (
+                        <div className="flex flex-col items-center gap-2 text-white/40 pointer-events-auto">
+                            <FileImage size={40} />
+                            <p className="text-sm">الصورة غير متاحة</p>
+                        </div>
+                    )}
+                </div>
+            </>
+        );
+    }
 
     return (
         <>
-            <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm" onClick={onClose} />
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pointer-events-none">
                 <div
                     className="w-full max-w-lg bg-[#1A1D2D] rounded-2xl border border-white/10 shadow-2xl pointer-events-auto overflow-hidden"
                     onClick={(e) => e.stopPropagation()}
@@ -62,8 +101,12 @@ const PreviewModal = ({
 
                     <div className="px-5 py-4 space-y-4">
                         <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-xl bg-[#E6C673]/10 flex items-center justify-center shrink-0">
-                                <FileText size={24} className="text-[#E6C673]" />
+                            <div className="w-12 h-12 rounded-xl bg-[#E6C673]/10 flex items-center justify-center shrink-0 text-[#E6C673]">
+                                {getRepositoryMediaIconKind(doc) === 'image' ? (
+                                    <FileImage size={24} />
+                                ) : (
+                                    <FileText size={24} className="text-[#E6C673]" />
+                                )}
                             </div>
                             <div className="min-w-0 flex-1">
                                 <h4 className="text-white font-bold text-sm truncate">{doc.title}</h4>
@@ -100,21 +143,13 @@ const PreviewModal = ({
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                                 </svg>
                             </div>
-                        ) : signedUrl && (isImage || isPdf) ? (
-                            <div className="h-48 rounded-xl overflow-hidden bg-[#25293C]">
-                                {isImage ? (
-                                    <img
-                                        src={signedUrl}
-                                        alt={doc.title}
-                                        className="w-full h-full object-contain"
-                                    />
-                                ) : (
-                                    <iframe
-                                        src={signedUrl}
-                                        title={doc.title}
-                                        className="w-full h-full"
-                                    />
-                                )}
+                        ) : signedUrl && isPdf ? (
+                            <div className="h-64 rounded-xl overflow-hidden bg-[#25293C]">
+                                <iframe
+                                    src={signedUrl}
+                                    title={doc.title}
+                                    className="w-full h-full"
+                                />
                             </div>
                         ) : signedUrl ? (
                             <div className="h-32 bg-[#25293C] rounded-xl flex flex-col items-center justify-center gap-2">
@@ -155,24 +190,31 @@ const PreviewModal = ({
     );
 };
 
-export const LegalRepository = () => {
+export const LegalRepository = ({
+    searchTerm = '',
+    selectedType = 'الكل',
+    sortBy = 'newest',
+    selectedTag = null,
+}: {
+    searchTerm?: string;
+    selectedType?: string;
+    sortBy?: RepositorySortKey;
+    selectedTag?: string | null;
+} = {}) => {
     const { user, hasRole } = useAuth();
     const userId = user?.id ?? null;
 
     const [documents, setDocuments] = useState<RepositoryDocument[]>([]);
     const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [selectedType, setSelectedType] = useState<string>('الكل');
-    const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [downloadingId, setDownloadingId] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+    const [editingDoc, setEditingDoc] = useState<RepositoryDocument | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [sortBy, setSortBy] = useState<string>('newest');
-    const [isSortOpen, setIsSortOpen] = useState(false);
     const [previewDoc, setPreviewDoc] = useState<RepositoryDocument | null>(null);
     const [previewSignedUrl, setPreviewSignedUrl] = useState<string | null>(null);
     const [previewLoading, setPreviewLoading] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState<RepositoryDocument | null>(null);
 
     const canUpload = Boolean(user && hasRole('lawyer'));
     const isOwner = useCallback(
@@ -184,7 +226,12 @@ export const LegalRepository = () => {
         setLoading(true);
         try {
             const docs = await RepositoryDB.listDocuments();
-            setDocuments(docs);
+            setDocuments(
+                docs.map((doc) => ({
+                    ...doc,
+                    tags: resolveRepositoryDocTags(doc.title, doc.description, doc.tags),
+                })),
+            );
         } catch {
             SmartToast.error('فشل تحميل المستندات');
         } finally {
@@ -199,11 +246,10 @@ export const LegalRepository = () => {
     const filteredDocuments = useMemo(() => {
         const filtered = documents.filter((doc) => {
             const matchesType = selectedType === 'الكل' || doc.type === selectedType;
-            const matchesSearch =
-                searchTerm === '' ||
-                doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                doc.description.toLowerCase().includes(searchTerm.toLowerCase());
-            return matchesType && matchesSearch;
+            const matchesSearch = repositoryDocMatchesSearch(doc, searchTerm);
+            const docTags = resolveRepositoryDocTags(doc.title, doc.description, doc.tags);
+            const matchesTag = repositoryDocMatchesTag(docTags, selectedTag);
+            return matchesType && matchesSearch && matchesTag;
         });
         const sorted = [...filtered].sort((a, b) => {
             switch (sortBy) {
@@ -217,7 +263,7 @@ export const LegalRepository = () => {
             }
         });
         return sorted;
-    }, [searchTerm, selectedType, documents, sortBy]);
+    }, [searchTerm, selectedType, selectedTag, documents, sortBy]);
 
     const handleDownload = useCallback(async (doc: RepositoryDocument) => {
         setDownloadingId(doc.id);
@@ -226,7 +272,7 @@ export const LegalRepository = () => {
                 SmartToast.warning('الملف غير متاح للتحميل');
                 return;
             }
-            const url = await LawyerStorage.getSignedUrl(doc.storagePath);
+            const url = await resolveRepositoryStorageUrl(doc.storagePath);
             if (url) {
                 const a = document.createElement('a');
                 a.href = url;
@@ -245,28 +291,40 @@ export const LegalRepository = () => {
         }
     }, []);
 
-    const handleDeleteDocument = useCallback(async (doc: RepositoryDocument) => {
+    const handleDeleteRequest = useCallback((doc: RepositoryDocument) => {
         if (!isOwner(doc)) {
             SmartToast.warning('غير مصرح لك بحذف هذا المستند');
             return;
         }
-        setDeletingId(doc.id);
+        setDeleteTarget(doc);
+    }, [isOwner]);
+
+    const handleConfirmDelete = useCallback(async () => {
+        if (!deleteTarget) return;
+        if (!isOwner(deleteTarget)) {
+            SmartToast.warning('غير مصرح لك بحذف هذا المستند');
+            setDeleteTarget(null);
+            return;
+        }
+        setDeletingId(deleteTarget.id);
         try {
-            await RepositoryDB.deleteDocument(doc.id);
-            setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
-            SmartToast.success(`تم حذف "${doc.title}"`);
+            await RepositoryDB.deleteDocument(deleteTarget.id);
+            setDocuments((prev) => prev.filter((d) => d.id !== deleteTarget.id));
+            SmartToast.success(`تم حذف "${deleteTarget.title}"`);
+            setDeleteTarget(null);
         } catch {
             SmartToast.error('فشل حذف المستند');
         } finally {
             setDeletingId(null);
         }
-    }, [isOwner]);
+    }, [deleteTarget, isOwner]);
 
     const handleEditDocument = useCallback((doc: RepositoryDocument) => {
         if (!isOwner(doc)) {
             SmartToast.warning('غير مصرح لك بتعديل هذا المستند');
             return;
         }
+        setEditingDoc(doc);
         setIsUploadModalOpen(true);
     }, [isOwner]);
 
@@ -283,7 +341,7 @@ export const LegalRepository = () => {
         if (doc.storagePath) {
             setPreviewLoading(true);
             try {
-                const url = await LawyerStorage.getSignedUrl(doc.storagePath);
+                const url = await resolveRepositoryStorageUrl(doc.storagePath);
                 setPreviewSignedUrl(url);
             } catch {
                 setPreviewSignedUrl(null);
@@ -295,152 +353,125 @@ export const LegalRepository = () => {
         }
     }, []);
 
-    const handleUploadSubmit = useCallback(async (data: { title: string; type: string; description: string; file: File | null }) => {
-        if (!user) return;
+    const handleUploadSubmit = useCallback(async (data: { title: string; type: string; description: string; file: File | null; tags: string[] }) => {
+        if (!user) {
+            SmartToast.warning('سجّل الدخول أولاً');
+            throw new Error('auth');
+        }
+        if (!editingDoc && !data.file) {
+            SmartToast.warning('يرجى اختيار ملف أو صورة للرفع');
+            throw new Error('no-file');
+        }
+
         setIsSubmitting(true);
         try {
-            let storagePath = '';
-            let fileName = '';
-            let mimeType = '';
-            let fileSize = 0;
+            let storagePath = editingDoc?.storagePath ?? '';
+            let fileName = editingDoc?.fileName ?? '';
+            let mimeType = editingDoc?.mimeType ?? '';
+            let fileSize = editingDoc?.fileSize ?? 0;
 
             if (data.file) {
-                const uploadResult = await LawyerStorage.uploadSmartFile(user.id, data.file, 'repository');
-                storagePath = uploadResult.path;
-                fileName = data.file.name;
-                mimeType = data.file.type;
-                fileSize = data.file.size;
+                try {
+                    const uploadResult = await LawyerStorage.uploadSmartFile(user.id, data.file, 'repository');
+                    storagePath = uploadResult.path;
+                    fileName = data.file.name;
+                    mimeType = inferRepositoryMimeType(data.file);
+                    fileSize = data.file.size;
+                } catch {
+                    const cached = await cacheRepositoryFileLocally(data.file);
+                    storagePath = cached.storagePath;
+                    fileName = cached.fileName;
+                    mimeType = cached.mimeType;
+                    fileSize = cached.fileSize;
+                }
             }
 
-            const newDoc: RepositoryDocument = {
-                id: uuidv4(),
-                title: data.title,
-                description: data.description,
-                type: data.type as RepositoryDocument['type'],
-                authorId: user.id,
-                authorName: user?.user_metadata?.fullName || user?.email || 'محامي',
-                uploadDate: new Date().toISOString().split('T')[0],
-                fileName,
-                mimeType,
-                storagePath,
-                fileSize,
-            };
+            if (!storagePath) {
+                SmartToast.error('فشل رفع الملف — لم يُحفظ مسار التخزين');
+                throw new Error('no-storage');
+            }
 
-            await RepositoryDB.saveDocument(newDoc);
+            const savedDoc: RepositoryDocument = editingDoc
+                ? {
+                      ...editingDoc,
+                      title: data.title,
+                      description: data.description,
+                      type: data.type as RepositoryDocument['type'],
+                      tags: resolveRepositoryDocTags(data.title, data.description, data.tags),
+                      fileName,
+                      mimeType,
+                      storagePath,
+                      fileSize,
+                  }
+                : {
+                      id: uuidv4(),
+                      title: data.title,
+                      description: data.description,
+                      type: data.type as RepositoryDocument['type'],
+                      tags: resolveRepositoryDocTags(data.title, data.description, data.tags),
+                      authorId: user.id,
+                      authorName: user?.user_metadata?.fullName || user?.email || 'محامي',
+                      uploadDate: new Date().toISOString().split('T')[0],
+                      fileName,
+                      mimeType,
+                      storagePath,
+                      fileSize,
+                  };
+
+            await RepositoryDB.saveDocument(savedDoc);
+
+            if (editingDoc) {
+                setDocuments((prev) => prev.map((d) => (d.id === savedDoc.id ? savedDoc : d)));
+                SmartToast.success('تم تحديث المستند');
+            } else {
+                handleAddNewDocument(savedDoc);
+                SmartToast.success('تم رفع المستند بنجاح');
+                notifyFollowers(
+                    user.id,
+                    'new_document',
+                    'مستند جديد من متابَع',
+                    `أضاف ${savedDoc.authorName} مستند "${savedDoc.title}" في المستودع القانوني`,
+                );
+            }
+
+            setEditingDoc(null);
             setIsUploadModalOpen(false);
-            SmartToast.success('تم رفع المستند بنجاح');
-            notifyFollowers(user.id, 'new_document', 'مستند جديد من متابَع', `أضاف ${newDoc.authorName} مستند "${newDoc.title}" في المستودع القانوني`);
-        } catch {
-            SmartToast.error('فشل رفع المستند');
+        } catch (err) {
+            if (err instanceof Error && ['auth', 'no-file', 'no-storage'].includes(err.message)) {
+                // toast already shown
+            } else {
+                SmartToast.error('فشل رفع المستند');
+            }
+            throw err;
         } finally {
             setIsSubmitting(false);
         }
-    }, [user]);
+    }, [user, editingDoc, handleAddNewDocument]);
 
-    const activeTypeIcon = TYPE_ICONS[selectedType] || <FolderOpen size={14} />;
-    const sortOptions = [
-        { value: 'newest', label: 'الأحدث أولاً' },
-        { value: 'oldest', label: 'الأقدم أولاً' },
-        { value: 'name', label: 'الاسم أ-ي' },
-    ];
-    const activeSortLabel = sortOptions.find((o) => o.value === sortBy)?.label || 'الأحدث أولاً';
+    const activeSortLabel = repositorySortLabel(sortBy);
 
     return (
-        <div className="px-4 pb-4 space-y-4">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-white font-bold text-base">المستودع القانوني العام</h2>
-                    <p className="text-white/40 text-[11px]">مكتبة رقمية للمستندات القانونية</p>
-                </div>
-                {canUpload && (
-                    <button type="button"
-                        onClick={() => setIsUploadModalOpen(true)}
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#E6C673]/10 border border-[#E6C673]/20 text-[#E6C673] hover:bg-[#E6C673]/15 text-xs font-bold transition-all"
-                    >
-                        رفع مستند للمستودع 📤
-                    </button>
-                )}
+        <div className="px-4 pb-28 space-y-4 relative">
+            <div>
+                <h2 className="text-white font-bold text-base">المستودع القانوني العام</h2>
+                <p className="text-white/40 text-[11px]">مكتبة رقمية للمستندات القانونية</p>
             </div>
 
-            <div className="flex items-center gap-2">
-                <div className="flex-1 flex items-center gap-2 bg-[#25293C] rounded-xl px-4 h-12 border border-white/5 focus-within:border-[#E6C673]/30 transition-colors">
-                    <Search size={18} className="text-white/30 shrink-0" />
-                    <input
-                        type="text"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="ابحث في المستندات..."
-                        className="w-full bg-transparent text-white text-sm placeholder-white/30 focus:outline-none"
-                    />
-                </div>
-
-                <div className="relative">
-                    <button type="button"
-                        onClick={() => setIsSortOpen((v) => !v)}
-                        className="h-12 px-3 rounded-xl bg-[#25293C] border border-white/5 flex items-center gap-1.5 text-white/70 hover:text-white hover:border-white/20 transition-colors"
-                        title="ترتيب"
+            {canUpload ? (
+                <div className="fixed bottom-6 left-6 z-20">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setEditingDoc(null);
+                            setIsUploadModalOpen(true);
+                        }}
+                        className="flex items-center gap-2 font-bold py-3 px-5 rounded-2xl shadow-xl shadow-black/30 transition-transform active:scale-95 bg-[#E6C673] hover:bg-[#d4b560] text-black"
                     >
-                        <ArrowUpDown size={16} />
-                        <ChevronDown size={14} className={`transition-transform ${isSortOpen ? 'rotate-180' : ''}`} />
+                        <Upload size={18} />
+                        <span>رفع مستند للمستودع</span>
                     </button>
-                    {isSortOpen && (
-                        <>
-                            <div className="fixed inset-0 z-40" onClick={() => setIsSortOpen(false)} />
-                            <div className="absolute left-0 top-full mt-2 w-40 z-50 bg-[#25293C] border border-white/10 rounded-2xl p-2 shadow-2xl">
-                                {sortOptions.map((opt) => (
-                                    <button type="button"
-                                        key={opt.value}
-                                        onClick={() => { setSortBy(opt.value); setIsSortOpen(false); }}
-                                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${
-                                            sortBy === opt.value
-                                                ? 'bg-[#E6C673]/10 text-[#E6C673] font-bold'
-                                                : 'text-white/70 hover:bg-white/5 hover:text-white'
-                                        }`}
-                                    >
-                                        {opt.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </>
-                    )}
                 </div>
-
-                <div className="relative">
-                    <button type="button"
-                        onClick={() => setIsFilterOpen((v) => !v)}
-                        className="h-12 px-4 rounded-xl bg-[#25293C] border border-white/5 flex items-center gap-2 text-white/70 hover:text-white hover:border-white/20 transition-colors"
-                    >
-                        {activeTypeIcon}
-                        <span className="text-sm font-medium">{selectedType}</span>
-                        <ChevronDown size={16} className={`transition-transform ${isFilterOpen ? 'rotate-180' : ''}`} />
-                    </button>
-
-                    {isFilterOpen && (
-                        <>
-                            <div className="fixed inset-0 z-40" onClick={() => setIsFilterOpen(false)} />
-                            <div className="absolute left-0 top-full mt-2 w-44 z-50 bg-[#25293C] border border-white/10 rounded-2xl p-2 shadow-2xl">
-                                {DOCUMENT_TYPES.map((type) => (
-                                    <button type="button"
-                                        key={type}
-                                        onClick={() => {
-                                            setSelectedType(type);
-                                            setIsFilterOpen(false);
-                                        }}
-                                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${
-                                            selectedType === type
-                                                ? 'bg-[#E6C673]/10 text-[#E6C673] font-bold'
-                                                : 'text-white/70 hover:bg-white/5 hover:text-white'
-                                        }`}
-                                    >
-                                        {TYPE_ICONS[type] || <FolderOpen size={14} />}
-                                        {type}
-                                    </button>
-                                ))}
-                            </div>
-                        </>
-                    )}
-                </div>
-            </div>
+            ) : null}
 
             <div className="flex items-center justify-between">
                 <p className="text-white/40 text-xs">
@@ -482,7 +513,7 @@ export const LegalRepository = () => {
                             downloadingId={downloadingId}
                             deletingId={deletingId}
                             onDownload={handleDownload}
-                            onDelete={handleDeleteDocument}
+                            onDelete={handleDeleteRequest}
                             onEdit={handleEditDocument}
                             onReport={handleReportDocument}
                             onPreview={handlePreview}
@@ -493,9 +524,12 @@ export const LegalRepository = () => {
 
             <UploadDocumentModal
                 isOpen={isUploadModalOpen}
-                onClose={() => setIsUploadModalOpen(false)}
+                onClose={() => {
+                    setIsUploadModalOpen(false);
+                    setEditingDoc(null);
+                }}
                 onSubmit={handleUploadSubmit}
-                onUploadSuccess={handleAddNewDocument}
+                editDoc={editingDoc}
                 authorName={user?.user_metadata?.fullName || user?.email || 'محامي'}
                 isSubmitting={isSubmitting}
             />
@@ -509,6 +543,22 @@ export const LegalRepository = () => {
                     onDownload={handleDownload}
                 />
             )}
+
+            <ForumDeleteConfirmModal
+                open={deleteTarget !== null}
+                title="حذف المستند"
+                message={
+                    deleteTarget
+                        ? `هل تريد حذف "${deleteTarget.title}" من المستودع؟ لا يمكن التراجع عن هذا الإجراء.`
+                        : ''
+                }
+                loading={deletingId !== null}
+                onConfirm={() => void handleConfirmDelete()}
+                onCancel={() => {
+                    if (deletingId) return;
+                    setDeleteTarget(null);
+                }}
+            />
         </div>
     );
 };

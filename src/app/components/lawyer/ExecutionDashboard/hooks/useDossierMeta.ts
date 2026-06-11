@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { ExecutionFile } from '@/app/types/execution';
+import { fileHasSpecificDeliveryClaim } from '@/app/utils/executionDossierHeaderFields';
 
 export function useDossierMeta(
     executionData: ExecutionFile | null | undefined,
@@ -24,11 +25,13 @@ export function useDossierMeta(
     const openEditDossierMeta = useCallback(() => {
         setDossierMetaDraft({
             directorate: String(executionData?.directorate ?? directorate ?? ''),
-            fileNumber: String(fileNumber ?? ''),
-            fileYear: String((executionData as ExecutionFile)?.fileYear ?? fileYear ?? ''),
-            docNumber: String(docNumber ?? ''),
-            judgmentDate: String(judgmentDate ?? '').slice(0, 10),
-            classification: String(classification ?? ''),
+            fileNumber: String(executionData?.fileNumber ?? fileNumber ?? ''),
+            fileYear: String(executionData?.fileYear ?? fileYear ?? ''),
+            docType: String(executionData?.docType ?? ''),
+            claimType: String(executionData?.claimType ?? ''),
+            docNumber: String(executionData?.docNumber ?? docNumber ?? ''),
+            judgmentDate: String(executionData?.judgmentDate ?? judgmentDate ?? '').slice(0, 10),
+            classification: String(executionData?.classification ?? classification ?? ''),
             property_number: String(evictionPropertyNumber ?? ''),
             district: String(evictionPropertyDistrict ?? ''),
             property_type: String(evictionPropertyTypeField ?? ''),
@@ -39,6 +42,14 @@ export function useDossierMeta(
                     : evictionPremisesUseRaw === 'commercial'
                       ? 'commercial'
                       : '',
+            specificDeliveryItemName: String(
+                (executionData as { specificDeliveryItemName?: string } | null | undefined)
+                    ?.specificDeliveryItemName ?? ''
+            ),
+            specificDeliveryItemNature: String(
+                (executionData as { specificDeliveryItemNature?: string } | null | undefined)
+                    ?.specificDeliveryItemNature ?? ''
+            ),
         });
         setShowEditDossierMetaModal(true);
     }, [
@@ -63,10 +74,30 @@ export function useDossierMeta(
             directorate: dossierMetaDraft.directorate as ExecutionFile['directorate'],
             fileNumber: dossierMetaDraft.fileNumber,
             fileYear: dossierMetaDraft.fileYear,
+            docType: dossierMetaDraft.docType,
+            claimType: dossierMetaDraft.claimType,
             docNumber: dossierMetaDraft.docNumber,
             judgmentDate: dossierMetaDraft.judgmentDate,
             classification: dossierMetaDraft.classification,
         };
+        const specificDeliveryPatch = fileHasSpecificDeliveryClaim({
+            ...executionData,
+            claimType: dossierMetaDraft.claimType,
+        } as ExecutionFile)
+            ? {
+                  specificDeliveryItemName: String(
+                      dossierMetaDraft.specificDeliveryItemName || ''
+                  ).trim(),
+                  ...(dossierMetaDraft.specificDeliveryItemNature === 'movable' ||
+                  dossierMetaDraft.specificDeliveryItemNature === 'immovable'
+                      ? {
+                            specificDeliveryItemNature: dossierMetaDraft
+                                .specificDeliveryItemNature as 'movable' | 'immovable',
+                        }
+                      : {}),
+              }
+            : {};
+
         if (isEvictionExecutionModule) {
             persistExecutionMerge({
                 ...base,
@@ -78,14 +109,15 @@ export function useDossierMeta(
                     ep === 'residential' || ep === 'commercial'
                         ? (ep as 'commercial' | 'residential')
                         : undefined,
+                ...specificDeliveryPatch,
             });
         } else {
-            persistExecutionMerge(base);
+            persistExecutionMerge({ ...base, ...specificDeliveryPatch });
         }
         setShowEditDossierMetaModal(false);
         setDossierMetaDraft(null);
         showToast('تم حفظ بيانات الإضبارة', 'success');
-    }, [dossierMetaDraft, isEvictionExecutionModule, persistExecutionMerge, showToast]);
+    }, [dossierMetaDraft, executionData, isEvictionExecutionModule, persistExecutionMerge, showToast]);
 
     return {
         showEditDossierMetaModal,

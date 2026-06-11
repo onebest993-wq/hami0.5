@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle, Wallet, FolderOpen, Car } from 'lucide-react';
+import { CheckCircle, Wallet, FolderOpen } from 'lucide-react';
 import { InlineActionGate } from './InlineActionGate';
 import type { InlineActionGateKey } from '../types';
 
@@ -13,6 +13,7 @@ export interface CoerciveToolsGridProps {
     followupGarnishmentAmountPreview: string | number | null | undefined;
     followupEmployeeFinancialSalaryOnlyCoercive: boolean;
     followupMonetaryCoerciveLimitedOnly: boolean;
+    hideCoerciveSeizureSalaryAndProperty?: boolean;
     setInlineActionGateKey: (key: InlineActionGateKey | null) => void;
     handleCoerciveAction: (type: string) => void;
 }
@@ -27,6 +28,7 @@ export const CoerciveToolsGrid: React.FC<CoerciveToolsGridProps> = ({
     followupGarnishmentAmountPreview,
     followupEmployeeFinancialSalaryOnlyCoercive,
     followupMonetaryCoerciveLimitedOnly,
+    hideCoerciveSeizureSalaryAndProperty = false,
     setInlineActionGateKey,
     handleCoerciveAction,
 }) => {
@@ -76,10 +78,15 @@ export const CoerciveToolsGrid: React.FC<CoerciveToolsGridProps> = ({
 
     if (isEvictionExecutionModule) return null;
 
+    const showSalaryButton = activeDebtorIsEmployee && !hideCoerciveSeizureSalaryAndProperty;
+    const showPropertyButton = !hideCoerciveSeizureSalaryAndProperty;
+
+    if (!showSalaryButton && !showPropertyButton) return null;
+
     return (
         <>
             <div className="grid grid-cols-2 gap-3">
-                {activeDebtorIsEmployee && (
+                {showSalaryButton && (
                     <div className="relative">
                         <button
                             type="button"
@@ -123,19 +130,8 @@ export const CoerciveToolsGrid: React.FC<CoerciveToolsGridProps> = ({
                     </div>
                 )}
 
-                {(followupEmployeeFinancialSalaryOnlyCoercive || followupMonetaryCoerciveLimitedOnly) && (
-                    <>
-                        {renderSeizureButton({ type: 'property', label: 'طلب حجز عقار', icon: FolderOpen, gateKey: 'seizure_property' })}
-                        {renderSeizureButton({ type: 'vehicle', label: 'طلب حجز مال منقول', icon: Car, gateKey: 'seizure_vehicle' })}
-                    </>
-                )}
-
-                {!followupEmployeeFinancialSalaryOnlyCoercive && !followupMonetaryCoerciveLimitedOnly && (
-                    <>
-                        {renderSeizureButton({ type: 'property', label: 'طلب حجز عقار', icon: FolderOpen, gateKey: 'seizure_property' })}
-                        {renderSeizureButton({ type: 'vehicle', label: 'طلب حجز مال منقول', icon: Car, gateKey: 'seizure_vehicle' })}
-                    </>
-                )}
+                {showPropertyButton &&
+                    renderSeizureButton({ type: 'property', label: 'طلب حجز عقار', icon: FolderOpen, gateKey: 'seizure_property' })}
             </div>
         </>
     );

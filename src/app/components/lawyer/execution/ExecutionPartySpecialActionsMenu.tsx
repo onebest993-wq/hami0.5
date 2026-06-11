@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MoreVertical } from 'lucide-react';
 
@@ -26,12 +26,15 @@ export interface ExecutionPartySpecialActionsMenuProps {
     hideDebtorEmploymentToggle?: boolean;
     /** معاينة تاريخية — إخفاء القائمة بالكامل */
     isHistoricalMode?: boolean;
+    /** تعديل بيانات الطرف (داخل القائمة) */
+    editPartyLabel?: string;
+    onEditParty?: () => void;
 }
 
 /**
  * قائمة ⋮ — تُعرض عبر portal على document.body لتجاوز overflow البطاقات وسياقات z-index.
  */
-export const ExecutionPartySpecialActionsMenu: React.FC<ExecutionPartySpecialActionsMenuProps> = ({
+export const ExecutionPartySpecialActionsMenu = memo(function ExecutionPartySpecialActionsMenu({
     variant,
     creditorDeathEntryLabel = 'الإبلاغ عن وفاة الدائن',
     debtorDeathEntryLabel = 'الإبلاغ عن وفاة المدين',
@@ -43,7 +46,9 @@ export const ExecutionPartySpecialActionsMenu: React.FC<ExecutionPartySpecialAct
     debtorEmploymentToggleToKasabDisabled,
     hideDebtorEmploymentToggle,
     isHistoricalMode = false,
-}) => {
+    editPartyLabel,
+    onEditParty,
+}: ExecutionPartySpecialActionsMenuProps) {
     const [open, setOpen] = useState(false);
     const rootRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -121,10 +126,26 @@ export const ExecutionPartySpecialActionsMenu: React.FC<ExecutionPartySpecialAct
                 onMouseDown={(e) => e.stopPropagation()}
                 onPointerDown={(e) => e.stopPropagation()}
             >
+                {onEditParty && editPartyLabel ? (
+                    <>
+                        <button
+                            type="button"
+                            className={`w-full px-3 py-2 text-right text-[11px] font-bold hover:bg-white/10 ${
+                                variant === 'creditor' ? 'text-emerald-300' : 'text-rose-300'
+                            }`}
+                            onMouseDownCapture={(e) => e.stopPropagation()}
+                            onClick={() => pick(onEditParty)}
+                        >
+                            {editPartyLabel}
+                        </button>
+                        <div className="my-0.5 border-t border-white/8" aria-hidden />
+                    </>
+                ) : null}
                 {variant === 'creditor' && (
                     <button
                         type="button"
                         className="w-full px-3 py-2 text-right text-[11px] font-bold text-slate-100 hover:bg-white/10"
+                        onMouseDownCapture={(e) => e.stopPropagation()}
                         onClick={() => pick(onReportCreditorDeath)}
                     >
                         {creditorDeathEntryLabel}
@@ -135,6 +156,7 @@ export const ExecutionPartySpecialActionsMenu: React.FC<ExecutionPartySpecialAct
                         <button
                             type="button"
                             className="w-full px-3 py-2 text-right text-[11px] font-bold text-slate-100 hover:bg-white/10"
+                            onMouseDownCapture={(e) => e.stopPropagation()}
                             onClick={() => pick(onReportDebtorDeath)}
                         >
                             {debtorDeathEntryLabel}
@@ -181,7 +203,7 @@ export const ExecutionPartySpecialActionsMenu: React.FC<ExecutionPartySpecialAct
                 className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-slate-200 transition-colors"
                 aria-label="إجراءات إضافية"
                 aria-expanded={open}
-                onClick={(e) => {
+                onMouseDownCapture={(e) => {
                     e.stopPropagation();
                     setOpen((v) => !v);
                 }}
@@ -191,4 +213,4 @@ export const ExecutionPartySpecialActionsMenu: React.FC<ExecutionPartySpecialAct
             {menuPortal}
         </div>
     );
-};
+});

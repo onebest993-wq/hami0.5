@@ -1,10 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
     CreditCard,
     ChevronDown,
     ChevronUp,
-    DollarSign,
+    HeartHandshake,
     CheckCircle,
     History,
     Send,
@@ -33,8 +33,6 @@ import { storageCache } from '@/app/utils/storageCache';
 import { AlimonyFinancialBlock } from './AlimonyFinancialBlock';
 import { GuarantorRegistrationModal } from './Modal_Guarantor_Registration';
 import {
-    countOverdueInstallments,
-    getDaysRemainingInCycle,
     initializeAlimonyData,
     loadAlimonyDataFromExecution,
     registerGuarantor,
@@ -42,13 +40,49 @@ import {
     type AlimonyData,
     type GuarantorInfo,
 } from '@/app/utils/alimonyPaymentEngine';
+import { splitAmountEqually } from '@/app/components/lawyer/ExecutionCreationView/hooks/executionFormUtils';
+import { resolveAlimonyFinancialBreakdown, isPastAlimonyOnlyClaim } from '@/app/utils/alimonyFinancialBreakdown';
+import type { PastAlimonyClaimSnapshot } from '@/app/utils/alimonyFinancialBreakdown';
+import type { ExecutionFile } from '@/app/types/execution';
 import { isEvictionClaim } from '@/app/utils/executionModuleStrategies';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { publishFinancialCenterTimelineNote } from '@/app/utils/financialCenterTimeline';
+import type { TimelineEventType } from '@/app/types/execution';
 import LedgerExpenseEditCluster from './FinancialOperationsCenter/components/LedgerExpenseEditCluster';
+import { FocModalPortal } from './FinancialOperationsCenter/components/FocModalPortal';
+import { DebtTotalsEditModal } from './FinancialOperationsCenter/components/DebtTotalsEditModal';
 import { StandardFinancialLedger } from './FinancialOperationsCenter/components/StandardFinancialLedger';
+import { UnifiedLedgerSettlementPanel } from './FinancialOperationsCenter/components/UnifiedLedgerSettlementPanel';
+import { ReactiveSettlementEntry } from './FinancialOperationsCenter/components/ReactiveSettlementEntry';
+import { SettlementBuriedKebab } from './FinancialOperationsCenter/components/SettlementBuriedKebab';
 import {
+    DebtorAgentFinancialHubPanel,
+} from './FinancialOperationsCenter/components/DebtorAgentFinancialHubPanel';
+import { resolveSettlementUxTier } from './FinancialOperationsCenter/settlementUxMatrix';
+import { isFinancialDebtCollectionClaim } from '@/app/utils/followupSpecializationVisibility';
+import { resolveSettlementContext } from './FinancialOperationsCenter/settlementContext';
+import { applySettlementBreachCancellation } from './FinancialOperationsCenter/settlementGuarantorGate';
+import { applyOngoingAlimonyBreachAccrual } from './FinancialOperationsCenter/alimonyOngoingAccrual';
+import { SmartDialog } from '@/app/components/ui/SmartDialog';
+import {
+    SETTLEMENT_DEFAULT_DUE_DAYS,
+    clearSettlementFromStore,
+    hasActiveSalarySeizurePath,
+    promptSettlementSalaryConflictChoice,
+    resolveSettlementBlockedBySalarySeizure,
+} from './FinancialOperationsCenter/settlementSalaryExclusion';
+import {
+    applyManualDebtTotalsEdit,
     computeTrustBalanceFromPayments,
+    computeTotalOwedUnifiedFromStore,
     emptyStore,
+    freezeLedgerForCollection,
+    hasFrozenLedgerRows,
+    isUnifiedLedgerLocked,
+    parseUnifiedLedgerFromStorage,
+    pickRicherLedgerStore,
+    resolvePersistedLedgerStore,
+    notifyUnifiedLedgerUpdated,
     storageKey,
     isEmployeeDebtor,
     parseAmount,
@@ -62,6 +96,10 @@ import {
     addDaysToYmd,
     diffDaysYmd,
     addMonthsToYmd,
+    resolveSettlementDuePhase,
+    resolvePrincipalBasisFromStore,
+    shouldShowSettlementDueActions,
+    type UnifiedLedgerTotalParams,
 } from './FinancialOperationsCenter/utils';
 import {
     MANAGEMENT_CARD_OUTER,
@@ -100,6 +138,7 @@ export interface FinancialOperationsCenterProps {
     isNonFinancialClaim: boolean;
     isAlimonyClaim: boolean;
     claimType: string;
+    claimTypes?: string[];
 
     paidDebt: number;
     totalWithExecutionFee: number;
@@ -113,6 +152,18 @@ export interface FinancialOperationsCenterProps {
     monthly_wife_alimony?: number;
     monthly_children_alimony?: number;
     children_count?: number;
+    alimonyCalculated?: {
+        baseAccumulation?: number;
+        wifeBaseAccumulation?: number;
+        childrenBaseAccumulation?: number;
+        baseDurationDays?: number;
+        baseDurationMonths?: number;
+        pastAccumulation?: number;
+        pastDurationDays?: number;
+        pastDurationMonths?: number;
+        totalAccumulated?: number;
+    } | null;
+    pastAlimonyClaim?: PastAlimonyClaimSnapshot | null;
 
     courtFees: number;
     directorateFees: number;
@@ -187,6 +238,14 @@ export interface FinancialOperationsCenterProps {
 
     onMonthlySettlementDefault?: (args: { dueDate: string; amount: number }) => void;
     onMonthlySettlementPaid?: (args: { dueDate: string; nextDueDate: string; amount: number }) => void;
+    /** ترحيل النفقة المستمرة غير المسددة إلى أصل الوعاء (المتبقي) */
+    onAlimonyOngoingAccrued?: (args: {
+        dueDate: string;
+        accruedAmount: number;
+        billableDays: number;
+        newPrincipalTotal: number;
+        monthlyRate: number;
+    }) => void;
 
     /** بعد تسجيل طلب الاستحصال — مثلاً فتح «القرارات والطعون» */
     onAfterCollectionRequestSubmitted?: () => void;
@@ -207,6 +266,11 @@ export interface FinancialOperationsCenterProps {
 
     /** داخل نافذة «المركز المالي»: بدون إطار البطاقة المزدوج ورأس الطي/التوسيع */
     embeddedInFinancialHub?: boolean;
+    onManualDebtTotalsUpdated?: (payload: {
+        principalSnapshot: number;
+        totalOwed: number;
+        remaining: number;
+    }) => void;
     onToast?: (
         message: string,
         variant?: 'success' | 'error' | 'warning' | 'info',
@@ -214,6 +278,21 @@ export interface FinancialOperationsCenterProps {
     ) => void;
     autoOpenLedgerMode?: 'disburse' | null;
     onAutoOpenHandled?: () => void;
+    /** منقول مرتبط بصرف حصيلة البيع — يُمرَّر مع hami-trust-disbursed */
+    proceedsDisburseSeizedMovableId?: string | null;
+    onProceedsDisburseHandled?: () => void;
+    /** عقار مرتبط بصرف حصيلة البيع — يُمرَّر مع hami-trust-disbursed */
+    proceedsDisburseSeizedPropertyId?: string | null;
+    onProceedsDisbursePropertyHandled?: () => void;
+
+    /** سجل حجز الراتب — لاستبعاد التسوية */
+    salarySeizureRegistryAssets?: unknown[];
+    /** إلغاء مسار حجز الراتب عند اختيار الإبقاء على التسوية */
+    onClearSalarySeizurePath?: () => void;
+
+    /** وكيل المدين — واجهة مالية مبسّطة */
+    isRepresentingDebtor?: boolean;
+    debtorAgentSeizedItems?: import('./components/DebtorAgentFinancialHubPanel').DebtorAgentSeizedItem[];
 }
 
 
@@ -231,7 +310,10 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
     isNonFinancialClaim,
     isAlimonyClaim,
     claimType,
+    claimTypes,
     paidDebt,
+    executionFee,
+    shouldCalculateExecutionFee,
     monthlyAlimony,
     accumulatedAlimony,
     past_wife_alimony,
@@ -239,6 +321,8 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
     monthly_wife_alimony,
     monthly_children_alimony,
     children_count,
+    alimonyCalculated,
+    pastAlimonyClaim,
     daysSinceNotice: _daysSinceNotice,
     gracePeriodEnded: _gracePeriodEnded,
     debtorJob,
@@ -262,7 +346,12 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
     onMonthlySettlementDefault,
     autoOpenLedgerMode,
     onAutoOpenHandled,
+    proceedsDisburseSeizedMovableId,
+    onProceedsDisburseHandled,
+    proceedsDisburseSeizedPropertyId,
+    onProceedsDisbursePropertyHandled,
     onMonthlySettlementPaid,
+    onAlimonyOngoingAccrued,
     onAfterCollectionRequestSubmitted,
     evictionLawyerFeeWaivedAtIntake = false,
     evictionReenableCourtOrderedFees,
@@ -270,7 +359,12 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
     onEvictionLedgerActivated,
     evictionLedgerActivatedPersisted = false,
     embeddedInFinancialHub = false,
+    onManualDebtTotalsUpdated,
     onToast,
+    salarySeizureRegistryAssets = [],
+    onClearSalarySeizurePath,
+    isRepresentingDebtor = false,
+    debtorAgentSeizedItems = [],
 }) {
     const notify = useCallback(
         (
@@ -289,6 +383,18 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
         [onToast]
     );
 
+    const proceedsDisburseMovableIdRef = React.useRef<string | null>(null);
+    React.useEffect(() => {
+        const id = String(proceedsDisburseSeizedMovableId || '').trim();
+        if (id) proceedsDisburseMovableIdRef.current = id;
+    }, [proceedsDisburseSeizedMovableId]);
+
+    const proceedsDisbursePropertyIdRef = React.useRef<string | null>(null);
+    React.useEffect(() => {
+        const id = String(proceedsDisburseSeizedPropertyId || '').trim();
+        if (id) proceedsDisbursePropertyIdRef.current = id;
+    }, [proceedsDisburseSeizedPropertyId]);
+
     const openDecisionsCenter = useCallback(() => {
         if (!executionId) return;
         try {
@@ -301,6 +407,13 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
             /* ignore */
         }
     }, [executionId]);
+
+    const recordFinancialTimelineNote = useCallback(
+        (title: string, description: string, type: TimelineEventType | string = 'other') => {
+            publishFinancialCenterTimelineNote(executionId, title, description, type);
+        },
+        [executionId]
+    );
 
     const submitDecisionRequest = useCallback(
         (
@@ -354,13 +467,13 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                 decisionsLink: true,
             });
 
-            if (kind !== 'seizure' && onFinancialTimelineNote) {
-                onFinancialTimelineNote(title, body);
+            if (kind !== 'seizure') {
+                recordFinancialTimelineNote(title, body, 'decision');
             }
 
             return decisionId;
         },
-        [executionId, notify, onFinancialTimelineNote]
+        [executionId, notify, recordFinancialTimelineNote]
     );
 
     const canShowGhuramaaDivision = (creditorsCount ?? 0) > 1;
@@ -374,6 +487,10 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
     const evictionCaseExpensesSumSafe = Math.max(0, parseStoredMoney(eviction_case_expenses_sum) || 0);
 
     const [store, setStore] = useState<UnifiedLedgerStore>(() => emptyStore());
+    const storeRef = useRef(store);
+    useEffect(() => {
+        storeRef.current = store;
+    }, [store]);
     const [lawyerAmountInput, setLawyerAmountInput] = useState('');
     const [lawyerLabelInput, setLawyerLabelInput] = useState('');
     const [expenseAmountInput, setExpenseAmountInput] = useState('');
@@ -383,21 +500,28 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
     const [showGuarantorModal, setShowGuarantorModal] = useState(false);
     const [feesSheetOpen, setFeesSheetOpen] = useState(false);
     const [expenseSheetOpen, setExpenseSheetOpen] = useState(false);
+    const [debtEditOpen, setDebtEditOpen] = useState(false);
+    const [debtEditTotalInput, setDebtEditTotalInput] = useState('');
+    const [debtEditRemainingInput, setDebtEditRemainingInput] = useState('');
 
     const [garnishMonthlyInput, setGarnishMonthlyInput] = useState('');
     const [garnishMemoInput, setGarnishMemoInput] = useState('');
     const [showSettlementEviction, setShowSettlementEviction] = useState(false);
+    const [showRepaymentEviction, setShowRepaymentEviction] = useState(false);
+    const [repaymentInput, setRepaymentInput] = useState('');
     const [settlementDueDateInput, setSettlementDueDateInput] = useState('');
     const [disburseModalOpen, setDisburseModalOpen] = useState(false);
     const [disburseAmountInput, setDisburseAmountInput] = useState('');
     const [ghuramaaModalOpen, setGhuramaaModalOpen] = useState(false);
+    const [ghuramaaShareInputs, setGhuramaaShareInputs] = useState<Record<string, string>>({});
+    const [ghuramaaSplitMode, setGhuramaaSplitMode] = useState<'manual' | 'equal' | null>(null);
     const [showEvictionLedgerUi, setShowEvictionLedgerUi] = useState(false);
+    const [settlementPanelOpen, setSettlementPanelOpen] = useState(false);
+    const [alimonyDetailOpen, setAlimonyDetailOpen] = useState(false);
 
     const [isEvictionCollectionRequested, setIsEvictionCollectionRequested] = useState(false);
 
     const [alimonyData, setAlimonyData] = useState<AlimonyData | null>(null);
-    const lastMonthlySettlementDefaultDueDateRef = React.useRef<string>('');
-
     useEffect(() => {
         const handler = (e: Event) => {
             const ce = e as CustomEvent<{ executionId?: string; mode?: string }>;
@@ -440,6 +564,7 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
     const [unifiedCollectionDecisionState, setUnifiedCollectionDecisionState] = useState(() =>
         getLatestUnifiedCollectionDecisionState(executionId)
     );
+    const [ledgerExternalRevision, setLedgerExternalRevision] = useState(0);
 
     useEffect(() => {
         const bump = () => {
@@ -456,6 +581,21 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
             window.removeEventListener('hami-execution-decision-outcome', bump);
             window.removeEventListener('storage', bump);
             window.removeEventListener('focus', bump);
+        };
+    }, [executionId]);
+
+    useEffect(() => {
+        const bumpLedger = (e: Event) => {
+            const ce = e as CustomEvent<{ executionId?: string }>;
+            const target = String(ce.detail?.executionId ?? '').trim();
+            if (target && target !== String(executionId ?? '').trim()) return;
+            setLedgerExternalRevision((n) => n + 1);
+        };
+        window.addEventListener('hami-unified-ledger-updated', bumpLedger);
+        window.addEventListener('hami-unified-ledger-payment-undo', bumpLedger);
+        return () => {
+            window.removeEventListener('hami-unified-ledger-updated', bumpLedger);
+            window.removeEventListener('hami-unified-ledger-payment-undo', bumpLedger);
         };
     }, [executionId]);
 
@@ -483,13 +623,47 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
 
     const persist = useCallback(
         (next: UnifiedLedgerStore) => {
-            setStore(next);
+            const cached = executionId
+                ? parseUnifiedLedgerFromStorage(storageCache.get(storageKey(executionId)))
+                : null;
+            const resolved = resolvePersistedLedgerStore(storeRef.current, next, cached);
+            storeRef.current = resolved;
+            setStore(resolved);
             if (executionId) {
-                storageCache.set(storageKey(executionId), next);
+                storageCache.set(storageKey(executionId), resolved);
             }
+            notifyUnifiedLedgerUpdated(executionId);
         },
         [executionId]
     );
+
+    const ledgerTotalParams = useMemo(
+        (): UnifiedLedgerTotalParams => ({
+            principal_amount,
+            courtOrderedFeesSafe,
+            evictionLawyerFeeWaivedAtIntake,
+            executionExpensesSumSafe,
+            evictionCaseExpensesSumSafe,
+            seedLawyerId: executionId ? `seed-lawyer-${executionId}` : '',
+            seedExpenseId: executionId ? `seed-exp-${executionId}` : '',
+        }),
+        [
+            courtOrderedFeesSafe,
+            evictionCaseExpensesSumSafe,
+            evictionLawyerFeeWaivedAtIntake,
+            executionExpensesSumSafe,
+            executionId,
+            principal_amount,
+        ]
+    );
+
+    const getLatestLedgerStore = useCallback((): UnifiedLedgerStore => {
+        const stateStore = storeRef.current;
+        if (!executionId) return stateStore;
+        const cached = parseUnifiedLedgerFromStorage(storageCache.get(storageKey(executionId)));
+        if (!cached) return stateStore;
+        return pickRicherLedgerStore(stateStore, cached);
+    }, [executionId]);
 
     useEffect(() => {
         setIsEvictionCollectionRequested(false);
@@ -502,6 +676,7 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
             return;
         }
         try {
+            storageCache.invalidate(storageKey(executionId));
             const raw = storageCache.get(storageKey(executionId));
             if (raw) {
                 const p =
@@ -597,43 +772,54 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                                   ),
                               }
                             : null,
+                    settlementBreachTriggeredAt:
+                        typeof (p as Partial<UnifiedLedgerStore>).settlementBreachTriggeredAt ===
+                            'string' &&
+                        String((p as Partial<UnifiedLedgerStore>).settlementBreachTriggeredAt).trim()
+                            ? String(
+                                  (p as Partial<UnifiedLedgerStore>).settlementBreachTriggeredAt
+                              ).trim()
+                            : null,
                 };
-                const seedLawyerId = `seed-lawyer-${executionId}`;
-                const seedExpenseId = `seed-exp-${executionId}`;
-                const baseExp = executionExpensesSumSafe + evictionCaseExpensesSumSafe;
+                const ledgerLocked = isUnifiedLedgerLocked(
+                    executionId,
+                    merged,
+                    getLatestUnifiedCollectionDecisionState(executionId)
+                );
+                if (!ledgerLocked) {
+                    const seedLawyerId = `seed-lawyer-${executionId}`;
+                    const seedExpenseId = `seed-exp-${executionId}`;
+                    const baseExp = executionExpensesSumSafe + evictionCaseExpensesSumSafe;
 
-                // Always reconcile seed lawyer fees with dossier data.
-                const lawyerWithoutSeed = merged.lawyerFees.filter((r) => r.id !== seedLawyerId);
-                if (evictionLawyerFeeWaivedAtIntake) {
-                    merged.lawyerFees = lawyerWithoutSeed;
-                } else if (courtOrderedFeesSafe > 0) {
-                    merged.lawyerFees = [
-                        {
-                            id: seedLawyerId,
-                            amount: courtOrderedFeesSafe,
-                            label: 'أتعاب محكومة (من الإضبارة)',
-                            at: new Date().toISOString(),
-                        },
-                        ...lawyerWithoutSeed,
-                    ];
-                } else {
-                    merged.lawyerFees = merged.lawyerFees;
-                }
+                    const lawyerWithoutSeed = merged.lawyerFees.filter((r) => r.id !== seedLawyerId);
+                    if (evictionLawyerFeeWaivedAtIntake) {
+                        merged.lawyerFees = lawyerWithoutSeed;
+                    } else if (courtOrderedFeesSafe > 0) {
+                        merged.lawyerFees = [
+                            {
+                                id: seedLawyerId,
+                                amount: courtOrderedFeesSafe,
+                                label: 'أتعاب محكومة (من الإضبارة)',
+                                at: new Date().toISOString(),
+                            },
+                            ...lawyerWithoutSeed,
+                        ];
+                    }
 
-                // Always reconcile seed execution expenses with dossier data.
-                const expensesWithoutSeed = merged.expenses.filter((r) => r.id !== seedExpenseId);
-                if (baseExp > 0) {
-                    merged.expenses = [
-                        {
-                            id: seedExpenseId,
-                            amount: baseExp,
-                            reason: 'مصاريف تنفيذية مسجّلة من الإضبارة',
-                            at: new Date().toISOString(),
-                        },
-                        ...expensesWithoutSeed,
-                    ];
-                } else {
-                    merged.expenses = expensesWithoutSeed;
+                    const expensesWithoutSeed = merged.expenses.filter((r) => r.id !== seedExpenseId);
+                    if (baseExp > 0) {
+                        merged.expenses = [
+                            {
+                                id: seedExpenseId,
+                                amount: baseExp,
+                                reason: 'مصاريف تنفيذية مسجّلة من الإضبارة',
+                                at: new Date().toISOString(),
+                            },
+                            ...expensesWithoutSeed,
+                        ];
+                    } else {
+                        merged.expenses = expensesWithoutSeed;
+                    }
                 }
                 merged.seeded = merged.lawyerFees.length > 0 || merged.expenses.length > 0;
                 setStore(merged);
@@ -682,6 +868,7 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
         courtOrderedFeesSafe,
         evictionLawyerFeeWaivedAtIntake,
         principal_amount,
+        ledgerExternalRevision,
     ]);
 
     useEffect(() => {
@@ -701,6 +888,11 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
     useEffect(() => {
         if (!executionId) return;
         setStore((prev) => {
+            if (
+                isUnifiedLedgerLocked(executionId, prev, getLatestUnifiedCollectionDecisionState(executionId))
+            ) {
+                return prev;
+            }
             const seedLawyerId = `seed-lawyer-${executionId}`;
             const seedExpenseId = `seed-exp-${executionId}`;
             const baseExp = executionExpensesSumSafe + evictionCaseExpensesSumSafe;
@@ -794,9 +986,6 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
         past_children_alimony,
     ]);
 
-    const seedLawyerId = executionId ? `seed-lawyer-${executionId}` : '';
-    const seedExpenseId = executionId ? `seed-exp-${executionId}` : '';
-
     const sumLawyer = useMemo(
         () => store.lawyerFees.reduce((s, r) => s + (Number.isFinite(r.amount) ? r.amount : 0), 0),
         [store.lawyerFees]
@@ -805,43 +994,50 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
         () => store.expenses.reduce((s, r) => s + (Number.isFinite(r.amount) ? r.amount : 0), 0),
         [store.expenses]
     );
-    const sumLawyerExtras = useMemo(
-        () =>
-            store.lawyerFees
-                .filter((r) => (seedLawyerId ? r.id !== seedLawyerId : true))
-                .reduce((s, r) => s + (Number.isFinite(r.amount) ? r.amount : 0), 0),
-        [seedLawyerId, store.lawyerFees]
+    const ongoingMonthlyAlimonyTotal = useMemo(() => {
+        if (!isAlimonyClaim) return 0;
+        const wifePart =
+            monthly_wife_alimony != null
+                ? monthly_wife_alimony
+                : monthly_children_alimony
+                  ? 0
+                  : monthlyAlimony;
+        return wifePart + (monthly_children_alimony || 0) * (children_count || 1);
+    }, [
+        isAlimonyClaim,
+        monthly_wife_alimony,
+        monthly_children_alimony,
+        monthlyAlimony,
+        children_count,
+    ]);
+
+    const alimonyBreakdown = useMemo(() => {
+        if (!isAlimonyClaim) return null;
+        return resolveAlimonyFinancialBreakdown({
+            alimony: alimonyCalculated ? { calculated: alimonyCalculated } : undefined,
+            pastWifeAlimony: past_wife_alimony,
+            pastChildrenAlimony: past_children_alimony,
+            pastAlimonyClaim: pastAlimonyClaim ?? undefined,
+        } as ExecutionFile);
+    }, [
+        isAlimonyClaim,
+        alimonyCalculated,
+        past_wife_alimony,
+        past_children_alimony,
+        pastAlimonyClaim,
+    ]);
+
+    const isPastAlimonyOnly = useMemo(
+        () => isPastAlimonyOnlyClaim(claimType, claimTypes),
+        [claimType, claimTypes]
     );
-    const sumExpenseExtras = useMemo(
-        () =>
-            store.expenses
-                .filter((r) => (seedExpenseId ? r.id !== seedExpenseId : true))
-                .reduce((s, r) => s + (Number.isFinite(r.amount) ? r.amount : 0), 0),
-        [seedExpenseId, store.expenses]
-    );
-    const principalBasisAmount =
-        typeof store.principalSnapshot === 'number' &&
-        Number.isFinite(store.principalSnapshot) &&
-        store.principalSnapshot > 0
-            ? store.principalSnapshot
-            : Number.isFinite(principal_amount) && principal_amount > 0
-              ? Math.max(0, principal_amount)
-              : 0;
+    const principalBasisAmount = resolvePrincipalBasisFromStore(store, ledgerTotalParams);
     const baseDossierFeesAmount = evictionLawyerFeeWaivedAtIntake ? 0 : courtOrderedFeesSafe;
     const baseDossierAmount = Math.max(0, principalBasisAmount + baseDossierFeesAmount);
-    const baselineUnifiedAmount =
-        principalBasisAmount +
-        (evictionLawyerFeeWaivedAtIntake ? 0 : courtOrderedFeesSafe) +
-        executionExpensesSumSafe +
-        evictionCaseExpensesSumSafe;
-    const computedTotalOwedUnified = Number.isFinite(baselineUnifiedAmount + sumLawyerExtras + sumExpenseExtras)
-        ? Math.max(0, baselineUnifiedAmount + sumLawyerExtras + sumExpenseExtras)
-        : Math.max(0, baselineUnifiedAmount);
-    const requestedSnapshotAmount =
-        typeof store.collectionRequestedTotal === 'number' && Number.isFinite(store.collectionRequestedTotal)
-            ? Math.max(0, store.collectionRequestedTotal)
-            : 0;
-    const totalOwedUnified = Math.max(computedTotalOwedUnified, requestedSnapshotAmount);
+    const totalOwedUnified = useMemo(
+        () => computeTotalOwedUnifiedFromStore(store, ledgerTotalParams),
+        [ledgerTotalParams, store]
+    );
 
     useEffect(() => {
         const handler = (e: Event) => {
@@ -880,7 +1076,11 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                     trustBalanceAfter: trustAfter,
                 };
                 const next = { ...prev, payments: [row, ...prev.payments] };
-                if (executionId) storageCache.set(storageKey(executionId), next);
+                if (executionId) {
+                    storageCache.set(storageKey(executionId), next);
+                    notifyUnifiedLedgerUpdated(executionId);
+                }
+                storeRef.current = next;
                 return next;
             });
         };
@@ -894,9 +1094,11 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
         let trust = 0;
         for (const r of store.payments) {
             const amt = Number.isFinite(r.amount) ? r.amount : 0;
-            const et = (r.entryType ?? 'collect') as 'collect' | 'disburse' | 'settlement';
+            const et = (r.entryType ?? 'collect') as 'collect' | 'disburse' | 'settlement' | 'debt_adjustment';
             if (et === 'disburse') {
                 trust -= amt;
+            } else if (et === 'debt_adjustment') {
+                debtPaid += amt;
             } else if (et === 'settlement') {
                 debtPaid += amt;
                 trust += amt;
@@ -913,9 +1115,74 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
     );
     const hasPaymentRows = store.payments.length > 0;
     const remainingUnified = Math.max(0, totalOwedUnified - sumDebtPaidLocal);
+    const debtEditLockReason = useMemo(() => {
+        if (!executionId) return 'لا يمكن التعديل بدون رقم إضبارة.';
+        if (
+            isUnifiedLedgerLocked(executionId, store, unifiedCollectionDecisionState)
+        ) {
+            if (store.collectionRequestActive || hasFrozenLedgerRows(store, executionId)) {
+                return 'الوعاء مجمّد بعد طلب الاستحصال — لا يمكن تعديل الدين حالياً.';
+            }
+            return 'الوعاء مقفل — لا يمكن تعديل الدين حالياً.';
+        }
+        return null;
+    }, [executionId, store, unifiedCollectionDecisionState]);
+
+    const openDebtEditModal = useCallback(() => {
+        setDebtEditTotalInput(formatNumberInput(String(Math.round(totalOwedUnified))));
+        setDebtEditRemainingInput(formatNumberInput(String(Math.round(remainingUnified))));
+        setDebtEditOpen(true);
+    }, [remainingUnified, totalOwedUnified]);
+
+    const applyDebtTotalsEdit = useCallback(() => {
+        if (debtEditLockReason) {
+            notify(debtEditLockReason, 'warning');
+            return;
+        }
+        const total = parseAmount(debtEditTotalInput);
+        const remaining = parseAmount(debtEditRemainingInput);
+        const current = getLatestLedgerStore();
+        const result = applyManualDebtTotalsEdit(current, ledgerTotalParams, total, remaining);
+        if (!result.ok) {
+            notify(result.reason, 'warning');
+            return;
+        }
+        persist(result.store);
+        const principalSnapshot = resolvePrincipalBasisFromStore(result.store, ledgerTotalParams);
+        onManualDebtTotalsUpdated?.({
+            principalSnapshot,
+            totalOwed: Math.max(0, Math.round(total)),
+            remaining: Math.max(0, Math.round(remaining)),
+        });
+        recordFinancialTimelineNote(
+            '✏️ تعديل الدين',
+            `إجمالي الدين: ${Math.round(total).toLocaleString('ar-IQ')} د.ع — المتبقي: ${Math.round(remaining).toLocaleString('ar-IQ')} د.ع`
+        );
+        setDebtEditOpen(false);
+        notify('تم تحديث إجمالي الدين والمتبقي.', 'success');
+    }, [
+        debtEditLockReason,
+        debtEditRemainingInput,
+        debtEditTotalInput,
+        getLatestLedgerStore,
+        ledgerTotalParams,
+        notify,
+        onManualDebtTotalsUpdated,
+        persist,
+        recordFinancialTimelineNote,
+    ]);
+
+    const forceSettlementBuriedOnly = React.useMemo(
+        () => employeeDebtor && isFinancialDebtCollectionClaim(claimType),
+        [employeeDebtor, claimType]
+    );
+    const settlementUxTier = React.useMemo(
+        () => resolveSettlementUxTier(remainingUnified, { forceBuriedOnly: forceSettlementBuriedOnly }),
+        [remainingUnified, forceSettlementBuriedOnly]
+    );
     const trustBalanceUnified = Math.max(0, trustBalanceLocal);
     const trustBalance = trustBalanceUnified;
-    const ghuramaaPreview = useMemo(() => {
+    const ghuramaaContext = useMemo(() => {
         const creditors = Array.isArray(ghuramaaCreditors) ? ghuramaaCreditors : [];
         const available = Math.max(0, Math.trunc(trustBalanceUnified));
         const eligible = creditors
@@ -925,63 +1192,137 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                 debtBeforeDistribution: Math.max(0, Math.trunc(c.debtBeforeDistribution)),
                 remainingDebt: Math.max(0, Math.trunc(c.remainingDebt)),
             }))
-            .filter((c) => c.creditorId && c.remainingDebt > 0);
+            .filter((c) => c.creditorId);
         const totalDebt = eligible.reduce((s, c) => s + c.remainingDebt, 0);
-        const distributable = Math.min(available, totalDebt);
-        if (available <= 0 || eligible.length === 0 || totalDebt <= 0 || distributable <= 0) {
-            return {
-                ok: false as const,
-                available,
-                totalDebt,
-                distributable,
-                rows: [] as Array<{
-                    creditorId: string;
-                    creditorName: string;
-                    debtBeforeDistribution: number;
-                    amountDistributed: number;
-                }>,
-                note:
-                    available <= 0
-                        ? 'رصيد الأمانات = 0.'
-                        : eligible.length === 0
-                          ? 'لا توجد ديون دائنين قابلة للتوزيع.'
-                          : 'لا يمكن احتساب القسمة.',
-            };
-        }
-        const denom = BigInt(totalDebt);
-        const base = eligible.map((c) => {
-            const num = BigInt(distributable) * BigInt(c.remainingDebt);
-            const floor = Number(num / denom);
-            const rem = num % denom;
-            return { ...c, floor, rem };
+        const canOpen = available > 0 && eligible.length > 0;
+        const note =
+            available <= 0
+                ? 'رصيد الأمانات = 0.'
+                : eligible.length === 0
+                  ? 'لا يوجد دائنون مؤهلون للتوزيع.'
+                  : null;
+        return { canOpen, available, totalDebt, eligible, note };
+    }, [ghuramaaCreditors, trustBalanceUnified]);
+
+    useEffect(() => {
+        if (!ghuramaaModalOpen) return;
+        const next: Record<string, string> = {};
+        ghuramaaContext.eligible.forEach((c) => {
+            next[c.creditorId] = '';
         });
-        const baseSum = base.reduce((s, r) => s + r.floor, 0);
-        let remainder = Math.max(0, distributable - baseSum);
-        const sorted = [...base].sort((a, b) => (a.rem === b.rem ? 0 : a.rem > b.rem ? -1 : 1));
-        const topUp: Record<string, number> = {};
-        for (let i = 0; i < sorted.length && remainder > 0; i += 1) {
-            const id = sorted[i].creditorId;
-            topUp[id] = (topUp[id] || 0) + 1;
-            remainder -= 1;
-            if (i === sorted.length - 1 && remainder > 0) i = -1;
+        setGhuramaaShareInputs(next);
+        setGhuramaaSplitMode(null);
+    }, [ghuramaaModalOpen, ghuramaaContext.eligible]);
+
+    const ghuramaaManual = useMemo(() => {
+        const { available, eligible } = ghuramaaContext;
+        const isEqualMode = ghuramaaSplitMode === 'equal';
+        const rows: Array<{
+            creditorId: string;
+            creditorName: string;
+            debtBeforeDistribution: number;
+            amountDistributed: number;
+        }> = [];
+        let sum = 0;
+        let hasInvalidField = false;
+        let validationNote: string | null = null;
+        let partialWarning: string | null = null;
+
+        for (const c of eligible) {
+            const raw = String(ghuramaaShareInputs[c.creditorId] ?? '').trim();
+            const parsed = raw ? parseAmount(raw) : 0;
+            if (raw && (!Number.isFinite(parsed) || parsed < 0)) {
+                hasInvalidField = true;
+                validationNote = 'أدخل مبالغاً صحيحة لحصص الدائنين.';
+            }
+            const amount = Number.isFinite(parsed) ? Math.max(0, Math.trunc(parsed)) : 0;
+            if (amount > available) {
+                hasInvalidField = true;
+                validationNote = 'حصة دائن تتجاوز رصيد الأمانات المتاح.';
+            }
+            if (!isEqualMode && amount > c.remainingDebt) {
+                hasInvalidField = true;
+                validationNote = 'حصة دائن تتجاوز دينه المتبقي.';
+            }
+            sum += amount;
+            rows.push({
+                creditorId: c.creditorId,
+                creditorName: c.creditorName,
+                debtBeforeDistribution: c.remainingDebt,
+                amountDistributed: amount,
+            });
         }
-        const rows = base.map((r) => ({
-            creditorId: r.creditorId,
-            creditorName: r.creditorName,
-            debtBeforeDistribution: r.remainingDebt,
-            amountDistributed: r.floor + (topUp[r.creditorId] || 0),
-        }));
-        const sumCheck = rows.reduce((s, r) => s + r.amountDistributed, 0);
-        const ok = sumCheck === distributable;
+
+        if (sum > available) {
+            hasInvalidField = true;
+            validationNote = 'مجموع الحصص يتجاوز رصيد الأمانات المتاح.';
+        }
+
+        const remainingAfter = Math.max(0, available - sum);
+        if (!isEqualMode && sum > 0 && remainingAfter > 0) {
+            partialWarning = `يوجد متبقٍ في الأمانات (${remainingAfter.toLocaleString('ar-IQ')} د.ع) — يمكنك الاستمرار أو تعديل الحصص.`;
+        }
+        if (isEqualMode && sum > 0 && remainingAfter > 0) {
+            hasInvalidField = true;
+            validationNote = 'التقسيم بالتساوي يجب أن يوزّع رصيد الأمانات بالكامل دون متبقٍ.';
+        }
+
+        const ok =
+            ghuramaaContext.canOpen &&
+            !hasInvalidField &&
+            sum > 0 &&
+            (isEqualMode ? remainingAfter === 0 : true);
         return {
             ok,
-            available,
-            totalDebt,
-            distributable,
+            sum,
+            remainingAfter,
             rows,
-            note: available > totalDebt ? 'رصيد الأمانات أكبر من مجموع الديون؛ سيتم توزيع مبلغ يساوي مجموع الديون فقط.' : null,
+            validationNote,
+            partialWarning,
+            isEqualMode,
         };
-    }, [ghuramaaCreditors, trustBalanceUnified]);
+    }, [ghuramaaContext, ghuramaaShareInputs, ghuramaaSplitMode]);
+
+    const setGhuramaaShareInput = useCallback((creditorId: string, raw: string) => {
+        setGhuramaaSplitMode('manual');
+        setGhuramaaShareInputs((prev) => ({
+            ...prev,
+            [creditorId]: formatNumberInput(raw),
+        }));
+    }, []);
+
+    const applyGhuramaaEqualSplit = useCallback(() => {
+        const { available, eligible } = ghuramaaContext;
+        if (available <= 0 || eligible.length === 0) return;
+        const shares = splitAmountEqually(available, eligible.length);
+        const next: Record<string, string> = {};
+        eligible.forEach((c, i) => {
+            const amt = shares[i] ?? 0;
+            next[c.creditorId] = amt > 0 ? formatIqdDisplay(amt) : '';
+        });
+        setGhuramaaShareInputs(next);
+        setGhuramaaSplitMode('equal');
+    }, [ghuramaaContext]);
+
+    const openGhuramaaModal = useCallback(() => {
+        if (!canShowGhuramaaDivision) {
+            notify('قسمة الغرماء متاحة فقط عند وجود أكثر من دائن واحد.', 'warning');
+            return;
+        }
+        if (trustBalanceUnified <= 0) {
+            notify('لا يوجد رصيد أمانات للتوزيع.', 'warning');
+            return;
+        }
+        if (!ghuramaaContext.canOpen) {
+            notify(
+                ghuramaaContext.note ||
+                    'لا توجد حصص دين مسجّلة للدائنين — تأكد من إجمالي المطالبة أو حصص الدائنين في الإضبارة.',
+                'warning'
+            );
+            return;
+        }
+        setGhuramaaModalOpen(true);
+    }, [canShowGhuramaaDivision, ghuramaaContext, notify, trustBalanceUnified]);
     const showEvictionLedger = isEvictionFundsModule;
     const hasApprovedUnifiedCollectionDecision =
         unifiedCollectionDecisionState === 'approved' || unifiedCollectionExecutorApproved;
@@ -1009,24 +1350,62 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
     ]);
 
     useEffect(() => {
-        if (!unifiedCollectionExecutorApproved) return;
-        if (store.collectionRequestedTotal !== null) return;
-        const next = { ...store, collectionRequestedTotal: totalOwedUnified };
-        persist(next);
-    }, [persist, store, totalOwedUnified, unifiedCollectionExecutorApproved]);
+        if (!unifiedCollectionExecutorApproved || !executionId) return;
+        const current = getLatestLedgerStore();
+        const frozen = freezeLedgerForCollection(current, executionId, ledgerTotalParams);
+        const withSnapshot =
+            typeof frozen.collectionRequestedTotal === 'number' && frozen.collectionRequestedTotal > 0
+                ? frozen
+                : {
+                      ...frozen,
+                      collectionRequestedTotal: computeTotalOwedUnifiedFromStore(frozen, ledgerTotalParams),
+                  };
+        if (
+            !hasFrozenLedgerRows(withSnapshot, executionId) &&
+            typeof withSnapshot.collectionRequestedTotal !== 'number'
+        ) {
+            return;
+        }
+        const unchanged =
+            hasFrozenLedgerRows(current, executionId) === hasFrozenLedgerRows(withSnapshot, executionId) &&
+            Math.abs(
+                (current.collectionRequestedTotal ?? 0) - (withSnapshot.collectionRequestedTotal ?? 0)
+            ) <= 0.001;
+        if (!unchanged) persist(withSnapshot);
+    }, [executionId, ledgerTotalParams, persist, unifiedCollectionExecutorApproved, getLatestLedgerStore]);
+
+    const vesselMismatchHandledRef = useRef<string | null>(null);
 
     useEffect(() => {
-        if (!unifiedCollectionExecutorApproved) return;
-        if (!store.collectionRequestActive) return;
-        if (store.collectionRequestedTotal === null) return;
-        if (Math.abs(totalOwedUnified - store.collectionRequestedTotal) <= 0.001) return;
-        persist({ ...store, collectionRequestActive: false });
+        if (!unifiedCollectionExecutorApproved || !executionId) return;
+        const current = getLatestLedgerStore();
+        if (!current.collectionRequestActive) return;
+        if (current.collectionRequestedTotal === null) return;
+        const currentTotal = computeTotalOwedUnifiedFromStore(current, ledgerTotalParams);
+        if (Math.abs(currentTotal - current.collectionRequestedTotal) <= 0.001) return;
+
+        const noticeKey = `${executionId}:${current.collectionRequestedTotal}:${currentTotal}`;
+        if (vesselMismatchHandledRef.current === noticeKey) return;
+        vesselMismatchHandledRef.current = noticeKey;
+
+        persist({
+            ...current,
+            collectionRequestActive: false,
+            collectionRequestedTotal: currentTotal,
+        });
         if (isEvictionFundsModule) setIsEvictionCollectionRequested(false);
         notify('تم تعديل الوعاء بعد موافقة سابقة — يلزم إعادة تقديم طلب الاستحصال.', 'info');
-    }, [isEvictionFundsModule, notify, persist, store, totalOwedUnified, unifiedCollectionExecutorApproved]);
+    }, [
+        executionId,
+        getLatestLedgerStore,
+        isEvictionFundsModule,
+        ledgerTotalParams,
+        notify,
+        persist,
+        totalOwedUnified,
+        unifiedCollectionExecutorApproved,
+    ]);
 
-    const overdueCount = alimonyData ? countOverdueInstallments(alimonyData.installments) : 0;
-    const daysRemaining = getDaysRemainingInCycle();
     const lawyerAmountParsed = parseAmount(lawyerAmountInput);
     const expenseAmountParsed = parseAmount(expenseAmountInput);
     const settlementAmountParsed = parseAmount(settlementInput);
@@ -1036,7 +1415,18 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
     const canApplySettlementAny =
         Number.isFinite(settlementAmountParsed) &&
         settlementAmountParsed > 0 &&
-        settlementAmountParsed <= remainingUnified;
+        (isAlimonyClaim && ongoingMonthlyAlimonyTotal > 0
+            ? true
+            : settlementAmountParsed <= remainingUnified);
+    const repaymentAmountParsed = parseAmount(repaymentInput);
+    const repaymentExceedsRemaining =
+        Number.isFinite(repaymentAmountParsed) &&
+        repaymentAmountParsed > 0 &&
+        repaymentAmountParsed > remainingUnified;
+    const canApplyRepayment =
+        Number.isFinite(repaymentAmountParsed) &&
+        repaymentAmountParsed > 0 &&
+        !repaymentExceedsRemaining;
     const canConfirmGarnishment =
         Number.isFinite(garnishMonthlyParsed) && garnishMonthlyParsed > 0;
     const disburseAmountParsed = parseAmount(disburseAmountInput);
@@ -1057,8 +1447,9 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
             label: lawyerLabelInput.trim() || 'أتعاب محاماة محكوم بها',
             at: new Date().toISOString(),
         };
-        const nextLawyerFees = [row, ...store.lawyerFees];
-        const nextStore = { ...store, lawyerFees: nextLawyerFees };
+        const current = getLatestLedgerStore();
+        const nextLawyerFees = [row, ...current.lawyerFees];
+        const nextStore = { ...current, lawyerFees: nextLawyerFees };
         persist(nextStore);
         setLawyerAmountInput('');
         setLawyerLabelInput('');
@@ -1066,6 +1457,10 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
             const total = nextLawyerFees.reduce((s, r) => s + r.amount, 0);
             onEvictionCourtOrderedFeesActivatedFromLedger?.(total);
         }
+        recordFinancialTimelineNote(
+            '➕ إضافة أتعاب للوعاء',
+            `أُضيف بند أتعاب: ${row.label} — ${amt.toLocaleString('ar-IQ')} د.ع.`
+        );
     };
 
     const addExpense = () => {
@@ -1081,36 +1476,75 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
             reason,
             at: new Date().toISOString(),
         };
-        persist({ ...store, expenses: [row, ...store.expenses] });
+        const current = getLatestLedgerStore();
+        persist({ ...current, expenses: [row, ...current.expenses] });
         setExpenseAmountInput('');
         setExpenseReasonInput('');
+        recordFinancialTimelineNote(
+            '➕ إضافة مصاريف للوعاء',
+            `أُضيف مصروف: ${reason} — ${amt.toLocaleString('ar-IQ')} د.ع.`
+        );
     };
 
     const submitCollectionRequest = () => {
-        if (totalOwedUnified <= 0 || store.completed) return;
+        const current = getLatestLedgerStore();
+        const submitTotal = computeTotalOwedUnifiedFromStore(current, ledgerTotalParams);
+        const submitRemaining = Math.max(
+            0,
+            submitTotal -
+                Math.min(
+                    Math.max(0, current.payments.reduce((paid, row) => {
+                        const amt = Number.isFinite(row.amount) ? row.amount : 0;
+                        const et = (row.entryType ?? 'collect') as 'collect' | 'disburse' | 'settlement';
+                        return et === 'disburse' ? paid : paid + amt;
+                    }, 0)),
+                    submitTotal
+                )
+        );
+        if (submitTotal <= 0 || current.completed) return;
         const appended = appendEvictionExecutorRequest({
             executionId,
             title: 'طلب استحصال — الوعاء الموحّد (أتعاب + مصاريف)',
-            body: `طلب استحصال الأتعاب والمصاريف في الوعاء الموحّد.\nإجمالي المطلوب: ${totalOwedUnified.toLocaleString('ar-IQ')} د.ع.\nالمتبقي: ${remainingUnified.toLocaleString('ar-IQ')} د.ع.`,
+            body: `طلب استحصال الأتعاب والمصاريف في الوعاء الموحّد.\nإجمالي المطلوب: ${submitTotal.toLocaleString('ar-IQ')} د.ع.\nالمتبقي: ${submitRemaining.toLocaleString('ar-IQ')} د.ع.`,
             requestKind: 'unified_collection',
         });
         if (!appended) {
             notify('تعذر تسجيل الطلب أو يوجد طلب مماثل قيد المعالجة لدى المنفذ.', 'warning');
             return;
         }
+        const frozen =
+            executionId != null
+                ? freezeLedgerForCollection(current, executionId, ledgerTotalParams)
+                : current;
+        const frozenTotal = computeTotalOwedUnifiedFromStore(frozen, ledgerTotalParams);
         persist({
-            ...store,
+            ...frozen,
             collectionRequestActive: true,
-            collectionRequestedTotal: totalOwedUnified,
-            evictionLedgerActivated: isEvictionFundsModule ? true : store.evictionLedgerActivated,
+            collectionRequestedTotal: Math.max(submitTotal, frozenTotal),
+            evictionLedgerActivated: isEvictionFundsModule ? true : frozen.evictionLedgerActivated,
         });
         if (isEvictionFundsModule) setIsEvictionCollectionRequested(true);
+        recordFinancialTimelineNote(
+            '📨 طلب استحصال — الوعاء الموحّد',
+            `تم تقديم طلب استحصال بإجمالي ${Math.max(submitTotal, frozenTotal).toLocaleString('ar-IQ')} د.ع — المتبقي ${submitRemaining.toLocaleString('ar-IQ')} د.ع.`,
+            'decision'
+        );
         onAfterCollectionRequestSubmitted?.();
     };
 
     const retractCollectionRequest = () => {
-        persist({ ...store, collectionRequestActive: false });
+        const current = getLatestLedgerStore();
+        persist({
+            ...current,
+            collectionRequestActive: false,
+            collectionRequestedTotal: null,
+        });
         if (isEvictionFundsModule) setIsEvictionCollectionRequested(false);
+        recordFinancialTimelineNote(
+            '↩️ إلغاء طلب الاستحصال',
+            'تم إلغاء طلب استحصال الوعاء الموحّد والعودة لتعديل البنود.'
+        );
+        notify('تم إلغاء طلب الاستحصال — يمكنك تعديل البنود وإعادة التقديم.', 'success');
     };
 
     const activateEvictionLedger = () => {
@@ -1128,19 +1562,21 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
     };
 
     const applyDisbursementAmount = (): boolean => {
-        const amt = parseAmount(disburseAmountInput);
+        const amt = Math.max(0, Math.trunc(parseAmount(disburseAmountInput)));
         if (!Number.isFinite(amt) || amt <= 0) {
             notify(invalidPositiveAmountMessage('مبلغ الصرف'), 'warning');
             return false;
         }
-        if (amt > trustBalance) {
+        const current = getLatestLedgerStore();
+        const trustBefore = computeTrustBalanceFromPayments(current.payments);
+        if (amt > trustBefore) {
             notify(
-                `مبلغ الصرف يتجاوز رصيد الأمانات الحالي (${trustBalance.toLocaleString('ar-IQ')} د.ع).`,
+                `مبلغ الصرف يتجاوز رصيد الأمانات الحالي (${trustBefore.toLocaleString('ar-IQ')} د.ع).`,
                 'warning'
             );
             return false;
         }
-        const trustAfter = Math.max(0, trustBalance - amt);
+        const trustAfter = Math.max(0, trustBefore - amt);
         const row: LocalPaymentRow = {
             id: `pay-disburse-${Date.now()}`,
             amount: amt,
@@ -1152,16 +1588,40 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
             trustBalanceAfter: trustAfter,
         };
         persist({
-            ...store,
-            payments: [row, ...store.payments],
-            completed: store.completed,
-            collectionRequestActive: store.collectionRequestActive,
+            ...current,
+            payments: [row, ...current.payments],
+            completed: current.completed,
+            collectionRequestActive: current.collectionRequestActive,
         });
-        onFundsLedgerPayment?.({
-            amount: amt,
-            kind: 'partial',
-            description: 'صرف الأمانات التنفيذية — الوعاء الموحّد',
-        });
+        recordFinancialTimelineNote(
+            '📤 صرف من الأمانات',
+            `تم صرف ${amt.toLocaleString('ar-IQ')} د.ع من رصيد الأمانات — المتبقي في الأمانات ${trustAfter.toLocaleString('ar-IQ')} د.ع.`
+        );
+        if (executionId) {
+            const seizedMovableId = String(proceedsDisburseMovableIdRef.current || '').trim();
+            const seizedPropertyId = String(proceedsDisbursePropertyIdRef.current || '').trim();
+            try {
+                window.dispatchEvent(
+                    new CustomEvent('hami-trust-disbursed', {
+                        detail: {
+                            executionId: String(executionId),
+                            ...(seizedMovableId ? { seizedMovableId } : {}),
+                            ...(seizedPropertyId ? { seizedPropertyId } : {}),
+                        },
+                    })
+                );
+            } catch {
+                /* ignore */
+            }
+            if (seizedMovableId) {
+                proceedsDisburseMovableIdRef.current = null;
+                onProceedsDisburseHandled?.();
+            }
+            if (seizedPropertyId) {
+                proceedsDisbursePropertyIdRef.current = null;
+                onProceedsDisbursePropertyHandled?.();
+            }
+        }
         setDisburseAmountInput('');
         setDisburseModalOpen(false);
         return true;
@@ -1172,13 +1632,26 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
             notify('لا يمكن إجراء قسمة الغرماء: لا يوجد تعدد دائنين.', 'warning');
             return;
         }
-        if (!ghuramaaPreview.ok) {
-            notify(ghuramaaPreview.note || 'لا يمكن احتساب القسمة.', 'warning');
+        if (!ghuramaaManual.ok) {
+            notify(
+                ghuramaaManual.validationNote || 'أدخل حصص الدائنين يدوياً ضمن حدود الأمانات والديون.',
+                'warning'
+            );
             return;
         }
-        const total = ghuramaaPreview.distributable;
-        if (!Number.isFinite(total) || total <= 0) {
+        const total = Math.max(0, Math.trunc(ghuramaaManual.sum));
+        const distributionRows = ghuramaaManual.rows.filter((r) => r.amountDistributed > 0);
+        if (!Number.isFinite(total) || total <= 0 || distributionRows.length === 0) {
             notify('لا يوجد مبلغ قابل للتوزيع.', 'warning');
+            return;
+        }
+        const current = getLatestLedgerStore();
+        const trustBefore = computeTrustBalanceFromPayments(current.payments);
+        if (total > trustBefore) {
+            notify(
+                `مجموع الحصص يتجاوز رصيد الأمانات (${trustBefore.toLocaleString('ar-IQ')} د.ع).`,
+                'warning'
+            );
             return;
         }
         const ts = new Date().toISOString();
@@ -1188,13 +1661,13 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                 transactionId,
                 dateIso: ts,
                 totalAmountDistributed: total,
-                distributionDetails: ghuramaaPreview.rows,
+                distributionDetails: distributionRows,
             });
         } catch {
             notify('تعذر حفظ القسمة داخل الإضبارة.', 'error');
             return;
         }
-        const trustAfter = Math.max(0, trustBalance - total);
+        const trustAfter = Math.max(0, trustBefore - total);
         const row: LocalPaymentRow = {
             id: `pay-ghr-${Date.now()}`,
             amount: total,
@@ -1206,34 +1679,42 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
             trustBalanceAfter: trustAfter,
         };
         persist({
-            ...store,
-            payments: [row, ...store.payments],
-            completed: store.completed,
-            collectionRequestActive: store.collectionRequestActive,
+            ...current,
+            payments: [row, ...current.payments],
+            completed: current.completed,
+            collectionRequestActive: current.collectionRequestActive,
         });
-        onFundsLedgerPayment?.({
-            amount: total,
-            kind: 'partial',
-            description: 'قسمة الغرماء وتوزيع الأمانات — الوعاء الموحّد',
-        });
+        recordFinancialTimelineNote(
+            '⚖️ قسمة الغرماء — توزيع الأمانات',
+            `تم توزيع ${total.toLocaleString('ar-IQ')} د.ع على ${distributionRows.length} دائن/دائنين — المتبقي في الأمانات ${trustAfter.toLocaleString('ar-IQ')} د.ع.`
+        );
         setGhuramaaModalOpen(false);
+        setGhuramaaShareInputs({});
+        setGhuramaaSplitMode(null);
         setDisburseAmountInput('');
-        notify('تم اعتماد قسمة الغرماء وتوزيع الأمانات.', 'success');
+        notify(
+            `تم اعتماد القسمة. المتبقي في الأمانات: ${trustAfter.toLocaleString('ar-IQ')} د.ع`,
+            'success'
+        );
     }, [
         canShowGhuramaaDivision,
-        ghuramaaPreview,
+        getLatestLedgerStore,
+        ghuramaaManual,
         notify,
         onApplyGhuramaaDistribution,
-        onFundsLedgerPayment,
         persist,
+        recordFinancialTimelineNote,
         remainingUnified,
-        store,
-        trustBalance,
     ]);
 
     const undoLastPayment = () => {
-        if (store.payments.length === 0) return;
-        const [, ...restPayments] = store.payments;
+        const current = getLatestLedgerStore();
+        if (current.payments.length === 0) {
+            notify('لا توجد دفعات للتراجع عنها.', 'warning');
+            return;
+        }
+        const removed = current.payments[0];
+        const [, ...restPayments] = current.payments;
         let debtPaid = 0;
         for (const r of restPayments) {
             const amt = Number.isFinite(r.amount) ? r.amount : 0;
@@ -1249,16 +1730,33 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
         const debtPaidClamped = Math.min(Math.max(0, debtPaid), Math.max(0, totalOwedUnified));
         const remainingAfterUndo = Math.max(0, totalOwedUnified - debtPaidClamped);
         const next = {
-            ...store,
+            ...current,
             payments: restPayments,
             completed: remainingAfterUndo <= 0,
             collectionRequestActive:
                 remainingAfterUndo > 0
-                    ? store.collectionRequestActive || unifiedCollectionExecutorApproved
+                    ? current.collectionRequestActive || unifiedCollectionExecutorApproved
                     : false,
         };
         persist(next);
         if (isEvictionFundsModule && remainingAfterUndo > 0) setIsEvictionCollectionRequested(true);
+        const removedAmt = Number.isFinite(removed.amount) ? removed.amount : 0;
+        const removedEt = (removed.entryType ?? 'collect') as 'collect' | 'disburse' | 'settlement';
+        if (removedAmt > 0 && removedEt !== 'disburse' && executionId) {
+            try {
+                window.dispatchEvent(
+                    new CustomEvent('hami-unified-ledger-payment-undo', {
+                        detail: { executionId, amount: removedAmt },
+                    })
+                );
+            } catch {
+                /* ignore */
+            }
+        }
+        recordFinancialTimelineNote(
+            '↩️ تراجع عن آخر دفعة',
+            `تم التراجع عن آخر حركة في سجل الدفعات — المتبقي ${remainingAfterUndo.toLocaleString('ar-IQ')} د.ع.`
+        );
         notify('تم التراجع عن آخر دفعة بنجاح.', 'success');
     };
 
@@ -1288,6 +1786,11 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
             kind: 'full',
             description: 'تم الدفع / تسديد كامل — الوعاء الموحّد (أتعاب + مصاريف)',
         });
+        recordFinancialTimelineNote(
+            '✅ تحصيل كامل للوعاء',
+            `تم إغلاق الوعاء الموحّد بتحصيل ${amt.toLocaleString('ar-IQ')} د.ع.`
+        );
+        notify('تم تحصيل الوعاء بالكامل وإغلاقه بنجاح.', 'success');
     };
 
     const applyPartialSettlement = (): boolean => {
@@ -1331,14 +1834,95 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
         return true;
     };
 
-    const registerSettlementPlan = (): boolean => {
+    const applyDebtRepayment = (): boolean => {
+        const current = getLatestLedgerStore();
+        if (current.completed) return false;
+
+        const totalNow = computeTotalOwedUnifiedFromStore(current, ledgerTotalParams);
+        let debtPaidNow = 0;
+        for (const r of current.payments) {
+            const amt = Number.isFinite(r.amount) ? r.amount : 0;
+            const et = (r.entryType ?? 'collect') as 'collect' | 'disburse' | 'settlement';
+            if (et === 'disburse') continue;
+            if (et === 'settlement' || et === 'collect') debtPaidNow += amt;
+        }
+        const remainingNow = Math.max(
+            0,
+            totalNow - Math.min(Math.max(0, debtPaidNow), Math.max(0, totalNow))
+        );
+        if (remainingNow <= 0) return false;
+
+        const amt = parseAmount(repaymentInput);
+        if (!Number.isFinite(amt) || amt <= 0) {
+            setShowRepaymentEviction(true);
+            notify(invalidPositiveAmountMessage('مبلغ التسديد'), 'warning');
+            return false;
+        }
+        if (amt > remainingNow) {
+            notify(
+                `لا يمكن تسديد مبلغ يتجاوز المتبقي. المتبقي الحالي: ${remainingNow.toLocaleString('ar-IQ')} د.ع`,
+                'warning'
+            );
+            return false;
+        }
+        const debtAfter = Math.max(0, remainingNow - amt);
+        const trustNow = Math.max(0, computeTrustBalanceFromPayments(current.payments) + amt);
+        const row: LocalPaymentRow = {
+            id: `pay-repay-${Date.now()}`,
+            amount: amt,
+            at: new Date().toISOString(),
+            kind: debtAfter === 0 ? 'full' : 'partial',
+            entryType: 'collect',
+            balanceAfter: debtAfter,
+            debtBalanceAfter: debtAfter,
+            trustBalanceAfter: trustNow,
+        };
+        persist({
+            ...current,
+            payments: [row, ...current.payments],
+            completed: debtAfter === 0,
+            collectionRequestActive: debtAfter === 0 ? false : current.collectionRequestActive,
+        });
+        if (isEvictionFundsModule && debtAfter === 0) setIsEvictionCollectionRequested(false);
+        onFundsLedgerPayment?.({
+            amount: amt,
+            kind: debtAfter === 0 ? 'full' : 'partial',
+            description: 'تسديد — الوعاء الموحّد',
+        });
+        setRepaymentInput('');
+        setShowRepaymentEviction(false);
+        notify('تم تسجيل التسديد في سجل الدفعات.', 'success');
+        return true;
+    };
+
+    const ensureDefaultSettlementDueDate = React.useCallback(() => {
+        if (!settlementDueDateInput.trim()) {
+            const dueIn30Days = addDaysToYmd(getLocalTodayYmd(), SETTLEMENT_DEFAULT_DUE_DAYS);
+            if (dueIn30Days) setSettlementDueDateInput(dueIn30Days);
+        }
+    }, [settlementDueDateInput]);
+
+    const registerSettlementPlan = async (): Promise<boolean> => {
         const amt = parseAmount(settlementInput);
         const dueDate = settlementDueDateInput.trim();
         if (!Number.isFinite(amt) || amt <= 0) {
             notify(invalidPositiveAmountMessage('مبلغ التسوية'), 'warning');
             return false;
         }
-        if (amt > remainingUnified) {
+        if (
+            resolveSettlementBlockedBySalarySeizure({
+                garnishment: store.garnishment,
+                seizedAssets: salarySeizureRegistryAssets,
+            })
+        ) {
+            const choice = await promptSettlementSalaryConflictChoice(SmartDialog.confirm);
+            if (choice === 'keep_salary') {
+                notify('تم الإبقاء على حجز الراتب — أُلغي تسجيل التسوية.', 'info');
+                return false;
+            }
+            onClearSalarySeizurePath?.();
+        }
+        if (amt > remainingUnified && !(isAlimonyClaim && ongoingMonthlyAlimonyTotal > 0)) {
             notify(
                 `لا يمكن اعتماد تسوية تتجاوز المبلغ المتبقي. المتبقي الحالي: ${remainingUnified.toLocaleString('ar-IQ')} د.ع`,
                 'warning'
@@ -1349,24 +1933,35 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
             notify('يرجى تحديد تاريخ دفع التسوية.', 'warning');
             return false;
         }
+        const periodStartYmd = addMonthsToYmd(dueDate, -1) || extractYmd(new Date().toISOString());
+        const tracksOngoingAlimony = isAlimonyClaim && ongoingMonthlyAlimonyTotal > 0;
         const pending: PendingSettlement = {
             id: `stl-${Date.now()}`,
             amount: amt,
             dueDate,
             createdAt: new Date().toISOString(),
+            periodStartYmd,
+            tracksOngoingAlimony,
         };
-        persist({ ...store, pendingSettlement: pending });
-        onFinancialTimelineNote?.(
-            '🗓️ تم تسجيل تسوية',
-            `تم تسجيل تسوية بمبلغ ${amt.toLocaleString('ar-IQ')} د.ع بتاريخ استحقاق ${dueDate}.`
+        const hadPending = Boolean(store.pendingSettlement);
+        persist({
+            ...getLatestLedgerStore(),
+            pendingSettlement: pending,
+            settlementBreachTriggeredAt: null,
+        });
+        recordFinancialTimelineNote(
+            hadPending ? '🗓️ تحديث التسوية' : '🗓️ تم تسجيل تسوية',
+            `${hadPending ? 'تم تحديث' : 'تم تسجيل'} تسوية بمبلغ ${amt.toLocaleString('ar-IQ')} د.ع بتاريخ استحقاق ${dueDate}.`,
+            'settlement'
         );
         setSettlementInput('');
         setSettlementDueDateInput('');
         setShowSettlementEviction(false);
+        setSettlementPanelOpen(true);
         return true;
     };
 
-    const markPendingSettlementPaid = (opts?: { allowLate?: boolean }) => {
+    const markPendingSettlementPaid = () => {
         const pending = store.pendingSettlement;
         if (!pending) {
             notify('لا توجد تسوية مسجلة للدفع.', 'warning');
@@ -1374,22 +1969,48 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
         }
         const dueYmd = extractYmd(pending.dueDate);
         const todayYmd = getLocalTodayYmd();
-        const diffDays = diffDaysYmd(dueYmd, todayYmd);
-        const allowLate = Boolean(opts?.allowLate);
-        if (allowLate) {
-            const ok = diffDays !== null && diffDays < 0;
-            if (!ok) {
-                notify('زر دفع التسوية المتأخر يظهر فقط بعد فوات الموعد.', 'warning');
-                return;
-            }
-        } else {
-            const ok = diffDays !== null && diffDays >= 0 && diffDays <= 2;
-            if (!ok) {
-                notify('لا يمكن تسجيل الدفع الآن. متاح فقط خلال يومين قبل الاستحقاق وحتى يوم الاستحقاق.', 'warning');
-                return;
-            }
+        if (!shouldShowSettlementDueActions(dueYmd || pending.dueDate, todayYmd)) {
+            notify('أزرار التسديد تظهر عند حلول موعد السداد أو بعده.', 'warning');
+            return;
         }
         const amt = Math.min(Math.max(0, pending.amount), remainingUnified);
+        const tracksOngoing =
+            Boolean(pending.tracksOngoingAlimony) ||
+            (isAlimonyClaim && ongoingMonthlyAlimonyTotal > 0);
+        const settlementPayAmount = tracksOngoing
+            ? Math.max(0, pending.amount)
+            : amt;
+        if (settlementPayAmount <= 0) {
+            notify('مبلغ التسوية غير صالح أو تم استيفاؤه مسبقاً.', 'warning');
+            return;
+        }
+        const nextDueYmd = addMonthsToYmd(dueYmd || pending.dueDate, 1) || pending.dueDate;
+
+        if (tracksOngoing) {
+            persist({
+                ...store,
+                pendingSettlement: {
+                    ...pending,
+                    id: `stl-${Date.now()}`,
+                    dueDate: nextDueYmd,
+                    periodStartYmd: dueYmd || pending.dueDate,
+                    createdAt: new Date().toISOString(),
+                },
+            });
+            recordFinancialTimelineNote(
+                '✅ تم دفع النفقة الشهرية',
+                `تم تسديد النفقة المستمرة بمبلغ ${settlementPayAmount.toLocaleString('ar-IQ')} د.ع (استحقاق ${pending.dueDate}).`,
+                'settlement'
+            );
+            onMonthlySettlementPaid?.({
+                dueDate: dueYmd || pending.dueDate,
+                nextDueDate: nextDueYmd,
+                amount: settlementPayAmount,
+            });
+            notify('تم تسجيل تسديد النفقة الشهرية — انتقل موعد السداد للشهر التالي.', 'success');
+            return;
+        }
+
         if (amt <= 0) {
             notify('مبلغ التسوية غير صالح أو تم استيفاؤه مسبقاً.', 'warning');
             return;
@@ -1412,7 +2033,8 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
             pendingSettlement: {
                 ...pending,
                 id: `stl-${Date.now()}`,
-                dueDate: addMonthsToYmd(dueYmd || pending.dueDate, 1) || pending.dueDate,
+                dueDate: nextDueYmd,
+                periodStartYmd: dueYmd || pending.dueDate,
                 createdAt: new Date().toISOString(),
             },
             completed: debtAfter === 0,
@@ -1424,54 +2046,166 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
             kind: debtAfter === 0 ? 'full' : 'partial',
             description: 'دفع تسوية مسجلة — الوعاء الموحّد',
         });
-        onFinancialTimelineNote?.(
+        recordFinancialTimelineNote(
             '✅ تم دفع التسوية',
-            `تم دفع التسوية المسجلة بمبلغ ${amt.toLocaleString('ar-IQ')} د.ع (استحقاق ${pending.dueDate}).`
+            `تم دفع التسوية المسجلة بمبلغ ${amt.toLocaleString('ar-IQ')} د.ع (استحقاق ${pending.dueDate}).`,
+            'settlement'
         );
         onMonthlySettlementPaid?.({
             dueDate: dueYmd || pending.dueDate,
-            nextDueDate: addMonthsToYmd(dueYmd || pending.dueDate, 1) || pending.dueDate,
+            nextDueDate: nextDueYmd,
             amount: amt,
         });
     };
 
+    const cancelPendingSettlement = () => {
+        const pending = store.pendingSettlement;
+        if (!pending) {
+            notify('لا توجد تسوية لإلغائها.', 'warning');
+            return;
+        }
+        const todayYmd = getLocalTodayYmd();
+        const dueYmd = extractYmd(pending.dueDate);
+        const tracksOngoing =
+            Boolean(pending.tracksOngoingAlimony) ||
+            (isAlimonyClaim && ongoingMonthlyAlimonyTotal > 0);
+        const canAccrueOngoing =
+            tracksOngoing &&
+            ongoingMonthlyAlimonyTotal > 0 &&
+            Boolean(dueYmd) &&
+            shouldShowSettlementDueActions(dueYmd || pending.dueDate, todayYmd);
+
+        let nextStore: UnifiedLedgerStore;
+        let accruedAmount = 0;
+        let billableDays = 0;
+        let newPrincipalTotal = principalBasisAmount;
+
+        if (canAccrueOngoing) {
+            const accrual = applyOngoingAlimonyBreachAccrual({
+                store: getLatestLedgerStore(),
+                pending,
+                monthlyAmount: ongoingMonthlyAlimonyTotal || pending.amount,
+                currentYmd: todayYmd,
+                basePrincipal: principalBasisAmount,
+            });
+            nextStore = accrual.store;
+            accruedAmount = accrual.accruedAmount;
+            billableDays = accrual.billableDays;
+            newPrincipalTotal = accrual.newPrincipalTotal;
+        } else {
+            nextStore = applySettlementBreachCancellation(
+                getLatestLedgerStore(),
+                new Date().toISOString()
+            );
+        }
+
+        persist(nextStore);
+        setSettlementPanelOpen(false);
+        setShowSettlementEviction(false);
+
+        if (canAccrueOngoing && accruedAmount > 0) {
+            onAlimonyOngoingAccrued?.({
+                dueDate: pending.dueDate,
+                accruedAmount,
+                billableDays,
+                newPrincipalTotal,
+                monthlyRate: ongoingMonthlyAlimonyTotal || pending.amount,
+            });
+            recordFinancialTimelineNote(
+                '📈 ترحيل نفقة مستمرة للمتبقي',
+                `أُضيف ${accruedAmount.toLocaleString('ar-IQ')} د.ع إلى المتبقي — ${billableDays} يوماً من النفقة الشهرية (${(ongoingMonthlyAlimonyTotal || pending.amount).toLocaleString('ar-IQ')} د.ع/شهر) بعد إخلال التسوية.`,
+                'settlement'
+            );
+            notify(
+                `تم ترحيل ${accruedAmount.toLocaleString('ar-IQ')} د.ع من النفقة المستمرة غير المسددة إلى المتبقي (${billableDays} يوماً).`,
+                'warning'
+            );
+        }
+
+        if (isAlimonyClaim) {
+            onMonthlySettlementDefault?.({ dueDate: pending.dueDate, amount: pending.amount });
+        }
+
+        recordFinancialTimelineNote(
+            '❌ إخلال التسوية',
+            accruedAmount > 0
+                ? `أُلغيت التسوية بعد عدم السداد — رُحِّل ${accruedAmount.toLocaleString('ar-IQ')} د.ع إلى المتبقي.`
+                : `أُلغيت التسوية بمبلغ ${pending.amount.toLocaleString('ar-IQ')} د.ع بعد عدم السداد — عاد زر حجز الراتب للظهور.`,
+            'settlement'
+        );
+        if (!canAccrueOngoing || accruedAmount <= 0) {
+            notify('تم إلغاء التسوية — عاد زر حجز الراتب للظهور في تبويب الحجوزات.', 'info');
+        }
+    };
+
     const currentYmd = getLocalTodayYmd();
     const pendingSettlementDueYmd = store.pendingSettlement ? extractYmd(store.pendingSettlement.dueDate) : '';
-    const pendingSettlementDiffDays =
+    const pendingSettlementDuePhase =
         store.pendingSettlement && pendingSettlementDueYmd
-            ? diffDaysYmd(pendingSettlementDueYmd, currentYmd)
+            ? resolveSettlementDuePhase(pendingSettlementDueYmd, currentYmd)
             : null;
-    const showMonthlySettlementPaidButton =
+    const showSettlementDueActions =
         Boolean(store.pendingSettlement) &&
-        pendingSettlementDiffDays !== null &&
-        pendingSettlementDiffDays >= 0 &&
-        pendingSettlementDiffDays <= 2;
-    const showMonthlySettlementNotPaidButton =
-        Boolean(store.pendingSettlement) && pendingSettlementDiffDays !== null && pendingSettlementDiffDays < 0;
-    const showMonthlySettlementLatePayButton = showMonthlySettlementNotPaidButton;
+        Boolean(pendingSettlementDueYmd) &&
+        shouldShowSettlementDueActions(pendingSettlementDueYmd, currentYmd);
 
-    useEffect(() => {
-        if (!store.pendingSettlement) return;
-        if (!showMonthlySettlementNotPaidButton) return;
-        const due = pendingSettlementDueYmd || store.pendingSettlement.dueDate;
-        if (!due) return;
-        if (lastMonthlySettlementDefaultDueDateRef.current === due) return;
-        lastMonthlySettlementDefaultDueDateRef.current = due;
-        onMonthlySettlementDefault?.({ dueDate: due, amount: store.pendingSettlement.amount });
-    }, [
-        onMonthlySettlementDefault,
-        pendingSettlementDueYmd,
-        showMonthlySettlementNotPaidButton,
-        store.pendingSettlement,
-    ]);
+    const settlementInProgress =
+        settlementPanelOpen || Boolean(store.pendingSettlement);
 
-    const confirmGarnishment = () => {
+    const salarySeizureActive = React.useMemo(
+        () =>
+            hasActiveSalarySeizurePath({
+                garnishment: store.garnishment,
+                seizedAssets: salarySeizureRegistryAssets,
+            }),
+        [salarySeizureRegistryAssets, store.garnishment]
+    );
+
+    const settlementContext = React.useMemo(
+        () =>
+            resolveSettlementContext({
+                settlementUxTier,
+                remainingUnified,
+                completed: store.completed,
+                panelOpen: settlementPanelOpen,
+                showSettlementForm: showSettlementEviction,
+                pendingSettlement: store.pendingSettlement,
+                pendingSettlementDueYmd,
+                currentYmd,
+                isFinancialDebtCollectionClaim: false,
+                financialCenterTotalIqd: remainingUnified,
+                settlementBreachTriggeredAt: store.settlementBreachTriggeredAt,
+                salarySeizureActive,
+            }),
+        [
+            settlementUxTier,
+            remainingUnified,
+            store.completed,
+            store.pendingSettlement,
+            store.settlementBreachTriggeredAt,
+            settlementPanelOpen,
+            showSettlementEviction,
+            pendingSettlementDueYmd,
+            currentYmd,
+            salarySeizureActive,
+        ]
+    );
+
+    const confirmGarnishment = async () => {
         const monthlyDeduction = garnishMonthlyParsed;
         if (!Number.isFinite(monthlyDeduction) || monthlyDeduction <= 0) {
             notify(invalidPositiveAmountMessage('مقدار الاستقطاع الشهري'), 'warning');
             return;
         }
-        persist({ ...store, garnishment: true });
+        if (store.pendingSettlement) {
+            const choice = await promptSettlementSalaryConflictChoice(SmartDialog.confirm);
+            if (choice === 'keep_settlement') {
+                notify('تم الإبقاء على التسوية — أُلغي مسار حجز الراتب.', 'info');
+                return;
+            }
+            persist(clearSettlementFromStore(getLatestLedgerStore()));
+        }
+        persist({ ...getLatestLedgerStore(), garnishment: true });
         if (executionId) {
             try {
                 storageCache.set(executionGarnishmentFlagStorageKey(executionId), 'true');
@@ -1508,7 +2242,6 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
     const showEmployeeCollectionStandard =
         !isEvictionFundsModule &&
         employeeDebtor &&
-        !isAlimonyClaim &&
         totalOwedUnified > 0 &&
         !store.completed &&
         store.collectionRequestActive &&
@@ -1517,7 +2250,6 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
     const showNonEmployeePhase2Standard =
         !isEvictionFundsModule &&
         !employeeDebtor &&
-        !isAlimonyClaim &&
         totalOwedUnified > 0 &&
         !store.completed &&
         store.collectionRequestActive &&
@@ -1528,12 +2260,10 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
         store.collectionRequestedTotal !== null &&
         Math.abs(totalOwedUnified - store.collectionRequestedTotal) > 0.001;
 
-    const canSubmitRequest =
-        totalOwedUnified > 0 &&
+    const canShowDisburse =
+        trustBalanceUnified > 0 &&
         !store.completed &&
-        !store.garnishment &&
-        !hasPendingUnifiedCollection &&
-        (unifiedCollectionDecisionState !== 'approved' || approvedRequestNeedsResubmit);
+        !(store.collectionRequestActive && !unifiedCollectionExecutorApproved);
 
     const canSubmitEvictionPhase2 =
         isEvictionFundsModule &&
@@ -1562,6 +2292,141 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
     };
 
     const showExpandedBody = embeddedInFinancialHub || isExpanded;
+
+    const endSettlementSimple = React.useCallback(() => {
+        if (!store.pendingSettlement) {
+            notify('لا توجد تسوية لإنهائها.', 'warning');
+            return;
+        }
+        persist(clearSettlementFromStore(getLatestLedgerStore()));
+        setSettlementPanelOpen(false);
+        setShowSettlementEviction(false);
+        recordFinancialTimelineNote('إلغاء التسوية', 'أُلغيت التسوية وعادت دورة التسوية.', 'settlement');
+        notify('تم إلغاء التسوية.', 'success');
+    }, [getLatestLedgerStore, notify, persist, recordFinancialTimelineNote, store.pendingSettlement]);
+
+    const activateSettlementPanel = React.useCallback(() => {
+        if (salarySeizureActive) return;
+        setSettlementPanelOpen(true);
+        if (!store.pendingSettlement) {
+            setShowSettlementEviction(true);
+            ensureDefaultSettlementDueDate();
+            if (isAlimonyClaim && ongoingMonthlyAlimonyTotal > 0 && !settlementInput.trim()) {
+                setSettlementInput(formatNumberInput(String(ongoingMonthlyAlimonyTotal)));
+            }
+        }
+    }, [
+        store.pendingSettlement,
+        ensureDefaultSettlementDueDate,
+        isAlimonyClaim,
+        ongoingMonthlyAlimonyTotal,
+        settlementInput,
+        salarySeizureActive,
+    ]);
+
+    const deactivateSettlementPanel = React.useCallback(() => {
+        setSettlementPanelOpen(false);
+        setShowSettlementEviction(false);
+    }, []);
+
+    React.useEffect(() => {
+        if (settlementUxTier === 'hidden') {
+            deactivateSettlementPanel();
+        }
+    }, [settlementUxTier, deactivateSettlementPanel]);
+
+    React.useEffect(() => {
+        if (salarySeizureActive) {
+            deactivateSettlementPanel();
+        }
+    }, [salarySeizureActive, deactivateSettlementPanel]);
+
+    const renderLedgerToolbar = (className = 'mt-2 flex flex-row-reverse items-center justify-end gap-2') =>
+        onShowLedger || (isAlimonyClaim && !isPastAlimonyOnly) ? (
+            <div className={className}>
+                {onShowLedger ? (
+                    <button
+                        type="button"
+                        onClick={onShowLedger}
+                        className="inline-flex flex-row-reverse items-center gap-1.5 rounded-lg border border-[#E6C673]/35 bg-[#E6C673]/10 px-2.5 py-1.5 text-[10px] font-bold text-[#E6C673] transition hover:bg-[#E6C673]/20"
+                        title="السجل المالي العام — أرشيف البنود والمبالغ"
+                        aria-label="فتح السجل المالي العام"
+                    >
+                        <History size={14} strokeWidth={1.75} />
+                        السجل المالي العام
+                    </button>
+                ) : null}
+                {isAlimonyClaim && !isPastAlimonyOnly ? (
+                    <button
+                        type="button"
+                        onClick={() => setAlimonyDetailOpen(true)}
+                        className="inline-flex items-center justify-center rounded-lg border border-[#E6C673]/30 bg-[#E6C673]/8 p-1.5 text-[#E6C673] transition hover:bg-[#E6C673]/15 hover:border-[#E6C673]/45"
+                        title="استحقاق النفقة الشهري"
+                        aria-label="عرض استحقاق النفقة"
+                    >
+                        <HeartHandshake size={14} strokeWidth={2} />
+                    </button>
+                ) : null}
+            </div>
+        ) : null;
+
+    const renderAlimonyDetailModal = () =>
+        isAlimonyClaim && !isPastAlimonyOnly && alimonyDetailOpen ? (
+            <FocModalPortal open onBackdropClick={() => setAlimonyDetailOpen(false)} backdropClassName="bg-black/60">
+                <motion.div
+                    initial={{ scale: 0.98, opacity: 0, y: 8 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    exit={{ scale: 0.98, opacity: 0, y: 8 }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#0A1122]/80 backdrop-blur-xl p-4 shadow-2xl"
+                    dir="rtl"
+                >
+                    <div className="mb-3 flex items-center justify-between gap-2 border-b border-white/[0.06] pb-2.5">
+                        <button
+                            type="button"
+                            onClick={() => setAlimonyDetailOpen(false)}
+                            className="rounded-full p-1.5 text-slate-400 transition hover:bg-white/10"
+                            aria-label="إغلاق"
+                        >
+                            <X size={16} />
+                        </button>
+                        <h4 className="text-xs font-bold text-[#E6C673]/90 tracking-wide">استحقاق النفقة</h4>
+                    </div>
+                    <AlimonyFinancialBlock
+                        breakdown={alimonyBreakdown ?? undefined}
+                        wifeMonthlyAlimony={monthly_wife_alimony || monthlyAlimony}
+                        childrenMonthlyAlimony={monthly_children_alimony || 0}
+                        childrenCount={children_count || 1}
+                        entitlementsOnly
+                    />
+                </motion.div>
+            </FocModalPortal>
+        ) : null;
+
+    const renderUnifiedSettlementPanel = () => (
+        <UnifiedLedgerSettlementPanel
+            settlementUxTier={settlementUxTier}
+            panelOpen={settlementPanelOpen}
+            onClosePanel={deactivateSettlementPanel}
+            store={store}
+            remainingUnified={remainingUnified}
+            settlementInput={settlementInput}
+            setSettlementInput={setSettlementInput}
+            settlementDueDateInput={settlementDueDateInput}
+            setSettlementDueDateInput={setSettlementDueDateInput}
+            showSettlementForm={showSettlementEviction}
+            setShowSettlementForm={setShowSettlementEviction}
+            registerSettlementPlan={registerSettlementPlan}
+            markPendingSettlementPaid={markPendingSettlementPaid}
+            cancelPendingSettlement={cancelPendingSettlement}
+            canApplySettlementAny={canApplySettlementAny}
+            showSettlementDueActions={showSettlementDueActions}
+            pendingSettlementDuePhase={pendingSettlementDuePhase}
+            pendingSettlementDueYmd={pendingSettlementDueYmd}
+            onNotify={(message, type) => notify(message, type ?? 'warning')}
+            salarySeizureActive={salarySeizureActive}
+        />
+    );
 
     return (
         <div
@@ -1718,107 +2583,127 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                 </div>
             )}
 
-            {embeddedInFinancialHub && (
-                <div className="mb-2 border-b border-amber-500/25 pb-2">
+            {embeddedInFinancialHub && !isRepresentingDebtor && (
+                <div className="space-y-2 pb-2">
                     {!hideEvictionTotalsInChrome ? (
                         <div className="grid grid-cols-2 gap-2">
-                            <div className="rounded-xl border border-white/10 bg-gradient-to-l from-white/[0.07] to-transparent px-3 py-2.5 text-right">
-                                <p className="mb-1 text-[10px] font-medium text-slate-400">إجمالي الدين</p>
-                                <p className="text-lg font-black leading-tight text-white tabular-nums">
-                                    {formatIqdDisplay(totalOwedUnified)}{' '}
-                                    <span className="text-xs font-semibold text-slate-400">د.ع</span>
-                                </p>
+                            <div className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-right">
+                                <div className="flex flex-row-reverse items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                        <p className="mb-0.5 text-[10px] font-medium text-slate-400">إجمالي الدين</p>
+                                        <p className="text-base font-black leading-tight text-white tabular-nums">
+                                            {formatIqdDisplay(totalOwedUnified)}{' '}
+                                            <span className="text-[10px] font-semibold text-slate-400">د.ع</span>
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={openDebtEditModal}
+                                        disabled={Boolean(debtEditLockReason)}
+                                        className="shrink-0 inline-flex items-center gap-1 rounded-md border border-[#E6C673]/30 bg-[#E6C673]/10 px-2 py-1 text-[9px] font-bold text-[#F5E6A8] transition hover:bg-[#E6C673]/15 disabled:opacity-35"
+                                    >
+                                        تعديل
+                                    </button>
+                                </div>
                             </div>
-                            <div className="rounded-xl border border-emerald-500/15 bg-gradient-to-l from-emerald-500/10 to-transparent px-3 py-2.5 text-right">
-                                <p className="mb-1 text-[10px] font-medium text-slate-400">الأمانات</p>
-                                <p className="text-lg font-black leading-tight text-white tabular-nums">
+                            <div className="rounded-lg border border-emerald-500/15 bg-emerald-500/[0.06] px-3 py-2 text-right">
+                                <p className="mb-0.5 text-[10px] font-medium text-slate-400">الأمانات</p>
+                                <p className="text-base font-black leading-tight text-white tabular-nums">
                                     {formatIqdDisplay(trustBalanceUnified)}{' '}
-                                    <span className="text-xs font-semibold text-slate-400">د.ع</span>
+                                    <span className="text-[10px] font-semibold text-slate-400">د.ع</span>
                                 </p>
-                                <p className="mt-1 text-[10px] font-semibold text-slate-400">رصيد الصرف</p>
+                                <p className="mt-0.5 text-[9px] font-semibold text-slate-500">رصيد الصرف</p>
                             </div>
                         </div>
                     ) : null}
 
-                    {onShowLedger && (
-                        <div className="mt-2 flex flex-row-reverse items-center justify-end">
-                            <button
-                                type="button"
-                                onClick={onShowLedger}
-                                className="inline-flex flex-row-reverse items-center gap-1.5 rounded-lg border border-[#E6C673]/35 bg-[#E6C673]/10 px-2.5 py-1.5 text-[10px] font-bold text-[#E6C673] transition hover:bg-[#E6C673]/20"
-                                title="السجل المالي العام — أرشيف البنود والمبالغ"
-                                aria-label="فتح السجل المالي العام"
-                            >
-                                <History size={14} strokeWidth={1.75} />
-                                السجل المالي العام
-                            </button>
-                        </div>
-                    )}
+                    {renderLedgerToolbar('flex flex-row-reverse items-center justify-end gap-2')}
                 </div>
             )}
 
             <AnimatePresence>
-                {showExpandedBody && (
+                {showExpandedBody && isRepresentingDebtor && embeddedInFinancialHub ? (
+                    <DebtorAgentFinancialHubPanel
+                        remainingUnified={remainingUnified}
+                        totalOwedUnified={totalOwedUnified}
+                        repaymentInput={repaymentInput}
+                        setRepaymentInput={setRepaymentInput}
+                        applyDebtRepayment={applyDebtRepayment}
+                        canApplyRepayment={canApplyRepayment}
+                        store={store}
+                        settlementInput={settlementInput}
+                        setSettlementInput={setSettlementInput}
+                        settlementDueDateInput={settlementDueDateInput}
+                        setSettlementDueDateInput={setSettlementDueDateInput}
+                        registerSettlementPlan={registerSettlementPlan}
+                        revertSettlementPlan={endSettlementSimple}
+                        markPendingSettlementPaid={markPendingSettlementPaid}
+                        showSettlementDueActions={showSettlementDueActions}
+                        pendingSettlementDuePhase={pendingSettlementDuePhase}
+                        seizedItems={debtorAgentSeizedItems}
+                        completed={store.completed}
+                    />
+                ) : null}
+                {showExpandedBody && !(isRepresentingDebtor && embeddedInFinancialHub) && (
                     <motion.div
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
                         className={`overflow-hidden ${
-                            embeddedInFinancialHub
-                                ? 'mt-0 border-t-0 pt-1'
-                                : 'mt-1 border-t border-white/10 pt-2'
+                            embeddedInFinancialHub ? 'mt-0 pt-0' : 'mt-1 border-t border-white/10 pt-2'
                         }`}
                     >
                         {isAlimonyClaim ? (
-                            <div className="p-2 sm:p-3">
-                                <div className={`${SECTION_GLASS} space-y-4`}>
-                                <AlimonyFinancialBlock
-                                    pastWifeAlimony={past_wife_alimony || 0}
-                                    pastChildrenAlimony={past_children_alimony || 0}
-                                    totalPastAlimony={accumulatedAlimony}
-                                    wifeMonthlyAlimony={monthly_wife_alimony || monthlyAlimony}
-                                    childrenMonthlyAlimony={monthly_children_alimony || 0}
-                                    childrenCount={children_count || 1}
-                                    totalMonthlyAlimony={
-                                        (monthly_wife_alimony || monthlyAlimony) +
-                                        (monthly_children_alimony || 0)
-                                    }
-                                    daysRemainingInCycle={daysRemaining}
+                            <div className="space-y-3">
+                                {shouldCalculateExecutionFee && executionFee > 0 ? (
+                                    <div className="flex flex-row-reverse items-center justify-between gap-2 rounded-xl border border-orange-500/30 bg-orange-950/25 px-3 py-2.5">
+                                        <span className="text-[11px] leading-relaxed text-orange-200/95 text-right">
+                                            رسم التحصيل (٣٪) — انتهاء مدة الإخبار بالتنفيذ دون سداد أو حضور
+                                        </span>
+                                        <span className="shrink-0 text-sm font-black tabular-nums text-orange-300">
+                                            +{executionFee.toLocaleString('ar-IQ')}
+                                        </span>
+                                    </div>
+                                ) : null}
+                                <StandardFinancialLedger
+                                    executionId={executionId}
+                                    totalOwedUnified={totalOwedUnified}
+                                    remainingUnified={remainingUnified}
+                                    baseDossierAmount={baseDossierAmount}
+                                    store={store}
+                                    setExpenseSheetOpen={setExpenseSheetOpen}
+                                    setFeesSheetOpen={setFeesSheetOpen}
+                                    canShowDisburse={canShowDisburse}
+                                    onOpenDisburse={() => setDisburseModalOpen(true)}
+                                    retractCollectionRequest={retractCollectionRequest}
+                                    unifiedCollectionExecutorApproved={unifiedCollectionExecutorApproved}
+                                    showEmployeeCollection={showEmployeeCollectionStandard}
+                                    showNonEmployeePhase2={showNonEmployeePhase2Standard}
+                                    applyFullPayment={applyFullPayment}
+                                    setShowGarnishModal={setShowGarnishModal}
+                                    undoLastPayment={undoLastPayment}
+                                    financialLedger={financialLedger}
+                                    onPayment={onPayment}
+                                    canEditDebtTotals={!debtEditLockReason}
+                                    onOpenDebtEdit={openDebtEditModal}
+                                    flatChrome={embeddedInFinancialHub}
+                                    settlementUxTier={settlementUxTier}
+                                    settlementPanelOpen={settlementPanelOpen}
+                                    onActivateSettlement={activateSettlementPanel}
+                                    onDeactivateSettlement={deactivateSettlementPanel}
+                                    repaymentInput={repaymentInput}
+                                    setRepaymentInput={setRepaymentInput}
+                                    canApplyRepayment={canApplyRepayment}
+                                    applyDebtRepayment={applyDebtRepayment}
+                                    repaymentExceedsRemaining={repaymentExceedsRemaining}
+                                    ongoingMonthlyAlimony={ongoingMonthlyAlimonyTotal}
+                                    showSettlementEntry={settlementContext.showSettlementEntry}
                                 />
-                                <div className="flex flex-wrap gap-2 justify-center sm:justify-end pt-2 border-t border-white/5">
-                                    {debtorJob === 'كاسب' && overdueCount === 0 && (
-                                        <>
-                                            <button
-                                                type="button"
-                                                onClick={onPayment}
-                                                className="rounded-xl bg-gradient-to-l from-emerald-500 to-emerald-700 px-4 py-2.5 text-white text-xs font-bold shadow-md shadow-emerald-950/30 hover:brightness-110 transition"
-                                            >
-                                                تسجيل سداد نفقة
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowGuarantorModal(true)}
-                                                className="rounded-xl bg-gradient-to-l from-amber-600/90 to-amber-800 px-4 py-2.5 text-[#0A0F1C] text-xs font-bold border border-amber-500/30 shadow-md shadow-amber-950/20 hover:brightness-110 transition"
-                                            >
-                                                كفيل ضامن
-                                            </button>
-                                        </>
-                                    )}
-                                    {overdueCount > 0 && (
-                                        <button
-                                            type="button"
-                                            onClick={() => onCoerciveAction('imprisonment')}
-                                            className="rounded-xl bg-gradient-to-l from-rose-600 to-rose-900 px-4 py-2.5 text-white text-xs font-bold shadow-md shadow-rose-950/35 transition hover:brightness-110"
-                                        >
-                                            إجراءات التأخر
-                                        </button>
-                                    )}
-                                </div>
-                                </div>
+                                {settlementContext.showSettlementPanel ? renderUnifiedSettlementPanel() : null}
                             </div>
                         ) : isEvictionFundsModule ? (
-                            <div className="p-2 sm:p-3">
-                                    <div className={`${SECTION_GLASS} flex flex-col gap-y-1`}>
+                            <div className="space-y-3">
+                                    <div className={embeddedInFinancialHub ? 'flex flex-col gap-y-1' : `${SECTION_GLASS} flex flex-col gap-y-1`}>
 										{evictionReenableCourtOrderedFees && (
 											<button
 												type="button"
@@ -1839,6 +2724,11 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                                                 >
                                                     {formatIqdDisplay(remainingUnified)}
                                                 </p>
+                                                {settlementContext.showSettlementEntry &&
+                                                settlementUxTier === 'buried' &&
+                                                !settlementInProgress ? (
+                                                    <SettlementBuriedKebab onActivate={activateSettlementPanel} />
+                                                ) : null}
                                                 {onShowSeizureLog ? (
                                                     <button
                                                         type="button"
@@ -1853,10 +2743,19 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                                                 <LedgerExpenseEditCluster
                                                     onExpenses={() => setExpenseSheetOpen(true)}
                                                     onEditFees={() => setFeesSheetOpen(true)}
-                                                    hideFees={false}
+                                                    hideFees
                                                 />
                                             </div>
-                                            {null}
+                                            {settlementContext.showSettlementEntry && settlementUxTier === 'primary' ? (
+                                                <div className="w-full pt-2">
+                                                    <ReactiveSettlementEntry
+                                                        tier="primary"
+                                                        isActive={settlementInProgress}
+                                                        onActivate={activateSettlementPanel}
+                                                        onDeactivate={deactivateSettlementPanel}
+                                                    />
+                                                </div>
+                                            ) : null}
                                             {evictionLawyerFeeWaivedAtIntake && sumLawyer <= 0 && (
                                                 <p className="text-[10px] text-slate-500 text-center leading-relaxed px-1">
                                                     لم تُسجَّل أتعاب محكومة عند فتح الإضبارة — استخدم «تعديل» ثم «إضافة
@@ -1907,137 +2806,21 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                                             )}
                                         </div>
 
-                                        {hasApprovedUnifiedCollectionDecision && !store.completed && (
-                                            <motion.div
-                                                initial={{ opacity: 0, y: 14 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                className="flex flex-col gap-y-2 pt-0 -mt-1"
-                                            >
-                                                <div className="flex flex-col gap-y-4">
-                                                    {/* القسم الثاني: التسوية والعمليات المالية */}
-                                                    <div>
-                                                        <p className="text-sm text-gray-400 mb-3 mt-1 text-right font-light">التسوية والعمليات المالية</p>
-                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setShowSettlementEviction((v) => !v)}
-                                                                className="w-full rounded-xl border border-cyan-500/20 bg-cyan-500/5 px-4 py-2.5 text-cyan-200/95 text-[11px] font-black hover:bg-cyan-500/15 transition-all backdrop-blur-md shadow-lg shadow-cyan-900/10 flex items-center justify-center gap-2"
-                                                            >
-                                                                <Handshake size={14} className="text-cyan-400" />
-                                                                {showSettlementEviction
-                                                                    ? 'إخفاء نموذج التسوية'
-                                                                    : store.pendingSettlement
-                                                                      ? 'تعديل التسوية'
-                                                                      : 'التسوية'}
-                                                            </button>
-                                                            {store.pendingSettlement && showMonthlySettlementPaidButton ? (
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => markPendingSettlementPaid({ allowLate: false })}
-                                                                    className="w-full rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-2.5 text-emerald-100 text-[11px] font-black hover:bg-emerald-500/15 transition-all backdrop-blur-md shadow-lg shadow-emerald-900/10 flex items-center justify-center gap-2"
-                                                                >
-                                                                    <BadgeCheck size={14} className="text-emerald-400" />
-                                                                    تم دفع التسوية
-                                                                </button>
-                                                            ) : null}
-                                                            {store.pendingSettlement && showMonthlySettlementLatePayButton ? (
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => markPendingSettlementPaid({ allowLate: true })}
-                                                                    className="w-full rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-2.5 text-emerald-100 text-[11px] font-black hover:bg-emerald-500/15 transition-all backdrop-blur-md shadow-lg shadow-emerald-900/10 flex items-center justify-center gap-2"
-                                                                >
-                                                                    <BadgeCheck size={14} className="text-emerald-400" />
-                                                                    دفع التسوية
-                                                                </button>
-                                                            ) : null}
-                                                            {store.pendingSettlement && showMonthlySettlementNotPaidButton ? (
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        const due =
-                                                                            pendingSettlementDueYmd ||
-                                                                            store.pendingSettlement?.dueDate ||
-                                                                            '';
-                                                                        if (due) {
-                                                                            onMonthlySettlementDefault?.({
-                                                                                dueDate: due,
-                                                                                amount: store.pendingSettlement?.amount || 0,
-                                                                            });
-                                                                        }
-                                                                        notify(
-                                                                            'نكس التسوية: لم يتم الدفع ضمن الموعد — راجع الإجراءات الجبرية.',
-                                                                            'warning'
-                                                                        );
-                                                                    }}
-                                                                    className="w-full rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-2.5 text-rose-100 text-[11px] font-black hover:bg-rose-500/15 transition-all backdrop-blur-md shadow-lg shadow-rose-900/10 flex items-center justify-center gap-2"
-                                                                >
-                                                                    <X size={14} className="text-rose-300" />
-                                                                    لم يتم الدفع
-                                                                </button>
-                                                            ) : null}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="flex flex-col items-center gap-3">
-                                                    <AnimatePresence initial={false}>
-                                                        {showSettlementEviction && (
-                                                            <motion.div
-                                                                initial={{ height: 0, opacity: 0 }}
-                                                                animate={{ height: 'auto', opacity: 1 }}
-                                                                exit={{ height: 0, opacity: 0 }}
-                                                                transition={{ duration: 0.22 }}
-                                                                className="w-full max-w-md overflow-hidden"
-                                                            >
-                                                                <div className="flex flex-col gap-2 pt-1">
-                                                                    <input
-                                                                        type="text"
-                                                                        inputMode="decimal"
-                                                                        placeholder="المبلغ (د.ع)"
-                                                                        value={settlementInput}
-                                                                        onChange={(e) =>
-                                                                            setSettlementInput(
-                                                                                formatNumberInput(e.target.value)
-                                                                            )
-                                                                        }
-                                                                        className="flex-1 rounded-xl bg-white/5 border border-white/10 px-3 py-2.5 text-white text-right text-sm placeholder:text-slate-500"
-                                                                    />
-                                                                    <input
-                                                                        type="date"
-                                                                        value={settlementDueDateInput}
-                                                                        onChange={(e) => setSettlementDueDateInput(e.target.value)}
-                                                                        className="rounded-xl bg-white/5 border border-white/10 px-3 py-2.5 text-white text-right text-sm"
-                                                                    />
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={registerSettlementPlan}
-                                                                        disabled={!canApplySettlementAny || !settlementDueDateInput}
-                                                                        className={`${BTN_SETTLEMENT_APPLY} disabled:opacity-40 disabled:cursor-not-allowed`}
-                                                                    >
-                                                                        حفظ التسوية
-                                                                    </button>
-                                                                </div>
-                                                            </motion.div>
-                                                        )}
-                                                    </AnimatePresence>
-                                                    {store.pendingSettlement && (
-                                                        <div className="text-[11px] text-slate-300 text-center space-y-1">
-                                                            <p>
-                                                                تسوية مسجلة: {store.pendingSettlement.amount.toLocaleString('ar-IQ')} د.ع — تاريخ الدفع{' '}
-                                                                {store.pendingSettlement.dueDate}
-                                                            </p>
-                                                            <p className="text-slate-400">
-                                                                المتبقي بعد دفع التسوية:{' '}
-                                                                {Math.max(
-                                                                    0,
-                                                                    remainingUnified - store.pendingSettlement.amount
-                                                                ).toLocaleString('ar-IQ')}{' '}
-                                                                د.ع
-                                                            </p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </motion.div>
-                                        )}
+                                        {settlementContext.showSettlementEntry &&
+                                        settlementUxTier === 'secondary' &&
+                                        !store.completed &&
+                                        remainingUnified > 0 ? (
+                                            <ReactiveSettlementEntry
+                                                tier="secondary"
+                                                isActive={settlementInProgress}
+                                                onActivate={activateSettlementPanel}
+                                                onDeactivate={deactivateSettlementPanel}
+                                            />
+                                        ) : null}
+
+                                        {settlementContext.showSettlementPanel
+                                            ? renderUnifiedSettlementPanel()
+                                            : null}
 
                                         {null}
 
@@ -2077,9 +2860,11 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                                                                             ? 'صرف'
                                                                             : p.entryType === 'settlement'
                                                                               ? 'تسوية'
-                                                                              : p.kind === 'full'
-                                                                                ? 'تحصيل كامل'
-                                                                                : 'تحصيل')}{' '}
+                                                                              : String(p.id).startsWith('pay-repay-')
+                                                                                ? 'تسديد'
+                                                                                : p.kind === 'full'
+                                                                                  ? 'تحصيل كامل'
+                                                                                  : 'تحصيل')}{' '}
                                                                         — {p.entryType === 'disburse' ? 'رصيد الأمانات' : 'متبقي الدين'}{' '}
                                                                         {(p.entryType === 'disburse'
                                                                             ? (p.trustBalanceAfter ?? p.balanceAfter)
@@ -2103,7 +2888,7 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                                     </div>
                             </div>
                         ) : (
-                            <div className="p-2 sm:p-3">
+                            <div className="space-y-3">
                             <StandardFinancialLedger
                                 executionId={executionId}
                                 totalOwedUnified={totalOwedUnified}
@@ -2112,28 +2897,37 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                                 store={store}
                                 setExpenseSheetOpen={setExpenseSheetOpen}
                                 setFeesSheetOpen={setFeesSheetOpen}
-                                canSubmitRequest={canSubmitRequest}
-                                submitCollectionRequest={submitCollectionRequest}
+                                canShowDisburse={canShowDisburse}
+                                onOpenDisburse={() => setDisburseModalOpen(true)}
                                 retractCollectionRequest={retractCollectionRequest}
                                 unifiedCollectionExecutorApproved={unifiedCollectionExecutorApproved}
                                 showEmployeeCollection={showEmployeeCollectionStandard}
                                 showNonEmployeePhase2={showNonEmployeePhase2Standard}
                                 applyFullPayment={applyFullPayment}
-                                applyPartialSettlement={applyPartialSettlement}
-                                settlementInput={settlementInput}
-                                setSettlementInput={setSettlementInput}
                                 setShowGarnishModal={setShowGarnishModal}
                                 undoLastPayment={undoLastPayment}
                                 financialLedger={financialLedger}
                                 onPayment={onPayment}
-                                onSettlement={onSettlement}
-                                hideFeesCluster={false}
+                                canEditDebtTotals={!debtEditLockReason}
+                                onOpenDebtEdit={openDebtEditModal}
+                                flatChrome={embeddedInFinancialHub}
+                                settlementUxTier={settlementUxTier}
+                                settlementPanelOpen={settlementPanelOpen}
+                                onActivateSettlement={activateSettlementPanel}
+                                onDeactivateSettlement={deactivateSettlementPanel}
+                                repaymentInput={repaymentInput}
+                                setRepaymentInput={setRepaymentInput}
+                                canApplyRepayment={canApplyRepayment}
+                                applyDebtRepayment={applyDebtRepayment}
+                                repaymentExceedsRemaining={repaymentExceedsRemaining}
+                                showSettlementEntry={settlementContext.showSettlementEntry}
                             />
+                            {settlementContext.showSettlementPanel ? renderUnifiedSettlementPanel() : null}
                             {canShowGhuramaaDivision && trustBalanceUnified > 0 ? (
                                 <div className="px-2 pb-2" dir="rtl">
                                     <button
                                         type="button"
-                                        onClick={() => setGhuramaaModalOpen(true)}
+                                        onClick={openGhuramaaModal}
                                         className="w-full rounded-xl bg-gradient-to-l from-amber-500 to-amber-700 py-3.5 px-4 text-[#0A0F1C] font-black text-xs shadow-md shadow-amber-900/25 flex items-center justify-center gap-2"
                                     >
                                         <Send size={16} className="shrink-0" />
@@ -2149,12 +2943,10 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
 
             <AnimatePresence>
                 {disburseModalOpen && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[128] flex items-center justify-center p-4 bg-black/55 backdrop-blur-md"
-                        onClick={() => setDisburseModalOpen(false)}
+                    <FocModalPortal
+                        open
+                        onBackdropClick={() => setDisburseModalOpen(false)}
+                        backdropClassName="bg-black/55"
                     >
                         <motion.div
                             initial={{ scale: 0.98, opacity: 0, y: 8 }}
@@ -2180,7 +2972,7 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                                         <div className="rounded-xl border border-amber-400/20 bg-amber-500/5 p-3 text-right">
                                             <p className="text-[11px] font-black text-amber-200">قسمة الغرماء (توزيع الأمانات)</p>
                                             <p className="mt-1 text-[10px] text-slate-300 leading-relaxed">
-                                                يوجد أكثر من دائن واحد؛ سيتم احتساب الحصص بنسبة وتناسب وفقاً لمبلغ دين كل دائن.
+                                                يوجد أكثر من دائن واحد؛ أدخل حصة كل دائن يدوياً ضمن رصيد الأمانات وديونه المتبقية.
                                             </p>
                                             <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-slate-400">
                                                 <div className="rounded-lg border border-white/10 bg-white/[0.03] p-2">
@@ -2209,7 +3001,7 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                                                 type="button"
                                                 onClick={() => {
                                                     setDisburseModalOpen(false);
-                                                    setGhuramaaModalOpen(true);
+                                                    openGhuramaaModal();
                                                 }}
                                                 className="flex-1 rounded-xl bg-amber-600/80 py-2.5 text-xs font-black text-white"
                                             >
@@ -2251,18 +3043,16 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                                 )}
                             </div>
                         </motion.div>
-                    </motion.div>
+                    </FocModalPortal>
                 )}
             </AnimatePresence>
 
             <AnimatePresence>
                 {ghuramaaModalOpen && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[129] flex items-center justify-center p-4 bg-black/55 backdrop-blur-md"
-                        onClick={() => setGhuramaaModalOpen(false)}
+                    <FocModalPortal
+                        open
+                        onBackdropClick={() => setGhuramaaModalOpen(false)}
+                        backdropClassName="bg-black/55"
                     >
                         <motion.div
                             initial={{ scale: 0.98, opacity: 0, y: 8 }}
@@ -2283,62 +3073,91 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                                 <h4 className="text-sm font-black text-amber-200">قسمة الغرماء — توزيع الأمانات</h4>
                             </div>
 
-                            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-right">
                                     <p className="text-[10px] text-slate-500">رصيد الأمانات المتاح</p>
                                     <p className="mt-0.5 text-[13px] font-black tabular-nums text-slate-100">
-                                        {ghuramaaPreview.available.toLocaleString('ar-IQ')} د.ع
-                                    </p>
-                                </div>
-                                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-right">
-                                    <p className="text-[10px] text-slate-500">مجموع الديون القابلة للتوزيع</p>
-                                    <p className="mt-0.5 text-[13px] font-black tabular-nums text-slate-100">
-                                        {ghuramaaPreview.totalDebt.toLocaleString('ar-IQ')} د.ع
+                                        {ghuramaaContext.available.toLocaleString('ar-IQ')} د.ع
                                     </p>
                                 </div>
                                 <div className="rounded-xl border border-amber-400/20 bg-amber-500/5 p-3 text-right">
                                     <p className="text-[10px] text-amber-200/80">المبلغ الذي سيتم توزيعه</p>
                                     <p className="mt-0.5 text-[13px] font-black tabular-nums text-amber-100">
-                                        {ghuramaaPreview.distributable.toLocaleString('ar-IQ')} د.ع
+                                        {ghuramaaManual.sum.toLocaleString('ar-IQ')} د.ع
                                     </p>
                                 </div>
                             </div>
 
-                            {ghuramaaPreview.note ? (
-                                <div className="mt-3 rounded-xl border border-amber-400/20 bg-amber-500/5 p-3 text-right text-[11px] text-slate-200">
-                                    {ghuramaaPreview.note}
+                            {ghuramaaManual.validationNote ? (
+                                <div className="mt-3 rounded-xl border border-rose-400/25 bg-rose-500/10 p-3 text-right text-[11px] text-rose-200">
+                                    {ghuramaaManual.validationNote}
                                 </div>
                             ) : null}
 
-                            <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 overflow-hidden">
-                                <div className="grid grid-cols-3 gap-0 border-b border-white/10 bg-white/[0.03] px-3 py-2 text-[10px] font-bold text-slate-400">
+                            {ghuramaaManual.partialWarning ? (
+                                <div className="mt-3 rounded-xl border border-amber-400/25 bg-amber-500/10 p-3 text-right text-[11px] text-amber-100">
+                                    {ghuramaaManual.partialWarning}
+                                </div>
+                            ) : null}
+
+                            <div className="mt-3 flex justify-end">
+                                <button
+                                    type="button"
+                                    onClick={applyGhuramaaEqualSplit}
+                                    disabled={ghuramaaContext.eligible.length === 0 || ghuramaaContext.available <= 0}
+                                    className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[10px] font-black text-amber-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                    تقسيم بالتساوي
+                                </button>
+                            </div>
+
+                            <div className="mt-2 rounded-2xl border border-white/10 bg-black/20 overflow-hidden">
+                                <div className="grid grid-cols-2 gap-0 border-b border-white/10 bg-white/[0.03] px-3 py-2 text-[10px] font-bold text-slate-400">
                                     <div className="text-right">الدائن</div>
-                                    <div className="text-right">دين الدائن قبل القسمة</div>
                                     <div className="text-right">حصة الدائن</div>
                                 </div>
                                 <div className="max-h-64 overflow-y-auto">
-                                    {ghuramaaPreview.rows.length > 0 ? (
-                                        ghuramaaPreview.rows.map((r) => (
+                                    {ghuramaaContext.eligible.length > 0 ? (
+                                        ghuramaaContext.eligible.map((c) => (
                                             <div
-                                                key={r.creditorId}
-                                                className="grid grid-cols-3 gap-0 border-b border-white/5 px-3 py-2 text-[11px] text-slate-200"
+                                                key={c.creditorId}
+                                                className="grid grid-cols-2 gap-2 border-b border-white/5 px-3 py-2 text-[11px] text-slate-200 items-center"
                                             >
-                                                <div className="truncate text-right font-bold">{r.creditorName}</div>
-                                                <div className="text-right tabular-nums">
-                                                    {r.debtBeforeDistribution.toLocaleString('ar-IQ')}
-                                                </div>
-                                                <div className="text-right tabular-nums font-black text-amber-200">
-                                                    {r.amountDistributed.toLocaleString('ar-IQ')}
+                                                <div className="truncate text-right font-bold">{c.creditorName}</div>
+                                                <div>
+                                                    <input
+                                                        type="text"
+                                                        inputMode="decimal"
+                                                        placeholder="أدخل المبلغ"
+                                                        value={ghuramaaShareInputs[c.creditorId] ?? ''}
+                                                        onChange={(e) =>
+                                                            setGhuramaaShareInput(c.creditorId, e.target.value)
+                                                        }
+                                                        className="w-full rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-white text-right text-[11px] tabular-nums placeholder:text-slate-500"
+                                                    />
                                                 </div>
                                             </div>
                                         ))
                                     ) : (
                                         <div className="px-3 py-3 text-[11px] text-slate-400 text-right">
-                                            {ghuramaaPreview.note || 'لا توجد بيانات قابلة للعرض.'}
+                                            {ghuramaaContext.note || 'لا توجد بيانات قابلة للعرض.'}
                                         </div>
                                     )}
                                 </div>
                             </div>
+
+                            {!ghuramaaManual.isEqualMode && ghuramaaManual.sum > 0 ? (
+                                <p className="mt-2 text-[10px] text-slate-400 text-right">
+                                    المتبقي من الأمانات بعد التوزيع:{' '}
+                                    <span
+                                        className={`font-black tabular-nums ${
+                                            ghuramaaManual.remainingAfter > 0 ? 'text-amber-200' : 'text-slate-200'
+                                        }`}
+                                    >
+                                        {ghuramaaManual.remainingAfter.toLocaleString('ar-IQ')} د.ع
+                                    </span>
+                                </p>
+                            ) : null}
 
                             <div className="mt-3 flex items-center gap-2">
                                 <button
@@ -2351,25 +3170,39 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                                 <button
                                     type="button"
                                     onClick={applyGhuramaaDistribution}
-                                    disabled={!ghuramaaPreview.ok}
+                                    disabled={!ghuramaaManual.ok}
                                     className="flex-1 rounded-xl bg-amber-600/80 py-2.5 text-xs font-black text-white disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
                                     اعتماد وتوزيع القسمة
                                 </button>
                             </div>
                         </motion.div>
-                    </motion.div>
+                    </FocModalPortal>
+                )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+                {debtEditOpen && (
+                    <DebtTotalsEditModal
+                        open={debtEditOpen}
+                        onClose={() => setDebtEditOpen(false)}
+                        totalInput={debtEditTotalInput}
+                        setTotalInput={setDebtEditTotalInput}
+                        remainingInput={debtEditRemainingInput}
+                        setRemainingInput={setDebtEditRemainingInput}
+                        onSave={applyDebtTotalsEdit}
+                        lockReason={debtEditLockReason}
+                        showAlimonyAccrualNote={Boolean(isAlimonyClaim && ongoingMonthlyAlimonyTotal > 0)}
+                    />
                 )}
             </AnimatePresence>
 
             <AnimatePresence>
                 {feesSheetOpen && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/50 backdrop-blur-md"
-                        onClick={() => setFeesSheetOpen(false)}
+                    <FocModalPortal
+                        open
+                        onBackdropClick={() => setFeesSheetOpen(false)}
+                        backdropClassName="bg-black/50"
                     >
                         <motion.div
                             initial={{ scale: 0.96, opacity: 0 }}
@@ -2440,18 +3273,16 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                                 ))}
                             </ul>
                         </motion.div>
-                    </motion.div>
+                    </FocModalPortal>
                 )}
             </AnimatePresence>
 
             <AnimatePresence>
                 {expenseSheetOpen && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/50 backdrop-blur-md"
-                        onClick={() => setExpenseSheetOpen(false)}
+                    <FocModalPortal
+                        open
+                        onBackdropClick={() => setExpenseSheetOpen(false)}
+                        backdropClassName="bg-black/50"
                     >
                         <motion.div
                             initial={{ scale: 0.96, opacity: 0 }}
@@ -2506,19 +3337,16 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                                 ))}
                             </ul>
                         </motion.div>
-                    </motion.div>
+                    </FocModalPortal>
                 )}
             </AnimatePresence>
 
             <AnimatePresence>
                 {showGarnishModal && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="fixed inset-0 z-[140] flex items-center justify-center p-4 bg-black/55 backdrop-blur-md"
-                        onClick={closeGarnishModal}
+                    <FocModalPortal
+                        open
+                        onBackdropClick={closeGarnishModal}
+                        backdropClassName="bg-black/55"
                     >
                         <motion.div
                             layout
@@ -2601,7 +3429,7 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                                 </button>
                             </div>
                         </motion.div>
-                    </motion.div>
+                    </FocModalPortal>
                 )}
             </AnimatePresence>
 
@@ -2612,6 +3440,8 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                     onSave={handleSaveGuarantor}
                 />
             )}
+
+            <AnimatePresence>{renderAlimonyDetailModal()}</AnimatePresence>
         </div>
     );
 });

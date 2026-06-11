@@ -8,6 +8,7 @@ import type {
     TimelineEvent,
 } from '@/app/types/execution';
 import type { UnifiedSummonsHubProps } from '@/app/components/lawyer/Modal_Unified_Summons_Hub';
+import { isGuarantorSummonsEligible } from './guarantorExternalUtils';
 
 type SummonsMainTab = 'tabligh' | 'taklif' | 'nashr' | 'guarantor' | null;
 
@@ -217,7 +218,7 @@ export const UnifiedSummonsModalContainer: React.FC<UnifiedSummonsModalContainer
             {showUnifiedSummonsModal && (
                 <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
                     <LazyUnifiedSummonsHub
-                        key={`${String(executionId || '')}:${String(unifiedSummonsTargetDebtorKey || '')}`}
+                        key={`${String(executionId || '')}:${String(unifiedSummonsTargetDebtorKey || '')}:${summonsHubInitialMainTab ?? 'default'}`}
                         isOpen
                         initialMainTab={summonsHubInitialMainTab}
                         onClose={() => {
@@ -242,7 +243,7 @@ export const UnifiedSummonsModalContainer: React.FC<UnifiedSummonsModalContainer
                                 ? false
                                 : Boolean(isHolidayExtension || executionData?.isHolidayExtension);
                             const initialFeesPatch =
-                                (notificationCount === 0 || Boolean(notifyOpts?.forceExecutionMemo)) &&
+                                notificationCount === 0 &&
                                 isEvictionExecutionModule &&
                                 typeof initialNoticeLawyerFeesIncluded === 'boolean'
                                     ? {
@@ -373,7 +374,8 @@ export const UnifiedSummonsModalContainer: React.FC<UnifiedSummonsModalContainer
                             isEvictionExecutionModule &&
                             !followupIsDebtorGovernmentEmployee &&
                             !followupIsDebtorRetired &&
-                            !executionData?.eviction_lawyer_fee_waived_at_intake &&
+                            notificationCount === 0 &&
+                            !executionData?.eviction_first_notice_date &&
                             (parsedLawyerFees > 0 ||
                                 Boolean((executionData as { includeLawyerFees?: boolean }).includeLawyerFees))
                         }
@@ -439,15 +441,20 @@ export const UnifiedSummonsModalContainer: React.FC<UnifiedSummonsModalContainer
                                     ? handleEmployeeAssignmentResolveForcedBringOutcome('absconded')
                                     : handleEmployeeWarrantOutcome('terminate'),
                         }}
-                        publicationNoticeFeature={{
-                            state: getPublicationNoticeForDebtorKey(
-                                executionData,
-                                unifiedSummonsTargetDebtorKey
-                            ),
-                            onRegister: handlePublicationNoticeRegister,
-                            onTerminate: handlePublicationNoticeTerminate,
-                            onDebtorAttended: handlePublicationNoticeDebtorAttended,
-                        }}
+                        publicationNoticeFeature={
+                            activeDebtorIsEmployee
+                                ? undefined
+                                : {
+                                      state: getPublicationNoticeForDebtorKey(
+                                          executionData,
+                                          unifiedSummonsTargetDebtorKey
+                                      ),
+                                      onRegister: handlePublicationNoticeRegister,
+                                      onTerminate: handlePublicationNoticeTerminate,
+                                      onDebtorAttended: handlePublicationNoticeDebtorAttended,
+                                  }
+                        }
+                        suppressPublicationNotice={activeDebtorIsEmployee}
                         executionSummonsNoticeDateYmd={activeDebtorNoticeScope.notificationDate}
                         executionSummonsArchived={Boolean(
                             debtorAttendedVoluntarily ||
@@ -468,11 +475,16 @@ export const UnifiedSummonsModalContainer: React.FC<UnifiedSummonsModalContainer
                         }
                         onTerminateTablighTask={terminateDebtorSummonsMarker}
                         guarantorNotificationFeature={{
-                            enabled: Boolean(executionData?.guarantor_followup?.details_saved),
+                            enabled: isGuarantorSummonsEligible(executionData),
+                            contextOnly: summonsHubInitialMainTab === 'guarantor',
                             state: executionData?.guarantor_notification ?? null,
                             onRegister: (p) => {
                                 const d = String(p.noticeDateYmd || '').trim();
                                 const r = String(p.reason || '').trim();
+                                if (!d || !r) {
+                                    showToast('أكمل تاريخ التبليغ وسبب التكليف بالحضور.', 'warning');
+                                    return;
+                                }
                                 persistExecutionMerge({
                                     guarantor_notification: {
                                         noticeDateYmd: d,
@@ -486,12 +498,12 @@ export const UnifiedSummonsModalContainer: React.FC<UnifiedSummonsModalContainer
                                     id: nextTimelineId(),
                                     date: ts.slice(0, 10),
                                     timestamp: ts,
-                                    title: 'تبليغ الكفيل',
-                                    description: `تاريخ التبليغ: ${d}\nسبب التبليغ: ${r}`,
+                                    title: 'تبليغ / تكليف الكفيل بالحضور',
+                                    description: `تاريخ التبليغ: ${d}\nالسبب: ${r}`,
                                     type: 'procedure',
                                     source: 'مركز التبليغ',
                                 });
-                                showToast('تم تسجيل تبليغ الكفيل.', 'success');
+                                showToast('تم تسجيل تبليغ / تكليف الكفيل بالحضور.', 'success');
                             },
                             onAttend: () => {
                                 const now = new Date().toISOString();

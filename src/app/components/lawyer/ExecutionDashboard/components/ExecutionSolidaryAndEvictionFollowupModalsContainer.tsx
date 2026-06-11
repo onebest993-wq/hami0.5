@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatNumberInput } from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { evictionInclusiveCalendarDays } from '../helpers';
@@ -220,7 +221,7 @@ export const ExecutionSolidaryAndEvictionFollowupModalsContainer: React.FC<
                                 pattern="[0-9]*"
                                 placeholder="المبلغ (د.ع)"
                                 value={evictionExpenseAmount}
-                                onChange={(e) => setEvictionExpenseAmount(e.target.value.replace(/[^\d]/g, ''))}
+                                onChange={(e) => setEvictionExpenseAmount(formatNumberInput(e.target.value))}
                                 className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white text-right"
                             />
                             <textarea

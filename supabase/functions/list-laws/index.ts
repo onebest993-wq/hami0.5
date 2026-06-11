@@ -1,5 +1,12 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+const ALLOWED_IRAQI_LAW_NAMES = [
+    "قانون التنفيذ العراقي رقم 45 لسنة 1980",
+    "قانون العقوبات العراقي رقم 111 لسنة 1969",
+    "قانون أصول المحاكمات الجزائية العراقي رقم 23 لسنة 1971",
+    "قانون رعاية الأحداث العراقي رقم 76 لسنة 1983",
+] as const;
+
 function corsHeadersFor(req: Request): Record<string, string> {
     const requested = req.headers.get("access-control-request-headers");
     const allowHeaders = requested && requested.trim().length > 0
@@ -49,9 +56,18 @@ Deno.serve(async (req: Request) => {
     try {
         const body = await req.json() as { law_name?: unknown };
         const raw = String(body?.law_name ?? "").trim();
-        if (raw.length > 0) lawNameFilter = raw;
+        if (raw.length > 0) {
+            if (!ALLOWED_IRAQI_LAW_NAMES.includes(raw as typeof ALLOWED_IRAQI_LAW_NAMES[number])) {
+                return jsonResponse(
+                    { ok: false, error: "Law name is not in the allowed catalog." },
+                    400,
+                    req,
+                );
+            }
+            lawNameFilter = raw;
+        }
     } catch {
-        /* body فارغ — جلب كل القوانين */
+        /* body فارغ — جلب القوانين المسموح بها فقط */
     }
 
     let query = supabase
@@ -59,6 +75,8 @@ Deno.serve(async (req: Request) => {
         .select("id, law_name, article_number, content");
     if (lawNameFilter) {
         query = query.eq("law_name", lawNameFilter);
+    } else {
+        query = query.in("law_name", [...ALLOWED_IRAQI_LAW_NAMES]);
     }
     const { data, error } = await query
         .order("law_name", { ascending: true })

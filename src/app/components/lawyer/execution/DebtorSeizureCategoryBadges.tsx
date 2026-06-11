@@ -1,6 +1,12 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Briefcase, Car, Home, Pin } from 'lucide-react';
+import {
+    BADGE_POPOVER_Z_INDEX,
+    computeFixedPopoverLayout,
+    refinePopoverLayoutWithMeasuredHeight,
+    type FixedPopoverLayout,
+} from './anchoredPopoverPosition';
 import type { LucideProps } from 'lucide-react';
 import type {
     RealEstateSeizureAsset,
@@ -92,7 +98,7 @@ function BadgeButton(props: {
             ref={props.buttonRef}
             type="button"
             onClick={props.onClick}
-            className={`group inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-bold transition-all ${props.bgClass} ${props.borderClass} ${props.textClass} hover:brightness-110 hover:shadow-[0_0_16px_rgba(0,0,0,0.25)] cursor-pointer ${
+            className={`group inline-flex flex-row-reverse items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-bold transition-all ${props.bgClass} ${props.borderClass} ${props.textClass} hover:brightness-110 hover:shadow-[0_0_16px_rgba(0,0,0,0.25)] cursor-pointer ${
                 props.active ? 'ring-1 ring-white/10' : ''
             }`}
         >
@@ -107,9 +113,11 @@ export function DebtorSeizureCategoryBadges(props: {
     realEstateSeizureAssets: RealEstateSeizureAsset[];
     thirdPartySeizureAssets: ThirdPartySeizureAsset[];
     standaloneExecutionMarks: StandaloneExecutionMark[];
+    /** داخل صف موحّد مع الشارات التفاعلية — بدون غلاف منفصل */
+    embeddedInRow?: boolean;
 }) {
     const [openKey, setOpenKey] = useState<CategoryKey | null>(null);
-    const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+    const [popoverLayout, setPopoverLayout] = useState<FixedPopoverLayout | null>(null);
     const popoverRef = useRef<HTMLDivElement | null>(null);
     const anchorRefs = useRef<Record<CategoryKey, HTMLButtonElement | null>>({
         realEstate: null,
@@ -188,6 +196,30 @@ export function DebtorSeizureCategoryBadges(props: {
     const visibleCategories = categories.filter((c) => c.items.length > 0);
     const openCategory = openKey ? categories.find((c) => c.key === openKey) || null : null;
 
+    const syncPopoverLayout = useCallback(() => {
+        if (!openKey) {
+            setPopoverLayout(null);
+            return;
+        }
+        const anchor = anchorRefs.current[openKey];
+        if (!anchor) return;
+        const anchorRect = anchor.getBoundingClientRect();
+        const itemCount = openCategory?.items.length ?? 0;
+        const estimatedHeight = Math.min(320, 72 + itemCount * 28);
+        const base = computeFixedPopoverLayout(anchorRect, {
+            preferredWidth: Math.min(420, window.innerWidth - 24),
+            estimatedHeight,
+        });
+        const el = popoverRef.current;
+        if (el) {
+            setPopoverLayout(
+                refinePopoverLayoutWithMeasuredHeight(base, anchorRect, el.offsetHeight)
+            );
+        } else {
+            setPopoverLayout(base);
+        }
+    }, [openCategory?.items.length, openKey]);
+
     useEffect(() => {
         if (!openKey) return;
 
@@ -195,70 +227,78 @@ export function DebtorSeizureCategoryBadges(props: {
             const target = e.target as Node | null;
             if (!target) return;
             if (popoverRef.current && popoverRef.current.contains(target)) return;
+            const anchor = openKey ? anchorRefs.current[openKey] : null;
+            if (anchor && anchor.contains(target)) return;
             setOpenKey(null);
         };
         window.addEventListener('mousedown', onDown);
         return () => window.removeEventListener('mousedown', onDown);
     }, [openKey]);
 
+    useLayoutEffect(() => {
+        if (!openKey) return;
+        syncPopoverLayout();
+        const id = requestAnimationFrame(() => syncPopoverLayout());
+        return () => cancelAnimationFrame(id);
+    }, [openKey, syncPopoverLayout]);
+
     useEffect(() => {
         if (!openKey) return;
-
-        const updateAnchorRect = () => {
-            const anchor = anchorRefs.current[openKey];
-            if (!anchor) return;
-            setAnchorRect(anchor.getBoundingClientRect());
-        };
-
-        updateAnchorRect();
-        window.addEventListener('resize', updateAnchorRect);
-        window.addEventListener('scroll', updateAnchorRect, true);
+        const onScrollResize = () => syncPopoverLayout();
+        window.addEventListener('resize', onScrollResize);
+        window.addEventListener('scroll', onScrollResize, true);
         return () => {
-            window.removeEventListener('resize', updateAnchorRect);
-            window.removeEventListener('scroll', updateAnchorRect, true);
+            window.removeEventListener('resize', onScrollResize);
+            window.removeEventListener('scroll', onScrollResize, true);
         };
+    }, [openKey, syncPopoverLayout]);
+
+    useEffect(() => {
+        if (!openKey) setPopoverLayout(null);
     }, [openKey]);
 
     if (visibleCategories.length === 0) return null;
 
+    const badgeButtons = visibleCategories.map((c) => (
+        <BadgeButton
+            key={c.key}
+            buttonRef={(element) => {
+                anchorRefs.current[c.key] = element;
+            }}
+            active={openKey === c.key}
+            onClick={(e) => {
+                e.stopPropagation();
+                setOpenKey((prev) => (prev === c.key ? null : c.key));
+            }}
+            bgClass={c.bgClass}
+            borderClass={c.borderClass}
+            textClass={c.textClass}
+            Icon={c.Icon}
+            text={c.label}
+        />
+    ));
+
     return (
         <>
-            <div className="flex flex-row flex-wrap items-center gap-2 mt-2" dir="rtl">
-                {visibleCategories.map((c) => (
-                    <BadgeButton
-                        key={c.key}
-                        buttonRef={(element) => {
-                            anchorRefs.current[c.key] = element;
-                        }}
-                        active={openKey === c.key}
-                        onClick={(e) => {
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            setAnchorRect(rect);
-                            setOpenKey((prev) => (prev === c.key ? null : c.key));
-                        }}
-                        bgClass={c.bgClass}
-                        borderClass={c.borderClass}
-                        textClass={c.textClass}
-                        Icon={c.Icon}
-                        text={c.label}
-                    />
-                ))}
-            </div>
+            {props.embeddedInRow ? (
+                badgeButtons
+            ) : (
+                <div className="flex flex-row flex-wrap items-center gap-2 mt-2" dir="rtl">
+                    {badgeButtons}
+                </div>
+            )}
 
-            {openCategory && anchorRect && typeof document !== 'undefined'
+            {openCategory && popoverLayout && typeof document !== 'undefined'
                 ? createPortal(
                       <div
                           ref={popoverRef}
-                          className={`fixed z-[220] w-[min(420px,calc(100vw-24px))] rounded-2xl border ${openCategory.borderClass} bg-[#0B1120]/95 p-3 shadow-2xl shadow-black/60 backdrop-blur-xl`}
+                          className={`fixed rounded-2xl border ${openCategory.borderClass} bg-[#0B1120]/95 p-3 shadow-2xl shadow-black/60 backdrop-blur-xl`}
                           style={{
-                              top: Math.min(
-                                  window.innerHeight - 16,
-                                  Math.max(16, anchorRect.bottom + 10)
-                              ),
-                              left: Math.min(
-                                  window.innerWidth - 16,
-                                  Math.max(16, anchorRect.left)
-                              ),
+                              zIndex: BADGE_POPOVER_Z_INDEX,
+                              top: popoverLayout.top,
+                              left: popoverLayout.left,
+                              width: popoverLayout.width,
+                              maxHeight: popoverLayout.maxHeight,
                           }}
                           dir="rtl"
                           role="dialog"
@@ -278,7 +318,10 @@ export function DebtorSeizureCategoryBadges(props: {
                                   إغلاق
                               </button>
                           </div>
-                          <div className="max-h-[240px] overflow-auto rounded-xl border border-white/10 bg-black/20 p-2">
+                          <div
+                              className="overflow-auto rounded-xl border border-white/10 bg-black/20 p-2"
+                              style={{ maxHeight: Math.max(80, popoverLayout.maxHeight - 56) }}
+                          >
                               <ul className="space-y-1 text-right text-[11px] text-slate-100">
                                   {openCategory.items.map((line, idx) => (
                                       <li key={`${openCategory.key}_${idx}`} className="flex gap-2">

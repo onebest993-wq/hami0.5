@@ -17,7 +17,7 @@ export const LazyVoiceRecorderModal = lazyWithRetry(() =>
 );
 
 export const LazySmartVaultModal = lazyWithRetry(() =>
-    import('@/app/components/lawyer/SmartVaultModal').then((m) => ({
+    import('@/app/components/lawyer/SmartVaultModal.tsx').then((m) => ({
         default: m.SmartVaultModal as unknown as LazyComponent,
     })),
 );

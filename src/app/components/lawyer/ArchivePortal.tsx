@@ -2,15 +2,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'motion/react';
 import {
     X,
-    Search,
-    FileText,
     Clock,
-    TrendingUp,
     Plus,
     RotateCcw,
     AlertCircle,
     Scale,
-    Filter,
     History,
     Trash2,
     Archive,
@@ -24,10 +20,22 @@ import {
     isLawsuitInTrash,
 } from '@/app/utils/lawsuitTrash';
 import type { ArchivePortalProps, CaseFile } from '@/app/types/common';
-import {
-    isEvictionClaim,
-} from '@/app/utils/executionModuleStrategies';
+import type { ExecutionFile } from '@/app/types/execution';
 import ExecutionSmartCard from './ArchivePortal/components/ExecutionSmartCard';
+import {
+    ExecutionArchiveToolbar,
+    type ExecutionArchiveFilter,
+} from './ArchivePortal/components/ExecutionArchiveToolbar';
+import {
+    EXECUTION_JURISDICTION_LABELS,
+    EXECUTION_PERSPECTIVE_LABELS,
+    buildExecutionJurisdictionCounts,
+    filterExecutionArchiveFiles,
+    getExecutionArchiveBasePool,
+    isLegalEntityPerspectiveAllowed,
+    type ExecutionPerspectiveFilter,
+} from './ArchivePortal/executionArchiveFilterUtils';
+import { ExecutionArchivePartyBlock } from './ArchivePortal/components/ExecutionArchivePartyBlock';
 import { LawsuitArchiveCard } from './ArchivePortal/components/LawsuitArchiveCard';
 import { CriminalArchiveCard } from './ArchivePortal/components/CriminalArchiveCard';
 import { UnifiedDossierCard, type DossierKind } from './ArchivePortal/components/UnifiedDossierCard';
@@ -44,7 +52,12 @@ import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
 import { unpinWorkspaceItem } from '@/app/workspace/unpinWorkspaceEntity';
 import { buildLawsuitWorkspacePin, buildTransactionWorkspacePin } from '@/app/workspace/workspacePinBuilders';
 import type { LooseArchiveFile, StageWithCaseMeta, ComputedSmartStatus, ArchiveEnrichedRow } from './ArchivePortal/types';
-import { mergedPreviewTimelineEvents, executionTotalDemandEstimate, executionClaimBadgeArabic } from './ArchivePortal/utils';
+import {
+    mergedPreviewTimelineEvents,
+    executionTotalDemandEstimate,
+    executionClaimBadgeArabic,
+    resolveExecutionArchiveCardView,
+} from './ArchivePortal/utils';
 
 const DEFAULT_ARCHIVE_SMART_STATUS: ComputedSmartStatus = {
     type: 'active',
@@ -111,8 +124,8 @@ export const ArchivePortal = ({
         title: string;
     } | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [filterType, setFilterType] = useState<'all' | 'civil' | 'sharia' | 'eviction'>('all');
-    const [sortBy, setSortBy] = useState<'date' | 'amount' | 'status'>('date');
+    const [filterType, setFilterType] = useState<ExecutionArchiveFilter>('all');
+    const [perspectiveFilter, setPerspectiveFilter] = useState<ExecutionPerspectiveFilter>('all');
     const [executionPreviewFile, setExecutionPreviewFile] = useState<LooseArchiveFile | null>(null);
     const [executionTrashView, setExecutionTrashView] = useState(false);
     type LawsuitViewMode = 'active' | 'trash' | 'archived';
@@ -130,10 +143,31 @@ export const ArchivePortal = ({
         [executionPreviewFile]
     );
 
-    const executionTrashedCount = useMemo(() => {
-        if (type !== 'executions') return 0;
-        return files.filter((f) => isExecutionInTrash(f as LooseArchiveFile)).length;
+    const executionActivePool = useMemo(() => {
+        if (type !== 'executions') return [] as LooseArchiveFile[];
+        return getExecutionArchiveBasePool(files as LooseArchiveFile[], 'active');
     }, [files, type]);
+
+    const executionTrashPool = useMemo(() => {
+        if (type !== 'executions') return [] as LooseArchiveFile[];
+        return getExecutionArchiveBasePool(files as LooseArchiveFile[], 'trash');
+    }, [files, type]);
+
+    const executionActiveCountByJurisdiction = useMemo(
+        () => buildExecutionJurisdictionCounts(executionActivePool),
+        [executionActivePool]
+    );
+
+    const executionTrashCountByJurisdiction = useMemo(
+        () => buildExecutionJurisdictionCounts(executionTrashPool),
+        [executionTrashPool]
+    );
+
+    const executionTrashedCountForFilter = executionTrashCountByJurisdiction[filterType];
+
+    const executionJurisdictionCountsForView = executionTrashView
+        ? executionTrashCountByJurisdiction
+        : executionActiveCountByJurisdiction;
 
     const lawsuitTrashedCount = useMemo(() => {
         if (type !== 'lawsuits') return 0;
@@ -160,6 +194,15 @@ export const ArchivePortal = ({
     useEffect(() => {
         if (!executionTrashView) setSelectedTrashIds(new Set());
     }, [executionTrashView]);
+
+    useEffect(() => {
+        if (
+            !isLegalEntityPerspectiveAllowed(filterType) &&
+            perspectiveFilter === 'legal_entity'
+        ) {
+            setPerspectiveFilter('all');
+        }
+    }, [filterType, perspectiveFilter]);
 
     useEffect(() => {
         if (lawsuitViewMode !== 'trash') setSelectedTrashIds(new Set());
@@ -211,74 +254,15 @@ export const ArchivePortal = ({
         return 'الأرشيف الشامل';
     };
 
-    // ========================================
-    // 🆕 V46: FILTERED FILES FOR EXECUTION
-    // ========================================
-    const filteredExecutionFiles = useMemo(() => {
+      const filteredExecutionFiles = useMemo(() => {
         if (type !== 'executions') return files;
-
-        let filtered = files.filter((f) => {
-            const inTrash = isExecutionInTrash(f as LooseArchiveFile);
-            if (executionTrashView) return inTrash;
-            if (!inTrash) {
-                const fl = f as LooseArchiveFile;
-                if ((fl as any).parentId) return false;
-            }
-            return !inTrash;
+        return filterExecutionArchiveFiles(files as LooseArchiveFile[], {
+            mode: executionTrashView ? 'trash' : 'active',
+            jurisdiction: filterType,
+            perspective: perspectiveFilter,
+            searchQuery,
         });
-
-        // Filter by type
-        if (filterType !== 'all') {
-            filtered = filtered.filter((f) => {
-                const fl = f as LooseArchiveFile;
-                const fileType = fl.claimType || fl.docType || '';
-                if (filterType === 'sharia') return fileType.includes('نفقة') || fileType.includes('مهر') || fileType.includes('شرعي');
-                if (filterType === 'civil') return fileType.includes('دين') || fileType.includes('مدني');
-                if (filterType === 'eviction') return isEvictionClaim(fileType) || fileType.includes('إخلاء');
-                return true;
-            });
-        }
-
-        // Search - ENHANCED: شامل وقوي
-        if (searchQuery.trim()) {
-            const query = searchQuery.toLowerCase().trim();
-            filtered = filtered.filter((f) => {
-                const fl = f as LooseArchiveFile;
-                // البحث في الحقول الأساسية
-                const fileNumber = (fl.fileNumber || fl.caseNo || '').toString().toLowerCase();
-                const creditor = (fl.creditor || fl.clientName || '').toLowerCase();
-                const debtor = (fl.debtor || fl.opponentName || '').toLowerCase();
-                const claimType = (fl.claimType || fl.docType || '').toLowerCase();
-                const courtRaw = fl.court;
-                const court =
-                    (typeof courtRaw === 'string'
-                        ? courtRaw
-                        : courtRaw && typeof courtRaw === 'object' && 'name' in courtRaw
-                          ? String((courtRaw as { name?: string }).name ?? '')
-                          : ''
-                    ).toLowerCase();
-                const status = (fl.status || '').toLowerCase();
-                const relationship = (fl.relationship || '').toLowerCase();
-                const linkedDebtor = String(fl.linkedDebtor ?? '').toLowerCase();
-                
-                // البحث في المبلغ (يدعم الأرقام)
-                const amount = (fl.amount ?? fl.totalAmount ?? 0).toString();
-                
-                // البحث في أي حقل
-                return fileNumber.includes(query) ||
-                       creditor.includes(query) ||
-                       debtor.includes(query) ||
-                       claimType.includes(query) ||
-                       court.includes(query) ||
-                       status.includes(query) ||
-                       relationship.includes(query) ||
-                       linkedDebtor.includes(query) ||
-                       amount.includes(query);
-            });
-        }
-
-        return filtered;
-    }, [files, type, filterType, searchQuery, executionTrashView]);
+    }, [files, type, filterType, perspectiveFilter, searchQuery, executionTrashView]);
 
     const filteredLawsuitFiles = useMemo(() => {
         if (type !== 'lawsuits') return files;
@@ -548,6 +532,17 @@ export const ArchivePortal = ({
                 onPermanentlyDeleteLawsuits,
         );
 
+    const hasExecutionLifecycle =
+        type === 'executions' &&
+        Boolean(onMoveExecutionToTrash || onRestoreExecutionFromTrash || onPermanentlyDeleteExecutions);
+
+    const executionFilterSummary = useMemo(() => {
+        const parts: string[] = [];
+        if (filterType !== 'all') parts.push(EXECUTION_JURISDICTION_LABELS[filterType]);
+        if (perspectiveFilter !== 'all') parts.push(EXECUTION_PERSPECTIVE_LABELS[perspectiveFilter]);
+        return parts.join(' · ');
+    }, [filterType, perspectiveFilter]);
+
     return (
         <div
             className={
@@ -557,50 +552,107 @@ export const ArchivePortal = ({
             }
         >
             {!hideHeader && (
-                <div className="p-6 border-b border-white/10 flex justify-between items-center bg-[#0B1021]">
-                    <div className="flex items-center gap-4">
-                    {type === 'executions' && (
-                        <button
-                            type="button"
-                            onClick={() => setExecutionTrashView((v) => !v)}
-                            title={executionTrashView ? 'العودة إلى مخزن الإضابير' : 'سلة المهملات'}
-                            className={`relative shrink-0 w-12 h-12 rounded-2xl border flex items-center justify-center transition-all ${
-                                executionTrashView
-                                    ? 'border-[#E6C673]/50 bg-[#E6C673]/15 text-[#E6C673]'
-                                    : 'border-white/15 bg-white/5 text-white/70 hover:border-rose-500/40 hover:text-rose-200'
-                            }`}
-                        >
-                            <Trash2 size={22} />
-                            {!executionTrashView && executionTrashedCount > 0 && (
-                                <span className="absolute -top-1 -left-1 min-w-[1.25rem] h-5 px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center border border-[#0B1021]">
-                                    {executionTrashedCount > 9 ? '9+' : executionTrashedCount}
-                                </span>
-                            )}
-                        </button>
-                    )}
-                    <div>
-                        <h2 className="text-2xl font-bold text-white">{getTitle()}</h2>
-                        <p className="text-white/40 text-sm">
-                            {enrichedFiles.length}{' '}
-                            {type === 'executions' && (searchQuery || filterType !== 'all') && files.length !== enrichedFiles.length && (
-                                <span>من أصل {files.length}</span>
-                            )}{' '}
-                            ملف • مركز القيادة الذكي
-                            {type === 'executions' && executionTrashView && (
-                                <span className="block mt-1 text-amber-200/80 text-[11px]">
-                                    تبقى الإضابير هنا 30 يوماً ثم تُحذف تلقائياً نهائياً ما لم تُسترجع.
-                                </span>
-                            )}
-                        </p>
+                <div className="px-8 py-5 border-b border-white/10 flex justify-between items-center bg-[#0A0F1C]/75 backdrop-blur-xl shrink-0">
+                    <div className="flex items-center gap-4 min-w-0">
+                        {type === 'executions' ? (
+                            <div className="shrink-0 w-12 h-12 rounded-2xl border border-[#E6C673]/35 bg-[#E6C673]/10 flex items-center justify-center text-[#E6C673]">
+                                <Scale size={22} />
+                            </div>
+                        ) : null}
+                        <div className="min-w-0">
+                            <h2 className="text-2xl font-bold text-white truncate">{getTitle()}</h2>
+                            <p className="text-white/40 text-sm">
+                                {type === 'executions' ? (
+                                    <>
+                                        {executionTrashView ? (
+                                            <>
+                                                {enrichedFiles.length}{' '}
+                                                {enrichedFiles.length === 1 ? 'إضبارة' : 'إضبارات'} في
+                                                سلة المهملات
+                                            </>
+                                        ) : (
+                                            <>
+                                                {enrichedFiles.length}{' '}
+                                                {enrichedFiles.length === 1 ? 'إضبارة' : 'إضبارات'}
+                                                {executionFilterSummary ? (
+                                                    <span className="text-[#E6C673]/80">
+                                                        {' '}
+                                                        · {executionFilterSummary}
+                                                    </span>
+                                                ) : null}
+                                            </>
+                                        )}
+                                        {executionTrashView ? (
+                                            <span className="block mt-1 text-amber-200/80 text-[11px]">
+                                                تبقى الإضابير هنا 30 يوماً ثم تُحذف تلقائياً نهائياً ما لم
+                                                تُسترجع.
+                                            </span>
+                                        ) : null}
+                                    </>
+                                ) : (
+                                    <>
+                                        {enrichedFiles.length}{' '}
+                                        {(searchQuery || filterType !== 'all') &&
+                                        files.length !== enrichedFiles.length ? (
+                                            <span>من أصل {files.length} </span>
+                                        ) : null}
+                                        ملف
+                                    </>
+                                )}
+                            </p>
+                        </div>
                     </div>
-                </div>
-                <button type="button" onClick={onClose} className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 text-white/50 hover:text-white flex items-center justify-center transition-all">
-                    <X size={20} />
-                </button>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="shrink-0 w-10 h-10 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white flex items-center justify-center transition-all"
+                    >
+                        <X size={20} />
+                    </button>
                 </div>
             )}
 
             {/* Top Action Bar (The "Massive Button" Zone) */}
+            {hasExecutionLifecycle && (
+                <motion.div className="px-8 pt-4 pb-2 flex flex-wrap items-center gap-2 border-b border-white/5">
+                    <button
+                        type="button"
+                        data-testid="executions-view-active"
+                        onClick={() => setExecutionTrashView(false)}
+                        className={`h-10 px-4 rounded-xl text-xs font-bold border transition-all ${
+                            !executionTrashView
+                                ? 'border-[#E6C673]/50 bg-[#E6C673]/15 text-[#E6C673]'
+                                : 'border-white/15 bg-white/5 text-white/70 hover:text-white'
+                        }`}
+                    >
+                        الإضابير النشطة
+                    </button>
+                    <button
+                        type="button"
+                        data-testid="executions-trash-toggle"
+                        onClick={() => setExecutionTrashView(true)}
+                        className={`relative h-10 px-4 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 ${
+                            executionTrashView
+                                ? 'border-rose-500/50 bg-rose-950/40 text-rose-100'
+                                : 'border-white/15 bg-white/5 text-white/70 hover:text-rose-100'
+                        }`}
+                    >
+                        <Trash2 size={14} />
+                        سلة المهملات
+                        {executionTrashedCountForFilter > 0 && !executionTrashView && (
+                            <span className="min-w-[1.1rem] h-4 px-1 rounded-full bg-rose-600 text-[10px] font-bold text-white flex items-center justify-center">
+                                {executionTrashedCountForFilter > 9 ? '9+' : executionTrashedCountForFilter}
+                            </span>
+                        )}
+                    </button>
+                    {executionTrashView && (
+                        <p className="w-full text-[11px] text-amber-200/80 mt-1">
+                            تبقى الإضابير هنا 30 يوماً ثم تُحذف تلقائياً نهائياً ما لم تُسترجع.
+                        </p>
+                    )}
+                </motion.div>
+            )}
+
             {hasLawsuitLifecycle && (
                 <motion.div className="px-8 pt-4 pb-2 flex flex-wrap items-center gap-2 border-b border-white/5">
                     <button
@@ -680,51 +732,18 @@ export const ArchivePortal = ({
 
             {/* ⓘ زر "إضافة ملف قضائي جديد" تم نقله إلى FAB ثابت أسفل-يسار المنفذ — يظهر في كل التبويبات (مدني/شخصي/جزائي) ولا يأخذ مساحة من قائمة الإضابير. */}
 
-            {/* 🆕 V46: SEARCH & FILTER BAR (Execution Only) */}
-            {type === 'executions' && (
-                <div className="px-8 pt-4 pb-2">
-                    <div className="flex items-center gap-4">
-                        {/* Search Input */}
-                        <div className="flex-1 relative">
-                            <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" size={18} />
-                            <input
-                                type="text"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="ابحث برقم الإضبارة، اسم الدائن، أو المدين..."
-                                className="
-                                    w-full h-12 pr-12 pl-4 rounded-xl
-                                    bg-white/5 border border-white/10
-                                    text-white placeholder:text-white/40
-                                    focus:outline-none focus:border-[#E6C673]/50
-                                    transition-all
-                                "
-                            />
-                        </div>
-
-                        {/* Filter Dropdown */}
-                        <div className="relative">
-                            <Filter className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" size={18} />
-                            <select
-                                value={filterType}
-                                onChange={(e) => setFilterType(e.target.value as typeof filterType)}
-                                className="
-                                    h-12 pr-12 pl-6 rounded-xl
-                                    bg-white/5 border border-white/10
-                                    text-white appearance-none cursor-pointer
-                                    focus:outline-none focus:border-[#E6C673]/50
-                                    transition-all
-                                "
-                            >
-                                <option value="all">الكل</option>
-                                <option value="civil">مدني</option>
-                                <option value="sharia">شرعي</option>
-                                <option value="eviction">إخلاء</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {type === 'executions' ? (
+                <ExecutionArchiveToolbar
+                    lifecycleMode={executionTrashView ? 'trash' : 'active'}
+                    searchQuery={searchQuery}
+                    onSearchQueryChange={setSearchQuery}
+                    filterType={filterType}
+                    onFilterTypeChange={setFilterType}
+                    perspectiveFilter={perspectiveFilter}
+                    onPerspectiveFilterChange={setPerspectiveFilter}
+                    jurisdictionCounts={executionJurisdictionCountsForView}
+                />
+            ) : null}
 
             {type === 'lawsuits' && lawsuitViewMode === 'trash' && enrichedFiles.length > 0 && onPermanentlyDeleteLawsuits && (
                 <motion.div className="px-8 flex flex-wrap items-center justify-between gap-3 border-b border-white/5 py-3">
@@ -791,35 +810,76 @@ export const ArchivePortal = ({
             {/* Grid */}
             <div className="flex-1 overflow-y-auto p-8">
                 {type === 'executions' ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {enrichedFiles.map((file) => (
-                            <ExecutionSmartCard
-                                key={file.id}
-                                file={file}
-                                lawsuitFilesForCluster={lawsuitFilesForCluster}
-                                variant={executionTrashView ? 'trash' : 'active'}
-                                onOpen={() => onFileClick(file)}
-                                onPreview={() => setExecutionPreviewFile(file as LooseArchiveFile)}
-                                onRequestMoveToTrash={
-                                    !executionTrashView && onMoveExecutionToTrash
-                                        ? () => setTrashConfirmTarget(file as LooseArchiveFile)
-                                        : undefined
-                                }
-                                onRestoreFromTrash={
-                                    executionTrashView && onRestoreExecutionFromTrash
-                                        ? () => onRestoreExecutionFromTrash((file as LooseArchiveFile).id)
-                                        : undefined
-                                }
-                                trashDaysRemaining={executionTrashDaysRemaining(file as LooseArchiveFile)}
-                                selected={selectedTrashIds.has(String((file as LooseArchiveFile).id))}
-                                onToggleSelect={
-                                    executionTrashView && onPermanentlyDeleteExecutions
-                                        ? () => toggleTrashSelect((file as LooseArchiveFile).id)
-                                        : undefined
-                                }
-                            />
-                        ))}
-                    </div>
+                    enrichedFiles.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-20 text-center">
+                            <AlertCircle size={56} className="mb-4 text-white/10" />
+                            <h3 className="mb-2 text-xl font-bold text-white/45">
+                                {searchQuery.trim() ||
+                                filterType !== 'all' ||
+                                perspectiveFilter !== 'all'
+                                    ? 'لا توجد نتائج'
+                                    : executionTrashView
+                                      ? 'سلة المهملات فارغة'
+                                      : 'لا توجد إضابير نشطة'}
+                            </h3>
+                            <p className="max-w-sm text-sm text-white/30">
+                                {searchQuery.trim() ||
+                                filterType !== 'all' ||
+                                perspectiveFilter !== 'all'
+                                    ? 'جرّب تغيير البحث أو اختر «الكل» في الفلاتر.'
+                                    : executionTrashView
+                                      ? 'لا توجد إضابير هنا — أو انتهت مهلة الـ 30 يوماً.'
+                                      : 'ابدأ بفتح إضبارة تنفيذ جديدة من لوحة المحامي.'}
+                            </p>
+                            {executionTrashView && !searchQuery.trim() ? (
+                                <button
+                                    type="button"
+                                    data-testid="executions-empty-back-active"
+                                    onClick={() => setExecutionTrashView(false)}
+                                    className="mt-5 inline-flex items-center gap-2 rounded-xl border border-[#E6C673]/40 bg-[#E6C673]/10 px-4 py-2.5 text-xs font-bold text-[#E6C673] transition-all hover:bg-[#E6C673]/20"
+                                >
+                                    الإضابير النشطة
+                                </button>
+                            ) : null}
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                            {enrichedFiles.map((file) => (
+                                <ExecutionSmartCard
+                                    key={file.id}
+                                    file={file}
+                                    lawsuitFilesForCluster={lawsuitFilesForCluster}
+                                    variant={executionTrashView ? 'trash' : 'active'}
+                                    onOpen={() => onFileClick(file)}
+                                    onPreview={() => setExecutionPreviewFile(file as LooseArchiveFile)}
+                                    onRequestMoveToTrash={
+                                        !executionTrashView && onMoveExecutionToTrash
+                                            ? () => setTrashConfirmTarget(file as LooseArchiveFile)
+                                            : undefined
+                                    }
+                                    onRestoreFromTrash={
+                                        executionTrashView && onRestoreExecutionFromTrash
+                                            ? () =>
+                                                  onRestoreExecutionFromTrash(
+                                                      (file as LooseArchiveFile).id
+                                                  )
+                                            : undefined
+                                    }
+                                    trashDaysRemaining={executionTrashDaysRemaining(
+                                        file as LooseArchiveFile
+                                    )}
+                                    selected={selectedTrashIds.has(
+                                        String((file as LooseArchiveFile).id)
+                                    )}
+                                    onToggleSelect={
+                                        executionTrashView && onPermanentlyDeleteExecutions
+                                            ? () => toggleTrashSelect((file as LooseArchiveFile).id)
+                                            : undefined
+                                    }
+                                />
+                            ))}
+                        </div>
+                    )
                 ) : type === 'lawsuits' && hasLawsuitLifecycle && dossierViewMode === 'compact' ? (
                     <ul className="space-y-2 max-w-4xl mx-auto">
                         {showCriminalCardsInGrid &&
@@ -1093,8 +1153,9 @@ export const ArchivePortal = ({
                     </motion.div>
                 )}
 
-                {/* Empty State */}
-                {!(
+                {/* Empty State — لا يُعرض لإضابير التنفيذ */}
+                {type !== 'executions' &&
+                !(
                     (showCriminalCardsInGrid && filteredCriminalCases.length > 0) ||
                     (showLawsuitCardsInGrid && enrichedFiles.length > 0)
                 ) && (
@@ -1157,43 +1218,57 @@ export const ArchivePortal = ({
                             <div className="grid grid-cols-2 gap-3 text-xs">
                                 <div>
                                     <p className="text-white/50">رقم الإضبارة</p>
-                                    <p className="text-white font-mono">
-                                        {executionPreviewFile.fileNumber || executionPreviewFile.caseNo || '—'} /{' '}
-                                        {executionPreviewFile.year ||
-                                            executionPreviewFile.fileYear ||
-                                            new Date().getFullYear()}
-                                    </p>
+                                    <div className="flex flex-wrap items-center justify-end gap-2">
+                                        <p className="text-white font-mono">
+                                            {executionPreviewFile.fileNumber || executionPreviewFile.caseNo || '—'} /{' '}
+                                            {executionPreviewFile.year ||
+                                                executionPreviewFile.fileYear ||
+                                                new Date().getFullYear()}
+                                        </p>
+                                        <span className="text-[10px] font-bold text-emerald-300">
+                                            {resolveExecutionArchiveCardView(executionPreviewFile).dossierLifecycleBadge}
+                                        </span>
+                                    </div>
                                 </div>
                                 <div>
-                                    <p className="text-white/50">إجمالي المطلوب (تقدير)</p>
+                                    <p className="text-white/50">
+                                        {resolveExecutionArchiveCardView(executionPreviewFile).demandLabel}
+                                    </p>
                                     <p className="text-[#E6C673] font-bold tabular-nums">
-                                        {executionTotalDemandEstimate(executionPreviewFile) > 0
-                                            ? new Intl.NumberFormat('ar-IQ').format(
-                                                  Math.round(executionTotalDemandEstimate(executionPreviewFile))
-                                              ) + ' ع.د'
-                                            : '—'}
+                                        {(() => {
+                                            const pv = resolveExecutionArchiveCardView(executionPreviewFile);
+                                            const amt =
+                                                pv.remainingDemand > 0 &&
+                                                pv.remainingDemand < pv.totalDemand
+                                                    ? pv.remainingDemand
+                                                    : pv.totalDemand;
+                                            return amt > 0
+                                                ? new Intl.NumberFormat('ar-IQ').format(Math.round(amt)) + ' د.ع'
+                                                : '—';
+                                        })()}
                                     </p>
                                 </div>
                             </div>
                             <div>
-                                <p className="text-white/50 text-xs mb-1">الدائن (موكلي)</p>
-                                <p className="text-white font-semibold">
-                                    {typeof executionPreviewFile.creditor === 'string'
-                                        ? executionPreviewFile.creditor
-                                        : executionPreviewFile.clientName ||
-                                          executionPreviewFile.parties?.[0]?.name ||
-                                          '—'}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-white/50 text-xs mb-1">المدين</p>
-                                <p className="text-white font-semibold">
-                                    {typeof executionPreviewFile.debtor === 'string'
-                                        ? executionPreviewFile.debtor
-                                        : executionPreviewFile.opponentName ||
-                                          executionPreviewFile.parties?.[1]?.name ||
-                                          '—'}
-                                </p>
+                                {(() => {
+                                    const pv = resolveExecutionArchiveCardView(executionPreviewFile);
+                                    return (
+                                        <>
+                                            {pv.directorateLabel ? (
+                                                <p className="mb-3 text-right text-xs">
+                                                    <span className="text-white/50">مديرية التنفيذ: </span>
+                                                    <span className="font-bold text-slate-100">
+                                                        {pv.directorateLabel}
+                                                    </span>
+                                                </p>
+                                            ) : null}
+                                            <ExecutionArchivePartyBlock
+                                                view={pv}
+                                                className="mb-3 space-y-2 rounded-xl border border-white/10 bg-white/[0.03] p-3"
+                                            />
+                                        </>
+                                    );
+                                })()}
                             </div>
                             {isEvictionClaim(
                                 String(executionPreviewFile.claimType || executionPreviewFile.docType || '')
@@ -1438,11 +1513,9 @@ export const ArchivePortal = ({
                                   : 'إضافة ملف قضائي جديد'
                         }
                         className={`absolute bottom-6 left-6 z-40 group flex items-center gap-2.5 h-14 rounded-full pl-5 pr-4 shadow-2xl border-2 font-bold transition-all duration-200 hover:scale-[1.04] active:scale-95 ${
-                            type === 'executions'
-                                ? 'bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white border-emerald-400/30 shadow-emerald-900/40'
-                                : lawsuitJurisdictionTab === 'criminal'
-                                  ? 'bg-gradient-to-r from-rose-700 to-red-600 hover:from-red-600 hover:to-rose-600 text-white border-rose-400/40 shadow-rose-900/50'
-                                  : 'bg-gradient-to-r from-[#E6C673] to-[#D4AF37] hover:from-[#D4AF37] hover:to-[#E6C673] text-[#0B1021] border-[#E6C673]/60 shadow-[#E6C673]/30'
+                            lawsuitJurisdictionTab === 'criminal' && type === 'lawsuits'
+                                ? 'bg-gradient-to-r from-rose-700 to-red-600 hover:from-red-600 hover:to-rose-600 text-white border-rose-400/40 shadow-rose-900/50'
+                                : 'bg-gradient-to-r from-[#E6C673] to-[#D4AF37] hover:from-[#D4AF37] hover:to-[#E6C673] text-[#0B1021] border-[#E6C673]/60 shadow-[#E6C673]/30'
                         }`}
                         style={{ textShadow: '0 1px 2px rgba(0,0,0,0.1)' }}
                     >

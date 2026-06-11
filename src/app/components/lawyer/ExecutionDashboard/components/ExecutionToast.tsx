@@ -18,11 +18,6 @@ import { X, CheckCircle, AlertCircle } from 'lucide-react';
 // TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
-export interface ToastAction {
-    label: string;
-    onClick: () => void;
-}
-
 export interface ExecutionToastProps {
     /** حالة ظهور الإشعار */
     visible: boolean;
@@ -30,8 +25,6 @@ export interface ExecutionToastProps {
     message: React.ReactNode;
     /** نوع الإشعار */
     type: 'success' | 'error' | 'warning' | 'info';
-    /** إجراء اختياري */
-    action?: ToastAction;
     /** معرف فريد للإشعار */
     epoch: number;
     /** دالة إغلاق الإشعار */
@@ -51,7 +44,6 @@ export const ExecutionToast: React.FC<ExecutionToastProps> = ({
     visible,
     message,
     type,
-    action,
     epoch,
     onClose,
     zIndex,
@@ -63,26 +55,22 @@ export const ExecutionToast: React.FC<ExecutionToastProps> = ({
                 return {
                     container: 'bg-emerald-500/[0.08] border-emerald-500/30 shadow-emerald-500/20',
                     icon: <CheckCircle size={20} className="text-emerald-400 shrink-0 mt-0.5" />,
-                    button: 'bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/30 text-emerald-100',
                 };
             case 'error':
                 return {
                     container: 'bg-rose-500/[0.08] border-rose-500/30 shadow-rose-500/20',
                     icon: <AlertCircle size={20} className="text-rose-400 shrink-0 mt-0.5" />,
-                    button: 'bg-rose-500/20 hover:bg-rose-500/30 border-rose-500/30 text-rose-100',
                 };
             case 'warning':
                 return {
                     container: 'bg-amber-500/[0.08] border-amber-500/30 shadow-amber-500/20',
                     icon: <AlertCircle size={20} className="text-amber-400 shrink-0 mt-0.5" />,
-                    button: 'bg-amber-500/20 hover:bg-amber-500/30 border-amber-500/30 text-amber-100',
                 };
             case 'info':
             default:
                 return {
                     container: 'bg-blue-500/[0.08] border-blue-500/30 shadow-blue-500/20',
                     icon: <AlertCircle size={20} className="text-blue-400 shrink-0 mt-0.5" />,
-                    button: 'bg-blue-500/20 hover:bg-blue-600/30 border-blue-500/30 text-blue-100',
                 };
         }
     };
@@ -125,17 +113,6 @@ export const ExecutionToast: React.FC<ExecutionToastProps> = ({
                                     <X size={16} />
                                 </button>
                             </div>
-                            {action && (
-                                <div className="flex justify-center pt-2 border-t border-white/5 mt-1">
-                                    <button
-                                        type="button"
-                                        onClick={() => action.onClick()}
-                                        className={`w-full py-2.5 rounded-xl backdrop-blur-md text-[11px] font-black transition-all border shadow-lg flex items-center justify-center gap-2 ${styles.button}`}
-                                    >
-                                        {action.label}
-                                    </button>
-                                </div>
-                            )}
                         </div>
                     </div>
                 </motion.div>

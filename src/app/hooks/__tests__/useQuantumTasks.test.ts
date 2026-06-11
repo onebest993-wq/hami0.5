@@ -1,7 +1,29 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useQuantumTasks } from '../useQuantumTasks';
+import { releaseExpiredFieldCurtainPins } from '@/app/components/lawyer/dashboard/tasksManager/utils';
+import type { LegalTask } from '@/app/types/TaskEngine';
 import { startOfLocalDay } from '@/app/utils/nlpParser';
+
+function task(partial: Partial<LegalTask> & Pick<LegalTask, 'id' | 'title'>): LegalTask {
+    return {
+        id: partial.id,
+        rawText: partial.title,
+        title: partial.title,
+        location: partial.location ?? null,
+        parsedDate: partial.parsedDate ?? null,
+        reminderAt: null,
+        isFatalDeadline: partial.isFatalDeadline ?? false,
+        linkedCaseId: null,
+        status: 'pending',
+        pinnedToFieldCurtain: partial.pinnedToFieldCurtain ?? false,
+        fieldCurtainPinnedAt: partial.fieldCurtainPinnedAt ?? null,
+        completedAt: partial.completedAt ?? null,
+        subTasks: partial.subTasks ?? [],
+        documentRequirements: [],
+        expenses: [],
+    };
+}
 
 describe('useQuantumTasks', () => {
     beforeEach(() => {
@@ -10,7 +32,7 @@ describe('useQuantumTasks', () => {
         });
     });
 
-    it('addTask appends pending task and excludes from pending after complete', () => {
+    it('addTask appends pending task and keeps in agenda after complete until week ends', () => {
         const { result } = renderHook(() => useQuantumTasks([]));
 
         act(() => {
@@ -25,8 +47,9 @@ describe('useQuantumTasks', () => {
             result.current.completeTask(id);
         });
 
-        expect(result.current.pendingTasks).toHaveLength(0);
-        expect(result.current.tasks[0]!.status).toBe('completed');
+        expect(result.current.pendingTasks).toHaveLength(1);
+        expect(result.current.tasks[0]!.status).toBe('pending');
+        expect(result.current.tasks[0]!.completedAt).not.toBeNull();
     });
 
     it('addWeeklyLocationBundle creates parent with sub tasks', () => {
@@ -44,23 +67,49 @@ describe('useQuantumTasks', () => {
         expect(t.subTasks[0]!.title).toBe('تصوير قرار');
     });
 
-    it('toggleTaskPinnedToFieldCurtain toggles pin flag', () => {
+    it('toggleTaskPinnedToFieldCurtain pins only the target task', () => {
         const { result } = renderHook(() => useQuantumTasks([]));
 
         act(() => {
-            result.current.addTask('مهمة');
+            result.current.addTask('مهمة أ');
+            result.current.addTask('مهمة ب');
         });
-        const id = result.current.tasks[0]!.id;
+
+        const idA = result.current.tasks[0]!.id;
+        const idB = result.current.tasks[1]!.id;
 
         act(() => {
-            result.current.toggleTaskPinnedToFieldCurtain(id);
+            result.current.toggleTaskPinnedToFieldCurtain(idA);
         });
-        expect(result.current.tasks[0]!.pinnedToFieldCurtain).toBe(true);
+
+        expect(result.current.tasks.find((t) => t.id === idA)?.pinnedToFieldCurtain).toBe(true);
+        expect(result.current.tasks.find((t) => t.id === idB)?.pinnedToFieldCurtain).toBe(false);
 
         act(() => {
-            result.current.toggleTaskPinnedToFieldCurtain(id);
+            result.current.toggleTaskPinnedToFieldCurtain(idB);
         });
-        expect(result.current.tasks[0]!.pinnedToFieldCurtain).toBe(false);
+
+        expect(result.current.tasks.find((t) => t.id === idA)?.pinnedToFieldCurtain).toBe(false);
+        expect(result.current.tasks.find((t) => t.id === idB)?.pinnedToFieldCurtain).toBe(true);
+    });
+
+    it('releaseExpiredFieldCurtainPins keeps today pin when parsedDate is in the past', () => {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const pinnedToday = startOfLocalDay(new Date());
+        const [kept] = releaseExpiredFieldCurtainPins(
+            [
+                task({
+                    id: 'overdue-1',
+                    title: 'مهمة متأخرة',
+                    parsedDate: yesterday,
+                    pinnedToFieldCurtain: true,
+                    fieldCurtainPinnedAt: pinnedToday,
+                }),
+            ],
+            new Date(),
+        );
+        expect(kept!.pinnedToFieldCurtain).toBe(true);
     });
 
     it('groupedByTime excludes fatal deadlines', () => {

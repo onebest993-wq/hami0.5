@@ -2,6 +2,7 @@ import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { X, FileText } from 'lucide-react';
 import { motion } from 'motion/react';
+import { formatNumberInput } from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
 
 interface CoerciveActionFormModalProps {
     showCoerciveActionForm: string | null; // null | 'salary' | 'property' | 'travel' | 'imprisonment' | 'vehicle'
@@ -140,9 +141,8 @@ export const CoerciveActionFormModal: React.FC<CoerciveActionFormModalProps> = (
                                                 placeholder="مثال: 1,250,000"
                                                 className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white text-right"
                                                 id="salaryAmountInput"
-                                                onInput={(e) => {
-                                                    const el = e.currentTarget;
-                                                    el.value = el.value.replace(/[^\d]/g, '');
+                                                onChange={(e) => {
+                                                    e.target.value = formatNumberInput(e.target.value);
                                                 }}
                                             />
                                         </div>

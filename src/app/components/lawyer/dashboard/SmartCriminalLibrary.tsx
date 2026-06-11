@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { LibraryBig, X, Search, Sparkles } from 'lucide-react';
+import { LibraryBig, X, Search } from 'lucide-react';
 
 interface CriminalArticle {
     art: string;
@@ -140,12 +140,6 @@ export const SmartCriminalLibrary = ({ onClose }: any) => {
                                 <p className="text-white/70 leading-relaxed text-sm bg-black/20 p-3 rounded-lg border border-white/5 font-mono">
                                     "{item.text}"
                                 </p>
-
-                                {/* AI Smart Tag */}
-                                <div className="mt-3 flex items-center gap-2 text-xs text-[#E6C673]/80">
-                                    <Sparkles size={12} />
-                                    <span>تحليل الذكاء الاصطناعي: هذه المادة تخضع لتعديلات 2026 بخصوص تشديد العقوبات.</span>
-                                </div>
                             </motion.div>
                         ))
                     ) : (

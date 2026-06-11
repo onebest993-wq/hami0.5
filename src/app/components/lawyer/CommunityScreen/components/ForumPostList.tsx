@@ -16,9 +16,6 @@ interface ForumPostListProps {
     onEdit: (postId: string) => void;
     onReport: (postId: string) => void;
     onShare: (postId: string) => void;
-    aiAnalysisByPostId: Record<string, { loading: boolean; text: string | null }>;
-    onAnalyzeAI: (postId: string) => void;
-    onCloseSummary: (postId: string) => void;
     onLoadMore: () => void;
     isAdmin: boolean;
     onTogglePin: (postId: string) => void;
@@ -35,7 +32,7 @@ export const ForumPostList = ({
     loadingPosts, hasMore, loadingMore, visiblePosts,
     currentUserId, onToggleUpvote, onImageClick, onCommentClick,
     onDelete, onEdit, onReport, onShare,
-    aiAnalysisByPostId, onAnalyzeAI, onCloseSummary, onLoadMore,
+    onLoadMore,
     isAdmin, onTogglePin, onFollow, followingIds, userStats,
     bookmarkedIds, onToggleBookmark, onToggleLock, onMuteUser,
 }: ForumPostListProps) => {
@@ -81,10 +78,6 @@ export const ForumPostList = ({
                     onEdit={onEdit}
                     onReport={onReport}
                     onShare={onShare}
-                    aiAnalysisText={aiAnalysisByPostId[post.id]?.text ?? null}
-                    aiAnalysisLoading={aiAnalysisByPostId[post.id]?.loading ?? false}
-                    onAnalyzeAI={onAnalyzeAI}
-                    onCloseSummary={onCloseSummary}
                     isAdmin={isAdmin}
                     onTogglePin={onTogglePin}
                     onFollow={onFollow}

@@ -138,6 +138,10 @@ export interface Debtor extends Party {
     employmentInitialWasEmployee?: boolean;
     /** للإحضار الجبري: موظف مقابل كاسب أو متقاعد (يُستمد من occupation إن وُجد) */
     employmentType?: 'موظف' | 'كاسب' | 'متقاعد';
+    /** طبيعي مقابل معنوي — يحدّد مسار محضر المتابعة */
+    entityKind?: 'natural_person' | 'legal_entity';
+    /** توافق مع seizureMatrix */
+    entityType?: 'natural_person' | 'legal_entity' | string;
     /** يوجد كفيل ضامن يوجّه الإجراء عن المدين في المطالبة المالية */
     hasGuarantor?: boolean;
     /** حصة المدين من الدين المقسوم (تعدّد الخصوم) — افتراضي 0 عند الغياب */
@@ -151,6 +155,15 @@ export interface AdditionalExecutionCreditor {
     id: string;
     name: string;
     phone?: string;
+    address?: string;
+    occupation?: 'موظف' | 'كاسب' | string;
+    employmentType?: 'موظف' | 'كاسب' | 'متقاعد';
+    isEmployee?: boolean;
+    isClient?: boolean;
+    /** حصة دين هذا الدائن (د.ع) — لقسمة الغرماء والتسديد التناسبي */
+    allocated_debt?: number;
+    /** ما استُوفي لصالح هذا الدائن (د.ع) */
+    paid_amount?: number;
 }
 
 /** مدين إضافي مع ذمّة مالية فردية */
@@ -159,9 +172,13 @@ export interface AdditionalExecutionDebtor {
     name: string;
     phone?: string;
     address?: string;
+    occupation?: 'موظف' | 'كاسب' | string;
+    employmentType?: 'موظف' | 'كاسب' | 'متقاعد';
     isEmployee?: boolean;
     /** مسار الإنشاء (موظف/كاسب) — ثابت بعد الحفظ الأول */
     employmentInitialWasEmployee?: boolean;
+    entityKind?: 'natural_person' | 'legal_entity';
+    entityType?: 'natural_person' | 'legal_entity' | string;
     status: 'Active' | 'Cleared';
     allocated_debt: number;
     paid_amount: number;
@@ -229,6 +246,31 @@ export interface OtherPartyActionLogEntry {
     outcome: OtherPartyActionOutcome;
     decisionNote?: string;
     savedAt?: string;
+    /** ربط بخيار كatalog — للسجلات الناتجة عن تتبع يدوي */
+    linkedOptionId?: string;
+}
+
+/** تتبع يدوي لوكيل المدين — تقديم الدائن وقرار المنفذ */
+export type OtherPartyTrackedExecutorOutcome =
+    | 'none'
+    | 'submitted'
+    | 'pending'
+    | 'approved'
+    | 'rejected'
+    | 'alternative';
+
+export interface OtherPartyRequestTrackEntry {
+    optionId: string;
+    label?: string;
+    /** YYYY-MM-DD — تاريخ تقديم الدائن (يدوي) */
+    submittedDate?: string;
+    executorOutcome: OtherPartyTrackedExecutorOutcome;
+    /** إخفاء يدوي من قائمة الخيارات */
+    hidden?: boolean;
+    notes?: string;
+    /** بطاقة مركز القرارات المرتبطة */
+    decisionId?: string;
+    updatedAt?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -300,6 +342,7 @@ export type TimelineEventType =
     | 'settlement'
     | 'appointment'
     | 'appeal'
+    | 'other_party'
     | 'other';
 
 /** حالة البطاقة في تبويبي مركز القرارات (طلبات حالية / قرارات سابقة) */
@@ -439,6 +482,10 @@ export interface SeizedProperty {
     expertEstimatedAmountIqd?: number | null;
     expertNames?: string[];
     expertReportDateYmd?: string | null;
+    /** عدد الخبراء المطلوب في اللجنة — دائماً فردي (1، 3، 5…) */
+    expertCommitteeSize?: number | null;
+    /** آخر نوع اعتراض: على التقرير (زيادة العدد) أو على الخبراء (استبدال) */
+    lastExpertObjectionKind?: 'report' | 'experts' | null;
     auctionDateYmd?: string | null;
     lastBidderOrBuyerName?: string;
     finalAwardAmountIqd?: number | null;
@@ -493,6 +540,10 @@ export interface SeizedMovable {
     expertEstimatedAmountIqd?: number | null;
     expertNames?: string[];
     expertReportDateYmd?: string | null;
+    /** عدد الخبراء المطلوب في اللجنة — دائماً فردي (1، 3، 5…) */
+    expertCommitteeSize?: number | null;
+    /** آخر نوع اعتراض: على التقرير (زيادة العدد) أو على الخبراء (استبدال) */
+    lastExpertObjectionKind?: 'report' | 'experts' | null;
     auctionDateYmd?: string | null;
     lastBidderOrBuyerName?: string;
     finalAwardAmountIqd?: number | null;
@@ -557,22 +608,18 @@ export interface ThirdPartySeizure {
     status: ThirdPartySeizureStatus;
 }
 
+/** خيارات جاهزة لنوع الشارة — يُسمح أيضاً بنص يدوي عند اختيار «يدوي» */
 export type StandaloneExecutionMarkType =
     | 'تثبيت حجز احتياطي'
-    | 'مفاتحة عامة (مسجل الشركات)'
-    | 'تعميم منع تصرف';
-
-export type StandaloneExecutionMarkTargetEntity =
-    | 'التسجيل العقاري'
-    | 'المرور'
-    | 'مسجل الشركات'
-    | 'أخرى';
+    | 'مفاتحة عامة'
+    | 'تعميم منع تصرف'
+    | 'يدوي';
 
 export interface StandaloneExecutionMark {
     id: string;
     decisionRowId?: string;
-    markType: StandaloneExecutionMarkType;
-    targetEntity: StandaloneExecutionMarkTargetEntity;
+    markType: string;
+    targetEntity: string;
     markDetails: string;
     letterDetails?: string;
     isMarkConfirmed?: boolean;
@@ -737,6 +784,8 @@ export interface ExecutionFile {
         body: string;
         createdAt: string;
         trashedAt?: string;
+        /** تثبيت في درج الملاحظات داخل «سجل الملاحظات والمهام» */
+        pinned?: boolean;
     }>;
     /** مهام معلّقة من «سجل الملاحظات» — تظهر في الشريط العلوي حتى الإنجاز */
     caseTasksPending?: Array<{
@@ -872,6 +921,9 @@ export interface ExecutionFile {
     /** محضر المتابعة — سجل تحركات الطرف الآخر (نص حر) */
     other_party_actions_log?: OtherPartyActionLogEntry[] | null;
 
+    /** وكيل المدين — تتبع يدوي لطلبات الدائن وقرار المنفذ */
+    other_party_request_tracks?: OtherPartyRequestTrackEntry[] | null;
+
     /** آلة حياة الإضبارة: نشطة | متوقفة | مستأخرة | انتهاء */
     dossier_lifecycle_status?: DossierLifecycleStatus;
     /** سبب الحالة عند عدم كون الإضبارة نشطة */
@@ -885,6 +937,12 @@ export interface ExecutionFile {
 
     /** وفاة المدين — للعرض والتوافق مع بيانات قديمة؛ لا يُستخدم لتعطيل الإجراءات */
     is_debtor_deceased?: boolean;
+    /** صفة المدين الأساسي: طبيعي | معنوي */
+    debtor_entity_kind?: 'natural_person' | 'legal_entity';
+    /** @deprecated — استخدم debtor_entity_kind */
+    debtor_entity_type?: string;
+    /** صفة كل مدين في تعدّد الخصوم */
+    debtor_entity_kind_by_debtor?: Record<string, 'natural_person' | 'legal_entity'>;
     /** وفاة الدائن — للعرض والتوافق */
     is_creditor_deceased?: boolean;
     /** ورثة مسجّلون — يُزامَن مع مسار الوفاة */
@@ -908,6 +966,12 @@ export interface ExecutionFile {
     executive_detention_until?: string | null;
     executive_detention_days_total?: number | null;
     debtor_executive_detention_active?: boolean;
+    /** إخلاء سبيل / إغلاق دورة التنفيذ الجبري — إخفاء شارات الطلبات النشطة */
+    personal_coercive_cycle_closed_at?: string | null;
+    /** انتهاء مدة الحبس أو إغلاق مسار الحبس — إخفاء شارة «حبس تنفيذي» من القرارات */
+    executive_detention_released_or_closed_at?: string | null;
+    /** تراجع المحامي عن طلب منع السفر — إعادة الدورة */
+    travel_ban_withdrawn_at?: string | null;
     /** تذكير قبل انتهاء الحبس بيومين */
     executive_detention_reminder_sent?: boolean;
     /** تأكيد يدوي: المدين حاضر أمام المنفذ (شرط طلب الحبس التنفيذي) */
@@ -926,6 +990,19 @@ export interface ExecutionFile {
     personal_arrest_investigation_session_open?: boolean;
     /** بعد موافقة المنفذ على الحبس التنفيذي: موافقة أو رفض قاضي البداءة قبل تثبيت مدة الحبس */
     executive_detention_judge_outcome?: 'approved' | 'rejected' | null;
+    /** معرّف صف قرار المنفذ الذي يُسمح بعده بتسجيل قرار قاضي البداءة (دورة واحدة) */
+    executive_detention_judge_eligible_decision_id?: string | null;
+    /** معرّف صف قرار قاضي البداءة المستقل عن طلب المنفذ */
+    executive_detention_judge_decision_id?: string | null;
+    /**
+     * مرحلة مسار عرض الإضبارة/الحبس — منفصلة عن صفوف القرارات
+     * idle: لا مسار | handed_to_judge: وافق المنفذ | judge_decided: سُجّل قرار القاضي | detention_active: المدة جارية
+     */
+    executive_dossier_phase?:
+        | 'handed_to_judge'
+        | 'judge_decided'
+        | 'detention_active'
+        | null;
 
     /** استئخار تنفيذ — تعطيل أدوات التنفيذ في الإضبارة */
     stay_of_execution?: {
@@ -935,6 +1012,30 @@ export interface ExecutionFile {
         next_hearing_date?: string;
     } | null;
 
+    /** وفاة الدائن — مستقل عن وفاة المدين (يُفضّل على party_death_case القديم) */
+    creditor_party_death_case?: {
+        deceased_party: 'creditor';
+        heir_certificate_file_name?: string | null;
+        heir_names: string[];
+        heir_details?: Array<{
+            name: string;
+            phone?: string;
+            address?: string;
+        }>;
+        flow?: 'no_heirs' | 'heir_substitution' | 'death_only';
+    } | null;
+    /** وفاة المدين — مستقل عن وفاة الدائن */
+    debtor_party_death_case?: {
+        deceased_party: 'debtor';
+        heir_certificate_file_name?: string | null;
+        heir_names: string[];
+        heir_details?: Array<{
+            name: string;
+            phone?: string;
+            address?: string;
+        }>;
+        flow?: 'no_heirs' | 'heir_substitution' | 'death_only';
+    } | null;
     /** وفاة طرف — مسار بلا ورثة (إغلاق إضبارة) أو إحلال ورثة */
     party_death_case?: {
         deceased_party: 'debtor' | 'creditor';
@@ -1017,6 +1118,19 @@ export interface ExecutionFile {
         linkedAt: string;
     }>;
 
+    /** سجل مخاطبات الإنابة (تبويب التحكم في الإضبارة) */
+    inaba_correspondence_log?: Array<{
+        id: string;
+        subFileId: string;
+        directorate: string;
+        subject: string;
+        requestDate: string;
+        createdAt: string;
+        status: 'pending_executor' | 'sent' | 'rejected';
+        decisionRowId?: string;
+        sentAt?: string;
+    }>;
+
     /** جدول تقسيط شهري مبدئي لحجز الراتب بعد موافقة المنفذ على طلب الحجز */
     salary_garnishment_installment_schedule?: {
         executionDecisionId?: string;
@@ -1039,8 +1153,20 @@ export interface ExecutionFile {
     /** من نموذج فتح الإضبارة: مشاهدة واستصحاب */
     includesSleepover?: boolean;
     visitationChildrenNames?: string[];
+    /** جدول مشاهدة واستصحاب — تأسيس + مواعيد سنة */
+    visitationSchedule?: import('@/app/types/visitationSchedule').VisitationScheduleBundle;
+    /** أثاث زوجية — قائمة القطع المحكوم بها */
+    maritalFurnitureItems?: import('@/app/types/maritalFurniture').MaritalFurnitureItem[];
     /** تسليم حضانة (قيمة المطالبة: تسليم ولد) */
     custodyWardNames?: string[];
+    /** تسليم شيء معين — وصف المحكوم به */
+    specificDeliveryItemName?: string;
+    /** تسليم شيء معين — منقول | غير منقول */
+    specificDeliveryItemNature?: 'movable' | 'immovable';
+    /** بعد تحويل المطالبة مالياً لتعذر التسليم */
+    specificDeliveryFinancialized?: boolean;
+    specificDeliveryConvertedAmount?: number;
+    specificDeliveryFinancializedAt?: string;
 
     // ─── التبليغ والإحضار الجبري (محرك الحصانة) ───
     /** طبيعة المطالبة لغرض الإحضار؛ إن لم تُحدَّد تُستنتج من نوع الدعوى */
@@ -1054,6 +1180,8 @@ export interface ExecutionFile {
     /** طلب كفيل من محضر المتابعة — بيانات الكفيل تُكمَل في الملف بعد موافقة المنفذ */
     guarantor_followup?: {
         executor_approved: boolean;
+        /** مصدر السجل — يمنع اختلاط الكفيل المالي مع التعهد الإجرائي */
+        channel?: 'financial' | 'procedural';
         /** بعد موافقة المنفذ: لا تُعاد دورة الطلب حتى يُكمَل الحفظ هنا */
         details_saved?: boolean;
         guarantee_type?: 'amount' | 'attendance';
@@ -1068,6 +1196,20 @@ export interface ExecutionFile {
     } | null;
     guarantor_followup_history?: Array<
         NonNullable<ExecutionFile['guarantor_followup']> & { archivedAt: string }
+    >;
+    /** كفالة/تعهد إجرائي عام — غير مرتبط بالمركز المالي أو نوع قرار محدد */
+    procedural_guarantee?: {
+        enabled: boolean;
+        purpose?: string;
+        guarantor_name?: string;
+        pledge_amount_iqd?: number | null;
+        deadline_ymd?: string | null;
+        saved_at?: string;
+        /** بعد الحفظ الناجح — تُغلق الحاوية وتُنقل البيانات لبطاقة الضامن */
+        committed_to_followup?: boolean;
+    } | null;
+    procedural_guarantee_history?: Array<
+        NonNullable<ExecutionFile['procedural_guarantee']> & { archivedAt: string }
     >;
     guarantor_notification?: {
         noticeDateYmd: string;
@@ -1088,6 +1230,8 @@ export interface ExecutionFile {
     voluntaryAttendanceCount?: number;
     /** مسار الكاسب بعد مذكرة الإحضار الجبري */
     investigationCourtRequested?: boolean;
+    /** تنازل صريح عن مسار مفاتحة التحقيق — تُخفى البطاقة حتى إعادة تسجيل «متخفي» */
+    investigation_court_withdrawn_at?: string | null;
     investigationMemoIssued?: boolean;
     investigationPathDebtorPresent?: boolean;
     forcedPathAttendanceSecured?: boolean;

@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, ImageIcon, Paperclip, FileText, Mic, Loader2, EyeOff } from 'lucide-react';
+import { X, ImageIcon, Paperclip, FileText, Mic, Square, Loader2, EyeOff } from 'lucide-react';
 import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 
@@ -8,6 +8,9 @@ import type { CommunityPost } from '@/app/services/lawyer-cloud';
 const POST_MAX_LENGTH = 10_000;
 /** الحد الأعلى لطول حقل الوسوم */
 const TAGS_MAX_LENGTH = 200;
+
+const formatVoiceTime = (sec: number) =>
+    `${Math.floor(sec / 60)}:${(sec % 60).toString().padStart(2, '0')}`;
 
 interface AddQuestionSheetProps {
     isOpen: boolean;
@@ -23,13 +26,11 @@ interface AddQuestionSheetProps {
     onRemoveAttachment: () => void;
     submittingPost: boolean;
     uploadingAttachment: boolean;
-    isDictating: boolean;
-    showPolishAction: boolean;
-    polishingText: boolean;
+    isRecordingVoice: boolean;
+    voiceRecordingSec: number;
     imageInputRef: React.RefObject<HTMLInputElement | null>;
     docInputRef: React.RefObject<HTMLInputElement | null>;
-    onPolishLegalText: () => void;
-    onToggleDictation: () => void;
+    onToggleVoiceRecording: () => void;
     onImageUpload: (file: File) => void;
     onDocUpload: (file: File) => void;
     onSubmit: () => void;
@@ -42,10 +43,9 @@ export const AddQuestionSheet = ({
     newIsAnonymous, onNewIsAnonymousChange,
     newIsUrgent, onNewIsUrgentChange,
     newAttachment, onRemoveAttachment,
-    submittingPost, uploadingAttachment, isDictating,
-    showPolishAction, polishingText,
+    submittingPost, uploadingAttachment, isRecordingVoice, voiceRecordingSec,
     imageInputRef, docInputRef,
-    onPolishLegalText, onToggleDictation,
+    onToggleVoiceRecording,
     onImageUpload, onDocUpload, onSubmit, onClose,
 }: AddQuestionSheetProps) => {
     return (
@@ -70,29 +70,6 @@ export const AddQuestionSheet = ({
                         <h2 className="text-white text-lg font-bold mb-4">طرح استشارة قانونية جديدة</h2>
 
                         <div className="mb-4">
-                            {showPolishAction && (
-                                <div className="flex justify-end mb-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => void onPolishLegalText()}
-                                        disabled={polishingText}
-                                        className={`text-[11px] px-3 py-1.5 rounded-full border transition-colors ${
-                                            polishingText
-                                                ? 'bg-white/5 border-white/10 text-white/30 cursor-not-allowed'
-                                                : 'bg-[#E6C673]/10 border-[#E6C673]/25 text-[#E6C673] hover:bg-[#E6C673]/15'
-                                        }`}
-                                    >
-                                        {polishingText ? (
-                                            <span className="inline-flex items-center gap-2">
-                                                <Loader2 size={12} className="animate-spin" />
-                                                جاري...
-                                            </span>
-                                        ) : (
-                                            '✨ صياغة قانونية بالذكاء الاصطناعي'
-                                        )}
-                                    </button>
-                                </div>
-                            )}
                             <textarea
                                 value={newPostText}
                                 onChange={(e) => {
@@ -169,17 +146,17 @@ export const AddQuestionSheet = ({
                         <div className="flex items-center gap-4 mb-5">
                             <button type="button"
                                 onClick={() => imageInputRef.current?.click()}
-                                className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${uploadingAttachment ? 'bg-white/5 text-white/20 cursor-not-allowed' : 'bg-white/5 hover:bg-white/10 text-gray-400 hover:text-[#E6C673]'}`}
+                                className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${uploadingAttachment || isRecordingVoice ? 'bg-white/5 text-white/20 cursor-not-allowed' : 'bg-white/5 hover:bg-white/10 text-gray-400 hover:text-[#E6C673]'}`}
                                 title="إرفاق صورة"
-                                disabled={uploadingAttachment}
+                                disabled={uploadingAttachment || isRecordingVoice}
                             >
                                 <ImageIcon size={20} />
                             </button>
                             <button type="button"
                                 onClick={() => docInputRef.current?.click()}
-                                className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${uploadingAttachment ? 'bg-white/5 text-white/20 cursor-not-allowed' : 'bg-white/5 hover:bg-white/10 text-gray-400 hover:text-[#E6C673]'}`}
+                                className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${uploadingAttachment || isRecordingVoice ? 'bg-white/5 text-white/20 cursor-not-allowed' : 'bg-white/5 hover:bg-white/10 text-gray-400 hover:text-[#E6C673]'}`}
                                 title="إرفاق مستند"
-                                disabled={uploadingAttachment}
+                                disabled={uploadingAttachment || isRecordingVoice}
                             >
                                 <Paperclip size={20} />
                             </button>
@@ -198,7 +175,7 @@ export const AddQuestionSheet = ({
                             <input
                                 ref={docInputRef}
                                 type="file"
-                                accept=".pdf,.doc,.docx,.txt,application/pdf"
+                                accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                                 className="hidden"
                                 onChange={(e) => {
                                     const file = e.target.files?.[0];
@@ -229,6 +206,23 @@ export const AddQuestionSheet = ({
                                         </button>
                                     </div>
                                 )}
+                                {newAttachment.type === 'audio' && (
+                                    <div className="relative w-full bg-[#151822] rounded-xl p-3 border border-white/10 pr-8">
+                                        <p className="text-white/50 text-[10px] mb-2">مقطع صوتي</p>
+                                        <audio
+                                            src={newAttachment.url}
+                                            controls
+                                            preload="metadata"
+                                            className="w-full h-10"
+                                        />
+                                        <button type="button"
+                                            onClick={onRemoveAttachment}
+                                            className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white border border-[#25293C]"
+                                        >
+                                            <X size={12} />
+                                        </button>
+                                    </div>
+                                )}
                                 {newAttachment.type === 'document' && (
                                     <div className="inline-flex items-center gap-2 bg-[#151822] px-3 py-2 rounded-lg border border-white/10 relative pr-8">
                                         <FileText size={16} className="text-[#E6C673]" />
@@ -247,21 +241,31 @@ export const AddQuestionSheet = ({
                         <div className="flex items-stretch gap-3">
                             <button
                                 type="button"
-                                onClick={onToggleDictation}
-                                className={`w-14 h-[55px] rounded-xl border flex items-center justify-center transition-colors ${
-                                    isDictating
+                                onClick={onToggleVoiceRecording}
+                                disabled={uploadingAttachment}
+                                className={`w-14 h-[55px] rounded-xl border flex flex-col items-center justify-center transition-colors ${
+                                    isRecordingVoice
                                         ? 'bg-red-500/15 border-red-500/30 text-red-200 animate-pulse'
-                                        : 'bg-white/5 border-white/10 text-white/60 hover:text-white hover:border-white/20'
+                                        : uploadingAttachment
+                                          ? 'bg-white/5 border-white/10 text-white/20 cursor-not-allowed'
+                                          : 'bg-white/5 border-white/10 text-white/60 hover:text-white hover:border-white/20'
                                 }`}
-                                title="إملاء صوتي"
+                                title={isRecordingVoice ? 'إيقاف التسجيل' : 'نشر صوتي'}
                             >
-                                <Mic size={20} />
+                                {isRecordingVoice ? (
+                                    <>
+                                        <Square size={16} fill="currentColor" />
+                                        <span className="text-[9px] mt-0.5 tabular-nums">{formatVoiceTime(voiceRecordingSec)}</span>
+                                    </>
+                                ) : (
+                                    <Mic size={20} />
+                                )}
                             </button>
                             <button type="button"
                                 onClick={() => void onSubmit()}
-                                disabled={uploadingAttachment || submittingPost}
+                                disabled={uploadingAttachment || submittingPost || isRecordingVoice}
                                 className={`flex-1 h-[55px] rounded-xl flex items-center justify-center font-bold text-lg transition-transform active:scale-95 ${
-                                    uploadingAttachment || submittingPost
+                                    uploadingAttachment || submittingPost || isRecordingVoice
                                         ? 'bg-white/10 text-white/30 cursor-not-allowed'
                                         : 'bg-[#E6C673] hover:bg-[#d4b560] text-black'
                                 }`}

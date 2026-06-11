@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { X } from 'lucide-react';
 import type { ThirdPartySeizure } from '@/app/types/execution';
 import { EXEC_MODAL_BACKDROP_STRONG, EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
+import { formatNumberInput } from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
 
 type Draft = {
     thirdPartyName: string;
@@ -126,7 +127,7 @@ export function ThirdPartySeizureInitModal(props: {
                                     onChange={(e) =>
                                         setDraft((p) => ({
                                             ...p,
-                                            requestedAmount: e.target.value.replace(/[^\d]/g, ''),
+                                            requestedAmount: formatNumberInput(e.target.value),
                                         }))
                                     }
                                     className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-slate-100 text-right"

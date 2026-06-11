@@ -1,6 +1,11 @@
 import React, { useState, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import { X, Handshake, CheckCircle, AlertCircle, Calendar } from 'lucide-react';
+import {
+    EXEC_MODAL_BACKDROP_STRONG,
+    EXEC_MODAL_Z,
+} from '@/app/components/lawyer/execution/executionModalStack';
 
 interface SettlementCalculatorProps {
     isOpen: boolean;
@@ -82,10 +87,14 @@ export const SettlementCalculator = React.memo<SettlementCalculatorProps>(({
         };
     }, [downPayment, monthlyInstallment, currentTotal]);
 
-    if (!isOpen) return null;
+    if (!isOpen || typeof document === 'undefined') return null;
 
-    return (
-        <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4" onClick={onClose}>
+    return createPortal(
+        <div
+            className={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG}`}
+            style={{ zIndex: EXEC_MODAL_Z.nestedOverFollowUpPortal }}
+            onClick={onClose}
+        >
             <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
@@ -204,6 +213,7 @@ export const SettlementCalculator = React.memo<SettlementCalculatorProps>(({
                     </button>
                 </div>
             </motion.div>
-        </div>
+        </div>,
+        document.body
     );
 });

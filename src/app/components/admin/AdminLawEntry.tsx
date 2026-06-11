@@ -4,14 +4,16 @@ import { supabase } from "@/app/lib/supabase-client";
 import { cn } from "@/app/components/ui/utils";
 import { SmartDialog } from "@/app/components/ui/SmartDialog";
 import { Pin, Scale } from "lucide-react";
-import { IRAQI_LAW_CANONICAL_NAMES, resolveLawCodeTypeFromName } from "@/app/constants/iraqiLawCatalog";
+import { IRAQI_LAW_CANONICAL_NAMES, EXECUTION_LAW_CANONICAL_NAME, isAllowedIraqiLawName, resolveLawCodeTypeFromName } from "@/app/constants/iraqiLawCatalog";
 import { invalidateLegalCodeArticlesCache } from "@/app/components/lawyer/criminal-system/legalCodes/legalCodesDataCache";
+import { invalidateExecutionLawRemoteCache } from "@/app/utils/executionLawRemoteCache";
 import {
     articleNumberInRange,
     clearPinnedLawFilter,
     extractArticleSortNumber,
     LAW_STRUCTURE,
     LAW_STRUCTURE_SECTION_IDS,
+    normalizeArabicDigits,
     readPinnedLawFilter,
     writePinnedLawFilter,
     type LawStructureSectionId,
@@ -22,7 +24,6 @@ type AddLawInvokeBody = {
     law_name: string;
     article_number: string;
     content: string;
-    skip_embedding?: boolean;
 };
 
 type AdminLawEntryTab = "single" | "bulk" | "browse";
@@ -52,7 +53,6 @@ type AddLawResponse = {
     details?: string;
     record?: unknown;
     deletedCount?: number;
-    embedding_fallback_used?: boolean;
 };
 
 type ClearLawsInvokeBody = {
@@ -63,16 +63,7 @@ type ClearLawsInvokeBody = {
 
 type AddLawInvokeResult = {
     message: string;
-    embeddingFallbackUsed: boolean;
 };
-
-function isEmbeddingFailureMessage(msg: string): boolean {
-    const text = String(msg || "").toLowerCase();
-    return text.includes("فشل توليد التضمين") ||
-        text.includes("gemini-embedding-001") ||
-        text.includes("denied access") ||
-        text.includes("quota");
-}
 
 const LAW_DOMAIN_LABELS: Record<LawDomain, string> = {
     execution: "قسم التنفيذ",
@@ -86,15 +77,16 @@ const CRIMINAL_LAW_TAB_LABELS: Record<CriminalLawTab, string> = {
 };
 
 const LAW_NAME_BY_TARGET: Record<LawDomain, string | null> & Record<CriminalLawTab, string> = {
-    execution: "قانون التنفيذ العراقي رقم 45 لسنة 1980",
+    execution: EXECUTION_LAW_CANONICAL_NAME,
     criminal: null,
     penal: "قانون العقوبات العراقي رقم 111 لسنة 1969",
     procedure: "قانون أصول المحاكمات الجزائية العراقي رقم 23 لسنة 1971",
     juvenile: "قانون رعاية الأحداث العراقي رقم 76 لسنة 1983",
 };
-function refreshLegalCodesReaderCache(lawName: string): void {
+function refreshLawReaderCaches(lawName: string): void {
     const codeType = resolveLawCodeTypeFromName(lawName);
     if (codeType) invalidateLegalCodeArticlesCache(codeType);
+    if (lawName === EXECUTION_LAW_CANONICAL_NAME) invalidateExecutionLawRemoteCache();
 }
 
 function formatInvokeError(err: unknown): string {
@@ -183,10 +175,6 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
     const [clearLoading, setClearLoading] = useState(false);
     const [clearArticleFrom, setClearArticleFrom] = useState("");
     const [clearArticleTo, setClearArticleTo] = useState("");
-    const [bulkEmbeddingStats, setBulkEmbeddingStats] = useState<{
-        smartEmbedded: number;
-        fallbackSaved: number;
-    } | null>(null);
 
     const resolvedLawName =
         activeDomain === "execution"
@@ -229,8 +217,16 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                     articleNumber: String(row?.article_number ?? "").trim() || "—",
                     content: String(row?.content ?? "").trim() || "—",
                 }))
-                .filter((r) => r.lawName.length > 0);
-            setBrowseRows(mapped);
+                .filter((r) => r.lawName.length > 0 && isAllowedIraqiLawName(r.lawName));
+            const dedup = new Map<string, BrowseLawRow>();
+            for (const row of mapped) {
+                const key = `${row.lawName}::${normalizeArabicDigits(row.articleNumber)}`;
+                const prev = dedup.get(key);
+                if (!prev || row.content.length > prev.content.length) {
+                    dedup.set(key, row);
+                }
+            }
+            setBrowseRows(Array.from(dedup.values()));
         } catch (e) {
             setBrowseLoadError(e instanceof Error ? e.message : "تعذر تحميل المواد.");
         } finally {
@@ -323,23 +319,12 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
             return {
                 message: typeof data.message === "string" && data.message.trim()
                     ? data.message
-                    : "تم حفظ المادة في قاعدة البيانات الذكية بنجاح.",
-                embeddingFallbackUsed: data.embedding_fallback_used === true,
+                    : "تم حفظ المادة بنجاح.",
             };
         }
 
         throw new Error("استجابة غير متوقعة من الخادم.");
     }, []);
-
-    const invokeAddLawTextOnlyFallback = useCallback(
-        async (body: AddLawInvokeBody): Promise<AddLawInvokeResult> => {
-            return await invokeAddLaw({
-                ...body,
-                skip_embedding: true,
-            });
-        },
-        [invokeAddLaw],
-    );
 
     const handleSubmit = useCallback(async () => {
         const law_name = String(resolvedLawName ?? "").trim();
@@ -354,7 +339,6 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
 
         setError(null);
         setSuccess(null);
-        setBulkEmbeddingStats(null);
         setSingleLoading(true);
 
         try {
@@ -364,34 +348,13 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                 content: contentTrimmed,
             });
             setSuccess(result.message);
-            refreshLegalCodesReaderCache(law_name);
+            refreshLawReaderCaches(law_name);
             setArticleNumber("");
             setContent("");
             hasLoadedBrowseRef.current = false;
             if (activeTab === "browse") void loadBrowseArticles();
         } catch (e) {
-            const msg = e instanceof Error ? e.message : String(e);
-            if (isEmbeddingFailureMessage(msg)) {
-                try {
-                    const fallbackResult = await invokeAddLawTextOnlyFallback({
-                        law_name,
-                        article_number,
-                        content: contentTrimmed,
-                    });
-                    setSuccess(fallbackResult.message);
-                    refreshLegalCodesReaderCache(law_name);
-                    setArticleNumber("");
-                    setContent("");
-                } catch (fallbackErr) {
-                    setError(
-                        fallbackErr instanceof Error
-                            ? fallbackErr.message
-                            : "خطأ غير متوقع أثناء الحفظ المحلي.",
-                    );
-                }
-            } else {
-                setError(msg || "خطأ غير متوقع أثناء الإرسال.");
-            }
+            setError(e instanceof Error ? e.message : "خطأ غير متوقع أثناء الإرسال.");
         } finally {
             setSingleLoading(false);
         }
@@ -400,7 +363,6 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
         articleNumber,
         content,
         invokeAddLaw,
-        invokeAddLawTextOnlyFallback,
         activeTab,
         loadBrowseArticles,
     ]);
@@ -413,7 +375,6 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
     const handleBulkSubmit = useCallback(async () => {
         setError(null);
         setSuccess(null);
-        setBulkEmbeddingStats(null);
 
         let parsed: unknown;
         try {
@@ -458,34 +419,16 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
 
         let successCount = 0;
         let failedCount = 0;
-        let fallbackSavedCount = 0;
         const failedMessages: string[] = [];
 
         for (let i = 0; i < items.length; i++) {
             try {
-                const result = await invokeAddLaw(items[i]);
+                await invokeAddLaw(items[i]);
                 successCount++;
-                if (result.embeddingFallbackUsed) {
-                    fallbackSavedCount++;
-                }
             } catch (e) {
+                failedCount++;
                 const msg = e instanceof Error ? e.message : String(e);
-                if (isEmbeddingFailureMessage(msg)) {
-                    try {
-                        await invokeAddLawTextOnlyFallback(items[i]);
-                        successCount++;
-                        fallbackSavedCount++;
-                    } catch (fallbackErr) {
-                        failedCount++;
-                        const fbMsg = fallbackErr instanceof Error
-                            ? fallbackErr.message
-                            : String(fallbackErr);
-                        failedMessages.push(`فشل المادة ${i + 1}: ${fbMsg}`);
-                    }
-                } else {
-                    failedCount++;
-                    failedMessages.push(`فشل المادة ${i + 1}: ${msg}`);
-                }
+                failedMessages.push(`فشل المادة ${i + 1}: ${msg}`);
             }
 
             setBulkProgress({
@@ -501,12 +444,8 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
         }
 
         if (failedCount === 0) {
-            refreshLegalCodesReaderCache(String(resolvedLawName ?? "").trim());
-            setSuccess("تم رفع المواد بنجاح (مع الاحتفاظ بالنصوص محلياً).");
-            setBulkEmbeddingStats({
-                smartEmbedded: Math.max(0, successCount - fallbackSavedCount),
-                fallbackSaved: fallbackSavedCount,
-            });
+            refreshLawReaderCaches(String(resolvedLawName ?? "").trim());
+            setSuccess("تم رفع المواد بنجاح.");
             setBulkJson("");
         } else {
             setError(
@@ -515,12 +454,8 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                 }`,
             );
             if (successCount > 0) {
-                refreshLegalCodesReaderCache(String(resolvedLawName ?? "").trim());
+                refreshLawReaderCaches(String(resolvedLawName ?? "").trim());
                 setSuccess(`تم رفع ${successCount} مادة بنجاح.`);
-                setBulkEmbeddingStats({
-                    smartEmbedded: Math.max(0, successCount - fallbackSavedCount),
-                    fallbackSaved: fallbackSavedCount,
-                });
             }
         }
 
@@ -532,7 +467,6 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
         resolvedLawName,
         invokeAddLaw,
         sleep,
-        invokeAddLawTextOnlyFallback,
         activeTab,
         loadBrowseArticles,
     ]);
@@ -570,13 +504,12 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
         if (!confirmed) return;
         setError(null);
         setSuccess(null);
-        setBulkEmbeddingStats(null);
         setClearLoading(true);
         try {
             const clearBody: ClearLawsInvokeBody = hasRange
                 ? { law_name: targetLawName, article_from: article_from!, article_to: article_to! }
                 : { law_name: targetLawName };
-            const { data, error: fnError } = await supabase.functions.invoke<AddLawResponse, ClearLawsInvokeBody>(
+            const { data, error: fnError } = await supabase.functions.invoke<AddLawResponse>(
                 "clear-laws",
                 { body: clearBody },
             );
@@ -591,10 +524,17 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
             if (data.ok === false) {
                 throw new Error(data.error || "فشل تنظيف قاعدة البيانات.");
             }
-            setSuccess(
-                `تم حذف مواد (${targetLawName}) بنجاح. العدد المحذوف: ${data.deletedCount ?? 0}.`,
-            );
-            refreshLegalCodesReaderCache(targetLawName);
+            const deletedCount = data.deletedCount ?? 0;
+            if (deletedCount === 0) {
+                setSuccess(
+                    `لم تُعثر على مواد محذوفة لـ (${targetLawName}) في قاعدة البيانات — ربما كانت فارغة مسبقاً. إن ما زلت ترى مواداً في إضبارة التنفيذ فهي من الملف المحلي المدمج وليست من قاعدة البيانات.`,
+                );
+            } else {
+                setSuccess(
+                    `تم حذف مواد (${targetLawName}) بنجاح. العدد المحذوف: ${deletedCount}.`,
+                );
+            }
+            refreshLawReaderCaches(targetLawName);
             setBulkProgress({ total: 0, processed: 0, success: 0, failed: 0 });
             setBulkJson("");
             setArticleNumber("");
@@ -630,8 +570,7 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                         إدخال مواد القانون العراقي
                     </h2>
                     <p className="mt-1 text-sm text-gray-400">
-                        يُحفظ النص ويُولَّد تضمين ذكي عبر الخادم (Gemini) ثم يُخزَّن
-                        في قاعدة البيانات.
+                        يُحفظ النص في قاعدة البيانات مع التصنيف القانوني.
                     </p>
                 </div>
             </header>
@@ -645,7 +584,6 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                                 setActiveDomain("execution");
                                 setSuccess(null);
                                 setError(null);
-                                setBulkEmbeddingStats(null);
                             }}
                             disabled={singleLoading || bulkLoading}
                             className={cn(
@@ -663,7 +601,6 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                                 setActiveDomain("criminal");
                                 setSuccess(null);
                                 setError(null);
-                                setBulkEmbeddingStats(null);
                             }}
                             disabled={singleLoading || bulkLoading}
                             className={cn(
@@ -687,7 +624,6 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                                         setActiveCriminalLawTab(tab);
                                         setSuccess(null);
                                         setError(null);
-                                        setBulkEmbeddingStats(null);
                                     }}
                                     disabled={singleLoading || bulkLoading}
                                     className={cn(
@@ -715,7 +651,6 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                             setActiveTab("single");
                             setError(null);
                             setSuccess(null);
-                            setBulkEmbeddingStats(null);
                         }}
                         disabled={singleLoading || bulkLoading || browseLoading}
                         className={cn(
@@ -733,7 +668,6 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                             setActiveTab("bulk");
                             setError(null);
                             setSuccess(null);
-                            setBulkEmbeddingStats(null);
                         }}
                         disabled={singleLoading || bulkLoading || browseLoading}
                         className={cn(
@@ -751,7 +685,6 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                             setActiveTab("browse");
                             setError(null);
                             setSuccess(null);
-                            setBulkEmbeddingStats(null);
                         }}
                         disabled={singleLoading || bulkLoading}
                         className={cn(
@@ -1098,16 +1031,6 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                         >
                             {success}
                         </p>
-                        {bulkEmbeddingStats ? (
-                            <div className="flex flex-wrap items-center gap-2">
-                                <span className="inline-flex items-center rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-200 backdrop-blur-sm">
-                                    ✨ بتضمين ذكي: {bulkEmbeddingStats.smartEmbedded}
-                                </span>
-                                <span className="inline-flex items-center rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-200 backdrop-blur-sm">
-                                    📝 نص محلي فقط: {bulkEmbeddingStats.fallbackSaved}
-                                </span>
-                            </div>
-                        ) : null}
                     </div>
                 )}
 
@@ -1135,10 +1058,10 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                 >
                     {singleLoading || bulkLoading
                         ? activeTab === "single"
-                            ? "جاري الحفظ والتضمين…"
+                            ? "جاري الحفظ…"
                             : "جاري الرفع الجماعي…"
                         : activeTab === "single"
-                        ? "حفظ المادة في قاعدة البيانات الذكية"
+                        ? "حفظ المادة"
                         : "بدء الرفع الجماعي"}
                 </button>
                 ) : null}

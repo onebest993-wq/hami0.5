@@ -17,6 +17,7 @@ function task(partial: Partial<LegalTask> & Pick<LegalTask, 'id' | 'title'>): Le
         isFatalDeadline: partial.isFatalDeadline ?? false,
         linkedCaseId: null,
         status: partial.status ?? 'pending',
+        completedAt: partial.completedAt ?? null,
         pinnedToFieldCurtain: partial.pinnedToFieldCurtain ?? false,
         subTasks: partial.subTasks ?? [],
         documentRequirements: [],
@@ -82,7 +83,7 @@ describe('serializeQuantumTasks / deserializeQuantumTasks roundtrip', () => {
 });
 
 describe('countPendingFieldTasks', () => {
-    it('counts pinned, main location, and active sub location', () => {
+    it('counts only tasks pinned to field curtain', () => {
         const pending = [
             task({ id: '1', title: 'مثبت', pinnedToFieldCurtain: true }),
             task({ id: '2', title: 'موقع', location: '  بغداد  ' }),
@@ -92,10 +93,10 @@ describe('countPendingFieldTasks', () => {
                 subTasks: [{ id: 's1', title: 'خطوة', location: 'رصافة', isCompleted: false }],
             }),
         ];
-        expect(countPendingFieldTasks(pending)).toBe(3);
+        expect(countPendingFieldTasks(pending)).toBe(1);
     });
 
-    it('ignores completed subtasks and whitespace-only locations', () => {
+    it('ignores unpinned tasks even with locations', () => {
         const pending = [
             task({ id: '1', title: 'فرع منجز', subTasks: [{ id: 's1', title: 'x', location: 'بابل', isCompleted: true }] }),
             task({ id: '2', title: 'فراغ', location: '   ' }),

@@ -8,6 +8,7 @@ import type {
 import { addDays, parseTaskInput, startOfLocalDay } from '@/app/utils/nlpParser';
 import { buildFieldGrouping } from '@/app/utils/fieldViewGrouping';
 import { groupTasksByTime, type GroupedByTime } from '@/app/utils/groupTasksByTime';
+import { prepareAgendaTasks, isTaskAgendaReadOnly } from '@/app/components/lawyer/dashboard/tasksManager/utils';
 import {
     applySilentPracticalEnrichment,
     type TaskEnrichmentOptions,
@@ -24,7 +25,7 @@ function newId(): string {
 }
 
 export function useQuantumTasks(initial: LegalTask[] = []) {
-    const [tasks, setTasks] = useState<LegalTask[]>(initial);
+    const [tasks, setTasks] = useState<LegalTask[]>(() => prepareAgendaTasks(initial));
 
     const addTask = useCallback((rawText: string, options?: AddTaskOptions) => {
         const trimmed = String(rawText ?? '').trim();
@@ -38,7 +39,9 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
             id: nextId,
             ...enriched,
             status: 'pending',
+            completedAt: null,
             pinnedToFieldCurtain: false,
+            fieldCurtainPinnedAt: null,
             reminderAt: null,
             subTasks: [],
             documentRequirements: [],
@@ -82,7 +85,9 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
             isFatalDeadline: false,
             linkedCaseId: null,
             status: 'pending',
+            completedAt: null,
             pinnedToFieldCurtain: false,
+            fieldCurtainPinnedAt: null,
             subTasks,
             documentRequirements: [],
             expenses: [],
@@ -105,7 +110,9 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
                 isFatalDeadline: false,
                 linkedCaseId: null,
                 status: 'pending',
+                completedAt: null,
                 pinnedToFieldCurtain: false,
+                fieldCurtainPinnedAt: null,
                 subTasks: [],
                 documentRequirements: [],
                 expenses: [],
@@ -160,14 +167,35 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
     const completeTask = useCallback((id: string) => {
         setTasks((prev) => {
             const target = prev.find((t) => t.id === id);
-            if (target && target.status !== 'completed') {
+            if (target && !target.completedAt) {
                 try {
                     void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
                         AuditLog.task.completed({ taskId: id, title: target.title });
                     });
                 } catch { /* silent */ }
             }
-            return prev.map((t) => (t.id === id ? { ...t, status: 'completed' as const } : t));
+            return prepareAgendaTasks(
+                prev.map((t) =>
+                    t.id === id && !t.completedAt
+                        ? {
+                              ...t,
+                              completedAt: startOfLocalDay(new Date()),
+                              pinnedToFieldCurtain: false,
+                              fieldCurtainPinnedAt: null,
+                          }
+                        : t,
+                ),
+            );
+        });
+    }, []);
+
+    const reopenTask = useCallback((id: string) => {
+        setTasks((prev) => {
+            const target = prev.find((t) => t.id === id);
+            if (!target?.completedAt || isTaskAgendaReadOnly(target, new Date())) return prev;
+            return prepareAgendaTasks(
+                prev.map((t) => (t.id === id ? { ...t, completedAt: null } : t)),
+            );
         });
     }, []);
 
@@ -180,11 +208,25 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
     }, []);
 
     const toggleTaskPinnedToFieldCurtain = useCallback((id: string) => {
-        setTasks((prev) =>
-            prev.map((t) =>
-                t.id === id ? { ...t, pinnedToFieldCurtain: !t.pinnedToFieldCurtain } : t,
-            ),
-        );
+        setTasks((prev) => {
+            const target = prev.find((t) => t.id === id);
+            if (!target) return prev;
+            const willPin = !target.pinnedToFieldCurtain;
+            const pinDay = startOfLocalDay(new Date());
+            return prev.map((t) => {
+                if (t.id === id) {
+                    return {
+                        ...t,
+                        pinnedToFieldCurtain: willPin,
+                        fieldCurtainPinnedAt: willPin ? new Date(pinDay.getTime()) : null,
+                    };
+                }
+                if (willPin && t.pinnedToFieldCurtain) {
+                    return { ...t, pinnedToFieldCurtain: false, fieldCurtainPinnedAt: null };
+                }
+                return t;
+            });
+        });
     }, []);
 
     const setTaskLocation = useCallback((id: string, location: string | null) => {
@@ -316,6 +358,7 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
         deleteTask,
         batchTasks,
         completeTask,
+        reopenTask,
         toggleTaskFatalDeadline,
         toggleTaskPinnedToFieldCurtain,
         setTaskLocation,

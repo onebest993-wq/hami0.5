@@ -1,7 +1,8 @@
-import { Check, MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import { Check, GitBranch, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import type { TransactionTask, TransactionTaskStatus } from '@/app/modules/transactionsThreading';
 import { TransactionTaskStatus as TaskStatus } from '@/app/modules/transactionsThreading';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/app/components/ui/dropdown-menu';
+import { taskHierarchyVisuals } from './taskHierarchyVisuals';
 
 function deadlineBadge(deadlineIso: string | null) {
   if (!deadlineIso) return null;
@@ -28,6 +29,8 @@ function statusLabelAr(status: TransactionTaskStatus) {
 
 export function TaskNodeCard({
   task,
+  taskNumber,
+  depth,
   onToggleStatus,
   onMarkDone,
   onAddSubTask,
@@ -36,6 +39,8 @@ export function TaskNodeCard({
   readOnly,
 }: {
   task: TransactionTask;
+  taskNumber: string;
+  depth: number;
   onToggleStatus: (task: TransactionTask) => void;
   onMarkDone: (task: TransactionTask) => void;
   onAddSubTask: (task: TransactionTask) => void;
@@ -45,6 +50,7 @@ export function TaskNodeCard({
 }) {
   const isDone = task.status === TaskStatus.Done;
   const dBadge = deadlineBadge(task.deadline);
+  const hierarchy = taskHierarchyVisuals(depth);
 
   return (
     <div
@@ -57,29 +63,44 @@ export function TaskNodeCard({
       onKeyDown={(e) => {
         if (!readOnly && (e.key === 'Enter' || e.key === ' ')) onToggleStatus(task);
       }}
-      className={`w-full text-right rounded-2xl bg-white/5 border border-white/10 transition px-4 py-3 shadow-[0_14px_40px_rgba(0,0,0,0.30)] ${
-        readOnly ? 'opacity-85' : 'hover:bg-white/7 hover:border-white/15 cursor-pointer'
-      }`}
+      className={`w-full text-right rounded-2xl border transition px-4 py-3 ${
+        hierarchy.cardClass
+      } ${readOnly ? 'opacity-85' : 'cursor-pointer'}`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+      <div className="flex flex-col gap-2.5">
+        <div className="flex items-start gap-3 min-w-0">
           <div
-            className={`text-white font-bold text-sm leading-6 ${isDone ? 'line-through opacity-80' : ''}`}
-            title={task.title}
+            className={`shrink-0 min-w-9 h-9 px-2 rounded-xl border flex items-center justify-center font-extrabold text-sm tabular-nums ${hierarchy.numberBadgeClass}`}
+            aria-label={`رقم ${hierarchy.levelLabel} ${taskNumber}`}
           >
-            {task.title}
+            {taskNumber}
           </div>
-          <div className="mt-1 flex items-center gap-2 flex-wrap">
-            <div className="text-gray-400 text-xs">{statusLabelAr(task.status)}</div>
-            {dBadge && (
-              <div className={`inline-flex items-center h-7 px-3 rounded-full border text-xs font-bold ${dBadge.className}`}>
-                {dBadge.label}
-              </div>
-            )}
+          <div className="min-w-0 flex-1">
+            <div className="mb-1.5 flex items-center gap-2 flex-wrap">
+              <span
+                className={`inline-flex items-center h-6 px-2.5 rounded-full border text-[10px] font-bold ${hierarchy.levelBadgeClass}`}
+              >
+                {hierarchy.levelLabel}
+              </span>
+            </div>
+            <div
+              className={`text-white font-bold text-sm leading-6 break-words ${isDone ? 'line-through opacity-80' : ''}`}
+              title={task.title}
+            >
+              {task.title}
+            </div>
+            <div className="mt-1 flex items-center gap-2 flex-wrap">
+              <div className="text-gray-400 text-xs">{statusLabelAr(task.status)}</div>
+              {dBadge && (
+                <div className={`inline-flex items-center h-7 px-3 rounded-full border text-xs font-bold ${dBadge.className}`}>
+                  {dBadge.label}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center justify-end gap-2 flex-wrap">
           {!readOnly && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -135,9 +156,13 @@ export function TaskNodeCard({
               e.stopPropagation();
               onAddSubTask(task);
             }}
-            className="h-9 px-3 rounded-xl bg-white/5 border border-white/10 text-gray-200 text-xs font-bold hover:bg-white/10 disabled:opacity-40"
+            className="h-9 px-2.5 sm:px-3 rounded-xl bg-white/5 border border-white/10 text-gray-200 text-xs font-bold hover:bg-white/10 disabled:opacity-40 inline-flex items-center gap-1.5"
+            aria-label="إضافة إجراء متفرع"
+            title="إضافة إجراء متفرع"
           >
-            إضافة إجراء متفرع
+            <GitBranch className="w-4 h-4 shrink-0" />
+            <span className="hidden sm:inline">إضافة إجراء متفرع</span>
+            <span className="sm:hidden">متفرع</span>
           </button>
         </div>
       </div>

@@ -1,5 +1,4 @@
 import React, { Suspense } from 'react';
-import { Shield } from 'lucide-react';
 
 export interface PersonalTabProps {
     personalTabLockedForEmployee: boolean;
@@ -43,6 +42,8 @@ export interface PersonalTabProps {
     onOpenGuarantorDetails: () => void;
     kasabTerminationEmphasis: boolean;
     activeDebtorIsEmployee: boolean;
+    hidePersonalJudgePresentation?: boolean;
+    hidePersonalForcedBringActivation?: boolean;
     activeDebtorNoticeScope: Record<string, any>;
     handleEmployeeAssignmentRequestInvestigation: () => void;
     handleEmployeeRegisterArrestOrder: () => void;
@@ -94,6 +95,8 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
     onOpenGuarantorDetails,
     kasabTerminationEmphasis,
     activeDebtorIsEmployee,
+    hidePersonalJudgePresentation = false,
+    hidePersonalForcedBringActivation = false,
     activeDebtorNoticeScope,
     handleEmployeeAssignmentRequestInvestigation,
     handleEmployeeRegisterArrestOrder,
@@ -126,115 +129,6 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
         </div>
     ) : (
         <div className="p-4 sm:p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
-            {activeNoticeState === 'forced_attendance' &&
-                debtorSummonsProfile === 'employee_monetary' &&
-                !debtorForcedToAttend ? (
-                <div className="space-y-2">
-                    <button
-                        type="button"
-                        disabled={!allowWrite}
-                        onClick={() => {
-                            if (!allowWrite) return;
-                            setDebtorForcedToAttend(true);
-                            setActiveNoticeState(null);
-                            const nowIso = new Date().toISOString();
-                            pushTimelineEvent({
-                                id: nextTimelineId(),
-                                date: nowIso.slice(0, 10),
-                                timestamp: nowIso,
-                                title: '⛓️ تم إجبار المدين على الحضور',
-                                description:
-                                    'تم تنفيذ مذكرة الإحضار الجبري وإجبار المدين على المثول أمام المحكمة',
-                                type: 'coercive',
-                                source: 'محضر المتابعة — التنفيذ الجبري الشخصي',
-                                metadata: { executionId: resolvedExecutionId || undefined },
-                            } as any);
-                            showToast('⛓️ تم تسجيل الإحضار الجبري', 'success');
-                        }}
-                        className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-orange-500/30 flex items-center justify-center gap-2"
-                    >
-                        ⛓️ تم إجبار المدين على الحضور
-                    </button>
-                    <button
-                        type="button"
-                        disabled={!allowWrite}
-                        onClick={() => {
-                            if (!allowWrite) return;
-                            setNonInterferenceIssued(true);
-                            const nowIso = new Date().toISOString();
-                            pushTimelineEvent({
-                                id: nextTimelineId(),
-                                date: nowIso.slice(0, 10),
-                                timestamp: nowIso,
-                                title: '📜 تم تزويد المدين بكتاب عدم تعرض',
-                                description: 'صدر كتاب عدم تعرض قانوني للمدين',
-                                type: 'other',
-                                source: 'محضر المتابعة — التنفيذ الجبري الشخصي',
-                                metadata: { executionId: resolvedExecutionId || undefined },
-                            } as any);
-                            showToast('📜 تم إصدار كتاب عدم التعرض', 'info');
-                        }}
-                        className="w-full backdrop-blur-xl bg-blue-600/20 border border-blue-500/40 text-blue-300 hover:bg-blue-600/30 font-semibold py-2.5 rounded-xl transition-all flex items-center justify-center gap-2"
-                    >
-                        <Shield size={16} />
-                        📜 تزويد بكتاب عدم تعرض
-                    </button>
-                </div>
-            ) : null}
-
-            {activeNoticeState === 'arrest_warrant' && !debtorArrested ? (
-                <div className="space-y-2">
-                    <button
-                        type="button"
-                        disabled={!allowWrite}
-                        onClick={() => {
-                            if (!allowWrite) return;
-                            setDebtorArrested(true);
-                            setActiveNoticeState(null);
-                            const nowIso = new Date().toISOString();
-                            pushTimelineEvent({
-                                id: nextTimelineId(),
-                                date: nowIso.slice(0, 10),
-                                timestamp: nowIso,
-                                title: '🚔 تم إلقاء القبض على المدين',
-                                description: 'تم تنفيذ أمر القبض وإلقاء القبض على المدين',
-                                type: 'coercive',
-                                source: 'محضر المتابعة — التنفيذ الجبري الشخصي',
-                                metadata: { executionId: resolvedExecutionId || undefined },
-                            } as any);
-                            showToast('🚔 تم تسجيل إلقاء القبض', 'success');
-                        }}
-                        className="w-full bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-red-500/30 flex items-center justify-center gap-2"
-                    >
-                        🚔 تم إلقاء القبض
-                    </button>
-                    <button
-                        type="button"
-                        disabled={!allowWrite}
-                        onClick={() => {
-                            if (!allowWrite) return;
-                            setNonInterferenceIssued(true);
-                            const nowIso = new Date().toISOString();
-                            pushTimelineEvent({
-                                id: nextTimelineId(),
-                                date: nowIso.slice(0, 10),
-                                timestamp: nowIso,
-                                title: '📜 تم تزويد المدين بكتاب عدم تعرض',
-                                description: 'صدر كتاب عدم تعرض قانوني للمدين',
-                                type: 'other',
-                                source: 'محضر المتابعة — التنفيذ الجبري الشخصي',
-                                metadata: { executionId: resolvedExecutionId || undefined },
-                            } as any);
-                            showToast('📜 تم إصدار كتاب عدم التعرض', 'info');
-                        }}
-                        className="w-full backdrop-blur-xl bg-blue-600/20 border border-blue-500/40 text-blue-300 hover:bg-blue-600/30 font-semibold py-2.5 rounded-xl transition-all flex items-center justify-center gap-2"
-                    >
-                        <Shield size={16} />
-                        📜 تزويد بكتاب عدم تعرض
-                    </button>
-                </div>
-            ) : null}
-
             {showEmployeeAssignmentCoerciveBlock &&
             resolvedEmployeeSummonsAssignment ? (
                 <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
@@ -315,6 +209,9 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                         onOpenGuarantorDetails={onOpenGuarantorDetails}
                         kasabCoerciveEmphasis={kasabTerminationEmphasis}
                         kasabRelaxedGates={!activeDebtorIsEmployee}
+                        hideDossierJudgePresentation={hidePersonalJudgePresentation}
+                        hideExecutorForcedBringActivation={hidePersonalForcedBringActivation}
+                        activeDebtorIsEmployee={activeDebtorIsEmployee}
                     />
                 </Suspense>
             )}

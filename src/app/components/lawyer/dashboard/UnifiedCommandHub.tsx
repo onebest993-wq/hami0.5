@@ -1,7 +1,7 @@
 import React from 'react';
 import { Scale, FileText, Hammer } from 'lucide-react';
 
-export const UnifiedCommandHub = ({ theme, shapeClass, onOpenArchive }: any) => {
+export const UnifiedCommandHub = ({ theme, shapeClass, onOpenArchive, onPrefetchExecution }: any) => {
     const accent = theme?.primary ?? '#E6C673';
     const accentMuted = theme?.secondary ?? '#D4B360';
 
@@ -31,7 +31,14 @@ export const UnifiedCommandHub = ({ theme, shapeClass, onOpenArchive }: any) => 
                         type="button"
                         data-testid={`hub-archive-${card.id}`}
                         key={card.id}
+                        onMouseEnter={() => {
+                            if (card.id === 'execution') onPrefetchExecution?.();
+                        }}
+                        onFocus={() => {
+                            if (card.id === 'execution') onPrefetchExecution?.();
+                        }}
                         onClick={() => {
+                            if (card.id === 'execution') onPrefetchExecution?.();
                             onOpenArchive(card.id);
                         }}
                         className={`relative h-[125px] w-full ${shapeClass || 'rounded-2xl'} overflow-hidden group transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hami-lawyer-panel`}

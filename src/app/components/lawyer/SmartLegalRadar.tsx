@@ -331,7 +331,7 @@ export const SmartLegalRadar: React.FC<SmartLegalRadarProps> = ({
                                 <Bot size={20} className="text-indigo-400" />
                             </div>
                             <div className="flex-1">
-                                <h3 className="text-indigo-300 font-bold text-sm mb-1">تحليل الذكاء الاصطناعي لليوم</h3>
+                                <h3 className="text-indigo-300 font-bold text-sm mb-1">ملخص المواعيد لليوم</h3>
                                 <p className="text-white/90 text-sm leading-relaxed">{aiBriefing}</p>
                             </div>
                         </motion.div>

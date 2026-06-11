@@ -23,6 +23,8 @@ export const EVICTION_TIMELINE_ACTION_IDS = {
     BREAK_INVENTORY: 'eviction_break_inventory',
     CUSTODIAN: 'eviction_judicial_custodian',
     HANDOVER_FINAL: 'eviction_handover_final',
+    /** تسليم أثاث زوجية — موعد + جرد في طلب منفذ واحد */
+    MARITAL_FURNITURE_DELIVERY: 'marital_furniture_delivery',
     /** إنهاء مهلة تخلية سكنية بموافقة المنفذ — يعيد دورة المهلة */
     RESIDENTIAL_GRACE_EARLY_END: 'eviction_residential_grace_early_end_executor',
     /** مذكرة إخبار بالتنفيذ لورثة المدين الشاغلين (تخلية) */
@@ -41,6 +43,41 @@ export function isEvictionClaim(claimType: string | undefined | null): boolean {
         c.includes('تخلية') ||
         c.includes('إخلاء') ||
         c.toLowerCase().includes('eviction')
+    );
+}
+
+/** تسليم شيء معين — مسار تسليم عيني قابل للتحول المالي */
+export function isSpecificDeliveryClaim(claimType: string | undefined | null): boolean {
+    const c = String(claimType || '').trim();
+    return c === 'تسليم شيء معين' || (c.includes('تسليم') && c.includes('شيء'));
+}
+
+export type SpecificDeliveryItemNature = 'movable' | 'immovable';
+
+export function resolveSpecificDeliveryItemNature(
+    raw: string | undefined | null
+): SpecificDeliveryItemNature | null {
+    const v = String(raw || '').trim();
+    if (v === 'movable' || v === 'منقول') return 'movable';
+    if (v === 'immovable' || v === 'غير منقول') return 'immovable';
+    return null;
+}
+
+export function specificDeliveryNatureLabelAr(
+    nature: SpecificDeliveryItemNature | null | undefined
+): string {
+    if (nature === 'movable') return 'منقول';
+    if (nature === 'immovable') return 'غير منقول';
+    return '';
+}
+
+/** إزالة / رفع تجاوز — إجراءات ميدانية دون مسار التخلية أو الحجز المالي */
+export function isEncroachmentRemovalClaim(claimType: string | undefined | null): boolean {
+    const c = (claimType || '').trim();
+    if (c === 'إزالة تجاوز') return true;
+    return (
+        (c.includes('إزالة') && c.includes('تجاوز')) ||
+        c.includes('رفع تجاوز')
     );
 }
 
@@ -125,6 +162,7 @@ export function formatClaimTypeArabic(
     if (lower === 'eviction' || isEvictionClaim(c)) {
         return premisesUse === 'commercial' ? 'تخلية — محل تجاري' : 'تخلية — عقار سكني';
     }
+    if (c === 'نفقة') return 'نفقة مستمرة';
     return c;
 }
 

@@ -17,6 +17,7 @@ export type EvictionExecutorWorkflowKey =
     /** قديم: طلبات قبل فصل مساري الجرد والتسليم */
     | 'inventory_or_eviction'
     | 'break_inventory'
+    | 'marital_furniture_delivery'
     | 'judicial_custodian'
     | 'residential_grace_early_end';
 
@@ -27,6 +28,7 @@ export const EVICTION_WORKFLOW_BY_ACTION_ID: Partial<
     [EVICTION_TIMELINE_ACTION_IDS.FIELD_VISIT]: 'field_visit_or_grace',
     [EVICTION_TIMELINE_ACTION_IDS.POLICE_FORCE]: 'police_assistance',
     [EVICTION_TIMELINE_ACTION_IDS.BREAK_INVENTORY]: 'break_inventory',
+    [EVICTION_TIMELINE_ACTION_IDS.MARITAL_FURNITURE_DELIVERY]: 'marital_furniture_delivery',
     [EVICTION_TIMELINE_ACTION_IDS.CUSTODIAN]: 'judicial_custodian',
 };
 
@@ -36,6 +38,7 @@ export type ExecutorApprovalDecisionType =
     | 'Grace Period'
     | 'Police Assistance Request'
     | 'Lock Breaking & Inventory'
+    | 'Marital Furniture Delivery'
     | 'Judicial Custodian'
     | 'Eviction'
     | 'Residential Grace Early End'
@@ -64,9 +67,10 @@ export function inferExecutorApprovalDecisionType(row: ExecutorDecisionLike): Ex
     }
     if (k === 'police_assistance') return 'Police Assistance Request';
     if (k === 'break_inventory') return 'Lock Breaking & Inventory';
+    if (k === 'marital_furniture_delivery') return 'Marital Furniture Delivery';
     if (k === 'judicial_custodian') return 'Judicial Custodian';
     if (k === 'inventory_or_eviction') {
-        if (/التخلية وتسليم|تسليم العقار/.test(t)) return 'Eviction';
+        if (/التخلية وتسليم|تسليم العقار|الإخلاء الجبري|إخلاء جبري/i.test(t)) return 'Eviction';
         return 'Lock Breaking & Inventory';
     }
 
@@ -77,9 +81,10 @@ export function inferExecutorApprovalDecisionType(row: ExecutorDecisionLike): Ex
     if (/تحديد موعد الخروج الميداني|الخروج الميداني/.test(t)) return 'Field Visit Date';
     if (/مهلة|إعطاء مهلة/.test(t)) return 'Grace Period';
     if (/مفاتحة الشرطة|القوة الإجرائية/.test(t)) return 'Police Assistance Request';
+    if (/تسليم أثاث|أثاث زوجية|جرد وتسليم قطع/i.test(t)) return 'Marital Furniture Delivery';
     if (/حارس\s*قضائي|تنصيب\s*حارس/.test(t)) return 'Judicial Custodian';
     if (/كسر الأقفال|جرد الأثاث/.test(t)) return 'Lock Breaking & Inventory';
-    if (/التخلية وتسليم العقار/.test(t)) return 'Eviction';
+    if (/التخلية وتسليم العقار|الإخلاء الجبري|إخلاء جبري/i.test(t)) return 'Eviction';
 
     return 'other';
 }
@@ -278,6 +283,23 @@ export function handleExecutorApproval(
 
         case 'Lock Breaking & Inventory':
             openBreakInventoryCompletion(decisionId, actions, meta.requestTitle);
+            break;
+
+        case 'Marital Furniture Delivery':
+            if (actions.openBreakInventoryFurnitureModal) {
+                actions.openBreakInventoryFurnitureModal({
+                    decisionId,
+                    requestTitle: meta.requestTitle,
+                    onSaved: () => {},
+                    onFinalize: () => {},
+                });
+                return;
+            }
+            actions.openScheduledDateModal({
+                decisionId,
+                requestTitle: meta.requestTitle,
+                onSaved: () => {},
+            });
             break;
 
         case 'Judicial Custodian':

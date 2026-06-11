@@ -118,8 +118,8 @@ export const PartyOverflowToggle = React.memo(function PartyOverflowToggle({
     variant,
 }: PartyOverflowToggleProps) {
     const isCreditor = variant === 'creditor';
-    const collapseLabel = isCreditor ? 'إخفاء الدائنين الإضافيين' : 'إخفاء المدينين الإضافيين';
-    const expandLabel = isCreditor ? `عرض ${hiddenCount} دائن إضافي` : `عرض ${hiddenCount} مدين إضافي`;
+    const collapseLabel = isCreditor ? 'إخفاء الدائنين' : 'إخفاء المدينين';
+    const expandLabel = isCreditor ? `عرض ${hiddenCount} دائن` : `عرض ${hiddenCount} مدين`;
     const buttonClass = isCreditor
         ? 'w-full backdrop-blur-xl bg-slate-800/40 border border-emerald-500/20 rounded-2xl py-2.5 px-3 flex flex-row-reverse items-center justify-center gap-2 hover:bg-slate-800/60 transition-all text-emerald-400 text-sm font-medium shadow-lg shadow-emerald-500/5'
         : 'w-full backdrop-blur-xl bg-slate-800/40 border border-rose-500/20 rounded-2xl py-2.5 px-3 flex flex-row-reverse items-center justify-center gap-2 hover:bg-slate-800/60 transition-all text-rose-400 text-sm font-medium shadow-lg shadow-rose-500/5';

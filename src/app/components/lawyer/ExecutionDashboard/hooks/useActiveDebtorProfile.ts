@@ -20,7 +20,7 @@ export function useActiveDebtorProfile(
             const ad = executionData.party_multiplicity?.additionalDebtors?.find(
                 (a) => String(a.id) === activeWorkspaceDebtorForFollowup.key
             );
-            if (ad) return ad.isEmployee !== false;
+            if (ad) return isDebtorRowEmployee(ad);
             return isDebtorRowEmployee(activeWorkspaceDebtorForFollowup.d as Debtor);
         }
         return isDebtorRowEmployee((executionData.debtors?.[0] as Debtor | undefined) ?? d0);

@@ -43,6 +43,7 @@ import {
 } from './investigationPhaseGuidance';
 import { isSeveranceReasonValue, SEVERANCE_REASON_SELECT_OPTIONS } from './caseSeveranceView';
 import { ChevronRight, X } from 'lucide-react';
+import { PUBLIC_RIGHT_COMPLAINANT_NAME } from './publicProsecutionGovernance';
 
 const INPUT_BASE =
     'w-full bg-[#0B1021] border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder:text-white/30 outline-none focus:border-[#E6C673]/60 disabled:opacity-50 disabled:cursor-not-allowed';
@@ -174,6 +175,8 @@ export const CriminalNewCase = ({
     const deleteComplainant = useCriminalStore((s) => s.deleteComplainant);
     const setComplainantField = useCriminalStore((s) => s.setComplainantField);
     const setDraftMutualComplaint = useCriminalStore((s) => s.setDraftMutualComplaint);
+    const setDraftPublicProsecutionComplainant = useCriminalStore((s) => s.setDraftPublicProsecutionComplainant);
+    const setDraftArticleIncludesPublicRight = useCriminalStore((s) => s.setDraftArticleIncludesPublicRight);
     const setUnknownDefendant = useCriminalStore((s) => s.setUnknownDefendant);
     const addUnknownDefendant = useCriminalStore((s) => s.addUnknownDefendant);
     const toggleDraftDefendantIdentityUnknown = useCriminalStore(
@@ -431,6 +434,9 @@ export const CriminalNewCase = ({
         stage,
         draft.location,
     );
+    const isPublicProsecutionComplainant = draft.isPublicProsecutionComplainant === true;
+    const showMutualComplaintOption = !isPublicProsecutionComplainant;
+
     const complainantGuardianDataIncomplete = draft.complainants.some((c) => {
         const isMinor = Boolean((c as any).isJuvenile) || Boolean((c as any).isUnderSeven);
         if (!isMinor) return false;
@@ -448,7 +454,8 @@ export const CriminalNewCase = ({
     const isSaveBlocked =
         !ourRepresentation ||
         stage === '' ||
-        draft.complainants.some((c) => !String(c.fullName ?? '').trim()) ||
+        (!isPublicProsecutionComplainant &&
+            draft.complainants.some((c) => !String(c.fullName ?? '').trim())) ||
         identifiedDefendantSaveIncomplete ||
         investigationLocationIncomplete ||
         complainantGuardianDataIncomplete ||
@@ -575,44 +582,49 @@ export const CriminalNewCase = ({
                 }
             >
             <div className={CARD_BASE}>
-                <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.06] p-3">
-                    <label className="flex items-start gap-3 cursor-pointer">
-                        <input
-                            type="checkbox"
-                            className="mt-0.5 h-4 w-4 shrink-0 accent-[#E6C673]"
-                            checked={draft.isMutualComplaint === true}
-                            onChange={(e) => setDraftMutualComplaint(e.target.checked)}
-                        />
-                        <span className="min-w-0 text-white font-black text-sm whitespace-normal break-words">
-                            ⚖️ الدعوى ناشئة عن شكوى متقابلة
-                        </span>
-                    </label>
-                </div>
-            </div>
-
-            <div className={CARD_BASE}>
                 <div className="text-white font-bold text-sm mb-3">{complainantCardTitle}</div>
                 <div className="space-y-4">
-                    {draft.complainants.map((c) => (
+                    {draft.complainants.map((c, complainantIndex) => (
                         (() => {
                             const complainantMinor =
-                                Boolean((c as any).isJuvenile) || Boolean((c as any).isUnderSeven);
+                                !isPublicProsecutionComplainant &&
+                                (Boolean((c as any).isJuvenile) || Boolean((c as any).isUnderSeven));
+                            const complainantFieldsLocked = isPublicProsecutionComplainant;
                             return (
                         <div
                             key={c.id}
                             className={`space-y-3 rounded-2xl border p-3 ${
-                                c.isOfficeClient
+                                c.isOfficeClient && !complainantFieldsLocked
                                     ? 'border-[#E6C673]/35 bg-[#E6C673]/[0.04]'
                                     : 'border-white/10 bg-white/[0.02]'
                             }`}
                         >
-                            <div className="flex items-center justify-between gap-2">
-                                <OfficeClientToggle
-                                    active={Boolean(c.isOfficeClient)}
-                                    onClick={() =>
-                                        toggleDraftComplainantOfficeClient(c.id, !c.isOfficeClient)
-                                    }
-                                />
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    {!complainantFieldsLocked ? (
+                                        <OfficeClientToggle
+                                            active={Boolean(c.isOfficeClient)}
+                                            onClick={() =>
+                                                toggleDraftComplainantOfficeClient(c.id, !c.isOfficeClient)
+                                            }
+                                        />
+                                    ) : null}
+                                    {complainantIndex === 0 ? (
+                                        <label className="flex items-center gap-2 cursor-pointer shrink-0">
+                                            <input
+                                                type="checkbox"
+                                                className="h-4 w-4 shrink-0 accent-[#E6C673]"
+                                                checked={isPublicProsecutionComplainant}
+                                                onChange={(e) =>
+                                                    setDraftPublicProsecutionComplainant(e.target.checked)
+                                                }
+                                            />
+                                            <span className="text-white/80 text-[11px] font-black whitespace-normal break-words">
+                                                المشتكي هو الحق العام / الادعاء العام
+                                            </span>
+                                        </label>
+                                    ) : null}
+                                </div>
                                 {complainantRoleJuvenileLabel(
                                     stage,
                                     Boolean((c as any).isJuvenile) || Boolean((c as any).isUnderSeven),
@@ -625,7 +637,7 @@ export const CriminalNewCase = ({
                                             : complainantRoleJuvenileLabel(stage, Boolean((c as any).isJuvenile))}
                                     </div>
                                 ) : null}
-                                {draft.complainants.length > 1 ? (
+                                {!complainantFieldsLocked && draft.complainants.length > 1 ? (
                                     <button
                                         type="button"
                                         onClick={() => {
@@ -646,6 +658,7 @@ export const CriminalNewCase = ({
                                     </button>
                                 ) : null}
                             </div>
+                            {!complainantFieldsLocked ? (
                             <div className="rounded-xl border border-white/10 bg-white/5 p-3">
                                 <div className="flex flex-wrap items-center gap-6">
                                     <div className="flex items-center gap-3">
@@ -735,17 +748,27 @@ export const CriminalNewCase = ({
                                     </div>
                                 ) : null}
                             </div>
+                            ) : null}
                             <div>
                                 <label className="block text-white/70 text-xs mb-1">
-                                    {complainantNameLabel(complainantMinor)}
+                                    {complainantFieldsLocked
+                                        ? 'اسم المشتكي'
+                                        : complainantNameLabel(complainantMinor)}
                                 </label>
                                 <input
-                                    className={INPUT_BASE}
-                                    value={c.fullName}
+                                    className={`${INPUT_BASE}${complainantFieldsLocked ? ' opacity-70 cursor-not-allowed' : ''}`}
+                                    value={
+                                        complainantFieldsLocked
+                                            ? PUBLIC_RIGHT_COMPLAINANT_NAME
+                                            : c.fullName
+                                    }
                                     onChange={(e) => setComplainantField(c.id, 'fullName', e.target.value)}
-                                    required
+                                    disabled={complainantFieldsLocked}
+                                    required={!complainantFieldsLocked}
                                 />
                             </div>
+                            {!complainantFieldsLocked ? (
+                            <>
                             <div>
                                 <label className="block text-white/70 text-xs mb-1">العنوان</label>
                                 <input
@@ -763,19 +786,23 @@ export const CriminalNewCase = ({
                                     inputMode="tel"
                                 />
                             </div>
+                            </>
+                            ) : null}
                             <div className="h-px bg-white/5" />
                         </div>
                             );
                         })()
                     ))}
 
-                    <button
-                        type="button"
-                        className="w-full rounded-xl border border-white/10 bg-white/5 text-white text-sm font-bold py-3 hover:bg-white/10 hover:border-[#E6C673]/40 transition-colors"
-                        onClick={addComplainant}
-                    >
-                        + إضافة مشتكي آخر
-                    </button>
+                    {!isPublicProsecutionComplainant ? (
+                        <button
+                            type="button"
+                            className="w-full rounded-xl border border-white/10 bg-white/5 text-white text-sm font-bold py-3 hover:bg-white/10 hover:border-[#E6C673]/40 transition-colors"
+                            onClick={addComplainant}
+                        >
+                            + إضافة مشتكي آخر
+                        </button>
+                    ) : null}
                 </div>
             </div>
 
@@ -1141,6 +1168,19 @@ export const CriminalNewCase = ({
                         ) : null}
                     </div>
                 </div>
+                {showMutualComplaintOption ? (
+                    <label className="mt-4 flex items-center gap-2.5 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            className="h-4 w-4 shrink-0 accent-[#E6C673]"
+                            checked={draft.isMutualComplaint === true}
+                            onChange={(e) => setDraftMutualComplaint(e.target.checked)}
+                        />
+                        <span className="text-white/80 text-sm font-bold whitespace-normal break-words">
+                            إضافة دعوى متقابلة
+                        </span>
+                    </label>
+                ) : null}
             </div>
 
             <div className={CARD_BASE}>
@@ -1228,6 +1268,19 @@ export const CriminalNewCase = ({
                             <p className="mt-1.5 text-[11px] text-white/35 leading-relaxed">
                                 تُعرض في الإضبارة وتنتقل تلقائياً إلى بيانات الإحالة عند التسجيل بمرحلة محكمة الموضوع.
                             </p>
+                            {!isPublicProsecutionComplainant ? (
+                                <label className="mt-3 flex items-center gap-2.5 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        className="h-4 w-4 shrink-0 accent-[#E6C673]"
+                                        checked={draft.articleIncludesPublicRight === true}
+                                        onChange={(e) => setDraftArticleIncludesPublicRight(e.target.checked)}
+                                    />
+                                    <span className="text-white/80 text-sm font-bold whitespace-normal break-words">
+                                        المادة تتضمن حقاً عاماً
+                                    </span>
+                                </label>
+                            ) : null}
                         </div>
                     ) : null}
 

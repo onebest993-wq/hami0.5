@@ -5,8 +5,14 @@ import {
     inferExecutorDispatcherRoute,
     isGuarantorRequestDecisionRow,
     patchExecutorDecisionRow,
+    type PersonalCoerciveSubtype,
 } from '@/app/utils/executorSeizureDecisionQueue';
 import {
+    applyPersonalCoerciveExecutorOutcome,
+    buildPersonalCoerciveExecutionMerge,
+} from '@/app/components/lawyer/ExecutionDashboard/utils/applyPersonalCoerciveExecutorOutcome';
+import {
+    buildExecutionMergeForCreditorHeirSubstitutionApproval,
     buildExecutionMergeForCreditorPartyDeath,
     parseCreditorPartyDeathPayload,
 } from '@/app/utils/creditorPartyDeathPersistence';
@@ -17,6 +23,10 @@ import {
     type EvictionExecutorWorkflowKey,
     type ExecutorApprovalActions,
 } from '@/app/utils/executorApprovalWorkflow';
+import {
+    buildResidentialGraceEarlyEndApprovalMerge,
+    dispatchResidentialGraceCleared,
+} from '@/app/utils/residentialEvictionGrace';
 
 function cleanSeizureTypePendingSuffix(t: string): string {
     return t
@@ -139,6 +149,20 @@ export function useDecisionDispatcher(params: {
             }
             patchRow.appealPhase = null;
 
+            const pcSubtypeEarly = String(
+                (input.row as { personalCoerciveSubtype?: string }).personalCoerciveSubtype || ''
+            ).trim();
+            if (
+                String(input.row.requestKind || '') === 'personal_coercive' &&
+                (pcSubtypeEarly === 'executive_detention' ||
+                    pcSubtypeEarly === 'executive_dossier_presentation') &&
+                input.resolution === 'approved'
+            ) {
+                patchRow.appealStatus = 'final';
+                patchRow.noAppealChosen = true;
+                patchRow.executorDetentionHandedToJudge = true;
+            }
+
             if (input.resolution === 'alternative') {
                 const aid = (input.alternativeActionId ?? 'other') as AlternativeLegalActionId;
                 patchRow.alternativeActionId = aid;
@@ -213,6 +237,7 @@ export function useDecisionDispatcher(params: {
                     merge.hasGuarantor = true;
                     merge.guarantor_followup = {
                         executor_approved: true,
+                        channel: 'financial',
                         details_saved: false,
                         guarantor_name: prevGf?.guarantor_name,
                         guarantor_workplace: prevGf?.guarantor_workplace,
@@ -250,10 +275,21 @@ export function useDecisionDispatcher(params: {
                     const raw = explicit || (deathTitleLikely || deathIdLikely ? body : '');
                     const parsed = raw ? parseCreditorPartyDeathPayload(raw) : null;
                     if (parsed) {
-                        Object.assign(
-                            merge,
-                            buildExecutionMergeForCreditorPartyDeath(params.executionData, parsed)
-                        );
+                        const incomingHeirs = parsed.heir_names.filter((s) => /\S/.test(String(s)));
+                        if (parsed.action === 'heir_substitution' && incomingHeirs.length === 0) {
+                            Object.assign(
+                                merge,
+                                buildExecutionMergeForCreditorHeirSubstitutionApproval(
+                                    params.executionData,
+                                    parsed.creditorNameSnapshot
+                                )
+                            );
+                        } else {
+                            Object.assign(
+                                merge,
+                                buildExecutionMergeForCreditorPartyDeath(params.executionData, parsed)
+                            );
+                        }
                     }
                 }
 
@@ -288,14 +324,11 @@ export function useDecisionDispatcher(params: {
                             | undefined,
                     });
                     if (branch === 'Residential Grace Early End') {
-                        const pending = params.executionData?.caseTasksPending ?? [];
-                        merge.eviction_vacate_deadline = null;
-                        merge.eviction_residential_grace_period_start = null;
-                        merge.eviction_executor_vacate_grant_approved = false;
-                        merge.eviction_residential_grace_manually_ended_at = null;
-                        merge.caseTasksPending = pending.filter(
-                            (t) => !String(t.id).startsWith('eviction-residential-grace-')
+                        Object.assign(
+                            merge,
+                            buildResidentialGraceEarlyEndApprovalMerge(params.executionData)
                         );
+                        dispatchResidentialGraceCleared(String(params.executionId || ''));
                     }
                     if (branch !== 'other') {
                         handleExecutorApproval(
@@ -405,6 +438,26 @@ export function useDecisionDispatcher(params: {
                 }
             }
 
+            if (String(input.row.requestKind || '') === 'personal_coercive') {
+                const pcSubtype = String(
+                    (input.row as { personalCoerciveSubtype?: string }).personalCoerciveSubtype || ''
+                ).trim() as PersonalCoerciveSubtype;
+                if (pcSubtype) {
+                    const pcMerge = buildPersonalCoerciveExecutionMerge({
+                        subtype: pcSubtype,
+                        resolution: input.resolution,
+                        decisionId: id,
+                    });
+                    Object.assign(merge, pcMerge);
+                    applyPersonalCoerciveExecutorOutcome({
+                        executionId: params.executionId,
+                        subtype: pcSubtype,
+                        resolution: input.resolution,
+                        decisionId: id,
+                    });
+                }
+            }
+
             if (Object.keys(merge).length > 0) {
                 params.persistExecutionMerge(merge);
             }
@@ -416,6 +469,9 @@ export function useDecisionDispatcher(params: {
                     (isGuarantorRequestDecisionRow(input.row as Record<string, unknown>)
                         ? 'guarantor_request'
                         : undefined);
+                const pcSubtype = String(
+                    (input.row as { personalCoerciveSubtype?: string }).personalCoerciveSubtype || ''
+                ).trim();
                 window.dispatchEvent(
                     new CustomEvent('hami-execution-decision-outcome', {
                         detail: {
@@ -425,6 +481,7 @@ export function useDecisionDispatcher(params: {
                             outcome: patchRow.executorOutcome,
                             dispatcherRoute: route,
                             resolution: input.resolution,
+                            ...(pcSubtype ? { personalCoerciveSubtype: pcSubtype } : {}),
                         },
                     })
                 );

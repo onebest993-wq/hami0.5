@@ -82,7 +82,8 @@ export type CommentUpvoteMap = Map<string, string[]>;
 function parseAttachment(raw: unknown): CommunityPost['attachment'] {
     if (!raw || typeof raw !== 'object') return null;
     const a = raw as Record<string, unknown>;
-    const type = a.type === 'image' ? 'image' : a.type === 'document' ? 'document' : null;
+    const type =
+        a.type === 'image' ? 'image' : a.type === 'document' ? 'document' : a.type === 'audio' ? 'audio' : null;
     const url = typeof a.url === 'string' ? a.url : null;
     const name = typeof a.name === 'string' ? a.name : null;
     if (!type || !url || !name) return null;

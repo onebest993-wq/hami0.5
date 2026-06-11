@@ -26,16 +26,16 @@ export const WorkspacePinButton: React.FC<WorkspacePinButtonProps> = ({
     const togglePin = useWorkspaceStore((s) => s.togglePin);
 
     const pinTitle = pinned
-        ? 'إلغاء التثبيت من البطاقة العامة'
+        ? 'إلغاء التثبيت من بطاقة الواجهة الرئيسية'
         : relatedLinkCount && relatedLinkCount > 0
-          ? `تثبيت — ${relatedLinkCount} ارتباط متوقع بأقسام أخرى`
-          : 'تثبيت في البطاقة العامة';
+          ? `تثبيت في بطاقة الواجهة — ${relatedLinkCount} ارتباط`
+          : 'تثبيت في بطاقة الواجهة الرئيسية (ليس ستارة الميدان)';
 
     return (
         <button
             type="button"
             title={pinTitle}
-            aria-label={pinned ? 'إلغاء التثبيت' : 'تثبيت'}
+            aria-label={pinned ? 'إلغاء تثبيت البطاقة' : 'تثبيت في بطاقة الواجهة'}
             onClick={(e) => {
                 e.stopPropagation();
                 togglePin(item);

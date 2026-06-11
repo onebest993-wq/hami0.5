@@ -1,9 +1,17 @@
-import type React from 'react';
-import { useState } from 'react';
+import React, {
+    forwardRef,
+    useCallback,
+    useEffect,
+    useImperativeHandle,
+    useRef,
+    useState,
+    startTransition,
+    memo,
+} from 'react';
 import type { Dispatch, ElementType, RefObject, SetStateAction } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { useDebtorTags } from '@/app/components/lawyer/ExecutionDashboard/hooks/useDebtorTags';
-import { SmartDialog } from '@/app/components/ui/SmartDialog';
+import { ExecutionPartySpecialActionsMenu } from '@/app/components/lawyer/execution/ExecutionPartySpecialActionsMenu';
 import type {
     Debtor,
     ExecutionFile,
@@ -19,8 +27,59 @@ import type {
     TaklifAssignmentBadgeInfo,
 } from '@/app/components/lawyer/execution/ExecutionPartyInteractiveBadges';
 import type { ExecutionPartyDisplayNameResult } from '@/app/utils/partyDisplayName';
-import type { PersonalCoerciveSubtype } from '@/app/utils/executorSeizureDecisionQueue';
+import { isPartyHeirsEditOnlyMode } from '@/app/utils/partyDisplayName';
+import { ExecutionPartyCardFrame } from './ExecutionPartyCardFrame';
+import { HeirsQuickViewTrigger } from './HeirsQuickViewTrigger';
+import { resolveDebtorEntityKind } from '@/app/utils/debtorEntityKindUtils';
+import {
+    dispatchDecisionsReload,
+    patchExecutorDecisionRow,
+    readExecutorDecisionsArray,
+    type PersonalCoerciveSubtype,
+} from '@/app/utils/executorSeizureDecisionQueue';
 import type { DebtorSummonsProfile } from '@/app/utils/debtorSummonsProfile';
+
+type ExpandControlRegistrar = (debtorKey: string, expand: () => void) => () => void;
+
+const DebtorPartyCard = memo(function DebtorPartyCard({
+    registerExpandControl,
+    debtorKey,
+    badgeExtra,
+    collapsed,
+    expanded,
+}: {
+    registerExpandControl: ExpandControlRegistrar;
+    debtorKey: string;
+    badgeExtra: React.ReactNode;
+    collapsed: React.ReactNode;
+    expanded: React.ReactNode;
+}) {
+    const [open, setOpen] = useState(false);
+
+    const toggle = useCallback(() => {
+        startTransition(() => setOpen((v) => !v));
+    }, []);
+
+    useEffect(() => {
+        return registerExpandControl(debtorKey, () => {
+            startTransition(() => setOpen(true));
+        });
+    }, [debtorKey, registerExpandControl]);
+
+    return (
+        <ExecutionPartyCardFrame
+            variant="debtor"
+            roleLabel="المدين"
+            badgeExtra={badgeExtra}
+            isOpen={open}
+            onToggle={toggle}
+            expandAriaLabel={open ? 'طي بيانات المدين' : 'توسيع بيانات المدين'}
+            expandedPanel={open ? expanded : undefined}
+        >
+            {collapsed}
+        </ExecutionPartyCardFrame>
+    );
+});
 
 type DebtorWorkspaceEntry = {
     key: string;
@@ -71,15 +130,10 @@ type DebtorsSectionProps = {
     Bell: ElementType;
     Calendar: ElementType;
     DebtorSeizureCategoryBadges: ElementType;
-    DollarSign: ElementType;
     ExecutionPartyInteractiveBadges: ElementType;
-    ExecutionPartySpecialActionsMenu: ElementType;
     MapPin: ElementType;
-    MoreVertical: ElementType;
     PartyOverflowToggle: ElementType;
-    Pencil: ElementType;
     Phone: ElementType;
-    Wallet: ElementType;
     X: ElementType;
     activeCoerciveActions: unknown[];
     activeDebtorHeirsForNotification: unknown[];
@@ -87,7 +141,6 @@ type DebtorsSectionProps = {
     activeNoticeState: string;
     activeTimelineEvents: TimelineEvent[];
     activeTimelineEventsDebtorScoped: TimelineEvent[];
-    archiveAndClearGuarantor: (mode: 'replace' | 'unlink') => void;
     buildDebtorSummonsMarkerPatchForKey: (
         executionData: ExecutionFile,
         debtorKey: string,
@@ -111,10 +164,6 @@ type DebtorsSectionProps = {
     completeEvictionResidentialGrace: () => void;
     completePoliceAssistance: () => void;
     computeTaklifDeadlineYmd: (notifyDateYmd: string, durationDays: number) => string;
-    createPortal: (
-        children: React.ReactNode,
-        container: Element | DocumentFragment
-    ) => React.ReactPortal;
     daysRemainingUntilDeadline: (deadlineYmd: string) => number;
     debtorArrested: boolean;
     debtorAttendedVoluntarily: boolean;
@@ -127,6 +176,7 @@ type DebtorsSectionProps = {
     debtorWorkspaceChipStripRef: RefObject<HTMLDivElement | null>;
     debtorWorkspaceEntries: DebtorWorkspaceEntry[];
     decisionsReloadEpoch: number;
+    decisionsStorageExecutionId: string;
     dismissDebtorAbsenceBadge: () => void;
     effectiveDebtors: Debtor[];
     evictionGraceBadgeInfo: unknown;
@@ -134,15 +184,9 @@ type DebtorsSectionProps = {
     executionAppealBanner: { show: boolean; label: string };
     executionData: ExecutionFile | null;
     executionDebtorTabIndex: number;
-    executionExtras: {
-        perDebtorSalaries?: Record<string, string | number>;
-        perDebtorGarnishments?: Record<string, string | number>;
-    };
     executionId: string;
     executionMemoBadgePopoverOpen: boolean;
-    executionStorageKey: (executionId: string) => string;
     executionToolsTimelineLockedUi: boolean;
-    expandedDebtorById: Record<string, boolean>;
     forcedAttendanceIssued: boolean;
     forcedPathAttendanceSecured: boolean;
     getDebtorSummonsMarkerForKey: (
@@ -177,13 +221,8 @@ type DebtorsSectionProps = {
         executionData: ExecutionFile | null,
         debtorKey: string
     ) => PublicationNoticeState | null;
-    guarantorMenuOpen: boolean;
-    guarantorReplaceConfirmOpen: boolean;
-    guarantorSeizureOpen: boolean;
-    guarantorUnlinkConfirmOpen: boolean;
     handleDebtorDeathMenuAction: () => void;
     handleDebtorEmploymentToggle: (payload: { debtorKey: string; isPrimary: boolean }) => void;
-    handleGuarantorRequestFromFollowup: () => void;
     heirsDetailsIncludeClient: (heirsDetails: Party['heirs_details']) => boolean;
     isAssignmentDeadlinePassed: (deadlineYmd: string) => boolean;
     isDebtorGovernmentEmployee: boolean;
@@ -191,11 +230,16 @@ type DebtorsSectionProps = {
     isEvictionExecutionModule: boolean;
     isHistoricalMode: boolean;
     isNonFinancialClaim: boolean;
+    /** وكيل المدين — إخفاء التبليغ وصفة طبيعي/معنوي */
+    isRepresentingDebtor?: boolean;
     multiDebtorMode: boolean;
     nextTimelineId: () => string;
-    openEditParty: (kind: 'debtor' | 'creditor', index: number) => void;
+    openEditParty: (
+        kind: 'debtor' | 'creditor',
+        index: number,
+        opts?: { forceHeirs?: boolean; party?: Party },
+    ) => void;
     openEvictionResidentialGraceModal: () => void;
-    openGuarantorDetailsModal: () => void;
     openHeirsNotificationCenter: () => void;
     openHeirsQuickView: (party: Party, kind: 'debtor' | 'creditor', title: string) => void;
     openPoliceAssistanceFromBadge: () => void;
@@ -219,7 +263,6 @@ type DebtorsSectionProps = {
     publicationNoticeDeadlineYmd: (publicationDateYmd: string) => string;
     pushTimelineEvent: (event: TimelineEvent) => void;
     realEstateSeizureAssets: RealEstateSeizureAsset[];
-    requestGuarantorSeizure: (kind: 'salary' | 'movable' | 'property') => void;
     saveSummonsMarkerPurposeEdit: () => void;
     seizedAssets: SeizedAsset[];
     setDebtorSummonsMarkerLocal: Dispatch<SetStateAction<SummonsMarker | null>>;
@@ -227,11 +270,6 @@ type DebtorsSectionProps = {
     setEvictionGraceDecisionId: Dispatch<SetStateAction<string | null>>;
     setExecutionDebtorTabIndex: Dispatch<SetStateAction<number>>;
     setExecutionMemoBadgePopoverOpen: Dispatch<SetStateAction<boolean>>;
-    setExecutionStorageTick: Dispatch<SetStateAction<number>>;
-    setGuarantorMenuOpen: Dispatch<SetStateAction<boolean>>;
-    setGuarantorReplaceConfirmOpen: Dispatch<SetStateAction<boolean>>;
-    setGuarantorSeizureOpen: Dispatch<SetStateAction<boolean>>;
-    setGuarantorUnlinkConfirmOpen: Dispatch<SetStateAction<boolean>>;
     setShowDecisionsModal: (show: boolean) => void;
     setShowExtraDebtors: Dispatch<SetStateAction<boolean>>;
     setShowUnifiedSummonsModal: (show: boolean) => void;
@@ -241,48 +279,58 @@ type DebtorsSectionProps = {
     >;
     setSummonsMarkerPopoverOpen: Dispatch<SetStateAction<boolean>>;
     setSummonsPurposeDraft: Dispatch<SetStateAction<string>>;
-    setTimelineEvents: Dispatch<SetStateAction<TimelineEvent[]>>;
-    shouldShowEmployeeSalaryCapture: (params: {
-        profile: DebtorSummonsProfile;
-        claimType: string;
-        parsedLawyerFees: number;
-    }) => boolean;
     showDebtorSummonsAttendanceBadge: boolean;
     showDebtorUnservedMemoBadge: boolean;
     showExtraDebtors: boolean;
-    showSalaryCaptureForEmployee: boolean;
     showToast: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
     smExecutionTarget: string | null;
     smHasGuarantorFile: boolean;
+    hideAllGuarantorPresence?: boolean;
     standaloneExecutionMarks: StandaloneExecutionMark[];
-    storageCache: {
-        get: (key: string) => unknown;
-        set: (key: string, value: unknown) => void;
-    };
     summonsMarkerPopoverOpen: boolean;
     summonsPurposeDraft: string;
     thirdPartySeizureAssets: ThirdPartySeizureAsset[];
     timelineDebtorMetadata: (debtorKey: string) => Record<string, unknown>;
-    toggleDebtorExpanded: (debtorKey: string) => void;
     toggleEvictionGracePinned: () => void;
     viewExecutionData: ExecutionFile | null;
     voluntaryAttendanceCount: number;
 };
 
-export const DebtorsSection = (props: DebtorsSectionProps) => {
+export type DebtorsSectionHandle = {
+    expandDebtor: (debtorKey: string) => void;
+};
+
+export const DebtorsSection = forwardRef<DebtorsSectionHandle, DebtorsSectionProps>(function DebtorsSection(
+    props,
+    ref
+) {
+    const expandControlsRef = useRef(new Map<string, () => void>());
+
+    const registerExpandControl = useCallback<ExpandControlRegistrar>((debtorKey, expand) => {
+        expandControlsRef.current.set(debtorKey, expand);
+        return () => {
+            expandControlsRef.current.delete(debtorKey);
+        };
+    }, []);
+
+    useImperativeHandle(
+        ref,
+        () => ({
+            expandDebtor: (debtorKey: string) => {
+                expandControlsRef.current.get(debtorKey)?.();
+            },
+        }),
+        []
+    );
+
     const {
         Bell,
         Calendar,
         DebtorSeizureCategoryBadges,
-        DollarSign,
         ExecutionPartyInteractiveBadges,
-        ExecutionPartySpecialActionsMenu,
         MapPin,
-        MoreVertical,
         PartyOverflowToggle,
-        Pencil,
         Phone,
-        Wallet,
         X,
         activeCoerciveActions,
         activeDebtorHeirsForNotification,
@@ -290,7 +338,6 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
         activeNoticeState,
         activeTimelineEvents,
         activeTimelineEventsDebtorScoped,
-        archiveAndClearGuarantor,
         buildDebtorSummonsMarkerPatchForKey,
         buildEmployeeAssignmentPatchForDebtorKey,
         buildPartyHeirsRows,
@@ -300,7 +347,6 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
         completeEvictionResidentialGrace,
         completePoliceAssistance,
         computeTaklifDeadlineYmd,
-        createPortal,
         daysRemainingUntilDeadline,
         debtorArrested,
         debtorAttendedVoluntarily,
@@ -313,6 +359,7 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
         debtorWorkspaceChipStripRef,
         debtorWorkspaceEntries,
         decisionsReloadEpoch,
+        decisionsStorageExecutionId,
         dismissDebtorAbsenceBadge,
         effectiveDebtors,
         evictionGraceBadgeInfo,
@@ -320,12 +367,9 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
         executionAppealBanner,
         executionData,
         executionDebtorTabIndex,
-        executionExtras,
         executionId,
         executionMemoBadgePopoverOpen,
-        executionStorageKey,
         executionToolsTimelineLockedUi,
-        expandedDebtorById,
         forcedAttendanceIssued,
         forcedPathAttendanceSecured,
         getDebtorSummonsMarkerForKey,
@@ -334,13 +378,8 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
         getExecutionPartyDisplayName,
         getPersonalCoerciveSubtypeOutcome,
         getPublicationNoticeForDebtorKey,
-        guarantorMenuOpen,
-        guarantorReplaceConfirmOpen,
-        guarantorSeizureOpen,
-        guarantorUnlinkConfirmOpen,
         handleDebtorDeathMenuAction,
         handleDebtorEmploymentToggle,
-        handleGuarantorRequestFromFollowup,
         heirsDetailsIncludeClient,
         isAssignmentDeadlinePassed,
         isDebtorGovernmentEmployee,
@@ -348,11 +387,11 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
         isEvictionExecutionModule,
         isHistoricalMode,
         isNonFinancialClaim,
+        isRepresentingDebtor = false,
         multiDebtorMode,
         nextTimelineId,
         openEditParty,
         openEvictionResidentialGraceModal,
-        openGuarantorDetailsModal,
         openHeirsNotificationCenter,
         openHeirsQuickView,
         openPoliceAssistanceFromBadge,
@@ -368,7 +407,6 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
         publicationNoticeDeadlineYmd,
         pushTimelineEvent,
         realEstateSeizureAssets,
-        requestGuarantorSeizure,
         saveSummonsMarkerPurposeEdit,
         seizedAssets,
         setDebtorSummonsMarkerLocal,
@@ -376,11 +414,6 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
         setEvictionGraceDecisionId,
         setExecutionDebtorTabIndex,
         setExecutionMemoBadgePopoverOpen,
-        setExecutionStorageTick,
-        setGuarantorMenuOpen,
-        setGuarantorReplaceConfirmOpen,
-        setGuarantorSeizureOpen,
-        setGuarantorUnlinkConfirmOpen,
         setShowDecisionsModal,
         setShowExtraDebtors,
         setShowUnifiedSummonsModal,
@@ -388,29 +421,22 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
         setSummonsHubInitialMainTab,
         setSummonsMarkerPopoverOpen,
         setSummonsPurposeDraft,
-        setTimelineEvents,
-        shouldShowEmployeeSalaryCapture,
         showDebtorSummonsAttendanceBadge,
         showDebtorUnservedMemoBadge,
         showExtraDebtors,
-        showSalaryCaptureForEmployee,
         showToast,
         smExecutionTarget,
         smHasGuarantorFile,
+        hideAllGuarantorPresence = false,
         standaloneExecutionMarks,
-        storageCache,
         summonsMarkerPopoverOpen,
         summonsPurposeDraft,
         thirdPartySeizureAssets,
         timelineDebtorMetadata,
-        toggleDebtorExpanded,
         toggleEvictionGracePinned,
         viewExecutionData,
         voluntaryAttendanceCount
     } = props;
-
-    const [guarantorCardExpanded, setGuarantorCardExpanded] = useState(true);
-    const [debtorBadgesHiddenByKey, setDebtorBadgesHiddenByKey] = useState<Record<string, boolean>>({});
 
     const {
         customTags,
@@ -427,8 +453,8 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
     return (
         <>
 {/* DEBTOR CARD — PRIMARY DEBTOR: renders the main debtor card (most important card). Note: uses its own div.. */}
-                    <div className="mx-3 mt-2 space-y-2">
-                            <div className="space-y-2">
+                    <div className="mx-3 mt-3.5 space-y-1.5">
+                            <div className="space-y-1.5">
                                 {debtorBrowserTabsMode && debtorWorkspaceEntries.length > 0 ? (
                                     <div
                                         ref={debtorWorkspaceChipStripRef}
@@ -490,13 +516,6 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
                                                   : d.id != null && String(d.id) !== ''
                                                     ? String(d.id)
                                                     : `d-${idx}`;
-                                            const debtorOpen = expandedDebtorById[debtorKey] ?? false;
-                                            const salaryStored = isPrimary
-                                                ? executionData?.employeeSalary
-                                                : executionExtras.perDebtorSalaries?.[debtorKey];
-                                            const garnishStored = isPrimary
-                                                ? executionData?.garnishmentAmount
-                                                : executionExtras.perDebtorGarnishments?.[debtorKey];
                                             const debtorDisp = getExecutionPartyDisplayName(
                                                 d as Party,
                                                 'debtor',
@@ -511,6 +530,13 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
                                                         ? 'ورثة'
                                                         : 'وريث'
                                                     : null;
+                                            const debtorHeirsEditOnly = isPartyHeirsEditOnlyMode(
+                                                executionData,
+                                                'debtor',
+                                                d as Party,
+                                                idx,
+                                                decisionsStorageExecutionId
+                                            );
                                             const debtorPartyPreserveAppealInline =
                                                 debtorHasHeirs || debtorDisp.showDeceasedGlyph;
                                             /** منطق الموظف: يحقق إذا كان المدين موظف حكومي (لحجز الراتب) */
@@ -541,7 +567,7 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
                                                 const ad = executionData.party_multiplicity?.additionalDebtors?.find(
                                                     (a) => String(a.id) === debtorKey
                                                 );
-                                                if (ad) return ad.isEmployee !== false;
+                                                if (ad) return isDebtorRowEmployee(ad);
                                                 return isDebtorRowEmployee(d);
                                             })();
                                             const rowInitialWasEmployee = (() => {
@@ -565,9 +591,12 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
                                                 rowIsEmployee,
                                                 rowInitialWasEmployee
                                             );
-                                            const rowIsGovEmpEffective = useRowScopedExecProfile
-                                                ? rowIsGovEmp
-                                                : isDebtorGovernmentEmployee;
+                                            const rowEntityKind = resolveDebtorEntityKind({
+                                                executionData,
+                                                debtor: d,
+                                                debtorKey,
+                                            });
+                                            const rowIsLegalEntity = rowEntityKind === 'legal_entity';
                                             const rowDebtorSummonsProfile = useRowScopedExecProfile
                                                 ? getDebtorSummonsProfile({
                                                       isGovernmentEmployee: rowIsGovEmp || rowIsRetired,
@@ -577,19 +606,14 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
                                                       isNonFinancialClaim,
                                                   })
                                                 : debtorSummonsProfile;
-                                            const rowShowSalaryCaptureForEmployee = useRowScopedExecProfile
-                                                ? shouldShowEmployeeSalaryCapture({
-                                                      profile: rowDebtorSummonsProfile,
-                                                      claimType: claimType || '',
-                                                      parsedLawyerFees,
-                                                  })
-                                                : showSalaryCaptureForEmployee;
                                             const rowIsDeceased = Boolean(
                                                 (d as { isDeceased?: boolean })?.isDeceased ||
                                                     (isPrimary && executionData?.is_debtor_deceased)
                                             );
                                             const showDebtorNotificationPanel =
-                                                (isPrimary || debtorBrowserTabsMode) && !rowIsDeceased;
+                                                (isPrimary || debtorBrowserTabsMode) &&
+                                                !rowIsDeceased &&
+                                                !isRepresentingDebtor;
                                             const rowPublicationNoticeBadge: PublicationNoticeBadgeInfo | null =
                                                 (() => {
                                                     if (rowIsDeceased) return null;
@@ -714,6 +738,12 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
                                             } else if (rowRegularTablighBadge) {
                                                 rowShowSummonsBadge = true;
                                             }
+                                            if (isRepresentingDebtor) {
+                                                rowShowSummonsBadge = false;
+                                                rowRegularTablighBadge = null;
+                                                rowMemoNoticeBadge = null;
+                                                rowPublicationNoticeBadgeResolved = null;
+                                            }
                                             const rowForcedAttendancePending = rowIsEmployee
                                                 ? (() => {
                                                       const ra = executionData
@@ -761,61 +791,26 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
                                                               'absconded'
                                                       );
                                                   })();
-                                            return (
-                                            <div key={debtorKey} className="mt-2 w-full flex flex-col gap-6" dir="rtl">
-                                            <div
-                                                className="relative w-full h-fit px-3 pb-2.5 pt-2 text-right backdrop-blur-2xl transition-all duration-300 ease-in-out overflow-hidden rounded-2xl border border-rose-500/25 bg-[#0B1120]/35 shadow-[0_14px_46px_rgba(0,0,0,0.45)] ring-1 ring-rose-500/10 hover:ring-rose-500/20"
-                                                style={{
-                                                    backgroundImage:
-                                                        'linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 55%, rgba(0,0,0,0) 100%),' +
-                                                        'repeating-linear-gradient(45deg, rgba(255,255,255,0.045) 0px, rgba(255,255,255,0.045) 1px, transparent 1px, transparent 16px),' +
-                                                        'repeating-linear-gradient(135deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 16px)',
-                                                    backgroundBlendMode: 'overlay',
-                                                }}
-                                            >
-                                                    {!debtorOpen ? (
-                                                        <button
-                                                            type="button"
-                                                            className="absolute inset-0 z-0 rounded-2xl"
-                                                            aria-label="Expand debtor"
-                                                            onClick={() => requestAnimationFrame(() => toggleDebtorExpanded(debtorKey))}
-                                                            onKeyDown={(e) => {
-                                                                if (e.key === 'Enter' || e.key === ' ') {
-                                                                    e.preventDefault();
-                                                                    requestAnimationFrame(() => toggleDebtorExpanded(debtorKey));
-                                                                }
-                                                            }}
-                                                        />
-                                                    ) : null}
-                                                    <div className="relative z-10">
-                                                    <span className="pointer-events-none absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1/2 select-none whitespace-nowrap rounded-full border border-rose-400/35 bg-[#0B1120]/80 px-3 py-1 text-[11px] font-extrabold leading-none text-rose-300 shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur-xl">
-                                                        المدين
-                                                        {multiDebtorMode ? (
-                                                            <span className="mr-1 inline text-[9px] font-semibold text-rose-300/85">
-                                                                ·إضافي
-                                                            </span>
-                                                        ) : effectiveDebtors.length > 1 ? (
-                                                            <span className="ms-0.5 inline tabular-nums text-[10px] font-bold text-rose-300/90">
-                                                                {idx + 1}
-                                                            </span>
-                                                        ) : null}
+                                            const debtorBadgeExtra =
+                                                debtorWorkspaceEntries.length > 1 ? (
+                                                    <span className="tabular-nums text-[10px] font-bold opacity-90">
+                                                        {idx + 1}
                                                     </span>
+                                                ) : null;
+                                            return (
+                                            <div key={debtorKey} className="mt-2 w-full" dir="rtl">
+                                            <DebtorPartyCard
+                                                debtorKey={debtorKey}
+                                                registerExpandControl={registerExpandControl}
+                                                badgeExtra={debtorBadgeExtra}
+                                                collapsed={
                                                     <div
                                                         className="flex w-full items-center justify-between gap-2"
                                                         dir="rtl"
                                                     >
                                                         {isPrimary && (
                                                             <div
-                                                                role="button"
-                                                                tabIndex={0}
-                                                                className="flex min-w-0 flex-1 cursor-pointer flex-col items-stretch gap-0.5 text-right"
-                                                                onClick={() => requestAnimationFrame(() => toggleDebtorExpanded(debtorKey))}
-                                                                onKeyDown={(e) => {
-                                                                    if (e.key === 'Enter' || e.key === ' ') {
-                                                                        e.preventDefault();
-                                                                        requestAnimationFrame(() => toggleDebtorExpanded(debtorKey));
-                                                                    }
-                                                                }}
+                                                                className="flex min-w-0 flex-1 flex-col items-stretch gap-0 text-right"
                                                             >
                                                                 <div
                                                                     className="flex w-full min-w-0 flex-row flex-nowrap items-center justify-center gap-2 overflow-hidden"
@@ -826,33 +821,25 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
                                                                         dir="rtl"
                                                                     >
                                                                         {debtorHeirsWord ? (
-                                                                            <span
-                                                                                className="shrink-0 text-amber-500 text-xl font-bold cursor-pointer hover:underline"
-                                                                                role="button"
-                                                                                tabIndex={0}
-                                                                                onClick={(e) => {
-                                                                                    e.preventDefault();
-                                                                                    e.stopPropagation();
-                                                                                    openHeirsQuickView(d as Party, 'debtor', 'ورثة المدين');
-                                                                                }}
-                                                                                onKeyDown={(e) => {
-                                                                                    if (e.key === 'Enter' || e.key === ' ') {
-                                                                                        e.preventDefault();
-                                                                                        e.stopPropagation();
-                                                                                        openHeirsQuickView(d as Party, 'debtor', 'ورثة المدين');
-                                                                                    }
-                                                                                }}
-                                                                            >
-                                                                                {debtorHeirsWord}
-                                                                            </span>
+                                                                            <HeirsQuickViewTrigger
+                                                                                label={debtorHeirsWord}
+                                                                                onOpen={() =>
+                                                                                    openHeirsQuickView(
+                                                                                        d as Party,
+                                                                                        'debtor',
+                                                                                        'ورثة المدين'
+                                                                                    )
+                                                                                }
+                                                                            />
                                                                         ) : null}
-                                                                        <span className="min-w-0 max-w-full truncate text-center text-xl font-bold leading-tight text-white py-2 block">
+                                                                        <span className="min-w-0 max-w-full truncate text-center text-xl font-bold leading-tight text-white block">
                                                                             {debtorHeirsWord ? debtorDisp.baseName : debtorDisp.text}
                                                                             {(debtorHasHeirs
                                                                                 ? heirsDetailsIncludeClient(
                                                                                       d.heirs_details
                                                                                   )
                                                                                 : d.isClient) &&
+                                                                            !rowIsLegalEntity &&
                                                                             !debtorDisp.showDeceasedGlyph ? (
                                                                                 <span
                                                                                     className="ms-1 inline-block text-[#E6C673] text-[14px] leading-none select-none"
@@ -866,81 +853,59 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
                                                                     </div>
                                                                 </div>
                                                                 <div
-                                                                    className="flex flex-wrap justify-center items-center gap-2 mt-3"
+                                                                    className="flex flex-wrap justify-center items-center gap-1.5 mt-1"
                                                                     onClick={e => e.stopPropagation()}
                                                                     onKeyDown={e => e.stopPropagation()}
                                                                     role="presentation"
                                                                     dir="rtl"
                                                                 >
-                                                                    {debtorTags(debtorKey).map(tag => (
-                                                                        <span key={tag} className="inline-flex items-center gap-1 border border-dashed border-gray-500/50 text-gray-400 bg-transparent px-2 py-0.5 rounded text-[10px] leading-tight select-none">
-                                                                            {tag}
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() => handleRemoveTag(debtorKey, tag)}
-                                                                                className="text-gray-500 hover:text-rose-300 transition-colors leading-none"
-                                                                            >
-                                                                                ✕
-                                                                            </button>
-                                                                        </span>
-                                                                    ))}
-                                                                    {tagInputOpen[debtorKey] ? (
-                                                                        <span className="inline-flex items-center gap-1">
-                                                                            <input
-                                                                                type="text"
-                                                                                value={tagDrafts[debtorKey] ?? ''}
-                                                                                onChange={e => setTagDrafts(prev => ({ ...prev, [debtorKey]: e.target.value }))}
-                                                                                onKeyDown={e => {
-                                                                                    if (e.key === 'Enter') { e.preventDefault(); handleAddTag(debtorKey); }
-                                                                                    if (e.key === 'Escape') { setTagInputOpen(prev => ({ ...prev, [debtorKey]: false })); setTagDrafts(prev => ({ ...prev, [debtorKey]: '' })); }
-                                                                                }}
-                                                                                placeholder="وسم..."
-                                                                                className="w-20 rounded border border-dashed border-gray-500/40 bg-transparent px-1.5 py-0.5 text-[10px] text-gray-300 placeholder:text-gray-600 focus:border-amber-400/40 focus:outline-none"
-                                                                                autoFocus
-                                                                            />
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() => handleAddTag(debtorKey)}
-                                                                                className="text-[10px] text-gray-500 hover:text-emerald-300 transition-colors"
-                                                                            >
-                                                                                حفظ
-                                                                            </button>
-                                                                        </span>
-                                                                    ) : (
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => { setTagDrafts(prev => ({ ...prev, [debtorKey]: '' })); setTagInputOpen(prev => ({ ...prev, [debtorKey]: true })); }}
-                                                                            className="inline-flex items-center gap-0.5 border border-dashed border-gray-500/30 text-gray-500 bg-transparent px-1.5 py-0.5 rounded text-[10px] leading-tight hover:border-gray-400/50 hover:text-gray-300 transition-colors"
-                                                                        >
-                                                                            + إضافة وسم
-                                                                        </button>
-                                                                    )}
-                                                                    {debtorOpen && (() => {
-                                                                        const hasSeizureBadges =
-                                                                            (seizedAssets?.length || 0) > 0 ||
-                                                                            (realEstateSeizureAssets?.length || 0) > 0 ||
-                                                                            (thirdPartySeizureAssets?.length || 0) > 0 ||
-                                                                            (standaloneExecutionMarks?.length || 0) > 0;
-                                                                        const showInteractive = Boolean(isPrimary || debtorBrowserTabsMode);
-                                                                        if (!hasSeizureBadges && !showInteractive) return null;
-                                                                        const hidden = Boolean(debtorBadgesHiddenByKey[debtorKey]);
-                                                                        return (
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() =>
-                                                                                    setDebtorBadgesHiddenByKey((prev) => ({
-                                                                                        ...prev,
-                                                                                        [debtorKey]: !hidden,
-                                                                                    }))
-                                                                                }
-                                                                                className="inline-flex items-center justify-center rounded-md border border-white/10 bg-white/5 px-1.5 py-1 text-slate-200 hover:bg-white/10"
-                                                                                aria-label={hidden ? 'إظهار الإشارات أسفل المدين' : 'إخفاء الإشارات'}
-                                                                                title={hidden ? 'إظهار الإشارات' : 'إخفاء الإشارات'}
-                                                                            >
-                                                                                {hidden ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-                                                                            </button>
-                                                                        );
-                                                                    })()}
+                                                                    {!isRepresentingDebtor ? (
+                                                                        <>
+                                                                            {debtorTags(debtorKey).map(tag => (
+                                                                                <span key={tag} className="inline-flex items-center gap-1 border border-dashed border-gray-500/50 text-gray-400 bg-transparent px-2 py-0.5 rounded text-[10px] leading-tight select-none">
+                                                                                    {tag}
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => handleRemoveTag(debtorKey, tag)}
+                                                                                        className="text-gray-500 hover:text-rose-300 transition-colors leading-none"
+                                                                                    >
+                                                                                        ✕
+                                                                                    </button>
+                                                                                </span>
+                                                                            ))}
+                                                                            {tagInputOpen[debtorKey] ? (
+                                                                                <span className="inline-flex items-center gap-1">
+                                                                                    <input
+                                                                                        type="text"
+                                                                                        value={tagDrafts[debtorKey] ?? ''}
+                                                                                        onChange={e => setTagDrafts(prev => ({ ...prev, [debtorKey]: e.target.value }))}
+                                                                                        onKeyDown={e => {
+                                                                                            if (e.key === 'Enter') { e.preventDefault(); handleAddTag(debtorKey); }
+                                                                                            if (e.key === 'Escape') { setTagInputOpen(prev => ({ ...prev, [debtorKey]: false })); setTagDrafts(prev => ({ ...prev, [debtorKey]: '' })); }
+                                                                                        }}
+                                                                                        placeholder="وسم..."
+                                                                                        className="w-20 rounded border border-dashed border-gray-500/40 bg-transparent px-1.5 py-0.5 text-[10px] text-gray-300 placeholder:text-gray-600 focus:border-amber-400/40 focus:outline-none"
+                                                                                        autoFocus
+                                                                                    />
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => handleAddTag(debtorKey)}
+                                                                                        className="text-[10px] text-gray-500 hover:text-emerald-300 transition-colors"
+                                                                                    >
+                                                                                        حفظ
+                                                                                    </button>
+                                                                                </span>
+                                                                            ) : (
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => { setTagDrafts(prev => ({ ...prev, [debtorKey]: '' })); setTagInputOpen(prev => ({ ...prev, [debtorKey]: true })); }}
+                                                                                    className="inline-flex items-center gap-0.5 border border-dashed border-gray-500/30 text-gray-500 bg-transparent px-1.5 py-0.5 rounded text-[10px] leading-tight hover:border-gray-400/50 hover:text-gray-300 transition-colors"
+                                                                                >
+                                                                                    + إضافة وسم
+                                                                                </button>
+                                                                            )}
+                                                                        </>
+                                                                    ) : null}
                                                                     {debtorDisp.showDeceasedGlyph && !debtorHeirsWord ? (
                                                                         <span className="shrink-0 rounded-md border border-rose-500/40 bg-rose-950/40 px-1.5 py-0.5 text-[10px] font-bold leading-none text-rose-200/95 select-none">
                                                                             متوفى
@@ -980,6 +945,7 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
                                                                     {null}
                                                                 </div>
                                                                 {(() => {
+                                                                    if (isRepresentingDebtor) return null;
                                                                     const hasSeizureBadges =
                                                                         (seizedAssets?.length || 0) > 0 ||
                                                                         (realEstateSeizureAssets?.length || 0) > 0 ||
@@ -987,82 +953,82 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
                                                                         (standaloneExecutionMarks?.length || 0) > 0;
                                                                     const showInteractive = Boolean(isPrimary || debtorBrowserTabsMode);
                                                                     if (!hasSeizureBadges && !showInteractive) return null;
-                                                                    const hidden = Boolean(debtorBadgesHiddenByKey[debtorKey]);
                                                                     return (
                                                                         <div
-                                                                            className="flex flex-col"
+                                                                            className="mt-2 flex flex-row-reverse flex-wrap items-center justify-start gap-2"
+                                                                            dir="rtl"
                                                                             onClick={(e) => e.stopPropagation()}
                                                                             onKeyDown={(e) => e.stopPropagation()}
                                                                             role="presentation"
                                                                         >
-                                                                            {!hidden ? (
-                                                                                <>
-                                                                                    {hasSeizureBadges ? (
-                                                                                        <DebtorSeizureCategoryBadges
-                                                                                            seizedAssets={seizedAssets}
-                                                                                            realEstateSeizureAssets={realEstateSeizureAssets}
-                                                                                            thirdPartySeizureAssets={thirdPartySeizureAssets}
-                                                                                            standaloneExecutionMarks={standaloneExecutionMarks}
-                                                                                        />
-                                                                                    ) : null}
-
-                                                                                    {showInteractive ? (
-                                                                                        <div className="mt-2 flex flex-row-reverse flex-wrap items-center justify-start gap-1">
-                                                                                            <ExecutionPartyInteractiveBadges
-                                                                                                executionId={partyBadgesExecutionId}
-                                                                                                party="debtor"
-                                                                                                isPrimaryDebtor={isPrimary}
-                                                                                                executionData={viewExecutionData}
-                                                                                                activeCoerciveActions={activeCoerciveActions}
-                                                                                                seizedAssets={seizedAssets}
-                                                                                                realEstateSeizureAssets={realEstateSeizureAssets}
-                                                                                                thirdPartySeizureAssets={thirdPartySeizureAssets}
-                                                                                                standaloneExecutionMarks={standaloneExecutionMarks}
-                                                                                                timelineEvents={
-                                                                                                    debtorBrowserTabsMode
-                                                                                                        ? activeTimelineEventsDebtorScoped
-                                                                                                        : activeTimelineEvents
-                                                                                                }
-                                                                                                hasGuarantor={Boolean(
-                                                                                                    smHasGuarantorFile ||
-                                                                                                        (effectiveDebtors[0] as Debtor | undefined)
-                                                                                                            ?.hasGuarantor ||
-                                                                                                        (typeof smExecutionTarget === 'string' &&
-                                                                                                            smExecutionTarget.includes('حضور')) ||
-                                                                                                        executionData?.guarantor_followup
-                                                                                                            ?.executor_approved
-                                                                                                )}
-                                                                                                memoBadge={rowMemoNoticeBadge}
-                                                                                                onMemoActivate={() => {
-                                                                                                    setSummonsMarkerPopoverOpen(false);
-                                                                                                    setExecutionMemoBadgePopoverOpen(true);
-                                                                                                }}
-                                                                                                evictionGraceBadge={
-                                                                                                    isPrimary
-                                                                                                        ? evictionGraceBadgeInfo
-                                                                                                        : null
-                                                                                                }
-                                                                                                evictionGracePinned={evictionGracePinned}
-                                                                                                onToggleEvictionGracePinned={toggleEvictionGracePinned}
-                                                                                                onEvictionGraceActivate={
-                                                                                                    isPrimary && evictionGraceBadgeInfo
-                                                                                                        ? () => {
-                                                                                                              setEvictionGraceDecisionId(null);
-                                                                                                              openEvictionResidentialGraceModal();
-                                                                                                          }
-                                                                                                        : undefined
-                                                                                                }
-                                                                                                onCompleteEvictionGrace={
-                                                                                                    isPrimary && evictionGraceBadgeInfo
-                                                                                                        ? completeEvictionResidentialGrace
-                                                                                                        : undefined
-                                                                                                }
-                                                                                                policeAssistanceBadge={
-                                                                                                    isPrimary
-                                                                                                        ? policeAssistanceBadgeInfo
-                                                                                                        : null
-                                                                                                }
-                                                                                                onPoliceAssistanceActivate={
+                                                                            {showInteractive ? (
+                                                                                <ExecutionPartyInteractiveBadges
+                                                                                    embeddedInRow
+                                                                                    executionId={partyBadgesExecutionId}
+                                                                                    party="debtor"
+                                                                                    isPrimaryDebtor={isPrimary}
+                                                                                    executionData={viewExecutionData}
+                                                                                    activeCoerciveActions={activeCoerciveActions}
+                                                                                    seizedAssets={seizedAssets}
+                                                                                    realEstateSeizureAssets={realEstateSeizureAssets}
+                                                                                    thirdPartySeizureAssets={thirdPartySeizureAssets}
+                                                                                    standaloneExecutionMarks={standaloneExecutionMarks}
+                                                                                    timelineEvents={
+                                                                                        debtorBrowserTabsMode
+                                                                                            ? activeTimelineEventsDebtorScoped
+                                                                                            : activeTimelineEvents
+                                                                                    }
+                                                                                    hasGuarantor={
+                                                                                        hideAllGuarantorPresence
+                                                                                            ? false
+                                                                                            : Boolean(
+                                                                                                  smHasGuarantorFile ||
+                                                                                                      (
+                                                                                                          effectiveDebtors[0] as
+                                                                                                              | Debtor
+                                                                                                              | undefined
+                                                                                                      )?.hasGuarantor ||
+                                                                                                      (typeof smExecutionTarget ===
+                                                                                                          'string' &&
+                                                                                                          smExecutionTarget.includes(
+                                                                                                              'حضور'
+                                                                                                          )) ||
+                                                                                                      executionData
+                                                                                                          ?.guarantor_followup
+                                                                                                          ?.executor_approved
+                                                                                              )
+                                                                                    }
+                                                                                    memoBadge={rowMemoNoticeBadge}
+                                                                                    onMemoActivate={() => {
+                                                                                        setSummonsMarkerPopoverOpen(false);
+                                                                                        setExecutionMemoBadgePopoverOpen(true);
+                                                                                    }}
+                                                                                    evictionGraceBadge={
+                                                                                        isPrimary
+                                                                                            ? evictionGraceBadgeInfo
+                                                                                            : null
+                                                                                    }
+                                                                                    evictionGracePinned={evictionGracePinned}
+                                                                                    onToggleEvictionGracePinned={toggleEvictionGracePinned}
+                                                                                    onEvictionGraceActivate={
+                                                                                        isPrimary && evictionGraceBadgeInfo
+                                                                                            ? () => {
+                                                                                                  setEvictionGraceDecisionId(null);
+                                                                                                  openEvictionResidentialGraceModal();
+                                                                                              }
+                                                                                            : undefined
+                                                                                    }
+                                                                                    onCompleteEvictionGrace={
+                                                                                        isPrimary && evictionGraceBadgeInfo
+                                                                                            ? completeEvictionResidentialGrace
+                                                                                            : undefined
+                                                                                    }
+                                                                                    policeAssistanceBadge={
+                                                                                        isPrimary
+                                                                                            ? policeAssistanceBadgeInfo
+                                                                                            : null
+                                                                                    }
+                                                                                    onPoliceAssistanceActivate={
                                                                                                     isPrimary && policeAssistanceBadgeInfo
                                                                                                         ? openPoliceAssistanceFromBadge
                                                                                                         : undefined
@@ -1145,11 +1111,86 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
                                                                                                 debtorArrested={Boolean(
                                                                                                     debtorArrested || executionData?.debtorArrested
                                                                                                 )}
-                                                                                                onPersistGuarantorFollowup={persistGuarantorFollowupDetails}
+                                                                                                onPersistGuarantorFollowup={
+                                                                                                    hideAllGuarantorPresence
+                                                                                                        ? undefined
+                                                                                                        : persistGuarantorFollowupDetails
+                                                                                                }
                                                                                                 personalCoerciveDecisionBadges={!rowIsEmployee}
+                                                                                                debtorIsEmployee={rowIsEmployee}
                                                                                                 activeDebtorKey={String(debtorKey)}
                                                                                                 primaryDebtorKey={primaryDebtorKeyResolved}
                                                                                                 forcedAttendancePending={rowForcedAttendancePending}
+                                                                                                onWithdrawTravelBan={
+                                                                                                    isPrimary &&
+                                                                                                    !rowIsEmployee &&
+                                                                                                    executionData?.id
+                                                                                                        ? () => {
+                                                                                                              if (
+                                                                                                                  !window.confirm(
+                                                                                                                      'سيتم سحب طلب منع السفر وإخفاء الشارة. هل تريد المتابعة؟'
+                                                                                                                  )
+                                                                                                              ) {
+                                                                                                                  return;
+                                                                                                              }
+                                                                                                              const now =
+                                                                                                                  new Date().toISOString();
+                                                                                                              const exId = String(
+                                                                                                                  decisionsStorageExecutionId ||
+                                                                                                                      executionData.id ||
+                                                                                                                      ''
+                                                                                                              ).trim();
+                                                                                                              const rows =
+                                                                                                                  readExecutorDecisionsArray(
+                                                                                                                      exId
+                                                                                                                  );
+                                                                                                              const last = rows.find(
+                                                                                                                  (r) =>
+                                                                                                                      String(
+                                                                                                                          (r as { requestKind?: string })
+                                                                                                                              .requestKind || ''
+                                                                                                                      ) === 'personal_coercive' &&
+                                                                                                                      String(
+                                                                                                                          (r as { personalCoerciveSubtype?: string })
+                                                                                                                              .personalCoerciveSubtype || ''
+                                                                                                                      ) === 'travel_ban'
+                                                                                                              );
+                                                                                                              const did = String(
+                                                                                                                  (last as { id?: string })?.id || ''
+                                                                                                              ).trim();
+                                                                                                              if (did) {
+                                                                                                                  patchExecutorDecisionRow(exId, did, {
+                                                                                                                      lawyerWithdrawn: true,
+                                                                                                                      executorOutcome: 'withdrawn',
+                                                                                                                      personalCoerciveWithdrawnAt: now,
+                                                                                                                  });
+                                                                                                              }
+                                                                                                              dispatchDecisionsReload();
+                                                                                                              persistExecutionMerge({
+                                                                                                                  debtor_travel_ban_active: false,
+                                                                                                                  travel_ban_withdrawn_at: now,
+                                                                                                              });
+                                                                                                              pushTimelineEvent({
+                                                                                                                  id: nextTimelineId(),
+                                                                                                                  date: now.slice(0, 10),
+                                                                                                                  timestamp: now,
+                                                                                                                  title: '↩️ التراجع عن طلب منع السفر',
+                                                                                                                  description:
+                                                                                                                      'إعادة دورة طلب منع السفر.',
+                                                                                                                  type: 'coercive',
+                                                                                                                  source: 'بطاقة المدين',
+                                                                                                                  metadata:
+                                                                                                                      timelineDebtorMetadata(
+                                                                                                                          debtorKey
+                                                                                                                      ),
+                                                                                                              });
+                                                                                                              showToast(
+                                                                                                                  'تم التراجع عن منع السفر.',
+                                                                                                                  'success'
+                                                                                                              );
+                                                                                                          }
+                                                                                                        : undefined
+                                                                                                }
                                                                                                 taklifAssignmentBadge={rowTaklifAssignmentBadge}
                                                                                                 onTaklifAssignmentActivate={
                                                                                                     rowTaklifAssignmentBadge
@@ -1208,9 +1249,15 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
                                                                                                 decisionsReloadEpoch={decisionsReloadEpoch}
                                                                                                 isHistoricalMode={isHistoricalMode}
                                                                                             />
-                                                                                        </div>
-                                                                                    ) : null}
-                                                                                </>
+                                                                            ) : null}
+                                                                            {hasSeizureBadges ? (
+                                                                                <DebtorSeizureCategoryBadges
+                                                                                    embeddedInRow
+                                                                                    seizedAssets={seizedAssets}
+                                                                                    realEstateSeizureAssets={realEstateSeizureAssets}
+                                                                                    thirdPartySeizureAssets={thirdPartySeizureAssets}
+                                                                                    standaloneExecutionMarks={standaloneExecutionMarks}
+                                                                                />
                                                                             ) : null}
                                                                         </div>
                                                                     );
@@ -1218,18 +1265,7 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
                                                             </div>
                                                         )}
                                                         {!isPrimary && (
-                                                            <div
-                                                                role="button"
-                                                                tabIndex={0}
-                                                                className="min-w-0 flex-1 cursor-pointer text-right"
-                                                                onClick={() => requestAnimationFrame(() => toggleDebtorExpanded(debtorKey))}
-                                                                onKeyDown={(e) => {
-                                                                    if (e.key === 'Enter' || e.key === ' ') {
-                                                                        e.preventDefault();
-                                                                        requestAnimationFrame(() => toggleDebtorExpanded(debtorKey));
-                                                                    }
-                                                                }}
-                                                            >
+                                                            <div className="min-w-0 flex-1 text-right">
                                                                 <div
                                                                     className="flex w-full min-w-0 flex-col items-stretch gap-1"
                                                                     dir="rtl"
@@ -1243,44 +1279,25 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
                                                                             dir="rtl"
                                                                         >
                                                                             {debtorHeirsWord ? (
-                                                                                <span
-                                                                                    className="shrink-0 text-amber-500 text-xl font-bold cursor-pointer hover:underline"
-                                                                                    role="button"
-                                                                                    tabIndex={0}
-                                                                                    onClick={(e) => {
-                                                                                        e.preventDefault();
-                                                                                        e.stopPropagation();
-                                                                                        openHeirsQuickView(d as Party, 'debtor', 'الراتب');
-                                                                                    }}
-                                                                                    onKeyDown={(e) => {
-                                                                                        if (e.key === 'Enter' || e.key === ' ') {
-                                                                                            e.preventDefault();
-                                                                                            e.stopPropagation();
-                                                                                            openHeirsQuickView(d as Party, 'debtor', 'الراتب');
-                                                                                        }
-                                                                                    }}
-                                                                                >
-                                                                                    {debtorHeirsWord}
-                                                                                </span>
+                                                                                <HeirsQuickViewTrigger
+                                                                                    label={debtorHeirsWord}
+                                                                                    onOpen={() =>
+                                                                                        openHeirsQuickView(
+                                                                                            d as Party,
+                                                                                            'debtor',
+                                                                                            'ورثة المدين'
+                                                                                        )
+                                                                                    }
+                                                                                />
                                                                             ) : null}
-                                                                            <span
-                                                                                className="min-w-0 max-w-full truncate text-center text-xl font-bold leading-tight text-white"
-                                                                                style={
-                                                                                    isPrimary && idx === 0
-                                                                                        ? {
-                                                                                              paddingTop: 10,
-                                                                                              paddingBottom: 10,
-                                                                                              display: 'block',
-                                                                                          }
-                                                                                        : undefined
-                                                                                }
-                                                                            >
+                                                                            <span className="min-w-0 max-w-full truncate text-center text-xl font-bold leading-tight text-white">
                                                                                 {debtorHeirsWord ? debtorDisp.baseName : debtorDisp.text}
                                                                                 {(debtorHasHeirs
                                                                                     ? heirsDetailsIncludeClient(
                                                                                           d.heirs_details
                                                                                       )
                                                                                     : d.isClient) &&
+                                                                                !rowIsLegalEntity &&
                                                                                 !debtorDisp.showDeceasedGlyph ? (
                                                                                     <span
                                                                                         className="ms-1 inline-block text-[#E6C673] text-[14px] leading-none select-none"
@@ -1294,55 +1311,59 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
                                                                         </div>
                                                                     </div>
                                                                     <div
-                                                                        className="flex flex-wrap justify-center items-center gap-2 mt-3"
+                                                                        className="flex flex-wrap justify-center items-center gap-1.5 mt-1"
                                                                         onClick={e => e.stopPropagation()}
                                                                         onKeyDown={e => e.stopPropagation()}
                                                                         role="presentation"
                                                                         dir="rtl"
                                                                     >
-                                                                        {debtorTags(debtorKey).map(tag => (
-                                                                            <span key={tag} className="inline-flex items-center gap-1 border border-dashed border-gray-500/50 text-gray-400 bg-transparent px-2 py-0.5 rounded text-[10px] leading-tight select-none">
-                                                                                {tag}
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => handleRemoveTag(debtorKey, tag)}
-                                                                                    className="text-gray-500 hover:text-rose-300 transition-colors leading-none"
-                                                                                >
-                                                                                    ✕
-                                                                                </button>
-                                                                            </span>
-                                                                        ))}
-                                                                        {tagInputOpen[debtorKey] ? (
-                                                                            <span className="inline-flex items-center gap-1">
-                                                                                <input
-                                                                                    type="text"
-                                                                                    value={tagDrafts[debtorKey] ?? ''}
-                                                                                    onChange={e => setTagDrafts(prev => ({ ...prev, [debtorKey]: e.target.value }))}
-                                                                                    onKeyDown={e => {
-                                                                                        if (e.key === 'Enter') { e.preventDefault(); handleAddTag(debtorKey); }
-                                                                                        if (e.key === 'Escape') { setTagInputOpen(prev => ({ ...prev, [debtorKey]: false })); setTagDrafts(prev => ({ ...prev, [debtorKey]: '' })); }
-                                                                                    }}
-                                                                                    placeholder="وسم..."
-                                                                                    className="w-20 rounded border border-dashed border-gray-500/40 bg-transparent px-1.5 py-0.5 text-[10px] text-gray-300 placeholder:text-gray-600 focus:border-amber-400/40 focus:outline-none"
-                                                                                    autoFocus
-                                                                                />
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => handleAddTag(debtorKey)}
-                                                                                    className="text-[10px] text-gray-500 hover:text-emerald-300 transition-colors"
-                                                                                >
-                                                                                    حفظ
-                                                                                </button>
-                                                                            </span>
-                                                                        ) : (
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() => { setTagDrafts(prev => ({ ...prev, [debtorKey]: '' })); setTagInputOpen(prev => ({ ...prev, [debtorKey]: true })); }}
-                                                                                className="inline-flex items-center gap-0.5 border border-dashed border-gray-500/30 text-gray-500 bg-transparent px-1.5 py-0.5 rounded text-[10px] leading-tight hover:border-gray-400/50 hover:text-gray-300 transition-colors"
-                                                                            >
-                                                                                + إضافة وسم
-                                                                            </button>
-                                                                        )}
+                                                                        {!isRepresentingDebtor ? (
+                                                                            <>
+                                                                                {debtorTags(debtorKey).map(tag => (
+                                                                                    <span key={tag} className="inline-flex items-center gap-1 border border-dashed border-gray-500/50 text-gray-400 bg-transparent px-2 py-0.5 rounded text-[10px] leading-tight select-none">
+                                                                                        {tag}
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={() => handleRemoveTag(debtorKey, tag)}
+                                                                                            className="text-gray-500 hover:text-rose-300 transition-colors leading-none"
+                                                                                        >
+                                                                                            ✕
+                                                                                        </button>
+                                                                                    </span>
+                                                                                ))}
+                                                                                {tagInputOpen[debtorKey] ? (
+                                                                                    <span className="inline-flex items-center gap-1">
+                                                                                        <input
+                                                                                            type="text"
+                                                                                            value={tagDrafts[debtorKey] ?? ''}
+                                                                                            onChange={e => setTagDrafts(prev => ({ ...prev, [debtorKey]: e.target.value }))}
+                                                                                            onKeyDown={e => {
+                                                                                                if (e.key === 'Enter') { e.preventDefault(); handleAddTag(debtorKey); }
+                                                                                                if (e.key === 'Escape') { setTagInputOpen(prev => ({ ...prev, [debtorKey]: false })); setTagDrafts(prev => ({ ...prev, [debtorKey]: '' })); }
+                                                                                            }}
+                                                                                            placeholder="وسم..."
+                                                                                            className="w-20 rounded border border-dashed border-gray-500/40 bg-transparent px-1.5 py-0.5 text-[10px] text-gray-300 placeholder:text-gray-600 focus:border-amber-400/40 focus:outline-none"
+                                                                                            autoFocus
+                                                                                        />
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={() => handleAddTag(debtorKey)}
+                                                                                            className="text-[10px] text-gray-500 hover:text-emerald-300 transition-colors"
+                                                                                        >
+                                                                                            حفظ
+                                                                                        </button>
+                                                                                    </span>
+                                                                                ) : (
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => { setTagDrafts(prev => ({ ...prev, [debtorKey]: '' })); setTagInputOpen(prev => ({ ...prev, [debtorKey]: true })); }}
+                                                                                        className="inline-flex items-center gap-0.5 border border-dashed border-gray-500/30 text-gray-500 bg-transparent px-1.5 py-0.5 rounded text-[10px] leading-tight hover:border-gray-400/50 hover:text-gray-300 transition-colors"
+                                                                                    >
+                                                                                        + إضافة وسم
+                                                                                    </button>
+                                                                                )}
+                                                                            </>
+                                                                        ) : null}
                                                                         {debtorDisp.showDeceasedGlyph && !debtorHeirsWord ? (
                                                                             <span className="shrink-0 rounded-md border border-rose-500/40 bg-rose-950/40 px-1.5 py-0.5 text-[10px] font-bold leading-none text-rose-200/95 select-none">
                                                                                 متوفى
@@ -1354,13 +1375,10 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
                                                         )}
 
                                                     </div>
-
-                                                {debtorOpen && (
-                                                    <div
-                                                        className="rounded-b-xl border-t border-rose-500/10 px-0 pb-1 pt-2 space-y-1.5 overflow-hidden text-right"
-                                                        dir="rtl"
-                                                    >
-                                                        <div className="mb-2 flex items-center justify-end px-0">
+                                                }
+                                                expanded={
+                                                    <div className="space-y-1.5 text-right" dir="rtl">
+                                                        <div className="relative z-20 mb-2 flex items-center justify-end pointer-events-auto">
                                                             <ExecutionPartySpecialActionsMenu
                                                                 variant="debtor"
                                                                 debtorDeathEntryLabel={debtorDeathMenuLabel}
@@ -1374,11 +1392,34 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
                                                                     })
                                                                 }
                                                                 debtorEmploymentToggleToKasabDisabled={false}
-																hideDebtorEmploymentToggle={Boolean(
+                                                                hideDebtorEmploymentToggle={Boolean(
 																(d as Debtor)?.isDeceased ||
-																	(isPrimary && executionData?.is_debtor_deceased)
+																	(isPrimary && executionData?.is_debtor_deceased) ||
+                                                                    rowIsLegalEntity
 															)}
                                                                 isHistoricalMode={isHistoricalMode}
+                                                                editPartyLabel={
+                                                                    debtorHeirsEditOnly
+                                                                        ? 'تعديل بيانات الورثة'
+                                                                        : 'تعديل بيانات المدين'
+                                                                }
+                                                                onEditParty={() => {
+                                                                    if (
+                                                                        multiDebtorMode &&
+                                                                        wsDebt &&
+                                                                        wsRow.fileDebtorIndex === null
+                                                                    ) {
+                                                                        showToast(
+                                                                            'لا يمكن تعديل هذا المدين من هنا بعد تسجيل الإضبارة.',
+                                                                            'info'
+                                                                        );
+                                                                        return;
+                                                                    }
+                                                                    openEditParty('debtor', idx, {
+                                                                        party: d as Party,
+                                                                        forceHeirs: debtorHeirsEditOnly,
+                                                                    });
+                                                                }}
                                                             />
                                                         </div>
                                                         {debtorDisp.heirSubstituteLines &&
@@ -1429,25 +1470,33 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
 													</div>
 											)}
                                                     <div className="flex flex-col gap-2">
-                                                        {(isPrimary || d.occupation || multiDebtorMode) || d.phone ? (
+                                                        {rowIsLegalEntity ? (
+                                                            <div className="min-w-0 rounded-lg border border-rose-500/15 bg-slate-900/35 px-2.5 py-1.5">
+                                                                <p className="mb-0.5 text-[10px] text-gray-400">
+                                                                    الصفة القانونية
+                                                                </p>
+                                                                <p className="text-xs font-medium text-slate-200 break-words">
+                                                                    معنوي
+                                                                </p>
+                                                            </div>
+                                                        ) : null}
+                                                        {!rowIsLegalEntity &&
+                                                        (isPrimary || d.occupation || multiDebtorMode) ? (
+                                                            <div className="min-w-0 rounded-lg border border-rose-500/15 bg-slate-900/35 px-2.5 py-1.5">
+                                                                <p className="mb-0.5 text-[10px] text-gray-400">
+                                                                    الحالة الوظيفية
+                                                                </p>
+                                                                <p className="text-xs font-medium text-slate-200 break-words">
+                                                                    {rowIsEmployee ? 'موظف' : 'كاسب'}
+                                                                </p>
+                                                            </div>
+                                                        ) : null}
+                                                        {d.phone || d.address ? (
                                                             <div
-                                                                className={
-                                                                    (isPrimary || d.occupation || multiDebtorMode) &&
-                                                                    d.phone
-                                                                        ? 'grid grid-cols-2 gap-2'
-                                                                        : 'grid grid-cols-1 gap-2'
-                                                                }
+                                                                className={`grid gap-2 ${
+                                                                    d.phone && d.address ? 'grid-cols-2' : 'grid-cols-1'
+                                                                }`}
                                                             >
-                                                                {(isPrimary || d.occupation || multiDebtorMode) ? (
-                                                                    <div className="min-w-0 rounded-lg border border-rose-500/15 bg-slate-900/35 px-2.5 py-1.5">
-                                                                        <p className="mb-0.5 text-[10px] text-gray-400">
-                                                                            الوظيفة
-                                                                        </p>
-                                                                        <p className="text-xs font-medium text-slate-200 break-words">
-                                                                            {rowIsEmployee ? 'موظف' : 'وريث'}
-                                                                        </p>
-                                                                    </div>
-                                                                ) : null}
                                                                 {d.phone ? (
                                                                     <div className="min-w-0 rounded-lg border border-rose-500/15 bg-slate-900/35 px-2.5 py-1.5">
                                                                         <div className="mb-0.5 flex flex-row-reverse items-center justify-end gap-1 text-[10px] text-gray-400">
@@ -1462,171 +1511,25 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
                                                                         </p>
                                                                     </div>
                                                                 ) : null}
-                                                            </div>
-                                                        ) : null}
-                                                        {d.address ? (
-                                                            <div className="min-w-0 rounded-lg border border-rose-500/15 bg-slate-900/35 px-2.5 py-1.5">
-                                                                <div className="mb-0.5 flex flex-row-reverse items-center justify-end gap-1 text-[10px] text-gray-400">
-                                                                    <span>العنوان (السكن)</span>
-                                                                    <MapPin
-                                                                        size={12}
-                                                                        className="shrink-0 text-rose-400"
-                                                                    />
-                                                                </div>
-                                                                <p className="text-xs leading-snug text-white break-words [unicode-bidi:plaintext]">
-                                                                    {d.address}
-                                                                </p>
+                                                                {d.address ? (
+                                                                    <div className="min-w-0 rounded-lg border border-rose-500/15 bg-slate-900/35 px-2.5 py-1.5">
+                                                                        <div className="mb-0.5 flex flex-row-reverse items-center justify-end gap-1 text-[10px] text-gray-400">
+                                                                            <span>العنوان (السكن)</span>
+                                                                            <MapPin
+                                                                                size={12}
+                                                                                className="shrink-0 text-rose-400"
+                                                                            />
+                                                                        </div>
+                                                                        <p className="text-xs leading-snug text-white break-words [unicode-bidi:plaintext]">
+                                                                            {d.address}
+                                                                        </p>
+                                                                    </div>
+                                                                ) : null}
                                                             </div>
                                                         ) : null}
                                                     </div>
-                                                    <div className="mt-1.5 flex justify-end border-t border-rose-500/10 pt-2">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                if (
-                                                                    multiDebtorMode &&
-                                                                    wsDebt &&
-                                                                    wsRow.fileDebtorIndex === null
-                                                                ) {
-                                                                    showToast(
-                                                                        'لا يمكن تعديل المدين الإضافي من هنا بعد تسجيل الإضبارة.',
-                                                                        'info'
-                                                                    );
-                                                                    return;
-                                                                }
-                                                                openEditParty('debtor', idx);
-                                                            }}
-                                                            className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-400 hover:text-rose-300 hover:underline"
-                                                        >
-                                                            <Pencil size={12} />
-                                                            تعديل بيانات المدين
-                                                        </button>
-                                                    </div>
-
-                                                    {rowIsEmployee &&
-                                                        !isEvictionExecutionModule &&
-                                                        rowIsGovEmpEffective &&
-                                                        rowShowSalaryCaptureForEmployee && (
-                                                        <div className="space-y-2">
-                                                            <div className="flex items-center justify-end gap-2">
-                                                                {salaryStored ? (
-                                                                    <span className="text-emerald-300 text-sm font-mono font-bold">
-                                                                        {parseFloat(String(salaryStored)).toLocaleString('ar-IQ')} د.ع.
-                                                                    </span>
-                                                                ) : (
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={async () => {
-                                                                            const salary = await SmartDialog.prompt('الراتب الشهري للمدين:', '');
-                                                                            if (!salary || isNaN(parseFloat(salary))) return;
-                                                                            const parsedSalary = parseFloat(salary);
-                                                                            const garnishment = parsedSalary / 5;
-                                                                            const persistId =
-                                                                                executionId != null && String(executionId).trim() !== ''
-                                                                                    ? String(executionId).trim()
-                                                                                    : String(executionData?.id ?? '').trim();
-                                                                            if (!persistId || persistId === 'undefined') {
-                                                                                showToast('لا يوجد معرف للإضبارة', 'warning');
-                                                                                return;
-                                                                            }
-                                                                            const lsKey = executionStorageKey(persistId);
-                                                                            const stored = storageCache.get(lsKey);
-                                                                            let execution: Record<string, unknown>;
-                                                                            if (stored) {
-                                                                                execution = typeof stored === 'object' ? { ...(stored as object) } : { ...(executionData as object) };
-                                                                            } else {
-                                                                                execution = { ...(executionData as object) };
-                                                                            }
-                                                                            if (isPrimary) {
-                                                                                execution.employeeSalary = parsedSalary;
-                                                                                execution.garnishmentAmount = garnishment;
-                                                                            } else {
-                                                                                const prevSal =
-                                                                                    execution.perDebtorSalaries != null &&
-                                                                                    typeof execution.perDebtorSalaries ===
-                                                                                        'object' &&
-                                                                                    !Array.isArray(
-                                                                                        execution.perDebtorSalaries
-                                                                                    )
-                                                                                        ? {
-                                                                                              ...(execution.perDebtorSalaries as Record<
-                                                                                                  string,
-                                                                                                  string
-                                                                                              >),
-                                                                                          }
-                                                                                        : {};
-                                                                                const prevGar =
-                                                                                    execution.perDebtorGarnishments !=
-                                                                                        null &&
-                                                                                    typeof execution.perDebtorGarnishments ===
-                                                                                        'object' &&
-                                                                                    !Array.isArray(
-                                                                                        execution.perDebtorGarnishments
-                                                                                    )
-                                                                                        ? {
-                                                                                              ...(execution.perDebtorGarnishments as Record<
-                                                                                                  string,
-                                                                                                  string
-                                                                                              >),
-                                                                                          }
-                                                                                        : {};
-                                                                                execution.perDebtorSalaries = {
-                                                                                    ...prevSal,
-                                                                                    [debtorKey]: String(parsedSalary),
-                                                                                };
-                                                                                execution.perDebtorGarnishments = {
-                                                                                    ...prevGar,
-                                                                                    [debtorKey]: String(garnishment),
-                                                                                };
-                                                                            }
-                                                                            storageCache.set(lsKey, execution);
-                                                                            const salaryEvent = {
-                                                                                id: Date.now().toString(),
-                                                                                date: new Date().toISOString(),
-                                                                                title: 'تسجيل راتب',
-                                                                                description: `${d.name || 'تسجيل راتب'} الراتب: ${parsedSalary.toLocaleString('ar-IQ')} د.ع. الحجز القانوني (1/5): ${garnishment.toLocaleString('ar-IQ')} د.ع.`,
-                                                                                type: 'payment'
-                                                                            };
-                                                                            setTimelineEvents(prev => [salaryEvent, ...prev]);
-                                                                            showToast('تم تسجيل الراتب بنجاح', 'success');
-                                                                            setExecutionStorageTick((n) => n + 1);
-                                                                        }}
-                                                                        className="bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/40 text-amber-300 px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1"
-                                                                    >
-                                                                        <DollarSign size={12} />
-                                                                        تسجيل الراتب
-                                                                    </button>
-                                                                )}
-                                                                <div className="flex items-center gap-1">
-                                                                    <Wallet size={14} className="text-amber-400" />
-                                                                    <span className="text-gray-400 text-xs">الراتب الشهري</span>
-                                                                </div>
-                                                            </div>
-                                                            {garnishStored != null && String(garnishStored) !== '' && (
-                                                                <div className="bg-amber-950/30 border border-amber-500/30 rounded-lg p-2">
-                                                                    <p className="text-amber-300 text-[10px] font-bold text-right mb-1">
-                                                                        الحجز القانوني (1/5):
-                                                                    </p>
-                                                                    <p className="text-amber-400 text-sm font-mono font-black text-right">
-                                                                        {parseFloat(String(garnishStored)).toLocaleString('ar-IQ')} د.ع.
-                                                                    </p>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                    {salaryStored && (
-                                                        <div className="rounded-lg border border-emerald-500/25 bg-emerald-950/20 p-2 text-right">
-                                                            <p className="text-[10px] text-emerald-300/90">القيمة/الراتب الشهري</p>
-                                                            <p className="text-sm font-black font-mono text-emerald-200">
-                                                                {parseFloat(String(salaryStored)).toLocaleString('ar-IQ')} د.ع.
-                                                            </p>
-                                                        </div>
-                                                    )}
-
                                                     {!d.phone && !d.address && (
                                                         <p className="text-gray-500 text-xs text-center py-2">لا توجد بيانات اتصال</p>
-                                                    )}
-                                                        </div>
                                                     )}
 
                                                     {typeof document !== 'undefined' &&
@@ -1833,349 +1736,10 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
 														</div>,
 														document.body
 												)}
-											</div>
-										</div>
-                                        {isPrimary && executionData?.guarantor_followup?.executor_approved ? (
-                                            <div className="w-full" dir="rtl">
-                                                <div className="relative rounded-2xl border border-white/10 bg-[#0A0F1C]/55 px-3 py-3">
-                                                    {guarantorMenuOpen ? (
-                                                        <div
-                                                            className="fixed inset-0 z-[9998]"
-                                                            role="presentation"
-                                                            onClick={() => setGuarantorMenuOpen(false)}
-                                                        />
-                                                    ) : null}
-                                                    {guarantorSeizureOpen ? (
-                                                        <div
-                                                            className="fixed inset-0 z-[9998]"
-                                                            role="presentation"
-                                                            onClick={() => setGuarantorSeizureOpen(false)}
-                                                        />
-                                                    ) : null}
-
-                                                    <div className="flex items-start justify-between gap-2 flex-row-reverse">
-                                                        <div className="min-w-0">
-                                                            <div className="flex items-center gap-2 flex-row-reverse">
-                                                                <p className="text-sm font-black text-white">
-                                                                    الضامن
-                                                                </p>
-                                                                <span
-                                                                    className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-bold ${
-                                                                        executionData.guarantor_followup?.guarantee_type ===
-                                                                        'attendance'
-                                                                            ? 'bg-orange-500/20 text-orange-400'
-                                                                            : 'bg-emerald-500/20 text-emerald-400'
-                                                                    }`}
-                                                                >
-                                                                    {executionData.guarantor_followup?.guarantee_type ===
-                                                                    'attendance'
-                                                                        ? 'كفالة إحضار'
-                                                                        : 'كفالة بالمبلغ'}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex shrink-0 items-center gap-2">
-                                                            <button
-                                                                type="button"
-                                                                aria-expanded={guarantorCardExpanded}
-                                                                aria-label={guarantorCardExpanded ? 'طي بطاقة الضامن' : 'توسيع بطاقة الضامن'}
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setGuarantorMenuOpen(false);
-                                                                    setGuarantorSeizureOpen(false);
-                                                                    setGuarantorCardExpanded((v) => !v);
-                                                                }}
-                                                                className="rounded-lg border border-white/10 bg-white/5 p-2 text-slate-200 hover:bg-white/10"
-                                                            >
-                                                                {guarantorCardExpanded ? (
-                                                                    <ChevronUp size={16} />
-                                                                ) : (
-                                                                    <ChevronDown size={16} />
-                                                                )}
-                                                            </button>
-																	{guarantorCardExpanded ? (
-																		<button
-																			type="button"
-																			aria-expanded={guarantorMenuOpen}
-																			aria-label="قائمة الضامن"
-																			onClick={(e) => {
-																				e.stopPropagation();
-																				setGuarantorSeizureOpen(false);
-																				setGuarantorMenuOpen((v) => !v);
-																			}}
-																			className="rounded-lg border border-white/10 bg-white/5 p-2 text-slate-200 hover:bg-white/10"
-																		>
-																			<MoreVertical size={16} />
-																		</button>
-																	) : null}
-                                                        </div>
-                                                        {guarantorMenuOpen ? (
-                                                            <div className="absolute left-3 top-12 z-[9999] w-48 overflow-hidden rounded-xl border border-white/10 bg-[#0A0F1C]/95 shadow-2xl">
-                                                                <button
-                                                                    type="button"
-                                                                    className="w-full px-3 py-2 text-right text-[12px] font-bold text-white hover:bg-white/5"
-                                                                    onClick={() => {
-                                                                        setGuarantorMenuOpen(false);
-                                                                        openGuarantorDetailsModal();
-                                                                    }}
-                                                                >
-                                                                    تفاصيل الضامن
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    className="w-full px-3 py-2 text-right text-[12px] font-bold text-amber-100 hover:bg-white/5"
-                                                                    onClick={() => {
-                                                                        setGuarantorMenuOpen(false);
-                                                                        setGuarantorReplaceConfirmOpen(true);
-                                                                    }}
-                                                                >
-                                                                    استبدال الضامن
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    className="w-full px-3 py-2 text-right text-[12px] font-bold text-rose-100 hover:bg-white/5"
-                                                                    onClick={() => {
-                                                                        setGuarantorMenuOpen(false);
-                                                                        setGuarantorUnlinkConfirmOpen(true);
-                                                                    }}
-                                                                >
-                                                                    فصل الضامن / إلغاء
-                                                                </button>
-                                                            </div>
-                                                        ) : null}
                                                     </div>
-
-                                                    {typeof document !== 'undefined' &&
-                                                    (guarantorReplaceConfirmOpen || guarantorUnlinkConfirmOpen) &&
-                                                        createPortal(
-                                                            <div
-                                                                className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
-                                                                role="presentation"
-                                                                onClick={() => {
-                                                                    setGuarantorReplaceConfirmOpen(false);
-                                                                    setGuarantorUnlinkConfirmOpen(false);
-                                                                }}
-                                                            >
-                                                                <div
-                                                                    role="dialog"
-                                                                    aria-modal="true"
-                                                                    className="w-full max-w-sm rounded-2xl border border-rose-500/25 bg-[#0A0F1C] p-4 text-right shadow-2xl"
-                                                                    dir="rtl"
-                                                                    onClick={(e) => e.stopPropagation()}
-                                                                >
-                                                                    <p className="text-sm font-black text-rose-100">
-                                                                        تأكيد الإجراء
-                                                                    </p>
-                                                                    <p className="mt-2 text-[12px] leading-relaxed text-slate-200/90">
-                                                                        {guarantorReplaceConfirmOpen
-                                                                            ? 'سيتم حذف بيانات الضامن الحالية وإنشاء طلب ضامن جديد. هل أنت متأكد؟'
-                                                                            : 'سيتم إلغاء ارتباط الضامن بهذه الإضبارة. هل أنت متأكد؟'}
-                                                                    </p>
-                                                                    <div className="mt-4 grid grid-cols-2 gap-2">
-                                                                        <button
-                                                                            type="button"
-                                                                            className="rounded-xl bg-slate-800 py-2.5 text-[11px] font-bold text-white hover:bg-slate-700"
-                                                                            onClick={() => {
-                                                                                setGuarantorReplaceConfirmOpen(false);
-                                                                                setGuarantorUnlinkConfirmOpen(false);
-                                                                            }}
-                                                                        >
-                                                                            إلغاء
-                                                                        </button>
-                                                                        <button
-                                                                            type="button"
-                                                                            className="rounded-xl border border-rose-500/35 bg-rose-950/35 py-2.5 text-[11px] font-black text-rose-100 hover:bg-rose-950/50"
-                                                                            onClick={() => {
-                                                                                if (guarantorReplaceConfirmOpen) {
-                                                                                    setGuarantorReplaceConfirmOpen(false);
-                                                                                    archiveAndClearGuarantor('replace');
-                                                                                    handleGuarantorRequestFromFollowup();
-                                                                                    return;
-                                                                                }
-                                                                                setGuarantorUnlinkConfirmOpen(false);
-                                                                                archiveAndClearGuarantor('unlink');
-                                                                            }}
-                                                                        >
-                                                                            {guarantorReplaceConfirmOpen
-                                                                                ? 'استبدال الضامن'
-                                                                                : 'فصل الضامن'}
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-                                                            </div>,
-                                                            document.body
-                                                        )}
-
-                                                    {guarantorCardExpanded ? (
-                                                        <>
-                                                            <div className="mt-3 grid grid-cols-2 gap-3">
-                                                                <div className="min-w-0">
-                                                                    <div className="text-sm text-gray-400">الاسم</div>
-                                                                    <div className="font-bold text-white truncate">
-                                                                        {executionData.guarantor_followup?.guarantor_name?.trim() ||
-                                                                            '—'}
-                                                                    </div>
-                                                                </div>
-                                                                <div className="min-w-0">
-                                                                    <div className="text-sm text-gray-400">جهة العمل</div>
-                                                                    <div className="font-bold text-white truncate">
-                                                                        {executionData.guarantor_followup?.guarantor_workplace?.trim() ||
-                                                                            '—'}
-                                                                    </div>
-                                                                </div>
-                                                                {executionData.guarantor_followup?.guarantee_type === 'amount' ? (
-                                                                    <>
-                                                                        <div className="min-w-0">
-                                                                            <div className="text-sm text-gray-400">الراتب</div>
-                                                                            <div
-                                                                                className="font-bold text-white font-mono tabular-nums truncate"
-                                                                                dir="ltr"
-                                                                            >
-                                                                                {typeof executionData.guarantor_followup?.guarantor_salary_iqd ===
-                                                                                    'number' &&
-                                                                                Number.isFinite(
-                                                                                    executionData.guarantor_followup.guarantor_salary_iqd as number
-                                                                                ) &&
-                                                                                (executionData.guarantor_followup.guarantor_salary_iqd as number) >
-                                                                                    0
-                                                                                    ? `${(
-                                                                                          executionData.guarantor_followup.guarantor_salary_iqd as number
-                                                                                      ).toLocaleString('ar-IQ')} د.ع`
-                                                                                    : '—'}
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="min-w-0">
-                                                                            <div className="text-sm text-gray-400">الخصم</div>
-                                                                            <div
-                                                                                className="font-bold text-white font-mono tabular-nums truncate"
-                                                                                dir="ltr"
-                                                                            >
-                                                                                {typeof executionData.guarantor_followup?.guarantor_deduction_iqd ===
-                                                                                    'number' &&
-                                                                                Number.isFinite(
-                                                                                    executionData.guarantor_followup.guarantor_deduction_iqd as number
-                                                                                ) &&
-                                                                                (executionData.guarantor_followup.guarantor_deduction_iqd as number) >
-                                                                                    0
-                                                                                    ? `${(
-                                                                                          executionData.guarantor_followup.guarantor_deduction_iqd as number
-                                                                                      ).toLocaleString('ar-IQ')} د.ع`
-                                                                                    : '—'}
-                                                                            </div>
-                                                                        </div>
-                                                                    </>
-                                                                ) : null}
-                                                            </div>
-
-                                                            <div className="mt-3 flex flex-row gap-3">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        setSummonsContextDebtorKey(null);
-                                                                        setSummonsHubInitialMainTab('guarantor');
-                                                                        setShowUnifiedSummonsModal(true);
-                                                                    }}
-                                                                    className="flex-1 inline-flex items-center justify-center gap-2 flex-row-reverse rounded-xl border border-cyan-500/25 bg-cyan-500/10 py-2.5 text-[11px] font-bold text-cyan-50 hover:bg-cyan-500/15"
-                                                                >
-                                                                    <Bell size={14} />
-                                                                    متابعة الضامن
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    disabled={executionData.guarantor_followup?.guarantee_type !== 'amount'}
-                                                                    onClick={() => setGuarantorSeizureOpen((v) => !v)}
-                                                                    className={`flex-1 inline-flex items-center justify-center gap-2 flex-row-reverse rounded-xl border py-2.5 text-[11px] font-bold transition-colors ${
-                                                                        executionData.guarantor_followup?.guarantee_type !== 'amount'
-                                                                            ? 'border-white/10 bg-white/5 text-slate-400'
-                                                                            : 'border-emerald-500/25 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/15'
-                                                                    }`}
-                                                                    title={
-                                                                        executionData.guarantor_followup?.guarantee_type !== 'amount'
-                                                                            ? 'غير متاح لنوع الكفالة'
-                                                                            : undefined
-                                                                    }
-                                                                >
-                                                                    <Wallet size={14} />
-                                                                    حجز الراتب
-                                                                </button>
-                                                            </div>
-
-                                                            {guarantorSeizureOpen &&
-                                                            executionData.guarantor_followup?.guarantee_type === 'amount' ? (
-                                                                <div className="mt-3 rounded-2xl border border-white/10 bg-[#0A0F1C]/70 p-2">
-                                                                    <div className="grid grid-cols-1 gap-2">
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => {
-                                                                                setGuarantorSeizureOpen(false);
-                                                                                requestGuarantorSeizure('salary');
-                                                                            }}
-                                                                            className="w-full rounded-xl border border-emerald-500/20 bg-emerald-500/10 py-2 text-[11px] font-bold text-emerald-100 hover:bg-emerald-500/15"
-                                                                        >
-                                                                            حجز الراتب
-                                                                        </button>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => {
-                                                                                setGuarantorSeizureOpen(false);
-                                                                                requestGuarantorSeizure('movable');
-                                                                            }}
-                                                                            className="w-full rounded-xl border border-sky-500/20 bg-sky-500/10 py-2 text-[11px] font-bold text-sky-100 hover:bg-sky-500/15"
-                                                                        >
-                                                                            حجز المنقولات
-                                                                        </button>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => {
-                                                                                setGuarantorSeizureOpen(false);
-                                                                                requestGuarantorSeizure('property');
-                                                                            }}
-                                                                            className="w-full rounded-xl border border-amber-500/20 bg-amber-500/10 py-2 text-[11px] font-bold text-amber-100 hover:bg-amber-500/15"
-                                                                        >
-                                                                            حجز العقار
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-                                                            ) : null}
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <div
-                                                                className="mt-3 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.05] via-white/[0.03] to-transparent px-3 py-3"
-                                                                dir="rtl"
-                                                            >
-                                                                <p className="truncate text-[15px] font-black text-white text-right">
-                                                                    {executionData.guarantor_followup?.guarantor_name?.trim() ||
-                                                                        '—'}
-                                                                </p>
-                                                                <div className="mt-2 flex items-end justify-between gap-2">
-                                                                    <span className="text-[11px] font-bold text-slate-400">
-                                                                        الخصم
-                                                                    </span>
-                                                                    <span
-                                                                        className="text-[20px] font-black text-sky-200 tabular-nums"
-                                                                        dir="ltr"
-                                                                    >
-                                                                        {typeof executionData.guarantor_followup?.guarantor_deduction_iqd ===
-                                                                            'number' &&
-                                                                        Number.isFinite(
-                                                                            executionData.guarantor_followup.guarantor_deduction_iqd as number
-                                                                        ) &&
-                                                                        (executionData.guarantor_followup.guarantor_deduction_iqd as number) >
-                                                                            0
-                                                                            ? `${(
-                                                                                  executionData.guarantor_followup.guarantor_deduction_iqd as number
-                                                                              ).toLocaleString('ar-IQ')} د.ع`
-                                                                            : '—'}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        </>
-                                                    )}
-                                                </div>
+                                                }
+                                            />
                                             </div>
-                                        ) : null}
-                                        </div>
 										);
                                         })}
                                         {!multiDebtorMode && effectiveDebtors.length > 2 && (
@@ -2190,4 +1754,4 @@ export const DebtorsSection = (props: DebtorsSectionProps) => {
                     </div>
         </>
     );
-};
+});

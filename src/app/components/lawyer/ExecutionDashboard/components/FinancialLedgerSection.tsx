@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { DollarSign, FileText, History, Wallet, X } from 'lucide-react';
 import type { ExecutionFile } from '@/app/types/execution';
+import { buildExecutionClaimBreakdown } from '@/app/components/lawyer/ExecutionCreationView/hooks/executionFormUtils';
 
 type FinancialLedgerEntry = {
     id: string;
@@ -108,6 +109,11 @@ export const FinancialLedgerSection: React.FC<FinancialLedgerSectionProps> = ({
         unifiedSnap &&
         (archiveLawyerFees.length > 0 || archiveExpenses.length > 0 || unifiedSnap.payments.length > 0);
 
+    const claimBreakdown = buildExecutionClaimBreakdown(
+        executionData as Record<string, unknown> | null | undefined
+    );
+    const claimBreakdownTotal = claimBreakdown.reduce((s, r) => s + r.amount, 0);
+
     return (
         <div
             className="fixed inset-0 z-[260] flex items-center justify-center bg-black/70 p-3 backdrop-blur-sm"
@@ -143,14 +149,37 @@ export const FinancialLedgerSection: React.FC<FinancialLedgerSectionProps> = ({
                             مكوّنات الدين (بيانات الإضبارة)
                         </h4>
 
-                        {principalDebtAmount > 0 && (
+                        {claimBreakdown.length > 0 ? (
+                            <div className="space-y-2 rounded-lg border border-amber-500/25 bg-amber-950/15 p-3">
+                                <p className="text-[10px] font-semibold text-amber-200/90 text-right">
+                                    تفصيل المطالبات (مصدر المبالغ)
+                                </p>
+                                {claimBreakdown.map((row) => (
+                                    <div
+                                        key={row.claimType}
+                                        className="flex flex-row-reverse items-center justify-between gap-2 rounded-lg border border-white/8 bg-black/25 px-2.5 py-2"
+                                    >
+                                        <span className="text-right text-sm text-slate-300">{row.label}</span>
+                                        <span className="shrink-0 text-sm font-bold tabular-nums text-amber-200/95">
+                                            {row.amount.toLocaleString('ar-IQ')}
+                                        </span>
+                                    </div>
+                                ))}
+                                <div className="flex flex-row-reverse items-center justify-between gap-2 border-t border-amber-500/20 pt-2">
+                                    <span className="text-sm font-bold text-amber-200">مجموع المطالبات</span>
+                                    <span className="shrink-0 text-base font-black tabular-nums text-amber-100">
+                                        {claimBreakdownTotal.toLocaleString('ar-IQ')}
+                                    </span>
+                                </div>
+                            </div>
+                        ) : principalDebtAmount > 0 ? (
                             <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-500/20 bg-slate-900/40 p-3 flex-row-reverse">
                                 <span className="text-right text-sm text-slate-300">أصل الدين / المحكوم به</span>
                                 <span className="shrink-0 text-base font-bold tabular-nums text-amber-200/95">
                                     {principalDebtAmount.toLocaleString('ar-IQ')}
                                 </span>
                             </div>
-                        )}
+                        ) : null}
 
                         {parsedLawyerFees > 0 && (
                             <div className="flex flex-row-reverse items-center justify-between gap-2 rounded-lg border border-emerald-500/25 bg-emerald-950/30 p-3">
@@ -340,7 +369,8 @@ export const FinancialLedgerSection: React.FC<FinancialLedgerSectionProps> = ({
                         </div>
                     )}
 
-                    {!principalDebtAmount &&
+                    {!claimBreakdown.length &&
+                        !principalDebtAmount &&
                         !parsedLawyerFees &&
                         !totalExecutionExpenses &&
                         !(isEvictionExecutionModule && evictionCaseExpenses.length) &&

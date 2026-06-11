@@ -37,8 +37,12 @@ export interface LegalTask {
     isFatalDeadline: boolean;
     linkedCaseId: string | null;
     status: LegalTaskStatus;
-    /** مهام مثبتة على ستارة الميدان (تُعرض اليوم بغض النظر عن التاريخ) */
+    /** وقت إنجاز المهمة — للأرشيف (30 يوماً) */
+    completedAt: Date | null;
+    /** مهام مثبتة على ستارة الميدان — تنتهي بانتهاء يوم المهمة أو عند الإنجاز */
     pinnedToFieldCurtain: boolean;
+    /** يوم تثبيت الستارة (لمهام بلا تاريخ محدد) */
+    fieldCurtainPinnedAt: Date | null;
     /** مسار إجرائي متفرع */
     subTasks: LegalSubTask[];
     /** متطلبات ميدانية سريعة */

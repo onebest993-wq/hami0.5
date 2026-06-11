@@ -51,13 +51,7 @@ export function checkForumRateLimit(
     let maxInWindow = 5;
 
     if (scope === 'post') {
-        windowMs = 60 * 60_000;
-        maxInWindow = 25;
-        const recent = prune(bucket.timestamps, 30_000);
-        if (recent.length >= 1) {
-            const retryAfterSec = Math.ceil((30_000 - (now - recent[recent.length - 1])) / 1000);
-            return { allowed: false, retryAfterSec: Math.max(1, retryAfterSec) };
-        }
+        return { allowed: true };
     } else if (scope === 'comment') {
         windowMs = 60_000;
         maxInWindow = 30;

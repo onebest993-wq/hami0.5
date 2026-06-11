@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { WORK_WEEK } from './constants';
 import type { WeekAddState } from './types';
@@ -95,7 +95,7 @@ export function WeeklyAgendaSection({
                                 ) : (
                                     <>
                                         <p className="text-[10px] font-bold text-slate-500 text-right">
-                                            الموضع:{' '}
+                                            المكان:{' '}
                                             <span className="text-emerald-200">{weekAdd.location.trim()}</span>
                                         </p>
                                         <button
@@ -109,7 +109,6 @@ export function WeeklyAgendaSection({
                                         >
                                             تعديل الموقع
                                         </button>
-                                        <p className="text-[11px] font-bold text-slate-300 text-right">إجراءات متعددة لنفس المحكمة</p>
                                         <ul className="max-h-36 overflow-y-auto space-y-2 pr-1 text-right">
                                             {weekAdd.actionLines.map((line, idx) => (
                                                 <li

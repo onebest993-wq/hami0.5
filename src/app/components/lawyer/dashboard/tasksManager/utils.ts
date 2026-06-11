@@ -1,6 +1,8 @@
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { addDays, startOfLocalDay } from '@/app/utils/nlpParser';
 
+export const COMPLETED_TASK_RETENTION_DAYS = 30;
+
 export function getSaturdayOfWeekContaining(ref: Date): Date {
     const d = startOfLocalDay(ref);
     const dow = d.getDay();
@@ -8,6 +10,137 @@ export function getSaturdayOfWeekContaining(ref: Date): Date {
     const sat = new Date(d);
     sat.setDate(d.getDate() - daysFromSat);
     return startOfLocalDay(sat);
+}
+
+export function taskCompletedAt(task: LegalTask): Date | null {
+    return task.completedAt ?? null;
+}
+
+export function isTaskMarkedDone(task: LegalTask): boolean {
+    return task.completedAt !== null;
+}
+
+/** يوم المهمة في الأجندة — تاريخ المهمة أو يوم الإنجاز للمهام بلا تاريخ */
+export function getTaskAgendaDay(task: LegalTask): Date | null {
+    if (task.parsedDate) return startOfLocalDay(task.parsedDate);
+    if (task.completedAt) return startOfLocalDay(task.completedAt);
+    return null;
+}
+
+/** بعد انتهاء يوم المهمة: بطاقة للمعاينة فقط */
+export function isTaskAgendaReadOnly(task: LegalTask, now = new Date()): boolean {
+    const taskDay = getTaskAgendaDay(task);
+    if (!taskDay) return false;
+    return startOfLocalDay(taskDay).getTime() < startOfLocalDay(now).getTime();
+}
+
+export function isTaskInCurrentAgendaWeek(task: LegalTask, now = new Date()): boolean {
+    if (!task.parsedDate) return true;
+    const taskWeek = getSaturdayOfWeekContaining(task.parsedDate).getTime();
+    const thisWeek = getSaturdayOfWeekContaining(now).getTime();
+    return taskWeek === thisWeek;
+}
+
+export function isTaskArchivedToHistory(task: LegalTask, now = new Date()): boolean {
+    if (!task.parsedDate || task.isFatalDeadline) return false;
+    const taskWeek = getSaturdayOfWeekContaining(task.parsedDate).getTime();
+    const thisWeek = getSaturdayOfWeekContaining(now).getTime();
+    return taskWeek < thisWeek;
+}
+
+/** يوم المهمة انتهى ولم يُضغط «إنهاء المهمة» */
+export function isTaskDayOverdueIncomplete(task: LegalTask, now = new Date()): boolean {
+    if (isTaskMarkedDone(task)) return false;
+    if (!task.parsedDate) return false;
+    const day = startOfLocalDay(task.parsedDate).getTime();
+    const today = startOfLocalDay(now).getTime();
+    return day < today && isTaskInCurrentAgendaWeek(task, now);
+}
+
+/** عند بداية أسبوع جديد: نقل مهام الأسبوع السابق إلى الأرشيف */
+export function finalizePastWeekTasks(tasks: LegalTask[], now = new Date()): LegalTask[] {
+    return tasks.map((t) => {
+        if (!isTaskArchivedToHistory(t, now)) return t;
+        if (t.status === 'completed') return t;
+        return { ...t, status: 'completed' as const };
+    });
+}
+
+export function purgeExpiredCompletedTasks(tasks: LegalTask[], now = new Date()): LegalTask[] {
+    const cutoff = addDays(startOfLocalDay(now), -COMPLETED_TASK_RETENTION_DAYS).getTime();
+    return tasks.filter((t) => {
+        if (!isTaskArchivedToHistory(t, now)) return true;
+        const ref = t.parsedDate ?? t.completedAt;
+        if (!ref) return false;
+        return startOfLocalDay(ref).getTime() >= cutoff;
+    });
+}
+
+export function releaseExpiredFieldCurtainPins(tasks: LegalTask[], now = new Date()): LegalTask[] {
+    const today = startOfLocalDay(now).getTime();
+    return tasks.map((t) => {
+        if (!t.pinnedToFieldCurtain) return t;
+        if (isTaskMarkedDone(t)) {
+            return { ...t, pinnedToFieldCurtain: false, fieldCurtainPinnedAt: null };
+        }
+        const pinDay = t.fieldCurtainPinnedAt
+            ? startOfLocalDay(t.fieldCurtainPinnedAt).getTime()
+            : today;
+        if (pinDay < today) {
+            return { ...t, pinnedToFieldCurtain: false, fieldCurtainPinnedAt: null };
+        }
+        return t;
+    });
+}
+
+export function prepareAgendaTasks(tasks: LegalTask[], now = new Date()): LegalTask[] {
+    return purgeExpiredCompletedTasks(
+        finalizePastWeekTasks(releaseExpiredFieldCurtainPins(tasks, now), now),
+        now,
+    );
+}
+
+export function getArchivedTasks(tasks: LegalTask[], now = new Date()): LegalTask[] {
+    return tasks.filter((t) => isTaskArchivedToHistory(t, now));
+}
+
+export function isDateInWorkWeek(date: Date, weekStartSaturday: Date): boolean {
+    const start = startOfLocalDay(weekStartSaturday).getTime();
+    const end = addDays(weekStartSaturday, 5).getTime();
+    const t = startOfLocalDay(date).getTime();
+    return t >= start && t <= end;
+}
+
+export type CompletedTasksWeekGroup = {
+    key: string;
+    label: string;
+    tasks: LegalTask[];
+};
+
+export function groupArchivedTasksByWeek(tasks: LegalTask[], now = new Date()): CompletedTasksWeekGroup[] {
+    const archived = getArchivedTasks(tasks, now)
+        .filter((t) => t.parsedDate)
+        .sort((a, b) => (b.parsedDate?.getTime() ?? 0) - (a.parsedDate?.getTime() ?? 0));
+
+    const map = new Map<string, CompletedTasksWeekGroup>();
+    for (const task of archived) {
+        if (!task.parsedDate) continue;
+        const weekStart = getSaturdayOfWeekContaining(task.parsedDate);
+        const key = weekStart.toISOString();
+        const label = `أسبوع ${formatShortDate(weekStart)}`;
+        const existing = map.get(key);
+        if (existing) {
+            existing.tasks.push(task);
+        } else {
+            map.set(key, { key, label, tasks: [task] });
+        }
+    }
+    return Array.from(map.values());
+}
+
+/** @deprecated use groupArchivedTasksByWeek */
+export function groupCompletedTasksByWeek(tasks: LegalTask[], now = new Date()): CompletedTasksWeekGroup[] {
+    return groupArchivedTasksByWeek(tasks, now);
 }
 
 export function formatShortDate(d: Date): string {

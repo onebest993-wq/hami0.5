@@ -1,4 +1,8 @@
-import { IRAQI_LAW_CANONICAL_NAMES } from '@/app/constants/iraqiLawCatalog';
+import {
+    EXECUTION_LAW_CANONICAL_NAME,
+    IRAQI_LAW_CANONICAL_NAMES,
+} from '@/app/constants/iraqiLawCatalog';
+import { buildExecutionLawAdminBrowseFilters } from '@/data/executionLawHierarchy';
 
 /** مفتاح القسم العام في شريط التصفية الهرمي */
 export type LawStructureSectionId = "execution" | "penal" | "procedure" | "juvenile";
@@ -26,13 +30,8 @@ export const LAW_STRUCTURE: Record<LawStructureSectionId, LawStructureSection> =
     execution: {
         id: "execution",
         label: "قانون التنفيذ",
-        lawName: "قانون التنفيذ العراقي رقم 45 لسنة 1980",
-        filters: [
-            { id: "exec-1-50", label: "أحكام عامة وتعريفات", from: 1, to: 50 },
-            { id: "exec-51-120", label: "إجراءات التنفيذ", from: 51, to: 120 },
-            { id: "exec-121-200", label: "الحجز والبيع", from: 121, to: 200 },
-            { id: "exec-201-plus", label: "أحكام ختامية ومتفرقة", from: 201, to: 9999 },
-        ],
+        lawName: EXECUTION_LAW_CANONICAL_NAME,
+        filters: buildExecutionLawAdminBrowseFilters(),
     },
     penal: {
         id: "penal",

@@ -1,4 +1,5 @@
 export { DirectorateSection } from './DirectorateSection';
+export { ExecutionCreationSection } from './ExecutionCreationSection';
 export { EvictionSection } from './EvictionSection';
 export { default as ExecutionOptionSheet, type ExecutionOptionSheetProps } from './ExecutionOptionSheet';
 export { ExecutionSaveButton } from './ExecutionSaveButton';

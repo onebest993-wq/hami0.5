@@ -1,6 +1,11 @@
 import React, { useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import { X, DollarSign, CheckCircle, AlertCircle } from 'lucide-react';
+import {
+    EXEC_MODAL_BACKDROP_STRONG,
+    EXEC_MODAL_Z,
+} from '@/app/components/lawyer/execution/executionModalStack';
 
 interface PaymentCalculatorProps {
     isOpen: boolean;
@@ -51,10 +56,14 @@ export const PaymentCalculator = React.memo<PaymentCalculatorProps>(({
         setError('');
     }, []);
 
-    if (!isOpen) return null;
+    if (!isOpen || typeof document === 'undefined') return null;
 
-    return (
-        <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4" onClick={onClose}>
+    return createPortal(
+        <div
+            className={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG}`}
+            style={{ zIndex: EXEC_MODAL_Z.nestedOverFollowUpPortal }}
+            onClick={onClose}
+        >
             <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
@@ -140,6 +149,7 @@ export const PaymentCalculator = React.memo<PaymentCalculatorProps>(({
                     </button>
                 </div>
             </motion.div>
-        </div>
+        </div>,
+        document.body
     );
 });

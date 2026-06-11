@@ -22,6 +22,11 @@ import type {
     SeveranceReason,
 } from '@/app/types/criminal';
 import type { CriminalCaseUserRole } from './complainantCassationGovernance';
+import {
+    applyPublicRightAfterPrivateWaiver,
+    makePublicRightComplainant,
+    isPublicRightComplainantName,
+} from './publicProsecutionGovernance';
 import { isStageExpirationReason, type StageExpirationReason } from './stageExpirationReasons';
 import {
     buildTrashLabel,
@@ -1028,6 +1033,10 @@ export type CriminalCaseDraft = {
     crimeDiscoveryDate?: string;
     /** شكوى متقابلة (مشاجرة/تبادل أفعال) — الأطراف يبقون في مصفوفتين منفصلتين */
     isMutualComplaint: boolean;
+    /** المشتكي هو الحق العام / الادعاء العام — لا يُدخل مشتكٍ عادي. */
+    isPublicProsecutionComplainant?: boolean;
+    /** المادة تتضمن حقاً عاماً — يُفعِّل إظهار الحق العام بعد تنازل المشتكين. */
+    articleIncludesPublicRight?: boolean;
     /** إضبارة سرية — تُفعَّل تلقائياً عند وجود متهم/مشتكٍ حدث. */
     isConfidential?: boolean;
 };
@@ -1593,6 +1602,8 @@ type CriminalStoreState = {
     updateCasePhysicalLocation: (caseId: string, location: PhysicalLocation, customName?: string) => void;
     setDraftArticle3Offense: (value: boolean) => void;
     setDraftMutualComplaint: (value: boolean) => void;
+    setDraftPublicProsecutionComplainant: (value: boolean) => void;
+    setDraftArticleIncludesPublicRight: (value: boolean) => void;
     setDraftCrimeDiscoveryDate: (value: string) => void;
     applyInvestigationReferral: (
         caseId: string,
@@ -2036,14 +2047,25 @@ function prepareDraftSnapshotForCaseCreation(nextDraft: CriminalCaseDraft): Crim
         defendants: prunedDefendants,
         unknownDefendant: hasUnrevealedUnknownDefendants(prunedDefendants),
     };
-    const complainantsForCase = (
-        Array.isArray(snapshotWithUnknown.complainants) ? snapshotWithUnknown.complainants : []
-    ).map((c) => {
-        const {
-            counterComplaintTargetDefendantIds: _targets,
-            isCrossComplaint: _cross,
-            ...rest
-        } = c;
+
+    if (snapshotWithUnknown.isPublicProsecutionComplainant === true) {
+        return {
+            ...snapshotWithUnknown,
+            complainants: [makePublicRightComplainant()],
+            isMutualComplaint: false,
+            articleIncludesPublicRight: false,
+        };
+    }
+
+    const defendantIds = (Array.isArray(snapshotWithUnknown.defendants) ? snapshotWithUnknown.defendants : [])
+        .map((d) => String(d.id ?? '').trim())
+        .filter(Boolean);
+    const finalizedComplainants = finalizeDraftComplainantsCounterComplaint(
+        Array.isArray(snapshotWithUnknown.complainants) ? snapshotWithUnknown.complainants : [],
+        defendantIds,
+    );
+    const complainantsForCase = finalizedComplainants.map((c) => {
+        const { counterComplaintTargetDefendantIds: _targets, ...rest } = c;
         return rest;
     });
     return {
@@ -2168,6 +2190,8 @@ function makeInitialDraft(): CriminalCaseDraft {
         isArticle3Offense: false,
         crimeDiscoveryDate: '',
         isMutualComplaint: false,
+        isPublicProsecutionComplainant: false,
+        articleIncludesPublicRight: false,
     };
 }
 
@@ -2384,6 +2408,43 @@ export function resolveCriminalCaseDisplayLabel(c: CriminalCase | undefined): st
     if (court) return court;
     if (stage) return stage;
     return 'إضبارة تحقيق';
+}
+
+function resolveCriminalAuditContext(c: CriminalCase | undefined): {
+    caseNo?: string;
+    clientName?: string;
+} {
+    if (!c) return {};
+    const label = resolveCriminalCaseDisplayLabel(c);
+    const caseNo =
+        label && label !== '—' && label !== 'إضبارة تحقيق' ? label : undefined;
+    const clientName =
+        c.defendants?.[0]?.fullName?.trim() ||
+        c.complainants?.[0]?.fullName?.trim() ||
+        undefined;
+    return { caseNo, clientName };
+}
+
+function publishCriminalActivityAudit(
+    caseRecord: CriminalCase | undefined,
+    caseId: string,
+    title: string,
+    detail: string,
+): void {
+    try {
+        const { caseNo, clientName } = resolveCriminalAuditContext(caseRecord);
+        void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+            AuditLog.criminal.activityRecorded({
+                caseId,
+                title,
+                detail,
+                caseNo,
+                clientName,
+            });
+        });
+    } catch {
+        /* silent */
+    }
 }
 
 function resolveInvestigationCaseNumberSnapshot(c: CriminalCase): string {
@@ -4029,6 +4090,7 @@ export const useCriminalStore = create<CriminalStoreState>()(
                 })),
             setDraftMutualComplaint: (value) =>
                 set((state) => {
+                    if (state.draft.isPublicProsecutionComplainant === true) return state;
                     const mutual = value === true;
                     const complainants = (Array.isArray(state.draft.complainants)
                         ? state.draft.complainants
@@ -4046,6 +4108,43 @@ export const useCriminalStore = create<CriminalStoreState>()(
                             ...state.draft,
                             isMutualComplaint: mutual,
                             complainants,
+                        },
+                    };
+                }),
+            setDraftPublicProsecutionComplainant: (value) =>
+                set((state) => {
+                    const enabled = value === true;
+                    if (!enabled) {
+                        const onlyPublic =
+                            state.draft.complainants.length === 1 &&
+                            isPublicRightComplainantName(state.draft.complainants[0]?.fullName);
+                        return {
+                            draft: {
+                                ...state.draft,
+                                isPublicProsecutionComplainant: false,
+                                complainants: onlyPublic
+                                    ? [makeEmptyComplainant()]
+                                    : state.draft.complainants,
+                            },
+                        };
+                    }
+                    return {
+                        draft: {
+                            ...state.draft,
+                            isPublicProsecutionComplainant: true,
+                            articleIncludesPublicRight: false,
+                            isMutualComplaint: false,
+                            complainants: [makePublicRightComplainant()],
+                        },
+                    };
+                }),
+            setDraftArticleIncludesPublicRight: (value) =>
+                set((state) => {
+                    if (state.draft.isPublicProsecutionComplainant === true) return state;
+                    return {
+                        draft: {
+                            ...state.draft,
+                            articleIncludesPublicRight: value === true,
                         },
                     };
                 }),
@@ -5858,6 +5957,12 @@ export const useCriminalStore = create<CriminalStoreState>()(
                 } else {
                     get().addOrUpdateRequest(caseId, request);
                 }
+                publishCriminalActivityAudit(
+                    get().casesById[caseId],
+                    caseId,
+                    isJudicial ? 'قرار في الإضبارة الجزائية' : 'طلب في الإضبارة الجزائية',
+                    String(resolved.type ?? '').trim() || 'إجراء',
+                );
                 return { error: null, requestId: request.id };
             },
             finalizeLawyerRequest: (caseId, requestId, input) => {
@@ -5898,6 +6003,12 @@ export const useCriminalStore = create<CriminalStoreState>()(
                 if (isWaiverDecision && input.status === 'approved') {
                     get().waivePrivateRight(caseId, decisionDate || requestDate);
                 }
+                publishCriminalActivityAudit(
+                    get().casesById[caseId],
+                    caseId,
+                    'اعتماد قرار/طلب',
+                    `${String(current.type ?? '').trim() || 'إجراء'} — ${input.status === 'approved' ? 'قبول' : 'رفض'}`,
+                );
                 return null;
             },
             extendDetentionOnDecision: (caseId, decisionId, newEndDate) => {
@@ -6782,9 +6893,13 @@ export const useCriminalStore = create<CriminalStoreState>()(
                 if (!err) {
                     try {
                         void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                            const created = get().casesById[caseId];
+                            const { caseNo, clientName } = resolveCriminalAuditContext(created);
                             AuditLog.criminal.sessionAdded({
                                 caseId,
                                 sessionDate: String(sessionData.date),
+                                caseNo,
+                                clientName,
                             });
                         });
                     } catch { /* silent */ }
@@ -9414,14 +9529,16 @@ export const useCriminalStore = create<CriminalStoreState>()(
                     const target = state.casesById[caseId];
                     if (!target) return state;
                     if (caseMutationBlocked(target)) return state;
+                    const withWaiver: CriminalCase = {
+                        ...target,
+                        isPrivateRightWaived: true,
+                        waiverDate,
+                    };
+                    const nextCase = applyPublicRightAfterPrivateWaiver(withWaiver);
                     return {
                         casesById: {
                             ...state.casesById,
-                            [caseId]: {
-                                ...target,
-                                isPrivateRightWaived: true,
-                                waiverDate,
-                            },
+                            [caseId]: nextCase,
                         },
                     };
                 }),
@@ -9977,10 +10094,19 @@ export const useCriminalStore = create<CriminalStoreState>()(
                     void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
                         const created = useCriminalStore.getState().casesById[caseId];
                         const caseNo =
-                            (created as { courtCaseNumber?: string } | undefined)?.courtCaseNumber ||
-                            (created as { location?: { caseNumber?: string } } | undefined)?.location?.caseNumber ||
-                            caseId;
-                        AuditLog.criminal.caseCreated({ caseId, caseNo });
+                            String(
+                                (created as { courtCaseNumber?: string } | undefined)?.courtCaseNumber ??
+                                    (created as { location?: { caseNumber?: string } } | undefined)?.location
+                                        ?.caseNumber ??
+                                    (created as { location?: { investigationDossierNumber?: string } } | undefined)
+                                        ?.location?.investigationDossierNumber ??
+                                    '',
+                            ).trim() || undefined;
+                        const clientName =
+                            created?.defendants?.[0]?.fullName?.trim() ||
+                            created?.complainants?.[0]?.fullName?.trim() ||
+                            undefined;
+                        AuditLog.criminal.caseCreated({ caseId, caseNo, clientName });
                     });
                 } catch {
                     /* silent */
@@ -10360,9 +10486,14 @@ export const useCriminalStore = create<CriminalStoreState>()(
                 // Audit log اختياري — لا يكسر الـ flow عند الفشل.
                 try {
                     void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                        const created = get().casesById[newCaseId];
                         AuditLog.criminal.caseCreated?.({
                             caseId: newCaseId,
-                            caseNo: resolveOfficialCaseNumber(get().casesById[newCaseId]) || newCaseId,
+                            caseNo: resolveOfficialCaseNumber(created) || undefined,
+                            clientName:
+                                created?.defendants?.[0]?.fullName?.trim() ||
+                                created?.complainants?.[0]?.fullName?.trim() ||
+                                undefined,
                         });
                     });
                 } catch { /* silent */ }
@@ -11122,6 +11253,10 @@ export const useCriminalStore = create<CriminalStoreState>()(
                             crimeDiscoveryDate:
                                 typeof (c as any).crimeDiscoveryDate === 'string' ? String((c as any).crimeDiscoveryDate) : undefined,
                             isMutualComplaint: (c as any).isMutualComplaint === true ? true : false,
+                            isPublicProsecutionComplainant:
+                                (c as any).isPublicProsecutionComplainant === true ? true : undefined,
+                            articleIncludesPublicRight:
+                                (c as any).articleIncludesPublicRight === true ? true : undefined,
                             dossierStatus: ((): CriminalDossierStatus | undefined => {
                                 const raw = String((c as any).dossierStatus ?? '').trim();
                                 if (raw === 'merged' || raw === 'active') return raw;

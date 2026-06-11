@@ -28,6 +28,32 @@ export function dossierLifecycleLabelAr(status: DossierLifecycleStatus): string 
     return m[status] ?? status;
 }
 
+/** شارة مختصرة — نفس تسميات لوحة الإضبارة */
+export function dossierLifecycleBadgeAr(status: DossierLifecycleStatus): string {
+    const m: Record<DossierLifecycleStatus, string> = {
+        active: '🟢 نشطة',
+        paused: '🟡 متوقفة',
+        suspended: '⏸️ مستأخرة',
+        finished: '🔒 انتهاء الإضبارة',
+    };
+    return m[status] ?? dossierLifecycleLabelAr(status);
+}
+
+export function dossierLifecycleBadgeClass(status: DossierLifecycleStatus): string {
+    switch (status) {
+        case 'active':
+            return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200';
+        case 'paused':
+            return 'border-yellow-500/30 bg-yellow-500/10 text-yellow-200';
+        case 'suspended':
+            return 'border-orange-500/30 bg-orange-500/10 text-orange-200';
+        case 'finished':
+            return 'border-slate-500/30 bg-slate-500/10 text-slate-300';
+        default:
+            return 'border-slate-500/30 bg-slate-500/10 text-slate-300';
+    }
+}
+
 /**
  * إرجاع كلاس CSS للنص بناءً على حالة دورة حياة الملف
  */

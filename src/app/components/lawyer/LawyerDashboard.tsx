@@ -44,6 +44,9 @@ import { resolveAlertNavigation } from '@/app/services/alertNavigation';
 import { parseWorkspaceRoute } from '@/app/workspace/workspaceRoutes';
 import { unpinWorkspaceForDeletedFile, unpinWorkspaceItem } from '@/app/workspace/unpinWorkspaceEntity';
 import { parseCommunityDeepLinkFromLocation } from '@/app/components/lawyer/CommunityScreen/communityDeepLink';
+import { persistCommunitySection } from '@/app/components/lawyer/CommunityScreen/communitySectionState';
+import { CommunityScreen } from '@/app/components/lawyer/CommunityScreen.tsx';
+import { CommunityErrorBoundary } from '@/app/components/lawyer/CommunityScreen/CommunityErrorBoundary';
 // Removed: AlternativePrivacyProtocol (deleted in refactoring)
 // LawyerNewCase — استيراد مباشر (تجنّب lazy/HMR الذي يسبب ReferenceError)
 import { useCaseStore, type LegalCase } from '@/app/stores/caseStore';
@@ -53,7 +56,6 @@ import {
     LazyArchivePortal,
     LazyBackendTestingPanel,
     LazyClientRequestsHub,
-    LazyCommunityScreen,
     LazyExecutionCreationView,
     LazyExecutionDashboard,
     LazyGlobalSearchOverlay,
@@ -61,15 +63,14 @@ import {
     LazyLawyerAuth,
     LazyLegalCommandCenterDock,
     LazyLawsuitsWorkspace,
-    LazyLawyerHomeHubCard,
     LazyNotepadModal,
     LazyNotificationPanel,
     LazyRoyalLawyerProfile,
-    LazyScannerModal,
     LazySmartContractGenerator,
     LazySmartCriminalLibrary,
     LazyCriminalDashboard,
     prefetchCriminalDashboard,
+    prefetchExecutionDashboard,
     prefetchDossierShells,
     prefetchSmartFileModal,
     LazySmartFileModal,
@@ -96,7 +97,12 @@ import {
 // مركز الممارسة: تنبيهات + رادار 48س (التثبيت عبر أزرار الأقسام فقط)
 // 🆕 V10.5: Enhanced Utilities
 import { storageCache } from '@/app/utils/storageCache';
-import { removeExecutionStorageBundle } from '@/app/utils/executionStorageKeys';
+import {
+    generateExecutionDossierId,
+    removeExecutionStorageBundleAsync,
+    seedFreshExecutionDossierStorage,
+} from '@/app/utils/executionStorageKeys';
+import { useExecutionDashboardStore } from '@/app/stores/executionDashboardStore';
 import { isBackgroundPhase, useRuntimePhase } from '@/app/runtime/runtimePhase';
 import {
     CriminalDashboardBridgeProvider,
@@ -141,16 +147,59 @@ import { AppLockOverlay } from '@/app/components/lawyer/AppLockOverlay';
 import { maybeShowWeeklyBackupReminder } from '@/app/services/settings/backupReminder';
 import { countPendingFieldTasks } from '@/app/utils/quantumTasksStorage';
 import { buildFileDataFromNewCaseSave } from '@/app/domain/lawsuit/lawsuitFileFactory';
+import { LawyerHomeHubCard } from '@/app/components/lawyer/LawyerHomeHubCard';
 import { CAIRO_FONT_STYLE, HEADER_BTN_BG_STYLE, LAWYER_LAZY_FALLBACK } from './LawyerDashboardParts/constants';
+import { lazyWithRetry, type LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
 import type { ArchiveType, ClientRequest, ThemeConfig } from '@/app/types/common';
-import { mapFileStatusToCaseStatus, isFileData, isRecord, coerceExecutionFilePreserveId, coerceExecutionFile, coerceLawsuitStage, getNavUnderlayStyle, lawyerOverlayToArchivePortalType } from './LawyerDashboardParts/utils';
+import {
+    mapFileStatusToCaseStatus,
+    isFileData,
+    isRecord,
+    coerceExecutionFilePreserveId,
+    coerceActiveFileTarget,
+    coerceExecutionFile,
+    coerceLawsuitStage,
+    getNavUnderlayStyle,
+    lawyerOverlayToArchivePortalType,
+} from './LawyerDashboardParts/utils';
 import type { GlobalNote, WizardNoteSeed, WizardInitialData, ExecutionFile } from './LawyerDashboardParts/types';
 
 const EXECUTION_FILES_KEY = EXECUTION_FILES_STORAGE_KEY;
 const DOSSIER_OPENING_FALLBACK = <DossierOpeningFallbackComponent />;
+const LAWYER_DASHBOARD_TAB_KEY = 'hami:lawyer-dashboard-tab';
+const LAWYER_COMMUNITY_OPEN_KEY = 'hami:lawyer-community-open';
+type LawyerDashboardTab = 'home' | 'notifications' | 'profile' | 'schedule';
 
-const LazyLawyerDashboardBackgroundServices = React.lazy(
-    () => import('@/app/components/lawyer/dashboard/LawyerDashboardBackgroundServices'),
+function readInitialCommunityOpen(): boolean {
+    if (typeof window === 'undefined') return false;
+    if (parseCommunityDeepLinkFromLocation(window.location)) return true;
+    try {
+        return (
+            sessionStorage.getItem(LAWYER_COMMUNITY_OPEN_KEY) === '1' ||
+            sessionStorage.getItem(LAWYER_DASHBOARD_TAB_KEY) === 'community'
+        );
+    } catch {
+        return false;
+    }
+}
+
+function readInitialLawyerTab(): LawyerDashboardTab {
+    if (typeof window === 'undefined') return 'home';
+    try {
+        const saved = sessionStorage.getItem(LAWYER_DASHBOARD_TAB_KEY);
+        if (saved === 'schedule' || saved === 'profile' || saved === 'notifications') {
+            return saved;
+        }
+    } catch {
+        /* ignore storage */
+    }
+    return 'home';
+}
+
+const LazyLawyerDashboardBackgroundServices = lazyWithRetry(() =>
+    import('@/app/components/lawyer/dashboard/LawyerDashboardBackgroundServices.tsx').then((m) => ({
+        default: m.default as unknown as LazyComponent,
+    })),
 );
 
 type LawyerArchiveOverlay =
@@ -338,7 +387,8 @@ const LawyerDashboardCore = ({
                 const executionTarget = executionFiles.find((f) => String(f.id) === caseId);
                 const target = lawsuitTarget || executionTarget;
                 if (target) {
-                    setActiveFile(target);
+                    if (isRecord(target) && target.type === 'execution') prefetchExecutionDashboard();
+                    setActiveFile(coerceActiveFileTarget(target));
                     SmartToast.info(`جاري فتح القضية...`);
                 }
             } else {
@@ -348,7 +398,8 @@ const LawyerDashboardCore = ({
             setArchiveType('all');
             SmartToast.info('افتح الإضبارة من الأرشيف');
         } else if (path === 'scan_document') {
-            setShowScanner(true);
+            setVaultOpenScanner(true);
+            setShowDocs(true);
         } else if (path === 'vault') {
             setShowDocs(true);
         }
@@ -437,8 +488,8 @@ const LawyerDashboardCore = ({
     }, [authLoading, user, settings.data.weeklyBackupReminder]);
 
     // New Action Modals State
-    const [showScanner, setShowScanner] = useState(false);
     const [showContractGenerator, setShowContractGenerator] = useState(false);
+    const [vaultOpenScanner, setVaultOpenScanner] = useState(false);
 
     // New Settings State
     const [showControlMenu, setShowControlMenu] = useState(false);
@@ -492,18 +543,48 @@ const LawyerDashboardCore = ({
     }, [settings.security.decoyMode]);
 
     // New Feature States (Refactored for Tab Navigation)
-    const [activeTab, setActiveTab] = useState<'home' | 'notifications' | 'profile' | 'schedule' | 'community'>('home');
+    const [activeTab, setActiveTab] = useState<LawyerDashboardTab>(readInitialLawyerTab);
+    const [showCommunity, setShowCommunity] = useState(readInitialCommunityOpen);
     const [communityDeepLink, setCommunityDeepLink] = useState<{
         postId?: string;
         openComments?: boolean;
-        section?: 'forum' | 'repository';
     } | null>(() => {
         if (typeof window === 'undefined') return null;
         const target = parseCommunityDeepLinkFromLocation(window.location);
         return target
-            ? { postId: target.postId, openComments: target.openComments, section: 'forum' as const }
+            ? { postId: target.postId, openComments: target.openComments }
             : null;
     });
+
+    useEffect(() => {
+        try {
+            if (showCommunity) {
+                sessionStorage.setItem(LAWYER_COMMUNITY_OPEN_KEY, '1');
+                return;
+            }
+            sessionStorage.removeItem(LAWYER_COMMUNITY_OPEN_KEY);
+            if (activeTab === 'home') {
+                sessionStorage.removeItem(LAWYER_DASHBOARD_TAB_KEY);
+            } else {
+                sessionStorage.setItem(LAWYER_DASHBOARD_TAB_KEY, activeTab);
+            }
+        } catch {
+            /* ignore storage */
+        }
+    }, [activeTab, showCommunity]);
+
+    const openCommunityTab = useCallback(() => {
+        setShowCommunity(true);
+    }, []);
+
+    const handleCommunityBack = useCallback(() => {
+        setShowCommunity(false);
+        setCommunityDeepLink(null);
+        if (typeof window !== 'undefined' && window.location.hash.includes('community/post/')) {
+            window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+        }
+    }, []);
+
     const [showTransactions, setShowTransactions] = useState(false); // NEW: Transactions System
     const [showLawsuitsWorkspace, setShowLawsuitsWorkspace] = useState(false);
     const [lawsuitsWorkspaceTab, setLawsuitsWorkspaceTab] = useState<'civil' | 'urgent'>('civil');
@@ -551,19 +632,25 @@ const LawyerDashboardCore = ({
     }, []);
 
     useEffect(() => {
+        prefetchDossierShells();
+    }, []);
+
+    useEffect(() => {
         const syncCommunityHash = () => {
             const target = parseCommunityDeepLinkFromLocation(window.location);
             if (target) {
-                setCommunityDeepLink({ postId: target.postId, openComments: target.openComments });
-                setActiveTab('community');
+                setCommunityDeepLink((prev) => ({
+                    ...prev,
+                    postId: target.postId,
+                    openComments: target.openComments,
+                }));
+                openCommunityTab();
             }
         };
         syncCommunityHash();
         window.addEventListener('hashchange', syncCommunityHash);
         return () => window.removeEventListener('hashchange', syncCommunityHash);
-    }, []);
-    
-    // THEME AND SHAPE
+    }, [openCommunityTab]);
     const { theme, shapeClass } = useThemeStyles(currentTheme, currentShape);
 
     // --- NEW SETTINGS STATE ---
@@ -666,6 +753,7 @@ const LawyerDashboardCore = ({
         fieldTasks: quantumTasks,
     });
     useWorkspacePinMaintenance({ clusterScanSources });
+
     const homeHubClusterInput = useMemo(
         () => ({
             lawsuitFiles: clusterScanSources.lawsuitFiles,
@@ -724,7 +812,12 @@ const LawyerDashboardCore = ({
 
             switch (nav.kind) {
                 case 'tab':
-                    setActiveTab(nav.tab);
+                    if (nav.tab === 'community') {
+                        openCommunityTab();
+                    } else {
+                        setShowCommunity(false);
+                        setActiveTab(nav.tab);
+                    }
                     return;
                 case 'notepad':
                     setNotepadMode('list');
@@ -744,13 +837,6 @@ const LawyerDashboardCore = ({
                         );
                         if (txFile && isFileData(txFile)) {
                             setActiveFile(txFile);
-                            void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                                AuditLog.dossier.opened({
-                                    module: 'threading',
-                                    entityId: String(txFile.id),
-                                    caseNo: (txFile as { caseNo?: string }).caseNo,
-                                });
-                            }).catch(() => {});
                             return;
                         }
                         setTransactionsFocusId(String(txId));
@@ -772,13 +858,6 @@ const LawyerDashboardCore = ({
                     const f = files.find((file) => String(file.id) === nav.entityId);
                     if (f && isFileData(f)) {
                         setActiveFile(f);
-                        void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                            void import('@/app/domain/lawsuit/lawsuitJurisdiction').then(({ resolveLawsuitJurisdiction }) => {
-                                const j = resolveLawsuitJurisdiction(f as Record<string, unknown>);
-                                const module = j === 'personal' ? 'personal' : 'civil';
-                                AuditLog.dossier.opened({ module, entityId: String(f.id), caseNo: (f as { caseNo?: string }).caseNo });
-                            }).catch(() => {});
-                        }).catch(() => {});
                         return;
                     }
                     SmartToast.info('لم يُعثر على إضبارة الدعوى — ربما نُقلت للأرشيف أو السلة');
@@ -788,9 +867,6 @@ const LawyerDashboardCore = ({
                     const ex = executionFiles.find((file) => String(file.id ?? '') === nav.entityId);
                     if (ex) {
                         setActiveFile(coerceExecutionFilePreserveId(ex));
-                        void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                            AuditLog.dossier.opened({ module: 'execution', entityId: String(ex.id ?? ''), caseNo: (ex as { caseNo?: string }).caseNo });
-                        }).catch(() => {});
                         return;
                     }
                     SmartToast.info('لم يُعثر على إضبارة التنفيذ');
@@ -798,9 +874,6 @@ const LawyerDashboardCore = ({
                 }
                 case 'open_criminal':
                     openCriminalCase(nav.entityId);
-                    void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                        AuditLog.dossier.opened({ module: 'criminal', entityId: nav.entityId });
-                    }).catch(() => {});
                     return;
                 case 'open_field_tasks':
                     setActiveTab('home');
@@ -826,13 +899,6 @@ const LawyerDashboardCore = ({
                     const f = files.find((file) => String(file.id) === parsed.id);
                     if (f && isFileData(f)) {
                         setActiveFile(f);
-                        void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                            void import('@/app/domain/lawsuit/lawsuitJurisdiction').then(({ resolveLawsuitJurisdiction }) => {
-                                const j = resolveLawsuitJurisdiction(f as Record<string, unknown>);
-                                const module = j === 'personal' ? 'personal' : 'civil';
-                                AuditLog.dossier.opened({ module, entityId: String(f.id), caseNo: (f as { caseNo?: string }).caseNo });
-                            }).catch(() => {});
-                        }).catch(() => {});
                         return;
                     }
                     SmartToast.info('لم يُعثر على إضبارة الدعوى');
@@ -842,9 +908,6 @@ const LawyerDashboardCore = ({
                     const ex = executionFiles.find((file) => String(file.id ?? '') === parsed.id);
                     if (ex) {
                         setActiveFile(coerceExecutionFilePreserveId(ex));
-                        void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                            AuditLog.dossier.opened({ module: 'execution', entityId: String(ex.id ?? ''), caseNo: (ex as { caseNo?: string }).caseNo });
-                        }).catch(() => {});
                         return;
                     }
                     SmartToast.info('لم يُعثر على إضبارة التنفيذ');
@@ -852,9 +915,6 @@ const LawyerDashboardCore = ({
                 }
                 case 'criminal':
                     openCriminalCase(parsed.id);
-                    void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                        AuditLog.dossier.opened({ module: 'criminal', entityId: parsed.id });
-                    }).catch(() => {});
                     return;
                 case 'urgent':
                     setUrgentFocusCaseId(parsed.id);
@@ -864,9 +924,6 @@ const LawyerDashboardCore = ({
                     const f = files.find((file) => String(file.id) === parsed.id);
                     if (f && isFileData(f)) {
                         setActiveFile(f);
-                        void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                            AuditLog.dossier.opened({ module: 'threading', entityId: String(f.id), caseNo: (f as { caseNo?: string }).caseNo });
-                        }).catch(() => {});
                         return;
                     }
                     SmartToast.info('لم يُعثر على ملف المعاملة');
@@ -968,6 +1025,7 @@ const LawyerDashboardCore = ({
 
     useEffect(() => {
         if (archiveType !== 'execution') return;
+        prefetchExecutionDashboard();
         setExecutionFiles((prev) => {
             const next = purgeExpiredExecutionsFromTrash(prev);
             return next.length < prev.length ? next : prev;
@@ -1024,10 +1082,13 @@ const LawyerDashboardCore = ({
     const permanentlyDeleteExecutions = useCallback(
         (ids: Array<string | number>) => {
             const idSet = new Set(ids.map(String));
-            idSet.forEach((id) => {
-                removeExecutionStorageBundle(id);
-                void removeAllBridgedEventsForEntity('execution', id, user?.id);
-            });
+            void (async () => {
+                for (const id of idSet) {
+                    await removeExecutionStorageBundleAsync(id);
+                    useExecutionDashboardStore.getState().purgeDossierScopedState(id);
+                    void removeAllBridgedEventsForEntity('execution', id, user?.id);
+                }
+            })();
             setExecutionFiles((prev) => {
                 const next = prev.filter((f) => !idSet.has(String(f.id)));
                 saveExecutionFilesRaw(next);
@@ -1191,9 +1252,21 @@ const LawyerDashboardCore = ({
         }
         
         debug.log('📥 [LawyerDashboard] Received Execution File:', newFile);
-        const fileWithId = coerceExecutionFile(newFile, Date.now());
+        const dossierId = generateExecutionDossierId();
+        const fileWithId = coerceActiveFileTarget({
+            ...newFile,
+            type: 'execution',
+            id: dossierId,
+        });
+        seedFreshExecutionDossierStorage(fileWithId as unknown as Record<string, unknown>);
+        useExecutionDashboardStore.getState().resetStore();
         debug.log('✅ [LawyerDashboard] File with ID assigned:', fileWithId);
-        setExecutionFiles(prev => [fileWithId, ...prev]);
+        setExecutionFiles((prev) => {
+            const next = [fileWithId, ...prev];
+            saveExecutionFilesRaw(next);
+            storageCache.set(EXECUTION_FILES_KEY, next);
+            return next;
+        });
         
         // CRITICAL FIX: Close modals FIRST before opening new view
         debug.log('🔴 [LawyerDashboard] Closing ExecutionCreationView and ArchivePortal...');
@@ -1238,7 +1311,11 @@ const LawyerDashboardCore = ({
                 return merged;
             })
         );
-        setActiveFile((prev) => (prev && String(prev.id) === String(updatedFile.id) ? ({ ...prev, ...updatedFile } as ExecutionFile) : prev));
+        setActiveFile((prev) => {
+            if (!prev || String(prev.id) !== String(updatedFile.id)) return prev;
+            const merged = { ...prev, ...updatedFile } as ExecutionFile;
+            return prev.type === 'execution' ? coerceActiveFileTarget(merged) : merged;
+        });
         if (user) {
             // LawyerDB.saveExecutionFile(user.id, updatedFile).catch(debug.error);
         }
@@ -1514,7 +1591,8 @@ const LawyerDashboardCore = ({
         if (before) {
             try {
                 void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                    const caseNo = updatedFile.caseNo || `#${updatedFile.id}`;
+                    const clientName = updatedFile.parties?.find((p) => p.isClient)?.name?.trim();
+                    const caseNo = String(updatedFile.caseNo ?? '').trim() || clientName || undefined;
                     // 1. تغيير الحالة (active / paused / finished / deleted)
                     if (before.status && updatedFile.status && before.status !== updatedFile.status) {
                         if (updatedFile.status !== 'deleted') {
@@ -1694,10 +1772,10 @@ const LawyerDashboardCore = ({
     };
 
     // Logic to hide header when any modal/overlay is active or not in Home
-    const shouldHideHeader = showSettings || isWizardOpen || isNotepadOpen || (activeTab !== 'home') || activeFile || archiveType || showLawsuitsWorkspace || showUrgentDashboard || showDocs || showNotebook || showUtilities || showSmartLib || showScanner || showContractGenerator;
+    const shouldHideHeader = showSettings || isWizardOpen || isNotepadOpen || showCommunity || (activeTab !== 'home') || activeFile || archiveType || showLawsuitsWorkspace || showUrgentDashboard || showDocs || showNotebook || showUtilities || showSmartLib || showContractGenerator;
 
     // --- AUTH GUARD ---
-    if (authLoading) {
+    if (authLoading && !user) {
         return (
             <div className="min-h-screen bg-[#0B1021] flex items-center justify-center">
                 <div className="text-[#E6C673]/70 text-sm font-bold animate-pulse">جاري التحقق...</div>
@@ -1815,8 +1893,7 @@ const LawyerDashboardCore = ({
                 <div className={activeTab === 'home' ? 'flex flex-col h-[100dvh] pt-[110px] pb-[80px]' : 'hidden'}>
                     <div className="flex-1 flex flex-col px-6 w-full gap-6">
                         {homeSectionOrder.includes('alerts') ? (
-                            <Suspense fallback={null}>
-                                <LazyLawyerHomeHubCard
+                                <LawyerHomeHubCard
                                     lawyerId={calendarUserId}
                                     secretaryAlerts={visibleAppAlerts}
                                     alertsLoading={appAlertsLoading}
@@ -1841,12 +1918,11 @@ const LawyerDashboardCore = ({
                                         openNormalNewCaseModal();
                                     }}
                                 />
-                            </Suspense>
                         ) : null}
 
                         <button
                             type="button"
-                            onClick={() => setActiveTab('community')}
+                            onClick={openCommunityTab}
                             className="w-full rounded-2xl border border-[#DAA520]/20 bg-[#0D0D1A]/60 backdrop-blur-xl px-4 py-4 flex items-center justify-between hover:bg-[#0D0D1A]/75 transition-colors"
                         >
                             <div className="flex flex-col items-start text-right">
@@ -1868,6 +1944,7 @@ const LawyerDashboardCore = ({
                                                 shapeClass={shapeClass}
                                                 isEditMode={isEditMode}
                                                 onAddClick={openNormalNewCaseModal}
+                                                onPrefetchExecution={prefetchExecutionDashboard}
                                                 onOpenArchive={(id: string) => {
                                                     if (id === 'notepad') {
                                                         setNotepadMode('list');
@@ -1883,6 +1960,9 @@ const LawyerDashboardCore = ({
                                                         setLawsuitsDossierSection('criminal');
                                                         setLawsuitsWorkspaceTab('civil');
                                                         setShowLawsuitsWorkspace(true);
+                                                    } else if (id === 'execution') {
+                                                        prefetchExecutionDashboard();
+                                                        setArchiveType('execution');
                                                     } else {
                                                         setArchiveType(id as LawyerArchiveOverlay);
                                                     }
@@ -1923,22 +2003,11 @@ const LawyerDashboardCore = ({
                     </div>
                 </div>
 
-                {/* COMMUNITY TAB */}
-                <div className={activeTab === 'community' ? 'block h-[100dvh]' : 'hidden'}>
-                    <Suspense fallback={LAWYER_LAZY_FALLBACK}>
-                        <LazyCommunityScreen
-                            onBack={() => setActiveTab('home')}
-                            initialPostId={communityDeepLink?.postId ?? null}
-                            initialOpenComments={communityDeepLink?.openComments ?? false}
-                            initialSection={communityDeepLink?.section ?? 'forum'}
-                        />
-                    </Suspense>
-                </div>
-
-                {/* SCHEDULE TAB */}
-                <div className={activeTab === 'schedule' ? 'block h-[100dvh]' : 'hidden'}>
-                    <Suspense fallback={LAWYER_LAZY_FALLBACK}>
-                        <LazySmartLegalRadar
+            {/* SCHEDULE TAB */}
+            {activeTab === 'schedule' ? (
+                    <div className="block h-[100dvh]">
+                        <Suspense fallback={LAWYER_LAZY_FALLBACK}>
+                            <LazySmartLegalRadar
                             onBack={() => {
                                 setCalendarSearchFocus(null);
                                 setActiveTab('home');
@@ -2003,17 +2072,20 @@ const LawyerDashboardCore = ({
                                 }
                             }}
                         />
-                    </Suspense>
-                </div>
-
-                {/* 4. PROFILE TAB */}
-                <div className={activeTab === 'profile' ? 'block' : 'hidden'}>
-                    <div className="h-full">
-                        <Suspense fallback={LAWYER_LAZY_FALLBACK}>
-                            <LazyRoyalLawyerProfile isScreenMode onBack={() => setActiveTab('home')} />
                         </Suspense>
                     </div>
-                </div>
+                ) : null}
+
+                {/* 4. PROFILE TAB */}
+                {activeTab === 'profile' ? (
+                    <div className="block">
+                        <div className="h-full">
+                            <Suspense fallback={LAWYER_LAZY_FALLBACK}>
+                                <LazyRoyalLawyerProfile isScreenMode onBack={() => setActiveTab('home')} />
+                            </Suspense>
+                        </div>
+                    </div>
+                ) : null}
 
             </div>
 
@@ -2184,18 +2256,10 @@ const LawyerDashboardCore = ({
                             onClose={() => setArchiveType(null)}
                             onFileClick={(f: unknown) => {
                                 if (isRecord(f) && f.type === 'execution') {
+                                    prefetchExecutionDashboard();
                                     const exec = coerceExecutionFilePreserveId(f);
                                     setActiveFile(exec);
                                     setArchiveType(null);
-                                    void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                                        const fr = f as Record<string, unknown>;
-                                        AuditLog.dossier.opened({
-                                            module: 'execution',
-                                            entityId: String(exec.id ?? ''),
-                                            caseNo: typeof fr.caseNo === 'string' ? fr.caseNo : typeof fr.caseNumber === 'string' ? fr.caseNumber : undefined,
-                                            clientName: typeof fr.clientName === 'string' ? fr.clientName : undefined,
-                                        });
-                                    }).catch(() => {});
                                     return;
                                 }
                                 if (!isFileData(f)) return;
@@ -2205,29 +2269,6 @@ const LawyerDashboardCore = ({
                                     selectCase(f.id.toString());
                                     setActiveFile(f);
                                     setArchiveType(null);
-                                    void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                                        const fr = f as Record<string, unknown> & { type?: string };
-                                        const fileType = fr.type;
-                                        if (fileType === 'transaction') {
-                                            AuditLog.dossier.opened({
-                                                module: 'threading',
-                                                entityId: String(f.id),
-                                                caseNo: typeof fr.caseNo === 'string' ? fr.caseNo : undefined,
-                                                clientName: typeof fr.clientName === 'string' ? fr.clientName : undefined,
-                                            });
-                                            return;
-                                        }
-                                        void import('@/app/domain/lawsuit/lawsuitJurisdiction').then(({ resolveLawsuitJurisdiction }) => {
-                                            const j = resolveLawsuitJurisdiction(fr);
-                                            const module = j === 'personal' ? 'personal' : j === 'criminal' ? 'criminal' : 'civil';
-                                            AuditLog.dossier.opened({
-                                                module: module as 'civil' | 'personal' | 'criminal',
-                                                entityId: String(f.id),
-                                                caseNo: typeof fr.caseNo === 'string' ? fr.caseNo : undefined,
-                                                clientName: typeof fr.clientName === 'string' ? fr.clientName : undefined,
-                                            });
-                                        }).catch(() => {});
-                                    }).catch(() => {});
                                 }
                             }}
                             onAddAction={() => {
@@ -2293,26 +2334,14 @@ const LawyerDashboardCore = ({
                             onClose={() => setShowLawsuitsWorkspace(false)}
                             onOpenCriminalCase={(id: string) => {
                                 openCriminalCase(id, { fromLawsuitsWorkspace: true });
-                                void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                                    AuditLog.dossier.opened({ module: 'criminal', entityId: id });
-                                }).catch(() => {});
                             }}
                             onDeleteCriminalCase={(id: string) => criminalBridge.deleteCriminalCase(id)}
                             onOpenFile={(f: unknown) => {
                                 if (isRecord(f) && f.type === 'execution') {
-                                    void import('@/app/components/lawyer/ExecutionDashboard');
+                                    prefetchExecutionDashboard();
                                     const exec = coerceExecutionFilePreserveId(f);
                                     setActiveFile(exec);
                                     setShowLawsuitsWorkspace(false);
-                                    void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                                        const fr = f as Record<string, unknown>;
-                                        AuditLog.dossier.opened({
-                                            module: 'execution',
-                                            entityId: String(exec.id ?? ''),
-                                            caseNo: typeof fr.caseNo === 'string' ? fr.caseNo : undefined,
-                                            clientName: typeof fr.clientName === 'string' ? fr.clientName : undefined,
-                                        });
-                                    }).catch(() => {});
                                     return;
                                 }
                                 if (!isFileData(f)) return;
@@ -2320,28 +2349,6 @@ const LawyerDashboardCore = ({
                                 selectCase(f.id.toString());
                                 setActiveFile(f);
                                 setShowLawsuitsWorkspace(false);
-                                void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                                    const fr = f as Record<string, unknown> & { type?: string };
-                                    if (fr.type === 'transaction') {
-                                        AuditLog.dossier.opened({
-                                            module: 'threading',
-                                            entityId: String(f.id),
-                                            caseNo: typeof fr.caseNo === 'string' ? fr.caseNo : undefined,
-                                            clientName: typeof fr.clientName === 'string' ? fr.clientName : undefined,
-                                        });
-                                        return;
-                                    }
-                                    void import('@/app/domain/lawsuit/lawsuitJurisdiction').then(({ resolveLawsuitJurisdiction }) => {
-                                        const j = resolveLawsuitJurisdiction(fr);
-                                        const module = j === 'personal' ? 'personal' : j === 'criminal' ? 'criminal' : 'civil';
-                                        AuditLog.dossier.opened({
-                                            module: module as 'civil' | 'personal' | 'criminal',
-                                            entityId: String(f.id),
-                                            caseNo: typeof fr.caseNo === 'string' ? fr.caseNo : undefined,
-                                            clientName: typeof fr.clientName === 'string' ? fr.clientName : undefined,
-                                        });
-                                    }).catch(() => {});
-                                }).catch(() => {});
                             }}
                             onAddNewCase={() => {
                                 setWizardInitialData({ type: 'lawsuit' });
@@ -2362,16 +2369,19 @@ const LawyerDashboardCore = ({
                  <>
                     {showDocs && (
                         <Suspense fallback={LAWYER_LAZY_FALLBACK}>
-                            <LazySmartVaultModal key="docs" onClose={() => setShowDocs(false)} currentUserId={user?.id || ''} />
+                            <LazySmartVaultModal
+                                key="docs"
+                                onClose={() => {
+                                    setShowDocs(false);
+                                    setVaultOpenScanner(false);
+                                }}
+                                currentUserId={user?.id || ''}
+                                initialOpenScanner={vaultOpenScanner}
+                            />
                         </Suspense>
                     )}
                     
                     {/* New Action Modals */}
-                    {showScanner && (
-                        <Suspense fallback={LAWYER_LAZY_FALLBACK}>
-                            <LazyScannerModal key="scanner" onClose={() => setShowScanner(false)} userId={user?.id || ''} />
-                        </Suspense>
-                    )}
                     {showContractGenerator && (
                         <Suspense fallback={LAWYER_LAZY_FALLBACK}>
                             <LazySmartContractGenerator onClose={() => setShowContractGenerator(false)} />
@@ -2465,9 +2475,6 @@ const LawyerDashboardCore = ({
                         onClose={closeCriminalCase}
                         onOpenCase={(caseId: string) => {
                             openCriminalCase(caseId, { keepReturnTarget: true });
-                            void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                                AuditLog.dossier.opened({ module: 'criminal', entityId: caseId });
-                            }).catch(() => {});
                         }}
                         onRequestNewCaseFromSeverance={() => {
                             // احتياطي قديم — التفريق يُكمَل داخل لوحة الإضبارة الأم (نموذج مضمّن).
@@ -2508,12 +2515,12 @@ const LawyerDashboardCore = ({
                                     return;
                                 }
                                 if (nav.type === 'repository') {
-                                    setActiveTab('community');
-                                    setCommunityDeepLink({ section: 'repository' });
+                                    persistCommunitySection('repository');
+                                    openCommunityTab();
                                     return;
                                 }
                                 if (nav.type === 'community') {
-                                    setActiveTab('community');
+                                    openCommunityTab();
                                     if (nav.postId) {
                                         setCommunityDeepLink({ postId: nav.postId, openComments: false });
                                     }
@@ -2610,6 +2617,19 @@ const LawyerDashboardCore = ({
             
             {/* ✅ CRITICAL UI FIX: REMOVE DEBUG/LAB ICON - Hidden from production view */}
             {/* Debug panel still accessible via keyboard shortcut if needed */}
+
+            {/* COMMUNITY — طبقة مستقلة فوق اللوحة (لا تبديل تبويب) */}
+            {showCommunity ? (
+                <div className="fixed inset-0 z-[95] h-[100dvh] bg-[#151822]">
+                    <CommunityErrorBoundary onReset={handleCommunityBack}>
+                        <CommunityScreen
+                            onBack={handleCommunityBack}
+                            initialPostId={communityDeepLink?.postId ?? null}
+                            initialOpenComments={communityDeepLink?.openComments ?? false}
+                        />
+                    </CommunityErrorBoundary>
+                </div>
+            ) : null}
 
         </SafeView>
     );

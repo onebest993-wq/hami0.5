@@ -5,7 +5,6 @@ import {
     X, Mic, Square, Loader2, Sparkles, FileText, Play, Trash2
 } from 'lucide-react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { LegalAI } from '@/app/components/lawyer/LegalAI_Coordinator';
 
 interface VoiceRecorderModalProps {
     onClose: () => void;
@@ -68,12 +67,8 @@ export const VoiceRecorderModal = ({ onClose }: VoiceRecorderModalProps) => {
 
                 setIsProcessing(true);
                 try {
-                    const analysis = await LegalAI.processInput(blob, 'audio');
-                    setResult(typeof analysis.text === 'string' ? analysis.text : analysis.title);
-                    SmartToast.success('✅ تم تحليل التسجيل الصوتي');
-                } catch {
-                    setResult('عذراً، فشل تحليل التسجيل الصوتي');
-                    SmartToast.error('❌ فشل التحليل الصوتي');
+                    setResult('تم حفظ التسجيل الصوتي. أضف ملاحظة نصية يدوياً في هذه النسخة.');
+                    SmartToast.success('تم حفظ التسجيل الصوتي');
                 } finally {
                     setIsProcessing(false);
                 }

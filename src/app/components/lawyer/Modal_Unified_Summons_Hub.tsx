@@ -92,6 +92,8 @@ export interface UnifiedSummonsHubProps {
     onTerminateTablighTask?: () => void;
     guarantorNotificationFeature?: {
         enabled: boolean;
+        /** فتح المركز من بطاقة الكفيل — يُعرض «تبليغ الكفيل» فقط دون «التبليغ» العام */
+        contextOnly?: boolean;
         state:
             | { noticeDateYmd: string; reason: string; endedAt?: string | null; attendedAt?: string | null }
             | null
@@ -135,6 +137,8 @@ export interface UnifiedSummonsHubProps {
     executionId?: string;
 
     /** تاريخ الإخبار/التبليغ الفعلي المحفوظ (للتمثيل داخل المودال) */
+    /** إخفاء التبليغ بالنشر — مدين موظف */
+    suppressPublicationNotice?: boolean;
     executionSummonsNoticeDateYmd?: string | null;
 
     /** هل انتهت دورة مذكرة الإخبار لهذه الإضبارة (حضور أو انتهاء مهلة) */
@@ -177,6 +181,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
     guarantorNotificationFeature,
     employeeAssignmentFeature,
     publicationNoticeFeature,
+    suppressPublicationNotice = false,
     executionId,
     executionSummonsNoticeDateYmd = null,
     executionSummonsArchived = false,
@@ -215,6 +220,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
     const [nashrFormError, setNashrFormError] = useState('');
     const [guarantorNoticeDate, setGuarantorNoticeDate] = useState('');
     const [guarantorNoticeReason, setGuarantorNoticeReason] = useState('');
+    const [guarantorFormError, setGuarantorFormError] = useState('');
 
     useEffect(() => {
         if (!isOpen) {
@@ -261,22 +267,37 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
 
     const showTaklifOptionInHub = Boolean(memoArchivedResolved);
     const showPublicationTab = Boolean(
-        memoArchivedResolved || (!memoArchivedResolved && notificationCount <= 1)
+        !suppressPublicationNotice &&
+            (memoArchivedResolved || (!memoArchivedResolved && notificationCount <= 1))
+    );
+
+    const isGuarantorSummonsContext = Boolean(
+        guarantorNotificationFeature?.enabled &&
+            (guarantorNotificationFeature.contextOnly || initialMainTab === 'guarantor')
     );
 
     const hubTabOptions = useMemo(() => {
         const opts: { value: 'tabligh' | 'taklif' | 'nashr' | 'guarantor'; label: string }[] = [];
+        if (isGuarantorSummonsContext) {
+            opts.push({ value: 'guarantor', label: 'تبليغ / تكليف الكفيل بالحضور' });
+            return opts;
+        }
         opts.push({ value: 'tabligh', label: memoArchivedResolved ? 'التبليغ' : 'التبليغ / الإخبار' });
         if (showTaklifOptionInHub) opts.push({ value: 'taklif', label: 'التكليف بالحضور' });
         if (showPublicationTab) opts.push({ value: 'nashr', label: 'التبليغ بالنشر' });
-        if (guarantorNotificationFeature?.enabled) opts.push({ value: 'guarantor', label: 'تبليغ الكفيل' });
         return opts;
-    }, [guarantorNotificationFeature?.enabled, memoArchivedResolved, showTaklifOptionInHub, showPublicationTab]);
+    }, [
+        isGuarantorSummonsContext,
+        memoArchivedResolved,
+        showTaklifOptionInHub,
+        showPublicationTab,
+        suppressPublicationNotice,
+    ]);
 
     useEffect(() => {
         if (!isOpen) return;
         if (!hubTabOptions.some((o) => o.value === hubMainTab)) {
-            setHubMainTab('tabligh');
+            setHubMainTab(hubTabOptions[0]?.value ?? 'tabligh');
         }
     }, [isOpen, hubMainTab, hubTabOptions]);
 
@@ -294,6 +315,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
         if (!st) {
             setGuarantorNoticeDate('');
             setGuarantorNoticeReason('');
+            setGuarantorFormError('');
             return;
         }
         setGuarantorNoticeDate(String(st.noticeDateYmd || '').trim());
@@ -314,6 +336,9 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
 
     const memoNoticeDateYmd = String(memoDateOptimistic || executionSummonsNoticeDateYmd || '').trim();
     const memoWindow = memoNoticeDateYmd ? getExecutionSummons7DayWindow(memoNoticeDateYmd) : null;
+    /** شمول الأتعاب — مرة واحدة قبل تسجيل تاريخ أول مذكرة إخبار */
+    const showLawyerFeesIncludeCheckbox =
+        summonsEvictionSimplifiedUi && showInitialNoticeLawyerFeesMemoOption && !memoNoticeDateYmd;
     const showSubsequentNoticeForm = false;
 
     const resolvedTablighTask = tablighTaskOptimistic || tablighTask;
@@ -333,6 +358,22 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
         if (selectedDate > today) return { ok: false, error: 'لا يمكن إدخال تاريخ تبليغ مستقبلي' };
         return { ok: true };
     };
+
+    const submitGuarantorNotice = useCallback(() => {
+        const d = String(guarantorNoticeDate || '').trim();
+        const r = String(guarantorNoticeReason || '').trim();
+        const dateCheck = validateDate(d);
+        if (!dateCheck.ok) {
+            setGuarantorFormError(dateCheck.error || 'أدخل تاريخ التبليغ');
+            return;
+        }
+        if (!r) {
+            setGuarantorFormError('أدخل سبب التبليغ / التكليف بالحضور');
+            return;
+        }
+        setGuarantorFormError('');
+        guarantorNotificationFeature?.onRegister({ noticeDateYmd: d, reason: r });
+    }, [guarantorNoticeDate, guarantorNoticeReason, guarantorNotificationFeature]);
 
     const validateMemoDate = useCallback(
         (inputDate: string): boolean => {
@@ -372,13 +413,10 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
             const ymd = String(nextYmd || '').trim();
             if (!ymd) return;
             if (!validateMemoDate(ymd)) return;
+            const initialFeesFlag = showLawyerFeesIncludeCheckbox
+                ? initialNoticeLawyerFeesIncluded
+                : undefined;
             const forceMemo = executionMemoRegisterMode && notificationCount === 1;
-            const initialFeesFlag =
-                summonsEvictionSimplifiedUi &&
-                showInitialNoticeLawyerFeesMemoOption &&
-                (notificationCount === 0 || forceMemo)
-                    ? initialNoticeLawyerFeesIncluded
-                    : undefined;
             onDebtorNotification(ymd, '', false, undefined, initialFeesFlag, { forceExecutionMemo: forceMemo });
             setMemoDateOptimistic(ymd);
             setMemoArchivedOptimistic(false);
@@ -387,8 +425,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
             initialNoticeLawyerFeesIncluded,
             notificationCount,
             onDebtorNotification,
-            showInitialNoticeLawyerFeesMemoOption,
-            summonsEvictionSimplifiedUi,
+            showLawyerFeesIncludeCheckbox,
             validateMemoDate,
             executionMemoRegisterMode,
         ]
@@ -464,12 +501,9 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                 };
             }
             const forceMemo = executionMemoRegisterMode && notificationCount === 1;
-            const initialFeesFlag =
-                (notificationCount === 0 || (summonsEvictionSimplifiedUi && forceMemo)) &&
-                summonsEvictionSimplifiedUi &&
-                showInitialNoticeLawyerFeesMemoOption
-                    ? initialNoticeLawyerFeesIncluded
-                    : undefined;
+            const initialFeesFlag = showLawyerFeesIncludeCheckbox
+                ? initialNoticeLawyerFeesIncluded
+                : undefined;
             onDebtorNotification(noticeDateTrim, purposeOut, isHolidayExtension, evictionMeta, initialFeesFlag, {
                 forceExecutionMemo: forceMemo,
             });
@@ -542,7 +576,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                     </button>
                     <h2 className="text-indigo-400 font-bold text-lg flex items-center gap-2">
                         <Bell size={20} />
-                        التبليغ
+                        {isGuarantorSummonsContext ? 'تبليغ / تكليف الكفيل بالحضور' : 'التبليغ'}
                     </h2>
                 </div>
 
@@ -560,7 +594,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                                 id="unified-summons-kind"
                                 value={hubMainTab}
                                 onChange={(e) => {
-                                    const v = e.target.value as 'tabligh' | 'taklif' | 'nashr';
+                                    const v = e.target.value as 'tabligh' | 'taklif' | 'nashr' | 'guarantor';
                                     setHubMainTab(v);
                                     setTaklifFormError('');
                                     setNashrFormError('');
@@ -647,20 +681,6 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                                                 ) : null}
                                             </div>
 
-                                            {summonsEvictionSimplifiedUi && showInitialNoticeLawyerFeesMemoOption ? (
-                                                <label className="flex cursor-pointer flex-row-reverse items-center justify-between gap-3 rounded-xl border border-sky-500/25 bg-sky-950/15 px-3 py-2">
-                                                    <span className="text-[11px] font-bold text-sky-100/90">
-                                                        شمول أتعاب المحاماة
-                                                    </span>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={initialNoticeLawyerFeesIncluded}
-                                                        onChange={(e) => setInitialNoticeLawyerFeesIncluded(e.target.checked)}
-                                                        className="h-5 w-5 cursor-pointer rounded border-sky-500/40 bg-slate-900/50 checked:bg-sky-500"
-                                                    />
-                                                </label>
-                                            ) : null}
-
                                             {memoError ? (
                                                 <div className="text-right text-[11px] font-bold text-rose-300">
                                                     {memoError}
@@ -693,7 +713,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                                         </div>
                                     ) : (
                                         <div className="space-y-3">
-                                            {summonsEvictionSimplifiedUi && showInitialNoticeLawyerFeesMemoOption ? (
+                                            {showLawyerFeesIncludeCheckbox ? (
                                                 <label className="flex cursor-pointer flex-row-reverse items-center justify-between gap-3 rounded-xl border border-sky-500/25 bg-sky-950/15 px-3 py-2">
                                                     <span className="text-[11px] font-bold text-sky-100/90">
                                                         شمول أتعاب المحاماة
@@ -721,6 +741,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                                                     تحديد تاريخ التبليغ بمذكرة الإخبار
                                                 </span>
                                             </button>
+                                            {!suppressPublicationNotice ? (
                                             <button
                                                 type="button"
                                                 onClick={() => {
@@ -735,6 +756,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                                                     التبليغ بالمذكرة بواسطة النشر
                                                 </span>
                                             </button>
+                                            ) : null}
 
                                             <button
                                                 type="button"
@@ -1294,7 +1316,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                                 className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.06] p-4 space-y-3"
                                 dir="rtl"
                             >
-                                <p className="text-amber-200 font-bold text-sm">تبليغ الكفيل</p>
+                                <p className="text-amber-200 font-bold text-sm">تبليغ / تكليف الكفيل بالحضور</p>
                                 <div>
                                     <label className="mb-2 block text-right text-xs font-semibold text-gray-300">
                                         تاريخ التبليغ
@@ -1302,36 +1324,51 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                                     <input
                                         type="date"
                                         value={guarantorNoticeDate}
-                                        onChange={(e) => setGuarantorNoticeDate(e.target.value)}
+                                        onChange={(e) => {
+                                            setGuarantorNoticeDate(e.target.value);
+                                            setGuarantorFormError('');
+                                        }}
                                         className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-right text-sm text-white"
                                     />
                                 </div>
                                 <div>
                                     <label className="mb-2 block text-right text-xs font-semibold text-gray-300">
-                                        سبب التبليغ
+                                        سبب التبليغ / التكليف
                                     </label>
                                     <input
                                         type="text"
                                         value={guarantorNoticeReason}
-                                        onChange={(e) => setGuarantorNoticeReason(e.target.value)}
-                                        placeholder="أدخل سبب التبليغ"
+                                        onChange={(e) => {
+                                            setGuarantorNoticeReason(e.target.value);
+                                            setGuarantorFormError('');
+                                        }}
+                                        placeholder="أدخل سبب التبليغ أو التكليف بالحضور"
                                         className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-right text-sm text-white"
                                     />
                                 </div>
+                                {guarantorFormError ? (
+                                    <p className="text-right text-[11px] font-bold text-rose-400">{guarantorFormError}</p>
+                                ) : null}
 
                                 {guarantorNotificationFeature.state &&
                                 !guarantorNotificationFeature.state.endedAt ? (
                                     <div className="grid grid-cols-1 gap-2">
                                         <button
                                             type="button"
-                                            onClick={() => guarantorNotificationFeature.onAttend()}
+                                            onClick={() => {
+                                                guarantorNotificationFeature.onAttend();
+                                                onClose();
+                                            }}
                                             className="w-full rounded-xl border border-emerald-500/25 bg-emerald-500/10 py-2.5 text-[12px] font-bold text-emerald-50 hover:bg-emerald-500/15"
                                         >
                                             حضور الكفيل / إنهاء التبليغ
                                         </button>
                                         <button
                                             type="button"
-                                            onClick={() => guarantorNotificationFeature.onTerminate()}
+                                            onClick={() => {
+                                                guarantorNotificationFeature.onTerminate();
+                                                onClose();
+                                            }}
                                             className="w-full rounded-xl border border-rose-500/25 bg-rose-500/10 py-2.5 text-[12px] font-bold text-rose-50 hover:bg-rose-500/15"
                                         >
                                             إنهاء التبليغ
@@ -1340,26 +1377,10 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                                 ) : (
                                     <button
                                         type="button"
-                                        onClick={() => {
-                                            const d = String(guarantorNoticeDate || '').trim();
-                                            const r = String(guarantorNoticeReason || '').trim();
-                                            if (!d) {
-                                                setDateError('أدخل تاريخ التبليغ');
-                                                return;
-                                            }
-                                            if (!r) {
-                                                setDateError('أدخل سبب التبليغ');
-                                                return;
-                                            }
-                                            setDateError('');
-                                            guarantorNotificationFeature.onRegister({
-                                                noticeDateYmd: d,
-                                                reason: r,
-                                            });
-                                        }}
+                                        onClick={submitGuarantorNotice}
                                         className="w-full rounded-xl border border-amber-500/25 bg-amber-500/10 py-2.5 text-[12px] font-bold text-amber-50 hover:bg-amber-500/15"
                                     >
-                                        تسجيل تبليغ الكفيل
+                                        تبليغ / تكليف الكفيل بالحضور
                                     </button>
                                 )}
                             </div>

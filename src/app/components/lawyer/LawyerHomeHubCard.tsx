@@ -255,7 +255,7 @@ export const LawyerHomeHubCard: React.FC<LawyerHomeHubCardProps> = ({
                     ) : showAlertsInitialLoad ? (
                         <p className="text-[10px] text-white/35">جاري التحميل...</p>
                     ) : hasAlerts ? (
-                        <div className="w-full overflow-hidden relative" ref={emblaRef}>
+                        <div className="w-full overflow-hidden relative pb-6 min-h-[128px]" ref={emblaRef}>
                             <div className="flex touch-pan-y">
                                 {carouselAlerts.map((alert) => {
                                     const source = sourceById.get(alert.id)!;

@@ -213,17 +213,29 @@ export const useAppStore = create<AppState>()(
 
                 // Audit log: نشر حدث "تم إنشاء إضبارة تنفيذ" إلى NotificationStore
                 try {
+                    const fileRecord = file as {
+                        executionCaseNumber?: string;
+                        caseNo?: string;
+                        fileNumber?: string;
+                        fileYear?: string;
+                        clientName?: string;
+                        creditor?: string;
+                    };
+                    const fileNo = String(fileRecord.fileNumber ?? '').trim();
+                    const fileYear = String(fileRecord.fileYear ?? '').trim();
                     const caseNo =
-                        (file as { executionCaseNumber?: string }).executionCaseNumber ||
-                        (file as { caseNo?: string }).caseNo ||
-                        String(file.id);
+                        String(fileRecord.executionCaseNumber ?? '').trim() ||
+                        String(fileRecord.caseNo ?? '').trim() ||
+                        (fileNo && fileYear ? `${fileNo}/${fileYear}` : fileNo) ||
+                        undefined;
                     const clientName =
-                        (file as { clientName?: string }).clientName ||
-                        (file as { creditor?: string }).creditor;
+                        String(fileRecord.clientName ?? '').trim() ||
+                        String(fileRecord.creditor ?? '').trim() ||
+                        undefined;
                     void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
                         AuditLog.execution.fileCreated({
                             executionId: file.id,
-                            caseNo,
+                            caseNo: caseNo ?? 'إضبارة تنفيذ جديدة',
                             clientName,
                         });
                     });
@@ -250,10 +262,19 @@ export const useAppStore = create<AppState>()(
                     const u = updates as unknown as Record<string, unknown>;
                     try {
                         void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                            const bRecord = b as {
+                                executionCaseNumber?: string;
+                                caseNo?: string;
+                                fileNumber?: string;
+                                fileYear?: string;
+                            };
+                            const fileNo = String(bRecord.fileNumber ?? '').trim();
+                            const fileYear = String(bRecord.fileYear ?? '').trim();
                             const caseNo =
-                                (b.executionCaseNumber as string | undefined) ||
-                                (b.caseNo as string | undefined) ||
-                                String(before.id);
+                                String(bRecord.executionCaseNumber ?? '').trim() ||
+                                String(bRecord.caseNo ?? '').trim() ||
+                                (fileNo && fileYear ? `${fileNo}/${fileYear}` : fileNo) ||
+                                'إضبارة تنفيذ';
 
                             // إغلاق الإضبارة
                             if (
@@ -286,12 +307,22 @@ export const useAppStore = create<AppState>()(
                 if (before) {
                     try {
                         void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
+                            const beforeRecord = before as {
+                                executionCaseNumber?: string;
+                                caseNo?: string;
+                                fileNumber?: string;
+                                fileYear?: string;
+                            };
+                            const fileNo = String(beforeRecord.fileNumber ?? '').trim();
+                            const fileYear = String(beforeRecord.fileYear ?? '').trim();
+                            const caseNo =
+                                String(beforeRecord.executionCaseNumber ?? '').trim() ||
+                                String(beforeRecord.caseNo ?? '').trim() ||
+                                (fileNo && fileYear ? `${fileNo}/${fileYear}` : fileNo) ||
+                                'إضبارة تنفيذ';
                             AuditLog.execution.closed({
                                 executionId: before.id,
-                                caseNo:
-                                    (before as unknown as { executionCaseNumber?: string }).executionCaseNumber ||
-                                    (before as unknown as { caseNo?: string }).caseNo ||
-                                    String(before.id),
+                                caseNo,
                             });
                         });
                     } catch { /* silent */ }

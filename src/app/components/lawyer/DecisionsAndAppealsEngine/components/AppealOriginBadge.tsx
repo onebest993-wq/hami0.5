@@ -1,8 +1,16 @@
 import React from 'react';
 import DecisionHintTooltip from './DecisionHintTooltip';
 import type { Decision } from '../types';
+import type { AppealUiPerspective } from '../appealUiLabels';
+import { isCreditorInitiatedExecutorRequest, resolveRequestFilerFromDebtorAgentView } from '../utils';
 
-export function AppealOriginBadge({ decision }: { decision: Decision }) {
+export function AppealOriginBadge({
+    decision,
+    perspective = 'creditor_agent',
+}: {
+    decision: Decision;
+    perspective?: AppealUiPerspective;
+}) {
     if (decision.manualExecutorLedgerEntry) {
         return null;
     }
@@ -15,7 +23,35 @@ export function AppealOriginBadge({ decision }: { decision: Decision }) {
             </DecisionHintTooltip>
         );
     }
-    const debtor = decision.appealRequestOrigin === 'debtor_side';
+    const filer =
+        perspective === 'debtor_agent'
+            ? resolveRequestFilerFromDebtorAgentView(decision)
+            : isCreditorInitiatedExecutorRequest(decision)
+              ? 'creditor'
+              : decision.appealRequestOrigin === 'debtor_side'
+                ? 'debtor'
+                : 'creditor';
+    const debtor = filer === 'debtor';
+    if (perspective === 'debtor_agent') {
+        if (filer === 'creditor') {
+            return (
+                <DecisionHintTooltip label="طلب مقدّم من وكيل الدائن — موافقة المنفذ تضر بموكّلنا">
+                    <span className="inline-block max-w-[100%] shrink-0 cursor-default rounded-full border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 text-[10px] font-medium leading-tight text-rose-300">
+                        طلب الدائن
+                    </span>
+                </DecisionHintTooltip>
+            );
+        }
+        if (filer === 'debtor') {
+            return (
+                <DecisionHintTooltip label="طلب مقدّم من موكّلنا (المدين)">
+                    <span className="inline-block max-w-[100%] shrink-0 cursor-default rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium leading-tight text-emerald-300">
+                        طلب موكّلنا
+                    </span>
+                </DecisionHintTooltip>
+            );
+        }
+    }
     if (debtor) {
         return (
             <DecisionHintTooltip label="طلب مسجّل من جهة المدين أو الطرف الآخر — مسار الطعن يختلف عن طلباتنا">

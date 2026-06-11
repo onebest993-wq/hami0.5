@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import type { Debtor } from '@/app/types/execution';
+import { resolvePartyStoredName } from '@/app/utils/executionPartyNormalize';
 import type { AdditionalExecutionDebtor } from '@/app/types/execution';
+import { isDebtorRowEmployee } from '@/app/stores';
 import type { UnifiedExecutionDebtorRow } from '../types';
 
 export type DebtorWorkspaceEntry = {
@@ -39,12 +41,12 @@ export function useDebtorWorkspaceEntries(
             const d = {
                 id: ad.id,
                 type: 'debtor' as const,
-                name: ad.name,
+                name: resolvePartyStoredName(ad),
                 phone: ad.phone,
                 address: ad.address,
                 notificationDate: null as string | null,
                 isClient: false,
-                occupation: ad.isEmployee ? 'موظف' : 'كاسب',
+                occupation: isDebtorRowEmployee(ad) ? 'موظف' : 'كاسب',
             } as Debtor;
             out.push({
                 key: String(ad.id ?? `additional-debtor-${i}`),

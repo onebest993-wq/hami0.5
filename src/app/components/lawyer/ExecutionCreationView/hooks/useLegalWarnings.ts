@@ -96,7 +96,7 @@ export function getLegalWarningsAndAttachments(selectedClaimType: string) {
             warnings.push('الإجراء يقتصر على الإخبار/التنبيه فقط - لا يوجد دين مالي');
             warnings.push('مهلة 7 أيام من تاريخ الإخبار للزوجة للاستجابة');
             warnings.push('في حال الامتناع: يُنظّم (محضر امتناع) لإقامة دعوى (نشوز) في محكمة الأحوال الشخصية');
-            requiredAttachments.push('قرار حكم قطعي بالمطاوعة (رجوع للعشرة الزوجية)');
+            requiredAttachments.push('قرار حكم قطعي بالمطاوعة / ترك النشوز');
             requiredAttachments.push('البطاقة الوطنية للزوج والزوجة');
             requiredAttachments.push('وكالة محامي مقترنة بالصلاحية التنفيذية');
             legalTips.push('المطاوعة إجراء غير مالي - الأتعاب على الزوج/الموكل فقط');

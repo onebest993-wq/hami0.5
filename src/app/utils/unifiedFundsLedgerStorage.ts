@@ -98,3 +98,52 @@ export function filterUnifiedExpensesHideFileDuplicate(
             !(String(r.id).startsWith('seed-exp-') && amountsClose(r.amount, expectedSeed))
     );
 }
+
+export type EncroachmentCaseExpenseRow = {
+    id: string;
+    amount: number;
+    note: string;
+    requestTitle: string;
+    workflowKey: string;
+    date: string;
+};
+
+/** إضافة قيد في قسم المصاريف التنفيذية بالمركز المالي */
+export function appendUnifiedLedgerExecutionExpense(
+    executionId: string | undefined,
+    amount: number,
+    reason: string
+): boolean {
+    const exId = String(executionId ?? '').trim();
+    const amt = Math.max(0, Math.trunc(amount));
+    if (!exId || amt <= 0) return false;
+    try {
+        const ledger = readUnifiedFundsLedger(exId) || empty();
+        const row: StoredExpenseRow = {
+            id: `enc-ex-${Date.now()}`,
+            amount: amt,
+            reason: String(reason || 'مصاريف تنفيذية').trim() || 'مصاريف تنفيذية',
+            at: new Date().toISOString(),
+        };
+        const next: StoredUnifiedLedger = {
+            ...ledger,
+            expenses: [row, ...ledger.expenses],
+            seeded: true,
+        };
+        SecureStoreService.setItemSync(unifiedFundsLedgerStorageKey(exId), JSON.stringify(next));
+        if (typeof window !== 'undefined') {
+            try {
+                window.dispatchEvent(
+                    new CustomEvent('hami-unified-ledger-updated', {
+                        detail: { executionId: exId },
+                    })
+                );
+            } catch {
+                /* ignore */
+            }
+        }
+        return true;
+    } catch {
+        return false;
+    }
+}

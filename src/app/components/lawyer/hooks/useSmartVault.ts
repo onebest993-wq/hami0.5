@@ -1,25 +1,43 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
-import { SmartVaultDB, SmartVaultDoc, LawyerStorage, uuidv4 } from '@/app/services/lawyer-cloud';
+import { SmartVaultDB, SmartVaultDoc } from '@/app/services/lawyer-cloud';
+import {
+    saveFileToVault,
+    readFilePreviewUrl,
+    resolveVaultDocUrl,
+    isVaultDocImage,
+    isVaultDocPdf,
+    isVaultImageFile,
+    isVaultPdfFile,
+    VAULT_MAX_FILE_SIZE,
+    type VaultUploadKind,
+    type VaultDocViewerKind,
+} from '@/app/services/vaultUploadService';
 import { useAuth } from '@/app/context/AuthContext';
 import { useLawyerSettingsOptional } from '@/app/context/LawyerSettingsContext';
+import {
+    addCustomCategory,
+    docMatchesCategoryFilter,
+    mergeCustomCategoriesFromDocs,
+} from '@/app/services/vaultCustomCategories';
 
 // --- Types ---
-export type FilterTag = 'الكل' | 'عقود' | 'طابو' | 'عرائض' | 'أخرى';
 export type ViewMode = 'grid' | 'list';
-export type DropdownAction = 'edit' | 'link' | 'delete';
+export type DropdownAction = 'edit' | 'delete';
+export type VaultFilterId = string;
 
-export const FILTERS: FilterTag[] = ['الكل', 'عقود', 'طابو', 'عرائض', 'أخرى'];
-const MAX_FILE_SIZE = 50 * 1024 * 1024;
+export type PendingUploadItem = { file: File; previewUrl?: string; kind: VaultUploadKind };
 
-export function matchesFilter(doc: SmartVaultDoc, filter: FilterTag): boolean {
-    if (filter === 'الكل') return true;
-    if (filter === 'عقود') return doc.tags.some((t) => /عقد|إيجار/.test(t));
-    if (filter === 'طابو') return doc.tags.some((t) => /طابو|تمليك/.test(t));
-    if (filter === 'عرائض') return doc.tags.some((t) => /عريضة|عرائض|مرافعات|تعويض/.test(t));
-    if (filter === 'أخرى') return doc.tags.length === 0;
-    return true;
+const MAX_FILE_SIZE = VAULT_MAX_FILE_SIZE;
+
+/** @deprecated use docMatchesCategoryFilter */
+export type FilterTag = string;
+/** @deprecated */
+export const FILTERS: FilterTag[] = ['الكل'];
+
+export function matchesFilter(doc: SmartVaultDoc, filter: string): boolean {
+    return docMatchesCategoryFilter(doc, filter);
 }
 
 export function formatFileSize(bytes: number): string {
@@ -45,8 +63,12 @@ export function formatDate(dateStr: string): string {
     }
 }
 
-export function inferDocType(mimeType: string): 'pdf' | 'image' {
-    if (mimeType.startsWith('image/')) return 'image';
+export function inferDocType(mimeType: string, fileName?: string): 'pdf' | 'image' {
+    const mime = (mimeType || '').toLowerCase();
+    const name = fileName || '';
+    if (mime.startsWith('image/')) return 'image';
+    if (/\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(name)) return 'image';
+    if (mime === 'application/pdf' || /\.pdf$/i.test(name)) return 'pdf';
     return 'pdf';
 }
 
@@ -69,33 +91,49 @@ interface UseSmartVaultReturn {
     isLoading: boolean;
     searchQuery: string;
     isSearching: boolean;
-    activeSummaryDoc: SmartVaultDoc | null;
-    activeFilter: FilterTag;
+    activeFilter: string;
+    customCategories: string[];
     viewMode: ViewMode;
     openDropdownId: string | null;
-    isUploading: boolean;
     currentUserId: string;
-    fileInputRef: React.RefObject<HTMLInputElement | null>;
+    pendingUpload: PendingUploadItem | null;
+    uploadQueueCount: number;
+    fileViewer: { doc: SmartVaultDoc; url: string; kind: VaultDocViewerKind } | null;
+    /** @deprecated use fileViewer */
+    imageViewer: { doc: SmartVaultDoc; url: string; kind: VaultDocViewerKind } | null;
+    editDoc: SmartVaultDoc | null;
+    isSavingMeta: boolean;
+    isSavingEdit: boolean;
+    imageInputRef: React.RefObject<HTMLInputElement | null>;
+    pdfInputRef: React.RefObject<HTMLInputElement | null>;
     searchInputRef: React.RefObject<HTMLInputElement | null>;
     mounted: boolean;
     filteredDocs: SmartVaultDoc[];
 
     // Setters
     setSearchQuery: React.Dispatch<React.SetStateAction<string>>;
-    setActiveFilter: React.Dispatch<React.SetStateAction<FilterTag>>;
+    setActiveFilter: React.Dispatch<React.SetStateAction<string>>;
+    addVaultCategory: (name: string) => void;
     setViewMode: (mode: ViewMode) => void;
     setOpenDropdownId: React.Dispatch<React.SetStateAction<string | null>>;
-    setActiveSummaryDoc: React.Dispatch<React.SetStateAction<SmartVaultDoc | null>>;
 
     // Actions
-    handleUpload: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
+    handleImageUploadSelect: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
+    handlePdfUploadSelect: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
+    confirmPendingUpload: (meta: { title: string; lawyerNote: string; classification: string }) => Promise<void>;
+    cancelPendingUpload: () => void;
+    closeFileViewer: () => void;
+    /** @deprecated use closeFileViewer */
+    closeImageViewer: () => void;
+    saveDocEdit: (values: { title: string; lawyerNote: string; classification: string }) => Promise<void>;
+    closeEditDoc: () => void;
     handleDelete: (doc: SmartVaultDoc) => Promise<void>;
-    handleEdit: (doc: SmartVaultDoc) => Promise<void>;
-    handleBindToDossier: (doc: SmartVaultDoc) => Promise<void>;
+    handleEdit: (doc: SmartVaultDoc) => void;
     handleViewFile: (doc: SmartVaultDoc) => Promise<void>;
     handleAISearch: () => Promise<void>;
     handleSearchSubmit: (e: React.KeyboardEvent<HTMLInputElement>) => void;
     handleDropdownAction: (doc: SmartVaultDoc, action: DropdownAction) => void;
+    refreshDocs: () => Promise<void>;
     onClose: () => void;
 }
 
@@ -107,9 +145,9 @@ export const useSmartVault = (onClose: () => void, propUserId?: string): UseSmar
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearching, setIsSearching] = useState(false);
-    const [activeSummaryDoc, setActiveSummaryDoc] = useState<SmartVaultDoc | null>(null);
     const [mounted, setMounted] = useState(false);
-    const [activeFilter, setActiveFilter] = useState<FilterTag>('الكل');
+    const [activeFilter, setActiveFilter] = useState<string>('الكل');
+    const [customCategories, setCustomCategories] = useState<string[]>([]);
     const lawyerSettings = useLawyerSettingsOptional();
     const viewMode: ViewMode = lawyerSettings?.settings.workflow.viewMode ?? 'grid';
 
@@ -123,25 +161,40 @@ export const useSmartVault = (onClose: () => void, propUserId?: string): UseSmar
         [lawyerSettings],
     );
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
-    const [isUploading, setIsUploading] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isSavingMeta, setIsSavingMeta] = useState(false);
+    const [isSavingEdit, setIsSavingEdit] = useState(false);
+    const [pendingUpload, setPendingUpload] = useState<PendingUploadItem | null>(null);
+    const [uploadQueue, setUploadQueue] = useState<File[]>([]);
+    const [fileViewer, setFileViewer] = useState<{ doc: SmartVaultDoc; url: string; kind: VaultDocViewerKind } | null>(null);
+    const [editDoc, setEditDoc] = useState<SmartVaultDoc | null>(null);
+    const imageInputRef = useRef<HTMLInputElement>(null);
+    const pdfInputRef = useRef<HTMLInputElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
+    const docsRef = useRef(docs);
+    docsRef.current = docs;
 
-    const filteredDocs = docs.filter((doc) => {
-        if (!matchesFilter(doc, activeFilter)) return false;
-        if (!searchQuery.trim()) return true;
-        const q = searchQuery.toLowerCase();
-        return (
-            doc.title.toLowerCase().includes(q) ||
-            doc.tags.some((t) => t.includes(q)) ||
-            (doc.aiSummary?.toLowerCase().includes(q) ?? false)
-        );
-    });
+    const filteredDocs = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
+        return docs.filter((doc) => {
+            if (!matchesFilter(doc, activeFilter)) return false;
+            if (!q) return true;
+            return (
+                doc.title.toLowerCase().includes(q) ||
+                (doc.customCategory?.toLowerCase().includes(q) ?? false) ||
+                doc.tags.some((t) => t.toLowerCase().includes(q)) ||
+                (doc.lawyerNote?.toLowerCase().includes(q) ?? false) ||
+                (doc.aiSummary?.toLowerCase().includes(q) ?? false)
+            );
+        });
+    }, [docs, activeFilter, searchQuery]);
 
     const loadDocs = useCallback(async () => {
         try {
             const all = await SmartVaultDB.listDocs(currentUserId || undefined);
             setDocs(all);
+            if (currentUserId) {
+                setCustomCategories(mergeCustomCategoriesFromDocs(currentUserId, all));
+            }
         } catch {
             SmartToast.error('فشل تحميل الملفات');
         } finally {
@@ -152,87 +205,161 @@ export const useSmartVault = (onClose: () => void, propUserId?: string): UseSmar
     useEffect(() => {
         if (!currentUserId) {
             setDocs([]);
+            setCustomCategories([]);
             setIsLoading(false);
             return;
         }
         void loadDocs();
     }, [currentUserId, loadDocs]);
 
+    const addVaultCategory = useCallback(
+        (name: string) => {
+            if (!currentUserId) return;
+            const next = addCustomCategory(currentUserId, name);
+            setCustomCategories(next);
+        },
+        [currentUserId],
+    );
+
     useEffect(() => {
         setMounted(true);
         document.body.style.overflow = 'hidden';
         return () => {
             document.body.style.overflow = 'unset';
+            setOpenDropdownId(null);
         };
     }, []);
 
-    const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = e.target.files;
-        if (!files || files.length === 0) return;
+    const beginNextPendingUpload = useCallback(async (files: File[], kind: VaultUploadKind) => {
+        if (files.length === 0) {
+            setPendingUpload(null);
+            setUploadQueue([]);
+            return;
+        }
+        const [next, ...rest] = files;
+        const previewUrl = kind === 'image' ? await readFilePreviewUrl(next) : undefined;
+        setUploadQueue(rest);
+        setPendingUpload({ file: next, previewUrl, kind });
+    }, []);
+
+    const resetFileInputs = () => {
+        if (imageInputRef.current) imageInputRef.current.value = '';
+        if (pdfInputRef.current) pdfInputRef.current.value = '';
+    };
+
+    const queueUploadFiles = async (fileList: FileList | null, kind: VaultUploadKind) => {
+        if (!fileList || fileList.length === 0) return;
         if (!currentUserId) {
             SmartToast.error('يرجى تسجيل الدخول أولاً لرفع الملفات');
-            if (fileInputRef.current) fileInputRef.current.value = '';
+            resetFileInputs();
             return;
         }
 
-        const oversized: string[] = [];
-        for (const f of Array.from(files)) {
-            if (f.size > MAX_FILE_SIZE) oversized.push(f.name);
+        const files = Array.from(fileList);
+        const wrongType = files.filter((f) =>
+            kind === 'image' ? !isVaultImageFile(f) : !isVaultPdfFile(f),
+        );
+        if (wrongType.length > 0) {
+            SmartToast.error(
+                kind === 'image'
+                    ? 'يرجى اختيار صورة فقط (JPG, PNG, WEBP...)'
+                    : 'يرجى اختيار ملف PDF فقط',
+            );
+            resetFileInputs();
+            return;
         }
+
+        const oversized = files.filter((f) => f.size > MAX_FILE_SIZE);
         if (oversized.length > 0) {
-            SmartToast.error(`الملفات التالية تتجاوز 50MB: ${oversized.join('، ')}`);
-            if (fileInputRef.current) fileInputRef.current.value = '';
+            SmartToast.error(`الملفات التالية تتجاوز 50MB: ${oversized.map((f) => f.name).join('، ')}`);
+            resetFileInputs();
             return;
         }
 
-        setIsUploading(true);
-        let uploadedCount = 0;
+        try {
+            await beginNextPendingUpload(files, kind);
+        } catch {
+            SmartToast.error('تعذر تجهيز الملف للرفع');
+            resetFileInputs();
+        }
+    };
 
-        for (const file of Array.from(files)) {
-            try {
-                const uploadResult = await LawyerStorage.uploadSmartFile(currentUserId, file, 'vault');
-                const docId = uuidv4();
-                const title = file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' ');
+    const handleImageUploadSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        await queueUploadFiles(files, 'image');
+    };
 
-                const newDoc: SmartVaultDoc = {
-                    id: docId,
-                    title,
-                    type: inferDocType(file.type),
-                    tags: inferTags(title),
-                    authorId: currentUserId,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                    fileSize: file.size,
-                    fileName: file.name,
-                    mimeType: file.type,
-                    storagePath: uploadResult.path,
-                    signedUrl: uploadResult.downloadUrl || null,
-                    isProcessing: false,
-                    boundDossierId: null,
-                };
+    const handlePdfUploadSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        await queueUploadFiles(files, 'pdf');
+    };
 
-                await SmartVaultDB.saveDoc(newDoc);
-                uploadedCount++;
-            } catch {
-                SmartToast.error(`فشل رفع ${file.name}`);
+    const cancelPendingUpload = useCallback(() => {
+        setPendingUpload(null);
+        setUploadQueue([]);
+        resetFileInputs();
+    }, []);
+
+    const confirmPendingUpload = async (meta: { title: string; lawyerNote: string; classification: string }) => {
+        if (!pendingUpload || !currentUserId) return;
+        setIsSavingMeta(true);
+        let localOnly = false;
+        const classification = meta.classification.trim();
+        try {
+            const saved = await saveFileToVault(currentUserId, pendingUpload.file, {
+                title: meta.title,
+                lawyerNote: meta.lawyerNote || null,
+                customCategory: classification || null,
+                tags: classification ? [classification] : [],
+            });
+            localOnly = saved.localOnly;
+            if (classification) {
+                addVaultCategory(classification);
+                setActiveFilter(classification);
+            } else {
+                setActiveFilter('الكل');
             }
+        } catch (err) {
+            if (err instanceof Error && err.message === 'vault persist failed') {
+                SmartToast.error('تعذر حفظ الملف على الجهاز — قد تكون مساحة التخزين ممتلئة');
+            } else if (err instanceof Error && err.message === 'vault blob store unavailable') {
+                SmartToast.error('تعذر حفظ الملف الكبير — المتصفح لا يدعم التخزين المحلي');
+            } else if (err instanceof Error && err.message === 'file too large') {
+                SmartToast.error('يتجاوز الحد الأقصى 50MB');
+            } else {
+                SmartToast.error(`فشل رفع ${pendingUpload.file.name}`);
+            }
+            setIsSavingMeta(false);
+            return;
         }
 
-        setIsUploading(false);
-        if (uploadedCount > 0) {
-            SmartToast.success(`تم رفع ${uploadedCount} ملف بنجاح`);
+        setIsSavingMeta(false);
+        if (uploadQueue.length > 0) {
+            SmartToast.success(localOnly ? 'تم الحفظ محلياً — الملف التالي' : 'تم الرفع — الملف التالي');
+            await beginNextPendingUpload(uploadQueue, pendingUpload.kind);
+            resetFileInputs();
             await loadDocs();
+            return;
         }
-        if (fileInputRef.current) fileInputRef.current.value = '';
+
+        setPendingUpload(null);
+        setUploadQueue([]);
+        resetFileInputs();
+        SmartToast.success(localOnly ? 'تم حفظ الملف محلياً' : 'تم رفع الملف بنجاح');
+        await loadDocs();
     };
 
     const handleDelete = async (doc: SmartVaultDoc) => {
-        if (!currentUserId || doc.authorId !== currentUserId) {
+        if (!currentUserId) {
+            SmartToast.error('يرجى تسجيل الدخول أولاً');
+            return;
+        }
+        if (doc.authorId && doc.authorId !== currentUserId) {
             SmartToast.error('ليس لديك صلاحية لحذف هذا الملف');
             return;
         }
         try {
-            await SmartVaultDB.deleteDoc(doc.id, doc.authorId);
+            await SmartVaultDB.deleteDoc(doc.id, doc.authorId || currentUserId);
             SmartToast.success('تم حذف الملف بنجاح');
             await loadDocs();
         } catch {
@@ -240,65 +367,72 @@ export const useSmartVault = (onClose: () => void, propUserId?: string): UseSmar
         }
     };
 
-    const handleEdit = async (doc: SmartVaultDoc) => {
-        if (!currentUserId || doc.authorId !== currentUserId) {
+    const handleEdit = (doc: SmartVaultDoc) => {
+        if (!currentUserId) {
+            SmartToast.error('يرجى تسجيل الدخول أولاً');
+            return;
+        }
+        if (doc.authorId && doc.authorId !== currentUserId) {
             SmartToast.error('ليس لديك صلاحية لتعديل هذا الملف');
             return;
         }
+        setOpenDropdownId(null);
+        setEditDoc(doc);
+    };
 
-        const newTitle = await SmartDialog.prompt('تعديل عنوان الملف:', doc.title);
-        if (!newTitle || newTitle === doc.title) return;
+    const closeEditDoc = () => setEditDoc(null);
 
-        const tagsInput = await SmartDialog.prompt('الوسوم (افصل بينها بفاصلة):', doc.tags.join(', '));
-        const newTags = tagsInput ? tagsInput.split(',').map((t) => t.trim()).filter(Boolean) : doc.tags;
-
+    const saveDocEdit = async (values: { title: string; lawyerNote: string; classification: string }) => {
+        if (!editDoc || !currentUserId) return;
+        setIsSavingEdit(true);
+        const classification = values.classification.trim();
         try {
             const updated: SmartVaultDoc = {
-                ...doc,
-                title: newTitle,
-                tags: newTags.length > 0 ? newTags : inferTags(newTitle),
+                ...editDoc,
+                title: values.title,
+                lawyerNote: values.lawyerNote || null,
+                customCategory: classification || null,
+                tags: classification ? [classification] : [],
                 updatedAt: new Date().toISOString(),
             };
             await SmartVaultDB.updateDoc(updated, currentUserId);
+            if (classification) {
+                addVaultCategory(classification);
+                setActiveFilter(classification);
+            }
             SmartToast.success('تم تحديث الملف بنجاح');
+            setEditDoc(null);
             await loadDocs();
         } catch {
             SmartToast.error('فشل تحديث الملف');
-        }
-    };
-
-    const handleBindToDossier = async (doc: SmartVaultDoc) => {
-        if (!currentUserId || doc.authorId !== currentUserId) {
-            SmartToast.error('ليس لديك صلاحية لربط هذا الملف');
-            return;
-        }
-        const dossierId = await SmartDialog.prompt('أدخل رقم/معرف الإضبارة لربط الملف بها:', '');
-        if (!dossierId || !dossierId.trim()) return;
-
-        try {
-            await SmartVaultDB.bindToDossier(doc.id, currentUserId, dossierId.trim());
-            SmartToast.success(`تم ربط الملف بالإضبارة ${dossierId.trim()}`);
-            await loadDocs();
-        } catch {
-            SmartToast.error('فشل ربط الملف بالإضبارة');
+        } finally {
+            setIsSavingEdit(false);
         }
     };
 
     const handleViewFile = async (doc: SmartVaultDoc) => {
         try {
-            let url = doc.signedUrl;
+            const fresh = docsRef.current.find((d) => d.id === doc.id) ?? doc;
+            const url = await resolveVaultDocUrl(fresh);
             if (!url) {
-                url = await SmartVaultDB.getSignedUrl(doc.storagePath);
+                SmartToast.error('تعذر فتح الملف — قد تحتاج إعادة رفعه');
+                return;
             }
-            if (url) {
-                window.open(url, '_blank');
-            } else {
-                SmartToast.error('تعذر فتح الملف');
+            if (isVaultDocImage(fresh)) {
+                setFileViewer({ doc: fresh, url, kind: 'image' });
+                return;
             }
+            if (isVaultDocPdf(fresh)) {
+                setFileViewer({ doc: fresh, url, kind: 'pdf' });
+                return;
+            }
+            window.open(url, '_blank');
         } catch {
             SmartToast.error('تعذر فتح الملف');
         }
     };
+
+    const closeFileViewer = () => setFileViewer(null);
 
     const handleAISearch = async () => {
         if (!searchQuery.trim()) return;
@@ -317,7 +451,6 @@ export const useSmartVault = (onClose: () => void, propUserId?: string): UseSmar
     const handleDropdownAction = async (doc: SmartVaultDoc, action: DropdownAction) => {
         setOpenDropdownId(null);
         if (action === 'edit') handleEdit(doc);
-        else if (action === 'link') handleBindToDossier(doc);
         else if (action === 'delete') {
             const ok = await SmartDialog.confirm(`هل أنت متأكد من حذف "${doc.title}"؟`);
             if (ok) handleDelete(doc);
@@ -325,11 +458,14 @@ export const useSmartVault = (onClose: () => void, propUserId?: string): UseSmar
     };
 
     return {
-        docs, isLoading, searchQuery, isSearching, activeSummaryDoc,
-        activeFilter, viewMode, openDropdownId, isUploading, currentUserId,
-        fileInputRef, searchInputRef, mounted, filteredDocs,
-        setSearchQuery, setActiveFilter, setViewMode, setOpenDropdownId, setActiveSummaryDoc,
-        handleUpload, handleDelete, handleEdit, handleBindToDossier, handleViewFile,
-        handleAISearch, handleSearchSubmit, handleDropdownAction, onClose,
+        docs, isLoading, searchQuery, isSearching,
+        activeFilter, customCategories, viewMode, openDropdownId, currentUserId,
+        pendingUpload, uploadQueueCount: uploadQueue.length, fileViewer, imageViewer: fileViewer, editDoc, isSavingMeta, isSavingEdit,
+        imageInputRef, pdfInputRef, searchInputRef, mounted, filteredDocs,
+        setSearchQuery, setActiveFilter, addVaultCategory, setViewMode, setOpenDropdownId,
+        handleImageUploadSelect, handlePdfUploadSelect, confirmPendingUpload, cancelPendingUpload,
+        closeFileViewer, closeImageViewer: closeFileViewer, saveDocEdit, closeEditDoc,
+        handleDelete, handleEdit, handleViewFile,
+        handleAISearch, handleSearchSubmit, handleDropdownAction, refreshDocs: loadDocs, onClose,
     };
 };

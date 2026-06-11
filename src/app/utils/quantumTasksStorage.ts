@@ -4,6 +4,7 @@ import type {
     LegalTask,
     TaskExpenseEntry,
 } from '@/app/types/TaskEngine';
+import { isTaskOnFieldCurtain } from '@/app/utils/fieldCurtain';
 
 export const QUANTUM_TASKS_STORAGE_KEY = 'hami_quantum_legal_tasks_v1';
 
@@ -78,6 +79,20 @@ export function deserializeQuantumTasks(raw: unknown): LegalTask[] {
                 reminderAt = Number.isNaN(rd.getTime()) ? null : rd;
             }
 
+            let completedAt: Date | null = null;
+            if (r.completedAt != null && typeof r.completedAt === 'string') {
+                const cd = new Date(r.completedAt);
+                completedAt = Number.isNaN(cd.getTime()) ? null : cd;
+            } else if (normalizedStatus === 'completed') {
+                completedAt = parsedDate ?? new Date();
+            }
+
+            let fieldCurtainPinnedAt: Date | null = null;
+            if (r.fieldCurtainPinnedAt != null && typeof r.fieldCurtainPinnedAt === 'string') {
+                const pd = new Date(r.fieldCurtainPinnedAt);
+                fieldCurtainPinnedAt = Number.isNaN(pd.getTime()) ? null : pd;
+            }
+
             return {
                 id: String(r.id ?? ''),
                 rawText: String(r.rawText ?? ''),
@@ -88,7 +103,9 @@ export function deserializeQuantumTasks(raw: unknown): LegalTask[] {
                 isFatalDeadline: !!r.isFatalDeadline,
                 linkedCaseId: r.linkedCaseId == null ? null : String(r.linkedCaseId),
                 status: normalizedStatus,
+                completedAt,
                 pinnedToFieldCurtain: !!r.pinnedToFieldCurtain,
+                fieldCurtainPinnedAt,
                 subTasks: mapSubTasks(r.subTasks),
                 documentRequirements: mapDocumentRequirements(r.documentRequirements),
                 expenses: mapExpenses(r.expenses),
@@ -104,16 +121,13 @@ export function serializeQuantumTasks(tasks: LegalTask[]): { tasks: Record<strin
             ...t,
             parsedDate: t.parsedDate ? t.parsedDate.toISOString() : null,
             reminderAt: t.reminderAt ? t.reminderAt.toISOString() : null,
+            completedAt: t.completedAt ? t.completedAt.toISOString() : null,
+            fieldCurtainPinnedAt: t.fieldCurtainPinnedAt ? t.fieldCurtainPinnedAt.toISOString() : null,
         })),
     };
 }
 
-/** عداد شارة الدوك — مهام معلّقة تظهر على الستارة الميدانية. */
+/** عداد شارة الدوك — مهام مثبتة على ستارة الميدان فقط. */
 export function countPendingFieldTasks(pendingTasks: LegalTask[]): number {
-    return pendingTasks.filter(
-        (t) =>
-            t.pinnedToFieldCurtain ||
-            (t.location !== null && t.location.trim().length > 0) ||
-            t.subTasks.some((st) => !st.isCompleted && !!st.location?.trim()),
-    ).length;
+    return pendingTasks.filter(isTaskOnFieldCurtain).length;
 }

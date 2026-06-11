@@ -17,8 +17,11 @@ vi.mock('@/app/infrastructure/NotificationRepository', () => ({
         fetchNotifications: vi.fn().mockResolvedValue([]),
         markAsRead: vi.fn().mockResolvedValue(undefined),
         markAllAsRead: vi.fn().mockResolvedValue(undefined),
+        replaceAllNotifications: vi.fn().mockResolvedValue([]),
         addNotification: (...args: unknown[]) => persistMock(...args),
     },
+    isActivityLogNotification: (n: { type?: string }) =>
+        String(n?.type ?? '').startsWith('audit_log_'),
 }));
 
 function makeNotif(id: string, isRead = false): NotificationModel {

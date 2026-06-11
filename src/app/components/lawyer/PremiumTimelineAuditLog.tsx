@@ -1,14 +1,16 @@
 import React, { useMemo } from 'react';
 import { motion } from 'motion/react';
-import { AlertTriangle, Calendar, Eye, FileText, Gavel, Pin, Shield, Trash2, Pencil, Wallet } from 'lucide-react';
+import { Pin, Trash2, Pencil } from 'lucide-react';
 import type { TimelineEvent as ExecutionTimelineEvent } from '@/app/types/execution';
 import {
     cleanTimelineCardTitle,
     formatTimelineWhenAr,
     mergeLegacyEvictionResidentialGracePairs,
     parseTimelineDeadlineDate,
+    timelineDescriptionForDisplay,
     timelineSourceForDisplay,
 } from '@/app/utils/timelineSmartDisplay';
+import { dedupeTimelineEventsForDisplay } from '@/app/utils/timelineDedup';
 
 interface PremiumTimelineAuditLogProps {
     events: ExecutionTimelineEvent[];
@@ -17,7 +19,6 @@ interface PremiumTimelineAuditLogProps {
     onTogglePin?: (event: ExecutionTimelineEvent) => void;
     pinLimit?: number;
     isHistoricalMode?: boolean;
-    onRequestHistoricalPreview?: (event: ExecutionTimelineEvent) => void;
 }
 
 export const PremiumTimelineAuditLog: React.FC<PremiumTimelineAuditLogProps> = ({
@@ -27,10 +28,11 @@ export const PremiumTimelineAuditLog: React.FC<PremiumTimelineAuditLogProps> = (
     onTogglePin,
     pinLimit = 15,
     isHistoricalMode = false,
-    onRequestHistoricalPreview,
 }) => {
     const displayEvents = useMemo(() => {
-        const merged = mergeLegacyEvictionResidentialGracePairs(events);
+        const merged = dedupeTimelineEventsForDisplay(
+            mergeLegacyEvictionResidentialGracePairs(events)
+        );
         const sortKeyMs = (ev: ExecutionTimelineEvent): number => {
             const raw = (ev as any).timestamp || (ev as any).date;
             const d = parseTimelineDeadlineDate(raw);
@@ -39,7 +41,7 @@ export const PremiumTimelineAuditLog: React.FC<PremiumTimelineAuditLogProps> = (
         return merged.slice().sort((a, b) => sortKeyMs(b) - sortKeyMs(a));
     }, [events]);
 
-    const pickVisual = (event: ExecutionTimelineEvent): { tone: string; icon: React.ReactNode } => {
+    const pickVisualTone = (event: ExecutionTimelineEvent): string => {
         const type = String((event as any).type || '');
         const title = String((event as any).title || '');
         const src = String((event as any).source || '');
@@ -49,10 +51,7 @@ export const PremiumTimelineAuditLog: React.FC<PremiumTimelineAuditLogProps> = (
             /نكس|رفض|انتهاء المهلة|لم يتم الدفع|تحذير|إنذار|مستأخرة|مهلة/iu.test(blob) ||
             /deadline|overdue|default/iu.test(blob);
         if (isWarning) {
-            return {
-                tone: 'border-rose-500/18 bg-rose-500/[0.06] hover:bg-rose-500/[0.09] ring-1 ring-rose-500/10',
-                icon: <AlertTriangle size={18} className="text-rose-300" />,
-            };
+            return 'border-rose-500/18 bg-rose-500/[0.06] hover:bg-rose-500/[0.09] ring-1 ring-rose-500/10';
         }
 
         const isFinancial =
@@ -60,41 +59,26 @@ export const PremiumTimelineAuditLog: React.FC<PremiumTimelineAuditLogProps> = (
             type === 'settlement' ||
             /تسوية|دفعة|دفع|رسوم|محفظة|أمانات|مبلغ|الوعاء|تحصيل/iu.test(blob);
         if (isFinancial) {
-            return {
-                tone: 'border-emerald-500/18 bg-emerald-500/[0.06] hover:bg-emerald-500/[0.09] ring-1 ring-emerald-500/10',
-                icon: <Wallet size={18} className="text-emerald-300" />,
-            };
+            return 'border-emerald-500/18 bg-emerald-500/[0.06] hover:bg-emerald-500/[0.09] ring-1 ring-emerald-500/10';
         }
 
         const isProcedure =
             type === 'appointment' || /موعد|جلسة|تاريخ|زيارة|خروج ميداني|تحديد موعد/iu.test(blob);
         if (isProcedure) {
-            return {
-                tone: 'border-sky-500/16 bg-sky-500/[0.05] hover:bg-sky-500/[0.08] ring-1 ring-sky-500/10',
-                icon: <Calendar size={18} className="text-sky-300" />,
-            };
+            return 'border-sky-500/16 bg-sky-500/[0.05] hover:bg-sky-500/[0.08] ring-1 ring-sky-500/10';
         }
 
         const isCourt = type === 'decision' || /محكمة|قرار|طعون|قضاء|محضر/iu.test(blob);
         if (isCourt) {
-            return {
-                tone: 'border-indigo-500/16 bg-indigo-500/[0.05] hover:bg-indigo-500/[0.08] ring-1 ring-indigo-500/10',
-                icon: <Gavel size={18} className="text-indigo-300" />,
-            };
+            return 'border-indigo-500/16 bg-indigo-500/[0.05] hover:bg-indigo-500/[0.08] ring-1 ring-indigo-500/10';
         }
 
         const isGuard = /كفيل|حارس|شرطة|أمر قبض|إحضار/iu.test(blob);
         if (isGuard) {
-            return {
-                tone: 'border-slate-500/18 bg-white/[0.03] hover:bg-white/[0.05] ring-1 ring-white/[0.04]',
-                icon: <Shield size={18} className="text-slate-300" />,
-            };
+            return 'border-slate-500/18 bg-white/[0.03] hover:bg-white/[0.05] ring-1 ring-white/[0.04]';
         }
 
-        return {
-            tone: 'border-slate-500/18 bg-white/[0.02] hover:bg-white/[0.04] ring-1 ring-white/[0.03]',
-            icon: <FileText size={18} className="text-slate-300" />,
-        };
+        return 'border-slate-500/18 bg-white/[0.02] hover:bg-white/[0.04] ring-1 ring-white/[0.03]';
     };
 
     const pinned = displayEvents.filter((e) => Boolean((e as any).isPinned));
@@ -113,12 +97,12 @@ export const PremiumTimelineAuditLog: React.FC<PremiumTimelineAuditLogProps> = (
 
             {pinned.map((event, index) => {
                 const id = `${String((event as any).id || 'p')}_${index}`;
-                const descriptionTrim = String((event as any).description || '').trim();
+                const descriptionTrim = timelineDescriptionForDisplay(event);
                 const title = cleanTimelineCardTitle(event);
                 const srcDisp = timelineSourceForDisplay((event as any).source);
                 const headerTime = (event as any).timestamp && String((event as any).timestamp).trim() !== '' ? (event as any).timestamp : (event as any).date;
                 const when = formatTimelineWhenAr(headerTime);
-                const { tone, icon } = pickVisual(event);
+                const tone = pickVisualTone(event);
                 const isPinned = Boolean((event as any).isPinned);
                 const canPin = Boolean(onTogglePin);
 
@@ -132,9 +116,6 @@ export const PremiumTimelineAuditLog: React.FC<PremiumTimelineAuditLogProps> = (
                         className={`group rounded-2xl border ${tone} px-3.5 py-3 transition-all`}
                     >
                         <div className="flex flex-row-reverse items-start gap-3">
-                            <div className="mt-0.5 grid h-9 w-9 place-items-center rounded-xl bg-white/[0.04] border border-white/10 shrink-0">
-                                {icon}
-                            </div>
                             <div className="min-w-0 flex-1">
                                 <div className="flex flex-row-reverse items-start justify-between gap-2">
                                     <p className="min-w-0 flex-1 text-sm font-black leading-snug text-white break-words">
@@ -176,16 +157,6 @@ export const PremiumTimelineAuditLog: React.FC<PremiumTimelineAuditLogProps> = (
                                         ) : null}
                                     </div>
                                     <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                                        {onRequestHistoricalPreview ? (
-                                            <button
-                                                type="button"
-                                                onClick={() => onRequestHistoricalPreview(event)}
-                                                className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-[10px] font-bold text-slate-300 hover:bg-white/[0.06]"
-                                            >
-                                                <Eye size={12} />
-                                                وقت الحدث
-                                            </button>
-                                        ) : null}
                                         {onRequestEdit && !isHistoricalMode ? (
                                             <button
                                                 type="button"
@@ -216,7 +187,7 @@ export const PremiumTimelineAuditLog: React.FC<PremiumTimelineAuditLogProps> = (
 
             {unpinned.map((event, index) => {
                 const id = `${String((event as any).id || 'u')}_${index}`;
-                const descriptionTrim = String((event as any).description || '').trim();
+                const descriptionTrim = timelineDescriptionForDisplay(event);
                 const title = cleanTimelineCardTitle(event);
                 const srcDisp = timelineSourceForDisplay((event as any).source);
                 const headerTime =
@@ -224,7 +195,7 @@ export const PremiumTimelineAuditLog: React.FC<PremiumTimelineAuditLogProps> = (
                         ? (event as any).timestamp
                         : (event as any).date;
                 const when = formatTimelineWhenAr(headerTime);
-                const { tone, icon } = pickVisual(event);
+                const tone = pickVisualTone(event);
                 const canPin = Boolean(onTogglePin) && index < pinLimit;
 
                 return (
@@ -237,9 +208,6 @@ export const PremiumTimelineAuditLog: React.FC<PremiumTimelineAuditLogProps> = (
                         className={`group rounded-2xl border ${tone} px-3.5 py-3 transition-all`}
                     >
                         <div className="flex flex-row-reverse items-start gap-3">
-                            <div className="mt-0.5 grid h-9 w-9 place-items-center rounded-xl bg-white/[0.04] border border-white/10 shrink-0">
-                                {icon}
-                            </div>
                             <div className="min-w-0 flex-1">
                                 <div className="flex flex-row-reverse items-start justify-between gap-2">
                                     <p className="min-w-0 flex-1 text-sm font-black leading-snug text-white break-words">
@@ -279,16 +247,6 @@ export const PremiumTimelineAuditLog: React.FC<PremiumTimelineAuditLogProps> = (
                                         ) : null}
                                     </div>
                                     <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                                        {onRequestHistoricalPreview ? (
-                                            <button
-                                                type="button"
-                                                onClick={() => onRequestHistoricalPreview(event)}
-                                                className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-[10px] font-bold text-slate-300 hover:bg-white/[0.06]"
-                                            >
-                                                <Eye size={12} />
-                                                وقت الحدث
-                                            </button>
-                                        ) : null}
                                         {onRequestEdit && !isHistoricalMode ? (
                                             <button
                                                 type="button"

@@ -3,6 +3,27 @@ import ReactDOM from 'react-dom/client';
 import './styles/index.css';
 import SecureStoreService from '@/app/services/SecureStoreService';
 
+/** Vite dev: لا إعادة تحميل كاملة — HMR invalidate فقط لتجنب خروج مفاجئ من الشاشة */
+if (import.meta.env.DEV) {
+    window.addEventListener('vite:preloadError', (event) => {
+        const preloadEvent = event as Event & { payload?: { err?: unknown } };
+        const err = preloadEvent.payload?.err;
+        const msg = err instanceof Error ? err.message : String(err ?? '');
+        if (!/Failed to fetch dynamically imported module|Importing a module script failed/i.test(msg)) {
+            return;
+        }
+        preloadEvent.preventDefault();
+        if (import.meta.hot) {
+            import.meta.hot.invalidate();
+            return;
+        }
+        console.warn(
+            '[Hami] انتهت صلاحية وحدة محمّلة ديناميكياً — أعد المحاولة من الواجهة أو حدّث الصفحة يدوياً.',
+            err,
+        );
+    });
+}
+
 function removeBootLoader(): void {
     const w = window as Window & { removeLoader?: () => void };
     if (typeof w.removeLoader === 'function') {

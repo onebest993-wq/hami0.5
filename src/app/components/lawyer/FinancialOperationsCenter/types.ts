@@ -5,7 +5,7 @@ export type LocalPaymentRow = {
     amount: number;
     at: string;
     kind: 'partial' | 'full';
-    entryType?: 'collect' | 'disburse' | 'settlement';
+    entryType?: 'collect' | 'disburse' | 'settlement' | 'debt_adjustment';
     balanceAfter: number;
     debtBalanceAfter?: number;
     trustBalanceAfter?: number;
@@ -15,6 +15,10 @@ export type PendingSettlement = {
     amount: number;
     dueDate: string;
     createdAt: string;
+    /** بداية دورة النفقة المستمرة (YYYY-MM-DD) */
+    periodStartYmd?: string;
+    /** تسوية النفقة الشهرية المستمرة — لا تُخصم من المتبقي عند التسجيل */
+    tracksOngoingAlimony?: boolean;
 };
 
 export type UnifiedLedgerStore = {
@@ -29,6 +33,10 @@ export type UnifiedLedgerStore = {
     collectionRequestedTotal: number | null;
     evictionLedgerActivated: boolean;
     pendingSettlement: PendingSettlement | null;
+    /** يُسجَّل عند إلغاء التسوية بعد «لم يتم التسديد» — يُفعّل كفيل ضامن للمبلغ */
+    settlementBreachTriggeredAt: string | null;
+    /** آخر تاريخ احتُسبت منه نفقة مستمرة غير مسددة — لتجنّب الازدواج */
+    alimonyLastAccrualThroughYmd?: string | null;
 };
 
 export interface FinancialLedgerEntry {

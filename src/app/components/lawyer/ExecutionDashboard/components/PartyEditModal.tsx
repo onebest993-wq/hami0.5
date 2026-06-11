@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X, Trash2 } from 'lucide-react';
 import { getCreditorHeirSubstitutionRequestStatus, getDebtorHeirSubstitutionRequestStatus } from '@/app/utils/executorSeizureDecisionQueue';
 import { heirRowHasAnyText, makeHeirRowId } from '../helpers';
@@ -11,6 +12,7 @@ export interface PartyEditDraft {
     heirs: HeirDetailRow[];
     lockBaseInfo: boolean;
     includeHeirsInForm?: boolean;
+    heirsOnlyEdit?: boolean;
 }
 
 export interface PartyEditModalProps {
@@ -40,9 +42,9 @@ export const PartyEditModal: React.FC<PartyEditModalProps> = ({
 }) => {
     if (!editPartyTarget || !partyEditDraft) return null;
 
-    return (
+    const modal = (
     <div
-        className="fixed inset-0 z-[125] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+        className="fixed inset-0 z-[12000] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
         dir="rtl"
         onClick={() => {
             setEditPartyTarget(null);
@@ -57,7 +59,9 @@ export const PartyEditModal: React.FC<PartyEditModalProps> = ({
         >
             <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-sm font-bold text-white">
-                    تعديل {editPartyTarget.kind === 'creditor' ? 'الدائن' : 'المدين'}
+                    {partyEditDraft.heirsOnlyEdit
+                        ? 'تعديل بيانات الورثة'
+                        : `تعديل ${editPartyTarget.kind === 'creditor' ? 'الدائن' : 'المدين'}`}
                 </h3>
                 <button
                     type="button"
@@ -71,43 +75,47 @@ export const PartyEditModal: React.FC<PartyEditModalProps> = ({
                 </button>
             </div>
             <div className="space-y-3 text-right">
-                <div>
-                    <label className="mb-1 block text-[10px] text-slate-500">الاسم</label>
-                    <input
-                        type="text"
-                        value={partyEditDraft.name}
-                        onChange={(e) =>
-                            setPartyEditDraft((d) => (d ? { ...d, name: e.target.value } : d))
-                        }
-                        disabled={partyEditDraft.lockBaseInfo}
-                        className="w-full rounded-lg border border-white/10 bg-slate-900/80 px-2 py-2 text-sm text-white"
-                    />
-                </div>
-                <div>
-                    <label className="mb-1 block text-[10px] text-slate-500">الهاتف</label>
-                    <input
-                        type="text"
-                        value={partyEditDraft.phone}
-                        onChange={(e) =>
-                            setPartyEditDraft((d) => (d ? { ...d, phone: e.target.value } : d))
-                        }
-                        disabled={partyEditDraft.lockBaseInfo}
-                        className="w-full rounded-lg border border-white/10 bg-slate-900/80 px-2 py-2 text-sm text-white"
-                    />
-                </div>
-                <div>
-                    <label className="mb-1 block text-[10px] text-slate-500">العنوان</label>
-                    <textarea
-                        value={partyEditDraft.address}
-                        onChange={(e) =>
-                            setPartyEditDraft((d) => (d ? { ...d, address: e.target.value } : d))
-                        }
-                        disabled={partyEditDraft.lockBaseInfo}
-                        rows={2}
-                        className="w-full resize-none rounded-lg border border-white/10 bg-slate-900/80 px-2 py-2 text-sm text-white"
-                    />
-                </div>
-                {partyEditDraft.lockBaseInfo ? (
+                {!partyEditDraft.heirsOnlyEdit ? (
+                    <>
+                        <div>
+                            <label className="mb-1 block text-[10px] text-slate-500">الاسم</label>
+                            <input
+                                type="text"
+                                value={partyEditDraft.name}
+                                onChange={(e) =>
+                                    setPartyEditDraft((d) => (d ? { ...d, name: e.target.value } : d))
+                                }
+                                disabled={partyEditDraft.lockBaseInfo}
+                                className="w-full rounded-lg border border-white/10 bg-slate-900/80 px-2 py-2 text-sm text-white"
+                            />
+                        </div>
+                        <div>
+                            <label className="mb-1 block text-[10px] text-slate-500">الهاتف</label>
+                            <input
+                                type="text"
+                                value={partyEditDraft.phone}
+                                onChange={(e) =>
+                                    setPartyEditDraft((d) => (d ? { ...d, phone: e.target.value } : d))
+                                }
+                                disabled={partyEditDraft.lockBaseInfo}
+                                className="w-full rounded-lg border border-white/10 bg-slate-900/80 px-2 py-2 text-sm text-white"
+                            />
+                        </div>
+                        <div>
+                            <label className="mb-1 block text-[10px] text-slate-500">العنوان</label>
+                            <textarea
+                                value={partyEditDraft.address}
+                                onChange={(e) =>
+                                    setPartyEditDraft((d) => (d ? { ...d, address: e.target.value } : d))
+                                }
+                                disabled={partyEditDraft.lockBaseInfo}
+                                rows={2}
+                                className="w-full resize-none rounded-lg border border-white/10 bg-slate-900/80 px-2 py-2 text-sm text-white"
+                            />
+                        </div>
+                    </>
+                ) : null}
+                {partyEditDraft.lockBaseInfo && !partyEditDraft.heirsOnlyEdit ? (
                     <p className="text-[10px] text-amber-300/90">
                         {editPartyTarget.kind === 'creditor'
                             ? getCreditorHeirSubstitutionRequestStatus(decisionsStorageExecutionId) === 'approved'
@@ -117,9 +125,13 @@ export const PartyEditModal: React.FC<PartyEditModalProps> = ({
                                 ? 'بيانات المتوفى (الاسم/الهاتف/العنوان) مقفلة. يمكن تعديل بيانات الورثة المعتمدة من المنفذ فقط.'
                                 : 'بيانات المتوفى مقفلة. تفاصيل الورثة تظهر هنا فقط بعد موافقة المنفذ العدل على طلب الإحلال.'}
                     </p>
+                ) : partyEditDraft.heirsOnlyEdit ? (
+                    <p className="text-[10px] text-amber-300/90">
+                        يمكنك تعديل أسماء وبيانات الورثة المسجّلين فقط؛ بيانات المتوفى مقفلة.
+                    </p>
                 ) : null}
                 <div>
-                    {partyEditDraft.heirs.length > 0 ? (
+                    {partyEditDraft.includeHeirsInForm && partyEditDraft.heirs.length > 0 ? (
                         <>
                             <div className="mb-1 flex items-center justify-between">
                                 <label className="block text-[10px] text-slate-500">
@@ -287,5 +299,7 @@ export const PartyEditModal: React.FC<PartyEditModalProps> = ({
             </div>
         </div>
     </div>
-        );
-    };
+    );
+
+    return typeof document !== 'undefined' ? createPortal(modal, document.body) : modal;
+};

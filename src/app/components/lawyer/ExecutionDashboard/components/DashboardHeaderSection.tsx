@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { memo, useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import type { ElementType } from 'react';
 import { type ExecutionFile } from '@/app/types/execution';
-import type { DossierActionType } from './DossierActionsModal';
+import {
+    fileHasSpecificDeliveryClaim,
+    type DossierHeaderResolved,
+} from '@/app/utils/executionDossierHeaderFields';
 import {
     Link,
-    ChevronDown,
-    ChevronUp,
 } from 'lucide-react';
 
 interface StatuteStatus {
@@ -16,26 +17,32 @@ interface StatuteStatus {
     isExpired: boolean;
 }
 
-interface AICitation {
-    url?: string;
-    title?: string;
-}
-
-interface AICopilotSuggestion {
-    id?: string | number;
-    title?: string;
-    type?: string;
-    priority?: string;
-    rationale?: string;
-    description?: string;
-    citations?: AICitation[];
-    draftText?: string;
-}
-
-interface AICopilotResult {
-    summary?: string;
-    suggestions?: AICopilotSuggestion[];
-}
+const DetailCell = memo(function DetailCell({
+    label,
+    value,
+    className = '',
+    valueClassName = '',
+}: {
+    label: string;
+    value: string;
+    className?: string;
+    valueClassName?: string;
+}) {
+    if (!value || value === '—') return null;
+    return (
+        <div
+            className={`rounded-md border border-amber-500/22 bg-[#0B1120]/50 px-2 py-1 text-right leading-snug ${className}`}
+            dir="rtl"
+        >
+            <p className="text-[10px] leading-none text-amber-200/55">{label}</p>
+            <p
+                className={`mt-0.5 text-[12px] font-semibold text-white whitespace-normal [unicode-bidi:plaintext] [word-break:keep-all] [overflow-wrap:normal] ${valueClassName}`}
+            >
+                {value}
+            </p>
+        </div>
+    );
+});
 
 interface DashboardHeaderSectionProps {
     statuteStatus: StatuteStatus | null;
@@ -45,20 +52,11 @@ interface DashboardHeaderSectionProps {
     stayOfExecutionActive: boolean;
     executionData: ExecutionFile;
     handleLiftStayOfExecution: () => void;
-    aiCopilotEnabled: boolean;
-    Bot: ElementType;
-    runExecutionAICopilot: (trigger: 'manual' | 'auto') => Promise<void> | void;
-    aiCopilotLoading: boolean;
-    aiCopilotError: string | null;
-    aiCopilotResult: AICopilotResult | null;
-    copyCopilotDraftText: (suggestion: AICopilotSuggestion) => Promise<void> | void;
-    applyCopilotSuggestionAsTask: (suggestion: AICopilotSuggestion) => void;
-    applyCopilotSuggestionAsNote: (suggestion: AICopilotSuggestion) => void;
     XCircle: ElementType;
     isHeaderExpanded: boolean;
     toggleHeaderExpanded: () => void;
-    walnutHeaderClaimShort: string;
-    walnutHeaderExecShort: string;
+    /** حقول الشريط من نموذج الإنشاء (بدون قيم افتراضية وهمية) */
+    headerFields: DossierHeaderResolved;
     openEditDossierMeta: () => void;
     Pencil: ElementType;
     isEvictionExecutionModule: boolean;
@@ -71,8 +69,6 @@ interface DashboardHeaderSectionProps {
     evictionPropertyDistrict: string;
     evictionPropertyTypeField: string;
     evictionFullAddressField: string;
-    evictionPremisesUseResolved: 'residential' | 'commercial';
-    onDossierAction: (action: DossierActionType) => void;
     /** هل هذه إضبارة فرعية (إنابة) */
     isSubFile?: boolean;
     /** إنابة نشطة للإضبارة الأم (لإظهار زر مخاطبة الإنابة) */
@@ -89,9 +85,27 @@ interface DashboardHeaderSectionProps {
     onOpenLinkedDossier?: (dossier: NonNullable<ExecutionFile['linkedDossiers']>[number]) => void;
     onRemoveLinkedDossier?: (linkedId: string) => void;
     onRequestTransferFileNumberChange?: () => void;
+    /** حفظ رقم/سنة الإضبارة الفرعية */
+    onSaveSubFileNumber?: (fileNumber: string, fileYear: string) => void;
+    /** تفاصيل الحاوية الموسّعة من الإضبارة الأم (إنابة) — المديرية والرقم يبقيان للفرعية */
+    expandedDossierFromParent?: {
+        headerFields: DossierHeaderResolved;
+        classificationDisplay: string;
+        claimTypeArabicDisplay: string;
+        showJudgmentMeta: boolean;
+        judgmentDateDisplay: string;
+        docNumber?: string;
+        evictionPropertyNumber: string;
+        evictionPropertyDistrict: string;
+        evictionPropertyTypeField: string;
+        evictionFullAddressField: string;
+        isEvictionExecutionModule: boolean;
+        openEditDossierMeta: () => void;
+        showSpecificDeliveryMeta?: boolean;
+    };
 }
 
-export const DashboardHeaderSection: React.FC<DashboardHeaderSectionProps> = ({
+export const DashboardHeaderSection = memo(function DashboardHeaderSection({
     statuteStatus,
     isAlimonyClaim,
     executionPaused,
@@ -99,20 +113,10 @@ export const DashboardHeaderSection: React.FC<DashboardHeaderSectionProps> = ({
     stayOfExecutionActive,
     executionData,
     handleLiftStayOfExecution,
-    aiCopilotEnabled,
-    Bot,
-    runExecutionAICopilot,
-    aiCopilotLoading,
-    aiCopilotError,
-    aiCopilotResult,
-    copyCopilotDraftText,
-    applyCopilotSuggestionAsTask,
-    applyCopilotSuggestionAsNote,
     XCircle,
     isHeaderExpanded,
     toggleHeaderExpanded,
-    walnutHeaderClaimShort,
-    walnutHeaderExecShort,
+    headerFields,
     openEditDossierMeta,
     Pencil,
     isEvictionExecutionModule,
@@ -125,8 +129,6 @@ export const DashboardHeaderSection: React.FC<DashboardHeaderSectionProps> = ({
     evictionPropertyDistrict,
     evictionPropertyTypeField,
     evictionFullAddressField,
-    evictionPremisesUseResolved,
-    onDossierAction,
     isSubFile,
     hasActiveInaba,
     delegationPurpose,
@@ -136,9 +138,57 @@ export const DashboardHeaderSection: React.FC<DashboardHeaderSectionProps> = ({
     onOpenLinkedDossier,
     onRemoveLinkedDossier,
     onRequestTransferFileNumberChange,
-}) => {
+    onSaveSubFileNumber,
+    expandedDossierFromParent,
+}: DashboardHeaderSectionProps) {
+    const showSpecificDeliveryMeta = fileHasSpecificDeliveryClaim(executionData);
+    const expanded = expandedDossierFromParent ?? {
+        headerFields,
+        classificationDisplay,
+        claimTypeArabicDisplay,
+        showJudgmentMeta,
+        judgmentDateDisplay,
+        docNumber,
+        evictionPropertyNumber,
+        evictionPropertyDistrict,
+        evictionPropertyTypeField,
+        evictionFullAddressField,
+        isEvictionExecutionModule,
+        openEditDossierMeta,
+        showSpecificDeliveryMeta,
+    };
     const showTransferFileNumberChange =
         Boolean(executionData?.transferPendingFileNumberChange) && typeof onRequestTransferFileNumberChange === 'function';
+    const [subFileNumberEditorOpen, setSubFileNumberEditorOpen] = useState(false);
+    const [subFileNumberDraft, setSubFileNumberDraft] = useState('');
+    const [subFileYearDraft, setSubFileYearDraft] = useState('');
+
+    useEffect(() => {
+        if (!isSubFile) {
+            setSubFileNumberEditorOpen(false);
+            return;
+        }
+        setSubFileNumberDraft(headerFields.fileNumber || '');
+        setSubFileYearDraft(headerFields.fileYear || '');
+    }, [isSubFile, headerFields.fileNumber, headerFields.fileYear]);
+
+    const subFileRefFilled = Boolean(
+        String(headerFields.fileNumber || '').trim() || String(headerFields.fileYear || '').trim()
+    );
+    const subFileRefDisplay = subFileRefFilled
+        ? `${headerFields.fileNumber || '—'} / ${headerFields.fileYear || '—'}`
+        : '';
+
+    const handleSaveSubFileNumber = (e?: React.MouseEvent) => {
+        e?.stopPropagation();
+        e?.preventDefault();
+        const num = subFileNumberDraft.trim();
+        const year = subFileYearDraft.trim();
+        if (!num && !year) return;
+        onSaveSubFileNumber?.(num, year);
+        setSubFileNumberEditorOpen(false);
+    };
+
     return (
         <>
             {/* STATUTE EXPIRED BANNER */}
@@ -229,125 +279,11 @@ export const DashboardHeaderSection: React.FC<DashboardHeaderSectionProps> = ({
                 </motion.div>
             )}
 
-            {aiCopilotEnabled && (
-                <div className="mx-3 mt-3 rounded-2xl border border-slate-700/40 bg-slate-900/55 p-4 shadow-md shadow-black/20">
-                    <div className="mb-2 flex items-center justify-between gap-2" dir="rtl">
-                        <div className="flex items-center gap-2">
-                            <Bot size={15} className="text-[#D4AF37]/90" />
-                            <p className="text-xs font-bold text-slate-100">مُحلل حامي الذكي</p>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={() => void runExecutionAICopilot('manual')}
-                            disabled={aiCopilotLoading}
-                            className="rounded-lg border border-[#D4AF37]/35 bg-[#D4AF37]/10 px-2.5 py-1 text-[10px] font-bold text-[#D4AF37] transition hover:bg-[#D4AF37]/15 disabled:opacity-50"
-                        >
-                            {aiCopilotLoading ? 'جارٍ التحليل...' : 'تحليل الآن'}
-                        </button>
-                    </div>
-                    {aiCopilotError ? (
-                        <p className="mb-2 rounded-lg border border-rose-500/35 bg-rose-950/30 px-2.5 py-2 text-[10px] text-rose-200">
-                            {aiCopilotError}
-                        </p>
-                    ) : null}
-                    {aiCopilotError ? (
-                        <p className="mb-2 rounded-lg border border-amber-500/35 bg-amber-950/25 px-2.5 py-2 text-[10px] text-amber-200">
-                            لم يتم تحميل تحليل جديد حالياً. جرّب زر "تحليل الآن" بعد تحسن الاتصال.
-                        </p>
-                    ) : aiCopilotResult?.summary ? (
-                        <p className="mb-2 text-[11px] leading-relaxed text-slate-200">
-                            {aiCopilotResult.summary}
-                        </p>
-                    ) : (
-                        <p className="mb-2 text-[10px] text-slate-400">
-                            فعّل التحليل الآن للحصول على توصيات مرتبطة بحالة الإضبارة.
-                        </p>
-                    )}
-                    {Array.isArray(aiCopilotResult?.suggestions) &&
-                    aiCopilotResult.suggestions.length > 0 ? (
-                        <div className="space-y-2">
-                            {aiCopilotResult.suggestions.slice(0, 3).map((s, idx) => (
-                                <div
-                                    key={String(s?.id || idx)}
-                                    className="rounded-xl border border-slate-600/30 bg-slate-900/50 p-2.5"
-                                    dir="rtl"
-                                >
-                                    <div className="mb-1 flex items-center justify-between gap-2">
-                                        <p className="text-[11px] font-bold text-slate-100">
-                                            {String(s?.title || 'إجراء مقترح')}
-                                        </p>
-                                        <span className="rounded-full border border-white/10 px-1.5 py-0.5 text-[9px] text-slate-300">
-                                            {(() => {
-                                                const normalizedType = String(
-                                                    s?.type ||
-                                                        (s?.priority === 'critical'
-                                                            ? 'حرج'
-                                                            : s?.priority === 'high'
-                                                              ? 'مهم'
-                                                              : 'تحسيني')
-                                                );
-                                                if (normalizedType === 'تحري_مالي')
-                                                    return '🕵️‍♂️ تحري_مالي';
-                                                if (normalizedType === 'إجراء_فوري')
-                                                    return '⚡ إجراء_فوري';
-                                                return normalizedType;
-                                            })()}
-                                        </span>
-                                    </div>
-                                    <p className="text-[10px] leading-relaxed text-slate-300">
-                                        {String(s?.rationale || s?.description || '')}
-                                    </p>
-                                    {Array.isArray(s?.citations) && s.citations.length > 0 ? (
-                                        <div className="mt-1.5 flex flex-wrap justify-end gap-1.5">
-                                            {s.citations.slice(0, 2).map((c, cIdx) => (
-                                                <a
-                                                    key={`${idx}-${cIdx}`}
-                                                    href={String(c?.url || '#')}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="rounded-md border border-slate-600/40 bg-slate-800/50 px-2 py-0.5 text-[9px] text-slate-300 hover:bg-slate-800/70"
-                                                >
-                                                    {String(c?.title || 'مصدر')}
-                                                </a>
-                                            ))}
-                                        </div>
-                                    ) : null}
-                                    <div className="mt-2 flex flex-row-reverse gap-1.5">
-                                        {String(s?.draftText || '').trim().length > 0 ? (
-                                            <button
-                                                type="button"
-                                                onClick={() => void copyCopilotDraftText(s)}
-                                                className="rounded-lg border border-slate-600/40 bg-slate-800/60 px-2 py-1 text-[10px] font-bold text-slate-200 hover:border-[#D4AF37]/30"
-                                            >
-                                                📝 توليد/نسخ الطلب
-                                            </button>
-                                        ) : null}
-                                        <button
-                                            type="button"
-                                            onClick={() => applyCopilotSuggestionAsTask(s)}
-                                            className="rounded-lg border border-emerald-400/40 bg-emerald-900/25 px-2 py-1 text-[10px] font-bold text-emerald-100"
-                                        >
-                                            إضافة كتذكير
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => applyCopilotSuggestionAsNote(s)}
-                                            className="rounded-lg border border-amber-400/40 bg-amber-900/25 px-2 py-1 text-[10px] font-bold text-amber-100"
-                                        >
-                                            حفظ كملاحظة
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : null}
-                </div>
-            )}
 
             {/* 🆕 V19: FILE HEADER — المديرية ورقم الإضبارة + حالة الإضبارة (داخل الحاوية الجوزية) */}
-            <div className="mx-3 mt-3">
+            <div className="mx-3 mt-3 mb-1.5">
                 <div
-                    className={`relative w-full overflow-hidden backdrop-blur-xl bg-[#0B1120]/65 border border-amber-500/35 px-3.5 py-2 shadow-lg shadow-amber-950/25 ring-1 ring-[#D4AF37]/10 sm:px-4 ${
+                    className={`relative w-full overflow-hidden backdrop-blur-xl bg-[#0B1120]/65 border border-amber-500/35 px-3 py-2.5 shadow-lg shadow-amber-950/25 ring-1 ring-[#D4AF37]/10 ${
                         isHeaderExpanded ? 'rounded-t-2xl rounded-b-none' : 'rounded-2xl'
                     }`}
                     role="button"
@@ -368,21 +304,75 @@ export const DashboardHeaderSection: React.FC<DashboardHeaderSectionProps> = ({
                         <div className="absolute -bottom-28 -left-28 h-72 w-72 rounded-full bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.14),transparent_62%)] blur-2xl" />
                         <div className="absolute inset-0 bg-gradient-to-br from-amber-950/25 via-transparent to-slate-950/20" />
                     </div>
-                    <div className="grid w-full min-w-0 grid-cols-[1fr,auto,1fr] items-center gap-2 cursor-pointer">
-                        <div className="min-w-0 flex justify-start" aria-hidden dir="rtl">
-                            <span className="inline-flex items-center gap-1 rounded-lg border border-amber-500/20 bg-amber-950/20 px-2 py-1 text-[10px] font-bold text-amber-200/70">
-                                {isHeaderExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                                التفاصيل
+                    <div
+                        className="relative z-10 flex min-h-9 w-full items-center gap-2 cursor-pointer"
+                        dir="rtl"
+                    >
+                        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-center gap-x-2 gap-y-0 overflow-hidden text-center leading-none">
+                            <span className="shrink-0 text-[1.0625rem] font-extrabold leading-tight text-amber-50 sm:text-lg">
+                                {headerFields.directorate || '—'}
                             </span>
-                        </div>
-                        <div className="flex min-w-0 items-center justify-center px-1 py-0" dir="rtl">
-                            <div className="flex min-w-0 max-w-full items-center justify-center gap-x-2 overflow-hidden whitespace-nowrap text-center">
-                                <span className="shrink-0 text-[1.0625rem] font-extrabold leading-tight text-amber-50 sm:text-lg">
-                                    {executionData.directorate || 'تنفيذ الكرخ'}
-                                </span>
-                                <>
-                                    <span className="shrink-0 text-amber-700/65" aria-hidden>·</span>
-                                    <div className="flex flex-col items-center gap-0.5">
+                            <span className="shrink-0 text-amber-700/65" aria-hidden>
+                                ·
+                            </span>
+                            <span className="inline-flex shrink-0 flex-col items-center gap-0 leading-none">
+                                {isSubFile ? (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSubFileNumberEditorOpen((v) => !v);
+                                            }}
+                                            className={`pointer-events-auto shrink-0 tabular-nums text-[1.0625rem] font-bold leading-none transition-all sm:text-lg ${
+                                                subFileRefFilled
+                                                    ? 'text-indigo-200/95 hover:text-indigo-100'
+                                                    : 'animate-pulse text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 via-violet-200 to-indigo-300 drop-shadow-[0_0_12px_rgba(129,140,248,0.55)] hover:from-indigo-100 hover:to-violet-100'
+                                            }`}
+                                            title="رقم الإضبارة الفرعية — اضغط للتعديل"
+                                        >
+                                            {subFileRefFilled ? subFileRefDisplay : 'رقم الإضبارة الفرعية'}
+                                        </button>
+                                        {subFileNumberEditorOpen ? (
+                                            <div
+                                                className="pointer-events-auto mt-2 w-full min-w-[220px] rounded-xl border border-indigo-400/35 bg-[#0B1120]/90 p-2.5 shadow-lg shadow-indigo-950/40 ring-1 ring-indigo-400/20"
+                                                onClick={(e) => e.stopPropagation()}
+                                                dir="rtl"
+                                            >
+                                                <p className="mb-2 text-center text-[10px] font-bold text-indigo-200/90">
+                                                    رقم الإضبارة الفرعية
+                                                </p>
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <input
+                                                        type="text"
+                                                        inputMode="numeric"
+                                                        value={subFileNumberDraft}
+                                                        onChange={(e) => setSubFileNumberDraft(e.target.value)}
+                                                        placeholder="الرقم"
+                                                        className="w-20 rounded-lg border border-indigo-500/30 bg-black/30 px-2 py-1.5 text-center text-sm font-bold text-white outline-none focus:border-indigo-400/60"
+                                                    />
+                                                    <span className="text-indigo-300/70">/</span>
+                                                    <input
+                                                        type="text"
+                                                        inputMode="numeric"
+                                                        value={subFileYearDraft}
+                                                        onChange={(e) => setSubFileYearDraft(e.target.value)}
+                                                        placeholder="السنة"
+                                                        className="w-16 rounded-lg border border-indigo-500/30 bg-black/30 px-2 py-1.5 text-center text-sm font-bold text-white outline-none focus:border-indigo-400/60"
+                                                    />
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => handleSaveSubFileNumber(e)}
+                                                    className="mt-2 w-full rounded-lg border border-emerald-500/35 bg-emerald-950/45 py-1.5 text-[10px] font-bold text-emerald-100 hover:bg-emerald-950/60"
+                                                >
+                                                    حفظ الرقم
+                                                </button>
+                                            </div>
+                                        ) : null}
+                                    </>
+                                ) : (
+                                    <>
                                         {showTransferFileNumberChange ? (
                                             <button
                                                 type="button"
@@ -390,48 +380,30 @@ export const DashboardHeaderSection: React.FC<DashboardHeaderSectionProps> = ({
                                                     e.stopPropagation();
                                                     onRequestTransferFileNumberChange?.();
                                                 }}
-                                                className="text-[10px] font-bold text-amber-200/85 hover:text-amber-100 transition-colors"
+                                                className="pointer-events-auto mb-0.5 text-[10px] font-bold leading-none text-amber-200/85 hover:text-amber-100 transition-colors"
                                             >
                                                 هل تريد تغيير الرقم؟
                                             </button>
                                         ) : null}
-                                        <span className="shrink-0 tabular-nums text-[1.0625rem] font-bold text-amber-200/95 sm:text-lg">
-                                            {executionData.fileNumber || '0000'} / {executionData.fileYear || '2026'}
-                                        </span>
-                                    </div>
-                                    {linkToken ? (
-                                        <button
-                                            type="button"
-                                            onClick={(e) => { e.stopPropagation(); onCopyLinkToken?.(); }}
-                                            className="inline-flex items-center gap-0.5 rounded-md border border-amber-500/20 bg-amber-950/30 px-1.5 py-0.5 text-[10px] text-amber-300/80 hover:bg-amber-950/50 hover:text-amber-200 transition-colors"
-                                            title="نسخ رمز المشاركة"
-                                        >
-                                            <Link size={12} />
-                                        </button>
-                                    ) : null}
-                                </>
-
-                                {walnutHeaderClaimShort ? (
-                                    <>
-                                        <span className="shrink-0 text-amber-600/55" aria-hidden>
-                                            ·
-                                        </span>
-                                        <span className="max-w-[min(14rem,50vw)] min-w-0 shrink truncate text-[1.0625rem] font-semibold text-amber-100/95 sm:max-w-[18rem] sm:text-lg">
-                                            {walnutHeaderClaimShort}
+                                        <span className="shrink-0 tabular-nums text-[1.0625rem] font-bold leading-none text-amber-200/95 sm:text-lg">
+                                            {headerFields.fileRefDisplay}
                                         </span>
                                     </>
-                                ) : null}
-                                {walnutHeaderExecShort ? (
-                                    <>
-                                        <span className="shrink-0 text-amber-600/55" aria-hidden>
-                                            ·
-                                        </span>
-                                        <span className="max-w-[min(12rem,44vw)] min-w-0 shrink truncate text-[1.0625rem] font-semibold text-amber-100/95 sm:max-w-[15rem] sm:text-lg">
-                                            {walnutHeaderExecShort}
-                                        </span>
-                                    </>
-                                ) : null}
-                            </div>
+                                )}
+                            </span>
+                            {linkToken ? (
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onCopyLinkToken?.();
+                                    }}
+                                    className="pointer-events-auto inline-flex shrink-0 items-center gap-0.5 rounded-md border border-amber-500/20 bg-amber-950/30 px-1.5 py-0.5 text-[10px] text-amber-300/80 hover:bg-amber-950/50 hover:text-amber-200 transition-colors"
+                                    title="نسخ رمز المشاركة"
+                                >
+                                    <Link size={12} />
+                                </button>
+                            ) : null}
                         </div>
                     </div>
 
@@ -483,113 +455,101 @@ export const DashboardHeaderSection: React.FC<DashboardHeaderSectionProps> = ({
                             initial={{ height: 0, opacity: 0 }}
                             animate={{ height: 'auto', opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
-                            className="overflow-hidden bg-[#0B1120]/55 border-2 border-t-0 border-amber-500/40 rounded-b-2xl -mt-[2px]"
+                            className="overflow-hidden bg-[#0B1120]/55 border border-t-0 border-amber-500/35 rounded-b-2xl -mt-px"
                         >
-                            <div className="grid grid-cols-2 gap-2 px-4 py-3 text-sm sm:grid-cols-4">
-                                <div className="col-span-2 flex justify-end sm:col-span-4">
-                                    <button
-                                        type="button"
-                                        onClick={openEditDossierMeta}
-                                        className="inline-flex items-center gap-1 rounded-lg border border-amber-500/35 bg-amber-950/20 px-2.5 py-1.5 text-[10px] font-bold text-amber-200 transition hover:bg-amber-950/40"
-                                    >
-                                        <Pencil size={12} />
-                                        {isEvictionExecutionModule
-                                            ? 'تعديل رقم الإضبارة والمديرية والحكم والتخلية'
-                                            : 'تعديل رقم الإضبارة والمديرية والحكم'}
-                                    </button>
-                                </div>
-                                <div className="rounded-xl border border-amber-500/15 bg-black/20 px-2.5 py-2 text-right">
-                                    <p className="text-gray-400 text-xs mb-1">نوع السند:</p>
-                                    <p className="text-white font-semibold">
-                                        {executionData.docType || 'قرار حكم قضائي'}
-                                    </p>
-                                </div>
-                                <div className="rounded-xl border border-amber-500/15 bg-black/20 px-2.5 py-2 text-right">
-                                    <p className="text-gray-400 text-xs mb-1">التصنيف:</p>
-                                    <p className="text-white font-semibold">{classificationDisplay}</p>
-                                </div>
-                                {showJudgmentMeta ? (
-                                    <div className="rounded-xl border border-amber-500/15 bg-black/20 px-2.5 py-2 text-right">
-                                        <p className="text-gray-400 text-xs mb-1">رقم الحكم:</p>
-                                        <p className="text-white font-semibold font-mono break-all">
-                                            {docNumber?.trim() || '—'}
-                                        </p>
-                                    </div>
-                                ) : null}
-                                {showJudgmentMeta ? (
-                                    <div className="rounded-xl border border-amber-500/15 bg-black/20 px-2.5 py-2 text-right">
-                                        <p className="text-gray-400 text-xs mb-1">تاريخ الحكم:</p>
-                                        <p className="text-white font-semibold">
-                                            {judgmentDateDisplay || '—'}
-                                        </p>
-                                    </div>
-                                ) : null}
-                                <div className="col-span-2 rounded-xl border border-amber-500/15 bg-black/20 px-2.5 py-2 text-right sm:col-span-2">
-                                    <p className="text-gray-400 text-xs mb-1">المطالبة:</p>
-                                    <p className="text-white font-semibold break-words">
-                                        {claimTypeArabicDisplay || executionData.executionType || '—'}
-                                    </p>
-                                </div>
-                                {isEvictionExecutionModule &&
-                                    (String(evictionPropertyNumber || '').trim() ||
-                                        String(evictionPropertyDistrict || '').trim() ||
-                                        String(evictionPropertyTypeField || '').trim() ||
-                                        String(evictionFullAddressField || '').trim()) && (
-                                        <div className="col-span-2 grid grid-cols-2 gap-2 sm:col-span-3 sm:grid-cols-3 lg:col-span-4 lg:grid-cols-4">
-                                            {String(evictionPropertyNumber || '').trim() ? (
-                                                <div className="rounded-xl border border-amber-500/15 bg-slate-900/35 px-2.5 py-2 text-right">
-                                                    <p className="text-gray-400 text-xs mb-1">رقم العقار:</p>
-                                                    <p className="text-white font-semibold break-words">
-                                                        {evictionPropertyNumber}
-                                                    </p>
-                                                </div>
+                            <div className="space-y-1 px-3 py-2" dir="rtl">
+                                {isSubFile ? (
+                                    delegationPurpose ? (
+                                        <DetailCell
+                                            label="الغاية من الإضبارة الفرعية"
+                                            value={delegationPurpose}
+                                            className="border-emerald-500/25 text-emerald-100/95"
+                                        />
+                                    ) : (
+                                        <p className="text-right text-[10px] text-slate-500">—</p>
+                                    )
+                                ) : (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={expanded.openEditDossierMeta}
+                                            className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-200/90 transition hover:text-amber-100"
+                                        >
+                                            <Pencil size={12} />
+                                            {expanded.isEvictionExecutionModule
+                                                ? 'تعديل الإضبارة والحكم والتخلية'
+                                                : 'تعديل الإضبارة والحكم'}
+                                        </button>
+                                        <div className="grid grid-cols-2 gap-1 auto-rows-min">
+                                            <DetailCell
+                                                label="نوع السند"
+                                                value={expanded.headerFields.docType || '—'}
+                                            />
+                                            <DetailCell
+                                                label="التصنيف"
+                                                value={expanded.classificationDisplay}
+                                            />
+                                            <DetailCell
+                                                label="المطالبة"
+                                                value={expanded.claimTypeArabicDisplay}
+                                                className="col-span-2"
+                                            />
+                                            {expanded.showSpecificDeliveryMeta ? (
+                                                <DetailCell
+                                                    label="طبيعة الشيء"
+                                                    value={
+                                                        expanded.headerFields
+                                                            .specificDeliveryItemNatureDisplay ||
+                                                        'غير محدد'
+                                                    }
+                                                    className="col-span-2"
+                                                />
                                             ) : null}
-                                            {String(evictionPropertyDistrict || '').trim() ? (
-                                                <div className="rounded-xl border border-amber-500/15 bg-slate-900/35 px-2.5 py-2 text-right">
-                                                    <p className="text-gray-400 text-xs mb-1">المقاطعة:</p>
-                                                    <p className="text-white font-semibold break-words">
-                                                        {evictionPropertyDistrict}
-                                                    </p>
-                                                </div>
+                                            {expanded.showJudgmentMeta ? (
+                                                <DetailCell
+                                                    label="رقم الحكم"
+                                                    value={expanded.headerFields.docNumber || '—'}
+                                                    valueClassName="font-mono"
+                                                />
                                             ) : null}
-                                            {String(evictionPropertyTypeField || '').trim() ? (
-                                                <div className="rounded-xl border border-amber-500/15 bg-slate-900/35 px-2.5 py-2 text-right">
-                                                    <p className="text-gray-400 text-xs mb-1">صنف العقار:</p>
-                                                    <p className="text-white font-semibold break-words">
-                                                        {String(evictionPropertyTypeField || '').trim() || '—'}
-                                                    </p>
-                                                </div>
+                                            {expanded.showJudgmentMeta ? (
+                                                <DetailCell
+                                                    label="تاريخ الحكم"
+                                                    value={expanded.judgmentDateDisplay || '—'}
+                                                />
                                             ) : null}
-                                            {isEvictionExecutionModule ? (
-                                                <div className="rounded-xl border border-amber-500/15 bg-slate-900/35 px-2.5 py-2 text-right">
-                                                    <p className="text-gray-400 text-xs mb-1">
-                                                        استعمال العقار:
-                                                    </p>
-                                                    <p className="text-[#E6C673] text-xs font-semibold break-words">
-                                                        {evictionPremisesUseResolved === 'commercial'
-                                                            ? 'محل / تجاري'
-                                                            : 'سكني'}
-                                                    </p>
-                                                </div>
+                                            {expanded.isEvictionExecutionModule ? (
+                                                <>
+                                                    <DetailCell
+                                                        label="رقم العقار"
+                                                        value={String(expanded.evictionPropertyNumber || '').trim()}
+                                                    />
+                                                    <DetailCell
+                                                        label="المقاطعة"
+                                                        value={String(expanded.evictionPropertyDistrict || '').trim()}
+                                                    />
+                                                    <div className="col-span-2 grid grid-cols-2 gap-1">
+                                                        <DetailCell
+                                                            label="صنف العقار"
+                                                            value={String(expanded.evictionPropertyTypeField || '').trim()}
+                                                        />
+                                                        <DetailCell
+                                                            label="مكان العقار"
+                                                            value={String(expanded.evictionFullAddressField || '').trim()}
+                                                        />
+                                                    </div>
+                                                </>
                                             ) : null}
-                                            {String(evictionFullAddressField || '').trim() ? (
-                                                <div className="col-span-2 rounded-xl border border-amber-500/15 bg-slate-900/35 px-2.5 py-2 text-right sm:col-span-2 lg:col-span-2">
-                                                    <p className="text-gray-400 text-xs mb-1">
-                                                        مكان العقار (العنوان):
-                                                    </p>
-                                                    <p className="text-white font-semibold text-xs leading-relaxed break-words">
-                                                        {evictionFullAddressField}
-                                                    </p>
-                                                </div>
+                                            {delegationPurpose ? (
+                                                <DetailCell
+                                                    label="الغاية من الإنابة"
+                                                    value={delegationPurpose}
+                                                    className="col-span-2 border-emerald-500/25 text-emerald-100/95"
+                                                />
                                             ) : null}
                                         </div>
-                                    )}
-                                {delegationPurpose ? (
-                                    <div className="col-span-2 rounded-xl border border-emerald-500/20 bg-emerald-950/20 px-2.5 py-2 text-right sm:col-span-4">
-                                        <p className="text-gray-400 text-xs mb-1">الغاية من الإنابة:</p>
-                                        <p className="text-white font-semibold break-words">{delegationPurpose}</p>
-                                    </div>
-                                ) : null}
+                                    </>
+                                )}
                             </div>
                         </motion.div>
                     )}
@@ -597,4 +557,4 @@ export const DashboardHeaderSection: React.FC<DashboardHeaderSectionProps> = ({
             </div>
         </>
     );
-};
+});

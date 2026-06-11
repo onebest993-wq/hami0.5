@@ -12,6 +12,7 @@ import {
 import { formatDateToLocalYmd, getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { loadExecutionFilesRaw, saveExecutionFilesRaw, EXECUTION_FILES_STORAGE_KEY } from '@/app/utils/executionFilesStorage';
+import { executionStorageKey } from '@/app/utils/executionStorageKeys';
 import { storageCache } from '@/app/utils/storageCache';
 import { createSecureJSONStorage } from '@/app/services/securePersistStorage';
 
@@ -31,9 +32,244 @@ export function isInabaSubFileId(id: string | null | undefined): boolean {
     return v === INABA_SUB_FILE_PREFIX || v.startsWith(`${INABA_SUB_FILE_PREFIX}:`);
 }
 
+/** معرف الإضبارة الأم — ثابت أثناء التبديل بين الأم والإنابة */
+export function resolveParentDossierId(
+    state: Pick<ExecutionDashboardState, 'currentFile' | 'delegationParentFileId' | 'activeSubFileId'>,
+    fallbackId?: string | null
+): string {
+    const fromDelegation = String(state.delegationParentFileId || '').trim();
+    if (fromDelegation && !isInabaSubFileId(fromDelegation)) return fromDelegation;
+    const cur = String(state.currentFile?.id || '').trim();
+    if (cur && !isInabaSubFileId(cur)) return cur;
+    const parentLink = String((state.currentFile as any)?.parentId || '').trim();
+    if (parentLink && !isInabaSubFileId(parentLink)) return parentLink;
+    const fb = String(fallbackId || '').trim();
+    if (fb && !isInabaSubFileId(fb)) return fb;
+    return '';
+}
+
+/** مفتاح تخزين بيانات إضبارة الإنابة — منفصل عن الأم */
+export function inabaSubMetaStorageKey(parentId: string, subFileId: string): string {
+    return `${String(parentId || '').trim()}__sub__${String(subFileId || '').trim()}__meta`;
+}
+
+export const DOSSIER_SCOPE_INABA = 'inaba';
+export const DOSSIER_SCOPE_PARENT = 'parent';
+
+/** حدث يخص إضبارة الإنابة فقط — يجب أن يحمل معرّف الإضبارة الفرعية */
+export function timelineEventBelongsToInabaDossier(
+    event: TimelineEvent | null | undefined,
+    subFileId: string
+): boolean {
+    if (!event || (event as { trashedAt?: string }).trashedAt) return false;
+    const subId = String(subFileId || '').trim();
+    if (!subId) return false;
+    const meta = ((event as { metadata?: Record<string, unknown> }).metadata || {}) as Record<string, unknown>;
+    const scope = String(meta.dossierScope || '');
+    const taggedSub = String(meta.inabaSubFileId || meta.executionDossierId || '').trim();
+    return scope === DOSSIER_SCOPE_INABA && taggedSub === subId;
+}
+
+/** حدث يخص الإضبارة الأم — يستبعد كل ما يُوسَم لإضبارة الإنابة */
+export function timelineEventBelongsToParentDossier(
+    event: TimelineEvent | null | undefined,
+    _parentId: string
+): boolean {
+    if (!event || (event as { trashedAt?: string }).trashedAt) return false;
+    const meta = ((event as { metadata?: Record<string, unknown> }).metadata || {}) as Record<string, unknown>;
+    if (String(meta.dossierScope || '') === DOSSIER_SCOPE_INABA) return false;
+    if (String(meta.inabaSubFileId || '').trim()) return false;
+    return true;
+}
+
+export function filterTimelineEventsForInabaDossier(
+    events: TimelineEvent[],
+    subFileId: string
+): TimelineEvent[] {
+    return (events || []).filter((e) => timelineEventBelongsToInabaDossier(e, subFileId));
+}
+
+export function filterTimelineEventsForParentDossier(
+    events: TimelineEvent[],
+    parentId: string
+): TimelineEvent[] {
+    return (events || []).filter((e) => timelineEventBelongsToParentDossier(e, parentId));
+}
+
+const SUB_DOSSIER_OPENED_THREAD_PREFIX = 'sub_dossier_opened:';
+
+/** حدث افتتاح الإضبارة الفرعية — أول سجل زمني لها */
+export function buildSubDossierOpenedTimelineEvent(
+    subFileId: string,
+    parentId: string,
+    directorate?: string
+): TimelineEvent {
+    const subId = String(subFileId || '').trim();
+    const pId = String(parentId || '').trim();
+    const now = new Date().toISOString();
+    const ymd = getLocalTodayYmd();
+    const dirLabel = String(directorate || '').trim();
+    const base: TimelineEvent = {
+        id: `sub-open-${subId}-${ymd}`,
+        type: 'other',
+        title: 'فتح الإضبارة الفرعية',
+        description: dirLabel
+            ? `تم فتح الإضبارة الفرعية — الدائرة المناب إليها: ${dirLabel}`
+            : 'تم فتح الإضبارة الفرعية',
+        timestamp: now,
+        date: ymd,
+        source: 'نظام الإضبارة',
+        metadata: {
+            timelineThreadKey: `${SUB_DOSSIER_OPENED_THREAD_PREFIX}${subId}`,
+            dossierLifecycle: 'sub_dossier_opened',
+        },
+    } as TimelineEvent;
+    return stampInabaTimelineEventMetadata(base, subId, pId);
+}
+
+export function ensureSubDossierOpenedTimelineEvent(
+    events: TimelineEvent[],
+    subFileId: string,
+    parentId: string,
+    directorate?: string
+): TimelineEvent[] {
+    const subId = String(subFileId || '').trim();
+    const threadKey = `${SUB_DOSSIER_OPENED_THREAD_PREFIX}${subId}`;
+    const list = Array.isArray(events) ? [...events] : [];
+    const hasOpen = list.some(
+        (e) => String((e as { metadata?: Record<string, unknown> })?.metadata?.timelineThreadKey || '') === threadKey
+    );
+    if (hasOpen) return filterTimelineEventsForInabaDossier(list, subId);
+    const opened = buildSubDossierOpenedTimelineEvent(subId, parentId, directorate);
+    return filterTimelineEventsForInabaDossier([opened, ...list], subId);
+}
+
+export function stampInabaTimelineEventMetadata(
+    event: TimelineEvent,
+    subFileId: string,
+    parentId: string
+): TimelineEvent {
+    const meta = {
+        ...(((event as { metadata?: Record<string, unknown> }).metadata || {}) as Record<string, unknown>),
+        dossierScope: DOSSIER_SCOPE_INABA,
+        inabaSubFileId: subFileId,
+        parentExecutionId: parentId,
+    };
+    return { ...event, metadata: meta } as TimelineEvent;
+}
+
+function copyPartyContextFromParent(parentFile: ExecutionFile): Partial<ExecutionFile> {
+    const clone = <T>(v: T | undefined): T | undefined =>
+        v != null ? (JSON.parse(JSON.stringify(v)) as T) : undefined;
+    const creditors = clone(parentFile.creditors) ?? [];
+    const debtors = clone(parentFile.debtors) ?? [];
+    const parties =
+        Array.isArray(parentFile.parties) && parentFile.parties.length > 0
+            ? clone(parentFile.parties)!
+            : ([...creditors, ...debtors] as ExecutionFile['parties']);
+    return {
+        creditors,
+        debtors,
+        parties,
+        party_multiplicity: clone(parentFile.party_multiplicity),
+        creditor_party_death_case: clone(parentFile.creditor_party_death_case),
+        debtor_party_death_case: clone(parentFile.debtor_party_death_case),
+        party_death_case: clone(parentFile.party_death_case),
+    };
+}
+
+/** عرض إضبارة الإنابة — إضبارة جديدة فارغة + الكفيل (مالي/إجرائي) فقط */
+export function buildInabaDelegationViewFile(
+    parentFile: ExecutionFile,
+    subFile: SubExecutionFile,
+    parentId: string
+): ExecutionFile {
+    const gf = parentFile.guarantor_followup
+        ? (JSON.parse(JSON.stringify(parentFile.guarantor_followup)) as ExecutionFile['guarantor_followup'])
+        : undefined;
+    const pg = parentFile.procedural_guarantee
+        ? (JSON.parse(JSON.stringify(parentFile.procedural_guarantee)) as ExecutionFile['procedural_guarantee'])
+        : undefined;
+    const subTimelineRaw = Array.isArray(subFile.timelineEvents) ? subFile.timelineEvents : [];
+    const dirLabel = String(
+        subFile.delegationTargetDirectorate || subFile.directorate || parentFile.directorate || ''
+    ).trim();
+    const subTimeline = ensureSubDossierOpenedTimelineEvent(
+        subTimelineRaw,
+        subFile.id,
+        parentId,
+        dirLabel
+    );
+    const subDecisions = Array.isArray(subFile.decisions) ? [...subFile.decisions] : [];
+    const partyCtx = copyPartyContextFromParent(parentFile);
+    const subFileNumber = String(subFile.fileNumber || '').trim();
+    const subFileYear = String((subFile as { fileYear?: string }).fileYear || '').trim();
+
+    return {
+        type: parentFile.type,
+        id: subFile.id,
+        parentId,
+        fileNumber: subFileNumber,
+        fileYear: subFileYear,
+        directorate: (subFile.delegationTargetDirectorate || subFile.directorate || parentFile.directorate) as ExecutionFile['directorate'],
+        debtorCourt: subFile.debtorCourt || parentFile.debtorCourt,
+        ...partyCtx,
+        debtAmount: parentFile.debtAmount,
+        claimType: parentFile.claimType,
+        status: subFile.status || parentFile.status,
+        dossier_lifecycle_status: subFile.dossier_lifecycle_status || 'active',
+        debtor_summons_marker: null,
+        timelineEvents: subTimeline,
+        decisions: subDecisions as ExecutionFile['decisions'],
+        caseNotesLog: [],
+        caseTasksPending: [],
+        linkedDossiers: [],
+        linkToken: undefined,
+        delegationTargetDirectorate: subFile.delegationTargetDirectorate,
+        delegationPurpose: subFile.delegationPurpose,
+        ...(gf ? { guarantor_followup: gf } : {}),
+        ...(pg ? { procedural_guarantee: pg } : {}),
+        hasGuarantor: Boolean(
+            parentFile.hasGuarantor || gf?.details_saved || pg?.committed_to_followup
+        ),
+        seizedAssets: [],
+        realEstateSeizureAssets: [],
+        thirdPartySeizureAssets: [],
+        activeCoerciveActions: [],
+        seizureDraftsByDecisionId: {},
+        createdAt: subFile.createdAt,
+        updatedAt: subFile.updatedAt,
+    } as ExecutionFile;
+}
+
+function persistParentExecutionFile(parentId: string, file: ExecutionFile) {
+    const pid = String(parentId || '').trim();
+    if (!pid) return;
+    try {
+        storageCache.set(executionStorageKey(pid), file);
+        const allFiles: any[] = loadExecutionFilesRaw() as any[];
+        const idx = allFiles.findIndex((f: any) => String(f?.id || '').trim() === pid);
+        if (idx >= 0) {
+            allFiles[idx] = { ...allFiles[idx], ...file, id: pid };
+        } else {
+            allFiles.push({ ...file, id: pid });
+        }
+        saveExecutionFilesRaw(allFiles);
+        const cache = storageCache.get(EXECUTION_FILES_STORAGE_KEY);
+        if (Array.isArray(cache)) {
+            const cacheArr = cache as any[];
+            const cIdx = cacheArr.findIndex((f: any) => String(f?.id || '').trim() === pid);
+            if (cIdx >= 0) cacheArr[cIdx] = { ...cacheArr[cIdx], ...file, id: pid };
+            else cacheArr.push({ ...file, id: pid });
+            storageCache.set(EXECUTION_FILES_STORAGE_KEY, cacheArr);
+        }
+    } catch {}
+}
+
 export interface SubExecutionFile {
     id: string;
     fileNumber: string;
+    fileYear?: string;
     parentFileId?: string;
     debtorCourt?: string;
     directorate?: string;
@@ -149,6 +385,7 @@ export interface ExecutionDashboardState {
     touchDossierProceduralToday: (fileId: string) => void;
     getDossierLifecycleOrDefault: (fileId: string) => DossierLifecycleSlice;
     incorporateDossierMetaUpdate: (fileId: string, isoDate: string, reason: string) => void;
+    purgeDossierScopedState: (dossierId: string) => void;
     resetStore: () => void;
 }
 
@@ -286,14 +523,30 @@ export const useExecutionDashboardStore = create<ExecutionDashboardState>()(
                         if (String(sf.id) !== subId) return sf;
                         if (String(sf.parentFileId || '') !== pId) return sf;
                         const prevEvents: TimelineEvent[] = Array.isArray(sf.timelineEvents) ? sf.timelineEvents : [];
-                        return { ...sf, timelineEvents: [...prevEvents, event], updatedAt: now };
+                        const stamped = isInabaSubFileId(subId)
+                            ? stampInabaTimelineEventMetadata(event, subId, pId)
+                            : event;
+                        return { ...sf, timelineEvents: [...prevEvents, stamped], updatedAt: now };
                     });
                     const nextState: any = { subFiles: nextSubFiles };
                     if (String(state.activeSubFileId || '') === subId && state.currentFile) {
                         const prevEvents: TimelineEvent[] = Array.isArray((state.currentFile as any)?.timelineEvents)
                             ? ((state.currentFile as any).timelineEvents as any)
                             : [];
-                        nextState.currentFile = { ...(state.currentFile as any), timelineEvents: [...prevEvents, event] };
+                        const stamped = isInabaSubFileId(subId)
+                            ? stampInabaTimelineEventMetadata(event, subId, pId)
+                            : event;
+                        const nextEvents = [...prevEvents, stamped];
+                        nextState.currentFile = {
+                            ...(state.currentFile as any),
+                            timelineEvents: filterTimelineEventsForInabaDossier(nextEvents, subId),
+                        };
+                        try {
+                            storageCache.set(
+                                executionStorageKey(inabaSubMetaStorageKey(pId, subId)),
+                                nextState.currentFile as ExecutionFile
+                            );
+                        } catch {}
                     }
                     return nextState;
                 }),
@@ -377,64 +630,92 @@ export const useExecutionDashboardStore = create<ExecutionDashboardState>()(
 
             swapToSubFile: (subFile) => set((state) => {
                 if (!state.currentFile) return state;
-                const parentId = String(state.currentFile.id);
+                const curId = String(state.currentFile.id || '').trim();
+                const parentId = resolveParentDossierId(state, curId);
+                if (!parentId) return state;
                 /** تحديث الرابط فوراً — المصدر الأساسي للحقيقة */
                 try {
                     const url = new URL(window.location.href);
                     url.searchParams.set('delegationParentId', parentId);
                     window.history.replaceState(window.history.state, '', url.toString());
                 } catch {}
-                const parentFile: ExecutionFile = JSON.parse(JSON.stringify(state.currentFile));
-                let subTimelineEvents = ((subFile as any).timelineEvents as TimelineEvent[]) || [];
-                if (isInabaSubFileId(subFile.id) && subTimelineEvents.length > 0) {
-                    subTimelineEvents = subTimelineEvents.filter((e: any) => {
-                        const title = String(e?.title || '');
-                        const source = String(e?.source || '');
-                        const meta = (e?.metadata || {}) as Record<string, unknown>;
-                        const action = (meta?.dossierActionPayload as Record<string, unknown> | undefined)?.actionType;
-                        if (action !== 'delegation') return true;
-                        if (!/طلب\s*الإنابة\s*التنفيذية/.test(title)) return true;
-                        if (source !== 'محضر المتابعة' && source !== 'القرارات والطعون') return true;
-                        return false;
-                    });
+                let parentFile: ExecutionFile;
+                if (isInabaSubFileId(curId) && state._stashedOriginalFile) {
+                    parentFile = JSON.parse(JSON.stringify(state._stashedOriginalFile)) as ExecutionFile;
+                } else if (!isInabaSubFileId(curId)) {
+                    parentFile = JSON.parse(JSON.stringify(state.currentFile)) as ExecutionFile;
+                } else {
+                    try {
+                        const allFiles: any[] = loadExecutionFilesRaw() as any[];
+                        const match = allFiles.find((f: any) => String(f?.id || '').trim() === parentId);
+                        parentFile = (match
+                            ? JSON.parse(JSON.stringify(match))
+                            : JSON.parse(JSON.stringify(state.currentFile))) as ExecutionFile;
+                    } catch {
+                        parentFile = JSON.parse(JSON.stringify(state.currentFile)) as ExecutionFile;
+                    }
                 }
-                const subDecisions = ((subFile as any).decisions as any[]) || [];
-                const subAsFile: ExecutionFile = {
-                    ...parentFile,
-                    id: subFile.id,
-                    fileNumber: subFile.fileNumber as any,
-                    directorate: (subFile.directorate || parentFile.directorate) as any,
-                    debtor_summons_marker: null,
-                    decisions: subDecisions as any,
-                    timelineEvents: subTimelineEvents as any,
-                    caseNotesLog: [],
-                    caseTasksPending: [],
-                    delegationTargetDirectorate: (subFile as any).delegationTargetDirectorate,
-                    delegationPurpose: (subFile as any).delegationPurpose,
-                    ...(isInabaSubFileId(subFile.id)
-                        ? {
-                              linkedDossiers: [],
-                              linkToken: undefined,
-                          }
-                        : {}),
-                    /** الرابط العكسي: الإضبارة الفرعية تحمل معرف الأم */
-                    parentId: isInabaSubFileId(subFile.id) ? parentId : subFile.parentFileId,
-                } as ExecutionFile & { delegationTargetDirectorate?: string; delegationPurpose?: string };
+                persistParentExecutionFile(parentId, parentFile);
+                const subAsFile = isInabaSubFileId(subFile.id)
+                    ? buildInabaDelegationViewFile(parentFile, subFile, parentId)
+                    : ({
+                          ...parentFile,
+                          id: subFile.id,
+                          fileNumber: subFile.fileNumber as any,
+                          directorate: (subFile.directorate || parentFile.directorate) as any,
+                          debtor_summons_marker: null,
+                          decisions: (subFile.decisions as any[]) || [],
+                          timelineEvents: (subFile.timelineEvents as TimelineEvent[]) || [],
+                          caseNotesLog: [],
+                          caseTasksPending: [],
+                          delegationTargetDirectorate: subFile.delegationTargetDirectorate,
+                          delegationPurpose: subFile.delegationPurpose,
+                          parentId: subFile.parentFileId,
+                      } as ExecutionFile);
+                try {
+                    storageCache.set(
+                        executionStorageKey(inabaSubMetaStorageKey(parentId, subFile.id)),
+                        subAsFile
+                    );
+                } catch {}
+                const normalizedSubRecord: SubExecutionFile = {
+                    ...subFile,
+                    fileNumber: String(subAsFile.fileNumber || subFile.fileNumber || '').trim(),
+                    fileYear: String(subAsFile.fileYear || (subFile as { fileYear?: string }).fileYear || '').trim(),
+                    timelineEvents: isInabaSubFileId(subFile.id)
+                        ? (subAsFile.timelineEvents || [])
+                        : subFile.timelineEvents,
+                    updatedAt: new Date().toISOString(),
+                };
                 return {
                     _stashedOriginalFile: parentFile,
                     currentFile: subAsFile,
                     activeSubFileId: subFile.id,
                     delegationParentFileId: parentId,
+                    subFiles: state.subFiles.map((f) =>
+                        f.id === subFile.id ? normalizedSubRecord : f
+                    ),
                 };
             }),
 
             restoreOriginalFile: () => set((state) => {
-                const restoreById = (parentId: string) => {
+                const restoreById = (parentId: string): ExecutionFile | null => {
+                    const pid = String(parentId || '').trim();
+                    if (!pid) return null;
+                    if (state._stashedOriginalFile && String(state._stashedOriginalFile.id || '').trim() === pid) {
+                        return JSON.parse(JSON.stringify(state._stashedOriginalFile)) as ExecutionFile;
+                    }
+                    try {
+                        const cached = storageCache.get(executionStorageKey(pid)) as ExecutionFile | null;
+                        if (cached && String(cached.id || '').trim() === pid) {
+                            return JSON.parse(JSON.stringify(cached)) as ExecutionFile;
+                        }
+                    } catch {}
                     try {
                         const allFiles: any[] = loadExecutionFilesRaw() as any[];
-                        const match = allFiles.find((f: any) => String(f?.id || '') === String(parentId));
+                        const match = allFiles.find((f: any) => String(f?.id || '').trim() === pid);
                         if (!match) return null;
-                        return match as ExecutionFile;
+                        return JSON.parse(JSON.stringify(match)) as ExecutionFile;
                     } catch {
                         return null;
                     }
@@ -445,35 +726,31 @@ export const useExecutionDashboardStore = create<ExecutionDashboardState>()(
                     url.searchParams.delete('delegationParentId');
                     window.history.replaceState(window.history.state, '', url.toString());
                 } catch {}
-                if (!state._stashedOriginalFile) {
-                    const currentId = String((state.currentFile as any)?.id || '');
-                    const looksLikeInaba = isInabaSubFileId(currentId) || isInabaSubFileId(state.activeSubFileId);
-                    if (!looksLikeInaba) return state;
-                    const parentId =
-                        String(state.delegationParentFileId || '').trim() ||
-                        String((state.currentFile as any)?.parentId || '').trim();
-                    if (!parentId) {
-                        return {
-                            activeSubFileId: null,
-                            delegationParentFileId: null,
-                        };
-                    }
-                    const restored = restoreById(parentId);
-                    if (!restored) {
-                        return {
-                            activeSubFileId: null,
-                            delegationParentFileId: null,
-                        };
-                    }
+                const currentId = String((state.currentFile as any)?.id || '').trim();
+                const looksLikeInaba = isInabaSubFileId(currentId) || isInabaSubFileId(state.activeSubFileId);
+                if (!looksLikeInaba && !state._stashedOriginalFile) return state;
+                const parentId = resolveParentDossierId(state);
+                if (!parentId) {
                     return {
-                        currentFile: restored,
-                        _stashedOriginalFile: null,
                         activeSubFileId: null,
                         delegationParentFileId: null,
                     };
                 }
+                const restored = restoreById(parentId);
+                if (!restored) {
+                    return {
+                        activeSubFileId: null,
+                        delegationParentFileId: null,
+                    };
+                }
+                const parentTimeline = filterTimelineEventsForParentDossier(
+                    Array.isArray(restored.timelineEvents) ? restored.timelineEvents : [],
+                    parentId
+                );
+                const parentFile = { ...restored, timelineEvents: parentTimeline };
+                persistParentExecutionFile(parentId, parentFile);
                 return {
-                    currentFile: state._stashedOriginalFile,
+                    currentFile: parentFile,
                     _stashedOriginalFile: null,
                     activeSubFileId: null,
                     delegationParentFileId: null,
@@ -569,6 +846,41 @@ export const useExecutionDashboardStore = create<ExecutionDashboardState>()(
             }),
             incorporateDossierMetaUpdate: () => {},
 
+            purgeDossierScopedState: (dossierId) =>
+                set((state) => {
+                    const pid = String(dossierId || '').trim();
+                    if (!pid) return state;
+
+                    const nextLifecycle = { ...state.dossierLifecycleByFileId };
+                    delete nextLifecycle[pid];
+
+                    const nextSubFiles = state.subFiles.filter((f) => {
+                        const fid = String(f.id || '').trim();
+                        const parent = String(f.parentFileId || '').trim();
+                        return fid !== pid && parent !== pid;
+                    });
+
+                    const activeSubOrphaned =
+                        Boolean(state.activeSubFileId) &&
+                        !nextSubFiles.some((f) => String(f.id) === String(state.activeSubFileId));
+
+                    const currentMatches = String(state.currentFile?.id || '').trim() === pid;
+
+                    return {
+                        dossierLifecycleByFileId: nextLifecycle,
+                        subFiles: nextSubFiles,
+                        linkedDossiers: state.linkedDossiers.filter(
+                            (d) => String((d as { id?: string }).id || '').trim() !== pid,
+                        ),
+                        currentFile: currentMatches ? null : state.currentFile,
+                        activeSubFileId: activeSubOrphaned ? null : state.activeSubFileId,
+                        delegationParentFileId:
+                            String(state.delegationParentFileId || '').trim() === pid
+                                ? null
+                                : state.delegationParentFileId,
+                    };
+                }),
+
             resetStore: () => set({
                 currentFile: null,
                 _stashedOriginalFile: null,
@@ -613,28 +925,218 @@ export const selectExpandedParties = (s: ExecutionDashboardState) => s.ui.expand
 
 export const isDebtorRowEmployee = (debtor: any): boolean => {
     if (!debtor) return false;
-    const occ = String(debtor.occupation || '');
+    if (debtor.isEmployee === true) return true;
+    if (debtor.isEmployee === false) return false;
+    const occ = String(debtor.occupation ?? debtor.employmentType ?? '').trim();
     return occ === 'موظف' || occ === 'employee' || occ === 'موظفة';
 };
-export const debtorEmploymentToggleMenuLabel = (isEmployee: boolean, initial?: boolean) => isEmployee ? 'إلغاء توظيف' : 'توظيف';
-export const buildDebtorEmploymentTogglePatch = (executionData: any, debtorKey: string): Record<string, unknown> | null => {
+export const debtorEmploymentToggleMenuLabel = (isEmployee: boolean, _initial?: boolean) =>
+    isEmployee ? 'تحويل إلى كاسب' : 'توظيف';
+
+function applyDebtorEmploymentToggleRow(row: Record<string, unknown>): Record<string, unknown> {
+    const current = isDebtorRowEmployee(row);
+    const nextIsEmployee = !current;
+    const occ = nextIsEmployee ? 'موظف' : 'كاسب';
+    const employmentInitialWasEmployee =
+        typeof row.employmentInitialWasEmployee === 'boolean'
+            ? row.employmentInitialWasEmployee
+            : current;
+    return {
+        ...row,
+        occupation: occ,
+        employmentType: occ,
+        isEmployee: nextIsEmployee,
+        employmentInitialWasEmployee,
+    };
+}
+
+function applyDebtorEntityKindRow(
+    row: Record<string, unknown>,
+    targetKind: 'natural_person' | 'legal_entity'
+): Record<string, unknown> {
+    const partyType = targetKind === 'legal_entity' ? 'company' : 'individual';
+    const next: Record<string, unknown> = {
+        ...row,
+        entityKind: targetKind,
+        entityType: targetKind,
+        type: partyType,
+    };
+    if (targetKind === 'legal_entity') {
+        next.isEmployee = false;
+        next.isClient = false;
+        next.occupation = 'معنوي';
+        next.employmentType = 'معنوي';
+    }
+    return next;
+}
+
+function syncDebtorEntityKindInParties(
+    parties: unknown[] | undefined,
+    nextRow: Record<string, unknown>,
+    debtorKey: string,
+    primaryKey: string,
+): unknown[] | undefined {
+    if (!Array.isArray(parties) || parties.length === 0) return undefined;
+    let primaryDebtorPartySeen = false;
+    return parties.map((raw) => {
+        if (!raw || typeof raw !== 'object') return raw;
+        const p = raw as Record<string, unknown>;
+        const role = String(p.role ?? '');
+        const isDebtorRole = role === 'المدين' || role.toLowerCase() === 'debtor';
+        if (!isDebtorRole) return raw;
+        const pid = String(p.id ?? '').trim();
+        const matchAdditional = pid !== '' && pid === debtorKey;
+        const matchPrimary =
+            debtorKey === primaryKey &&
+            (!primaryDebtorPartySeen || pid === primaryKey || pid === String(nextRow.id ?? ''));
+        if (matchAdditional || matchPrimary) {
+            if (debtorKey === primaryKey) primaryDebtorPartySeen = true;
+            return {
+                ...p,
+                entityKind: nextRow.entityKind,
+                entityType: nextRow.entityType,
+                type: nextRow.type,
+                ...(nextRow.entityKind === 'legal_entity'
+                    ? { occupation: 'معنوي', isEmployee: false }
+                    : {}),
+            };
+        }
+        return raw;
+    });
+}
+
+export const buildDebtorEntityKindPatch = (
+    executionData: any,
+    debtorKey: string,
+    targetKind: 'natural_person' | 'legal_entity'
+): Record<string, unknown> | null => {
     if (!executionData || !debtorKey) return null;
-    const primaryKey = String(executionData.debtors?.[0]?.id || 'primary_debtor');
+    const prim = executionData.debtors?.[0];
+    const primaryKey =
+        prim?.id != null && String(prim.id).trim() !== ''
+            ? String(prim.id)
+            : 'primary_debtor';
+    const byDebtor = {
+        ...(executionData.debtor_entity_kind_by_debtor || {}),
+        [debtorKey]: targetKind,
+    };
     if (debtorKey === primaryKey) {
-        const current = isDebtorRowEmployee(executionData.debtors?.[0]);
-        return { ...executionData, debtors: [{ ...(executionData.debtors?.[0] || {}), occupation: current ? '' : 'موظف' }] };
+        const list = Array.isArray(executionData.debtors) ? executionData.debtors : [];
+        if (!list.length) return null;
+        const next0 = applyDebtorEntityKindRow((list[0] || {}) as Record<string, unknown>, targetKind);
+        const nextDebtors = [...list];
+        nextDebtors[0] = next0;
+        const nextParties = syncDebtorEntityKindInParties(
+            executionData.parties,
+            next0,
+            debtorKey,
+            primaryKey
+        );
+        return {
+            debtors: nextDebtors,
+            debtor: next0,
+            debtor_entity_kind: targetKind,
+            debtor_entity_type: targetKind,
+            debtor_entity_kind_by_debtor: byDebtor,
+            ...(nextParties ? { parties: nextParties } : {}),
+        };
     }
     const adIdx = (executionData.party_multiplicity?.additionalDebtors || []).findIndex(
         (a: any) => String(a.id) === debtorKey
     );
     if (adIdx < 0) return null;
     const ad = executionData.party_multiplicity.additionalDebtors[adIdx];
-    const nextIsEmployee = ad.isEmployee !== false ? false : true;
+    const nextAd = applyDebtorEntityKindRow(ad as Record<string, unknown>, targetKind);
     const nextAds = [...(executionData.party_multiplicity?.additionalDebtors || [])];
-    nextAds[adIdx] = { ...ad, isEmployee: nextIsEmployee, occupation: nextIsEmployee ? 'موظف' : '' };
+    nextAds[adIdx] = nextAd;
+    const nextParties = syncDebtorEntityKindInParties(
+        executionData.parties,
+        nextAd,
+        debtorKey,
+        primaryKey
+    );
     return {
-        ...executionData,
         party_multiplicity: { ...executionData.party_multiplicity, additionalDebtors: nextAds },
+        debtor_entity_kind_by_debtor: byDebtor,
+        ...(nextParties ? { parties: nextParties } : {}),
+    };
+};
+
+function syncDebtorEmploymentInParties(
+    parties: unknown[] | undefined,
+    nextRow: Record<string, unknown>,
+    debtorKey: string,
+    primaryKey: string,
+): unknown[] | undefined {
+    if (!Array.isArray(parties) || parties.length === 0) return undefined;
+    let primaryDebtorPartySeen = false;
+    return parties.map((raw) => {
+        if (!raw || typeof raw !== 'object') return raw;
+        const p = raw as Record<string, unknown>;
+        const role = String(p.role ?? '');
+        const isDebtorRole = role === 'المدين' || role.toLowerCase() === 'debtor';
+        if (!isDebtorRole) return raw;
+        const pid = String(p.id ?? '').trim();
+        const matchAdditional = pid !== '' && pid === debtorKey;
+        const matchPrimary =
+            debtorKey === primaryKey &&
+            (!primaryDebtorPartySeen || pid === primaryKey || pid === String(nextRow.id ?? ''));
+        if (matchAdditional || matchPrimary) {
+            if (debtorKey === primaryKey) primaryDebtorPartySeen = true;
+            return {
+                ...p,
+                occupation: nextRow.occupation,
+                employmentType: nextRow.employmentType,
+                isEmployee: nextRow.isEmployee,
+                employmentInitialWasEmployee: nextRow.employmentInitialWasEmployee,
+            };
+        }
+        return raw;
+    });
+}
+
+export const buildDebtorEmploymentTogglePatch = (executionData: any, debtorKey: string): Record<string, unknown> | null => {
+    if (!executionData || !debtorKey) return null;
+    const prim = executionData.debtors?.[0];
+    const primaryKey =
+        prim?.id != null && String(prim.id).trim() !== ''
+            ? String(prim.id)
+            : 'primary_debtor';
+    if (debtorKey === primaryKey) {
+        const list = Array.isArray(executionData.debtors) ? executionData.debtors : [];
+        if (!list.length) return null;
+        const next0 = applyDebtorEmploymentToggleRow((list[0] || {}) as Record<string, unknown>);
+        const nextDebtors = [...list];
+        nextDebtors[0] = next0;
+        const nextParties = syncDebtorEmploymentInParties(
+            executionData.parties,
+            next0,
+            debtorKey,
+            primaryKey,
+        );
+        return {
+            debtors: nextDebtors,
+            debtor: next0,
+            ...(nextParties ? { parties: nextParties } : {}),
+        };
+    }
+    const adIdx = (executionData.party_multiplicity?.additionalDebtors || []).findIndex(
+        (a: any) => String(a.id) === debtorKey
+    );
+    if (adIdx < 0) return null;
+    const ad = executionData.party_multiplicity.additionalDebtors[adIdx];
+    const nextAd = applyDebtorEmploymentToggleRow(ad as Record<string, unknown>);
+    const nextAds = [...(executionData.party_multiplicity?.additionalDebtors || [])];
+    nextAds[adIdx] = nextAd;
+    const nextParties = syncDebtorEmploymentInParties(
+        executionData.parties,
+        nextAd,
+        debtorKey,
+        primaryKey,
+    );
+    return {
+        party_multiplicity: { ...executionData.party_multiplicity, additionalDebtors: nextAds },
+        ...(nextParties ? { parties: nextParties } : {}),
     };
 };
 

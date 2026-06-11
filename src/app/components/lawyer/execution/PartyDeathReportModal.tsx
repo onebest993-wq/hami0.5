@@ -76,7 +76,7 @@ export const PartyDeathReportModal: React.FC<PartyDeathReportModalProps> = ({
         }
         setFormError(null);
         const fromDetails =
-            _partyDeathCase?.deceased_party === deceasedParty
+            _partyDeathCase != null
                 ? (_partyDeathCase?.heir_details || []).map((h) => ({
                       id: makeRowId(),
                       name: String(h?.name || ''),
@@ -90,7 +90,7 @@ export const PartyDeathReportModal: React.FC<PartyDeathReportModalProps> = ({
                       address: String(h?.address || ''),
                   }));
         const existingHeirs =
-            _partyDeathCase?.deceased_party === deceasedParty
+            _partyDeathCase != null
                 ? (_partyDeathCase?.heir_names || []).filter((s) => /\S/.test(String(s)))
                 : (_existingPartyHeirs || []).filter((s) => /\S/.test(String(s)));
         const seeded =

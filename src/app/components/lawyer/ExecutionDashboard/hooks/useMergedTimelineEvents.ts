@@ -1,5 +1,10 @@
 import { useMemo } from 'react';
 import { parseTimelineDeadlineDate } from '@/app/utils/timelineSmartDisplay';
+import {
+    filterTimelineEventsForInabaDossier,
+    filterTimelineEventsForParentDossier,
+    isInabaSubFileId,
+} from '@/app/stores/executionDashboardStore';
 
 interface SubFile {
     id: string;
@@ -13,6 +18,7 @@ export function useMergedTimelineEvents(
     subFiles: SubFile[],
     showOnlyActiveFileTimeline: boolean,
     activeSubFileId: string | null,
+    parentDossierId?: string | null,
 ) {
     const mergedTimelineEvents = useMemo(() => {
         const sortKeyMs = (e: any): number => {
@@ -20,50 +26,70 @@ export function useMergedTimelineEvents(
             const d = parseTimelineDeadlineDate(raw ? String(raw) : undefined);
             return d ? d.getTime() : 0;
         };
+        const parentId = String(parentDossierId || '').trim();
         const hasSubFiles = subFiles.length > 0;
+
+        if (showOnlyActiveFileTimeline && activeSubFileId && isInabaSubFileId(activeSubFileId)) {
+            const sf = subFiles.find((f) => f.id === activeSubFileId);
+            const fromSub = filterTimelineEventsForInabaDossier(sf?.timelineEvents || [], activeSubFileId);
+            const fromActive = filterTimelineEventsForInabaDossier(activeTimelineEvents, activeSubFileId);
+            const byId = new Map<string, any>();
+            for (const e of [...fromSub, ...fromActive]) {
+                if (e?.id) byId.set(String(e.id), e);
+            }
+            return [...byId.values()].map((e) => ({
+                ...e,
+                _dossierSource: 'sub' as const,
+                _dossierLabel: 'الإضبارة الفرعية',
+                title: e.title,
+            }));
+        }
+
         if (!hasSubFiles) {
-            return activeTimelineEvents.map((e) => ({
+            const mainOnly = parentId
+                ? filterTimelineEventsForParentDossier(activeTimelineEvents, parentId)
+                : activeTimelineEvents;
+            return mainOnly.map((e) => ({
                 ...e,
                 _dossierSource: 'main' as const,
                 _dossierLabel: 'الإضبارة الأم',
                 title: e.title,
             }));
         }
+
         if (showOnlyActiveFileTimeline) {
-            if (activeSubFileId) {
-                const sf = subFiles.find((f) => f.id === activeSubFileId);
-                return activeTimelineEvents.map((e) => ({
-                    ...e,
-                    _dossierSource: 'sub' as const,
-                    _dossierLabel: sf?.fileNumber || 'إضبارة الإنابة',
-                    title: `[${sf?.fileNumber || 'إضبارة الإنابة'}] ${e.title || ''}`,
-                }));
-            }
-            return activeTimelineEvents.map((e) => ({
+            const mainOnly = parentId
+                ? filterTimelineEventsForParentDossier(activeTimelineEvents, parentId)
+                : activeTimelineEvents;
+            return mainOnly.map((e) => ({
                 ...e,
                 _dossierSource: 'main' as const,
                 _dossierLabel: 'الإضبارة الأم',
-                title: `[الإضبارة الأم] ${e.title || ''}`,
+                title: e.title,
             }));
         }
-        const mainEvents = activeTimelineEvents.map((e) => ({
+
+        const mainEvents = (parentId
+            ? filterTimelineEventsForParentDossier(activeTimelineEvents, parentId)
+            : activeTimelineEvents
+        ).map((e) => ({
             ...e,
             _dossierSource: 'main' as const,
             _dossierLabel: 'الإضبارة الأم',
             title: `[الإضبارة الأم] ${e.title || ''}`,
         }));
         const subEvents = subFiles.flatMap((sf) =>
-            (sf.timelineEvents || [])
+            filterTimelineEventsForInabaDossier(sf.timelineEvents || [], sf.id)
                 .filter((e: any) => !e.trashedAt)
                 .map((e: any) => ({
                     ...e,
                     _dossierSource: 'sub' as const,
-                    _dossierLabel: sf.fileNumber || 'إضبارة الإنابة',
-                    title: `[${sf.fileNumber || 'إضبارة الإنابة'}] ${e.title || ''}`,
+                    _dossierLabel: 'الإضبارة الفرعية',
+                    title: `[الإضبارة الفرعية] ${e.title || ''}`,
                 }))
         );
         return [...mainEvents, ...subEvents].sort((a, b) => sortKeyMs(b) - sortKeyMs(a));
-    }, [activeTimelineEvents, subFiles, showOnlyActiveFileTimeline, activeSubFileId]);
+    }, [activeTimelineEvents, subFiles, showOnlyActiveFileTimeline, activeSubFileId, parentDossierId]);
 
     return mergedTimelineEvents;
 }

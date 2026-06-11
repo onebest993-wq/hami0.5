@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// ✅ PERFORMANCE OPTIMIZED - v11.1 - Zustand modals + useCallback + optimized useEffect
+﻿// ✅ PERFORMANCE OPTIMIZED - v11.1 - Zustand modals + useCallback + optimized useEffect
 import React, {
     useState,
     useMemo,
@@ -10,6 +10,7 @@ import React, {
     Suspense,
     lazy,
 } from 'react';
+import { flushSync } from 'react-dom';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { debug } from '@/app/utils/debug';
@@ -26,16 +27,20 @@ import {
     isGracePeriodExpired,
     parseLocalNotificationDate,
 } from '@/app/utils/executionStateMachine';
+import { buildCreditorDebtRows, distributePaymentProRata } from '@/app/utils/creditorPaymentProRata';
+import { resolveUnifiedVesselPrincipalAmount, hasOngoingAlimonyInExecution, buildExecutionClaimBreakdown, getEffectiveClaimTypes } from '@/app/components/lawyer/ExecutionCreationView/hooks/executionFormUtils';
+import { syncRollingCalendarSessions } from '@/app/utils/visitationScheduleEngine';
+import type { VisitationScheduleBundle } from '@/app/types/visitationSchedule';
 
 import { 
     X, User, DollarSign, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
     Calendar, FileText, FolderOpen, Scale,
     Clock, AlertCircle, CheckCircle, Users, Bell,
-    Activity, Trash2, Trash,
-    Share2, BookOpen, Book, History, Phone, MapPin, Pencil, Bot,
+    Activity, Trash2,
+    Book, History, Phone, MapPin, Pencil, Bot,
     Wallet, CreditCard, Shield,
-    XCircle, Pause, Play, Car, ClipboardList, Building2, Package, MoreVertical, AlertTriangle,
-    Forward, Shuffle, RefreshCw, MessageSquare, SlidersHorizontal
+    XCircle, Pause, Play, Car, ClipboardList, Building2, Package, AlertTriangle,
+    Forward, Shuffle, RefreshCw, MessageSquare
 } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -51,11 +56,15 @@ import {
     seizureCoerciveKeyFromAssetType,
     stripSeizureTypeDecorators,
     isMovablePropertySeizureRow,
+    buildSeizureRegistryDraftPatch,
+    upsertSeizedMovableFromDetails,
+    upsertSeizedPropertyFromDetails,
     // Heir Utilities
     makeHeirRowId,
     heirsDetailsIncludeClient,
     heirRowCompletenessScore,
     dedupeHeirDetailRowsByName,
+    collectPartyHeirDetailRows,
     heirRowHasAnyText,
     type HeirDetailRow,
     // Dossier Lifecycle Utilities
@@ -63,6 +72,12 @@ import {
     dossierLifecycleTriggerTextClass,
     dossierLifecycleTriggerDotClass,
 } from './ExecutionDashboard/helpers';
+import {
+    buildPartyEditPersistPatch,
+    getPartyListFromFile,
+    resolvePartyIndexInList,
+    type PartyEditTargetState,
+} from './ExecutionDashboard/helpers/partyEditPersistence';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MODULAR COMPONENTS - مكونات معيارية
@@ -72,7 +87,9 @@ import { ExecutionTrashModal } from './ExecutionDashboard/components/ExecutionTr
 import { ExecutionFinancialLedgerPortalContainer } from './ExecutionDashboard/components/ExecutionFinancialLedgerPortalContainer';
 import { ExecutionHeirsNotificationModalContainer } from './ExecutionDashboard/components/ExecutionHeirsNotificationModalContainer';
 import { PartiesSection } from './ExecutionDashboard/components/PartiesSection';
-import { DebtorsSection } from './ExecutionDashboard/components/DebtorsSection';
+import { DebtorsSection, type DebtorsSectionHandle } from './ExecutionDashboard/components/DebtorsSection';
+import { GuarantorExternalHub } from './ExecutionDashboard/components/GuarantorExternalHub';
+import { shouldShowGuarantorExternalHub } from './ExecutionDashboard/components/guarantorExternalUtils';
 import { DossierSwitcher } from './ExecutionDashboard/components/DossierSwitcher';
 import { DashboardHeaderSection } from './ExecutionDashboard/components/DashboardHeaderSection';
 import { ExecutionModalsContainer } from './ExecutionDashboard/components/ExecutionModalsContainer';
@@ -86,11 +103,53 @@ import { ExecutionCoerciveActionsModalContainer } from './ExecutionDashboard/com
 import { ExecutionSolidaryAndEvictionFollowupModalsContainer } from './ExecutionDashboard/components/ExecutionSolidaryAndEvictionFollowupModalsContainer';
 import { TimelineEditModal } from './ExecutionDashboard/components/TimelineEditModal';
 import { InlineActionGate } from './ExecutionDashboard/components/InlineActionGate';
-import { useDossierMeta, useEvictionProcedures, useToastSystem, useStatuteOfLimitations, useDynamicExpenses, useTodayYmd, useFinancialComputed, useGracePeriodCalculations, useDebtorSummonsProfile, useExecutionFlags, useEvictionBadges, useFinancialTotals, useForcedSummoningAndFees, useExecutionAICopilot, useSubsequentNoticeFlow, useMergedTimelineEvents, useAllDebtorsUnified, useEvictionProcedureLockHint, useDebtorWorkspaceEntries, useMasterState, useActiveDebtorProfile, useActiveDebtorHeirsForNotification, useHeirsWorkflowByHeir, useCreditorWorkspace, useDebtorScopedTimeline, useDossierDeathStatus, useDossierHeaderMetadata, useExecutionData, useShareTimeline, useSeizureRegistryAssets, useCaseTasksAndNotes } from './ExecutionDashboard/hooks';
-import { PartyEditModal, CoerciveToolsGrid, DossierMetaEditSection, EvictionProceduresSection, FinancialTab, OtherPartyTab, SeizureRequestsTab, CommunicationsTab, RequestsTab, PersonalTab, CoerciveTab, ExecutionFinancialHubPortal, PermanentDeleteConfirmDialog, LawReferencePanel, DossierLifecyclePanel } from './ExecutionDashboard/components';
+import {
+    useDossierMeta,
+    useEvictionProcedures,
+    useToastSystem,
+    useStatuteOfLimitations,
+    useDynamicExpenses,
+    useTodayYmd,
+    useFinancialComputed,
+    useGracePeriodCalculations,
+    useDebtorSummonsProfile,
+    useExecutionFlags,
+    useEvictionBadges,
+    useFinancialTotals,
+    useForcedSummoningAndFees,
+    useExecutionAICopilot,
+    useSubsequentNoticeFlow,
+    useMergedTimelineEvents,
+    useAllDebtorsUnified,
+    useEvictionProcedureLockHint,
+    useDebtorWorkspaceEntries,
+    useMasterState,
+    useActiveDebtorProfile,
+    useActiveDebtorHeirsForNotification,
+    useHeirsWorkflowByHeir,
+    useCreditorWorkspace,
+    useDebtorScopedTimeline,
+    useDossierDeathStatus,
+    useDossierHeaderMetadata,
+    executionFileContentSignature,
+    useExecutionData,
+    useStableExecutionFileForStore,
+    useSeizureRegistryAssets,
+    isSalarySeizureAsset,
+    useCaseTasksAndNotes,
+} from './ExecutionDashboard/hooks';
+import { PartyEditModal, CoerciveToolsGrid, DossierMetaEditSection, EvictionProceduresSection, FinancialTab, OtherPartyTab, SeizureRequestsTab, CommunicationsTab, RequestsTab, PersonalTab, CoerciveTab, ExecutionFinancialHubPortal, PermanentDeleteConfirmDialog, LawReferencePanel, DossierLifecyclePanel, VisitationCalendarModal } from './ExecutionDashboard/components';
+import { SPECIAL_REQUEST_MANUAL_MODE } from './ExecutionDashboard/components/RequestsTab';
+import { ExecutionHeirsQuickViewModal } from './ExecutionDashboard/components/ExecutionHeirsQuickViewModal';
 import type { PartyEditDraft } from './ExecutionDashboard/components';
 import { DossierActionsModal } from './ExecutionDashboard/components/DossierActionsModal';
 import type { DossierActionType, DossierActionPayload } from './ExecutionDashboard/components/DossierActionsModal';
+import { DossierControlsTab } from './ExecutionDashboard/components/DossierControlsTab';
+import {
+    createInabaCorrespondenceLogEntry,
+    getInabaCorrespondenceLog,
+    patchParentInabaCorrespondenceLog,
+} from './ExecutionDashboard/utils/inabaCorrespondenceLog';
 import { LinkedDossierTimelineModal } from './ExecutionDashboard/components/LinkedDossierTimelineModal';
 
 const PoliceAssistanceDetailsModal = lazy(() =>
@@ -113,16 +172,6 @@ const RealEstateSeizurePostApprovalModal = lazy(() =>
         default: m.RealEstateSeizurePostApprovalModal,
     }))
 );
-const ThirdPartySeizureInitModal = lazy(() =>
-    import('@/app/components/lawyer/execution/ThirdPartySeizureInitModal').then((m) => ({
-        default: m.ThirdPartySeizureInitModal,
-    }))
-);
-const StandaloneExecutionMarkInitModal = lazy(() =>
-    import('@/app/components/lawyer/execution/StandaloneExecutionMarkInitModal').then((m) => ({
-        default: m.StandaloneExecutionMarkInitModal,
-    }))
-);
 const GuarantorDetailsPostApprovalModal = lazy(() =>
     import('@/app/components/lawyer/execution/GuarantorDetailsPostApprovalModal').then((m) => ({
         default: m.GuarantorDetailsPostApprovalModal,
@@ -133,14 +182,21 @@ const ExecutionLawReferencePanel = lazy(() =>
         default: m.ExecutionLawReferencePanel,
     }))
 );
-const ClientWalletExecutionSection = lazy(() =>
-    import('./ClientWalletExecutionSection').then((m) => ({ default: m.ClientWalletExecutionSection }))
-);
 const LazyActionGridSection = lazy(() =>
     import('./ExecutionDashboard/components/ActionGridSection').then((m) => ({ default: m.ActionGridSection }))
 );
 const LazyTimelineSection = lazy(() =>
     import('./ExecutionDashboard/components/TimelineSection').then((m) => ({ default: m.TimelineSection }))
+);
+const LazyVisitationScheduleModule = lazy(() =>
+    import('./ExecutionDashboard/components/VisitationScheduleModule').then((m) => ({
+        default: m.VisitationScheduleModule,
+    }))
+);
+const LazyMaritalFurnitureModule = lazy(() =>
+    import('./ExecutionDashboard/components/MaritalFurnitureModule').then((m) => ({
+        default: m.MaritalFurnitureModule,
+    }))
 );
 const LazyExecutionDecisionsModalContainer = lazy(() =>
     import('./ExecutionDashboard/components/ExecutionDecisionsModalContainer').then((m) => ({
@@ -154,8 +210,44 @@ const LazyExecutionFullTimelineModalContainer = lazy(() =>
 );
 // 🆕 V10.5: ENHANCED UTILITIES
 import { storageCache } from '@/app/utils/storageCache';
-import { computeTrustBalanceFromPayments, emptyStore, storageKey } from '@/app/components/lawyer/FinancialOperationsCenter/utils';
+import {
+    computeTrustBalanceFromPayments,
+    emptyStore,
+    parseUnifiedLedgerFromStorage,
+    resolveSettlementGuarantorGateFromLedger,
+    resolveUnifiedLedgerFinancialTotals,
+    storageKey,
+} from '@/app/components/lawyer/FinancialOperationsCenter/utils';
+import {
+    creditMovableProceedsForExecution,
+    creditMovableSaleProceedsToTrustLedger,
+    resolveMovableSaleProceedsIqd,
+    syncSoldMovableProceedsToTrustLedger,
+} from '@/app/components/lawyer/ExecutionDashboard/utils/movableSeizureFinancialUtils';
+import {
+    creditPropertyProceedsForExecution,
+    creditPropertySaleProceedsToTrustLedger,
+    resolvePropertySaleProceedsIqd,
+    syncSoldPropertyProceedsToTrustLedger,
+} from '@/app/components/lawyer/ExecutionDashboard/utils/propertySeizureFinancialUtils';
+import {
+    clearSalarySeizureFromStore,
+    clearSettlementFromStore,
+    promptSettlementSalaryConflictChoice,
+    releaseSalarySeizedAssets,
+} from '@/app/components/lawyer/FinancialOperationsCenter/settlementSalaryExclusion';
+import {
+    executionGarnishmentDetailsStorageKey,
+    executionGarnishmentFlagStorageKey,
+} from '@/app/utils/executionStorageKeys';
+import { resolveAmountGuarantorRequestVisible } from '@/app/components/lawyer/FinancialOperationsCenter/settlementGuarantorGate';
+import { hasActiveFinancialGuarantorFollowup } from './ExecutionDashboard/components/guarantorExternalUtils';
+import {
+    formatNumberInput,
+    formatStoredAmountForInput,
+} from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
 import { loadExecutionFilesRaw } from '@/app/utils/executionFilesStorage';
+import { normalizeExecutionFileRecord } from '@/app/components/lawyer/LawyerDashboardParts/utils';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import {
     executionStorageKey,
@@ -166,7 +258,7 @@ import { useStandardSubmit } from '@/app/hooks/useStandardSubmit';
 import { useExecutionAppealBannerState } from '@/app/hooks/useHasActiveExecutionAppeals';
 import { supabase } from '@/app/lib/supabase-client';
 
-import { dedupeTimelineEventsSameSecond, mergeSimilarRecentTimelineEvent } from '@/app/utils/timelineDedup';
+import { dedupeTimelineEventsForDisplay, mergeSimilarRecentTimelineEvent } from '@/app/utils/timelineDedup';
 import { buildExecutionTimelineSnapshot } from '@/app/utils/buildExecutionTimelineSnapshot';
 import type { TimelineEventDbRow } from '@/app/types/supabase-timeline';
 import { useShallow as shallow } from 'zustand/react/shallow';
@@ -213,21 +305,73 @@ import {
     hasApprovedUnifiedCollection,
     findLatestHeirSubstitutionDecisionNeedingEntry,
     patchExecutorDecisionRow,
+    patchExecutorDecisionRowEverywhere,
+    patchExecutorDecisionRowReliable,
     readExecutorDecisionsArray,
+    readSeizureRequestTarget,
     getExecutorDecisionRowById,
     mergeExecutorDecisionsInto,
+    isExecutorRowEffectivelyApproved,
+    isExecutorRowRejectedAndFinal,
+    supersedeGuarantorRequestDecisionsForExecution,
 } from '@/app/utils/executorSeizureDecisionQueue';
 
 import { buildExecutionMergeForCreditorPartyDeath } from '@/app/utils/creditorPartyDeathPersistence';
 import {
     getExecutionModuleStrategy,
     isEvictionClaim,
+    isEncroachmentRemovalClaim,
+    isSpecificDeliveryClaim,
     getResidentialVacateDeadlineMaxIso,
     isVacateDeadlinePassed,
     hasEvictionTimelineAction,
     EVICTION_TIMELINE_ACTION_IDS,
 } from '@/app/utils/executionModuleStrategies';
 import type { EvictionTimelineActionId } from '@/app/utils/executionModuleStrategies';
+import { isPersonalStatusCourtDecisionsDossier } from '@/app/utils/followupSpecializationVisibility';
+import {
+    dispatchDomainIsolationBlocked,
+    isFollowupRequestKindAllowed,
+    resolveExecutionDomainContext,
+} from '@/app/utils/executionDomainIsolation';
+import { ensureDecisionsNamespaceMigrated } from '@/app/utils/executionDecisionsNamespace';
+import { reconcileDomainViolatingDecisions } from '@/app/utils/executionDomainReconcile';
+import {
+    resolveCreditorOtherPartyTrackDecision,
+    submitCreditorOtherPartyTrackToDecisions,
+} from '@/app/utils/otherPartyCreditorTrackDecisionUtils';
+import {
+    isMaritalFurnitureExecutionClaim,
+    isNonFinancialExecutionClaim,
+    isVisitationExecutionClaim,
+    resolvePrimaryExecutionClaimType,
+} from '@/app/utils/executionClaimIsolation';
+import {
+    buildMaritalFurnitureDeliveryNoteBody,
+    furnitureDetailsFromItems,
+    normalizeMaritalFurnitureItems,
+    readMaritalFurnitureItems,
+    resolveMaritalFurnitureFinancialPrincipal,
+    sumMaritalFurnitureTotal,
+    sumUndeliveredMaritalFurnitureTotal,
+    isMaritalFurnitureDeliveryStatusRecorded,
+} from '@/app/utils/maritalFurniture';
+import {
+    executionTimelineVisibilityFromFollowup,
+    normalizeExecutionTimelineFilter,
+    resolveExecutionTimelineFilterOptions,
+} from '@/app/utils/timelineCategoryFilter';
+import { buildTimelineEventsFromOtherPartyActionLog } from '@/app/utils/otherPartyActionLogTimeline';
+import { computeSeizureMatrix, resolveSeizureMatrixFromExecution } from '@/app/utils/seizureMatrix';
+import {
+    resolveRemainingBalanceFromFinancialCenter,
+    type UnifiedLedgerTotalParams,
+} from '@/app/components/lawyer/FinancialOperationsCenter/utils';
+import {
+    HAMI_RESIDENTIAL_GRACE_CLEARED,
+    hasActiveResidentialEvictionGrace,
+} from '@/app/utils/residentialEvictionGrace';
+import { stripResidentialGraceTimelineEvents } from '@/app/utils/residentialGraceTimeline';
 import {
     defaultEvictionEarnerFeeCollectionSM,
     reduceEvictionEarnerFeeSm,
@@ -235,11 +379,32 @@ import {
     type EvictionEarnerFeeCollectionSM,
 } from '@/app/utils/evictionEarnerFeeCollectionMachine';
 import type { PartyDeathSavePayload } from '@/app/components/lawyer/execution/PartyDeathReportModal';
-import { ExecutionPartySpecialActionsMenu } from '@/app/components/lawyer/execution/ExecutionPartySpecialActionsMenu';
 import {
     ExecutionInlineAccordion,
     ExecutionInlineExecutorDecisionActions,
 } from '@/app/components/lawyer/ExecutionDashboard/components/ExecutionInlineAccordion';
+import { SeizedPropertyWorkflowPanel } from '@/app/components/lawyer/ExecutionDashboard/components/SeizedPropertyWorkflowPanel';
+import {
+    SalarySeizureLogDetailCard,
+    type SalarySeizureDetailsPatch,
+} from '@/app/components/lawyer/ExecutionDashboard/components/SalarySeizureLogDetailCard';
+import { SeizedMovableWorkflowPanel } from '@/app/components/lawyer/ExecutionDashboard/components/SeizedMovableWorkflowPanel';
+import type { MovableInlineSaveContext } from '@/app/components/lawyer/ExecutionDashboard/utils/movableSeizureInlinePersistence';
+import type { PropertyInlineSaveContext } from '@/app/components/lawyer/ExecutionDashboard/utils/propertySeizureInlinePersistence';
+import {
+    buildSalarySeizureDescriptionText,
+    resolveSalarySeizureSubject,
+} from '@/app/components/lawyer/ExecutionDashboard/utils/salarySeizureDisplayUtils';
+import {
+    buildSalarySeizureTabRows,
+    isSalarySeizureLaneOccupied,
+} from '@/app/components/lawyer/ExecutionDashboard/utils/salarySeizureTabUtils';
+import {
+    buildExpertObjectionEntityPatch,
+    expertCommitteeSizeLabelAr,
+    parseExpertObjectionKindFromPayload,
+    readExpertCommitteeSize,
+} from '@/app/components/lawyer/ExecutionDashboard/utils/expertCommitteeUtils';
 import type { ExecutionInlineStep } from '@/app/components/lawyer/ExecutionDashboard/components/ExecutionInlineAccordion';
 import {
     ExecutionPartyInteractiveBadges,
@@ -247,6 +412,7 @@ import {
     type PublicationNoticeBadgeInfo,
 } from '@/app/components/lawyer/execution/ExecutionPartyInteractiveBadges';
 import { DebtorSeizureCategoryBadges } from '@/app/components/lawyer/execution/DebtorSeizureCategoryBadges';
+import { FollowupSectionLinkCheckbox } from '@/app/components/lawyer/execution/FollowupSectionLinkCheckbox';
 import {
     EXEC_MODAL_BACKDROP_STRONG,
     EXEC_MODAL_Z,
@@ -305,9 +471,17 @@ import {
     getPersonalCoerciveSubtypeOutcome,
     hasApprovedLawyerFeePayout,
 } from '@/app/utils/executorSeizureDecisionQueue';
+import { HAMI_APPEND_EXECUTION_TIMELINE } from '@/app/components/lawyer/ExecutionDashboard/utils/applyPersonalCoerciveExecutorOutcome';
 import { buildSeizedAssetDetailLines } from '@/app/utils/seizedAssetDisplay';
 import { computeNewDossierAmountAfterRealEstateSale } from '@/app/utils/realEstateSeizureMath';
-import { getExecutionPartyDisplayName } from '@/app/utils/partyDisplayName';
+import {
+    getExecutionPartyDisplayName,
+    isPartyHeirsEditOnlyMode,
+} from '@/app/utils/partyDisplayName';
+import {
+    buildScopedPartyDeathPersistPatch,
+    getPartyDeathCaseForRole,
+} from '@/app/utils/partyDeathCaseScope';
 import {
     readUnifiedFundsLedger,
     filterUnifiedLawyerFeesHideFileDuplicate,
@@ -342,11 +516,23 @@ import { timelineDebtorMetadata, timelineEventBelongsToDebtorWorkspace } from '@
 import {
     useExecutionDashboardStore,
     isInabaSubFileId,
+    resolveParentDossierId,
+    inabaSubMetaStorageKey,
+    filterTimelineEventsForInabaDossier,
+    filterTimelineEventsForParentDossier,
+    stampInabaTimelineEventMetadata,
+    ensureSubDossierOpenedTimelineEvent,
     isDebtorRowEmployee,
     debtorEmploymentToggleMenuLabel,
     buildDebtorEmploymentTogglePatch,
     type ModalStates,
 } from '@/app/stores';
+import {
+    isLegalEntityDebtorKind,
+    resolveDebtorEntityKind,
+    type DebtorEntityKind,
+} from '@/app/utils/debtorEntityKindUtils';
+import { isLawyerRepresentingDebtor } from '@/app/utils/debtorAgentRepresentationUtils';
 
 import type { UnifiedExecutionDebtorRow, ExecutionDashboardProps, InlineActionGateKey } from './ExecutionDashboard/types';
 import type { DebtorWorkspaceEntry } from './ExecutionDashboard/hooks/useDebtorWorkspaceEntries';
@@ -360,8 +546,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     // EXECUTION DATA - MUST BE FIRST
     // ===========================
     const [executionStorageTick, setExecutionStorageTick] = useState(0);
-    /** معاينة تاريخية: لقطة الإضبارة في وقت حدث من السجل الزمني */
-    const [historicalSnapshot, setHistoricalSnapshot] = useState<any | null>(null);
     /** الإضبارة الأم/الفرعية */
     const currentFile = useExecutionDashboardStore((s) => s.currentFile);
     const activeSubFileId = useExecutionDashboardStore((s) => s.activeSubFileId);
@@ -369,17 +553,26 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     const setActiveSubFileId = useExecutionDashboardStore((s) => s.setActiveSubFileId);
     const delegationParentFileId = useExecutionDashboardStore((s) => s.delegationParentFileId);
     const setDelegationParentFileId = useExecutionDashboardStore((s) => s.setDelegationParentFileId);
-    const currentFileId = executionId || file?.id || '';
+    const parentDossierId = useMemo(
+        () =>
+            resolveParentDossierId(
+                { currentFile, delegationParentFileId, activeSubFileId },
+                String(executionId ?? file?.id ?? '')
+            ),
+        [currentFile, delegationParentFileId, activeSubFileId, executionId, file?.id]
+    );
+    const currentFileId = parentDossierId || executionId || file?.id || '';
     const isInabaActive = isInabaSubFileId(activeSubFileId);
+    const preferStoreExecutionView = Boolean(activeSubFileId) || isInabaSubFileId(currentFile?.id);
     const inabaTargets = useMemo(() => {
         return allSubFiles
-            .filter((f) => isInabaSubFileId(f.id) && String(f.parentFileId || '') === String(currentFileId))
+            .filter((f) => isInabaSubFileId(f.id) && String(f.parentFileId || '') === String(parentDossierId))
             .map((f) => ({
                 id: f.id,
                 directorate: String((f as any).delegationTargetDirectorate || f.directorate || '').trim() || '---',
             }))
             .filter((x) => x.id);
-    }, [allSubFiles, currentFileId]);
+    }, [allSubFiles, parentDossierId]);
 
     /** قراءة delegationParentId من الرابط — المصدر الأساسي للحقيقة */
     const urlDelegationParentId = typeof window !== 'undefined'
@@ -387,11 +580,11 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         : null;
 
     const subFiles = useMemo(() =>
-        allSubFiles.filter((f) => String(f.parentFileId || '') === String(currentFileId)),
-        [allSubFiles, currentFileId]
+        allSubFiles.filter((f) => String(f.parentFileId || '') === String(parentDossierId)),
+        [allSubFiles, parentDossierId]
     );
     const hasInabaForThisDossier = allSubFiles.some(
-        (f) => isInabaSubFileId(f.id) && String(f.parentFileId || '') === String(currentFileId)
+        (f) => isInabaSubFileId(f.id) && String(f.parentFileId || '') === String(parentDossierId)
     );
 
     /** مزامنة URL → Store عند بدء التشغيل */
@@ -412,9 +605,15 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         }
     }, [currentFileId]);
 
-    const baseExecutionData = useExecutionData(currentFile, file, executionId, executionStorageTick);
+    const baseExecutionData = useExecutionData(
+        currentFile,
+        file,
+        executionId,
+        executionStorageTick,
+        preferStoreExecutionView
+    );
 
-    const isHistoricalMode = historicalSnapshot != null;
+    const isHistoricalMode = false;
 
     const isUnifiedTabActive = useMemo(() => {
         if (activeSubFileId) return false;
@@ -432,7 +631,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         if (!unifiedTabId) return null;
         try {
             const allFiles = loadExecutionFilesRaw();
-            return (allFiles.find((f: any) => f && String(f.id) === unifiedTabId) as ExecutionFile | undefined) ?? null;
+            const row = allFiles.find((f: unknown) => f && String((f as { id?: unknown }).id) === unifiedTabId);
+            return row ? normalizeExecutionFileRecord(row) : null;
         } catch {
             return null;
         }
@@ -442,15 +642,30 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
 
     const executionData = isUnifiedTabActive ? unifiedTabExecutionData : baseExecutionData;
 
-    const viewExecutionData = useMemo(() => {
-        if (!executionData) return executionData;
-        if (historicalSnapshot == null) return executionData;
+    const parentExecutionFile = useMemo((): ExecutionFile | null => {
+        if (!isInabaActive) return null;
+        const pid = String(parentDossierId || '').trim();
+        if (!pid) return null;
         try {
-            return { ...executionData, ...(historicalSnapshot as Record<string, unknown>) } as ExecutionFile;
+            const cached = storageCache.get(executionStorageKey(pid));
+            if (cached && typeof cached === 'object') return cached as ExecutionFile;
         } catch {
-            return executionData;
+            /* ignore */
         }
-    }, [executionData, historicalSnapshot, activeSubFileId]);
+        return null;
+    }, [isInabaActive, parentDossierId, executionStorageTick]);
+
+    const inabaCorrespondenceLog = useMemo(() => {
+        const source =
+            isInabaActive && parentExecutionFile
+                ? parentExecutionFile
+                : !isInabaActive && activeSubFileId === null
+                  ? (executionData as ExecutionFile | null)
+                  : null;
+        return getInabaCorrespondenceLog(source);
+    }, [isInabaActive, parentExecutionFile, activeSubFileId, executionData, executionStorageTick]);
+
+    const viewExecutionData = executionData;
 
     /** أحدث ملف للدمج — يمنع استبدال حقول بسبب إغلاق قديم لـ persistExecutionMerge عند موافقة المنفذ */
     const executionDataRef = useRef<ExecutionFile | null>(null);
@@ -459,12 +674,11 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     const partyBadgesExecutionId = String(executionData?.id ?? executionId ?? file?.id ?? 'unknown');
 
     /** مفتاح موحّد لـ localStorage «execution_*_decisions» — يجب أن يطابق id الملف الأصلي وليس معرّف الإضبارة الفرعية */
-    const decisionsStorageExecutionId = useMemo(
-        () => {
-            return String(executionData?.id ?? executionId ?? file?.id ?? 'default');
-        },
-        [executionData?.id, executionId, file?.id]
-    );
+    const decisionsStorageExecutionId = useMemo(() => {
+        const parent = String(parentDossierId || executionId || file?.id || '').trim();
+        if (parent && parent !== 'default' && parent !== 'undefined') return parent;
+        return String(executionData?.id ?? 'default');
+    }, [parentDossierId, executionId, file?.id, executionData?.id]);
     const executionAppealBanner = useExecutionAppealBannerState(
         decisionsStorageExecutionId !== 'default' ? decisionsStorageExecutionId : undefined
     );
@@ -506,6 +720,24 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         isHistoricalMode,
     ]);
 
+    useEffect(() => {
+        if (isHistoricalMode) return;
+        const target = String(decisionsStorageExecutionId || '').trim();
+        if (!target || target === 'default' || target === 'undefined') return;
+        const dataRef = executionDataRef.current as Record<string, unknown> | null | undefined;
+        ensureDecisionsNamespaceMigrated(target, dataRef);
+        reconcileDomainViolatingDecisions(target, dataRef);
+    }, [
+        decisionsStorageExecutionId,
+        executionData?.claimType,
+        executionData?.claimTypes,
+        executionData?.representedParty,
+        executionData?.debtors,
+        executionData?.docType,
+        executionData?.classification,
+        isHistoricalMode,
+    ]);
+
     const dossierFileKey = String(executionData?.id ?? executionId ?? file?.id ?? '');
     const reconcileDossierLifecycle = useExecutionDashboardStore((s) => s.reconcileDossierLifecycle);
     const dossierLifecycleRow = useExecutionDashboardStore((s) => {
@@ -532,14 +764,23 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         ExecutionFile['debtor_summons_marker'] | null
     >(() => (executionData ? (executionData.debtor_summons_marker ?? null) : null));
 
+    const fileForStoreSync = useStableExecutionFileForStore(
+        isUnifiedTabActive ? unifiedTabFileRow : (file as ExecutionFile | null | undefined),
+    );
+
     useEffect(() => {
-        if (!baseExecutionData) return;
+        if (!fileForStoreSync) return;
         const store = useExecutionDashboardStore.getState();
-        if (store.activeSubFileId) return;
+        if (store.activeSubFileId || isInabaSubFileId(store.currentFile?.id)) return;
         if (isUnifiedTabActive) return;
-        if (store.currentFile?.id === baseExecutionData.id) return;
-        store.setCurrentFile(baseExecutionData);
-    }, [baseExecutionData, isUnifiedTabActive]);
+        const prevSig = executionFileContentSignature(store.currentFile);
+        const nextSig = executionFileContentSignature(fileForStoreSync);
+        if (prevSig === nextSig) return;
+        const prevTs = Date.parse(String(store.currentFile?.updatedAt || ''));
+        const nextTs = Date.parse(String(fileForStoreSync.updatedAt || ''));
+        if (Number.isFinite(prevTs) && Number.isFinite(nextTs) && prevTs > nextTs) return;
+        store.setCurrentFile(fileForStoreSync);
+    }, [fileForStoreSync, isUnifiedTabActive, activeSubFileId]);
 
     useEffect(() => {
         setExecutionDebtorTabIndex(0);
@@ -549,8 +790,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [loadError, setLoadError] = useState<string | null>(executionData ? null : 'لم يتم العثور على بيانات التنفيذ');
     
-    const [expandedCreditorById, setExpandedCreditorById] = useState<Record<string, boolean>>({});
-    const [expandedDebtorById, setExpandedDebtorById] = useState<Record<string, boolean>>({});
+    const debtorsSectionRef = useRef<DebtorsSectionHandle>(null);
     /** عند >2 دائن/مدين: إظهار أول اثنين فقط حتى يضغط المستخدم لعرض الباقي */
     const [showExtraCreditors, setShowExtraCreditors] = useState(false);
     const [showExtraDebtors, setShowExtraDebtors] = useState(false);
@@ -641,32 +881,29 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     const [taskStatus, setTaskStatus] = useState<'pending' | 'done'>('pending');
     const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
 	const [savedNotesView, setSavedNotesView] = useState<'notes' | 'tasks_done'>('notes');
-    const [aiCopilotEnabled, setAiCopilotEnabled] = useState<boolean>(
-        Boolean(executionData?.ai_copilot_enabled)
-    );
-    const [aiCopilotLoading, setAiCopilotLoading] = useState(false);
-    const [aiCopilotError, setAiCopilotError] = useState<string | null>(null);
-    const [aiCopilotResult, setAiCopilotResult] = useState<any>(
-        executionData?.ai_copilot_last_result ?? null
-    );
-    const aiCopilotLastFingerprintRef = useRef<string>('none');
-    const aiCopilotLastRunAtRef = useRef<number>(0);
-    const aiCopilotNetworkBackoffUntilRef = useRef<number>(0);
-    const aiCopilotNetworkWarningShownRef = useRef(false);
     
     // NEW: Unified Execution & Assets Modal with Tabs
     const showUnifiedExecutionModal = modals.showUnifiedExecutionModal;
+    const showUnifiedExecutionModalRef = useRef(showUnifiedExecutionModal);
+    showUnifiedExecutionModalRef.current = showUnifiedExecutionModal;
+    const seizureMatrixRef = useRef(
+        computeSeizureMatrix({
+            remainingBalanceIqd: 0,
+            debtorJob: 'kasib',
+            debtorType: 'natural_person',
+        })
+    );
+    const openSeizureRequestsTabRef = useRef<() => void>(() => {});
     const setShowUnifiedExecutionModal = (show: boolean) => setExecutionModal('showUnifiedExecutionModal', show);
     const [unifiedModalTab, setUnifiedModalTab] = useState<
         'personal' | 'coercive' | 'financial' | 'seizure_requests' | 'other_party' | 'correspondences' | 'admin' | 'special' | 'dossier_controls'
     >('seizure_requests');
-    const [dossierControlsOpen, setDossierControlsOpen] = useState(false);
-    useEffect(() => {
-        setDossierControlsOpen(false);
-    }, [executionData?.id]);
     const [specialRequestDate, setSpecialRequestDate] = useState('');
     const [specialRequestContent, setSpecialRequestContent] = useState('');
-    const [specialRequestTemplatePick, setSpecialRequestTemplatePick] = useState('');
+    const [specialRequestTemplatePick, setSpecialRequestTemplatePick] = useState(
+        SPECIAL_REQUEST_MANUAL_MODE
+    );
+    const [specialRequestManualTitle, setSpecialRequestManualTitle] = useState('');
     const [specialRequestTemplateMenuOpen, setSpecialRequestTemplateMenuOpen] = useState(false);
     const specialRequestTemplateMenuRef = useRef<HTMLDivElement | null>(null);
     const specialRequestInitOnceRef = useRef(false);
@@ -687,6 +924,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     const followupModalChipTablistRef = useRef<HTMLDivElement>(null);
     const followupModalDebtorTabsRef = useRef<HTMLDivElement>(null);
     const followupModalSectionTabsRef = useRef<HTMLDivElement>(null);
+    const followupModalBodyScrollRef = useRef<HTMLDivElement>(null);
     const debtorWorkspaceChipStripRef = useRef<HTMLDivElement>(null);
     const [partyDeathModalParty, setPartyDeathModalParty] = useState<'creditor' | 'debtor' | null>(null);
     const [partyDeathModalDecisionId, setPartyDeathModalDecisionId] = useState<string | null>(null);
@@ -700,11 +938,18 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     const [evictionCaseExpenses, setEvictionCaseExpenses] = useState<
         Array<{ id: string; amount: number; note: string; date: string }>
     >([]);
+    const [encroachmentCaseExpenses, setEncroachmentCaseExpenses] = useState<
+        import('@/app/utils/unifiedFundsLedgerStorage').EncroachmentCaseExpenseRow[]
+    >([]);
+    const [specificDeliveryCaseExpenses, setSpecificDeliveryCaseExpenses] = useState<
+        import('@/app/utils/specificDeliveryPropertyExpertRequest').SpecificDeliveryCaseExpenseRow[]
+    >([]);
     const [evictionVacateDraft, setEvictionVacateDraft] = useState('');
     const [showEvictionExpenseModal, setShowEvictionExpenseModal] = useState(false);
     const [evictionExpenseAmount, setEvictionExpenseAmount] = useState('');
     const [evictionExpenseNote, setEvictionExpenseNote] = useState('');
     const [showHeirsNotificationModal, setShowHeirsNotificationModal] = useState(false);
+    const [showVisitationCalendarModal, setShowVisitationCalendarModal] = useState(false);
     const [heirNoticeDateDrafts, setHeirNoticeDateDrafts] = useState<Record<string, string>>({});
     const [heirSummonsDatePickerOpenByHeir, setHeirSummonsDatePickerOpenByHeir] = useState<
         Record<string, boolean>
@@ -725,10 +970,23 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     const [evictionGraceDecisionId, setEvictionGraceDecisionId] = useState<string | null>(null);
     const [graceModalStartYmd, setGraceModalStartYmd] = useState('');
     const [graceModalEndYmd, setGraceModalEndYmd] = useState('');
+    const [graceModalAllowResave, setGraceModalAllowResave] = useState(false);
     const [evictionResidentialGraceManuallyEndedAt, setEvictionResidentialGraceManuallyEndedAt] = useState<
         string | null
     >(null);
     const [policeAssistanceModalOpen, setPoliceAssistanceModalOpen] = useState(false);
+    const [followupExpandProcedureKey, setFollowupExpandProcedureKey] = useState<
+        | 'field_visit'
+        | 'police'
+        | 'break_inventory'
+        | 'marital_furniture_delivery'
+        | 'custodian'
+        | 'forced_eviction'
+        | null
+    >(null);
+    const consumeFollowupExpandProcedure = useCallback(() => {
+        setFollowupExpandProcedureKey(null);
+    }, []);
     const [policeAssistanceDecisionId, setPoliceAssistanceDecisionId] = useState<string | null>(null);
     const [policeAssistanceRequestTitle, setPoliceAssistanceRequestTitle] = useState('');
     const [policeAssistanceAgencyDraft, setPoliceAssistanceAgencyDraft] = useState('');
@@ -744,8 +1002,9 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         if (unifiedModalTab !== 'special') return;
         if (specialRequestInitOnceRef.current) return;
         specialRequestInitOnceRef.current = true;
-        setSpecialRequestTemplatePick('');
+        setSpecialRequestTemplatePick(SPECIAL_REQUEST_MANUAL_MODE);
         setSpecialRequestContent('');
+        setSpecialRequestManualTitle('');
         setSpecialRequestDate(getLocalTodayYmd());
     }, [showUnifiedExecutionModal, unifiedModalTab]);
 
@@ -862,9 +1121,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     } | null>(null);
     const [showExecutionTrashModal, setShowExecutionTrashModal] = useState(false);
     const [timelineEditDraft, setTimelineEditDraft] = useState<TimelineEvent | null>(null);
-    const [editPartyTarget, setEditPartyTarget] = useState<{ kind: 'creditor' | 'debtor'; index: number } | null>(
-        null
-    );
+    const [editPartyTarget, setEditPartyTarget] = useState<PartyEditTargetState | null>(null);
     const [permanentDeleteTimelineId, setPermanentDeleteTimelineId] = useState<string | null>(null);
     const [partyEditDraft, setPartyEditDraft] = useState<{
         name: string;
@@ -873,6 +1130,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         heirs: HeirDetailRow[];
         lockBaseInfo: boolean;
         includeHeirsInForm?: boolean;
+        heirsOnlyEdit?: boolean;
     } | null>(null);
     const [partyEditHeirDeleteConfirmIdx, setPartyEditHeirDeleteConfirmIdx] = useState<number | null>(null);
 
@@ -882,19 +1140,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     const [paidCourtFees, setPaidCourtFees] = useState<number>(0);
     const [paidDirectorateFees, setPaidDirectorateFees] = useState<number>(0);
     const [paidClientFees, setPaidClientFees] = useState<number>(0);
-
-    const syncPaidClientFeesFromWallet = useCallback((total: number) => {
-        setPaidClientFees(total);
-        const id = executionData?.id || executionId;
-        if (!id) return;
-        const current = storageCache.get(executionStorageKey(String(id)));
-        if (current && typeof current === 'object') {
-            storageCache.set(executionStorageKey(String(id)), {
-                ...current,
-                paidClientFees: total,
-            });
-        }
-    }, [executionData?.id, executionId]);
 
     useEffect(() => {
         const myId = String(executionData?.id ?? executionId ?? '');
@@ -907,9 +1152,11 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     outcome?: string;
                     decisionId?: string;
                     personalCoerciveSubtype?: string;
+                    suppressNavigatorToast?: boolean;
                 }>;
                 const evId = String(ce.detail?.executionId ?? '');
                 if (evId !== myId && evId !== String(decisionsStorageExecutionId ?? '')) return;
+                if (ce.detail?.suppressNavigatorToast === true) return;
                 const outcome = String(ce.detail?.outcome ?? '');
                 if (outcome !== 'approved' && outcome !== 'rejected' && outcome !== 'alternative') return;
                 const decisionId = String(ce.detail?.decisionId ?? '').trim();
@@ -918,45 +1165,13 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 if (!kind) return;
                 const pcSubtype = String(ce.detail?.personalCoerciveSubtype ?? '').trim();
                 if (kind === 'seizure' || kind === 'unified_collection' || kind === 'guarantor_request' || kind === 'third_party_funds_received') return;
+                if (showUnifiedExecutionModalRef.current) return;
 
                 showToastRef.current(
-                    'تم بتّ الطلب — يمكنك الرجوع إلى بطاقة الطلب.',
-                    outcome === 'approved' ? 'success' : 'info',
-                    {
-                        decisionsLink: true,
-                        decisionId,
-                        decisionsTab: 'previous',
-                        action: {
-                            label: 'الرجوع لمكان الطلب',
-                            onClick: () => {
-                                if (kind === 'personal_coercive' || pcSubtype) {
-                                    setShowUnifiedExecutionModal(true);
-                                    setUnifiedModalTab('personal');
-                                    return;
-                                }
-                                const direct = openEvictionExecutorCompletionRef.current;
-                                if (direct) {
-                                    direct(decisionId);
-                                    return;
-                                }
-
-                                window.dispatchEvent(
-                                    new CustomEvent('hami-open-eviction-executor-completion', {
-                                        detail: {
-                                            executionId: myId,
-                                            decisionId,
-                                        },
-                                    })
-                                );
-
-                                startTransition(() => {
-                                    setShowDecisionsModal(true);
-                                    setDecisionsModalBootListTab('previous');
-                                    setDecisionsModalScrollToDecisionId(decisionId);
-                                });
-                            },
-                        },
-                    }
+                    outcome === 'approved' || outcome === 'alternative'
+                        ? 'تم بتّ الطلب من المنفذ.'
+                        : 'تم رفض الطلب من المنفذ.',
+                    outcome === 'approved' || outcome === 'alternative' ? 'success' : 'info'
                 );
             });
         };
@@ -1056,6 +1271,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     const showLedgerModal = modals.showLedgerModal;
     const setShowLedgerModal = (show: boolean) => setExecutionModal('showLedgerModal', show);
     const [paymentAmount, setPaymentAmount] = useState<string>('');
+    const [paymentDate, setPaymentDate] = useState<string>(getLocalTodayYmd());
     const [debtorNotificationDate, setDebtorNotificationDate] = useState<string | null>(null);
     /** +يوم تقويمي واحد بقرار المحامي (مربع التمديد) — يُحفظ مع isHolidayExtension في الملف */
     const [manualGraceCalendarExtra, setManualGraceCalendarExtra] = useState<boolean>(false);
@@ -1199,14 +1415,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         () => financialSeizureLogEvents.slice(0, 60),
         [financialSeizureLogEvents]
     );
-    const TIMELINE_FILTER_MAP: Record<string, string | string[]> = useMemo(() => ({
-        'تبليغات وإخبار': 'notification',
-        مواعيد: 'appointment',
-        'حركة الأموال والرسوم': 'payment',
-        'محجوزات وتنفيذ جبري': 'coercive',
-        'قرارات ومحاضر': 'decision',
-        'مستندات وملاحظات': 'other',
-    }), []);
 
     /** دمج أحداث الإضبارة الفرعية مع الإضبارة الأم — مع إضافة source badge */
     const [showOnlyActiveFileTimeline, setShowOnlyActiveFileTimeline] = useState(false);
@@ -1216,11 +1424,50 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             setShowOnlyActiveFileTimeline(true);
         }
     }, [activeSubFileId]);
+
+    const subDossierOpenedBackfillSigRef = useRef('');
+    /** ضمان حدث «فتح الإضبارة الفرعية» — مرة واحدة لكل إضبارة فرعية */
+    useEffect(() => {
+        if (!isInabaActive || !activeSubFileId || !parentDossierId) return;
+        const sig = `${activeSubFileId}:${parentDossierId}`;
+        const tls = Array.isArray(executionData?.timelineEvents) ? executionData.timelineEvents : [];
+        const threadKey = `sub_dossier_opened:${activeSubFileId}`;
+        const hasOpen = tls.some(
+            (e) =>
+                String((e as { metadata?: Record<string, unknown> })?.metadata?.timelineThreadKey || '') ===
+                threadKey
+        );
+        if (hasOpen) {
+            subDossierOpenedBackfillSigRef.current = sig;
+            return;
+        }
+        if (subDossierOpenedBackfillSigRef.current === sig) return;
+        subDossierOpenedBackfillSigRef.current = sig;
+        const next = ensureSubDossierOpenedTimelineEvent(
+            tls,
+            activeSubFileId,
+            parentDossierId,
+            String(executionData?.directorate || executionData?.delegationTargetDirectorate || '')
+        );
+        setTimelineEvents(next);
+        queueMicrotask(() => {
+            persistExecutionMergeRef.current?.({ timelineEvents: next });
+        });
+    }, [
+        isInabaActive,
+        activeSubFileId,
+        parentDossierId,
+        executionData?.id,
+        executionData?.directorate,
+        executionData?.delegationTargetDirectorate,
+        executionData?.timelineEvents,
+    ]);
     const mergedTimelineEvents = useMergedTimelineEvents(
         activeTimelineEvents,
         subFiles as any[],
         showOnlyActiveFileTimeline,
         activeSubFileId,
+        parentDossierId,
     );
 
     const activeCaseNotesLog = useMemo(
@@ -1238,11 +1485,37 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         trashedCaseTasks,
     } = useCaseTasksAndNotes(timelineEvents, activeCaseNotesLog, caseTasksPending, caseNotesLog);
 
+    const dockPinnedNotes = useMemo(
+        () => activeCaseNotesLog.filter((n) => Boolean(n.pinned)),
+        [activeCaseNotesLog]
+    );
+    const dockPinnedTasks = useMemo(
+        () => caseTasksPending.filter((t) => !t.trashedAt && Boolean(t.pinned)),
+        [caseTasksPending]
+    );
+
     /** عند تغيّر ملف التنفيذ: لا يبقى سجل زمني أو ملاحظات أو مهام من إضبارة أخرى في الحالة المحلية */
     useEffect(() => {
         if (!executionData?.id) return;
         const tls = executionData.timelineEvents;
-        setTimelineEvents(Array.isArray(tls) ? tls : []);
+        const raw = Array.isArray(tls) ? tls : [];
+        const scoped =
+            isInabaSubFileId(executionData.id) && activeSubFileId && parentDossierId
+                ? ensureSubDossierOpenedTimelineEvent(
+                      filterTimelineEventsForInabaDossier(raw, activeSubFileId),
+                      activeSubFileId,
+                      parentDossierId,
+                      String(
+                          executionData.directorate ||
+                              (executionData as { delegationTargetDirectorate?: string })
+                                  .delegationTargetDirectorate ||
+                              ''
+                      )
+                  )
+                : parentDossierId
+                  ? filterTimelineEventsForParentDossier(raw, parentDossierId)
+                  : raw;
+        setTimelineEvents(scoped);
         const notes = executionData.caseNotesLog;
         setCaseNotesLog(Array.isArray(notes) ? notes : []);
         const tasks = executionData.caseTasksPending;
@@ -1253,7 +1526,11 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         setRealEstateSeizureAssets(
             Array.isArray(executionData.realEstateSeizureAssets) ? executionData.realEstateSeizureAssets : []
         );
-    }, [executionDashboardFileId, activeSubFileId]);
+    }, [executionDashboardFileId, activeSubFileId, parentDossierId, executionData?.directorate]);
+
+    useEffect(() => {
+        subDossierOpenedBackfillSigRef.current = '';
+    }, [activeSubFileId, isInabaActive]);
 
     const nextTimelineId = useCallback(
         () => `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
@@ -1283,6 +1560,11 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     );
     const standaloneExecutionMarksSnapshotRef = useRef<StandaloneExecutionMark[]>(standaloneExecutionMarks);
     standaloneExecutionMarksSnapshotRef.current = standaloneExecutionMarks;
+    useEffect(() => {
+        const marks = (executionData as ExecutionFile | null | undefined)?.standaloneExecutionMarks;
+        if (!Array.isArray(marks)) return;
+        setStandaloneExecutionMarks(marks as StandaloneExecutionMark[]);
+    }, [executionData?.standaloneExecutionMarks, executionStorageTick]);
 
     const getMilestoneTimelineSnapshot = useCallback(
         () =>
@@ -1304,25 +1586,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         Record<string, string>
     >({});
 
-    const [showThirdPartySeizureModal, setShowThirdPartySeizureModal] = useState(false);
-    const [thirdPartySeizureModalDecisionId, setThirdPartySeizureModalDecisionId] = useState<string | null>(null);
-    const thirdPartyModalInitial = useMemo(() => {
-        const did = String(thirdPartySeizureModalDecisionId || '').trim();
-        if (!did) return null;
-        const list = (executionData?.thirdPartySeizures || []) as ThirdPartySeizure[];
-        return list.find((a) => String(a.decisionRowId || '').trim() === did) || null;
-    }, [executionData?.thirdPartySeizures, thirdPartySeizureModalDecisionId]);
-
-    const [showStandaloneExecutionMarkModal, setShowStandaloneExecutionMarkModal] = useState(false);
-    const [standaloneExecutionMarkModalDecisionId, setStandaloneExecutionMarkModalDecisionId] =
-        useState<string | null>(null);
-    const standaloneMarkModalInitial = useMemo(() => {
-        const did = String(standaloneExecutionMarkModalDecisionId || '').trim();
-        if (!did) return null;
-        return (
-            standaloneExecutionMarks.find((a) => String(a.decisionRowId || '').trim() === did) || null
-        );
-    }, [standaloneExecutionMarks, standaloneExecutionMarkModalDecisionId]);
     const seizureDraftsByDecisionIdRef = useRef(seizureDraftsByDecisionId);
     seizureDraftsByDecisionIdRef.current = seizureDraftsByDecisionId;
     const [activeCoerciveActions, setActiveCoerciveActions] = useState<string[]>(executionData?.activeCoerciveActions || []);
@@ -1336,25 +1599,15 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     const saveCoerciveActionRef = useRef<(actionType: string, details: Record<string, string>) => void>(
         () => {}
     );
+    const focusSeizurePropertyInlineRef = useRef<(decisionId: string, subject?: string) => void>(() => {});
+    const focusSeizureMovableInlineRef = useRef<(decisionId: string, subject?: string) => void>(() => {});
+    const focusSeizureThirdPartyInlineRef = useRef<(decisionId: string, subject?: string) => void>(() => {});
+    const focusSeizureNoticeInlineRef = useRef<(decisionId: string, subject?: string) => void>(() => {});
 
     const [propertySeizureRequestModalOpen, setPropertySeizureRequestModalOpen] = useState(false);
     const [propertySeizureSubjectDraft, setPropertySeizureSubjectDraft] = useState('');
     const [movableSeizureRequestModalOpen, setMovableSeizureRequestModalOpen] = useState(false);
     const [movableSeizureSubjectDraft, setMovableSeizureSubjectDraft] = useState('');
-
-    const [seizedPropertyInitModalOpen, setSeizedPropertyInitModalOpen] = useState(false);
-    const [seizedPropertyInitDecisionId, setSeizedPropertyInitDecisionId] = useState<string | null>(null);
-    const [seizedPropertyInitSubject, setSeizedPropertyInitSubject] = useState('');
-    const [seizedPropertyNumberDraft, setSeizedPropertyNumberDraft] = useState('');
-    const [seizedPropertyGenderDraft, setSeizedPropertyGenderDraft] = useState<RealEstateGender>('دار');
-    const [seizedPropertyDeedNotesDraft, setSeizedPropertyDeedNotesDraft] = useState('');
-
-    const [seizedMovableInitModalOpen, setSeizedMovableInitModalOpen] = useState(false);
-    const [seizedMovableInitDecisionId, setSeizedMovableInitDecisionId] = useState<string | null>(null);
-    const [seizedMovableInitSubject, setSeizedMovableInitSubject] = useState('');
-    const [seizedMovableDescriptionDraft, setSeizedMovableDescriptionDraft] = useState('');
-    const [seizedMovableLocationDraft, setSeizedMovableLocationDraft] = useState('');
-    const [seizedMovableCustodianDraft, setSeizedMovableCustodianDraft] = useState('');
 
     const [seizedPropertyStepModalOpen, setSeizedPropertyStepModalOpen] = useState(false);
     const [seizedPropertyStepDecisionId, setSeizedPropertyStepDecisionId] = useState<string | null>(null);
@@ -1363,12 +1616,13 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         'property'
     );
     const [seizedPropertyStepKind, setSeizedPropertyStepKind] = useState<
-        'experts' | 'auction' | 'award' | 'increase10' | 'reauction_default' | null
+        'experts' | 'auction' | 'award' | 'reauction_default' | null
     >(null);
     const [seizedPropertyExpertsNamesDraft, setSeizedPropertyExpertsNamesDraft] = useState('');
     const [seizedPropertyExpertReportDateDraft, setSeizedPropertyExpertReportDateDraft] = useState('');
     const [seizedPropertyExpertPriceDraft, setSeizedPropertyExpertPriceDraft] = useState('');
     const [seizedPropertyAuctionDateDraft, setSeizedPropertyAuctionDateDraft] = useState('');
+    const [linkSeizureAuctionToAppointments, setLinkSeizureAuctionToAppointments] = useState(true);
     const [seizedPropertyBuyerNameDraft, setSeizedPropertyBuyerNameDraft] = useState('');
     const [seizedPropertyAwardAmountDraft, setSeizedPropertyAwardAmountDraft] = useState('');
     const [seizedPropertyStepNotesDraft, setSeizedPropertyStepNotesDraft] = useState('');
@@ -1400,14 +1654,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     const [publicationNewspaperNameDraft, setPublicationNewspaperNameDraft] = useState('');
     const [publicationDateYmdDraft, setPublicationDateYmdDraft] = useState('');
 
-    const [increase10ResultModalOpen, setIncrease10ResultModalOpen] = useState(false);
-    const [increase10ResultEntityKind, setIncrease10ResultEntityKind] = useState<'property' | 'movable'>('property');
-    const [increase10ResultEntityId, setIncrease10ResultEntityId] = useState<string | null>(null);
-    const [increase10ResultDecisionId, setIncrease10ResultDecisionId] = useState<string | null>(null);
-    const [increase10BuyerNameDraft, setIncrease10BuyerNameDraft] = useState('');
-    const [increase10AmountDraft, setIncrease10AmountDraft] = useState('');
-    const [increase10DepositDraft, setIncrease10DepositDraft] = useState('');
-
     const [showRealEstateSeizureModal, setShowRealEstateSeizureModal] = useState(false);
     const [realEstateSeizureModalDecisionId, setRealEstateSeizureModalDecisionId] = useState<string | null>(
         null
@@ -1428,7 +1674,22 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         realEstateSeizureAssets,
         thirdPartySeizureAssets,
     );
-    
+
+    const salarySeizureTabRows = useMemo(() => {
+        return buildSalarySeizureTabRows({
+            registryAssets: salarySeizureRegistryAssets,
+            seizureDraftsByDecisionId: seizureDraftsByDecisionId as Record<string, SeizedAsset>,
+            executionData: executionData ?? null,
+            executionId: String(decisionsStorageExecutionId ?? executionId ?? '').trim(),
+        });
+    }, [
+        salarySeizureRegistryAssets,
+        seizureDraftsByDecisionId,
+        executionData,
+        decisionsStorageExecutionId,
+        executionId,
+    ]);
+
     // Alimony cycle (30-day recurring) - MOVED HERE BEFORE EFFECTS
     const [alimonyDaysRemaining, setAlimonyDaysRemaining] = useState<number>(30);
     const [showAlimonyAlert, setShowAlimonyAlert] = useState<boolean>(false);
@@ -1447,29 +1708,10 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         toastMessage,
         toastType,
         toastEpoch,
-        toastAction,
         showToast,
         hideToast,
         showToastRef,
-    } = useToastSystem(
-        executionData?.id,
-        executionId,
-        (decisionId, tab) => {
-            try {
-                window.dispatchEvent(
-                    new CustomEvent('hami-open-decisions-modal', {
-                        detail: {
-                            executionId: String(executionData?.id ?? executionId ?? ''),
-                            decisionId,
-                            tab,
-                        },
-                    })
-                );
-            } catch {
-                setShowDecisionsModal(true);
-            }
-        }
-    );
+    } = useToastSystem(executionData?.id, executionId);
 
     const [decisionsReloadEpoch, setDecisionsReloadEpoch] = useState(0);
     const [decisionsModalBootHubTab, setDecisionsModalBootHubTab] = useState<'appeals' | null>(null);
@@ -1484,34 +1726,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     const [guarantorWorkplaceDraft, setGuarantorWorkplaceDraft] = useState('');
     const [guarantorSalaryDraft, setGuarantorSalaryDraft] = useState('');
     const [guarantorDeductionDraft, setGuarantorDeductionDraft] = useState('');
-    const [guarantorGuaranteeTypeDraft, setGuarantorGuaranteeTypeDraft] = useState<'amount' | 'attendance'>('amount');
     const [guarantorPanelExpanded, setGuarantorPanelExpanded] = useState(false);
-    const [guarantorMenuOpen, setGuarantorMenuOpen] = useState(false);
-    const [guarantorReplaceConfirmOpen, setGuarantorReplaceConfirmOpen] = useState(false);
-    const [guarantorUnlinkConfirmOpen, setGuarantorUnlinkConfirmOpen] = useState(false);
-    const [guarantorSeizureOpen, setGuarantorSeizureOpen] = useState(false);
     const guarantorAutoOpenStampRef = useRef(0);
-    useEffect(() => {
-        const gf = (executionData as any)?.guarantor_followup;
-        const alive = Boolean(gf && gf.executor_approved);
-        if (alive) return;
-        setGuarantorMenuOpen(false);
-        setGuarantorSeizureOpen(false);
-        setGuarantorReplaceConfirmOpen(false);
-        setGuarantorUnlinkConfirmOpen(false);
-    }, [
-        (executionData as any)?.guarantor_followup?.executor_approved,
-        (executionData as any)?.guarantor_followup?.guarantee_type,
-        (executionData as any)?.guarantor_followup?.guarantor_name,
-        (executionData as any)?.guarantor_followup?.guarantor_workplace,
-    ]);
-    useEffect(() => {
-        if (showUnifiedExecutionModal) return;
-        setGuarantorMenuOpen(false);
-        setGuarantorSeizureOpen(false);
-        setGuarantorReplaceConfirmOpen(false);
-        setGuarantorUnlinkConfirmOpen(false);
-    }, [showUnifiedExecutionModal]);
     useEffect(() => {
         const bump = () => {
             queueMicrotask(() => setDecisionsReloadEpoch((n) => n + 1));
@@ -1543,14 +1759,10 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             const subtype = String(decisionRow?.seizureSubtype || '').trim();
 
             if (subtype === 'property') {
-                setShowCoerciveActionForm(null);
-                setSeizureDetailCompletion(null);
-                setSeizedPropertyInitDecisionId(decisionId);
-                setSeizedPropertyInitSubject(String(decisionRow?.title || '').trim());
-                setSeizedPropertyNumberDraft('');
-                setSeizedPropertyGenderDraft('دار');
-                setSeizedPropertyDeedNotesDraft('');
-                setSeizedPropertyInitModalOpen(true);
+                focusSeizurePropertyInlineRef.current(
+                    decisionId,
+                    String(decisionRow?.title || '').trim()
+                );
                 return;
             }
 
@@ -1571,12 +1783,11 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         cust = '';
                     }
                 }
-                if (!desc || !loc) {
-                    showToast('تعذر إنشاء بطاقة المال المنقول تلقائياً: بيانات الطلب غير مكتملة.', 'warning', {
-                        decisionsLink: true,
+                if (!desc || !loc || !cust) {
+                    focusSeizureMovableInlineRef.current(
                         decisionId,
-                        decisionsTab: 'previous',
-                    });
+                        String(decisionRow?.title || '').trim()
+                    );
                     return;
                 }
                 const nowIso = new Date().toISOString();
@@ -1636,10 +1847,18 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             }
 
             if (subtype === 'third_party') {
+                focusSeizureThirdPartyInlineRef.current(
+                    decisionId,
+                    String(decisionRow?.title || '').trim()
+                );
                 return;
             }
 
             if (subtype === 'notice') {
+                focusSeizureNoticeInlineRef.current(
+                    decisionId,
+                    String(decisionRow?.title || '').trim()
+                );
                 return;
             }
 
@@ -1732,14 +1951,40 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 requestKind?: string;
                 outcome?: 'approved' | 'rejected';
             }>;
-            const myId = String(executionData?.id ?? executionId ?? '');
-            if (!myId || String(ce.detail?.executionId ?? '') !== myId) return;
+            const myId = String(executionData?.id ?? executionId ?? '').trim();
+            const storageId = String(decisionsStorageExecutionId ?? '').trim();
+            const evId = String(ce.detail?.executionId ?? '').trim();
+            const allowedIds = new Set(
+                [myId, storageId, String(executionId ?? '').trim()].filter(
+                    (x) => x && x !== 'undefined' && x !== 'null'
+                )
+            );
+            if (!evId || !allowedIds.has(evId)) return;
             if (String(ce.detail?.outcome || '') !== 'approved') return;
             const decisionId = String(ce.detail?.decisionId ?? '').trim();
             if (!decisionId) return;
 
-            const decisionRow = getExecutorDecisionRowById(myId, decisionId) as any;
-            const subtype = String(decisionRow?.seizureSubtype || '').trim();
+            let decisionRow: Record<string, unknown> | null = null;
+            for (const lookupId of [storageId, myId, evId]) {
+                if (!lookupId) continue;
+                const hit = getExecutorDecisionRowById(lookupId, decisionId) as Record<string, unknown> | null;
+                if (hit) {
+                    decisionRow = hit;
+                    break;
+                }
+            }
+            if (!decisionRow) return;
+            let subtype = String(decisionRow?.seizureSubtype || '').trim();
+            const decisionText = `${String(decisionRow?.title || '')}\n${String(decisionRow?.body || '')}`;
+            if (!subtype && /عقار/i.test(decisionText)) {
+                subtype = 'property';
+            }
+            if (!subtype && /إشارة/i.test(decisionText)) {
+                subtype = 'notice';
+            }
+            if (!subtype && /الغير|طرف ثالث/i.test(decisionText)) {
+                subtype = 'third_party';
+            }
 
             const rawJson = String(decisionRow?.seizurePayloadJson || '').trim();
             let seizedPropertyId = '';
@@ -1763,6 +2008,95 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     judicialCustodianName = '';
                 }
             }
+
+            const requestKind = String(ce.detail?.requestKind ?? decisionRow?.requestKind ?? '').trim();
+            const savedAtEarly = String(decisionRow?.seizureRequestSavedAt || '').trim();
+            const seizureTarget = readSeizureRequestTarget(decisionRow);
+            if (seizureTarget === 'guarantor' && requestKind === 'seizure' && !savedAtEarly) {
+                const draftPatch = buildSeizureRegistryDraftPatch(
+                    executionDataRef.current as Record<string, unknown> | null | undefined,
+                    decisionId,
+                    subtype,
+                    decisionRow as Record<string, unknown>
+                );
+                if (draftPatch) {
+                    persistExecutionMergeRef.current?.(draftPatch);
+                }
+                setShowCoerciveActionForm(null);
+                setSeizureDetailCompletion(null);
+                setShowUnifiedExecutionModal(true);
+                openSeizureRequestsTabRef.current();
+                const focusKind: 'salary' | 'movable' | 'property' =
+                    subtype === 'property'
+                        ? 'property'
+                        : subtype === 'salary'
+                          ? 'salary'
+                          : 'movable';
+                try {
+                    const exId = String(storageId || myId || evId).trim();
+                    window.dispatchEvent(
+                        new CustomEvent('hami-focus-guarantor-seizure-inline', {
+                            detail: { executionId: exId, decisionId, kind: focusKind },
+                        })
+                    );
+                } catch {
+                    /* ignore */
+                }
+                return;
+            }
+            const isBasicSeizureSubtype =
+                subtype === 'property' ||
+                subtype === 'movable' ||
+                subtype === 'movable_auction' ||
+                subtype === 'third_party';
+            if ((requestKind === 'seizure' || isBasicSeizureSubtype) && !savedAtEarly && isBasicSeizureSubtype) {
+                const draftPatch = buildSeizureRegistryDraftPatch(
+                    executionDataRef.current as Record<string, unknown> | null | undefined,
+                    decisionId,
+                    subtype,
+                    decisionRow as Record<string, unknown>
+                );
+                if (draftPatch) {
+                    persistExecutionMergeRef.current?.(draftPatch);
+                    if (Array.isArray(draftPatch.thirdPartySeizures)) {
+                        setThirdPartySeizuresUi(draftPatch.thirdPartySeizures as ThirdPartySeizure[]);
+                    }
+                }
+                if (subtype === 'property') {
+                    focusSeizurePropertyInlineRef.current(
+                        decisionId,
+                        String(decisionRow?.title || '').trim()
+                    );
+                    return;
+                }
+                if (subtype === 'third_party') {
+                    focusSeizureThirdPartyInlineRef.current(
+                        decisionId,
+                        String(decisionRow?.title || '').trim()
+                    );
+                    return;
+                }
+                if (subtype === 'movable_auction' || subtype === 'movable') {
+                    focusSeizureMovableInlineRef.current(
+                        decisionId,
+                        String(decisionRow?.title || '').trim()
+                    );
+                    return;
+                }
+            }
+
+            if (
+                requestKind === 'seizure' &&
+                subtype === 'notice' &&
+                !savedAtEarly
+            ) {
+                focusSeizureNoticeInlineRef.current(
+                    decisionId,
+                    String(decisionRow?.title || '').trim()
+                );
+                return;
+            }
+
             if (subtype === 'movable_auction' && !seizedMovableId) {
                 const desc = movableDescription;
                 const loc = movableLocation;
@@ -1823,79 +2157,72 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 });
                 return;
             }
-            if (subtype === 'property_increase_10' && seizedPropertyId) {
-                openIncrease10ResultModal('property', seizedPropertyId, decisionId);
-                return;
-            }
-            if (subtype === 'property_increase_10' && !seizedPropertyId) {
-                showToast('تعذر فتح نافذة نتيجة الضم: بيانات القرار غير مكتملة.', 'warning', {
-                    decisionsLink: true,
-                    decisionId,
-                    decisionsTab: 'previous',
-                });
-                return;
-            }
-            if (subtype === 'movable_increase_10' && seizedMovableId) {
-                openIncrease10ResultModal('movable', seizedMovableId, decisionId);
-                return;
-            }
-            if (subtype === 'movable_increase_10' && !seizedMovableId) {
-                showToast('تعذر فتح نافذة نتيجة الضم: بيانات القرار غير مكتملة.', 'warning', {
-                    decisionsLink: true,
-                    decisionId,
-                    decisionsTab: 'previous',
-                });
-                return;
-            }
             if (!seizedPropertyId && !seizedMovableId) return;
 
             const nowIso = new Date().toISOString();
             if (seizedPropertyId) {
+                if (
+                    subtype === 'property_expert' ||
+                    subtype === 'property_expert_committee' ||
+                    subtype === 'property_auction' ||
+                    subtype === 'property_reauction_default'
+                ) {
+                    if (String(decisionRow?.seizureRequestSavedAt || '').trim()) return;
+                    const step =
+                        subtype === 'property_expert' || subtype === 'property_expert_committee'
+                            ? 'experts'
+                            : subtype === 'property_auction'
+                              ? 'auction'
+                              : 'reauction_default';
+                    const dispatchId = myId || storageId || evId;
+                    try {
+                        window.dispatchEvent(
+                            new CustomEvent('hami-property-inline-focus', {
+                                detail: {
+                                    executionId: dispatchId,
+                                    propertyId: seizedPropertyId,
+                                    step,
+                                    decisionId,
+                                },
+                            })
+                        );
+                    } catch {
+                        /* ignore */
+                    }
+                    return;
+                }
+
                 const prev = (executionDataRef.current?.seizedProperties || []) as SeizedProperty[];
                 const idx = prev.findIndex((x) => String(x.id) === seizedPropertyId);
                 if (idx < 0) return;
                 const cur = prev[idx];
 
                 if (subtype === 'property_expert_objection') {
+                    const rawJson = String(decisionRow?.seizurePayloadJson || '').trim();
+                    const objectionKind = parseExpertObjectionKindFromPayload(rawJson);
+                    const objectionPatch = buildExpertObjectionEntityPatch(cur, objectionKind);
                     const next = [...prev];
-                    next[idx] = { ...cur, status: 'estimation_objected' } as SeizedProperty;
+                    next[idx] = { ...cur, ...objectionPatch } as SeizedProperty;
                     persistExecutionMergeRef.current?.({ seizedProperties: next });
+                    const kindLabel =
+                        objectionKind === 'experts'
+                            ? 'اعتراض على الخبراء (استبدال)'
+                            : 'اعتراض على التقرير (زيادة اللجنة)';
+                    const newSize = readExpertCommitteeSize(next[idx]);
                     patchExecutorDecisionRow(myId, decisionId, {
                         seizureRequestSavedAt: nowIso,
-                        seizureRequestDetails: `اعتراض على تقرير الخبراء — تم قبول المنفذ.\nرقم العقار: ${String(cur.propertyNumber || '').trim()}\nالجنس: ${String(cur.propertyGender || '').trim()}`,
+                        seizureRequestDetails: `${kindLabel} — تم قبول المنفذ.\nرقم العقار: ${String(cur.propertyNumber || '').trim()}\nالجنس: ${String(cur.propertyGender || '').trim()}\nعدد الخبراء المطلوب: ${newSize}`,
                     });
                     pushTimelineEventRef.current?.({
                         id: nextTimelineId(),
                         date: nowIso.slice(0, 10),
                         timestamp: nowIso,
                         title: '🛡️ قبول الاعتراض على تقدير الخبراء — حجز عقار',
-                        description: `رقم العقار: ${String(cur.propertyNumber || '').trim()}\nالجنس: ${String(cur.propertyGender || '').trim()}\nتم تحويل الحالة إلى: تم الاعتراض على التقدير`,
+                        description: `رقم العقار: ${String(cur.propertyNumber || '').trim()}\n${kindLabel}\nعدد الخبراء المطلوب: ${newSize}`,
                         type: 'decision',
                         source: 'محضر المتابعة — الأموال المحجوزة',
                         metadata: { seizedPropertyId, decisionRowId: decisionId, seizureSubtype: subtype },
                     });
-                    return;
-                }
-
-                if (subtype === 'property_expert_committee') {
-                    setSeizedPropertyStepEntityKind('property');
-                    setSeizedPropertyStepDecisionId(decisionId);
-                    setSeizedPropertyStepPropertyId(seizedPropertyId);
-                    setSeizedPropertyStepKind('experts');
-                    setSeizedPropertyExpertsNamesDraft(Array.isArray(cur.expertNames) ? cur.expertNames.join('، ') : '');
-                    setSeizedPropertyExpertReportDateDraft(String(cur.expertReportDateYmd || ''));
-                    setSeizedPropertyExpertPriceDraft(
-                        cur.experts?.estimatedPriceIqd != null
-                            ? String(cur.experts.estimatedPriceIqd)
-                            : cur.estimatedPriceIqd != null
-                              ? String(cur.estimatedPriceIqd)
-                              : ''
-                    );
-                    setSeizedPropertyAuctionDateDraft('');
-                    setSeizedPropertyBuyerNameDraft('');
-                    setSeizedPropertyAwardAmountDraft('');
-                    setSeizedPropertyStepNotesDraft('');
-                    setSeizedPropertyStepModalOpen(true);
                     return;
                 }
 
@@ -1923,10 +2250,27 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                 : cur.award,
                     } as SeizedProperty;
                     persistExecutionMergeRef.current?.({ seizedProperties: next });
+                    const soldProperty = next[idx];
+                    const ledgerParams = seizureMatrixLedgerParamsRef.current;
+                    const trustCredit = ledgerParams
+                        ? creditPropertyProceedsForExecution(myId, soldProperty, ledgerParams, nowIso)
+                        : creditPropertySaleProceedsToTrustLedger({
+                              executionId: myId,
+                              property: soldProperty,
+                              at: nowIso,
+                          });
                     patchExecutorDecisionRow(myId, decisionId, {
                         seizureRequestSavedAt: nowIso,
-                        seizureRequestDetails: `إحالة قطعية — تم قبول المنفذ.\nالمشتري: ${buyerName || '—'}${
+                        seizureRequestDetails: `إحالة قطعية — حجز عقار (تم قبول المنفذ).\nالمشتري: ${buyerName || '—'}${
                             amt != null ? `\nمبلغ الإحالة: ${Number(amt).toLocaleString('ar-IQ')} د.ع` : ''
+                        }${
+                            trustCredit.created
+                                ? `\n\n💰 تم إيداع ${trustCredit.amount.toLocaleString('ar-IQ')} د.ع في الأمانات — المتبقي يُحدَّث تلقائياً.`
+                                : trustCredit.updated
+                                  ? `\n\n💰 تم تصحيح حصيلة البيع في الأمانات إلى ${trustCredit.amount.toLocaleString('ar-IQ')} د.ع.`
+                                  : trustCredit.ok
+                                    ? '\n\n💰 حصيلة البيع مزامنة مع الأمانات.'
+                                    : ''
                         }`,
                     });
                     pushTimelineEventRef.current?.({
@@ -1936,11 +2280,18 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         title: '✅ إحالة قطعية — حجز عقار',
                         description: `رقم العقار: ${String(cur.propertyNumber || '').trim()}\nالجنس: ${String(cur.propertyGender || '').trim()}\nالمشتري: ${buyerName || '—'}${
                             amt != null ? `\nمبلغ الإحالة: ${Number(amt).toLocaleString('ar-IQ')} د.ع` : ''
+                        }${
+                            trustCredit.created
+                                ? `\n\nتم إيداع الحصيلة في الأمانات: ${trustCredit.amount.toLocaleString('ar-IQ')} د.ع`
+                                : ''
                         }`,
                         type: 'decision',
                         source: 'محضر المتابعة — الأموال المحجوزة',
                         metadata: { seizedPropertyId, decisionRowId: decisionId, seizureSubtype: subtype },
                     });
+                    if (trustCredit.created || trustCredit.updated) {
+                        setUnifiedLedgerRevision((v) => v + 1);
+                    }
                     return;
                 }
 
@@ -1985,53 +2336,68 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             }
 
             if (seizedMovableId) {
+                if (
+                    subtype === 'movable_expert' ||
+                    subtype === 'movable_expert_committee' ||
+                    subtype === 'movable_auction_date' ||
+                    subtype === 'movable_reauction_default'
+                ) {
+                    if (String(decisionRow?.seizureRequestSavedAt || '').trim()) return;
+                    const step =
+                        subtype === 'movable_expert' || subtype === 'movable_expert_committee'
+                            ? 'experts'
+                            : subtype === 'movable_auction_date'
+                              ? 'auction'
+                              : 'reauction_default';
+                    const dispatchId = myId || storageId || evId;
+                    try {
+                        window.dispatchEvent(
+                            new CustomEvent('hami-movable-inline-focus', {
+                                detail: {
+                                    executionId: dispatchId,
+                                    movableId: seizedMovableId,
+                                    step,
+                                    decisionId,
+                                },
+                            })
+                        );
+                    } catch {
+                        /* ignore */
+                    }
+                    return;
+                }
+
                 const prev = (executionDataRef.current?.seizedMovables || []) as SeizedMovable[];
                 const idx = prev.findIndex((x) => String(x.id) === seizedMovableId);
                 if (idx < 0) return;
                 const cur = prev[idx];
 
                 if (subtype === 'movable_expert_objection') {
+                    const rawJson = String(decisionRow?.seizurePayloadJson || '').trim();
+                    const objectionKind = parseExpertObjectionKindFromPayload(rawJson);
+                    const objectionPatch = buildExpertObjectionEntityPatch(cur as any, objectionKind);
                     const next = [...prev];
-                    next[idx] = { ...cur, status: 'estimation_objected' } as SeizedMovable;
+                    next[idx] = { ...cur, ...objectionPatch } as SeizedMovable;
                     persistExecutionMergeRef.current?.({ seizedMovables: next });
+                    const kindLabel =
+                        objectionKind === 'experts'
+                            ? 'اعتراض على الخبراء (استبدال)'
+                            : 'اعتراض على التقرير (زيادة اللجنة)';
+                    const newSize = readExpertCommitteeSize(next[idx]);
                     patchExecutorDecisionRow(myId, decisionId, {
                         seizureRequestSavedAt: nowIso,
-                        seizureRequestDetails: `اعتراض على تقرير الخبراء — مال منقول (تم قبول المنفذ).\nوصف المال: ${String(cur.movableDescription || '').trim()}\nالمكان: ${String(cur.movableLocation || '').trim()}`,
+                        seizureRequestDetails: `${kindLabel} — مال منقول (تم قبول المنفذ).\nوصف المال: ${String(cur.movableDescription || '').trim()}\nالمكان: ${String(cur.movableLocation || '').trim()}\nعدد الخبراء المطلوب: ${newSize}`,
                     });
                     pushTimelineEventRef.current?.({
                         id: nextTimelineId(),
                         date: nowIso.slice(0, 10),
                         timestamp: nowIso,
                         title: '🛡️ قبول الاعتراض على تقدير الخبراء — مال منقول',
-                        description: `وصف المال: ${String(cur.movableDescription || '').trim()}\nالمكان: ${String(cur.movableLocation || '').trim()}\nتم تحويل الحالة إلى: تم الاعتراض على التقدير`,
+                        description: `وصف المال: ${String(cur.movableDescription || '').trim()}\n${kindLabel}\nعدد الخبراء المطلوب: ${newSize}`,
                         type: 'decision',
                         source: 'محضر المتابعة — الأموال المحجوزة',
                         metadata: { seizedMovableId, decisionRowId: decisionId, seizureSubtype: subtype },
                     });
-                    return;
-                }
-
-                if (subtype === 'movable_expert_committee') {
-                    setSeizedPropertyStepEntityKind('movable');
-                    setSeizedPropertyStepDecisionId(decisionId);
-                    setSeizedPropertyStepPropertyId(seizedMovableId);
-                    setSeizedPropertyStepKind('experts');
-                    setSeizedPropertyExpertsNamesDraft(
-                        Array.isArray((cur as any).expertNames) ? (cur as any).expertNames.join('، ') : ''
-                    );
-                    setSeizedPropertyExpertReportDateDraft(String((cur as any).expertReportDateYmd || ''));
-                    setSeizedPropertyExpertPriceDraft(
-                        (cur as any).experts?.estimatedPriceIqd != null
-                            ? String((cur as any).experts.estimatedPriceIqd)
-                            : (cur as any).expertEstimatedAmountIqd != null
-                              ? String((cur as any).expertEstimatedAmountIqd)
-                              : ''
-                    );
-                    setSeizedPropertyAuctionDateDraft('');
-                    setSeizedPropertyBuyerNameDraft('');
-                    setSeizedPropertyAwardAmountDraft('');
-                    setSeizedPropertyStepNotesDraft('');
-                    setSeizedPropertyStepModalOpen(true);
                     return;
                 }
 
@@ -2059,10 +2425,27 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                 : cur.award,
                     } as SeizedMovable;
                     persistExecutionMergeRef.current?.({ seizedMovables: next });
+                    const soldMovable = next[idx];
+                    const ledgerParams = seizureMatrixLedgerParamsRef.current;
+                    const trustCredit = ledgerParams
+                        ? creditMovableProceedsForExecution(myId, soldMovable, ledgerParams, nowIso)
+                        : creditMovableSaleProceedsToTrustLedger({
+                              executionId: myId,
+                              movable: soldMovable,
+                              at: nowIso,
+                          });
                     patchExecutorDecisionRow(myId, decisionId, {
                         seizureRequestSavedAt: nowIso,
                         seizureRequestDetails: `إحالة قطعية — مال منقول (تم قبول المنفذ).\nالمشتري: ${buyerName || '—'}${
                             amt != null ? `\nمبلغ الإحالة: ${Number(amt).toLocaleString('ar-IQ')} د.ع` : ''
+                        }${
+                            trustCredit.created
+                                ? `\n\n💰 تم إيداع ${trustCredit.amount.toLocaleString('ar-IQ')} د.ع في الأمانات — المتبقي يُحدَّث تلقائياً.`
+                                : trustCredit.updated
+                                  ? `\n\n💰 تم تصحيح حصيلة البيع في الأمانات إلى ${trustCredit.amount.toLocaleString('ar-IQ')} د.ع.`
+                                  : trustCredit.ok
+                                    ? '\n\n💰 حصيلة البيع مزامنة مع الأمانات.'
+                                    : ''
                         }`,
                     });
                     pushTimelineEventRef.current?.({
@@ -2072,11 +2455,34 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         title: '✅ إحالة قطعية — مال منقول',
                         description: `وصف المال: ${String(cur.movableDescription || '').trim()}\nالمكان: ${String(cur.movableLocation || '').trim()}\nالمشتري: ${buyerName || '—'}${
                             amt != null ? `\nمبلغ الإحالة: ${Number(amt).toLocaleString('ar-IQ')} د.ع` : ''
+                        }${
+                            trustCredit.created
+                                ? `\n\nتم إيداع الحصيلة في الأمانات: ${trustCredit.amount.toLocaleString('ar-IQ')} د.ع`
+                                : ''
                         }`,
                         type: 'decision',
                         source: 'محضر المتابعة — الأموال المحجوزة',
-                        metadata: { seizedMovableId, decisionRowId: decisionId, seizureSubtype: subtype },
+                        metadata: {
+                            seizedMovableId,
+                            decisionRowId: decisionId,
+                            seizureSubtype: subtype,
+                            trustPaymentId: trustCredit.paymentId,
+                        },
                     });
+                    if (trustCredit.created || trustCredit.updated) {
+                        setUnifiedLedgerRevision((v) => v + 1);
+                        showToast(
+                            trustCredit.updated
+                                ? `تم تصحيح حصيلة البيع في الأمانات: ${trustCredit.amount.toLocaleString('ar-IQ')} د.ع`
+                                : `تم إيداع ${trustCredit.amount.toLocaleString('ar-IQ')} د.ع (حصيلة البيع) في الأمانات — ويُخصم من المتبقي.`,
+                            'success'
+                        );
+                    } else if (!trustCredit.ok && amt != null) {
+                        showToast(
+                            'تمت الإحالة لكن تعذّر إيداع الحصيلة في الأمانات — تحقق من مبلغ البيع.',
+                            'warning'
+                        );
+                    }
                     return;
                 }
 
@@ -2112,7 +2518,56 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         };
         window.addEventListener('hami-execution-decision-outcome', handler as EventListener);
         return () => window.removeEventListener('hami-execution-decision-outcome', handler as EventListener);
-    }, [executionData?.id, executionId, nextTimelineId]);
+    }, [decisionsStorageExecutionId, executionData?.id, executionId, nextTimelineId]);
+
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const ce = e as CustomEvent<{
+                executionId?: string;
+                seizedMovableId?: string;
+                seizedPropertyId?: string;
+            }>;
+            const myId = String(executionData?.id ?? executionId ?? '');
+            if (!myId || String(ce.detail?.executionId ?? '') !== myId) return;
+            const seizedMovableId = String(ce.detail?.seizedMovableId ?? '').trim();
+            const seizedPropertyId = String(ce.detail?.seizedPropertyId ?? '').trim();
+            const nowIso = new Date().toISOString();
+            if (seizedMovableId) {
+                const movables = (executionDataRef.current?.seizedMovables || []) as SeizedMovable[];
+                const hit = movables.find((row) => String(row.id || '').trim() === seizedMovableId);
+                if (!hit) return;
+                const sold = String(hit.status || '') === 'sold';
+                const delivered = Boolean(String(hit.buyerDeliveryCompletedAtIso || '').trim());
+                const proceedsDone = Boolean(String(hit.proceedsDisburseCompletedAtIso || '').trim());
+                if (!sold || !delivered || proceedsDone) return;
+                const nextMovables = movables.map((row) =>
+                    String(row.id || '').trim() === seizedMovableId
+                        ? ({ ...row, proceedsDisburseCompletedAtIso: nowIso } as SeizedMovable)
+                        : row
+                );
+                persistExecutionMergeRef.current?.({ seizedMovables: nextMovables });
+                return;
+            }
+            if (seizedPropertyId) {
+                const properties = (executionDataRef.current?.seizedProperties || []) as SeizedProperty[];
+                const hit = properties.find((row) => String(row.id || '').trim() === seizedPropertyId);
+                if (!hit) return;
+                const sold = String(hit.status || '') === 'sold';
+                const delivered = Boolean(String(hit.buyerDeliveryCompletedAtIso || '').trim());
+                const titleDone = Boolean(String(hit.titleTransferCompletedAtIso || '').trim());
+                const proceedsDone = Boolean(String(hit.proceedsDisburseCompletedAtIso || '').trim());
+                if (!sold || !titleDone || !delivered || proceedsDone) return;
+                const nextProperties = properties.map((row) =>
+                    String(row.id || '').trim() === seizedPropertyId
+                        ? ({ ...row, proceedsDisburseCompletedAtIso: nowIso } as SeizedProperty)
+                        : row
+                );
+                persistExecutionMergeRef.current?.({ seizedProperties: nextProperties });
+            }
+        };
+        window.addEventListener('hami-trust-disbursed', handler as EventListener);
+        return () => window.removeEventListener('hami-trust-disbursed', handler as EventListener);
+    }, [executionData?.id, executionId]);
 
     useEffect(() => {
         const handler = (e: Event) => {
@@ -2185,15 +2640,23 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             if (!myId || String(ce.detail?.executionId ?? '') !== myId) return;
             const decisionId = String(ce.detail?.decisionId || '').trim();
             if (!decisionId) return;
-            setSeizedPropertyInitDecisionId(decisionId);
-            setSeizedPropertyInitSubject(String(ce.detail?.subject || '').trim());
-            setSeizedPropertyNumberDraft('');
-            setSeizedPropertyGenderDraft('دار');
-            setSeizedPropertyDeedNotesDraft('');
-            setSeizedPropertyInitModalOpen(true);
+            focusSeizurePropertyInlineRef.current(decisionId, String(ce.detail?.subject || '').trim());
         };
         window.addEventListener('hami-open-seized-property-init', handler as EventListener);
         return () => window.removeEventListener('hami-open-seized-property-init', handler as EventListener);
+    }, [executionData?.id, executionId]);
+
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const ce = e as CustomEvent<{ executionId?: string; decisionId?: string; subject?: string }>;
+            const myId = String(executionData?.id ?? executionId ?? '');
+            if (!myId || String(ce.detail?.executionId ?? '') !== myId) return;
+            const decisionId = String(ce.detail?.decisionId || '').trim();
+            if (!decisionId) return;
+            focusSeizureMovableInlineRef.current(decisionId, String(ce.detail?.subject || '').trim());
+        };
+        window.addEventListener('hami-open-seized-movable-init', handler as EventListener);
+        return () => window.removeEventListener('hami-open-seized-movable-init', handler as EventListener);
     }, [executionData?.id, executionId]);
 
     useEffect(() => {
@@ -2202,10 +2665,17 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 executionId?: string;
                 decisionId?: string;
                 seizedPropertyId?: string;
-                step?: 'experts' | 'auction' | 'award' | 'increase10' | 'reauction_default';
+                step?: 'experts' | 'auction' | 'award' | 'reauction_default';
             }>;
-            const myId = String(executionData?.id ?? executionId ?? '');
-            if (!myId || String(ce.detail?.executionId ?? '') !== myId) return;
+            const myId = String(executionData?.id ?? executionId ?? '').trim();
+            const storageId = String(decisionsStorageExecutionId ?? '').trim();
+            const evId = String(ce.detail?.executionId ?? '').trim();
+            const allowedIds = new Set(
+                [myId, storageId, String(executionId ?? '').trim()].filter(
+                    (x) => x && x !== 'undefined' && x !== 'null'
+                )
+            );
+            if (!evId || !allowedIds.has(evId)) return;
             const decisionId = String(ce.detail?.decisionId || '').trim();
             const seizedPropertyId = String(ce.detail?.seizedPropertyId || '').trim();
             const step = ce.detail?.step ?? null;
@@ -2230,7 +2700,13 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     );
                     setSeizedPropertyExpertReportDateDraft(String(hit.expertReportDateYmd || ''));
                     setSeizedPropertyExpertPriceDraft(
-                        hit.experts?.estimatedPriceIqd != null ? String(hit.experts.estimatedPriceIqd) : ''
+                        hit.experts?.estimatedPriceIqd != null
+                            ? formatNumberInput(String(hit.experts.estimatedPriceIqd))
+                            : hit.estimatedPriceIqd != null
+                              ? formatNumberInput(String(hit.estimatedPriceIqd))
+                              : (hit as any).expertEstimatedAmountIqd != null
+                                ? formatNumberInput(String((hit as any).expertEstimatedAmountIqd))
+                                : ''
                     );
                 } else if (step === 'auction') {
                     setSeizedPropertyAuctionDateDraft(String(hit.auction?.auctionDateYmd || ''));
@@ -2252,8 +2728,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                 ? String(hit.finalAwardAmountIqd)
                                 : ''
                     );
-                } else if (step === 'increase10') {
-                    setSeizedPropertyStepNotesDraft(String(hit.increase10?.notes || ''));
                 } else if (step === 'reauction_default') {
                     setSeizedPropertyStepNotesDraft(String(hit.reauctionDefault?.notes || ''));
                 }
@@ -2262,7 +2736,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         };
         window.addEventListener('hami-open-seized-property-step', handler as EventListener);
         return () => window.removeEventListener('hami-open-seized-property-step', handler as EventListener);
-    }, [executionData?.id, executionId]);
+    }, [executionData?.id, executionId, decisionsStorageExecutionId]);
 
     useEffect(() => {
         const handler = (e: Event) => {
@@ -2270,60 +2744,28 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 executionId?: string;
                 decisionId?: string;
                 seizedMovableId?: string;
-                step?: 'experts' | 'auction' | 'award' | 'increase10' | 'reauction_default';
+                step?: 'experts' | 'auction' | 'award' | 'reauction_default';
             }>;
             const myId = String(executionData?.id ?? executionId ?? '');
             if (!myId || String(ce.detail?.executionId ?? '') !== myId) return;
             const decisionId = String(ce.detail?.decisionId || '').trim();
             const seizedMovableId = String(ce.detail?.seizedMovableId || '').trim();
             const step = ce.detail?.step ?? null;
-            if (!decisionId || !seizedMovableId || !step) return;
-            setSeizedPropertyStepEntityKind('movable');
-            setSeizedPropertyStepDecisionId(decisionId);
-            setSeizedPropertyStepPropertyId(seizedMovableId);
-            setSeizedPropertyStepKind(step);
-            setSeizedPropertyExpertsNamesDraft('');
-            setSeizedPropertyExpertReportDateDraft('');
-            setSeizedPropertyExpertPriceDraft('');
-            setSeizedPropertyAuctionDateDraft('');
-            setSeizedPropertyBuyerNameDraft('');
-            setSeizedPropertyAwardAmountDraft('');
-            setSeizedPropertyStepNotesDraft('');
-            const list = (executionDataRef.current?.seizedMovables || []) as SeizedMovable[];
-            const hit = list.find((x) => String(x.id) === seizedMovableId) as any;
-            if (hit) {
-                if (step === 'experts') {
-                    setSeizedPropertyExpertsNamesDraft(Array.isArray(hit.expertNames) ? hit.expertNames.join('، ') : '');
-                    setSeizedPropertyExpertReportDateDraft(String(hit.expertReportDateYmd || ''));
-                    setSeizedPropertyExpertPriceDraft(
-                        hit.experts?.estimatedPriceIqd != null
-                            ? String(hit.experts.estimatedPriceIqd)
-                            : hit.expertEstimatedAmountIqd != null
-                              ? String(hit.expertEstimatedAmountIqd)
-                              : ''
-                    );
-                } else if (step === 'auction') {
-                    setSeizedPropertyAuctionDateDraft(String(hit.auction?.auctionDateYmd || hit.auctionDateYmd || ''));
-                } else if (step === 'award') {
-                    setSeizedPropertyBuyerNameDraft(
-                        String(hit.award?.buyerName || hit.initialAwardBuyerName || hit.lastBidderOrBuyerName || '')
-                    );
-                    setSeizedPropertyAwardAmountDraft(
-                        hit.award?.awardAmountIqd != null
-                            ? String(hit.award.awardAmountIqd)
-                            : hit.initialAwardAmountIqd != null
-                              ? String(hit.initialAwardAmountIqd)
-                              : hit.finalAwardAmountIqd != null
-                                ? String(hit.finalAwardAmountIqd)
-                                : ''
-                    );
-                } else if (step === 'increase10') {
-                    setSeizedPropertyStepNotesDraft(String(hit.increase10?.notes || ''));
-                } else if (step === 'reauction_default') {
-                    setSeizedPropertyStepNotesDraft(String(hit.reauctionDefault?.notes || ''));
-                }
+            if (!seizedMovableId || !step) return;
+            try {
+                window.dispatchEvent(
+                    new CustomEvent('hami-movable-inline-focus', {
+                        detail: {
+                            executionId: myId,
+                            movableId: seizedMovableId,
+                            step,
+                            decisionId,
+                        },
+                    })
+                );
+            } catch {
+                /* ignore */
             }
-            setSeizedPropertyStepModalOpen(true);
         };
         window.addEventListener('hami-open-seized-movable-step', handler as EventListener);
         return () => window.removeEventListener('hami-open-seized-movable-step', handler as EventListener);
@@ -2356,17 +2798,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         const gf = executionData?.guarantor_followup;
         setGuarantorNameDraft(String(gf?.guarantor_name ?? '').trim());
         setGuarantorWorkplaceDraft(String(gf?.guarantor_workplace ?? '').trim());
-        setGuarantorGuaranteeTypeDraft(gf?.guarantee_type === 'attendance' ? 'attendance' : 'amount');
-        setGuarantorSalaryDraft(
-            gf?.guarantor_salary_iqd != null && !Number.isNaN(Number(gf.guarantor_salary_iqd))
-                ? String(gf.guarantor_salary_iqd)
-                : ''
-        );
-        setGuarantorDeductionDraft(
-            gf?.guarantor_deduction_iqd != null && !Number.isNaN(Number(gf.guarantor_deduction_iqd))
-                ? String(gf.guarantor_deduction_iqd)
-                : ''
-        );
+        setGuarantorSalaryDraft(formatStoredAmountForInput(gf?.guarantor_salary_iqd));
+        setGuarantorDeductionDraft(formatStoredAmountForInput(gf?.guarantor_deduction_iqd));
         setShowGuarantorDetailsModal(true);
     }, [executionData?.guarantor_followup, executionData?.id, executionId]);
 
@@ -2421,8 +2854,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         setCaseTasksPending(
             Array.isArray(executionData.caseTasksPending) ? executionData.caseTasksPending : []
         );
-        setAiCopilotEnabled(Boolean(executionData.ai_copilot_enabled));
-        setAiCopilotResult(executionData.ai_copilot_last_result ?? null);
     }, [
         executionData?.id,
         executionData?.updatedAt,
@@ -2432,8 +2863,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         (executionData as ExecutionFile)?.activeCoerciveActions,
         executionData?.seizureDraftsByDecisionId,
         executionData?.caseTasksPending,
-        executionData?.ai_copilot_enabled,
-        executionData?.ai_copilot_last_result,
     ]);
     
     // 🆕 V10.8: EXECUTION FEE INJECTION STATE
@@ -2443,10 +2872,9 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     const [isFinancialCenterExpanded, setIsFinancialCenterExpanded] = useState<boolean>(false);
     const [activeFinancialTab, setActiveFinancialTab] = useState<number>(1);
     const [showExecutionFinancialHub, setShowExecutionFinancialHub] = useState(false);
-    const [executionFinancialHubTab, setExecutionFinancialHubTab] = useState<'ledger' | 'wallet'>(
-        'ledger'
-    );
     const [financialHubAutoOpenMode, setFinancialHubAutoOpenMode] = useState<'disburse' | null>(null);
+    const [financialHubSeizedMovableId, setFinancialHubSeizedMovableId] = useState<string | null>(null);
+    const [financialHubSeizedPropertyId, setFinancialHubSeizedPropertyId] = useState<string | null>(null);
     const [showSeizureLogModal, setShowSeizureLogModal] = useState(false);
     const [showUnifiedSeizureLogModal, setShowUnifiedSeizureLogModal] = useState(false);
     const [unifiedSeizureLogTab, setUnifiedSeizureLogTab] = useState<
@@ -2518,15 +2946,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     }, [thirdPartySeizuresUi]);
 
     useEffect(() => {
-        const handler = () => {
-            setUnifiedSeizureLogTab('all');
-            setShowUnifiedSeizureLogModal(true);
-        };
-        window.addEventListener('hami-open-unified-seizure-log', handler as EventListener);
-        return () => window.removeEventListener('hami-open-unified-seizure-log', handler as EventListener);
-    }, []);
-
-    useEffect(() => {
         const myId = String(executionData?.id ?? executionId ?? '');
         if (!myId) return;
 
@@ -2558,25 +2977,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             ) {
                 return;
             }
-            const requestLabel =
-                subtype === 'property'
-                    ? 'طلب حجز عقار'
-                    : subtype === 'movable' || subtype === 'movable_auction'
-                      ? 'طلب حجز مال منقول'
-                      : subtype === 'salary'
-                        ? 'طلب حجز راتب'
-                        : subtype === 'notice'
-                          ? 'طلب وضع إشارة حجز'
-                          : 'طلب حجز لدى الغير';
-            showToastRef.current('تمت موافقة المنفذ على طلب الحجز — افتح واجهة الطلب لإكماله.', 'success', {
-                action: {
-                    label: requestLabel,
-                    onClick: () => {
-                        setShowUnifiedExecutionModal(true);
-                        setUnifiedModalTab('seizure_requests');
-                    },
-                },
-            });
+            showToastRef.current('تمت موافقة المنفذ على طلب الحجز.', 'success');
         };
 
         window.addEventListener('hami-execution-decision-outcome', onOutcome as EventListener);
@@ -2608,12 +3009,12 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     
     const {
         // HEADER & METADATA (Exact Binding from Modal)
-        directorate = 'مديرية التنفيذ',
-        fileNumber = '0000',
-        fileYear = '2026',
-        executionNumber = fileNumber, // Use fileNumber as source of truth
-        executionYear = fileYear,     // Use fileYear as source of truth
-        executionType = directorate,  // Use directorate name
+        directorate = '',
+        fileNumber = '',
+        fileYear = '',
+        executionNumber = fileNumber,
+        executionYear = fileYear,
+        executionType = '',
         
         // DOCUMENT INFO (Exact Binding)
         docType = '',
@@ -2692,11 +3093,10 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         claimTypeArabicDisplay,
         lawyerStartedPostNoticeExecution,
         judgmentDateDisplay,
-        walnutHeaderClaimShort,
-        walnutHeaderExecShort,
+        headerFields,
         showJudgmentMeta,
     } = useDossierHeaderMetadata(
-        executionData,
+        viewExecutionData,
         classification,
         claimType,
         evictionCaseExpenses,
@@ -2709,6 +3109,38 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         activeTimelineEvents,
         docType,
         docNumber,
+    );
+
+    const parentVisitChildNames = Array.isArray(parentExecutionFile?.visitationChildrenNames)
+        ? parentExecutionFile.visitationChildrenNames
+        : [];
+    const parentCustodyWardNamesList = Array.isArray(parentExecutionFile?.custodyWardNames)
+        ? parentExecutionFile.custodyWardNames
+        : [];
+    const parentEvictionCaseExpenses = Array.isArray(parentExecutionFile?.evictionCaseExpenses)
+        ? parentExecutionFile.evictionCaseExpenses
+        : [];
+
+    const {
+        headerFields: parentHeaderFields,
+        classificationDisplay: parentClassificationDisplay,
+        claimTypeArabicDisplay: parentClaimTypeArabicDisplay,
+        judgmentDateDisplay: parentJudgmentDateDisplay,
+        showJudgmentMeta: parentShowJudgmentMeta,
+    } = useDossierHeaderMetadata(
+        parentExecutionFile ?? undefined,
+        parentExecutionFile?.classification,
+        String(parentExecutionFile?.claimType ?? ''),
+        parentEvictionCaseExpenses,
+        parentVisitChildNames,
+        parentCustodyWardNamesList,
+        (parentExecutionFile as { eviction_premises_use?: string } | null)?.eviction_premises_use,
+        String((parentExecutionFile as { property_type?: string } | null)?.property_type ?? ''),
+        parentExecutionFile?.judgmentDate,
+        activeCoerciveActions,
+        activeTimelineEvents,
+        String(parentExecutionFile?.docType ?? ''),
+        String(parentExecutionFile?.docNumber ?? ''),
     );
 
     // ===========================
@@ -2776,20 +3208,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         activeWorkspaceDebtorForFollowup,
         primaryDebtorWorkspaceKey,
         mergedTimelineEvents,
-    ]);
-
-    const filteredMergedTimelineEvents = useMemo(() => {
-        const base = debtorBrowserTabsMode ? mergedTimelineEventsDebtorScoped : mergedTimelineEvents;
-        if (activeTimelineFilter === 'الكل') return base;
-        const rule = TIMELINE_FILTER_MAP[activeTimelineFilter];
-        if (!rule) return base;
-        return base.filter((e) => (Array.isArray(rule) ? rule.includes(e.type) : e.type === rule));
-    }, [
-        debtorBrowserTabsMode,
-        mergedTimelineEventsDebtorScoped,
-        mergedTimelineEvents,
-        activeTimelineFilter,
-        TIMELINE_FILTER_MAP,
     ]);
 
     const mergedTimelineRadarPreviewLimit = useMemo(() => {
@@ -2881,6 +3299,54 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         activeWorkspaceDebtorForFollowup,
         effectiveDebtors,
     );
+
+    const seizedPropertiesForSeizureLog = useMemo(() => {
+        const list = Array.isArray((viewExecutionData as any)?.seizedProperties)
+            ? (((viewExecutionData as any).seizedProperties as SeizedProperty[]) || [])
+            : [];
+        return list;
+    }, [viewExecutionData]);
+
+    /** موافقة منفذ على حجز عقار دون بطاقة في seizedProperties بعد */
+    const seizureLogExecutorDecisions = useMemo(
+        () => readExecutorDecisionsArray(decisionsStorageExecutionId) as Array<Record<string, unknown>>,
+        [decisionsStorageExecutionId, decisionsReloadEpoch]
+    );
+
+    const pendingPropertySeizureDecisions = useMemo(() => {
+        const linked = new Set(
+            seizedPropertiesForSeizureLog
+                .map((p) => String(p.decisionRowId || '').trim())
+                .filter(Boolean)
+        );
+        const exId = String(decisionsStorageExecutionId || viewExecutionData?.id || '').trim();
+        if (!exId || exId === 'default' || exId === 'undefined') return [] as Array<Record<string, unknown>>;
+        const rows = readExecutorDecisionsArray(exId) as Array<Record<string, unknown>>;
+        return rows.filter((row) => {
+            const did = String(row?.id || '').trim();
+            if (!did || linked.has(did)) return false;
+            if (String(row?.requestKind || '').trim() !== 'seizure') return false;
+            let subtype = String(row?.seizureSubtype || '').trim();
+            if (!subtype && /عقار/i.test(`${String(row?.title || '')}\n${String(row?.body || '')}`)) {
+                subtype = 'property';
+            }
+            if (subtype !== 'property') return false;
+            if (isExecutorRowRejectedAndFinal(row as any)) return false;
+            return isExecutorRowEffectivelyApproved(row as any);
+        });
+    }, [
+        decisionsReloadEpoch,
+        decisionsStorageExecutionId,
+        seizedPropertiesForSeizureLog,
+        viewExecutionData?.id,
+    ]);
+
+    const seizedMovablesForSeizureLog = useMemo(() => {
+        const list = Array.isArray((viewExecutionData as any)?.seizedMovables)
+            ? (((viewExecutionData as any).seizedMovables as SeizedMovable[]) || [])
+            : [];
+        return list;
+    }, [viewExecutionData]);
 
     const unifiedSeizureLogEntries = useMemo(() => {
         type Entry = {
@@ -2987,8 +3453,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     );
                 }
             }
-            if (String(p.increase10?.notes || '').trim())
-                descParts.push(`ضم 10%: ${String(p.increase10?.notes || '').trim()}`);
             if (String(p.reauctionDefault?.notes || '').trim())
                 descParts.push(`نكول/إعادة مزايدة: ${String(p.reauctionDefault?.notes || '').trim()}`);
 
@@ -3004,6 +3468,69 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             });
         }
 
+        const linkedPropertyDecisionIds = new Set(
+            props.map((p) => String(p.decisionRowId || '').trim()).filter(Boolean)
+        );
+
+        for (const asset of realEstateSeizureRegistryAssets as any[]) {
+            const did = String(asset?.decisionRowId || '').trim();
+            if (did && linkedPropertyDecisionIds.has(did)) continue;
+            if (did) linkedPropertyDecisionIds.add(did);
+            const label = String(asset?.propertyNoAndDistrict || asset?.propertyGender || '').trim() || 'عقار';
+            entries.push({
+                id: `real_estate:${String(asset?.id || did || label)}`,
+                kind: 'property',
+                dateYmd: '',
+                title: `عقار — ${label}`,
+                statusLabel: String(asset?.status || '') === 'sold' ? 'مباع' : 'محجوز',
+                statusCode: String(asset?.status || 'seized'),
+                description: [
+                    label ? `رقم العقار والمقاطعة: ${label}` : null,
+                    asset?.propertyGender ? `الجنس: ${String(asset.propertyGender)}` : null,
+                    String(asset?.deedNotes || '').trim()
+                        ? `تفاصيل السند:\n${String(asset.deedNotes).trim()}`
+                        : null,
+                ]
+                    .filter(Boolean)
+                    .join('\n'),
+                entityId: String(asset?.id || did || ''),
+            });
+        }
+
+        const decisionsExId = String(decisionsStorageExecutionId || viewExecutionData?.id || '').trim();
+        if (decisionsExId && decisionsExId !== 'default' && decisionsExId !== 'undefined') {
+            const rows = readExecutorDecisionsArray(decisionsExId) as Array<Record<string, unknown>>;
+            for (const row of rows) {
+                const did = String(row?.id || '').trim();
+                if (!did || linkedPropertyDecisionIds.has(did)) continue;
+                if (String(row?.requestKind || '').trim() !== 'seizure') continue;
+                let rowSubtype = String(row?.seizureSubtype || '').trim();
+                if (!rowSubtype && /عقار/i.test(`${String(row?.title || '')}\n${String(row?.body || '')}`)) {
+                    rowSubtype = 'property';
+                }
+                if (rowSubtype !== 'property') continue;
+                const rejected = isExecutorRowRejectedAndFinal(row as any);
+                if (rejected) continue;
+                if (!isExecutorRowEffectivelyApproved(row as any)) continue;
+                linkedPropertyDecisionIds.add(did);
+                const ymd = String(row?.resolvedAt || row?.date || '').slice(0, 10) || '';
+                entries.push({
+                    id: `property_decision:${did}`,
+                    kind: 'property',
+                    dateYmd: ymd,
+                    title: String(row?.title || '').trim() || 'طلب حجز عقار',
+                    statusLabel: String(row?.seizureRequestSavedAt || '').trim()
+                        ? 'مسجّل في السجل'
+                        : 'موافقة المنفذ — أكمل البيانات',
+                    statusCode: 'seized',
+                    description:
+                        String(row?.seizureRequestDetails || row?.body || '').trim() ||
+                        'طلب حجز عقار — بانتظار إكمال بيانات السجل',
+                    entityId: did,
+                });
+            }
+        }
+
         for (const asset of salarySeizureRegistryAssets as any[]) {
             const det =
                 typeof asset?.details === 'object' && asset.details && !Array.isArray(asset.details)
@@ -3011,18 +3538,29 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     : null;
             const office = String(det?.employerName || '').trim();
             const salary = String(det?.salaryAmount || '').trim();
+            const deductionRaw = det?.monthlyDeductionIqd ?? det?.monthlyDeduction ?? null;
+            const deductionNum =
+                typeof deductionRaw === 'number' && Number.isFinite(deductionRaw) && deductionRaw > 0
+                    ? Math.trunc(deductionRaw)
+                    : 0;
             const statusLabel =
                 asset.status === 'seized'
                     ? 'تم الحجز'
                     : asset.status === 'released'
                       ? 'فُك الحجز'
                       : String(asset.status || '—');
-            const desc = [
-                office ? `${activeDebtorIsDeceased ? 'جهة صرف الحوافز/المخصصات' : 'جهة العمل'}: ${office}` : null,
-                salary ? `مقدار الدخل الشهري: ${salary}` : null,
-            ]
-                .filter(Boolean)
-                .join('\n');
+            const subject = resolveSalarySeizureSubject(
+                asset as Record<string, unknown>,
+                viewExecutionData ?? null,
+                String(decisionsStorageExecutionId ?? executionId ?? '').trim() || undefined
+            );
+            const desc = buildSalarySeizureDescriptionText({
+                employerName: office,
+                salaryAmount: salary,
+                monthlyDeductionIqd: deductionNum > 0 ? deductionNum : undefined,
+                activeDebtorIsDeceased,
+                subject,
+            });
             entries.push({
                 id: `salary:${String(asset.id)}`,
                 kind: 'salary',
@@ -3035,11 +3573,14 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             });
         }
 
+        const seenMovableDecisionIds = new Set<string>();
         for (const asset of movableSeizureRegistryAssets as any[]) {
             const det =
                 typeof asset?.details === 'object' && asset.details && !Array.isArray(asset.details)
                     ? (asset.details as Record<string, unknown>)
                     : null;
+            const linkedDid = String(det?.decisionRowId || asset?.id || '').trim();
+            if (linkedDid) seenMovableDecisionIds.add(linkedDid);
             const t = String(det?.movableAssetType || det?.vehicleDescription || '').trim();
             const est = String(det?.movableEstimatedValueIqd || '').trim();
             const notes = String(det?.movableNotes || '').trim();
@@ -3065,6 +3606,42 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 statusCode: String(asset.status || ''),
                 description: desc,
                 entityId: String(asset.id),
+            });
+        }
+
+        for (const m of seizedMovablesForSeizureLog) {
+            const did = String(m.decisionRowId || m.id || '').trim();
+            if (did && seenMovableDecisionIds.has(did)) continue;
+            if (did) seenMovableDecisionIds.add(did);
+            const ymd = String(m.seizedAtIso || '').slice(0, 10) || '';
+            const statusLabel =
+                m.status === 'seized'
+                    ? 'تم الحجز'
+                    : m.status === 'released'
+                      ? 'فُك الحجز'
+                      : String(m.status || '—');
+            const desc = [
+                String(m.movableDescription || '').trim()
+                    ? `وصف المال المنقول: ${String(m.movableDescription || '').trim()}`
+                    : null,
+                String(m.movableLocation || '').trim()
+                    ? `المكان: ${String(m.movableLocation || '').trim()}`
+                    : null,
+                String(m.judicialCustodianName || '').trim()
+                    ? `الحارس القضائي: ${String(m.judicialCustodianName || '').trim()}`
+                    : null,
+            ]
+                .filter(Boolean)
+                .join('\n');
+            entries.push({
+                id: `movable_entity:${String(m.id)}`,
+                kind: 'movable',
+                dateYmd: ymd,
+                title: 'حجز مال منقول',
+                statusLabel,
+                statusCode: String(m.status || ''),
+                description: desc,
+                entityId: String(m.id),
             });
         }
 
@@ -3129,8 +3706,12 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             });
     }, [
         activeDebtorIsDeceased,
+        decisionsReloadEpoch,
+        decisionsStorageExecutionId,
         movableSeizureRegistryAssets,
+        realEstateSeizureRegistryAssets,
         salarySeizureRegistryAssets,
+        seizedMovablesForSeizureLog,
         standaloneExecutionMarks,
         thirdPartySeizureRegistryAssets,
         viewExecutionData,
@@ -3142,22 +3723,99 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             base.all += 1;
             (base as any)[e.kind] += 1;
         }
+        base.property = Math.max(
+            base.property,
+            seizedPropertiesForSeizureLog.length,
+            realEstateSeizureRegistryAssets.length,
+            pendingPropertySeizureDecisions.length
+        );
+        base.movable = Math.max(
+            base.movable,
+            seizedMovablesForSeizureLog.length,
+            movableSeizureRegistryAssets.length
+        );
+        base.third_party = Math.max(
+            base.third_party,
+            thirdPartySeizureRegistryAssets.length,
+            thirdPartySeizuresUi.length
+        );
+        base.salary = Math.max(base.salary, salarySeizureTabRows.length);
+        base.all = Math.max(
+            base.all,
+            base.property + base.salary + base.movable + base.third_party + base.marks
+        );
         return base;
-    }, [unifiedSeizureLogEntries]);
+    }, [
+        unifiedSeizureLogEntries,
+        seizedPropertiesForSeizureLog.length,
+        realEstateSeizureRegistryAssets.length,
+        pendingPropertySeizureDecisions.length,
+        seizedMovablesForSeizureLog.length,
+        movableSeizureRegistryAssets.length,
+        thirdPartySeizureRegistryAssets.length,
+        thirdPartySeizuresUi.length,
+        salarySeizureTabRows.length,
+        standaloneExecutionMarks.length,
+    ]);
 
-    const seizedPropertiesForSeizureLog = useMemo(() => {
-        const list = Array.isArray((viewExecutionData as any)?.seizedProperties)
-            ? (((viewExecutionData as any).seizedProperties as SeizedProperty[]) || [])
-            : [];
-        return list;
-    }, [viewExecutionData]);
+    const hasUnifiedSeizureLogContent = useMemo(() => {
+        if (unifiedSeizureCounts.all > 0) return true;
+        return (
+            seizedPropertiesForSeizureLog.length > 0 ||
+            seizedMovablesForSeizureLog.length > 0 ||
+            realEstateSeizureRegistryAssets.length > 0 ||
+            movableSeizureRegistryAssets.length > 0 ||
+            salarySeizureTabRows.length > 0 ||
+            thirdPartySeizureRegistryAssets.length > 0 ||
+            thirdPartySeizuresUi.length > 0 ||
+            standaloneExecutionMarks.length > 0
+        );
+    }, [
+        unifiedSeizureCounts.all,
+        seizedPropertiesForSeizureLog,
+        seizedMovablesForSeizureLog,
+        realEstateSeizureRegistryAssets,
+        movableSeizureRegistryAssets,
+        salarySeizureRegistryAssets,
+        thirdPartySeizureRegistryAssets,
+        thirdPartySeizuresUi,
+        standaloneExecutionMarks,
+    ]);
 
-    const seizedMovablesForSeizureLog = useMemo(() => {
-        const list = Array.isArray((viewExecutionData as any)?.seizedMovables)
-            ? (((viewExecutionData as any).seizedMovables as SeizedMovable[]) || [])
-            : [];
-        return list;
-    }, [viewExecutionData]);
+    useEffect(() => {
+        const handler = (e: Event) => {
+            if (!hasUnifiedSeizureLogContent) return;
+            const ce = e as CustomEvent<{ tab?: string }>;
+            const tab = String(ce.detail?.tab || 'all').trim();
+            if (
+                tab === 'property' ||
+                tab === 'salary' ||
+                tab === 'movable' ||
+                tab === 'third_party' ||
+                tab === 'marks'
+            ) {
+                setUnifiedSeizureLogTab(tab);
+            } else {
+                setUnifiedSeizureLogTab('all');
+            }
+            setShowUnifiedSeizureLogModal(true);
+        };
+        window.addEventListener('hami-open-unified-seizure-log', handler as EventListener);
+        return () => window.removeEventListener('hami-open-unified-seizure-log', handler as EventListener);
+    }, [hasUnifiedSeizureLogContent]);
+
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const detail = (e as CustomEvent<{ executionId?: string }>).detail;
+            const targetId = String(detail?.executionId || executionId || executionData?.id || '').trim();
+            const currentId = String(executionId || executionData?.id || '').trim();
+            if (targetId && currentId && targetId !== currentId) return;
+            setShowDecisionsModal(false);
+            openExecutionSeizuresTab();
+        };
+        window.addEventListener('hami-open-execution-coercive-tab', handler as EventListener);
+        return () => window.removeEventListener('hami-open-execution-coercive-tab', handler as EventListener);
+    }, [executionData?.id, executionId, openExecutionSeizuresTab, setShowDecisionsModal]);
 
     const activeDebtorNameResolved = useMemo(() => {
         const row = allDebtorsUnified[executionDebtorTabIndex];
@@ -3209,19 +3867,84 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             : undefined;
     }, [executionData, debtorBrowserTabsMode, activeWorkspaceDebtorForFollowup]);
 
-    const { activeTimelineEventsDebtorScoped, filteredTimelineEvents, timelineRadarPreviewLimit } = useDebtorScopedTimeline(
+    const { activeTimelineEventsDebtorScoped, timelineRadarPreviewLimit } = useDebtorScopedTimeline(
         activeTimelineEvents,
         debtorBrowserTabsMode,
         activeWorkspaceDebtorForFollowup,
         primaryDebtorWorkspaceKey,
-        activeTimelineFilter,
-        TIMELINE_FILTER_MAP,
         timelineEventBelongsToDebtorWorkspace,
     );
 
     const kasabTerminationEmphasis = !activeDebtorIsEmployee;
-    /** وفاة المدين: إخفاء التنفيذ الجبري الشخصي بالكامل؛ الموظف: يظهر دائماً لكن يبدأ مقفلاً مع تأكيد فتح */
-    const showPersonalCoerciveFollowupTab = !activeDebtorIsDeceased;
+
+    const activeFollowupDebtorKeyForEntity = String(
+        assignmentWorkspaceCtx.activeDebtorKey ?? primaryDebtorWorkspaceKey ?? executionId ?? ''
+    );
+    const activeDebtorEntityKind = useMemo((): DebtorEntityKind => {
+        const prim = executionData?.debtors?.[0] as Debtor | undefined;
+        let debtor: Debtor | Record<string, unknown> | undefined = prim;
+        if (debtorBrowserTabsMode && activeWorkspaceDebtorForFollowup) {
+            if (!activeWorkspaceDebtorForFollowup.isPrimary) {
+                const ad = executionData?.party_multiplicity?.additionalDebtors?.find(
+                    (a) => String(a.id) === activeWorkspaceDebtorForFollowup.key
+                );
+                debtor = ad ?? activeWorkspaceDebtorForFollowup.d;
+            } else {
+                debtor = prim ?? activeWorkspaceDebtorForFollowup.d;
+            }
+        }
+        return resolveDebtorEntityKind({
+            executionData,
+            debtor,
+            debtorKey: activeFollowupDebtorKeyForEntity,
+        });
+    }, [
+        executionData,
+        debtorBrowserTabsMode,
+        activeWorkspaceDebtorForFollowup,
+        activeFollowupDebtorKeyForEntity,
+    ]);
+    const activeDebtorIsLegalEntity = isLegalEntityDebtorKind(activeDebtorEntityKind);
+    const isRepresentingDebtor = useMemo(
+        () => isLawyerRepresentingDebtor(executionData),
+        [executionData]
+    );
+    const appealPerspective = isRepresentingDebtor ? 'debtor_agent' : 'creditor_agent';
+    const hideCoerciveTabsForDebtorAgent = isRepresentingDebtor && !activeDebtorIsLegalEntity;
+
+    const executionDomainContext = useMemo(
+        () =>
+            resolveExecutionDomainContext(
+                executionData as Record<string, unknown> | null | undefined,
+                decisionsStorageExecutionId ?? executionId
+            ),
+        [executionData, decisionsStorageExecutionId, executionId]
+    );
+
+    /** مصدر موحّد — نفس أعلام resolveFollowupSpecializationFromExecution عبر طبقة العزل */
+    const followupSpecialization = executionDomainContext.flags;
+
+    const timelineFilterOptions = useMemo(
+        () =>
+            resolveExecutionTimelineFilterOptions(
+                executionTimelineVisibilityFromFollowup({
+                    ...followupSpecialization,
+                    showOtherPartyTimelineTab: isRepresentingDebtor,
+                    hideCoerciveTimelineTab: hideCoerciveTabsForDebtorAgent,
+                })
+            ),
+        [followupSpecialization, isRepresentingDebtor, hideCoerciveTabsForDebtorAgent]
+    );
+
+    useEffect(() => {
+        setActiveTimelineFilter((prev) =>
+            normalizeExecutionTimelineFilter(prev, timelineFilterOptions)
+        );
+    }, [timelineFilterOptions]);
+
+    /** وفاة المدين أو استحصال مالي+موظف: إخفاء التبويب؛ الكاسب يعيد الظهور */
+    const showPersonalCoerciveFollowupTab =
+        !activeDebtorIsDeceased && !followupSpecialization.hidePersonalCoerciveFollowupTab;
     /** موظف: إظهار حجز الراتب في الحجز المالي — كاسب: إخفاؤه */
     const showSalarySeizureInFollowupModal = activeDebtorIsEmployee;
     const followupSalarySeizureLabel =
@@ -3263,22 +3986,94 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     const personalTabLockedForEmployee =
         Boolean(activeDebtorIsEmployee) && !Boolean(personalTabUnlockByDebtor[activeFollowupDebtorKey]);
 
+    const restrictedFollowupTabIds = useMemo(
+        () => new Set(['correspondences', 'admin', 'dossier_controls', 'other_party']),
+        []
+    );
+    const followupTabsRestricted =
+        activeDebtorIsLegalEntity || hideCoerciveTabsForDebtorAgent;
+
     const followupSectionTabOrder = useMemo(
         () =>
             [
-                ...(showPersonalCoerciveFollowupTab ? (['personal'] as const) : []),
-                'coercive',
-                'seizure_requests',
+                ...(showPersonalCoerciveFollowupTab && !followupTabsRestricted
+                    ? (['personal'] as const)
+                    : []),
+                ...(followupSpecialization.hideFollowupCoerciveTab || followupTabsRestricted
+                    ? []
+                    : (['coercive'] as const)),
+                ...(followupTabsRestricted ? [] : (['seizure_requests'] as const)),
+                'correspondences',
+                'admin',
                 'dossier_controls',
-                'special',
                 'other_party',
             ] as const,
-        [showPersonalCoerciveFollowupTab]
+        [
+            showPersonalCoerciveFollowupTab,
+            followupSpecialization.hideFollowupCoerciveTab,
+            followupTabsRestricted,
+        ]
+    );
+
+    const followupModalTabs = useMemo(() => {
+        const tabs: Array<{
+            id:
+                | 'personal'
+                | 'coercive'
+                | 'seizure_requests'
+                | 'correspondences'
+                | 'admin'
+                | 'dossier_controls'
+                | 'other_party';
+            label: string;
+        }> = [];
+        if (showPersonalCoerciveFollowupTab && !followupTabsRestricted) {
+            tabs.push({
+                id: 'personal',
+                label: personalTabLockedForEmployee
+                    ? '🔒 التنفيذ الجبري الشخصي'
+                    : 'التنفيذ الجبري الشخصي',
+            });
+        }
+        if (!followupSpecialization.hideFollowupCoerciveTab && !followupTabsRestricted) {
+            tabs.push({ id: 'coercive', label: 'الإجراءات الجبرية' });
+        }
+        if (!followupTabsRestricted) {
+            tabs.push({ id: 'seizure_requests', label: 'طلبات الحجز المالية' });
+        }
+        tabs.push(
+            { id: 'correspondences', label: 'المخاطبات' },
+            { id: 'admin', label: 'نماذج الطلبات' },
+            { id: 'dossier_controls', label: 'التحكم في الإضبارة' },
+            { id: 'other_party', label: 'تحركات الطرف الآخر' }
+        );
+        return tabs;
+    }, [
+        showPersonalCoerciveFollowupTab,
+        personalTabLockedForEmployee,
+        followupSpecialization.hideFollowupCoerciveTab,
+        followupTabsRestricted,
+    ]);
+
+    const isFollowupTabActive = useCallback(
+        (tabId: (typeof followupModalTabs)[number]['id']) => {
+            if (tabId === 'coercive') {
+                if (followupSpecialization.hideFollowupCoerciveTab) return false;
+                return (
+                    unifiedModalTab === 'coercive' ||
+                    (unifiedModalTab === 'personal' && !showPersonalCoerciveFollowupTab)
+                );
+            }
+            return unifiedModalTab === tabId;
+        },
+        [unifiedModalTab, showPersonalCoerciveFollowupTab, followupSpecialization.hideFollowupCoerciveTab]
     );
 
     const goFollowupSectionTabByDelta = useCallback(
         (delta: number) => {
-            const order = followupSectionTabOrder as readonly string[];
+            const order = (followupSectionTabOrder as readonly string[]).filter(
+                (tabId) => tabId !== 'seizure_requests' || !seizureMatrixRef.current.hideSeizureTab
+            );
             if (!order.length) return;
             const cur = order.includes(unifiedModalTab) ? unifiedModalTab : order[0];
             const idx = order.indexOf(cur);
@@ -3293,6 +4088,104 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         },
         [followupSectionTabOrder, unifiedModalTab]
     );
+
+    const followupModalPersistStorageKey = `hami-followup-modal:${dossierFileKey}`;
+
+    const readFollowupModalPersist = useCallback((): { tab?: string; scroll?: number } => {
+        try {
+            const raw = sessionStorage.getItem(followupModalPersistStorageKey);
+            if (!raw) return {};
+            return JSON.parse(raw) as { tab?: string; scroll?: number };
+        } catch {
+            return {};
+        }
+    }, [followupModalPersistStorageKey]);
+
+    const writeFollowupModalPersist = useCallback(
+        (patch: { tab?: string; scroll?: number }) => {
+            try {
+                const prev = readFollowupModalPersist();
+                sessionStorage.setItem(
+                    followupModalPersistStorageKey,
+                    JSON.stringify({ ...prev, ...patch })
+                );
+            } catch {
+                /* ignore */
+            }
+        },
+        [followupModalPersistStorageKey, readFollowupModalPersist]
+    );
+
+    const persistFollowupModalViewport = useCallback(() => {
+        const body = followupModalBodyScrollRef.current;
+        writeFollowupModalPersist({
+            tab: unifiedModalTab,
+            scroll: body?.scrollTop ?? readFollowupModalPersist().scroll ?? 0,
+        });
+    }, [readFollowupModalPersist, unifiedModalTab, writeFollowupModalPersist]);
+
+    const openFollowupModalPersisted = useCallback(
+        (opts?: {
+            tab?:
+                | 'personal'
+                | 'coercive'
+                | 'financial'
+                | 'seizure_requests'
+                | 'other_party'
+                | 'correspondences'
+                | 'admin'
+                | 'special'
+                | 'dossier_controls';
+        }) => {
+            setShowUnifiedExecutionModal(true);
+            if (opts?.tab === 'seizure_requests') {
+                openSeizureRequestsTabRef.current();
+                return;
+            }
+            if (opts?.tab) {
+                setUnifiedModalTab(opts.tab);
+                return;
+            }
+            const savedTab = readFollowupModalPersist().tab;
+            const order = (followupSectionTabOrder as readonly string[]).filter(
+                (tabId) => tabId !== 'seizure_requests' || !seizureMatrixRef.current.hideSeizureTab
+            );
+            if (savedTab === 'seizure_requests') {
+                openSeizureRequestsTabRef.current();
+                return;
+            }
+            if (savedTab && order.includes(savedTab)) {
+                setUnifiedModalTab(savedTab as typeof unifiedModalTab);
+            }
+        },
+        [followupSectionTabOrder, readFollowupModalPersist, setShowUnifiedExecutionModal]
+    );
+
+    const closeFollowupModalPersisted = useCallback(() => {
+        persistFollowupModalViewport();
+        setShowUnifiedExecutionModal(false);
+    }, [persistFollowupModalViewport, setShowUnifiedExecutionModal]);
+
+    useLayoutEffect(() => {
+        if (!showUnifiedExecutionModal) return;
+        const saved = readFollowupModalPersist();
+        queueMicrotask(() => {
+            const host = followupModalSectionTabsRef.current;
+            const chip = host?.querySelector(
+                `[data-followup-tab="${String(unifiedModalTab)}"]`
+            ) as HTMLElement | null;
+            chip?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+            const body = followupModalBodyScrollRef.current;
+            if (body && typeof saved.scroll === 'number') {
+                body.scrollTop = saved.scroll;
+            }
+        });
+    }, [readFollowupModalPersist, showUnifiedExecutionModal, unifiedModalTab]);
+
+    useEffect(() => {
+        if (!showUnifiedExecutionModal) return;
+        writeFollowupModalPersist({ tab: unifiedModalTab });
+    }, [showUnifiedExecutionModal, unifiedModalTab, writeFollowupModalPersist]);
 
     useEffect(() => {
         if (!showUnifiedExecutionModal) return;
@@ -3344,6 +4237,19 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         setEvictionCaseExpenses(
             Array.isArray(executionData.eviction_case_expenses) ? executionData.eviction_case_expenses : []
         );
+        setEncroachmentCaseExpenses(
+            Array.isArray(executionData.encroachment_case_expenses)
+                ? executionData.encroachment_case_expenses
+                : []
+        );
+        setSpecificDeliveryCaseExpenses(
+            Array.isArray(
+                (executionData as { specific_delivery_case_expenses?: unknown }).specific_delivery_case_expenses
+            )
+                ? ((executionData as { specific_delivery_case_expenses?: import('@/app/utils/specificDeliveryPropertyExpertRequest').SpecificDeliveryCaseExpenseRow[] })
+                      .specific_delivery_case_expenses as import('@/app/utils/specificDeliveryPropertyExpertRequest').SpecificDeliveryCaseExpenseRow[])
+                : []
+        );
         const grant = executionData.eviction_executor_vacate_grant_approved;
         setEvictionExecutorVacateGrantApproved(grant === true);
         const vd = executionData.eviction_vacate_deadline;
@@ -3371,6 +4277,34 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         executionData?.eviction_residential_grace_manually_ended_at,
         executionData?.eviction_heirs_notification_date_ymd,
     ]);
+
+    useEffect(() => {
+        const myId = String(executionData?.id ?? executionId ?? '').trim();
+        if (!myId) return;
+        const onGraceCleared = (e: Event) => {
+            const ce = e as CustomEvent<{ executionId?: string }>;
+            if (String(ce.detail?.executionId ?? '').trim() !== myId) return;
+            setEvictionVacateDeadlineLocal(null);
+            setEvictionVacateDraft('');
+            setEvictionResidentialGracePeriodStart(null);
+            setEvictionResidentialGraceManuallyEndedAt(null);
+            setEvictionExecutorVacateGrantApproved(false);
+            setGraceModalAllowResave(false);
+            const nextTasks = (caseTasksPendingRef.current || []).filter(
+                (t) => !String(t.id || '').startsWith('eviction-residential-grace-')
+            );
+            setCaseTasksPending(nextTasks);
+            setTimelineEvents((prev) => {
+                const next = stripResidentialGraceTimelineEvents(prev);
+                if (next.length === prev.length) return prev;
+                queueMicrotask(() => persistExecutionMergeRef.current?.({ timelineEvents: next }));
+                return next;
+            });
+        };
+        window.addEventListener(HAMI_RESIDENTIAL_GRACE_CLEARED, onGraceCleared as EventListener);
+        return () =>
+            window.removeEventListener(HAMI_RESIDENTIAL_GRACE_CLEARED, onGraceCleared as EventListener);
+    }, [executionData?.id, executionId]);
 
     useEffect(() => {
         if (!executionData?.id) return;
@@ -3429,22 +4363,61 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     // FINANCIAL LOGIC ENGINE
     // ===========================
     
-    // Check if claim is non-financial
-    const NON_FINANCIAL_CLAIMS = ['مشاهدة', 'استصحاب', 'مبيت', 'تخلية مأجور', 'مطاوعة', 'تسليم طفل', 'تسليم ولد'];
-    const isNonFinancialClaim =
-        NON_FINANCIAL_CLAIMS.some((type) => claimType?.includes(type)) || isEvictionClaim(claimType);
+    const isNonFinancialClaim = isNonFinancialExecutionClaim(
+        executionData as Record<string, unknown> | null | undefined,
+        claimType
+    );
 
-    const principalDebtAmount = isNonFinancialClaim ? 0 : parsedDebtAmount;
+    const isVisitationClaim = isVisitationExecutionClaim(
+        executionData as Record<string, unknown> | null | undefined,
+        claimType
+    );
 
-    /** دمج مصادر نوع المطالبة حتى لا تُصنَّف إضبارة التخلية كمالية بالخطأ عند غياب claimType */
-    const claimTypeForExecutionModule = useMemo(() => {
-        const a = String(claimType || '').trim();
-        if (a) return a;
-        const b = String(
-            (executionData as { claimType?: string } | undefined)?.claimType || ''
-        ).trim();
-        return b || a;
-    }, [claimType, executionData]);
+    const isMaritalFurnitureClaim = isMaritalFurnitureExecutionClaim(
+        executionData as Record<string, unknown> | null | undefined,
+        claimType
+    );
+
+    const maritalFurnitureItemsForFollowup = useMemo(
+        () => readMaritalFurnitureItems(viewExecutionData),
+        [viewExecutionData]
+    );
+
+    const isAlimonyClaimType = hasOngoingAlimonyInExecution(
+        executionData as Record<string, unknown> | null | undefined,
+        claimType
+    );
+
+    const principalDebtAmount = useMemo(() => {
+        if (isNonFinancialClaim) return 0;
+        if (isMaritalFurnitureClaim) {
+            const types = getEffectiveClaimTypes(
+                executionData as Record<string, unknown> | null | undefined
+            );
+            if (types.length <= 1) {
+                return resolveMaritalFurnitureFinancialPrincipal(
+                    executionData as Record<string, unknown> | null | undefined
+                );
+            }
+            return buildExecutionClaimBreakdown(
+                executionData as Record<string, unknown> | null | undefined
+            ).reduce((sum, row) => sum + row.amount, 0);
+        }
+        return resolveUnifiedVesselPrincipalAmount(
+            executionData as Record<string, unknown> | null | undefined,
+            parsedDebtAmount
+        );
+    }, [isNonFinancialClaim, isMaritalFurnitureClaim, executionData, parsedDebtAmount]);
+
+    /** نوع المطالبة الأساسي — يمنع تسريب إجراءات نوع آخر عند claimTypes[] */
+    const claimTypeForExecutionModule = useMemo(
+        () =>
+            resolvePrimaryExecutionClaimType(
+                executionData as Record<string, unknown> | null | undefined,
+                claimType
+            ),
+        [claimType, executionData]
+    );
 
     const executionModuleStrategy = useMemo(
         () => getExecutionModuleStrategy(claimTypeForExecutionModule),
@@ -3491,10 +4464,24 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         );
     }, [activeTimelineEvents]);
 
-    const isEvictionExecutionModule =
-        executionModuleStrategy.useEvictionFieldProcedures ||
-        hasEvictionSignals ||
-        hasEvictionTimelineSignals;
+    /** لا تفعيل وحدة التخلية إلا لنوع تخلية فعلي — أحداث زمنية لا تُسرّب من إضبارة أخرى */
+    const isEvictionExecutionModule = useMemo(() => {
+        if (isSpecificDeliveryClaim(claimTypeForExecutionModule)) return false;
+        if (isEncroachmentRemovalClaim(claimTypeForExecutionModule)) return false;
+        if (isMaritalFurnitureClaim) return false;
+        if (!isEvictionClaim(claimTypeForExecutionModule)) return false;
+        return (
+            executionModuleStrategy.useEvictionFieldProcedures ||
+            hasEvictionSignals ||
+            hasEvictionTimelineSignals
+        );
+    }, [
+        claimTypeForExecutionModule,
+        isMaritalFurnitureClaim,
+        executionModuleStrategy.useEvictionFieldProcedures,
+        hasEvictionSignals,
+        hasEvictionTimelineSignals,
+    ]);
 
     const {
         judicialCustodiansResolved,
@@ -3510,6 +4497,264 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         principalDebtAmount,
         total_execution_expenses,
     );
+
+    const [unifiedLedgerRevision, setUnifiedLedgerRevision] = useState(0);
+    useEffect(() => {
+        const bump = () => setUnifiedLedgerRevision((n) => n + 1);
+        window.addEventListener('hami-unified-ledger-updated', bump);
+        window.addEventListener('hami-unified-ledger-external-collect', bump);
+        window.addEventListener('hami-unified-ledger-payment-undo', bump);
+        window.addEventListener('focus', bump);
+        return () => {
+            window.removeEventListener('hami-unified-ledger-updated', bump);
+            window.removeEventListener('hami-unified-ledger-external-collect', bump);
+            window.removeEventListener('hami-unified-ledger-payment-undo', bump);
+            window.removeEventListener('focus', bump);
+        };
+    }, []);
+
+    const seizureMatrixLedgerParams = useMemo((): UnifiedLedgerTotalParams => {
+        const exId = String(decisionsStorageExecutionId ?? executionId ?? '').trim();
+        const evictionLawyerFeeWaivedAtIntake = isEvictionExecutionModule
+            ? !(executionData as { eviction_initial_notice_lawyer_fees_included?: boolean } | undefined)
+                  ?.eviction_initial_notice_lawyer_fees_included
+            : Boolean(
+                  (executionData as { eviction_lawyer_fee_waived_at_intake?: boolean } | undefined)
+                      ?.eviction_lawyer_fee_waived_at_intake
+              );
+        return {
+            principal_amount: principalDebtAmount,
+            courtOrderedFeesSafe: Math.max(0, evictionLawyerFeesInTotals),
+            evictionLawyerFeeWaivedAtIntake,
+            executionExpensesSumSafe: Math.max(0, total_execution_expenses),
+            evictionCaseExpensesSumSafe: isEvictionExecutionModule
+                ? Math.max(0, evictionCaseExpensesTotalForFinancial)
+                : 0,
+            seedLawyerId: exId ? `seed-lawyer-${exId}` : '',
+            seedExpenseId: exId ? `seed-exp-${exId}` : '',
+        };
+    }, [
+        decisionsStorageExecutionId,
+        executionId,
+        isEvictionExecutionModule,
+        executionData,
+        principalDebtAmount,
+        evictionLawyerFeesInTotals,
+        total_execution_expenses,
+        evictionCaseExpensesTotalForFinancial,
+    ]);
+
+    const seizureMatrixLedgerParamsRef = useRef<UnifiedLedgerTotalParams | null>(null);
+    seizureMatrixLedgerParamsRef.current = seizureMatrixLedgerParams;
+
+    useEffect(() => {
+        const myId = String(executionData?.id ?? executionId ?? '').trim();
+        if (!myId) return;
+        const movables = (executionData?.seizedMovables || []) as SeizedMovable[];
+        if (!Array.isArray(movables) || movables.length === 0) return;
+        const totals = resolveUnifiedLedgerFinancialTotals(myId, seizureMatrixLedgerParams, (k) =>
+            storageCache.get(k)
+        );
+        const results = syncSoldMovableProceedsToTrustLedger(myId, movables, {
+            totalOwedIqd: totals.totalOwedUnified,
+            ledgerParams: seizureMatrixLedgerParams,
+        });
+        if (results.some((r) => r.created || r.updated)) {
+            setUnifiedLedgerRevision((v) => v + 1);
+        }
+    }, [executionData?.id, executionId, executionData?.seizedMovables, seizureMatrixLedgerParams]);
+
+    useEffect(() => {
+        const myId = String(executionData?.id ?? executionId ?? '').trim();
+        if (!myId) return;
+        const properties = (executionData?.seizedProperties || []) as SeizedProperty[];
+        if (!Array.isArray(properties) || properties.length === 0) return;
+        const totals = resolveUnifiedLedgerFinancialTotals(myId, seizureMatrixLedgerParams, (k) =>
+            storageCache.get(k)
+        );
+        const results = syncSoldPropertyProceedsToTrustLedger(myId, properties, {
+            totalOwedIqd: totals.totalOwedUnified,
+            ledgerParams: seizureMatrixLedgerParams,
+        });
+        if (results.some((r) => r.created || r.updated)) {
+            setUnifiedLedgerRevision((v) => v + 1);
+        }
+    }, [executionData?.id, executionId, executionData?.seizedProperties, seizureMatrixLedgerParams]);
+
+    const remainingBalanceForSeizure = useMemo(() => {
+        const exId = String(decisionsStorageExecutionId ?? executionId ?? '').trim() || undefined;
+        return resolveRemainingBalanceFromFinancialCenter({
+            executionId: exId,
+            ledgerParams: seizureMatrixLedgerParams,
+            readRaw: (key) => storageCache.get(key),
+        });
+    }, [
+        decisionsStorageExecutionId,
+        executionId,
+        seizureMatrixLedgerParams,
+        unifiedLedgerRevision,
+    ]);
+
+    const settlementGuarantorGate = useMemo(() => {
+        const exId = String(decisionsStorageExecutionId ?? executionId ?? '').trim() || undefined;
+        return resolveSettlementGuarantorGateFromLedger({
+            executionId: exId,
+            readRaw: (key) => storageCache.get(key),
+        });
+    }, [decisionsStorageExecutionId, executionId, unifiedLedgerRevision]);
+
+    const activeFollowupDebtorForSeizureMatrix = useMemo(() => {
+        if (debtorBrowserTabsMode && activeWorkspaceDebtorForFollowup) {
+            return activeWorkspaceDebtorForFollowup.d;
+        }
+        return executionData?.debtors?.[0];
+    }, [debtorBrowserTabsMode, activeWorkspaceDebtorForFollowup, executionData?.debtors]);
+
+    const seizureMatrix = useMemo(
+        () =>
+            resolveSeizureMatrixFromExecution({
+                remainingBalanceIqd: remainingBalanceForSeizure,
+                executionData: viewExecutionData ?? executionData,
+                activeDebtor: activeFollowupDebtorForSeizureMatrix,
+                activeDebtorIsEmployee,
+            }),
+        [
+            remainingBalanceForSeizure,
+            viewExecutionData,
+            executionData,
+            activeFollowupDebtorForSeizureMatrix,
+            activeDebtorIsEmployee,
+        ]
+    );
+    seizureMatrixRef.current = seizureMatrix;
+
+    const isPersonalStatusExecutionClaim = useMemo(() => {
+        const ct = String(
+            claimType || (executionData as { claimType?: string } | undefined)?.claimType || ''
+        ).trim();
+        const edFull = executionData as {
+            docType?: string;
+            classification?: string;
+            category?: string;
+        } | null;
+        return (
+            isPersonalStatusCourtDecisionsDossier(
+                docType || edFull?.docType,
+                classification || edFull?.classification,
+                edFull?.category,
+                activeDebtorEntityKind
+            ) ||
+            (ct.includes('نفقة') && !ct.includes('نفقة عدة') && !ct.includes('مهر'))
+        );
+    }, [claimType, classification, docType, executionData, activeDebtorEntityKind]);
+
+    /** بطاقات حجز الكفيل النشطة في تبويب الحجز — طلب الكفيل الأولي يبقى في «الطلبات المخفية» */
+    const showGuarantorInSeizureFollowupTab = useMemo(() => {
+        if (activeDebtorIsDeceased) return false;
+        if (hasActiveFinancialGuarantorFollowup(viewExecutionData)) return true;
+        if (followupSpecialization.hideAllGuarantorPresence) return false;
+        if (activeDebtorIsEmployee) return false;
+        if (
+            followupSpecialization.isFinancialDebtCollection &&
+            resolveAmountGuarantorRequestVisible({
+                isFinancialDebtCollectionClaim: true,
+                financialCenterTotalIqd: remainingBalanceForSeizure,
+                settlementBreachTriggeredAt: settlementGuarantorGate.settlementBreachTriggeredAt,
+                pendingSettlement: settlementGuarantorGate.pendingSettlement,
+                hideAllGuarantorPresence: false,
+            })
+        ) {
+            return followupSpecialization.showFinancialGuarantorRequestOnly;
+        }
+        return false;
+    }, [
+        activeDebtorIsDeceased,
+        activeDebtorIsEmployee,
+        followupSpecialization.hideAllGuarantorPresence,
+        followupSpecialization.isFinancialDebtCollection,
+        followupSpecialization.showFinancialGuarantorRequestOnly,
+        remainingBalanceForSeizure,
+        settlementGuarantorGate.pendingSettlement,
+        settlementGuarantorGate.settlementBreachTriggeredAt,
+        viewExecutionData,
+    ]);
+
+    const effectiveFollowupSectionTabOrder = useMemo(
+        () =>
+            (followupSectionTabOrder as readonly string[]).filter(
+                (tabId) =>
+                    tabId !== 'seizure_requests' ||
+                    (!seizureMatrix.hideSeizureTab &&
+                        !followupSpecialization.hideFollowupSeizureRequestsTab)
+            ),
+        [
+            followupSectionTabOrder,
+            seizureMatrix.hideSeizureTab,
+            followupSpecialization.hideFollowupSeizureRequestsTab,
+        ]
+    );
+
+    const effectiveFollowupModalTabs = useMemo(
+        () =>
+            followupModalTabs.filter(
+                (tab) => {
+                    if (followupTabsRestricted && !restrictedFollowupTabIds.has(tab.id)) {
+                        return false;
+                    }
+                    return (
+                        tab.id !== 'seizure_requests' ||
+                        (!seizureMatrix.hideSeizureTab &&
+                            !followupSpecialization.hideFollowupSeizureRequestsTab)
+                    );
+                }
+            ),
+        [
+            followupModalTabs,
+            seizureMatrix.hideSeizureTab,
+            followupSpecialization.hideFollowupSeizureRequestsTab,
+            followupTabsRestricted,
+            restrictedFollowupTabIds,
+        ]
+    );
+
+    const openSeizureRequestsTab = useCallback(() => {
+        if (seizureMatrix.hideSeizureTab || followupSpecialization.hideFollowupSeizureRequestsTab) {
+            showToast(
+                followupSpecialization.hideFollowupSeizureRequestsTab
+                    ? 'تبويب الحجز غير متاح في مطالبات المشاهدة والاستصحاب'
+                    : seizureMatrix.ruleId === 'rule_0_government'
+                      ? 'المدين جهة حكومية — الحجز معطّل (حصانة الدولة)'
+                      : 'لا يوجد رصيد متبٍّ — تبويب الحجز غير متاح',
+                'info'
+            );
+            return;
+        }
+        setUnifiedModalTab('seizure_requests');
+    }, [seizureMatrix, followupSpecialization.hideFollowupSeizureRequestsTab, showToast]);
+    openSeizureRequestsTabRef.current = openSeizureRequestsTab;
+
+    useEffect(() => {
+        if (!showUnifiedExecutionModal) return;
+        if (followupTabsRestricted && !restrictedFollowupTabIds.has(unifiedModalTab)) {
+            setUnifiedModalTab(
+                hideCoerciveTabsForDebtorAgent ? 'other_party' : 'correspondences'
+            );
+            return;
+        }
+        if (unifiedModalTab !== 'seizure_requests') return;
+        if (!seizureMatrix.hideSeizureTab && !followupSpecialization.hideFollowupSeizureRequestsTab) return;
+        const fallback = (effectiveFollowupSectionTabOrder[0] ?? 'correspondences') as typeof unifiedModalTab;
+        setUnifiedModalTab(fallback);
+    }, [
+        showUnifiedExecutionModal,
+        unifiedModalTab,
+        seizureMatrix.hideSeizureTab,
+        followupSpecialization.hideFollowupSeizureRequestsTab,
+        effectiveFollowupSectionTabOrder,
+        followupTabsRestricted,
+        restrictedFollowupTabIds,
+        hideCoerciveTabsForDebtorAgent,
+    ]);
 
     const {
         debtorNotifiedForEvictionGrace,
@@ -3601,7 +4846,77 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         paidDirectorateFees,
         paidClientFees,
     );
-    
+
+    const otherPartyCreditorMirrorProps = useMemo(() => {
+        if (!isRepresentingDebtor) return null;
+        return {
+            executionId: decisionsStorageExecutionId ?? executionId,
+            claimType: String(claimType || '').trim(),
+            flags: {
+                ...followupSpecialization,
+                showPersonalCoerciveFollowupTab,
+                showGuarantorInSeizureTab: showGuarantorInSeizureFollowupTab,
+                isPersonalStatusExecutionClaim,
+                isAlimonyClaim: isAlimonyClaimType,
+                activeDebtorIsEmployee,
+                showHiddenExecutiveDossierPresentation:
+                    !followupSpecialization.hidePersonalJudgePresentation &&
+                    !activeDebtorIsEmployee &&
+                    remainingBalanceForSeizure > 0,
+            },
+            guarantorCtx: {
+                executionData: viewExecutionData,
+                settlementBreachTriggeredAt: settlementGuarantorGate.settlementBreachTriggeredAt,
+                ledgerPendingSettlement: settlementGuarantorGate.pendingSettlement,
+                financialCenterTotalIqd: remainingBalanceForSeizure,
+                activeDebtorIsDeceased,
+                activeDebtorIsEmployee,
+            },
+            activeDebtorKey: assignmentWorkspaceCtx.activeDebtorKey,
+            primaryDebtorKey: primaryDebtorKeyResolved,
+            remainingBalanceIqd: remainingBalanceForSeizure,
+            executionData: viewExecutionData,
+            activeDebtorIsDeceased,
+            mirrorWorkflow: {
+                executionId: String(decisionsStorageExecutionId ?? executionId ?? '').trim() || undefined,
+                executionData: viewExecutionData,
+                activeDebtorKey: assignmentWorkspaceCtx.activeDebtorKey,
+                primaryDebtorKey: primaryDebtorKeyResolved,
+                forcedSummoningCanForce: forcedSummoningAnalysis.canForceSummon,
+                hidePersonalForcedBringActivation:
+                    followupSpecialization.hidePersonalForcedBringActivation,
+                hideDossierJudgePresentation: followupSpecialization.hidePersonalJudgePresentation,
+                personalTabLockedForEmployee,
+                showPersonalCoerciveFollowupTab,
+                debtRemainingIqd: remaining,
+                activeDebtorIsEmployee,
+                activeDebtorIsDeceased,
+            },
+            debtorAgentManualTrack: true,
+        };
+    }, [
+        isRepresentingDebtor,
+        decisionsStorageExecutionId,
+        executionId,
+        claimType,
+        followupSpecialization,
+        showPersonalCoerciveFollowupTab,
+        showGuarantorInSeizureFollowupTab,
+        isPersonalStatusExecutionClaim,
+        isAlimonyClaimType,
+        activeDebtorIsEmployee,
+        remainingBalanceForSeizure,
+        viewExecutionData,
+        settlementGuarantorGate.settlementBreachTriggeredAt,
+        settlementGuarantorGate.pendingSettlement,
+        activeDebtorIsDeceased,
+        assignmentWorkspaceCtx.activeDebtorKey,
+        primaryDebtorKeyResolved,
+        forcedSummoningAnalysis.canForceSummon,
+        personalTabLockedForEmployee,
+        remaining,
+    ]);
+
     const statuteStatus = useStatuteOfLimitations(
         isAlimonyClaim,
         lastActionDate,
@@ -3827,7 +5142,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         followupIsDebtorRetired,
         showSalaryCaptureForEmployee,
     } = useDebtorSummonsProfile(
-        debtors,
+        effectiveDebtors,
         principalDebtAmount,
         parsedLawyerFees,
         claimType,
@@ -3920,7 +5235,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         if (debtorNotificationDate && 
             daysSinceNoticeCalculated > 7 && 
             !isNonFinancialClaim && 
-            !isAlimonyClaim && 
             !executionFeeInjected && 
             remaining > 0) {
             
@@ -4013,6 +5327,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 eviction_residential_grace_manually_ended_at: evictionResidentialGraceManuallyEndedAt,
                 eviction_assets_tab_unlocked: evictionAssetsTabUnlocked,
                 eviction_case_expenses: evictionCaseExpenses,
+                encroachment_case_expenses: encroachmentCaseExpenses,
+                specific_delivery_case_expenses: specificDeliveryCaseExpenses,
                 eviction_lawyer_fee_requested: executionData.eviction_lawyer_fee_requested,
                 eviction_lawyer_fee_waived_at_intake: executionData.eviction_lawyer_fee_waived_at_intake,
                 eviction_voluntary_period_end_declared: executionData.eviction_voluntary_period_end_declared,
@@ -4042,6 +5358,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         evictionResidentialGraceManuallyEndedAt,
         evictionAssetsTabUnlocked,
         evictionCaseExpenses,
+        encroachmentCaseExpenses,
+        specificDeliveryCaseExpenses,
         earnerFeeCollectionSm,
         debtorSummonsMarkerLocal,
         executionData?.execution_memo_anchor_date,
@@ -4054,16 +5372,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         };
     }, [saveExecutionData]);
     
-    // ✅ OPTIMIZED: useCallback to prevent re-renders
-    const toggleCreditorExpanded = useCallback((key: string) => {
-        setExpandedCreditorById(prev => ({ ...prev, [key]: !prev[key] }));
-    }, []);
-
-    const toggleDebtorExpanded = useCallback((key: string) => {
-        setExpandedDebtorById(prev => ({ ...prev, [key]: !prev[key] }));
-    }, []);
-    
-
 
 	useEffect(() => {
 		const appts = (timelineEventsRef.current || []).filter((ev: any) => String(ev?.type || '') === 'appointment');
@@ -4089,15 +5397,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
 			} catch {
 				/* ignore */
 			}
-			showToastRef.current(`موعد قريب: ${titleOf(ev)} — ${ymd}`, 'info', {
-				action: {
-					label: 'عرض المواعيد',
-					onClick: () => {
-						setShowTimelineModal(true);
-						setActiveTimelineFilter('مواعيد');
-					},
-				},
-			});
+			showToastRef.current(`موعد قريب: ${titleOf(ev)} — ${ymd}`, 'info');
 		}
 	}, [todayYmd, executionData?.id, executionId, setShowTimelineModal, setActiveTimelineFilter]);
 
@@ -4131,17 +5431,30 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     const executorApprovalActions: ExecutorApprovalActions = useMemo(
         () => ({
             openScheduledDateModal: ({ requestTitle }) => {
+                setShowDecisionsModal(false);
+                setShowUnifiedExecutionModal(true);
+                setUnifiedModalTab('coercive');
+                setFollowupExpandProcedureKey(
+                    isMaritalFurnitureClaim ? 'marital_furniture_delivery' : 'field_visit'
+                );
                 showToast(
-                    `تمت موافقة المنفذ — أكمل تسجيل الموعد من «الإجراءات الجبرية» داخل نفس البطاقة.\n(${requestTitle})`,
+                    isMaritalFurnitureClaim
+                        ? `تمت موافقة المنفذ — ثبّت موعد التسليم من بطاقة «تسليم أثاث».\n(${requestTitle})`
+                        : `تمت موافقة المنفذ — أكمل تسجيل الموعد من «الإجراءات الجبرية» داخل نفس البطاقة.\n(${requestTitle})`,
                     'info'
                 );
             },
-            openPoliceAssistanceModal: ({ decisionId, requestTitle, initialAgencyName }) => {
+            openPoliceAssistanceModal: ({ decisionId, requestTitle }) => {
+                void decisionId;
+                void requestTitle;
                 setShowDecisionsModal(false);
-                setPoliceAssistanceDecisionId(decisionId);
-                setPoliceAssistanceRequestTitle(requestTitle);
-                setPoliceAssistanceAgencyDraft(String(initialAgencyName || '').trim());
-                setPoliceAssistanceModalOpen(true);
+                setShowUnifiedExecutionModal(true);
+                setUnifiedModalTab('coercive');
+                setFollowupExpandProcedureKey('police');
+                showToast(
+                    'تمت الموافقة — أكمل بيانات القوة الإجرائية من البطاقة المنسدلة في الإجراءات الجبرية.',
+                    'info'
+                );
             },
             showToast,
             appendDossierTask: (task) => {
@@ -4222,9 +5535,22 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 patchExecutorDecisionRow(executionData?.id ?? executionId, decisionId, patch);
             },
             openBreakInventoryFurnitureModal: ({ decisionId, requestTitle, onSaved, onFinalize }) => {
+                void decisionId;
+                void requestTitle;
+                void onSaved;
+                void onFinalize;
                 setShowDecisionsModal(false);
-                setBreakInventoryFurnitureModalCtx({ decisionId, requestTitle, onSaved, onFinalize });
-                setBreakInventoryFurnitureModalOpen(true);
+                setShowUnifiedExecutionModal(true);
+                setUnifiedModalTab('coercive');
+                setFollowupExpandProcedureKey(
+                    isMaritalFurnitureClaim ? 'marital_furniture_delivery' : 'break_inventory'
+                );
+                showToast(
+                    isMaritalFurnitureClaim
+                        ? 'تمت الموافقة — أكمل جرد التسليم من بطاقة «تسليم أثاث».'
+                        : 'تمت الموافقة — أكمل محضر الجرد من البطاقة المنسدلة في الإجراءات الجبرية.',
+                    'info'
+                );
             },
             openJudicialCustodianModal: ({ decisionId, requestTitle, onSaved }) => {
                 void decisionId;
@@ -4297,7 +5623,31 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 });
             },
         }),
-        [executionData?.id, executionId, nextTimelineId, setShowDecisionsModal, showToast]
+        [executionData?.id, executionId, isMaritalFurnitureClaim, nextTimelineId, setShowDecisionsModal, showToast]
+    );
+
+    const pushSeizureAuctionCalendarAppointment = useCallback(
+        (input: {
+            dossierId: string;
+            decisionId: string;
+            ymd: string;
+            purpose: string;
+            linkToAppointments: boolean;
+        }) => {
+            if (!input.linkToAppointments) return;
+            const dossierId = String(input.dossierId || '').trim();
+            const decisionId = String(input.decisionId || '').trim();
+            const ymd = String(input.ymd || '').trim();
+            if (!dossierId || !decisionId || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return;
+            executorApprovalActions.pushCalendarAppointment({
+                dossierId,
+                decisionId,
+                purpose: input.purpose,
+                eventIso: `${ymd}T12:00:00`,
+                recordedAt: new Date().toISOString(),
+            });
+        },
+        [executorApprovalActions]
     );
 
     const tryOpenPendingBreakInventoryLedger = useCallback((): boolean => {
@@ -4350,23 +5700,46 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
 
     const openPoliceAssistanceDetailsForDecision = useCallback(
         (input: { decisionId: string; requestTitle: string }) => {
-            const did = String(input.decisionId || '').trim();
-            if (!did) return;
-            const primaryKey = String(decisionsStorageExecutionId || '').trim();
-            const altKey = String(executionId ?? '').trim();
-
-            const primaryRow = primaryKey ? (getExecutorDecisionRowById(primaryKey, did) as any) : null;
-            const altRow = !primaryRow && altKey && altKey !== primaryKey ? (getExecutorDecisionRowById(altKey, did) as any) : null;
-            const row = primaryRow || altRow;
-
+            void input;
             setShowDecisionsModal(false);
-            setPoliceAssistanceDecisionId(did);
-            setPoliceAssistanceRequestTitle(String(input.requestTitle || row?.title || 'القوة الجبرية').trim() || 'القوة الجبرية');
-            setPoliceAssistanceAgencyDraft(String(row?.policeAssistanceAgency || '').trim());
-            setPoliceAssistanceModalOpen(true);
+            setShowUnifiedExecutionModal(true);
+            setUnifiedModalTab('coercive');
+            setFollowupExpandProcedureKey('police');
         },
-        [decisionsStorageExecutionId, executionId, setShowDecisionsModal]
+        [setShowDecisionsModal]
     );
+
+    useEffect(() => {
+        const myId = String(executionData?.id ?? executionId ?? '');
+        if (!myId) return;
+        const onFieldVisitScheduled = (e: Event) => {
+            const ce = e as CustomEvent<{
+                executionId?: string;
+                decisionId?: string;
+                eventIso?: string;
+                purpose?: string;
+            }>;
+            const evId = String(ce.detail?.executionId ?? '').trim();
+            if (evId !== myId && evId !== String(decisionsStorageExecutionId ?? '')) return;
+            const eventIso = String(ce.detail?.eventIso ?? '').trim();
+            const decisionId = String(ce.detail?.decisionId ?? '').trim();
+            if (!eventIso || !decisionId) return;
+            const purpose = String(ce.detail?.purpose || 'موعد الخروج الميداني').trim();
+            const linkToAppointments = ce.detail?.linkToAppointments !== false;
+            if (linkToAppointments) {
+                executorApprovalActions.pushCalendarAppointment({
+                    dossierId: evId || myId,
+                    decisionId,
+                    purpose,
+                    eventIso,
+                    recordedAt: new Date().toISOString(),
+                });
+            }
+        };
+        window.addEventListener('hami-eviction-field-visit-scheduled', onFieldVisitScheduled as EventListener);
+        return () =>
+            window.removeEventListener('hami-eviction-field-visit-scheduled', onFieldVisitScheduled as EventListener);
+    }, [executionData?.id, executionId, decisionsStorageExecutionId, executorApprovalActions]);
 
     const persistExecutionMerge = useCallback(
         (patch: Record<string, unknown>) => {
@@ -4375,17 +5748,37 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             const storeState = useExecutionDashboardStore.getState();
             if (storeState.activeSubFileId) {
                 const subFileId = storeState.activeSubFileId;
-                const subCacheKey = `${executionId}__sub__${subFileId}__meta`;
+                const parentIdForSub = String(
+                    storeState.delegationParentFileId || executionId || base.id || ''
+                ).trim();
+                const subCacheKey = inabaSubMetaStorageKey(parentIdForSub, subFileId);
                 const merged = {
                     ...base,
                     seizureDraftsByDecisionId: seizureDraftsByDecisionIdRef.current,
                     ...patch,
+                    id: subFileId,
+                    parentId: parentIdForSub,
                     updatedAt: new Date().toISOString(),
                 } as ExecutionFile;
+                if (patch.timelineEvents !== undefined && isInabaSubFileId(subFileId)) {
+                    merged.timelineEvents = filterTimelineEventsForInabaDossier(
+                        (patch.timelineEvents as TimelineEvent[]) || [],
+                        subFileId
+                    );
+                }
                 storageCache.set(executionStorageKey(String(subCacheKey)), merged);
                 useExecutionDashboardStore.setState({
                     subFiles: storeState.subFiles.map((f) =>
-                        f.id === subFileId ? { ...f, ...merged, updatedAt: new Date().toISOString() } : f
+                        f.id === subFileId
+                            ? {
+                                  ...f,
+                                  fileNumber: merged.fileNumber ?? f.fileNumber,
+                                  fileYear: merged.fileYear ?? (f as { fileYear?: string }).fileYear,
+                                  timelineEvents: merged.timelineEvents ?? f.timelineEvents,
+                                  decisions: merged.decisions ?? f.decisions,
+                                  updatedAt: merged.updatedAt,
+                              }
+                            : f
                     ),
                     currentFile: merged,
                 });
@@ -4408,14 +5801,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             try {
                 const st = useExecutionDashboardStore.getState();
                 if (!st.activeSubFileId) {
-                    if (isUnifiedTabActive) {
-                        // في تبويب «الإضبارة الموحّدة» لا نبدّل currentFile داخل الـ store حتى لا نكسر سياق الإضبارة الأصلية
-                        // (التبديل هنا يتم عبر state محلي + storageTick)
-                        // intentionally no-op
-                    } else {
-                        const same = !st.currentFile || String(st.currentFile.id) === String(merged.id);
-                        if (same) st.setCurrentFile(merged);
-                    }
+                    const same = !st.currentFile || String(st.currentFile.id) === String(merged.id);
+                    if (same) st.setCurrentFile(merged);
                 }
             } catch {}
             setExecutionStorageTick((n) => n + 1);
@@ -4427,8 +5814,33 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     executionFileSnapshotRef.current = executionData ?? null;
 
     useEffect(() => {
+        if (!isMaritalFurnitureClaim || !executionData) return;
+        const items = maritalFurnitureItemsForFollowup;
+        const deliveryRecorded = isMaritalFurnitureDeliveryStatusRecorded(executionData);
+        const expectedFinancial = deliveryRecorded
+            ? sumUndeliveredMaritalFurnitureTotal(items)
+            : 0;
+        const storedDebt = Math.round(Number(executionData.debtAmount) || 0);
+        const storedTotal = Math.round(Number(executionData.totalAmount) || 0);
+        if (storedDebt === expectedFinancial && storedTotal === expectedFinancial) return;
+        persistExecutionMerge({ debtAmount: expectedFinancial, totalAmount: expectedFinancial });
+    }, [
+        isMaritalFurnitureClaim,
+        executionData,
+        maritalFurnitureItemsForFollowup,
+        persistExecutionMerge,
+    ]);
+
+    useEffect(() => {
         if (!executionData?.id) return;
-        const cleaned = dedupeTimelineEventsSameSecond(timelineEvents);
+        const execId = String(executionData.id || '');
+        const scopedInput =
+            isInabaSubFileId(execId) && activeSubFileId
+                ? filterTimelineEventsForInabaDossier(timelineEvents, activeSubFileId)
+                : parentDossierId
+                  ? filterTimelineEventsForParentDossier(timelineEvents, parentDossierId)
+                  : timelineEvents;
+        const cleaned = dedupeTimelineEventsForDisplay(scopedInput);
         const sig = cleaned
             .map(
                 (e) =>
@@ -4453,7 +5865,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         timelineDedupeSigRef.current = sig;
         setTimelineEvents(cleaned);
         persistExecutionMerge({ timelineEvents: cleaned });
-    }, [executionData?.id, persistExecutionMerge, timelineEvents]);
+    }, [executionData?.id, persistExecutionMerge, timelineEvents, activeSubFileId, parentDossierId]);
 
     useEffect(() => {
         const myId = String(executionData?.id ?? executionId ?? '');
@@ -4626,27 +6038,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         executionData,
         decisionsStorageExecutionId,
         decisionsReloadEpoch,
-        activeCaseNotesLog,
-        activeTimelineEvents,
-        activeCaseTasksPending,
-        persistExecutionMerge,
-        nextTimelineId,
-        showToast,
-        setTimelineEvents,
-        setCaseNotesLog,
-        setCaseTasksPending,
-        aiCopilotEnabled,
-        setAiCopilotEnabled,
-        aiCopilotLoading,
-        setAiCopilotLoading,
-        aiCopilotError,
-        setAiCopilotError,
-        aiCopilotResult,
-        setAiCopilotResult,
-        aiCopilotLastFingerprintRef,
-        aiCopilotLastRunAtRef,
-        aiCopilotNetworkBackoffUntilRef,
-        aiCopilotNetworkWarningShownRef,
     });
 
     const hasApprovedCollectionDecision = useMemo(() => {
@@ -4688,6 +6079,15 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
 
     const pushTimelineEvent = useCallback(
         (event: TimelineEvent, options?: { mergePatch?: Record<string, unknown> }) => {
+            const storeSnap = useExecutionDashboardStore.getState();
+            const subId = String(storeSnap.activeSubFileId || '').trim();
+            const parentForStamp = String(
+                storeSnap.delegationParentFileId || parentDossierId || executionId || ''
+            ).trim();
+            const eventToApply =
+                subId && isInabaSubFileId(subId) && parentForStamp
+                    ? stampInabaTimelineEventMetadata(event, subId, parentForStamp)
+                    : event;
             setTimelineEvents((prev) => {
                 const threadKey =
                     event.metadata &&
@@ -4706,15 +6106,20 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         next = [...prev];
                         next[idx] = {
                             ...prevRow,
-                            ...event,
+                            ...eventToApply,
                             id: prevRow.id,
-                            metadata: { ...prevRow.metadata, ...event.metadata },
+                            metadata: { ...prevRow.metadata, ...eventToApply.metadata },
                         };
                     } else {
-                        next = mergeSimilarRecentTimelineEvent(prev, event);
+                        next = mergeSimilarRecentTimelineEvent(prev, eventToApply);
                     }
                 } else {
-                    next = mergeSimilarRecentTimelineEvent(prev, event);
+                    next = mergeSimilarRecentTimelineEvent(prev, eventToApply);
+                }
+                if (subId && isInabaSubFileId(subId)) {
+                    next = filterTimelineEventsForInabaDossier(next, subId);
+                } else if (parentDossierId) {
+                    next = filterTimelineEventsForParentDossier(next, parentDossierId);
                 }
                 const mergePatch = options?.mergePatch ?? {};
                 queueMicrotask(() => {
@@ -4742,9 +6147,90 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 return next;
             });
         },
-        [executionId, persistExecutionMerge]
+        [executionId, persistExecutionMerge, parentDossierId]
     );
     pushTimelineEventRef.current = pushTimelineEvent;
+
+    const movableInlineSaveCtx = useMemo((): MovableInlineSaveContext => {
+        return {
+            dossierId: String(decisionsStorageExecutionId ?? executionData?.id ?? executionId ?? '').trim(),
+            showToast: (msg, type) => showToast(msg, type ?? 'info'),
+            persistMovables: (next) => persistExecutionMerge({ seizedMovables: next }),
+            pushTimeline: pushTimelineEvent,
+            nextTimelineId,
+            onAuctionCalendar: ({ dossierId, decisionId, ymd, purpose }) => {
+                pushSeizureAuctionCalendarAppointment({
+                    dossierId,
+                    decisionId,
+                    ymd,
+                    purpose,
+                    linkToAppointments: linkSeizureAuctionToAppointments,
+                });
+            },
+        };
+    }, [
+        decisionsStorageExecutionId,
+        executionData?.id,
+        executionId,
+        showToast,
+        persistExecutionMerge,
+        pushTimelineEvent,
+        nextTimelineId,
+        linkSeizureAuctionToAppointments,
+        pushSeizureAuctionCalendarAppointment,
+    ]);
+
+    const propertyInlineSaveCtx = useMemo((): PropertyInlineSaveContext => {
+        return {
+            dossierId: String(decisionsStorageExecutionId ?? executionData?.id ?? executionId ?? '').trim(),
+            showToast: (msg, type) => showToast(msg, type ?? 'info'),
+            persistProperties: (next) => persistExecutionMerge({ seizedProperties: next }),
+            pushTimeline: pushTimelineEvent,
+            nextTimelineId,
+            onAuctionCalendar: ({ dossierId, decisionId, ymd, purpose }) => {
+                pushSeizureAuctionCalendarAppointment({
+                    dossierId,
+                    decisionId,
+                    ymd,
+                    purpose,
+                    linkToAppointments: linkSeizureAuctionToAppointments,
+                });
+            },
+        };
+    }, [
+        decisionsStorageExecutionId,
+        executionData?.id,
+        executionId,
+        showToast,
+        persistExecutionMerge,
+        pushTimelineEvent,
+        nextTimelineId,
+        linkSeizureAuctionToAppointments,
+        pushSeizureAuctionCalendarAppointment,
+    ]);
+
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const ce = e as CustomEvent<{
+                executionId?: string;
+                event?: Omit<TimelineEvent, 'id'>;
+                mergePatch?: Record<string, unknown>;
+            }>;
+            const evId = String(ce.detail?.executionId ?? '').trim();
+            const myId = String(executionData?.id ?? executionId ?? '').trim();
+            const storeId = String(decisionsStorageExecutionId ?? '').trim();
+            if (!evId || (evId !== myId && evId !== storeId)) return;
+            const payload = ce.detail?.event;
+            if (!payload) return;
+            pushTimelineEventRef.current?.(
+                { ...payload, id: nextTimelineId() },
+                ce.detail?.mergePatch ? { mergePatch: ce.detail.mergePatch } : undefined
+            );
+        };
+        window.addEventListener(HAMI_APPEND_EXECUTION_TIMELINE, handler as EventListener);
+        return () =>
+            window.removeEventListener(HAMI_APPEND_EXECUTION_TIMELINE, handler as EventListener);
+    }, [executionData?.id, executionId, decisionsStorageExecutionId, nextTimelineId]);
 
     const realEstateModalInitial = useMemo(() => {
         const did = String(realEstateSeizureModalDecisionId || '').trim();
@@ -4815,10 +6301,20 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         [decisionsStorageExecutionId, nextTimelineId, pushTimelineEvent, realEstateSeizureModalDecisionId, showToast]
     );
 
-    const saveThirdPartySeizureFromModal = useCallback(
-        (draft: { thirdPartyName: string; requestedAmountIqd: number | null; notificationDateIso: string | null }) => {
-            const decisionId = String(thirdPartySeizureModalDecisionId || '').trim();
+    const saveThirdPartySeizureForDecision = useCallback(
+        (input: {
+            decisionId: string;
+            thirdPartyName: string;
+            requestedAmountIqd: number;
+            notificationDateIso: string;
+        }) => {
+            const decisionId = String(input.decisionId || '').trim();
             if (!decisionId) return;
+            const draft = {
+                thirdPartyName: input.thirdPartyName,
+                requestedAmountIqd: input.requestedAmountIqd,
+                notificationDateIso: input.notificationDateIso,
+            };
             const nowIso = new Date().toISOString();
             const today = getLocalTodayYmd();
             const prev = (executionDataRef.current?.thirdPartySeizures || []) as ThirdPartySeizure[];
@@ -4841,6 +6337,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 status: existing?.status || 'notified',
             };
             const nextSeizures: ThirdPartySeizure[] = [nextRow as ThirdPartySeizure, ...prev.filter((a) => String(a.id || '') !== entityId)];
+            setThirdPartySeizuresUi(nextSeizures);
 
             try {
                 const decisionRow = getExecutorDecisionRowById(decisionsStorageExecutionId, decisionId) as any;
@@ -4908,21 +6405,38 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 { mergePatch: { thirdPartySeizures: nextSeizures } as any }
             );
             showToast('تم إنشاء مسار الحجز لدى الغير بحالة (تم التبليغ).', 'success');
-            setShowThirdPartySeizureModal(false);
-            setThirdPartySeizureModalDecisionId(null);
         },
-        [decisionsStorageExecutionId, getLocalTodayYmd, nextTimelineId, pushTimelineEvent, showToast, thirdPartySeizureModalDecisionId]
+        [decisionsStorageExecutionId, getLocalTodayYmd, nextTimelineId, pushTimelineEvent, showToast]
     );
 
-    const saveStandaloneExecutionMarkFromModal = useCallback(
-        (draft: {
-            markType: StandaloneExecutionMark['markType'];
-            targetEntity: StandaloneExecutionMark['targetEntity'];
+    const saveStandaloneExecutionMarkForDecision = useCallback(
+        (input: {
+            decisionId: string;
+            markType: string;
+            targetEntity: string;
             markDetails: string;
             letterDetails: string;
         }) => {
-            const decisionId = String(standaloneExecutionMarkModalDecisionId || '').trim();
-            if (!decisionId) return;
+            const decisionId = String(input.decisionId || '').trim();
+            const markType = String(input.markType || '').trim();
+            const targetEntity = String(input.targetEntity || '').trim();
+            const markDetails = String(input.markDetails || '').trim();
+            const letterDetails = String(input.letterDetails || '').trim();
+            if (!decisionId) {
+                showToast('معرّف القرار غير متوفر.', 'warning');
+                return;
+            }
+            if (!markType || !targetEntity || !markDetails) {
+                showToast('أكمل نوع الشارة والجهة المستهدفة وتفاصيل القيد.', 'warning');
+                return;
+            }
+            const exId = String(
+                decisionsStorageExecutionId ?? executionDataRef.current?.id ?? executionId ?? ''
+            ).trim();
+            if (!exId || exId === 'undefined') {
+                showToast('معرّف ملف التنفيذ غير متوفر.', 'warning');
+                return;
+            }
             const nowIso = new Date().toISOString();
             const today = getLocalTodayYmd();
             const prev = standaloneExecutionMarksSnapshotRef.current;
@@ -4930,10 +6444,10 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             const nextRow: StandaloneExecutionMark = {
                 id: existing?.id || `mk_${decisionId}_${Date.now()}`,
                 decisionRowId: decisionId,
-                markType: draft.markType,
-                targetEntity: draft.targetEntity,
-                markDetails: draft.markDetails,
-                letterDetails: draft.letterDetails,
+                markType,
+                targetEntity,
+                markDetails,
+                letterDetails,
                 isMarkConfirmed: existing?.isMarkConfirmed || false,
                 status: existing?.status || 'active',
                 record_locked: existing?.record_locked || false,
@@ -4941,14 +6455,32 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             };
             const nextMarks = [...prev.filter((a) => a.id !== nextRow.id), nextRow];
             setStandaloneExecutionMarks(nextMarks);
+            standaloneExecutionMarksSnapshotRef.current = nextMarks;
 
-            try {
-                patchExecutorDecisionRow(decisionsStorageExecutionId, decisionId, {
-                    seizureRequestSavedAt: nowIso,
-                });
-            } catch {
-                /* ignore */
-            }
+            const seizureRequestDetails = [
+                `النوع: ${markType}`,
+                `الجهة: ${targetEntity}`,
+                letterDetails ? `الكتاب: ${letterDetails}` : null,
+                `التفاصيل: ${markDetails}`,
+            ]
+                .filter(Boolean)
+                .join('\n');
+            const seizurePayloadJson = JSON.stringify({
+                standaloneMarkId: nextRow.id,
+                markType,
+                targetEntity,
+                markDetails,
+                letterDetails,
+            });
+            const decisionPatch = {
+                seizureRequestSavedAt: nowIso,
+                seizureRequestDetails,
+                seizurePayloadJson,
+            };
+
+            persistExecutionMerge({ standaloneExecutionMarks: nextMarks });
+            patchExecutorDecisionRow(exId, decisionId, decisionPatch);
+            patchExecutorDecisionRowEverywhere(decisionId, decisionPatch);
 
             pushTimelineEvent(
                 {
@@ -4968,22 +6500,37 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 { mergePatch: { standaloneExecutionMarks: nextMarks } }
             );
 
+            try {
+                window.dispatchEvent(
+                    new CustomEvent('hami-execution-decision-outcome', {
+                        detail: {
+                            executionId: exId,
+                            decisionId,
+                            outcome: 'approved',
+                            requestKind: 'seizure',
+                        },
+                    })
+                );
+            } catch {
+                /* ignore */
+            }
+
             showToast('تم حفظ الشارة التنفيذية وربطها بالسجل', 'success');
-            setShowStandaloneExecutionMarkModal(false);
-            setStandaloneExecutionMarkModalDecisionId(null);
         },
         [
             decisionsStorageExecutionId,
+            executionId,
+            getLocalTodayYmd,
             nextTimelineId,
+            persistExecutionMerge,
             pushTimelineEvent,
             showToast,
-            standaloneExecutionMarkModalDecisionId,
         ]
     );
 
     useEffect(() => {
         const id = executionData?.id;
-        if (!id || id === 'undefined') return;
+        if (!id || id === 'undefined' || isInabaSubFileId(id)) return;
         let cancelled = false;
         void import('@/app/services/timelineEventsSupabase')
             .then(({ fetchTimelineEventsFromSupabase, mergeRemoteSnapshotsIntoTimelineEvents }) =>
@@ -4998,30 +6545,22 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         };
     }, [executionData?.id]);
 
-    const handleRequestHistoricalSnapshotPreview = useCallback(
-        (event: TimelineEvent) => {
-            if (event.snapshot == null) {
-                showToast('لا توجد لقطة محفوظة لهذا الحدث للمعاينة التاريخية.', 'warning');
-                return;
-            }
-            setHistoricalSnapshot(event.snapshot);
-            setShowTimelineModal(false);
-        },
-        [showToast, setShowTimelineModal]
-    );
-
     const persistGuarantorFollowupDetails = useCallback(
         (
             guarantorName: string,
             guarantorWorkplace: string,
-            opts?: { salaryIqd: number | null; deductionIqd: number | null; guaranteeType?: 'amount' | 'attendance' }
-        ) => {
-            const prev = executionData?.guarantor_followup;
+            opts?: { salaryIqd: number | null; deductionIqd: number | null }
+        ): boolean => {
+            const prev = executionDataRef.current?.guarantor_followup ?? executionData?.guarantor_followup;
             const name = guarantorName.trim();
             const wp = guarantorWorkplace.trim();
             if (!name || !wp) {
                 showToast('أدخل اسم الكفيل ومكان العمل قبل الحفظ.', 'warning');
-                return;
+                return false;
+            }
+            if (!persistExecutionMergeRef.current) {
+                showToast('تعذّر الحفظ — أعد فتح ملف التنفيذ.', 'error');
+                return false;
             }
             const creditors = executionData?.creditors;
             let patchCreditors: Creditor[] | undefined;
@@ -5032,12 +6571,19 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             persistExecutionMerge({
                 guarantor_followup: {
                     executor_approved: prev?.executor_approved ?? true,
+                    channel: 'financial',
                     details_saved: true,
-                    guarantee_type: opts?.guaranteeType === 'attendance' ? 'attendance' : 'amount',
+                    guarantee_type: 'amount',
                     guarantor_name: name,
                     guarantor_workplace: wp,
-                    guarantor_salary_iqd: opts?.salaryIqd ?? null,
-                    guarantor_deduction_iqd: opts?.deductionIqd ?? null,
+                    guarantor_salary_iqd:
+                        opts?.salaryIqd !== undefined
+                            ? opts.salaryIqd
+                            : (prev?.guarantor_salary_iqd ?? null),
+                    guarantor_deduction_iqd:
+                        opts?.deductionIqd !== undefined
+                            ? opts.deductionIqd
+                            : (prev?.guarantor_deduction_iqd ?? null),
                     creditor_notation_registered: true,
                 },
                 debtor_executive_detention_active: false,
@@ -5045,6 +6591,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 executive_detention_days_total: null,
                 executive_detention_reminder_sent: false,
                 executive_detention_judge_outcome: null,
+                executive_detention_judge_eligible_decision_id: null,
+                executive_detention_judge_decision_id: null,
                 executive_detention_request_in_absentia: false,
                 debtor_travel_ban_active: false,
                 ...(patchCreditors ? { creditors: patchCreditors } : {}),
@@ -5052,7 +6600,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             const ts = new Date().toISOString();
             const sal = opts?.salaryIqd;
             const ded = opts?.deductionIqd;
-            const gt = opts?.guaranteeType === 'attendance' ? 'كفالة إحضار شخصية' : 'كفالة ضامنة للمبلغ';
+            const gt = 'كفالة ضامنة للمبلغ';
             pushTimelineEvent({
                 id: nextTimelineId(),
                 date: ts.slice(0, 10),
@@ -5082,10 +6630,26 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 setGuarantorDetailsDecisionId(null);
             }
             showToast('تم حفظ بيانات الكفيل وتسجيل تعليم الدائن.', 'success');
+            try {
+                const exId = String(executionDataRef.current?.id ?? executionData?.id ?? executionId ?? '').trim();
+                window.dispatchEvent(
+                    new CustomEvent('hami-guarantor-followup-committed', { detail: { executionId: exId } })
+                );
+                window.dispatchEvent(
+                    new CustomEvent('hami-guarantor-external-updated', {
+                        detail: { executionId: exId, tab: 'financial' as const },
+                    })
+                );
+            } catch {
+                /* ignore */
+            }
+            return true;
         },
         [
             executionData?.guarantor_followup,
             executionData?.creditors,
+            executionData?.id,
+            executionId,
             decisionsStorageExecutionId,
             guarantorDetailsDecisionId,
             persistExecutionMerge,
@@ -5387,7 +6951,9 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             if (!cur || cur.trashedAt) return;
             const iso = new Date().toISOString();
             setCaseNotesLog((prev) => {
-                const next = prev.map((n) => (n.id === id ? { ...n, trashedAt: iso } : n));
+                const next = prev.map((n) =>
+                    n.id === id ? { ...n, trashedAt: iso, pinned: false } : n
+                );
                 queueMicrotask(() => persistExecutionMerge({ caseNotesLog: next }));
                 return next;
             });
@@ -5402,13 +6968,41 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             if (!cur || cur.trashedAt) return;
             const iso = new Date().toISOString();
             setCaseTasksPending((prev) => {
-                const next = prev.map((t) => (t.id === id ? { ...t, trashedAt: iso } : t));
+                const next = prev.map((t) =>
+                    t.id === id ? { ...t, trashedAt: iso, pinned: false } : t
+                );
                 queueMicrotask(() => persistExecutionMerge({ caseTasksPending: next }));
                 return next;
             });
+            const trashed = caseTasksPendingRef.current.find((t) => t.id === id);
+            if (trashed) {
+                syncExecutionTaskDue({ executionId: currentFileId, task: { ...trashed, trashedAt: iso, pinned: false } });
+            }
             showToast('نُقلت المهمة إلى السلة', 'info');
         },
-        [persistExecutionMerge, showToast]
+        [persistExecutionMerge, showToast, currentFileId]
+    );
+
+    const toggleCaseNotePin = useCallback(
+        (id: string) => {
+            setCaseNotesLog((prev) => {
+                const next = prev.map((n) => (n.id === id ? { ...n, pinned: !n.pinned } : n));
+                queueMicrotask(() => persistExecutionMerge({ caseNotesLog: next }));
+                return next;
+            });
+        },
+        [persistExecutionMerge]
+    );
+
+    const toggleCaseTaskPin = useCallback(
+        (id: string) => {
+            setCaseTasksPending((prev) => {
+                const next = prev.map((t) => (t.id === id ? { ...t, pinned: !t.pinned } : t));
+                queueMicrotask(() => persistExecutionMerge({ caseTasksPending: next }));
+                return next;
+            });
+        },
+        [persistExecutionMerge]
     );
 
     const {
@@ -5436,21 +7030,97 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         showToast,
     );
 
+    const persistParentDossierMerge = useCallback(
+        (patch: Record<string, unknown>) => {
+            const pid = String(parentDossierId || '').trim();
+            if (!pid || pid === 'undefined') return;
+            const raw = storageCache.get(executionStorageKey(pid));
+            const base = ((raw ?? parentExecutionFile) as ExecutionFile | null) ?? null;
+            if (!base) return;
+            const merged = {
+                ...base,
+                ...patch,
+                updatedAt: new Date().toISOString(),
+            } as ExecutionFile;
+            storageCache.set(executionStorageKey(pid), merged);
+            setExecutionStorageTick((t) => t + 1);
+            try {
+                const st = useExecutionDashboardStore.getState();
+                if (String(st.currentFile?.id) === pid) st.setCurrentFile(merged);
+            } catch {
+                /* ignore */
+            }
+            onUpdate?.(merged);
+        },
+        [parentDossierId, parentExecutionFile, onUpdate]
+    );
+
+    const parentIsEvictionForExpandedHeader = String(parentExecutionFile?.claimType ?? '').includes('تخلية');
+
+    const { openEditDossierMeta: openParentDossierMetaEdit } = useDossierMeta(
+        parentExecutionFile,
+        String(parentExecutionFile?.directorate ?? ''),
+        String(parentExecutionFile?.fileNumber ?? ''),
+        String(parentExecutionFile?.fileYear ?? ''),
+        String(parentExecutionFile?.docNumber ?? ''),
+        String(parentExecutionFile?.judgmentDate ?? ''),
+        String(parentExecutionFile?.classification ?? ''),
+        String((parentExecutionFile as { property_number?: string } | null)?.property_number ?? ''),
+        String((parentExecutionFile as { district?: string } | null)?.district ?? ''),
+        String((parentExecutionFile as { property_type?: string } | null)?.property_type ?? ''),
+        String((parentExecutionFile as { full_address?: string } | null)?.full_address ?? ''),
+        (parentExecutionFile as { eviction_premises_use?: string } | null)?.eviction_premises_use,
+        parentIsEvictionForExpandedHeader,
+        persistParentDossierMerge,
+        showToast,
+    );
+
     const openEditParty = useCallback(
-        (kind: 'creditor' | 'debtor', index: number, opts?: { forceHeirs?: boolean }) => {
-            const row = kind === 'creditor' ? creditors[index] : debtors[index];
-            if (!row) return;
+        (
+            kind: 'creditor' | 'debtor',
+            index: number,
+            opts?: { forceHeirs?: boolean; party?: Party | Creditor | Debtor },
+        ) => {
+            const base = executionDataRef.current ?? viewExecutionData ?? executionData;
+            const list = getPartyListFromFile(base, kind);
+            const resolvedIndex = resolvePartyIndexInList(list, index, opts?.party ?? null);
+            const row = opts?.party ?? (resolvedIndex >= 0 ? list[resolvedIndex] : null);
+            if (!row || resolvedIndex < 0) {
+                showToast('تعذر فتح التعديل — لم يُعثر على بيانات الطرف', 'warning');
+                return;
+            }
+            const partyId = String((row as { id?: unknown }).id ?? resolvedIndex);
+            const heirsOnlyEdit = isPartyHeirsEditOnlyMode(
+                base,
+                kind,
+                row as Party,
+                resolvedIndex,
+                decisionsStorageExecutionId
+            );
             const lockBaseInfo =
-                kind === 'creditor'
-                    ? Boolean(row.isDeceased || (index === 0 && executionData?.is_creditor_deceased))
-                    : Boolean(row.isDeceased || (index === 0 && executionData?.is_debtor_deceased));
+                heirsOnlyEdit ||
+                (kind === 'creditor'
+                    ? Boolean(
+                          row.isDeceased ||
+                              (resolvedIndex === 0 && base?.is_creditor_deceased)
+                      )
+                    : Boolean(
+                          row.isDeceased ||
+                              (resolvedIndex === 0 && base?.is_debtor_deceased)
+                      ));
             const substitutionApproved =
                 kind === 'creditor'
-                    ? getCreditorHeirSubstitutionRequestStatus(decisionsStorageExecutionId) === 'approved'
-                    : getDebtorHeirSubstitutionRequestStatus(decisionsStorageExecutionId) === 'approved';
-            const includeHeirsInForm = Boolean(opts?.forceHeirs)
-                ? true
-                : Boolean(lockBaseInfo || substitutionApproved);
+                    ? getCreditorHeirSubstitutionRequestStatus(decisionsStorageExecutionId) ===
+                          'approved' ||
+                      getCreditorHeirSubstitutionRequestStatus(decisionsStorageExecutionId) ===
+                          'alternative'
+                    : getDebtorHeirSubstitutionRequestStatus(decisionsStorageExecutionId) ===
+                          'approved' ||
+                      getDebtorHeirSubstitutionRequestStatus(decisionsStorageExecutionId) ===
+                          'alternative';
+            const includeHeirsInForm = Boolean(
+                opts?.forceHeirs || heirsOnlyEdit || lockBaseInfo || substitutionApproved
+            );
             const hasHeirsDetailsField = Array.isArray((row as any)?.heirs_details);
             const heirDetailsRaw = hasHeirsDetailsField ? ((row as any).heirs_details as any[]) : [];
             const heirRowsRaw = hasHeirsDetailsField
@@ -5468,7 +7138,31 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                       address: '',
                       isClient: false,
                   })) as HeirDetailRow[]);
-            const heirRows = includeHeirsInForm ? dedupeHeirDetailRowsByName(heirRowsRaw) : [];
+            let heirRows = includeHeirsInForm ? dedupeHeirDetailRowsByName(heirRowsRaw) : [];
+            if (heirsOnlyEdit && heirRows.length === 0) {
+                const partyDeathCase = getPartyDeathCaseForRole(base, kind);
+                const caseDetails = (partyDeathCase?.heir_details || [])
+                    .map((h) => ({
+                        rowId: makeHeirRowId(),
+                        name: String(h?.name || ''),
+                        phone: String(h?.phone || ''),
+                        address: String(h?.address || ''),
+                        isClient: false,
+                    }))
+                    .filter((h) => /\S/.test(h.name));
+                const caseNames = (partyDeathCase?.heir_names || [])
+                    .map((name) => ({
+                        rowId: makeHeirRowId(),
+                        name: String(name || ''),
+                        phone: '',
+                        address: '',
+                        isClient: false,
+                    }))
+                    .filter((h) => /\S/.test(h.name));
+                heirRows = dedupeHeirDetailRowsByName(
+                    caseDetails.length > 0 ? caseDetails : caseNames
+                );
+            }
             const baseDraft = {
                 name: row.name || '',
                 phone: row.phone || '',
@@ -5479,6 +7173,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         : [],
                 lockBaseInfo,
                 includeHeirsInForm,
+                heirsOnlyEdit,
             };
             let cloned = baseDraft;
             try {
@@ -5487,68 +7182,32 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             } catch {
                 cloned = JSON.parse(JSON.stringify(baseDraft)) as typeof baseDraft;
             }
-            setPartyEditDraft(cloned);
-            setEditPartyTarget({ kind, index });
+            flushSync(() => {
+                setPartyEditDraft(cloned);
+                setEditPartyTarget({ kind, index: resolvedIndex, partyId });
+            });
         },
         [
-            creditors,
-            debtors,
+            viewExecutionData,
+            executionData,
             decisionsStorageExecutionId,
             executionData?.is_creditor_deceased,
             executionData?.is_debtor_deceased,
+            showToast,
         ]
     );
 
     const buildPartyHeirsRows = useCallback(
-        (party: Party | null | undefined, partyKind: 'creditor' | 'debtor') => {
-            const hasHeirsDetailsField = Array.isArray((party as any)?.heirs_details);
-            const details = hasHeirsDetailsField ? ((party as any).heirs_details as any[]) : [];
-            const partyDetails = details
-                .map((h) => ({
-                    name: String(h?.name || '').trim(),
-                    phone: String(h?.phone || '').trim(),
-                    address: String(h?.address || '').trim(),
-                    isClient: Boolean(h?.isClient),
-                }))
-                .filter((h) => /\S/.test(h.name));
-
-			if (hasHeirsDetailsField && partyDetails.length > 0) return dedupeHeirDetailRowsByName(partyDetails);
-
-            const caseIsForParty = executionData?.party_death_case?.deceased_party === partyKind;
-            const caseDetails = caseIsForParty
-                ? (executionData?.party_death_case?.heir_details || [])
-                      .map((h: any) => ({
-                          name: String(h?.name || '').trim(),
-                          phone: String(h?.phone || '').trim(),
-                          address: String(h?.address || '').trim(),
-                          isClient: Boolean(h?.isClient),
-                      }))
-                      .filter((h: any) => /\S/.test(String(h?.name || '')))
-                : [];
-            const caseNames = caseIsForParty
-                ? (executionData?.party_death_case?.heir_names || [])
-                      .map((name) => ({
-                          name: String(name || '').trim(),
-                          phone: '',
-                          address: '',
-                          isClient: false,
-                      }))
-                      .filter((h) => /\S/.test(h.name))
-                : [];
-
-            const partyLegacy = (party?.heirs || [])
-                .map((name) => ({
-                    name: String(name || '').trim(),
-                    phone: '',
-                    address: '',
-                    isClient: false,
-                }))
-                .filter((h) => /\S/.test(h.name));
-
-            const chosen = caseDetails.length > 0 ? caseDetails : caseNames.length > 0 ? caseNames : partyLegacy;
-            return dedupeHeirDetailRowsByName(chosen);
-        },
-        [executionData?.party_death_case]
+        (party: Party | null | undefined, partyKind: 'creditor' | 'debtor') =>
+            collectPartyHeirDetailRows(party, executionData, partyKind),
+        [
+            executionData,
+            executionData?.creditor_party_death_case,
+            executionData?.debtor_party_death_case,
+            executionData?.party_death_case,
+            executionData?.creditors,
+            executionData?.debtors,
+        ]
     );
 
     const openHeirsQuickView = useCallback(
@@ -5558,79 +7217,56 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 showToast('لا توجد بيانات ورثة مسجّلة بعد.', 'info');
                 return;
             }
-            setHeirsQuickView({ title, rows });
+            flushSync(() => {
+                setHeirsQuickView({ title, rows });
+            });
         },
         [buildPartyHeirsRows, showToast]
     );
 
     const savePartyEditDraft = useCallback(() => {
         if (!editPartyTarget || !partyEditDraft) return;
-        const allowHeirEdit = Boolean((partyEditDraft as any).includeHeirsInForm);
-        if (editPartyTarget.kind === 'creditor') {
-            const arr = [...creditors];
-            const i = editPartyTarget.index;
-            if (!arr[i]) return;
-            const prev = arr[i] as Creditor & { heirs_details?: HeirDetailRow[] };
-            arr[i] = {
-                ...arr[i],
-                name: partyEditDraft.lockBaseInfo ? arr[i].name : partyEditDraft.name,
-                phone: partyEditDraft.lockBaseInfo ? arr[i].phone : partyEditDraft.phone,
-                address: partyEditDraft.lockBaseInfo ? arr[i].address : partyEditDraft.address,
-                heirs: allowHeirEdit
-                    ? partyEditDraft.heirs.map((h) => String(h?.name || '').trim()).filter((h) => /\S/.test(h))
-                    : prev.heirs || [],
-                heirs_details: allowHeirEdit
-                    ? partyEditDraft.heirs
-                          .filter((h) => /\S/.test(String(h?.name || '').trim()))
-                          .map((h) => ({
-                              name: String(h.name || '').trim(),
-                              phone: String(h.phone || '').trim(),
-                              address: String(h.address || '').trim(),
-                              isClient: Boolean(h.isClient),
-                          }))
-                    : Array.isArray(prev.heirs_details)
-                      ? prev.heirs_details
-                      : [],
-            };
-            persistExecutionMerge({ creditors: arr });
-        } else {
-            const arr = [...debtors];
-            const i = editPartyTarget.index;
-            if (!arr[i]) return;
-            const prev = arr[i] as Debtor & { heirs_details?: HeirDetailRow[] };
-            arr[i] = {
-                ...arr[i],
-                name: partyEditDraft.lockBaseInfo ? arr[i].name : partyEditDraft.name,
-                phone: partyEditDraft.lockBaseInfo ? arr[i].phone : partyEditDraft.phone,
-                address: partyEditDraft.lockBaseInfo ? arr[i].address : partyEditDraft.address,
-                heirs: allowHeirEdit
-                    ? partyEditDraft.heirs.map((h) => String(h?.name || '').trim()).filter((h) => /\S/.test(h))
-                    : prev.heirs || [],
-                heirs_details: allowHeirEdit
-                    ? partyEditDraft.heirs
-                          .filter((h) => /\S/.test(String(h?.name || '').trim()))
-                          .map((h) => ({
-                              name: String(h.name || '').trim(),
-                              phone: String(h.phone || '').trim(),
-                              address: String(h.address || '').trim(),
-                              isClient: Boolean(h.isClient),
-                          }))
-                    : Array.isArray(prev.heirs_details)
-                      ? prev.heirs_details
-                      : [],
-            };
-            persistExecutionMerge({ debtors: arr });
+        if (isHistoricalMode) {
+            showToast('لا يمكن التعديل في وضع المعاينة التاريخية', 'warning');
+            return;
         }
+        const base = executionDataRef.current;
+        if (!base) {
+            showToast('تعذر الحفظ — لا توجد بيانات إضبارة', 'warning');
+            return;
+        }
+        const patch = buildPartyEditPersistPatch(base, editPartyTarget, partyEditDraft);
+        if (!patch) {
+            showToast('تعذر الحفظ — لم يُعثر على الطرف في الإضبارة', 'warning');
+            return;
+        }
+        const locked = partyEditDraft.lockBaseInfo;
+        const onlyHeirs =
+            locked &&
+            Boolean(partyEditDraft.includeHeirsInForm) &&
+            partyEditDraft.heirs.length > 0;
+        if (
+            locked &&
+            !onlyHeirs &&
+            !partyEditDraft.includeHeirsInForm &&
+            !partyEditDraft.heirsOnlyEdit
+        ) {
+            showToast(
+                'بيانات الاسم/الهاتف/العنوان مقفلة (وفاة أو إحلال). يمكن تعديل الورثة بعد موافقة المنفذ فقط.',
+                'info'
+            );
+            return;
+        }
+        persistExecutionMerge(patch);
         setEditPartyTarget(null);
         setPartyEditDraft(null);
         showToast('تم حفظ بيانات الطرف', 'success');
     }, [
-        creditors,
-        debtors,
         editPartyTarget,
         partyEditDraft,
         persistExecutionMerge,
         showToast,
+        isHistoricalMode,
     ]);
 
     const removeHeirFromPartyEditDraftAtIndex = useCallback(
@@ -5767,7 +7403,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         inaba_correspondence: 'طلب مخاطبة مديرية الانابة',
     };
 
-    const handleDossierAction = useCallback((payload: DossierActionPayload) => {
+    const handleDossierAction = useCallback((payload: DossierActionPayload): boolean => {
         const today = getLocalTodayYmd();
         const title = ACTION_TITLE_MAP[payload.actionType];
         const contentParts: string[] = [];
@@ -5779,21 +7415,15 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             contentParts.push(`مديرية الإنابة: ${payload.inabaCorrespondenceDirectorate}`);
             contentParts.push(`موضوع المخاطبة: ${payload.inabaCorrespondenceSubject}`);
         } else if (payload.actionType === 'unify') {
-            if (payload.unificationTargetType === 'own') {
-                contentParts.push(`نوع التوحيد: إضبارة خاصة بي`);
-                contentParts.push(`معرف الإضبارة: ${payload.unificationTargetId}`);
-                if (payload.unificationTargetMeta?.fileNumber) {
-                    contentParts.push(`رقم الإضبارة: ${payload.unificationTargetMeta.fileNumber}`);
-                }
-                if (payload.unificationTargetMeta?.fileYear) {
-                    contentParts.push(`السنة: ${payload.unificationTargetMeta.fileYear}`);
-                }
-                if (payload.unificationTargetMeta?.directorate) {
-                    contentParts.push(`المديرية: ${payload.unificationTargetMeta.directorate}`);
-                }
-            } else {
-                contentParts.push(`نوع التوحيد: إضبارة زميل`);
-                contentParts.push(`رمز الربط: ${payload.unificationColleagueToken}`);
+            contentParts.push(`معرف الإضبارة: ${payload.unificationTargetId}`);
+            if (payload.unificationTargetMeta?.fileNumber) {
+                contentParts.push(`رقم الإضبارة: ${payload.unificationTargetMeta.fileNumber}`);
+            }
+            if (payload.unificationTargetMeta?.fileYear) {
+                contentParts.push(`السنة: ${payload.unificationTargetMeta.fileYear}`);
+            }
+            if (payload.unificationTargetMeta?.directorate) {
+                contentParts.push(`المديرية: ${payload.unificationTargetMeta.directorate}`);
             }
         } else if (payload.actionType === 'transfer') {
             contentParts.push(`الدائرة المراد النقل إليها: ${payload.transferTargetDirectorate}`);
@@ -5806,39 +7436,26 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             if (!String(payload.inabaCorrespondenceSubFileId || '').trim()) {
                 showToast('تعذر إرسال الطلب: لا توجد إنابة نشطة لهذه الإضبارة.', 'warning');
                 setDossierActionModalSaving(false);
-                return;
+                return false;
             }
             if (!String(payload.inabaCorrespondenceSubject || '').trim()) {
                 showToast('أدخل موضوع المخاطبة', 'warning');
                 setDossierActionModalSaving(false);
-                return;
+                return false;
             }
         }
         if (payload.actionType === 'transfer') {
             if (!String(payload.transferTargetDirectorate || '').trim()) {
                 showToast('أدخل اسم المديرية المراد نقل الإضبارة إليها', 'warning');
                 setDossierActionModalSaving(false);
-                return;
+                return false;
             }
         }
         if (payload.actionType === 'unify') {
-            if (!payload.unificationTargetType) {
-                showToast('حدد نوع الإضبارة المراد دمجها', 'warning');
+            if (!String(payload.unificationTargetId || '').trim()) {
+                showToast('اختر الإضبارة المراد دمجها', 'warning');
                 setDossierActionModalSaving(false);
-                return;
-            }
-            if (payload.unificationTargetType === 'own') {
-                if (!String(payload.unificationTargetId || '').trim()) {
-                    showToast('اختر الإضبارة المراد دمجها', 'warning');
-                    setDossierActionModalSaving(false);
-                    return;
-                }
-            } else if (payload.unificationTargetType === 'colleague') {
-                if (!String(payload.unificationColleagueToken || '').trim()) {
-                    showToast('أدخل رمز الربط', 'warning');
-                    setDossierActionModalSaving(false);
-                    return;
-                }
+                return false;
             }
         }
 
@@ -5847,9 +7464,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 ? JSON.stringify({
                       kind: 'unification',
                       v: 1,
-                      targetType: payload.unificationTargetType,
+                      targetType: 'own',
                       targetId: payload.unificationTargetId,
-                      colleagueToken: payload.unificationColleagueToken,
                       targetMeta: payload.unificationTargetMeta,
                   })
                 : payload.actionType === 'inaba_correspondence'
@@ -5879,7 +7495,28 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             showToast(`يوجد طلب "${title}" مماثل قيد البت لدى المنفذ.`, 'warning', { decisionsLink: true });
             setDossierActionModalOpen(false);
             setDossierActionModalSaving(false);
-            return;
+            return false;
+        }
+        if (payload.actionType === 'inaba_correspondence') {
+            const entry = createInabaCorrespondenceLogEntry({
+                subFileId: String(payload.inabaCorrespondenceSubFileId || ''),
+                directorate: String(payload.inabaCorrespondenceDirectorate || ''),
+                subject: String(payload.inabaCorrespondenceSubject || ''),
+                requestDate: today,
+                decisionRowId: decisionId,
+            });
+            const prev = getInabaCorrespondenceLog(
+                isInabaActive && parentExecutionFile
+                    ? parentExecutionFile
+                    : (executionData as ExecutionFile | null)
+            );
+            const next = [entry, ...prev];
+            if (isInabaActive || isUnifiedTabActive) {
+                patchParentInabaCorrespondenceLog(decisionsStorageExecutionId, () => next);
+            } else {
+                persistExecutionMerge({ inaba_correspondence_log: next });
+            }
+            setExecutionStorageTick((t) => t + 1);
         }
         const now = new Date().toISOString();
         pushTimelineEvent({
@@ -5890,12 +7527,29 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             description: `بتاريخ ${today}:\n\n${fullContent}`,
             type: 'coercive',
             source: 'محضر المتابعة',
-            metadata: { timelineThreadKey: `executor_decision:${decisionId}`, decisionRowId: decisionId, dossierActionPayload: payload },
+            metadata: {
+                timelineThreadKey: `executor_decision:${decisionId}`,
+                decisionRowId: decisionId,
+                dossierActionPayload: payload,
+            },
         });
         setDossierActionModalOpen(false);
         setDossierActionModalSaving(false);
         showToast(`تم إرسال "${title}" إلى القرارات والطعون بانتظار الموافقة.`, 'success');
-    }, [decisionsStorageExecutionId, pushTimelineEvent, nextTimelineId, showToast, setDossierActionModalOpen, setDossierActionModalSaving]);
+        return true;
+    }, [
+        decisionsStorageExecutionId,
+        pushTimelineEvent,
+        nextTimelineId,
+        showToast,
+        setDossierActionModalOpen,
+        setDossierActionModalSaving,
+        isInabaActive,
+        parentExecutionFile,
+        executionData,
+        isUnifiedTabActive,
+        persistExecutionMerge,
+    ]);
 
     const handleOpenDossierAction = useCallback((actionType: DossierActionType) => {
         setDossierActionModalType(actionType);
@@ -5903,27 +7557,41 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     }, []);
 
     const { runSubmit: runSpecialFollowupSubmit } = useStandardSubmit({
-        validate: () =>
-            Boolean(specialRequestDate.trim()) && (Boolean(specialRequestTemplatePick.trim()) || Boolean(specialRequestContent.trim())),
-        validationMessage: 'اختر نوع الطلب وأدخل تاريخ الطلب',
+        validate: () => {
+            const followupGate = isFollowupRequestKindAllowed(
+                executionData as Record<string, unknown> | null | undefined,
+                decisionsStorageExecutionId,
+                'special_followup'
+            );
+            if (!followupGate.allowed) {
+                dispatchDomainIsolationBlocked(followupGate.reasonAr, 'special_followup');
+                return false;
+            }
+            const d = specialRequestDate.trim();
+            if (!d) return false;
+            return Boolean(specialRequestManualTitle.trim()) && Boolean(specialRequestContent.trim());
+        },
+        validationMessage: 'أكمل موضوع الطلب والتاريخ والتفاصيل',
         submit: () => {
             const d = specialRequestDate.trim();
-            const pick = specialRequestTemplatePick.trim();
             const content = specialRequestContent.trim();
-            const title = pick || 'طلب تنفيذي خاص';
+            const title = specialRequestManualTitle.trim() || 'طلب يدوي';
             const decisionId = appendSpecialFollowupRequest({
                 executionId: decisionsStorageExecutionId,
                 requestDate: d,
-                content: content || pick,
+                content: content || title,
                 decisionTitle: title,
-                payloadJson: JSON.stringify({ kind: 'admin_template', v: 1 }),
+                payloadJson: JSON.stringify({
+                    kind: 'manual_followup',
+                    v: 1,
+                }),
             });
             if (!decisionId) {
                 showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', { decisionsLink: true });
                 return false;
             }
             const now = new Date().toISOString();
-            const fullBody = `بتاريخ ${d}:\n\n${content || pick}`;
+            const fullBody = `بتاريخ ${d}:\n\n${content || title}`;
             pushTimelineEvent({
                 id: nextTimelineId(),
                 date: d,
@@ -5934,8 +7602,9 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 source: 'محضر المتابعة',
                 metadata: { timelineThreadKey: `executor_decision:${decisionId}`, decisionRowId: decisionId },
             });
-            setSpecialRequestTemplatePick('');
+            setSpecialRequestTemplatePick(SPECIAL_REQUEST_MANUAL_MODE);
             setSpecialRequestContent('');
+            setSpecialRequestManualTitle('');
             setSpecialRequestDate(getLocalTodayYmd());
         },
         onClose: () => {},
@@ -5944,6 +7613,30 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         showToast,
         successToastOptions: { decisionsLink: true },
     });
+
+    const handleOtherPartyActionLogOnly = useCallback(
+        (input: { date: string; content: string }): { ok: boolean } => {
+            const d = String(input.date || '').trim();
+            const content = String(input.content || '').trim();
+            if (!d || !content) {
+                showToast('أدخل تاريخ التحرك ومضمون الطلب', 'warning');
+                return { ok: false };
+            }
+            const now = new Date().toISOString();
+            pushTimelineEvent({
+                id: nextTimelineId(),
+                date: d,
+                timestamp: now,
+                title: 'تحرك الطرف الآخر',
+                description: content,
+                type: 'other_party',
+                source: 'تحركات الطرف الآخر',
+            });
+            showToast('تم تسجيل التحرك في السجل الزمني.', 'success');
+            return { ok: true };
+        },
+        [nextTimelineId, pushTimelineEvent, showToast]
+    );
 
     const handleOtherPartyActionSubmitToDecisions = useCallback(
         (input: { date: string; content: string }): { ok: boolean; decisionId?: string } => {
@@ -5975,28 +7668,168 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 source: 'محضر المتابعة',
                 metadata: { timelineThreadKey: `executor_decision:${decisionId}`, decisionRowId: decisionId },
             });
-            setShowDecisionsModal(true);
-            showToast('تم إرسال الطلب إلى قسم القرارات والطعون.', 'success', { decisionsLink: true });
+            showToast('تم حفظ التحرك في السجل.', 'success');
             return { ok: true, decisionId };
         },
         [
             decisionsStorageExecutionId,
             nextTimelineId,
             pushTimelineEvent,
-            setShowDecisionsModal,
             showToast,
         ]
     );
 
+    const handleCreditorTrackSubmit = useCallback(
+        (input: { optionId: string; label: string; date: string }): { ok: boolean; decisionId?: string } => {
+            const storageId = String(
+                decisionsStorageExecutionId ||
+                    executionId ||
+                    executionDataRef.current?.id ||
+                    ''
+            ).trim();
+            const res = submitCreditorOtherPartyTrackToDecisions({
+                executionId: storageId || undefined,
+                optionId: input.optionId,
+                label: input.label,
+                requestDate: input.date,
+            });
+            if (!res.ok) {
+                showToast('تعذّر إنشاء البطاقة — قد يوجد طلب مماثل قيد البت.', 'warning', {
+                    decisionsLink: true,
+                });
+                return { ok: false };
+            }
+            pushTimelineEvent({
+                id: nextTimelineId(),
+                date: input.date,
+                timestamp: new Date().toISOString(),
+                title: `${input.label} — قيد البت`,
+                description: `تقدّم وكيل الدائن — متابعة من جانب موكّل المدين.`,
+                type: 'other_party',
+                source: 'تحركات الطرف الآخر',
+                metadata: {
+                    timelineThreadKey: `executor_decision:${res.decisionId}`,
+                    decisionRowId: res.decisionId,
+                    otherPartyTrackOptionId: input.optionId,
+                },
+            });
+            showToast('تم إنشاء بطاقة في القرارات والطعون.', 'success', { decisionsLink: true });
+            return res;
+        },
+        [decisionsStorageExecutionId, executionId, nextTimelineId, pushTimelineEvent, showToast]
+    );
+
+    const handleCreditorTrackResolve = useCallback(
+        (input: { decisionId: string; resolution: 'approved' | 'rejected' }): boolean => {
+            const ok = resolveCreditorOtherPartyTrackDecision({
+                executionId: decisionsStorageExecutionId,
+                decisionId: input.decisionId,
+                resolution: input.resolution,
+            });
+            if (!ok) {
+                showToast('تعذّر تحديث بطاقة القرار.', 'warning');
+                return false;
+            }
+            showToast(
+                input.resolution === 'approved' ? 'سُجّلت موافقة المنفذ.' : 'سُجّل رفض المنفذ.',
+                'success'
+            );
+            return true;
+        },
+        [decisionsStorageExecutionId, showToast]
+    );
+
+    const handleCreditorTrackOpenDecision = useCallback(
+        (decisionId: string) => {
+            const did = String(decisionId || '').trim();
+            setDecisionsModalBootHubTab(null);
+            setDecisionsModalBootListTab('current');
+            setDecisionsModalScrollToDecisionId(did || null);
+            setAppealsModalScrollToDecisionId(null);
+            setShowDecisionsModal(true);
+        },
+        []
+    );
+
+    const creditorOtherPartyTrackHandlers = useMemo(
+        () => ({
+            onSubmitCreditorRequest: handleCreditorTrackSubmit,
+            onResolveCreditorDecision: handleCreditorTrackResolve,
+            showMessage: (message: string, type?: 'warning' | 'success') =>
+                showToast(message, type ?? 'info'),
+            onOpenDecision: handleCreditorTrackOpenDecision,
+        }),
+        [
+            handleCreditorTrackSubmit,
+            handleCreditorTrackResolve,
+            handleCreditorTrackOpenDecision,
+            showToast,
+        ]
+    );
+
+    const otherPartyTabSubmitHandler = useMemo(
+        () =>
+            isRepresentingDebtor
+                ? handleOtherPartyActionLogOnly
+                : handleOtherPartyActionSubmitToDecisions,
+        [isRepresentingDebtor, handleOtherPartyActionLogOnly, handleOtherPartyActionSubmitToDecisions]
+    );
+
+    const otherPartyLogMigratedRef = useRef(false);
+    useEffect(() => {
+        if (!isRepresentingDebtor || otherPartyLogMigratedRef.current) return;
+        const log = executionData?.other_party_actions_log;
+        if (!Array.isArray(log) || log.length === 0) return;
+        otherPartyLogMigratedRef.current = true;
+        const { events: migrated, migratedIds } = buildTimelineEventsFromOtherPartyActionLog(
+            log,
+            timelineEvents,
+            nextTimelineId
+        );
+        if (migrated.length === 0) {
+            persistExecutionMerge({ other_party_actions_log: [] });
+            return;
+        }
+        const nextTimeline = [...migrated, ...timelineEvents];
+        persistExecutionMerge({
+            timelineEvents: nextTimeline,
+            other_party_actions_log: [],
+        });
+        setTimelineEvents(nextTimeline);
+        if (migratedIds.length > 0) {
+            showToast(
+                `نُقل ${migratedIds.length} سجل إلى السجل الزمني (تبويب تحركات الطرف الآخر).`,
+                'info'
+            );
+        }
+    }, [
+        isRepresentingDebtor,
+        executionData?.other_party_actions_log,
+        timelineEvents,
+        nextTimelineId,
+        persistExecutionMerge,
+        showToast,
+    ]);
+
+    const openOtherPartyAppealsModal = useCallback((decisionId?: string) => {
+        const did = String(decisionId || '').trim();
+        setDecisionsModalBootHubTab(null);
+        setDecisionsModalBootListTab('previous');
+        setDecisionsModalScrollToDecisionId(did || null);
+        setAppealsModalScrollToDecisionId(null);
+        setShowDecisionsModal(true);
+    }, []);
+
     /** تبديل موظف ↔ كاسب — `useExecutionDashboardStore.toggleDebtorEmploymentStatus` + دمج الملف */
     const handleDebtorEmploymentToggle = useCallback(
         (ctx?: { debtorKey: string; isPrimary: boolean }) => {
-            if (!executionData?.id) return;
+            const base = executionDataRef.current;
+            if (!base?.id) return;
             const primaryK = debtorWorkspaceEntries[0]?.key;
             const debtorKeyRaw = String(ctx?.debtorKey ?? primaryK ?? '').trim();
             const debtorKey = debtorKeyRaw !== '' ? debtorKeyRaw : 'primary_debtor';
 
-            const prim = executionData.debtors?.[0] as Debtor | undefined;
+            const prim = base.debtors?.[0] as Debtor | undefined;
             const primaryKey =
                 prim?.id != null && String(prim.id).trim() !== ''
                     ? String(prim.id)
@@ -6005,7 +7838,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             if (debtorKey === primaryKey) {
                 currentlyEmployee = isDebtorRowEmployee(prim);
             } else {
-                const ad = executionData.party_multiplicity?.additionalDebtors?.find(
+                const ad = base.party_multiplicity?.additionalDebtors?.find(
                     (a) => String(a.id) === debtorKey
                 );
                 if (!ad) {
@@ -6015,10 +7848,10 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     );
                     return;
                 }
-                currentlyEmployee = ad.isEmployee !== false;
+                currentlyEmployee = isDebtorRowEmployee(ad);
             }
 
-            const patch = buildDebtorEmploymentTogglePatch(executionData, debtorKey);
+            const patch = buildDebtorEmploymentTogglePatch(base, debtorKey);
             if (!patch) {
                 showToast('تعذّر تبديل الصفة الوظيفية.', 'warning');
                 return;
@@ -6041,23 +7874,15 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             };
             setTimelineEvents((prev) => {
                 const next = [event, ...prev];
+                const merged = { ...base, ...patch, timelineEvents: next } as ExecutionFile;
                 persistExecutionMerge({ ...patch, timelineEvents: next });
-                if (!isUnifiedTabActive) {
-                    useExecutionDashboardStore.getState().setCurrentFile({
-                        ...executionData,
-                        ...patch,
-                        timelineEvents: next,
-                    } as ExecutionFile);
-                }
+                useExecutionDashboardStore.getState().setCurrentFile(merged);
                 return next;
             });
             showToast(nextEmp ? 'تمت إعادة صفة الموظف.' : 'تم التحويل إلى كاسب.', 'success');
         },
         [
-            coerciveUiLocked,
             debtorWorkspaceEntries,
-            executionData,
-            isUnifiedTabActive,
             nextTimelineId,
             persistExecutionMerge,
             showToast,
@@ -6112,20 +7937,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         persistExecutionMerge(merged.patch);
         const { approvedCount, rejectedCount } = merged;
         if (approvedCount > 0 && rejectedCount === 0) {
-            showToast(
-                'تمت موافقة المنفذ على طلب المفاتحة — تابع تسجيل أمر القبض من التنفيذ الجبري الشخصي.',
-                'success',
-                {
-                    action: {
-                        label: 'فتح التنفيذ الجبري الشخصي',
-                        onClick: () => {
-                            setShowUnifiedExecutionModal(true);
-                            setUnifiedModalTab('personal');
-                            hideToast();
-                        },
-                    },
-                }
-            );
+            showToast('تمت موافقة المنفذ على طلب المفاتحة.', 'success');
         } else if (rejectedCount > 0 && approvedCount === 0) {
             showToast('صدر رفض الطلب — يمكن إنهاء التكليف أو إعادة المحاولة.', 'info', {
                 decisionsLink: true,
@@ -6206,16 +8018,39 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         persistExecutionMerge,
     ]);
 
+    const executiveDetentionReminderFiredRef = useRef(false);
+    useEffect(() => {
+        if (!executionData?.executive_detention_reminder_sent) {
+            executiveDetentionReminderFiredRef.current = false;
+        }
+    }, [executionData?.executive_detention_reminder_sent]);
+
     useEffect(() => {
         const until = executionData?.executive_detention_until;
-        if (!until || !executionData?.debtor_executive_detention_active) return;
-        if (executionData.executive_detention_reminder_sent) return;
+        if (!executionData?.debtor_executive_detention_active) return;
+        if (until) {
+            const end = new Date(`${until}T23:59:59`);
+            if (!Number.isNaN(end.getTime()) && Date.now() > end.getTime()) {
+                persistExecutionMerge({
+                    debtor_executive_detention_active: false,
+                    executive_detention_until: null,
+                    executive_detention_days_total: null,
+                    executive_detention_reminder_sent: false,
+                    executive_detention_released_or_closed_at: new Date().toISOString(),
+                });
+                return;
+            }
+        }
+        if (!until) return;
+        if (executionData.executive_detention_reminder_sent || executiveDetentionReminderFiredRef.current) {
+            return;
+        }
         const end = new Date(`${until}T23:59:59`);
-        const now = new Date();
         if (Number.isNaN(end.getTime())) return;
-        const msLeft = end.getTime() - now.getTime();
+        const msLeft = end.getTime() - Date.now();
         const twoDays = 2 * 24 * 60 * 60 * 1000;
         if (msLeft > 0 && msLeft <= twoDays) {
+            executiveDetentionReminderFiredRef.current = true;
             showToast(
                 '⏳ يتبقّى أقل من يومين على انتهاء الحبس التنفيذي — قرّر طلب التجديد أو المتابعة.',
                 'warning'
@@ -6223,7 +8058,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             persistExecutionMerge({ executive_detention_reminder_sent: true });
         }
     }, [
-        decisionsReloadEpoch,
         executionData?.executive_detention_until,
         executionData?.debtor_executive_detention_active,
         executionData?.executive_detention_reminder_sent,
@@ -6334,6 +8168,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
 
     const handlePartyDeathSave = useCallback(
         (payload: PartyDeathSavePayload): boolean => {
+            const base = executionDataRef.current ?? executionData;
             const partyLabelAr = payload.deceased_party === 'debtor' ? 'المدين' : 'الدائن';
             const mergeHeirNames = (existing: string[], incoming: string[]) => {
                 const out: string[] = [];
@@ -6372,7 +8207,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             };
 
             if (payload.deceased_party === 'creditor') {
-                const creditorsList = [...creditors];
+                const creditorsList = [...(base?.creditors || creditors)];
+                const debtorsSnapshot = [...(base?.debtors || debtors)];
                 const nameSnapshot = String(creditorsList[0]?.name || '').trim();
                 const heirNamesResolved =
                     payload.action === 'heir_substitution' || payload.action === 'seek_heir'
@@ -6412,19 +8248,18 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     setTimelineEvents((prev) => {
                         const next = [te, ...prev];
                         persistExecutionMerge({
-                            party_death_case: {
+                            ...buildScopedPartyDeathPersistPatch(base, 'creditor', {
                                 deceased_party: 'creditor',
                                 heir_names: [],
                                 heir_details: [],
                                 flow: 'death_only',
                                 heir_certificate_file_name: null,
-                            },
+                            }),
                             creditors: creditorsList,
-                            debtors,
-                            dossier_heirs_list: [],
+                            debtors: debtorsSnapshot,
                             is_creditor_deceased: true,
                             deceased_creditor_legal_name_snapshot:
-                                nameSnapshot || executionData?.deceased_creditor_legal_name_snapshot,
+                                nameSnapshot || base?.deceased_creditor_legal_name_snapshot,
                             timelineEvents: next,
                         });
                         return next;
@@ -6437,36 +8272,32 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     (getCreditorHeirSubstitutionRequestStatus(decisionsStorageExecutionId) === 'approved' ||
                         getCreditorHeirSubstitutionRequestStatus(decisionsStorageExecutionId) === 'alternative')
                 ) {
-                    const existingNames = (executionData?.creditors?.[0]?.heirs || []).filter((s) =>
+                    const existingNames = (base?.creditors?.[0]?.heirs || []).filter((s) =>
                         /\S/.test(String(s))
                     );
-                    const existingCaseNames =
-                        executionData?.party_death_case?.deceased_party === 'creditor'
-                            ? (executionData?.party_death_case?.heir_names || []).filter((s) =>
-                                  /\S/.test(String(s))
-                              )
-                            : [];
+                    const existingCaseNames = (
+                        getPartyDeathCaseForRole(base, 'creditor')?.heir_names || []
+                    ).filter((s) => /\S/.test(String(s)));
                     const mergedHeirNames = mergeHeirNames(
                         mergeHeirNames(existingNames, existingCaseNames),
                         heirNamesResolved
                     );
-                    const existingDetails = Array.isArray(executionData?.creditors?.[0]?.heirs_details)
-                        ? executionData.creditors[0].heirs_details
+                    const existingDetails = Array.isArray(base?.creditors?.[0]?.heirs_details)
+                        ? base.creditors[0].heirs_details
                         : [];
-                    const existingCaseDetails =
-                        executionData?.party_death_case?.deceased_party === 'creditor' &&
-                        Array.isArray(executionData?.party_death_case?.heir_details)
-                            ? (executionData?.party_death_case?.heir_details as Array<{
-                                  name?: string;
-                                  phone?: string;
-                                  address?: string;
-                              }>)
-                            : [];
+                    const creditorDeathCase = getPartyDeathCaseForRole(base, 'creditor');
+                    const existingCaseDetails = Array.isArray(creditorDeathCase?.heir_details)
+                        ? (creditorDeathCase.heir_details as Array<{
+                              name?: string;
+                              phone?: string;
+                              address?: string;
+                          }>)
+                        : [];
                     const mergedHeirDetails = mergeHeirDetails(
                         mergeHeirDetails(existingDetails, existingCaseDetails),
                         heirDetailsResolved
                     );
-                    const merge = buildExecutionMergeForCreditorPartyDeath(executionData, {
+                    const merge = buildExecutionMergeForCreditorPartyDeath(base, {
                         action: 'heir_substitution',
                         creditorNameSnapshot: nameSnapshot,
                         heir_names: mergedHeirNames,
@@ -6496,14 +8327,14 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         }
                         persistExecutionMerge({
                             ...merge,
-                            creditors: mergedCreditors,
-                            party_death_case: {
-                                ...((mergeRec.party_death_case as Record<string, unknown> | undefined) ||
-                                    {}),
+                            ...buildScopedPartyDeathPersistPatch(base, 'creditor', {
+                                deceased_party: 'creditor',
                                 heir_names: mergedHeirNames,
                                 heir_details: mergedHeirDetails,
-                            },
-                            dossier_heirs_list: mergedHeirNames,
+                                flow: 'heir_substitution',
+                                heir_certificate_file_name: null,
+                            }),
+                            creditors: mergedCreditors,
                             timelineEvents: next,
                         });
                         return next;
@@ -6569,8 +8400,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 return true;
             } else {
 
-            const creditorsList = [...creditors];
-            const debtorsList = [...debtors];
+            const creditorsList = [...(base?.creditors || creditors)];
+            const debtorsList = [...(base?.debtors || debtors)];
             const nameSnapshot = String(debtorsList[0]?.name || '').trim();
 
             if (payload.action === 'heir_substitution') {
@@ -6597,10 +8428,9 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                           .filter((h) => /\S/.test(h.name))
                     : [];
             const existingPrimaryHeirs = debtorsList[0]?.heirs || [];
-            const existingCaseHeirs =
-                executionData?.party_death_case?.deceased_party === 'debtor'
-                    ? (executionData?.party_death_case?.heir_names || []).filter((s) => /\S/.test(String(s)))
-                    : [];
+            const existingCaseHeirs = (
+                getPartyDeathCaseForRole(base, 'debtor')?.heir_names || []
+            ).filter((s) => /\S/.test(String(s)));
             const mergedHeirNames = mergeHeirNames(
                 mergeHeirNames(existingPrimaryHeirs as string[], existingCaseHeirs),
                 heirNamesResolved
@@ -6609,15 +8439,14 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             const existingPrimaryDetails = Array.isArray(primaryParty?.heirs_details)
                 ? primaryParty.heirs_details
                 : [];
-            const existingCaseDetails =
-                executionData?.party_death_case?.deceased_party === 'debtor' &&
-                Array.isArray(executionData?.party_death_case?.heir_details)
-                    ? (executionData?.party_death_case?.heir_details as Array<{
-                          name?: string;
-                          phone?: string;
-                          address?: string;
-                      }>)
-                    : [];
+            const debtorDeathCaseRead = getPartyDeathCaseForRole(base, 'debtor');
+            const existingCaseDetails = Array.isArray(debtorDeathCaseRead?.heir_details)
+                ? (debtorDeathCaseRead.heir_details as Array<{
+                      name?: string;
+                      phone?: string;
+                      address?: string;
+                  }>)
+                : [];
             const mergedHeirDetails = mergeHeirDetails(
                 mergeHeirDetails(existingPrimaryDetails, existingCaseDetails),
                 heirDetailsResolved
@@ -6724,19 +8553,15 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             }
 
             const mergeBase: Record<string, unknown> = {
-                party_death_case: {
-                    deceased_party: payload.deceased_party,
+                ...buildScopedPartyDeathPersistPatch(base, 'debtor', {
+                    deceased_party: 'debtor',
                     heir_names: storedHeirNames,
-                    heir_details:
-                        flow === 'heir_substitution'
-                            ? mergedHeirDetails
-                            : [],
+                    heir_details: flow === 'heir_substitution' ? mergedHeirDetails : [],
                     flow,
                     heir_certificate_file_name: null,
-                },
+                }),
                 creditors: creditorsList,
                 debtors: debtorsList,
-                dossier_heirs_list: storedHeirNames,
                 ...deceasedFlags,
                 ...mergeExtra,
             };
@@ -6803,7 +8628,9 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             return false;
         }
         lastHeirSubRequestAtRef.current.debtor = nowMs;
-        const debtorName = String(debtors?.[0]?.name || '').trim();
+        const debtorName = String(
+            executionDataRef.current?.debtors?.[0]?.name ?? debtors?.[0]?.name ?? ''
+        ).trim();
         const req = appendDebtorHeirSubstitutionRequest({
             executionId: decisionsStorageExecutionId,
             debtorNameSnapshot: debtorName,
@@ -7156,9 +8983,14 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         if (!showUnifiedExecutionModal) return;
         // تبويب "الحجز المالي" أُلغي من محضر المتابعة؛ أي حالة قديمة تُعاد للتبويب الجبري.
         if (unifiedModalTab === 'financial') {
-            setUnifiedModalTab('coercive');
+            const fallback = effectiveFollowupSectionTabOrder[0] ?? 'coercive';
+            setUnifiedModalTab(
+                followupSpecialization.hideFollowupCoerciveTab ? fallback : 'coercive'
+            );
         }
     }, [
+        effectiveFollowupSectionTabOrder,
+        followupSpecialization.hideFollowupCoerciveTab,
         showUnifiedExecutionModal,
         unifiedModalTab,
     ]);
@@ -7166,9 +8998,30 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     useEffect(() => {
         if (!showUnifiedExecutionModal) return;
         if (!showPersonalCoerciveFollowupTab && unifiedModalTab === 'personal') {
-            setUnifiedModalTab('coercive');
+            const fallback = effectiveFollowupSectionTabOrder[0] ?? 'coercive';
+            setUnifiedModalTab(
+                followupSpecialization.hideFollowupCoerciveTab ? fallback : 'coercive'
+            );
         }
-    }, [showUnifiedExecutionModal, showPersonalCoerciveFollowupTab, unifiedModalTab]);
+    }, [
+        effectiveFollowupSectionTabOrder,
+        followupSpecialization.hideFollowupCoerciveTab,
+        showPersonalCoerciveFollowupTab,
+        showUnifiedExecutionModal,
+        unifiedModalTab,
+    ]);
+
+    useEffect(() => {
+        if (!showUnifiedExecutionModal) return;
+        if (followupSpecialization.hideFollowupCoerciveTab && unifiedModalTab === 'coercive') {
+            setUnifiedModalTab((effectiveFollowupSectionTabOrder[0] ?? 'coercive') as typeof unifiedModalTab);
+        }
+    }, [
+        effectiveFollowupSectionTabOrder,
+        followupSpecialization.hideFollowupCoerciveTab,
+        showUnifiedExecutionModal,
+        unifiedModalTab,
+    ]);
 
     useEffect(() => {
         if (!showUnifiedExecutionModal) {
@@ -7912,8 +9765,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         showToast,
     ]);
 
-    const { handleShareTimeline } = useShareTimeline(activeTimelineEvents, executionData, showToast);
-
     const noteSuccessMsgRef = useRef('');
     const noteSuccessVariantRef = useRef<'success' | 'info' | 'warning'>('success');
     const { runSubmit: runSaveNoteSubmit } = useStandardSubmit({
@@ -7926,7 +9777,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             setTaskDueDate('');
             setTaskStatus('pending');
             setEditingTaskId(null);
-            setShowNotesModal(false);
         },
         showToast,
         validate: () => {
@@ -8128,16 +9978,12 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         }
     }, [persistExecutionMerge, currentFileId, executionData, file]);
 
-    const handleDeleteTask = useCallback((taskId: string) => {
-        const now = new Date().toISOString();
-        const nextTasks = caseTasksPendingRef.current.map(t => t.id === taskId ? { ...t, trashedAt: now } : t);
-        setCaseTasksPending(nextTasks);
-        persistExecutionMerge({ caseTasksPending: nextTasks });
-        const trashed = nextTasks.find((t) => t.id === taskId);
-        if (trashed) {
-            syncExecutionTaskDue({ executionId: currentFileId, task: trashed });
-        }
-    }, [persistExecutionMerge, currentFileId]);
+    const handleDeleteTask = useCallback(
+        (taskId: string) => {
+            moveCaseTaskToTrash(taskId);
+        },
+        [moveCaseTaskToTrash]
+    );
 
     const handleAddTimelineEvent = useCallback((event: { title: string; body?: string }) => {
         const newEvent: TimelineEvent = {
@@ -8150,28 +9996,34 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         pushTimelineEvent(newEvent);
     }, [pushTimelineEvent]);
 
-    const handleCompleteTask = useCallback((taskId: string) => {
-        const now = new Date().toISOString();
-        const nextTasks = caseTasksPendingRef.current.map(t =>
-            t.id === taskId ? { ...t, trashedAt: now } : t
-        );
-        setCaseTasksPending(nextTasks);
-        persistExecutionMerge({ caseTasksPending: nextTasks });
-        const done = nextTasks.find((t) => t.id === taskId);
-        if (done) {
-            syncExecutionTaskDue({ executionId: currentFileId, task: done });
-        }
-        showToast('تم إنجاز المهمة بنجاح', 'success');
-    }, [persistExecutionMerge, showToast]);
+    const handleCompleteTask = useCallback(
+        (taskId: string) => {
+            completePendingTask(taskId);
+        },
+        [completePendingTask]
+    );
+
+    const acknowledgeMemoFollowupWarning = useCallback(() => {
+        setMemoWarningDialogOpen(false);
+        persistExecutionMerge({ memo_followup_warning_acknowledged: true } as any);
+    }, [persistExecutionMerge]);
 
     const handleMemoFollowupClick = useCallback(() => {
-        if (shouldWarnOnMemoClick) {
+        setShowUnifiedSeizureLogModal(false);
+        const warningAlreadyAcknowledged = Boolean(
+            (executionData as { memo_followup_warning_acknowledged?: boolean })?.memo_followup_warning_acknowledged
+        );
+        if (shouldWarnOnMemoClick && !warningAlreadyAcknowledged) {
             setMemoWarningDialogOpen(true);
         } else {
-            setShowUnifiedExecutionModal(true);
-            setUnifiedModalTab('coercive');
+            openFollowupModalPersisted();
         }
-    }, [shouldWarnOnMemoClick, setShowUnifiedExecutionModal, setUnifiedModalTab]);
+    }, [
+        shouldWarnOnMemoClick,
+        executionData,
+        openFollowupModalPersisted,
+        setShowUnifiedSeizureLogModal,
+    ]);
 
     // ✅ OPTIMIZED: useCallback
     const handleSaveAppointment = useCallback(() => {
@@ -8258,7 +10110,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         setAppointmentDateOnly('');
         setAppointmentTimeOptional('');
         setEditingAppointmentId(null);
-        setShowAppointmentModal(false);
         triggerCopilotAfterLocalChange();
     }, [
         appointmentPurpose,
@@ -8276,55 +10127,163 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     
     // ✅ OPTIMIZED: useCallback
     const handlePayment = useCallback(() => {
-        const amount = parseFloat(paymentAmount);
-        if (isNaN(amount) || amount <= 0) {
+        const normalized = String(paymentAmount || '')
+            .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+            .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+            .replace(/[^\d.]/g, '');
+        const amount = Math.max(0, Math.round(parseFloat(normalized) || 0));
+        if (!Number.isFinite(amount) || amount <= 0) {
             showToast('يرجى إدخال مبلغ صحيح', 'warning');
             return;
         }
+        if (amount > remaining) {
+            showToast(
+                `لا يمكن تسديد مبلغ يتجاوز المتبقي (${remaining.toLocaleString('ar-IQ')} د.ع)`,
+                'warning'
+            );
+            return;
+        }
+
+        const fileSnap = executionDataRef.current as Record<string, unknown> | null;
+        const debtRows = buildCreditorDebtRows(fileSnap);
+        const distribution = distributePaymentProRata(amount, debtRows);
+
+        const creditorsList = [...(fileSnap?.creditors as Array<Record<string, unknown>> | undefined ?? [])];
+        const pmBase = (fileSnap?.party_multiplicity as Record<string, unknown> | undefined) ?? {};
+        const additionalCreditorsList = [
+            ...((pmBase.additionalCreditors as Array<Record<string, unknown>> | undefined) ?? []),
+        ];
+
+        for (const alloc of distribution.allocations) {
+            if (alloc.isAdditional) {
+                const idx = additionalCreditorsList.findIndex(
+                    (c) => String(c.id) === alloc.creditorId
+                );
+                if (idx >= 0) {
+                    const prevPaid = Number(additionalCreditorsList[idx].paid_amount) || 0;
+                    additionalCreditorsList[idx] = {
+                        ...additionalCreditorsList[idx],
+                        paid_amount: prevPaid + alloc.amount,
+                    };
+                }
+            } else {
+                const idx = creditorsList.findIndex((c) => String(c.id) === alloc.creditorId);
+                if (idx >= 0) {
+                    const prevPaid = Number(creditorsList[idx].paid_amount) || 0;
+                    creditorsList[idx] = {
+                        ...creditorsList[idx],
+                        paid_amount: prevPaid + alloc.amount,
+                    };
+                }
+            }
+        }
+
+        const payYmd = paymentDate?.trim() || getLocalTodayYmd();
+        const payTs = `${payYmd}T12:00:00.000Z`;
+        const splitSummary =
+            distribution.allocations.length > 1
+                ? distribution.allocations
+                      .map(
+                          (a) =>
+                              `${a.creditorName}: ${a.amount.toLocaleString('ar-IQ')} د.ع${
+                                  a.isClient ? ' (موكلي → المركز المالي)' : ''
+                              }`
+                      )
+                      .join(' · ')
+                : '';
 
         const nextPaid = paidDebt + amount;
-        const newBalance = remaining - amount;
+        const newBalance = Math.max(0, remaining - amount);
         const ledgerEntry = {
             id: Date.now().toString(),
-            date: new Date().toISOString(),
+            date: payTs,
             type: 'payment' as const,
-            amount: amount,
-            description: `سداد دفعة نقدية`,
+            amount,
+            description: splitSummary
+                ? `تسديد إجمالي — توزيع تلقائي: ${splitSummary}`
+                : 'تسديد إجمالي للإضبارة',
             balance: newBalance,
         };
         const nextLedger = [ledgerEntry, ...financialLedger];
-        const ts = new Date().toISOString();
+
+        const partyMultiplicityPatch =
+            additionalCreditorsList.length > 0 || pmBase.isSolidaryLiability != null
+                ? {
+                      party_multiplicity: {
+                          ...pmBase,
+                          additionalCreditors: additionalCreditorsList,
+                      },
+                  }
+                : {};
+
+        const mergePatch: Record<string, unknown> = {
+            paidDebt: nextPaid,
+            financialLedger: nextLedger,
+            creditors: creditorsList,
+            creditor: creditorsList[0] ?? fileSnap?.creditor,
+            ...partyMultiplicityPatch,
+        };
+
         const paySnap = buildExecutionTimelineSnapshot({
             executionData: executionDataRef.current
-                ? { ...executionDataRef.current, paidDebt: nextPaid, financialLedger: nextLedger }
+                ? { ...executionDataRef.current, ...mergePatch }
                 : null,
             financialLedger: nextLedger,
             seizedAssets: seizedAssetsSnapshotRef.current,
         });
+
+        const clientNote =
+            distribution.clientCreditorTotal > 0
+                ? ` — مبلغ موكلي المُرحَّل للمركز المالي: ${distribution.clientCreditorTotal.toLocaleString('ar-IQ')} د.ع`
+                : '';
+
         pushTimelineEvent(
             {
                 id: nextTimelineId(),
-                date: ts.slice(0, 10),
-                timestamp: ts,
-                title: '💰 تسديد جزئي للمديونية',
-                description: `تم استلام دفعة بمبلغ ${amount.toLocaleString('ar-IQ')} دينار عراقي من المدين. الرصيد المتبقي: ${newBalance.toLocaleString('ar-IQ')} د.ع`,
+                date: payYmd,
+                timestamp: payTs,
+                title: newBalance === 0 ? '✅ تسديد كامل للمديونية' : '💰 تسديد للمديونية',
+                description: `تم تسجيل تسديد بمبلغ ${amount.toLocaleString('ar-IQ')} د.ع.${splitSummary ? `\n${splitSummary}` : ''}\nالمتبقي: ${newBalance.toLocaleString('ar-IQ')} د.ع${clientNote}`,
                 type: 'payment',
-                source: 'المركز المالي',
+                source: 'تسديد الإضبارة',
                 snapshot: paySnap,
             },
-            { mergePatch: { paidDebt: nextPaid, financialLedger: nextLedger } }
+            { mergePatch }
         );
         setPaidDebt(nextPaid);
         setFinancialLedger(nextLedger);
 
-        showToast(`✅ تم تسجيل دفعة بمبلغ ${amount.toLocaleString('ar-IQ')} د.ع`, 'success');
+        const exId = String(executionId ?? executionDataRef.current?.id ?? '').trim();
+        if (distribution.clientCreditorTotal > 0 && exId) {
+            const clientPaymentRow = {
+                id: `pay-client-creditor-${Date.now()}`,
+                amount: distribution.clientCreditorTotal,
+                at: payTs,
+                kind: 'partial' as const,
+                entryType: 'collect' as const,
+            };
+            try {
+                window.dispatchEvent(
+                    new CustomEvent('hami-unified-ledger-external-collect', {
+                        detail: { executionId: exId, payment: clientPaymentRow },
+                    })
+                );
+            } catch {
+                /* ignore */
+            }
+        }
+
+        showToast(`✅ تم تسجيل التسديد: ${amount.toLocaleString('ar-IQ')} د.ع`, 'success');
         setPaymentAmount('');
+        setPaymentDate(getLocalTodayYmd());
         setShowPaymentModal(false);
     }, [
         paymentAmount,
+        paymentDate,
         remaining,
         paidDebt,
         financialLedger,
+        executionId,
         nextTimelineId,
         pushTimelineEvent,
         showToast,
@@ -8486,6 +10445,39 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             pushTimelineEvent,
         ]
     );
+
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const ce = e as CustomEvent<{ executionId?: string; amount?: number }>;
+            const evId = String(ce.detail?.executionId ?? '').trim();
+            const myId = String(executionData?.id ?? executionId ?? '').trim();
+            if (!evId || evId !== myId) return;
+            const amt = Number(ce.detail?.amount ?? 0);
+            if (!Number.isFinite(amt) || amt <= 0) return;
+            const newPaid = Math.max(0, paidDebtRef.current - amt);
+            paidDebtRef.current = newPaid;
+            setPaidDebt(newPaid);
+            if (executionId) {
+                const current = storageCache.get(executionStorageKey(executionId));
+                if (current && typeof current === 'object') {
+                    storageCache.set(executionStorageKey(executionId), {
+                        ...current,
+                        paidDebt: newPaid,
+                    });
+                }
+            }
+            setFinancialLedger((prev) => {
+                const next = prev.length > 0 ? prev.slice(1) : prev;
+                queueMicrotask(() =>
+                    persistExecutionMerge({ paidDebt: newPaid, financialLedger: next })
+                );
+                return next;
+            });
+        };
+        window.addEventListener('hami-unified-ledger-payment-undo', handler as EventListener);
+        return () =>
+            window.removeEventListener('hami-unified-ledger-payment-undo', handler as EventListener);
+    }, [executionData?.id, executionId, persistExecutionMerge]);
     
     // 🆕 V9: SETTLEMENT CALCULATOR HANDLER — لقطة زمنية + دمج ملف كمسار الدفع
     // ✅ OPTIMIZED: useCallback
@@ -8703,6 +10695,10 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 });
                 if (typeof initialNoticeLawyerFeesIncluded === 'boolean') {
                     persistPatch.eviction_initial_notice_lawyer_fees_included = initialNoticeLawyerFeesIncluded;
+                    persistPatch.eviction_lawyer_fee_waived_at_intake = !initialNoticeLawyerFeesIncluded;
+                    if (initialNoticeLawyerFeesIncluded) {
+                        persistPatch.eviction_lawyer_fee_requested = true;
+                    }
                 }
             } else if (targetIsPrimary) {
                 Object.assign(persistPatch, {
@@ -8756,6 +10752,15 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         debtorBrowserTabsMode,
         activeWorkspaceDebtorForFollowup,
     );
+
+    const memoWarningHeirsLabel = useMemo(() => {
+        const names = activeDebtorHeirsForNotification;
+        if (names.length === 0) return 'الورثة';
+        if (names.length === 1) return `الوريث «${names[0]}»`;
+        if (names.length === 2) return `الوريثين «${names[0]}» و«${names[1]}»`;
+        return `الورثة: ${names.map((n) => `«${n}»`).join('، ')}`;
+    }, [activeDebtorHeirsForNotification]);
+
     const normalizeHeirWorkflowKey = useCallback((name: string) => {
         const raw = String(name || '').trim();
         return raw
@@ -9568,8 +11573,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         forcedDate.setDate(forcedDate.getDate() - 8); // Make it 8+ days ago
         setDebtorNotificationDate(formatDateToLocalYmd(forcedDate));
         
-        // 3. Financial Impact - Auto-inject 3% fee (UNLESS it's نفقة)
-        if (!isAlimonyClaim && !executionFeeInjected) {
+        // 3. Financial Impact - Auto-inject 3% fee after grace period
+        if (!executionFeeInjected) {
             // Use the pre-calculated executionFee variable
             const calculatedFee = calculatedExecutionFee;
             
@@ -9637,32 +11642,75 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     const showResidentialEvictionGraceControl =
         isEvictionExecutionModule && evictionPremisesUseResolved === 'residential';
 
-    const showResidentialGraceEarlyEndRequest = useMemo(() => {
-        if (evictionPremisesUseResolved !== 'residential') return false;
-        const start = evictionResidentialGracePeriodStart;
-        const end = evictionVacateDeadlineLocal;
-        if (!start || !/^\d{4}-\d{2}-\d{2}$/.test(start)) return false;
-        if (!end || !/^\d{4}-\d{2}-\d{2}$/.test(end)) return false;
-        return !isResidentialVacateGraceFinished;
+    const residentialGracePeriodSaved = useMemo(
+        () =>
+            hasActiveResidentialEvictionGrace({
+                premisesUse: evictionPremisesUseResolved,
+                gracePeriodStart: evictionResidentialGracePeriodStart,
+                vacateDeadline: evictionVacateDeadlineLocal,
+                manuallyEndedAt: evictionResidentialGraceManuallyEndedAt,
+            }),
+        [
+            evictionPremisesUseResolved,
+            evictionResidentialGracePeriodStart,
+            evictionVacateDeadlineLocal,
+            evictionResidentialGraceManuallyEndedAt,
+        ]
+    );
+
+    /** موافقة إنهاء مبكر سارية — تُلغى عند وجود مهلة نشطة (دورة جديدة بعد التسجيل) */
+    const residentialGraceEarlyEndApproved = useMemo(() => {
+        if (residentialGracePeriodSaved) return false;
+        const exId = String(decisionsStorageExecutionId || executionId || '').trim();
+        if (!exId) return false;
+        const rows = readExecutorDecisionsArray(exId) as Array<Record<string, unknown>>;
+        return rows.some((d) => {
+            if (String((d as { requestKind?: string }).requestKind || '') !== 'eviction_procedure') {
+                return false;
+            }
+            if (String((d as { evictionWorkflowKey?: string }).evictionWorkflowKey || '') !== 'residential_grace_early_end') {
+                return false;
+            }
+            return isExecutorRowEffectivelyApproved(d);
+        });
     }, [
-        evictionPremisesUseResolved,
-        evictionResidentialGracePeriodStart,
-        evictionVacateDeadlineLocal,
-        isResidentialVacateGraceFinished,
+        residentialGracePeriodSaved,
+        decisionsStorageExecutionId,
+        executionId,
+        decisionsReloadEpoch,
     ]);
 
-    const residentialGraceModalShowPrimarySave = useMemo(() => {
-        const start = evictionResidentialGracePeriodStart;
-        const end = evictionVacateDeadlineLocal;
-        return !(
-            typeof start === 'string' &&
-            /^\d{4}-\d{2}-\d{2}$/.test(start) &&
-            typeof end === 'string' &&
-            /^\d{4}-\d{2}-\d{2}$/.test(end)
-        );
-    }, [evictionResidentialGracePeriodStart, evictionVacateDeadlineLocal]);
+    /** يظهر طلب الإنهاء فقط مع مهلة سكنية مسجّلة وسارية — نفس شرط «تعديل المهلة» */
+    const showResidentialGraceEarlyEndRequest = residentialGracePeriodSaved;
 
-    const openEvictionResidentialGraceModal = useCallback(() => {
+    /** إجراءات ميدانية بعد مهلة سكنية: موافقة إنهاء مبكر، انتهاء تقويمي، أو إنهاء يدوي */
+    const residentialGraceAllowsFieldwork = useMemo(() => {
+        if (!isEvictionExecutionModule) return true;
+        if (evictionPremisesUseResolved !== 'residential') return true;
+        if (!residentialGracePeriodSaved) return true;
+        if (residentialGraceEarlyEndApproved) return true;
+        if (isResidentialVacateGraceFinished) return true;
+        if (Boolean((executionData as { eviction_residential_grace_manually_ended_at?: string })?.eviction_residential_grace_manually_ended_at)) {
+            return true;
+        }
+        return false;
+    }, [
+        isEvictionExecutionModule,
+        evictionPremisesUseResolved,
+        residentialGracePeriodSaved,
+        residentialGraceEarlyEndApproved,
+        isResidentialVacateGraceFinished,
+        executionData,
+    ]);
+
+    const showBreakInventoryRequest = residentialGraceAllowsFieldwork;
+
+    const residentialGraceModalShowPrimarySave = useMemo(() => {
+        if (graceModalAllowResave) return true;
+        return !residentialGracePeriodSaved;
+    }, [graceModalAllowResave, residentialGracePeriodSaved]);
+
+    const openEvictionResidentialGraceModal = useCallback((opts?: { edit?: boolean }) => {
         if (evictionProcedureLocked) {
             showToast('لا يمكن فتح المهلة — الإضبارة أو الإجراءات مقفلة.', 'warning');
             return;
@@ -9673,6 +11721,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 : evictionVacateDraft.trim();
         setGraceModalEndYmd(/^\d{4}-\d{2}-\d{2}$/.test(endFromState) ? endFromState : '');
         setGraceModalStartYmd(evictionResidentialGracePeriodStart || evictionLocalYmdToday());
+        setGraceModalAllowResave(Boolean(opts?.edit));
         setShowEvictionResidentialGraceModal(true);
     }, [
         evictionProcedureLocked,
@@ -9802,6 +11851,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
 
     const submitEvictionResidentialGraceFromModal = useCallback(() => {
         if (
+            !graceModalAllowResave &&
             evictionResidentialGracePeriodStart &&
             /^\d{4}-\d{2}-\d{2}$/.test(evictionResidentialGracePeriodStart) &&
             evictionVacateDeadlineLocal &&
@@ -9865,8 +11915,14 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             title: '⏳ انتهاء المهلة',
             description: `المهلة ${days} يوماً (من ${start} إلى ${end})`,
             source: 'المهلة',
+            metadata: {
+                residentialGraceDeadlineAppointment: true,
+                graceStartYmd: start,
+                graceEndYmd: end,
+                graceDays: days,
+            },
         };
-        const nextTimeline = [ev, appointmentEv, ...timelineEvents];
+        const nextTimeline = [ev, appointmentEv, ...stripResidentialGraceTimelineEvents(timelineEvents)];
         setTimelineEvents(nextTimeline);
         syncExecutionTimelineAppointment({
             executionId: currentFileId,
@@ -9902,12 +11958,16 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             setEvictionGraceDecisionId(null);
         }
 
+        setGraceModalAllowResave(false);
         setShowEvictionResidentialGraceModal(false);
         showToast(
-            'تم تسجيل المهلة — يُحدَّث السجل والمواعيد تلقائياً. يمكنك متابعة موافقة المنفذ من الواجهة أو «القرارات والطعون».',
+            graceModalAllowResave
+                ? 'تم تحديث المهلة.'
+                : 'تم تسجيل المهلة — يُحدَّث السجل والمواعيد تلقائياً.',
             'success'
         );
     }, [
+        graceModalAllowResave,
         graceModalStartYmd,
         graceModalEndYmd,
         evictionResidentialGracePeriodStart,
@@ -9924,21 +11984,33 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         executionId,
     ]);
 
-    const savePoliceAssistanceFromModal = useCallback(
-        (agencyName: string) => {
+    const savePoliceAssistanceEntry = useCallback(
+        (input: { decisionId: string; agencyName: string; linkToTasks?: boolean }) => {
             if (evictionProcedureLocked) {
                 showToast('لا يمكن حفظ القوة الجبرية — الإضبارة أو الإجراءات مقفلة.', 'warning');
                 return;
             }
-            const decisionId = String(policeAssistanceDecisionId || '').trim();
+            const decisionId = String(input.decisionId || '').trim();
             if (!decisionId) return;
-            const agency = String(agencyName || '').trim();
+            const agency = String(input.agencyName || '').trim();
             if (!agency) {
                 showToast('أدخل اسم الجهة المرافقة', 'warning');
                 return;
             }
 
             const now = new Date().toISOString();
+            const storageId = String(
+                decisionsStorageExecutionId || executionData?.id || executionId || ''
+            ).trim();
+            const { ok } = patchExecutorDecisionRowReliable(storageId, decisionId, {
+                policeAssistanceSavedAt: now,
+                policeAssistanceAgency: agency,
+            });
+            if (!ok) {
+                showToast('تعذر حفظ بيانات القوة الإجرائية — تحقق من قرار المنفذ.', 'error');
+                return;
+            }
+
             const linked = executorApprovalActions.getFieldVisitDeadlineIso();
             let dueYmd = now.slice(0, 10);
             if (linked) {
@@ -9964,34 +12036,40 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     policeAssistanceAgency: agency,
                 },
             };
-            const ap: TimelineEvent = {
-                id: nextTimelineId(),
-                type: 'appointment',
-                date: `${dueYmd}T12:00:00`,
-                timestamp: now,
-                title: '🛡️ متابعة القوة الجبرية',
-                description: `الجهة المرافقة: ${agency}`,
-                source: 'القوة الجبرية',
-                metadata: { decisionRowId: decisionId },
-            };
+            const linkToTasks = input.linkToTasks !== false;
+            let nextTimeline = [ev, ...timelineEventsRef.current];
+            let nextTasks = caseTasksPendingRef.current;
 
-            const nextTimeline = [ev, ap, ...timelineEventsRef.current];
+            if (linkToTasks) {
+                const taskId = nextTimelineId();
+                const taskTitle = '🛡️ متابعة القوة الجبرية';
+                const taskBody = `الجهة المرافقة: ${agency}`;
+                nextTasks = [
+                    {
+                        id: taskId,
+                        title: taskTitle,
+                        body: taskBody,
+                        dueDate: dueYmd,
+                        createdAt: now,
+                    },
+                    ...nextTasks,
+                ];
+                nextTimeline = [
+                    {
+                        id: nextTimelineId(),
+                        type: 'other',
+                        date: now,
+                        timestamp: now,
+                        title: `📌 مهمة قيد الإنجاز: ${taskTitle}`,
+                        description: `${taskBody}\n\n📅 تاريخ الإنجاز المطلوب: ${dueYmd}`,
+                        source: 'الإجراءات الجبرية — تخلية',
+                    },
+                    ...nextTimeline,
+                ];
+            }
+
+            setCaseTasksPending(nextTasks);
             setTimelineEvents(nextTimeline);
-            syncExecutionTimelineAppointment({
-                executionId: currentFileId,
-                event: ap,
-                caseNo:
-                    String(executionData?.fileNumber ?? executionData?.caseNo ?? file?.fileNumber ?? '').trim() ||
-                    undefined,
-                clientName:
-                    String(
-                        executionData?.creditors?.[0]?.name ??
-                            executionData?.clientName ??
-                            file?.creditors?.[0]?.name ??
-                            '',
-                    ).trim() ||
-                    undefined,
-            });
             persistExecutionMerge({
                 eviction_police_assistance: {
                     decisionId,
@@ -10001,28 +12079,215 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     completedAt: null,
                 },
                 timelineEvents: nextTimeline,
-            });
-
-            patchExecutorDecisionRow(executionData?.id ?? executionId, decisionId, {
-                policeAssistanceSavedAt: now,
-                policeAssistanceAgency: agency,
+                ...(linkToTasks ? { caseTasksPending: nextTasks } : {}),
             });
 
             setPoliceAssistanceDecisionId(null);
             setPoliceAssistanceRequestTitle('');
             setPoliceAssistanceAgencyDraft('');
             setPoliceAssistanceModalOpen(false);
-            showToast('تم حفظ القوة الجبرية وربطها بالمواعيد والسجل', 'success');
+            showToast(
+                linkToTasks
+                    ? 'تم حفظ القوة الجبرية وإضافتها إلى المهام'
+                    : 'تم حفظ القوة الجبرية في السجل',
+                'success'
+            );
         },
         [
             evictionProcedureLocked,
             showToast,
-            policeAssistanceDecisionId,
+            decisionsStorageExecutionId,
             executorApprovalActions,
             nextTimelineId,
             persistExecutionMerge,
             executionData?.id,
             executionId,
+        ]
+    );
+
+    const savePoliceAssistanceFromModal = useCallback(
+        (agencyName: string, options?: { linkToTasks?: boolean }) => {
+            const decisionId = String(policeAssistanceDecisionId || '').trim();
+            if (!decisionId) return;
+            savePoliceAssistanceEntry({
+                decisionId,
+                agencyName,
+                linkToTasks: options?.linkToTasks,
+            });
+        },
+        [policeAssistanceDecisionId, savePoliceAssistanceEntry]
+    );
+
+    const saveBreakInventoryLedgerEntry = useCallback(
+        (input: { decisionId: string; payload: BreakInventoryFurnitureSavePayload }) => {
+            if (evictionProcedureLocked) {
+                showToast('لا يمكن حفظ الجرد — الإضبارة أو الإجراءات مقفلة.', 'warning');
+                return;
+            }
+            const decisionId = String(input.decisionId || '').trim();
+            if (!decisionId) return;
+            const storageId = String(
+                decisionsStorageExecutionId || executionData?.id || executionId || ''
+            ).trim();
+            const ts = new Date().toISOString();
+            const payload = input.payload;
+            const { ok } = patchExecutorDecisionRowReliable(storageId, decisionId, {
+                breakInventoryFurnitureLedgerAt: ts,
+                breakInventoryFurnitureMode: payload.mode,
+                breakInventoryFurnitureLines:
+                    payload.mode === 'list'
+                        ? payload.lines.map((s) => s.trim()).filter(Boolean)
+                        : [],
+            });
+            if (!ok) {
+                showToast('تعذر حفظ الجرد — تحقق من قرار المنفذ.', 'error');
+                return;
+            }
+            const body =
+                payload.mode === 'none'
+                    ? 'إقرار: لا يوجد أثاث منقول في العين وقت الجرد (كسر الأقفال والجرد).'
+                    : [
+                          'قائمة المنقولات المجرودة (كسر الأقفال والجرد):',
+                          ...payload.lines
+                              .map((s) => s.trim())
+                              .filter(Boolean)
+                              .map((l, i) => `${i + 1}. ${l}`),
+                      ].join('\n');
+            const now = new Date().toISOString();
+            const noteId = `note_${Date.now()}`;
+            setCaseNotesLog((prev) => {
+                const next = [
+                    {
+                        id: noteId,
+                        title: 'جرد الأثاث — كسر الأقفال والجرد',
+                        body,
+                        createdAt: now,
+                    },
+                    ...prev,
+                ];
+                queueMicrotask(() => {
+                    persistExecutionMergeRef.current?.({ caseNotesLog: next });
+                });
+                return next;
+            });
+            showToast('تم حفظ الجرد في قسم الملاحظات', 'success');
+        },
+        [
+            evictionProcedureLocked,
+            showToast,
+            decisionsStorageExecutionId,
+            executionData?.id,
+            executionId,
+        ]
+    );
+
+    const finalizeBreakInventoryEntry = useCallback(
+        (input: { decisionId: string }) => {
+            if (evictionProcedureLocked) {
+                showToast('لا يمكن تأكيد الجرد — الإضبارة أو الإجراءات مقفلة.', 'warning');
+                return;
+            }
+            const decisionId = String(input.decisionId || '').trim();
+            if (!decisionId) return;
+            const storageId = String(
+                decisionsStorageExecutionId || executionData?.id || executionId || ''
+            ).trim();
+            const { ok } = patchExecutorDecisionRowReliable(storageId, decisionId, {
+                breakInventoryFurnitureFinalizedAt: new Date().toISOString(),
+            });
+            if (!ok) {
+                showToast('تعذر تأكيد اكتمال الجرد', 'error');
+                return;
+            }
+            showToast('تم إنهاء الجرد وإغلاق الطلب', 'success');
+        },
+        [
+            evictionProcedureLocked,
+            showToast,
+            decisionsStorageExecutionId,
+            executionData?.id,
+            executionId,
+        ]
+    );
+
+    const saveMaritalFurnitureDeliveryInventoryEntry = useCallback(
+        (input: { decisionId: string; items: import('@/app/types/maritalFurniture').MaritalFurnitureItem[] }) => {
+            if (evictionProcedureLocked) {
+                showToast('لا يمكن حفظ الجرد — الإضبارة أو الإجراءات مقفلة.', 'warning');
+                return;
+            }
+            const decisionId = String(input.decisionId || '').trim();
+            if (!decisionId) return;
+            const normalized = normalizeMaritalFurnitureItems(input.items).map((row) => ({
+                ...row,
+                delivered: input.items.find((i) => i.id === row.id)?.delivered === true,
+            }));
+            if (normalized.length === 0) {
+                showToast('لا توجد قطع أثاث لحفظ حالة التسليم', 'warning');
+                return;
+            }
+
+            const storageId = String(
+                decisionsStorageExecutionId || executionData?.id || executionId || ''
+            ).trim();
+            const ts = new Date().toISOString();
+            const undeliveredTotal = sumUndeliveredMaritalFurnitureTotal(normalized);
+            const furnitureValue = sumMaritalFurnitureTotal(normalized);
+            const body = buildMaritalFurnitureDeliveryNoteBody(normalized);
+
+            const { ok } = patchExecutorDecisionRowReliable(storageId, decisionId, {
+                breakInventoryFurnitureLedgerAt: ts,
+                breakInventoryFurnitureMode: 'marital_delivery',
+                breakInventoryFurnitureLines: normalized.map(
+                    (row) =>
+                        `${row.name}|${row.quantity}|${row.delivered ? 'delivered' : 'undelivered'}`
+                ),
+            });
+            if (!ok) {
+                showToast('تعذر حفظ جرد التسليم — تحقق من قرار المنفذ.', 'error');
+                return;
+            }
+
+            persistExecutionMerge({
+                maritalFurnitureItems: normalized,
+                furnitureValue,
+                furnitureDetails: furnitureDetailsFromItems(normalized),
+                maritalFurnitureDeliveryRecordedAt: ts,
+                totalAmount: undeliveredTotal,
+                debtAmount: undeliveredTotal,
+            });
+
+            const noteId = `note_${Date.now()}`;
+            setCaseNotesLog((prev) => {
+                const next = [
+                    {
+                        id: noteId,
+                        title: 'جرد تسليم الأثاث الزوجية',
+                        body,
+                        createdAt: ts,
+                    },
+                    ...prev,
+                ];
+                queueMicrotask(() => {
+                    persistExecutionMergeRef.current?.({ caseNotesLog: next });
+                });
+                return next;
+            });
+
+            showToast(
+                undeliveredTotal > 0
+                    ? `تم حفظ التسليم — ${undeliveredTotal.toLocaleString('ar-IQ')} د.ع غير مُسلَّم في المركز المالي`
+                    : 'تم حفظ التسليم — جميع القطع مُسلَّمة ولا مبلغ في المركز المالي',
+                'success'
+            );
+        },
+        [
+            evictionProcedureLocked,
+            showToast,
+            decisionsStorageExecutionId,
+            executionData?.id,
+            executionId,
+            persistExecutionMerge,
         ]
     );
 
@@ -10091,22 +12356,127 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         setShowUnifiedExecutionModal(false);
         setIsFinancialCenterExpanded(true);
         setShowExecutionFinancialHub(true);
-        setExecutionFinancialHubTab('ledger');
     }, []);
 
     useEffect(() => {
         const myId = String(executionData?.id ?? executionId ?? '');
         if (!myId) return;
         const handler = (e: Event) => {
-            const ce = e as CustomEvent<{ executionId?: string; mode?: string }>;
+            const ce = e as CustomEvent<{
+                executionId?: string;
+                mode?: string;
+                seizedMovableId?: string;
+                seizedPropertyId?: string;
+            }>;
             if (String(ce.detail?.executionId ?? '') !== myId) return;
             const mode = String(ce.detail?.mode ?? '').trim();
-            setFinancialHubAutoOpenMode(mode === 'disburse' ? 'disburse' : 'disburse');
-            openFinancialHubLedger();
+            const seizedMovableId = String(ce.detail?.seizedMovableId ?? '').trim();
+            const seizedPropertyId = String(ce.detail?.seizedPropertyId ?? '').trim();
+
+            if (mode === 'disburse' && seizedMovableId) {
+                const movables = (executionDataRef.current?.seizedMovables || []) as SeizedMovable[];
+                const hit = movables.find((row) => String(row.id || '').trim() === seizedMovableId);
+                if (!hit) {
+                    showToast('تعذر العثور على المال المنقول.', 'warning');
+                    return;
+                }
+                const amount = resolveMovableSaleProceedsIqd(hit);
+                if (amount <= 0) {
+                    showToast(
+                        'تعذر الصرف: لم يُسجَّل مبلغ الإحالة/البيع في بيانات المنقول.',
+                        'warning'
+                    );
+                    return;
+                }
+                const ledgerParams = seizureMatrixLedgerParamsRef.current;
+                const trustCredit = ledgerParams
+                    ? creditMovableProceedsForExecution(myId, hit, ledgerParams)
+                    : creditMovableSaleProceedsToTrustLedger({
+                          executionId: myId,
+                          movable: hit,
+                      });
+                if (trustCredit.created || trustCredit.updated) {
+                    const nowIso = new Date().toISOString();
+                    pushTimelineEventRef.current?.({
+                        id: nextTimelineId(),
+                        date: nowIso.slice(0, 10),
+                        timestamp: nowIso,
+                        title: '💰 إيداع حصيلة البيع في الأمانات — مال منقول',
+                        description: `وصف المال: ${String(hit.movableDescription || '').trim() || '—'}\nالمبلغ: ${amount.toLocaleString('ar-IQ')} د.ع`,
+                        type: 'payment',
+                        source: 'محضر المتابعة — الأموال المحجوزة',
+                        metadata: {
+                            seizedMovableId,
+                            trustPaymentId: trustCredit.paymentId,
+                        },
+                    });
+                    setUnifiedLedgerRevision((v) => v + 1);
+                    showToast(
+                        `تم إيداع ${amount.toLocaleString('ar-IQ')} د.ع في رصيد الأمانات — يمكنك الصرف الآن.`,
+                        'success'
+                    );
+                }
+            }
+
+            if (mode === 'disburse' && seizedPropertyId) {
+                const properties = (executionDataRef.current?.seizedProperties || []) as SeizedProperty[];
+                const hit = properties.find((row) => String(row.id || '').trim() === seizedPropertyId);
+                if (!hit) {
+                    showToast('تعذر العثور على العقار.', 'warning');
+                    return;
+                }
+                const amount = resolvePropertySaleProceedsIqd(hit);
+                if (amount <= 0) {
+                    showToast(
+                        'تعذر الصرف: لم يُسجَّل مبلغ الإحالة/البيع في بيانات العقار.',
+                        'warning'
+                    );
+                    return;
+                }
+                const ledgerParams = seizureMatrixLedgerParamsRef.current;
+                const trustCredit = ledgerParams
+                    ? creditPropertyProceedsForExecution(myId, hit, ledgerParams)
+                    : creditPropertySaleProceedsToTrustLedger({
+                          executionId: myId,
+                          property: hit,
+                      });
+                if (trustCredit.created || trustCredit.updated) {
+                    const nowIso = new Date().toISOString();
+                    pushTimelineEventRef.current?.({
+                        id: nextTimelineId(),
+                        date: nowIso.slice(0, 10),
+                        timestamp: nowIso,
+                        title: '💰 إيداع حصيلة البيع في الأمانات — عقار',
+                        description: `رقم العقار: ${String(hit.propertyNumber || '').trim() || '—'}\nالمبلغ: ${amount.toLocaleString('ar-IQ')} د.ع`,
+                        type: 'payment',
+                        source: 'محضر المتابعة — الأموال المحجوزة',
+                        metadata: {
+                            seizedPropertyId,
+                            trustPaymentId: trustCredit.paymentId,
+                        },
+                    });
+                    setUnifiedLedgerRevision((v) => v + 1);
+                    showToast(
+                        `تم إيداع ${amount.toLocaleString('ar-IQ')} د.ع في رصيد الأمانات — يمكنك الصرف الآن.`,
+                        'success'
+                    );
+                }
+            }
+
+            if (mode === 'disburse') {
+                setFinancialHubAutoOpenMode('disburse');
+                setFinancialHubSeizedMovableId(seizedMovableId || null);
+                setFinancialHubSeizedPropertyId(seizedPropertyId || null);
+            } else {
+                setFinancialHubAutoOpenMode(null);
+                setFinancialHubSeizedMovableId(null);
+                setFinancialHubSeizedPropertyId(null);
+            }
+            queueMicrotask(() => openFinancialHubLedger());
         };
         window.addEventListener('hami-open-financial-hub-ledger', handler as EventListener);
         return () => window.removeEventListener('hami-open-financial-hub-ledger', handler as EventListener);
-    }, [executionData?.id, executionId, openFinancialHubLedger]);
+    }, [executionData?.id, executionId, openFinancialHubLedger, showToast, nextTimelineId, setUnifiedLedgerRevision]);
 
     const requestFollowupSeizureDecision = useCallback(
         (subtype: 'third_party' | 'notice', title: string, body: string) => {
@@ -10231,6 +12601,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 hasGuarantor: false,
                 guarantor_followup_history: [{ ...gf, archivedAt }, ...prevHist],
             });
+            supersedeGuarantorRequestDecisionsForExecution(decisionsStorageExecutionId);
             pushTimelineEvent({
                 id: nextTimelineId(),
                 date: archivedAt.slice(0, 10),
@@ -10245,6 +12616,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             });
         },
         [
+            decisionsStorageExecutionId,
             executionData?.guarantor_followup,
             executionData?.guarantor_followup_history,
             nextTimelineId,
@@ -10254,14 +12626,19 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     );
 
     const requestGuarantorSeizure = useCallback(
-        (subtype: 'salary' | 'movable' | 'property') => {
+        (subtype: 'salary' | 'movable' | 'property', opts?: { inline?: boolean }) => {
+            const inline = Boolean(opts?.inline);
             const gf = executionData?.guarantor_followup;
-            if (!gf?.details_saved) {
-                showToast('أكمل بيانات الكفيل أولاً.', 'warning');
+            if (!gf?.executor_approved) {
+                showToast('لا يوجد كفيل معتمد من المنفذ.', 'warning');
                 return;
             }
-            if (gf.guarantee_type !== 'amount') {
-                showToast('كفالة إحضار فقط — لا يمكن اتخاذ إجراءات الحجز على الكفيل.', 'warning');
+            const hasDetails =
+                gf.details_saved === true ||
+                (Boolean(String(gf.guarantor_name || '').trim()) &&
+                    Boolean(String(gf.guarantor_workplace || '').trim()));
+            if (!hasDetails) {
+                showToast('أكمل بيانات الكفيل (الاسم وجهة العمل) أولاً.', 'warning');
                 return;
             }
             const label =
@@ -10277,11 +12654,14 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             ]
                 .filter(Boolean)
                 .join('\n');
+            const subtypeStored =
+                subtype === 'movable' ? ('movable_auction' as const) : subtype;
             const did = appendPendingExecutorSeizureDecision({
                 executionId: decisionsStorageExecutionId,
                 requestTitle: label,
                 requestBody: body,
-                seizureSubtype: subtype as any,
+                seizureSubtype: subtypeStored,
+                seizureTarget: 'guarantor',
             });
             if (!did) {
                 showToast('يوجد طلب مماثل قيد المعالجة.', 'warning', { decisionsLink: true });
@@ -10298,17 +12678,52 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 source: 'محضر المتابعة',
                 metadata: { timelineThreadKey: `executor_decision:${did}`, decisionRowId: did },
             });
-            showToast('تم إرسال الطلب إلى القرارات والطعون.', 'success', {
-                decisionsLink: true,
-                decisionId: did,
-                decisionsTab: 'current',
-            });
+            if (!inline) {
+                setShowCoerciveActionForm(null);
+                setSeizureDetailCompletion(null);
+                openSeizureRequestsTabRef.current();
+                setShowUnifiedExecutionModal(true);
+                try {
+                    const exId = String(
+                        decisionsStorageExecutionId ?? executionData?.id ?? executionId ?? ''
+                    ).trim();
+                    window.dispatchEvent(
+                        new CustomEvent('hami-focus-guarantor-seizure-inline', {
+                            detail: { executionId: exId, decisionId: did, kind: subtype },
+                        })
+                    );
+                    window.dispatchEvent(
+                        new CustomEvent('hami-guarantor-seizure-request-created', {
+                            detail: { executionId: exId, decisionId: did },
+                        })
+                    );
+                } catch {
+                    /* ignore */
+                }
+            }
+            showToast(
+                inline
+                    ? 'تم إرسال طلب حجز الكفيل — تابع الإكمال أدناه.'
+                    : 'تم إنشاء طلب حجز الكفيل — أكمل المسار داخل طلبات الحجز.',
+                'success',
+                {
+                    decisionsLink: true,
+                    decisionId: did,
+                    decisionsTab: 'current',
+                }
+            );
         },
         [
             decisionsStorageExecutionId,
             executionData?.guarantor_followup,
+            executionData?.id,
+            executionId,
             nextTimelineId,
             pushTimelineEvent,
+            setShowCoerciveActionForm,
+            setSeizureDetailCompletion,
+            setShowUnifiedExecutionModal,
+            setUnifiedModalTab,
             showToast,
         ]
     );
@@ -10451,6 +12866,100 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         showToast,
     });
 
+    const handleEncroachmentExpenseRecorded = useCallback(
+        (row: import('@/app/utils/unifiedFundsLedgerStorage').EncroachmentCaseExpenseRow) => {
+            const nextExp = [row, ...encroachmentCaseExpenses];
+            const tNow = new Date().toISOString();
+            const evLine: TimelineEvent = {
+                id: nextTimelineId(),
+                type: 'payment',
+                title: `💸 مصاريف إزالة تجاوز: ${row.amount.toLocaleString('ar-IQ')} د.ع`,
+                description: `${row.note} — ${row.requestTitle}`,
+                date: row.date,
+                timestamp: tNow,
+                source: 'إدارة الأموال — إزالة تجاوز',
+            };
+            const nextTimeline = [evLine, ...timelineEvents];
+            setEncroachmentCaseExpenses(nextExp);
+            setTimelineEvents(nextTimeline);
+            persistExecutionMerge({
+                encroachment_case_expenses: nextExp,
+                timelineEvents: nextTimeline,
+            });
+        },
+        [encroachmentCaseExpenses, nextTimelineId, persistExecutionMerge, timelineEvents]
+    );
+
+    const handleSpecificDeliveryExpenseRecorded = useCallback(
+        (
+            row: import('@/app/utils/specificDeliveryPropertyExpertRequest').SpecificDeliveryCaseExpenseRow
+        ) => {
+            const nextExp = [row, ...specificDeliveryCaseExpenses];
+            const tNow = new Date().toISOString();
+            const evLine: TimelineEvent = {
+                id: nextTimelineId(),
+                type: 'payment',
+                title: `💸 مصاريف تسليم شيء معين: ${row.amount.toLocaleString('ar-IQ')} د.ع`,
+                description: `${row.note} — ${row.requestTitle}`,
+                date: row.date,
+                timestamp: tNow,
+                source: 'إدارة الأموال — تسليم شيء معين',
+            };
+            const nextTimeline = [evLine, ...timelineEvents];
+            setSpecificDeliveryCaseExpenses(nextExp);
+            setTimelineEvents(nextTimeline);
+            persistExecutionMerge({
+                specific_delivery_case_expenses: nextExp,
+                timelineEvents: nextTimeline,
+            });
+            try {
+                window.dispatchEvent(new CustomEvent('hami-unified-ledger-updated'));
+            } catch {
+                /* ignore */
+            }
+        },
+        [nextTimelineId, persistExecutionMerge, specificDeliveryCaseExpenses, timelineEvents]
+    );
+
+    const handleSpecificDeliveryFinancialized = useCallback(
+        (amount: number) => {
+            const trimmed = Math.max(0, Math.trunc(amount));
+            if (trimmed <= 0) return;
+            const tNow = new Date().toISOString();
+            const itemName = String(
+                (executionData as { specificDeliveryItemName?: string } | undefined)
+                    ?.specificDeliveryItemName || ''
+            ).trim();
+            const evLine: TimelineEvent = {
+                id: nextTimelineId(),
+                type: 'payment',
+                title: `💰 تحويل تسليم شيء معين: ${trimmed.toLocaleString('ar-IQ')} د.ع`,
+                description:
+                    (itemName ? `الشيء: ${itemName} — ` : '') +
+                    'تحويل المطالبة لتعذر التسليم / هلاك الشيء — حقن الدين الأصلي في المركز المالي',
+                date: getLocalTodayYmd(),
+                timestamp: tNow,
+                source: 'تسليم شيء معين — تحويل مالي',
+            };
+            const nextTimeline = [evLine, ...timelineEvents];
+            setTimelineEvents(nextTimeline);
+            persistExecutionMerge({
+                debtAmount: trimmed,
+                totalAmount: trimmed,
+                specificDeliveryFinancialized: true,
+                specificDeliveryConvertedAmount: trimmed,
+                specificDeliveryFinancializedAt: tNow,
+                timelineEvents: nextTimeline,
+            });
+            try {
+                window.dispatchEvent(new CustomEvent('hami-unified-ledger-updated'));
+            } catch {
+                /* ignore */
+            }
+        },
+        [executionData, nextTimelineId, persistExecutionMerge, timelineEvents]
+    );
+
     useEffect(() => {
         const handler = (e: Event) => {
             const ce = e as CustomEvent<{
@@ -10580,7 +13089,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         executionData?.id,
         executionId,
         setExecutionModal,
-        setExecutionFinancialHubTab,
         setShowExecutionFinancialHub,
         setShowDecisionsModal,
         showToast,
@@ -10728,25 +13236,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             const decisionId = String(ce.detail?.decisionId || '').trim();
             const o = String(ce.detail?.outcome ?? '');
             if (o === 'approved') {
-                showToast('وافق المنفذ على طلب إدخال الكفيل الضامن.', 'success', {
-                    action: {
-                        label: 'فتح قائمة الكفيل',
-                        onClick: () => {
-                            try {
-                                window.dispatchEvent(
-                                    new CustomEvent('hami-open-guarantor-details', {
-                                        detail: { executionId: executionData?.id ?? executionId, decisionId },
-                                    })
-                                );
-                            } catch {
-                                /* ignore */
-                            }
-                        },
-                    },
-                    decisionsLink: true,
-                    decisionId,
-                    decisionsTab: 'previous',
-                });
+                showToast('وافق المنفذ على طلب إدخال الكفيل الضامن.', 'success');
             } else if (o === 'rejected') {
                 showToast('رُفض طلب إدخال الكفيل الضامن.', 'info', {
                     decisionsLink: true,
@@ -10819,7 +13309,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 const decisionId = String((awaiting as any)?.id || '').trim();
                 if (decisionId) {
                     setShowUnifiedExecutionModal(true);
-                    setUnifiedModalTab('seizure_requests');
+                    openSeizureRequestsTabRef.current();
                     showToast('يوجد طلب حجز موافق عليه يحتاج إكمال البيانات داخل محضر المتابعة.', 'info', {
                         decisionsLink: true,
                         decisionId,
@@ -10954,145 +13444,230 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         showToast,
     ]);
 
-    const saveSeizedPropertyInitDetails = useCallback(() => {
-        const exId = String(decisionsStorageExecutionId ?? '').trim();
-        const decisionId = String(seizedPropertyInitDecisionId || '').trim();
-        if (!exId || exId === 'undefined' || !decisionId) return;
-        const propertyNumber = String(seizedPropertyNumberDraft || '').trim();
-        if (!propertyNumber) {
-            showToast('أدخل رقم العقار.', 'warning');
-            return;
-        }
-        const deedNotes = String(seizedPropertyDeedNotesDraft || '').trim();
-        if (!deedNotes) {
-            showToast('أدخل تفاصيل السند.', 'warning');
-            return;
-        }
-        const nowIso = new Date().toISOString();
-        const prev = (executionDataRef.current?.seizedProperties || []) as SeizedProperty[];
-        const existingIdx = prev.findIndex((x) => String(x.decisionRowId || '') === decisionId);
-        const next: SeizedProperty[] = [...prev];
-        const nextRow: SeizedProperty = {
-            id: existingIdx >= 0 ? String(next[existingIdx].id) : `sp_${decisionId}`,
-            decisionRowId: decisionId,
-            propertyNumber,
-            district: String((existingIdx >= 0 ? next[existingIdx].district : '') || ''),
-            propertyGender: seizedPropertyGenderDraft,
-            deedNotes,
-            status: 'seized',
-            seizedAtIso: nowIso,
-            subject: String(seizedPropertyInitSubject || '').trim() || undefined,
-        };
-        if (existingIdx >= 0) next[existingIdx] = { ...next[existingIdx], ...nextRow };
-        else next.unshift(nextRow);
-        persistExecutionMerge({ seizedProperties: next });
-        patchExecutorDecisionRow(exId, decisionId, {
-            seizureRequestSavedAt: nowIso,
-            seizureRequestDetails: `رقم العقار: ${propertyNumber}\nالجنس: ${seizedPropertyGenderDraft}\nتفاصيل السند:\n${deedNotes}`,
-        });
-        pushTimelineEvent({
-            id: nextTimelineId(),
-            date: nowIso.slice(0, 10),
-            timestamp: nowIso,
-            title: '🏠 حفظ بيانات العقار (بعد موافقة المنفذ)',
-            description: `رقم العقار: ${propertyNumber}\nالجنس: ${seizedPropertyGenderDraft}\nتفاصيل السند:\n${deedNotes}`,
-            type: 'decision',
-            source: 'محضر المتابعة — الأموال المحجوزة',
-            metadata: { seizedPropertyId: nextRow.id, decisionRowId: decisionId },
-        });
-        setSeizedPropertyInitModalOpen(false);
-        setSeizedPropertyInitDecisionId(null);
-        setSeizedPropertyInitSubject('');
-        setSeizedPropertyNumberDraft('');
-        setSeizedPropertyGenderDraft('دار');
-        setSeizedPropertyDeedNotesDraft('');
-        showToast('تم حفظ بيانات العقار وإنشاء البطاقة داخل الأموال المحجوزة.', 'success');
-    }, [
-        decisionsStorageExecutionId,
-        nextTimelineId,
-        persistExecutionMerge,
-        pushTimelineEvent,
-        seizedPropertyDeedNotesDraft,
-        seizedPropertyGenderDraft,
-        seizedPropertyInitDecisionId,
-        seizedPropertyInitSubject,
-        seizedPropertyNumberDraft,
-        showToast,
-    ]);
+    const saveSeizedPropertyInitForDecision = useCallback(
+        (input: {
+            decisionId: string;
+            subject?: string;
+            propertyNumber: string;
+            propertyGender: RealEstateGender;
+            deedNotes: string;
+        }) => {
+            const exId = String(decisionsStorageExecutionId ?? '').trim();
+            const decisionId = String(input.decisionId || '').trim();
+            if (!exId || exId === 'undefined' || !decisionId) return;
+            const propertyNumber = String(input.propertyNumber || '').trim();
+            if (!propertyNumber) {
+                showToast('أدخل رقم العقار.', 'warning');
+                return;
+            }
+            const deedNotes = String(input.deedNotes || '').trim();
+            if (!deedNotes) {
+                showToast('أدخل تفاصيل السند.', 'warning');
+                return;
+            }
+            const nowIso = new Date().toISOString();
+            const prev = (executionDataRef.current?.seizedProperties || []) as SeizedProperty[];
+            const existingIdx = prev.findIndex((x) => String(x.decisionRowId || '') === decisionId);
+            const next: SeizedProperty[] = [...prev];
+            const nextRow: SeizedProperty = {
+                id: existingIdx >= 0 ? String(next[existingIdx].id) : `sp_${decisionId}`,
+                decisionRowId: decisionId,
+                propertyNumber,
+                district: String((existingIdx >= 0 ? next[existingIdx].district : '') || ''),
+                propertyGender: input.propertyGender,
+                deedNotes,
+                status: 'seized',
+                seizedAtIso: nowIso,
+                subject: String(input.subject || '').trim() || undefined,
+            };
+            if (existingIdx >= 0) next[existingIdx] = { ...next[existingIdx], ...nextRow };
+            else next.unshift(nextRow);
+            persistExecutionMerge({ seizedProperties: next });
+            patchExecutorDecisionRow(exId, decisionId, {
+                seizureRequestSavedAt: nowIso,
+                seizureRequestDetails: `رقم العقار: ${propertyNumber}\nالجنس: ${input.propertyGender}\nتفاصيل السند:\n${deedNotes}`,
+            });
+            pushTimelineEvent({
+                id: nextTimelineId(),
+                date: nowIso.slice(0, 10),
+                timestamp: nowIso,
+                title: '🏠 حفظ بيانات العقار (بعد موافقة المنفذ)',
+                description: `رقم العقار: ${propertyNumber}\nالجنس: ${input.propertyGender}\nتفاصيل السند:\n${deedNotes}`,
+                type: 'decision',
+                source: 'محضر المتابعة — الأموال المحجوزة',
+                metadata: { seizedPropertyId: nextRow.id, decisionRowId: decisionId },
+            });
+            showToast('تم حفظ بيانات العقار وإنشاء البطاقة داخل الأموال المحجوزة.', 'success');
+        },
+        [decisionsStorageExecutionId, nextTimelineId, persistExecutionMerge, pushTimelineEvent, showToast]
+    );
 
-    const saveSeizedMovableInitDetails = useCallback(() => {
-        const exId = String(decisionsStorageExecutionId ?? '').trim();
-        const decisionId = String(seizedMovableInitDecisionId || '').trim();
-        if (!exId || exId === 'undefined' || !decisionId) return;
-        const desc = String(seizedMovableDescriptionDraft || '').trim();
-        if (!desc) {
-            showToast('أدخل وصف المال المنقول.', 'warning');
-            return;
-        }
-        const loc = String(seizedMovableLocationDraft || '').trim();
-        if (!loc) {
-            showToast('أدخل مكان تواجد المال المنقول.', 'warning');
-            return;
-        }
-        const cust = String(seizedMovableCustodianDraft || '').trim();
-        if (!cust) {
-            showToast('أدخل اسم الحارس القضائي.', 'warning');
-            return;
-        }
-        const nowIso = new Date().toISOString();
-        const prev = (executionDataRef.current?.seizedMovables || []) as SeizedMovable[];
-        const existingIdx = prev.findIndex((x) => String(x.decisionRowId || '') === decisionId);
-        const next: SeizedMovable[] = [...prev];
-        const nextRow: SeizedMovable = {
-            id: existingIdx >= 0 ? String(next[existingIdx].id) : `sm_${decisionId}`,
-            decisionRowId: decisionId,
-            movableDescription: desc,
-            movableLocation: loc,
-            judicialCustodianName: cust,
-            status: 'seized',
-            seizedAtIso: nowIso,
-            subject: String(seizedMovableInitSubject || '').trim() || undefined,
-        };
-        if (existingIdx >= 0) next[existingIdx] = nextRow;
-        else next.unshift(nextRow);
-        persistExecutionMerge({ seizedMovables: next });
-        patchExecutorDecisionRow(exId, decisionId, {
-            seizureRequestSavedAt: nowIso,
-            seizureRequestDetails: `وصف المال المنقول: ${desc}\nالمكان: ${loc}\nالحارس القضائي: ${cust}`,
-        });
-        pushTimelineEvent({
-            id: nextTimelineId(),
-            date: nowIso.slice(0, 10),
-            timestamp: nowIso,
-            title: '📦 حفظ بيانات المال المنقول (بعد موافقة المنفذ)',
-            description: `وصف المال المنقول: ${desc}\nالمكان: ${loc}\nالحارس القضائي: ${cust}`,
-            type: 'decision',
-            source: 'محضر المتابعة — الأموال المحجوزة',
-            metadata: { seizedMovableId: nextRow.id, decisionRowId: decisionId },
-        });
-        setSeizedMovableInitModalOpen(false);
-        setSeizedMovableInitDecisionId(null);
-        setSeizedMovableInitSubject('');
-        setSeizedMovableDescriptionDraft('');
-        setSeizedMovableLocationDraft('');
-        setSeizedMovableCustodianDraft('');
-        showToast('تم حفظ بيانات المال المنقول وإنشاء البطاقة داخل الأموال المحجوزة.', 'success');
-    }, [
-        decisionsStorageExecutionId,
-        nextTimelineId,
-        persistExecutionMerge,
-        pushTimelineEvent,
-        seizedMovableCustodianDraft,
-        seizedMovableDescriptionDraft,
-        seizedMovableInitDecisionId,
-        seizedMovableInitSubject,
-        seizedMovableLocationDraft,
-        showToast,
-    ]);
+    const focusSeizurePropertyInlineCompletion = useCallback(
+        (decisionId: string, subject?: string) => {
+            const exId = String(decisionsStorageExecutionId ?? executionData?.id ?? executionId ?? '').trim();
+            if (!exId || !decisionId) return;
+            setShowCoerciveActionForm(null);
+            setSeizureDetailCompletion(null);
+            setShowUnifiedExecutionModal(true);
+            openSeizureRequestsTabRef.current();
+            try {
+                window.dispatchEvent(
+                    new CustomEvent('hami-focus-seizure-property-inline', {
+                        detail: { executionId: exId, decisionId, subject: subject || '' },
+                    })
+                );
+            } catch {
+                /* ignore */
+            }
+        },
+        [decisionsStorageExecutionId, executionData?.id, executionId]
+    );
+    focusSeizurePropertyInlineRef.current = focusSeizurePropertyInlineCompletion;
+
+    const saveSeizedMovableInitForDecision = useCallback(
+        (input: {
+            decisionId: string;
+            subject?: string;
+            movableDescription: string;
+            movableLocation: string;
+            judicialCustodianName: string;
+        }) => {
+            const exId = String(decisionsStorageExecutionId ?? '').trim();
+            const decisionId = String(input.decisionId || '').trim();
+            if (!exId || exId === 'undefined' || !decisionId) return;
+            const desc = String(input.movableDescription || '').trim();
+            if (!desc) {
+                showToast('أدخل وصف المال المنقول.', 'warning');
+                return;
+            }
+            const loc = String(input.movableLocation || '').trim();
+            if (!loc) {
+                showToast('أدخل مكان تواجد المال المنقول.', 'warning');
+                return;
+            }
+            const cust = String(input.judicialCustodianName || '').trim();
+            if (!cust) {
+                showToast('أدخل اسم الحارس القضائي.', 'warning');
+                return;
+            }
+            const nowIso = new Date().toISOString();
+            const prev = (executionDataRef.current?.seizedMovables || []) as SeizedMovable[];
+            const existingIdx = prev.findIndex((x) => String(x.decisionRowId || '') === decisionId);
+            const next: SeizedMovable[] = [...prev];
+            const nextRow: SeizedMovable = {
+                id: existingIdx >= 0 ? String(next[existingIdx].id) : `sm_${decisionId}`,
+                decisionRowId: decisionId,
+                movableDescription: desc,
+                movableLocation: loc,
+                judicialCustodianName: cust,
+                status: 'seized',
+                seizedAtIso: nowIso,
+                subject: String(input.subject || '').trim() || undefined,
+            };
+            if (existingIdx >= 0) next[existingIdx] = nextRow;
+            else next.unshift(nextRow);
+            persistExecutionMerge({ seizedMovables: next });
+            patchExecutorDecisionRow(exId, decisionId, {
+                seizureRequestSavedAt: nowIso,
+                seizureRequestDetails: `وصف المال المنقول: ${desc}\nالمكان: ${loc}\nالحارس القضائي: ${cust}`,
+            });
+            pushTimelineEvent({
+                id: nextTimelineId(),
+                date: nowIso.slice(0, 10),
+                timestamp: nowIso,
+                title: '📦 حفظ بيانات المال المنقول (بعد موافقة المنفذ)',
+                description: `وصف المال المنقول: ${desc}\nالمكان: ${loc}\nالحارس القضائي: ${cust}`,
+                type: 'decision',
+                source: 'محضر المتابعة — الأموال المحجوزة',
+                metadata: { seizedMovableId: nextRow.id, decisionRowId: decisionId },
+            });
+            showToast('تم حفظ بيانات المال المنقول وإنشاء البطاقة داخل الأموال المحجوزة.', 'success');
+        },
+        [decisionsStorageExecutionId, nextTimelineId, persistExecutionMerge, pushTimelineEvent, showToast]
+    );
+
+    const focusSeizureMovableInlineCompletion = useCallback(
+        (decisionId: string, subject?: string) => {
+            const exId = String(decisionsStorageExecutionId ?? executionData?.id ?? executionId ?? '').trim();
+            if (!exId || !decisionId) return;
+            setShowCoerciveActionForm(null);
+            setSeizureDetailCompletion(null);
+            setShowUnifiedExecutionModal(true);
+            openSeizureRequestsTabRef.current();
+            try {
+                window.dispatchEvent(
+                    new CustomEvent('hami-focus-seizure-movable-inline', {
+                        detail: { executionId: exId, decisionId, subject: subject || '' },
+                    })
+                );
+            } catch {
+                /* ignore */
+            }
+        },
+        [decisionsStorageExecutionId, executionData?.id, executionId]
+    );
+    focusSeizureMovableInlineRef.current = focusSeizureMovableInlineCompletion;
+
+    const focusSeizureThirdPartyInlineCompletion = useCallback(
+        (decisionId: string, subject?: string) => {
+            const exId = String(decisionsStorageExecutionId ?? executionData?.id ?? executionId ?? '').trim();
+            if (!exId || !decisionId) return;
+            setShowCoerciveActionForm(null);
+            setSeizureDetailCompletion(null);
+            setShowUnifiedExecutionModal(true);
+            openSeizureRequestsTabRef.current();
+            try {
+                window.dispatchEvent(
+                    new CustomEvent('hami-focus-seizure-third-party-inline', {
+                        detail: { executionId: exId, decisionId, subject: subject || '' },
+                    })
+                );
+            } catch {
+                /* ignore */
+            }
+        },
+        [decisionsStorageExecutionId, executionData?.id, executionId]
+    );
+    focusSeizureThirdPartyInlineRef.current = focusSeizureThirdPartyInlineCompletion;
+
+    const focusSeizureNoticeInlineCompletion = useCallback(
+        (decisionId: string, subject?: string) => {
+            const exId = String(decisionsStorageExecutionId ?? executionData?.id ?? executionId ?? '').trim();
+            if (!exId || !decisionId) return;
+            setShowCoerciveActionForm(null);
+            setSeizureDetailCompletion(null);
+            setShowUnifiedExecutionModal(true);
+            openSeizureRequestsTabRef.current();
+            try {
+                window.dispatchEvent(
+                    new CustomEvent('hami-focus-seizure-notice-inline', {
+                        detail: { executionId: exId, decisionId, subject: subject || '' },
+                    })
+                );
+            } catch {
+                /* ignore */
+            }
+        },
+        [decisionsStorageExecutionId, executionData?.id, executionId]
+    );
+    focusSeizureNoticeInlineRef.current = focusSeizureNoticeInlineCompletion;
 
     const openSeizureMarkModal = useCallback((entityKind: 'property' | 'movable', entityId: string) => {
         const id = String(entityId || '').trim();
         if (!id) return;
+        if (entityKind === 'movable') {
+            const exId = String(decisionsStorageExecutionId ?? executionDataRef.current?.id ?? executionId ?? '').trim();
+            try {
+                window.dispatchEvent(
+                    new CustomEvent('hami-movable-inline-focus', {
+                        detail: { executionId: exId, movableId: id, step: 'mark' },
+                    })
+                );
+            } catch {
+                /* ignore */
+            }
+            return;
+        }
         setSeizureMarkModalEntityKind(entityKind);
         setSeizureMarkModalEntityId(id);
         const list =
@@ -11105,13 +13680,26 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         const ent = String(hit?.seizureMarkEntity || '').trim();
         setSeizureMarkLetterNumberDraft(letter);
         setSeizureMarkDateDraft(ymd);
-        setSeizureMarkEntityDraft(ent || (entityKind === 'movable' ? 'المرور' : 'التسجيل العقاري'));
+        setSeizureMarkEntityDraft(ent);
         setSeizureMarkModalOpen(true);
-    }, []);
+    }, [decisionsStorageExecutionId, executionId]);
 
     const openPublicationModal = useCallback((entityKind: 'property' | 'movable', entityId: string) => {
         const id = String(entityId || '').trim();
         if (!id) return;
+        if (entityKind === 'movable') {
+            const exId = String(decisionsStorageExecutionId ?? executionDataRef.current?.id ?? executionId ?? '').trim();
+            try {
+                window.dispatchEvent(
+                    new CustomEvent('hami-movable-inline-focus', {
+                        detail: { executionId: exId, movableId: id, step: 'publication' },
+                    })
+                );
+            } catch {
+                /* ignore */
+            }
+            return;
+        }
         setPublicationModalEntityKind(entityKind);
         setPublicationModalEntityId(id);
         const list =
@@ -11122,11 +13710,24 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         setPublicationNewspaperNameDraft(String(hit?.newspaperName || '').trim());
         setPublicationDateYmdDraft(String(hit?.publicationDateYmd || '').trim());
         setPublicationModalOpen(true);
-    }, []);
+    }, [decisionsStorageExecutionId, executionId]);
 
     const openAuctionResultModal = useCallback((entityKind: 'property' | 'movable', entityId: string) => {
         const id = String(entityId || '').trim();
         if (!id) return;
+        if (entityKind === 'movable') {
+            const exId = String(decisionsStorageExecutionId ?? executionDataRef.current?.id ?? executionId ?? '').trim();
+            try {
+                window.dispatchEvent(
+                    new CustomEvent('hami-movable-inline-focus', {
+                        detail: { executionId: exId, movableId: id, step: 'auction_result' },
+                    })
+                );
+            } catch {
+                /* ignore */
+            }
+            return;
+        }
         setSeizedPropertyAuctionResultEntityKind(entityKind);
         setSeizedPropertyAuctionResultPropertyId(id);
         setSeizedPropertyAuctionResultOutcome('initial_award');
@@ -11149,55 +13750,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 : ''
         );
         setSeizedPropertyAuctionResultModalOpen(true);
-    }, []);
-
-    const openIncrease10ResultModal = useCallback(
-        (entityKind: 'property' | 'movable', entityId: string, decisionId?: string) => {
-            const id = String(entityId || '').trim();
-            if (!id) return;
-            setIncrease10ResultEntityKind(entityKind);
-            setIncrease10ResultEntityId(id);
-            setIncrease10ResultDecisionId(String(decisionId || '').trim() || null);
-            const list =
-                entityKind === 'movable'
-                    ? ((executionDataRef.current?.seizedMovables || []) as SeizedMovable[])
-                    : ((executionDataRef.current?.seizedProperties || []) as SeizedProperty[]);
-            const hit = (list as any[]).find((x) => String((x as any).id) === id) as any;
-            setIncrease10BuyerNameDraft(String(hit?.initialAwardBuyerName || hit?.lastBidderOrBuyerName || '').trim());
-            setIncrease10AmountDraft(
-                hit?.initialAwardAmountIqd != null && Number.isFinite(Number(hit.initialAwardAmountIqd)) && Number(hit.initialAwardAmountIqd) > 0
-                    ? String(hit.initialAwardAmountIqd)
-                    : ''
-            );
-            setIncrease10DepositDraft(
-                hit?.auctionDepositAmountIqd != null && Number.isFinite(Number(hit.auctionDepositAmountIqd)) && Number(hit.auctionDepositAmountIqd) > 0
-                    ? String(hit.auctionDepositAmountIqd)
-                    : ''
-            );
-            setIncrease10ResultModalOpen(true);
-        },
-        []
-    );
-
-    useEffect(() => {
-        const handler = (e: Event) => {
-            const ce = e as CustomEvent<{
-                executionId?: string;
-                decisionId?: string;
-                entityKind?: 'property' | 'movable';
-                entityId?: string;
-            }>;
-            const myId = String(executionData?.id ?? executionId ?? '');
-            if (!myId || String(ce.detail?.executionId ?? '') !== myId) return;
-            const kind = ce.detail?.entityKind === 'movable' ? 'movable' : 'property';
-            const entityId = String(ce.detail?.entityId || '').trim();
-            const decisionId = String(ce.detail?.decisionId || '').trim();
-            if (!entityId) return;
-            openIncrease10ResultModal(kind, entityId, decisionId || undefined);
-        };
-        window.addEventListener('hami-open-increase10-result', handler as EventListener);
-        return () => window.removeEventListener('hami-open-increase10-result', handler as EventListener);
-    }, [executionData?.id, executionId, openIncrease10ResultModal]);
+    }, [decisionsStorageExecutionId, executionId]);
 
     const saveSeizureMarkConfirmation = useCallback(() => {
         const entityId = String(seizureMarkModalEntityId || '').trim();
@@ -11348,113 +13901,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         showToast,
     ]);
 
-    const saveIncrease10Result = useCallback(() => {
-        const entityId = String(increase10ResultEntityId || '').trim();
-        const entityKind = increase10ResultEntityKind;
-        const decisionId = String(increase10ResultDecisionId || '').trim();
-        if (!entityId) return;
-        const buyerName = String(increase10BuyerNameDraft || '').trim();
-        if (!buyerName) {
-            showToast('أدخل اسم الضام/المزايد الجديد.', 'warning');
-            return;
-        }
-        const amtRaw = String(increase10AmountDraft || '').replace(/[^\d]/g, '').replace(/,/g, '').trim();
-        const amt = amtRaw ? Number(amtRaw) : NaN;
-        if (!Number.isFinite(amt) || amt <= 0) {
-            showToast('أدخل مبلغ الضم بشكل صحيح.', 'warning');
-            return;
-        }
-        const depositRaw = String(increase10DepositDraft || '').replace(/[^\d]/g, '').replace(/,/g, '').trim();
-        const deposit = depositRaw ? Number(depositRaw) : NaN;
-        if (!Number.isFinite(deposit) || deposit <= 0) {
-            showToast('أدخل مبلغ التأمينات الجديدة بشكل صحيح.', 'warning');
-            return;
-        }
-        const nowIso = new Date().toISOString();
-        if (entityKind === 'movable') {
-            const prev = (executionDataRef.current?.seizedMovables || []) as SeizedMovable[];
-            const idx = prev.findIndex((x) => String(x.id) === entityId);
-            if (idx < 0) return;
-            const next = [...prev];
-            const cur = next[idx] as any;
-            next[idx] = {
-                ...cur,
-                status: 'initial_award',
-                initialAwardBuyerName: buyerName,
-                initialAwardAmountIqd: amt,
-                auctionDepositAmountIqd: deposit,
-                initialAwardRecordedAtIso: nowIso,
-                lastBidderOrBuyerName: buyerName,
-            } as any;
-            persistExecutionMerge({ seizedMovables: next });
-            pushTimelineEvent({
-                id: nextTimelineId(),
-                date: nowIso.slice(0, 10),
-                timestamp: nowIso,
-                title: '➕ تسجيل نتيجة الضم 10% — مال منقول',
-                description: `الضام: ${buyerName}\nمبلغ الضم: ${Number(amt).toLocaleString('ar-IQ')} د.ع\nالتأمينات الجديدة: ${Number(deposit).toLocaleString('ar-IQ')} د.ع`,
-                type: 'decision',
-                source: 'محضر المتابعة — الأموال المحجوزة',
-                metadata: { seizedMovableId: entityId, decisionRowId: decisionId || undefined },
-            });
-        } else {
-            const prev = (executionDataRef.current?.seizedProperties || []) as SeizedProperty[];
-            const idx = prev.findIndex((x) => String(x.id) === entityId);
-            if (idx < 0) return;
-            const next = [...prev];
-            const cur = next[idx] as any;
-            next[idx] = {
-                ...cur,
-                status: 'initial_award',
-                initialAwardBuyerName: buyerName,
-                initialAwardAmountIqd: amt,
-                auctionDepositAmountIqd: deposit,
-                initialAwardRecordedAtIso: nowIso,
-                lastBidderOrBuyerName: buyerName,
-            } as any;
-            persistExecutionMerge({ seizedProperties: next });
-            pushTimelineEvent({
-                id: nextTimelineId(),
-                date: nowIso.slice(0, 10),
-                timestamp: nowIso,
-                title: '➕ تسجيل نتيجة الضم 10% — عقار',
-                description: `الضام: ${buyerName}\nمبلغ الضم: ${Number(amt).toLocaleString('ar-IQ')} د.ع\nالتأمينات الجديدة: ${Number(deposit).toLocaleString('ar-IQ')} د.ع`,
-                type: 'decision',
-                source: 'محضر المتابعة — الأموال المحجوزة',
-                metadata: { seizedPropertyId: entityId, decisionRowId: decisionId || undefined },
-            });
-        }
-        if (decisionId) {
-            const dossierId = String(decisionsStorageExecutionId ?? executionDataRef.current?.id ?? executionId ?? '').trim();
-            if (dossierId && dossierId !== 'undefined') {
-                patchExecutorDecisionRow(dossierId, decisionId, {
-                    seizureRequestSavedAt: nowIso,
-                    seizureRequestDetails: `نتيجة الضم 10%:\nالضام: ${buyerName}\nمبلغ الضم: ${Number(amt).toLocaleString('ar-IQ')} د.ع\nالتأمينات: ${Number(deposit).toLocaleString('ar-IQ')} د.ع`,
-                });
-            }
-        }
-        setIncrease10ResultModalOpen(false);
-        setIncrease10ResultEntityId(null);
-        setIncrease10ResultDecisionId(null);
-        setIncrease10BuyerNameDraft('');
-        setIncrease10AmountDraft('');
-        setIncrease10DepositDraft('');
-        showToast('تم تسجيل نتيجة الضم وتحديث البطاقة فوراً.', 'success');
-    }, [
-        decisionsStorageExecutionId,
-        executionId,
-        increase10AmountDraft,
-        increase10BuyerNameDraft,
-        increase10DepositDraft,
-        increase10ResultDecisionId,
-        increase10ResultEntityId,
-        increase10ResultEntityKind,
-        nextTimelineId,
-        persistExecutionMerge,
-        pushTimelineEvent,
-        showToast,
-    ]);
-
     const saveSeizedPropertyStepDetails = useCallback(() => {
         const exId = String(decisionsStorageExecutionId ?? '').trim();
         const decisionId = String(seizedPropertyStepDecisionId || '').trim();
@@ -11499,6 +13945,14 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 showToast('أدخل أسماء الخبراء.', 'warning');
                 return;
             }
+            const requiredExperts = readExpertCommitteeSize(cur as any);
+            if (expertNames.length !== requiredExperts) {
+                showToast(
+                    `يجب إدخال ${requiredExperts} ${requiredExperts === 1 ? 'خبير' : 'خبراء'} بالضبط (${expertCommitteeSizeLabelAr(requiredExperts)}).`,
+                    'warning'
+                );
+                return;
+            }
             const reportYmd = String(seizedPropertyExpertReportDateDraft || '').trim();
             if (!reportYmd || !/^\d{4}-\d{2}-\d{2}$/.test(reportYmd)) {
                 showToast('اختر تاريخ تقرير الخبراء بشكل صحيح.', 'warning');
@@ -11520,6 +13974,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 ...(entityKind === 'movable' ? {} : { estimatedPriceIqd: price }),
                 expertEstimatedAmountIqd: price,
                 expertNames,
+                expertCommitteeSize: requiredExperts,
                 expertReportDateYmd: reportYmd,
                 experts: { expertName: expertNames.join('، '), estimatedPriceIqd: price, recordedAtIso: nowIso },
             };
@@ -11538,6 +13993,17 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 newspaperName: '',
                 publicationDateYmd: null,
             };
+            const auctionPurpose =
+                entityKind === 'movable'
+                    ? 'موعد مزايدة — مال منقول محجوز'
+                    : 'موعد مزايدة — عقار محجوز';
+            pushSeizureAuctionCalendarAppointment({
+                dossierId: exId,
+                decisionId,
+                ymd,
+                purpose: auctionPurpose,
+                linkToAppointments: linkSeizureAuctionToAppointments,
+            });
         } else if (step === 'award') {
             const buyerName = String(seizedPropertyBuyerNameDraft || '').trim();
             if (!buyerName) {
@@ -11561,20 +14027,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 finalAwardAmountIqd: amt,
                 award: { buyerName, awardAmountIqd: amt, recordedAtIso: nowIso },
             };
-        } else if (step === 'increase10') {
-            const notes = String(seizedPropertyStepNotesDraft || '').trim();
-            title = '➕ تسجيل الضم بزيادة 10%';
-            desc = `${header}${notes ? `\nملاحظات:\n${notes}` : ''}`;
-            patch = {
-                increase10: { recordedAtIso: nowIso, ...(notes ? { notes } : {}) },
-                status: 'published',
-                initialAwardBuyerName: undefined,
-                initialAwardAmountIqd: null,
-                initialAwardRecordedAtIso: undefined,
-                noBiddersRecordedAtIso: undefined,
-                lastBidderOrBuyerName: undefined,
-                finalAwardAmountIqd: null,
-            };
         } else if (step === 'reauction_default') {
             const notes = String(seizedPropertyStepNotesDraft || '').trim();
             title = '🔁 تسجيل النكول / إعادة المزايدة';
@@ -11592,8 +14044,43 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         }
 
         (next as any)[idx] = { ...(cur as any), ...(patch as any) };
+
+        if (entityKind === 'movable' && step === 'award') {
+            const soldMovable = next[idx] as SeizedMovable;
+            const ledgerParams = seizureMatrixLedgerParamsRef.current;
+            const trustCredit = ledgerParams
+                ? creditMovableProceedsForExecution(exId, soldMovable, ledgerParams, nowIso)
+                : creditMovableSaleProceedsToTrustLedger({
+                      executionId: exId,
+                      movable: soldMovable,
+                      at: nowIso,
+                  });
+            if (trustCredit.created || trustCredit.updated) {
+                desc += `\n\n💰 تم إيداع ${trustCredit.amount.toLocaleString('ar-IQ')} د.ع في الأمانات.`;
+                setUnifiedLedgerRevision((v) => v + 1);
+                showToast(
+                    trustCredit.updated
+                        ? `تم تصحيح حصيلة البيع في الأمانات: ${trustCredit.amount.toLocaleString('ar-IQ')} د.ع`
+                        : `تم إيداع ${trustCredit.amount.toLocaleString('ar-IQ')} د.ع (حصيلة البيع) في الأمانات.`,
+                    'success'
+                );
+            }
+        }
+
         persistExecutionMerge(entityKind === 'movable' ? { seizedMovables: next } : { seizedProperties: next });
-        patchExecutorDecisionRow(exId, decisionId, { seizureRequestSavedAt: nowIso, seizureRequestDetails: desc });
+        patchExecutorDecisionRowEverywhere(decisionId, {
+            seizureRequestSavedAt: nowIso,
+            seizureRequestDetails: desc,
+        });
+        try {
+            window.dispatchEvent(
+                new CustomEvent('hami-seizure-decision-step-saved', {
+                    detail: { executionId: exId, decisionId },
+                })
+            );
+        } catch {
+            /* ignore */
+        }
         pushTimelineEvent({
             id: nextTimelineId(),
             date: nowIso.slice(0, 10),
@@ -11637,6 +14124,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         seizedPropertyStepNotesDraft,
         seizedPropertyStepPropertyId,
         showToast,
+        linkSeizureAuctionToAppointments,
+        pushSeizureAuctionCalendarAppointment,
     ]);
 
     const saveSeizedPropertyAuctionSessionResult = useCallback(() => {
@@ -11775,7 +14264,54 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     };
 
     // ✅ FIXED: Proper type for details
-    const saveCoerciveAction = (actionType: string, details: Record<string, string>) => {
+    const clearSettlementFromLedger = useCallback(() => {
+        const exId = String(decisionsStorageExecutionId ?? executionId ?? '').trim();
+        if (!exId) return;
+        const key = storageKey(exId);
+        const stored = storageCache.get(key);
+        const current = parseUnifiedLedgerFromStorage(stored) ?? emptyStore();
+        storageCache.set(key, clearSettlementFromStore(current));
+        try {
+            window.dispatchEvent(new CustomEvent('hami-unified-ledger-updated'));
+        } catch {
+            /* ignore */
+        }
+        setUnifiedLedgerRevision((v) => v + 1);
+    }, [decisionsStorageExecutionId, executionId]);
+
+    const clearActiveSalarySeizurePath = useCallback(() => {
+        const exId = String(decisionsStorageExecutionId ?? executionId ?? '').trim();
+        const nextAssets = releaseSalarySeizedAssets(
+            seizedAssets as Array<Record<string, unknown>>
+        ) as SeizedAsset[];
+        setSeizedAssets(nextAssets);
+        persistExecutionMerge({ seizedAssets: nextAssets });
+        if (exId) {
+            const key = storageKey(exId);
+            const stored = storageCache.get(key);
+            const current = parseUnifiedLedgerFromStorage(stored) ?? emptyStore();
+            storageCache.set(key, clearSalarySeizureFromStore(current));
+            try {
+                storageCache.remove(executionGarnishmentFlagStorageKey(exId));
+                storageCache.remove(executionGarnishmentDetailsStorageKey(exId));
+            } catch {
+                /* ignore */
+            }
+            try {
+                window.dispatchEvent(new CustomEvent('hami-unified-ledger-updated'));
+            } catch {
+                /* ignore */
+            }
+            setUnifiedLedgerRevision((v) => v + 1);
+        }
+        showToast('تم إلغاء مسار حجز الراتب — يُتابَع التسوية فقط.', 'info');
+    }, [decisionsStorageExecutionId, executionId, persistExecutionMerge, seizedAssets, showToast]);
+
+    const saveCoerciveAction = (
+        actionType: string,
+        details: Record<string, string>,
+        opts?: { skipSettlementConflictCheck?: boolean }
+    ) => {
         setShowCoerciveActionForm(null);
 
         const directDecisionRowId =
@@ -11783,6 +14319,24 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             /\S/.test(String((details as any).decisionRowId || '').trim())
                 ? String((details as any).decisionRowId || '').trim()
                 : '';
+
+        if (
+            actionType === 'salary' &&
+            directDecisionRowId &&
+            !opts?.skipSettlementConflictCheck &&
+            settlementGuarantorGate.pendingSettlement
+        ) {
+            void (async () => {
+                const choice = await promptSettlementSalaryConflictChoice(SmartDialog.confirm);
+                if (choice === 'keep_settlement') {
+                    showToast('تم الإبقاء على التسوية — أُلغي إكمال حجز الراتب.', 'info');
+                    return;
+                }
+                clearSettlementFromLedger();
+                saveCoerciveAction(actionType, details, { skipSettlementConflictCheck: true });
+            })();
+            return;
+        }
 
         if (
             (seizureDetailCompletion &&
@@ -11804,7 +14358,27 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
 
             let mergedDesc = (details.description || '').trim();
             if (!mergedDesc && actionType === 'salary') {
-                mergedDesc = `${activeDebtorIsDeceased ? 'جهة صرف الحوافز/المخصصات' : 'جهة العمل'}: ${details.employerName || ''}${details.salaryAmount ? `\nمقدار الدخل الشهري: ${details.salaryAmount}` : ''}`.trim();
+                const dedRaw = String((details as any).monthlyDeductionIqd || '').trim();
+                const parsedDeductionEarly = Number(dedRaw.replace(/,/g, ''));
+                mergedDesc = buildSalarySeizureDescriptionText({
+                    employerName: String(details.employerName || ''),
+                    salaryAmount: String(details.salaryAmount || ''),
+                    monthlyDeductionIqd:
+                        Number.isFinite(parsedDeductionEarly) && parsedDeductionEarly > 0
+                            ? Math.trunc(parsedDeductionEarly)
+                            : undefined,
+                    activeDebtorIsDeceased,
+                    subject: resolveSalarySeizureSubject(
+                        {
+                            details: {
+                                ...details,
+                                decisionRowId: String(decisionRowId),
+                            },
+                        },
+                        executionData ?? null,
+                        String(decisionsStorageExecutionId ?? executionId ?? '').trim() || undefined
+                    ),
+                });
             } else if (!mergedDesc && actionType === 'property') {
                 mergedDesc = `رقم العقار: ${details.propertyNumber || ''}\nالمقاطعة: ${details.propertyDistrict || ''}\nالنوع: ${details.propertyType || ''}`.trim();
             } else if (!mergedDesc && actionType === 'vehicle') {
@@ -11871,8 +14445,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             const titleAr =
                 actionType === 'salary'
                     ? activeDebtorIsDeceased
-                        ? '💼 تثبيت بيانات حجز الحوافز والمخصصات'
-                        : '💼 تثبيت بيانات حجز الراتب'
+                        ? '💼 حجز الحوافز والمخصصات'
+                        : '💼 حجز الراتب'
                     : actionType === 'property'
                       ? '🏠 تثبيت بيانات حجز العقار'
                       : '📦 تثبيت بيانات حجز مال منقول';
@@ -11895,6 +14469,24 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             setTimelineEvents(nextTimeline);
 
             const persistPatch: Record<string, unknown> = { seizedAssets: nextAssets, timelineEvents: nextTimeline };
+            if (actionType === 'property') {
+                const prevProps = (executionDataRef.current?.seizedProperties || []) as SeizedProperty[];
+                persistPatch.seizedProperties = upsertSeizedPropertyFromDetails(prevProps, decisionRowId, {
+                    propertyNumber: String(details.propertyNumber || '').trim(),
+                    propertyDistrict: String(details.propertyDistrict || '').trim(),
+                    propertyType: String(details.propertyType || '').trim(),
+                });
+            }
+            if (actionType === 'vehicle') {
+                const prevMov = (executionDataRef.current?.seizedMovables || []) as SeizedMovable[];
+                persistPatch.seizedMovables = upsertSeizedMovableFromDetails(prevMov, decisionRowId, {
+                    movableDescription: String(
+                        details.movableDescription || details.movableAssetType || details.vehicleDescription || ''
+                    ).trim(),
+                    movableLocation: String(details.movableLocation || '').trim(),
+                    judicialCustodianName: String(details.judicialCustodianName || '').trim(),
+                });
+            }
             if (actionType === 'salary' && /\S/.test(String(details.salaryAmount || '').trim())) {
                 const parsedSalary = Number(String(details.salaryAmount || '').replace(/,/g, '').trim());
                 if (Number.isFinite(parsedSalary) && parsedSalary > 0) {
@@ -11915,7 +14507,33 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     }
                 }
             }
+            const parsedDeduction = Number(
+                String((details as any).monthlyDeductionIqd || '').replace(/,/g, '').trim()
+            );
+            if (actionType === 'salary' && Number.isFinite(parsedDeduction) && parsedDeduction > 0) {
+                const nextAssetsWithDed = (persistPatch.seizedAssets as typeof nextAssets) ?? nextAssets;
+                persistPatch.seizedAssets = (nextAssetsWithDed as typeof nextAssets).map((a) => {
+                    if (a.id !== assetId) return a;
+                    const prevDetails =
+                        typeof a.details === 'object' && a.details && !Array.isArray(a.details)
+                            ? (a.details as Record<string, unknown>)
+                            : {};
+                    return {
+                        ...a,
+                        details: {
+                            ...prevDetails,
+                            monthlyDeductionIqd: Math.trunc(parsedDeduction),
+                        },
+                    };
+                });
+            }
             persistExecutionMerge(persistPatch);
+            const nextDraftsAfterSave = { ...seizureDraftsByDecisionIdRef.current };
+            if (nextDraftsAfterSave[decisionRowId]) {
+                delete nextDraftsAfterSave[decisionRowId];
+                setSeizureDraftsByDecisionId(nextDraftsAfterSave);
+                persistExecutionMerge({ seizureDraftsByDecisionId: nextDraftsAfterSave });
+            }
             patchExecutorDecisionRow(decisionsStorageExecutionId, decisionRowId, {
                 seizureRequestSavedAt: now,
                 seizureRequestDetails: descLines || mergedDesc || undefined,
@@ -11950,6 +14568,16 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
 
         let seizureDecisionId: string | null = null;
         if (isSeizureRequest) {
+            if (
+                actionType === 'salary' &&
+                isSalarySeizureLaneOccupied({
+                    seizedAssets,
+                    seizureDraftsByDecisionId: seizureDraftsByDecisionId as Record<string, SeizedAsset>,
+                })
+            ) {
+                showToast('يوجد حجز راتب نشط أو طلب قيد البت — لا يمكن التكرار قبل فك الحجز.', 'warning');
+                return;
+            }
             const seizureBody = [
                 `طلب ${label} بشأن المدين${subj.name ? ` (${subj.name})` : ''}.`,
                 descWithRouting.trim() || null,
@@ -12080,8 +14708,45 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         }
     };
 
+    const openSalarySeizureWorkflowFromLog = useCallback(
+        (asset?: SeizedAsset | null) => {
+            if (
+                isPersonalStatusCourtDecisionsDossier(
+                    docType || executionData?.docType,
+                    classification || executionData?.classification,
+                    (executionData as { category?: string } | undefined)?.category,
+                )
+            ) {
+                showToast('الإجراءات الجبرية غير متاحة لإضابير أحوال شخصية.', 'info');
+                return;
+            }
+            setShowUnifiedSeizureLogModal(false);
+            setShowCoerciveModal(true);
+            if (asset) {
+                const det =
+                    typeof asset.details === 'object' && asset.details && !Array.isArray(asset.details)
+                        ? (asset.details as Record<string, unknown>)
+                        : {};
+                const decisionRowId = String(det?.decisionRowId || '').trim();
+                if (decisionRowId) {
+                    setSeizureDetailCompletion({
+                        decisionRowId,
+                        assetId: String(asset.id),
+                        actionType: 'salary',
+                    });
+                }
+            }
+            setShowCoerciveActionForm('salary');
+            showToast('انتقل إلى محضر المتابعة — قسم حجز الراتب.', 'info');
+        },
+        [classification, docType, executionData, setShowCoerciveModal, showToast]
+    );
+
     const releaseSeizureAssetRow = (asset: SeizedAsset) => {
-        if (asset.seizure_record_locked) return;
+        if (asset.seizure_record_locked) {
+            showToast('السجل مقفول — استخدم «تراجع» إن كان الحجز قد فُك.', 'warning');
+            return;
+        }
         const today = getLocalTodayYmd();
         const now = new Date().toISOString();
         const key = seizureCoerciveKeyFromAssetType(asset);
@@ -12212,7 +14877,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     };
 
     const updateSeizureSaleDraft = (assetId: string, v: string) => {
-        const cleaned = String(v || '').replace(/[^\d]/g, '');
+        const cleaned = formatNumberInput(String(v || ''));
         const nextAssets = seizedAssets.map((a) =>
             a.id === assetId ? { ...a, seizure_sale_price_draft: cleaned } : a
         );
@@ -12378,7 +15043,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     };
 
     const updateRealEstateSaleDraft = (assetId: string, v: string) => {
-        const cleaned = String(v || '').replace(/[^\d]/g, '');
+        const cleaned = formatNumberInput(String(v || ''));
         const nextAssets = realEstateSeizureSnapshotRef.current.map((a) =>
             a.id === assetId ? { ...a, sale_price_draft: cleaned } : a
         );
@@ -12729,6 +15394,60 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         persistExecutionMerge({ seizedAssets: nextAssets });
     };
 
+    const patchSalarySeizureAssetDetails = useCallback(
+        (assetId: string, patch: SalarySeizureDetailsPatch) => {
+            const mergedDesc = buildSalarySeizureDescriptionText({
+                employerName: String(
+                    patch.employerName ??
+                        (typeof seizedAssets.find((a) => a.id === assetId)?.details === 'object'
+                            ? (
+                                  seizedAssets.find((a) => a.id === assetId)?.details as Record<
+                                      string,
+                                      unknown
+                                  >
+                              )?.employerName
+                            : '') ??
+                        ''
+                ),
+                salaryAmount: patch.salaryAmount,
+                monthlyDeductionIqd:
+                    patch.monthlyDeductionIqd > 0 ? patch.monthlyDeductionIqd : undefined,
+                activeDebtorIsDeceased,
+                subject: resolveSalarySeizureSubject(
+                    (seizedAssets.find((a) => a.id === assetId) as Record<string, unknown>) ?? {
+                        details: { salaryAmount: patch.salaryAmount },
+                    },
+                    executionData ?? null,
+                    String(decisionsStorageExecutionId ?? executionId ?? '').trim() || undefined
+                ),
+            });
+            const nextAssets = seizedAssets.map((a) => {
+                if (a.id !== assetId) return a;
+                const prevDetails =
+                    typeof a.details === 'object' && a.details && !Array.isArray(a.details)
+                        ? (a.details as Record<string, unknown>)
+                        : {};
+                return {
+                    ...a,
+                    description: mergedDesc || a.description,
+                    details: {
+                        ...prevDetails,
+                        salaryAmount: patch.salaryAmount,
+                        ...(patch.employerName != null
+                            ? { employerName: String(patch.employerName).trim() }
+                            : {}),
+                        ...(patch.monthlyDeductionIqd > 0
+                            ? { monthlyDeductionIqd: Math.trunc(patch.monthlyDeductionIqd) }
+                            : {}),
+                    },
+                };
+            });
+            setSeizedAssets(nextAssets);
+            persistExecutionMerge({ seizedAssets: nextAssets });
+        },
+        [activeDebtorIsDeceased, decisionsStorageExecutionId, executionData, executionId, persistExecutionMerge, seizedAssets]
+    );
+
     const deleteSeizureRow = async (asset: SeizedAsset) => {
         if (asset.seizure_record_locked) {
             showToast('سجل مقفول — لا يُحذف', 'warning');
@@ -12788,7 +15507,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 visible={toastVisible}
                 message={toastMessage}
                 type={toastType}
-                action={toastAction}
                 epoch={toastEpoch}
                 onClose={hideToast}
                 zIndex={EXEC_MODAL_Z.toastAboveExecution}
@@ -12870,6 +15588,12 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 decisionsStorageExecutionId={decisionsStorageExecutionId}
             />
 
+            <ExecutionHeirsQuickViewModal
+                heirsQuickView={heirsQuickView}
+                setHeirsQuickView={setHeirsQuickView}
+                X={X}
+            />
+
             <PermanentDeleteConfirmDialog
                 permanentDeleteTimelineId={permanentDeleteTimelineId}
                 setPermanentDeleteTimelineId={setPermanentDeleteTimelineId}
@@ -12915,6 +15639,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 handleDeleteTask={handleDeleteTask}
                 handleCompleteTask={handleCompleteTask}
                 handleAddTimelineEvent={handleAddTimelineEvent}
+                toggleCaseNotePin={toggleCaseNotePin}
+                toggleCaseTaskPin={toggleCaseTaskPin}
             />
 
             <ExecutorWorkflowPortalModals
@@ -12989,38 +15715,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 </Suspense>
             ) : null}
 
-            {showThirdPartySeizureModal ? (
-                <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
-                    <ThirdPartySeizureInitModal
-                        open={showThirdPartySeizureModal}
-                        onOpenChange={(open) => {
-                            setShowThirdPartySeizureModal(open);
-                            if (!open) setThirdPartySeizureModalDecisionId(null);
-                        }}
-                        decisionId={String(thirdPartySeizureModalDecisionId || '')}
-                        initial={thirdPartyModalInitial}
-                        disabled={isHistoricalMode}
-                        onSave={saveThirdPartySeizureFromModal}
-                    />
-                </Suspense>
-            ) : null}
-
-            {showStandaloneExecutionMarkModal ? (
-                <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
-                    <StandaloneExecutionMarkInitModal
-                        open={showStandaloneExecutionMarkModal}
-                        onOpenChange={(open) => {
-                            setShowStandaloneExecutionMarkModal(open);
-                            if (!open) setStandaloneExecutionMarkModalDecisionId(null);
-                        }}
-                        decisionId={String(standaloneExecutionMarkModalDecisionId || '')}
-                        initial={standaloneMarkModalInitial}
-                        disabled={isHistoricalMode}
-                        onSave={saveStandaloneExecutionMarkFromModal}
-                    />
-                </Suspense>
-            ) : null}
-            
             <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
             <LazyExecutionDecisionsModalContainer
                 showDecisionsModal={showDecisionsModal}
@@ -13107,6 +15801,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 setShowPaymentModal={setShowPaymentModal}
                 paymentAmount={paymentAmount}
                 setPaymentAmount={setPaymentAmount}
+                paymentDate={paymentDate}
+                setPaymentDate={setPaymentDate}
                 handlePayment={handlePayment}
             />
 
@@ -13124,145 +15820,93 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 moveTimelineEventToTrash={moveTimelineEventToTrash}
                 onRequestEditTimelineEvent={requestEditTimelineEvent}
                 isHistoricalMode={isHistoricalMode}
-                handleRequestHistoricalSnapshotPreview={handleRequestHistoricalSnapshotPreview}
+                activeTimelineFilter={activeTimelineFilter}
+                setActiveTimelineFilter={setActiveTimelineFilter}
+                todayYmd={todayYmd}
+                timelineFilterOptions={timelineFilterOptions}
             />
             </Suspense>
 
             {/* MAIN DASHBOARD */}
             <div
-                className="backdrop-blur-3xl bg-slate-900/30 w-full max-w-md h-full flex flex-col shadow-2xl border border-slate-700/30"
+                className="bg-slate-900/95 w-full max-w-md h-full flex flex-col shadow-2xl border border-slate-700/30"
                 dir="rtl"
             >
-                {isHistoricalMode ? (
-                    <div
-                        className="flex shrink-0 items-center justify-between gap-3 border-b border-amber-500/50 bg-amber-900/30 p-3 text-amber-200"
-                        role="status"
-                    >
-                        <button
-                            type="button"
-                            onClick={() => setHistoricalSnapshot(null)}
-                            className="shrink-0 rounded bg-amber-600 px-4 py-1 font-semibold text-white transition-colors hover:bg-amber-500"
-                        >
-                            العودة للحاضر 🕒
-                        </button>
-                        <p className="min-w-0 flex-1 text-right text-sm leading-relaxed">
-                            ⚠️ أنت الآن في وضع المعاينة التاريخية. تعرض هذه الشاشة حالة الإضبارة كما كانت في وقت هذا الحدث.
-                        </p>
-                    </div>
-                ) : null}
-
                 {/* 🆕 V16: PREMIUM DIAMOND GLASS HEADER */}
                 <div className="bg-gradient-to-r from-slate-800/40 via-slate-700/20 to-slate-800/40 backdrop-blur-xl border-t border-white/10 border-b border-black/50 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] rounded-xl mx-2 mt-2">
-                    <div className="flex w-full items-center justify-between px-5 py-3">
-                        {/* Title Group (Right Side in RTL) */}
-                        <div className="flex items-center gap-3 flex-row-reverse">
-                            <button
-                                type="button"
-                                onClick={onClose}
-                                className="shrink-0 rounded-lg p-2 transition-all hover:bg-rose-500/20 text-white"
-                                aria-label="إغلاق"
-                            >
-                                <X size={20} />
-                            </button>
-                            <div className="relative min-w-0" ref={dossierLifecyclePopoverRef}>
-                                <button
-                                    type="button"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setDossierLifecyclePanelOpen((open) => {
-                                            const next = !open;
-                                            if (next) {
-                                                setDossierLifecyclePanelPhase('menu');
-                                                setDossierPendingStatus(null);
-                                            }
-                                            return next;
-                                        });
-                                    }}
-                                    className={`inline-flex items-center justify-start gap-3 rounded-xl px-2 py-1 transition-all hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/45 ${dossierLifecycleTriggerTextClass(dossierStatusDraft)}`}
-                                    aria-expanded={dossierLifecyclePanelOpen}
-                                    aria-haspopup="dialog"
-                                    aria-label={`الإضبارة التنفيذية — ${dossierLifecycleLabelAr(dossierStatusDraft)}`}
-                                    title="تغيير حالة الإضبارة — اضغط للقائمة"
-                                >
-                                    <span className="truncate text-lg font-semibold tracking-tight">
-                                        الإضبارة التنفيذية
-                                    </span>
-                                    <span
-                                        className={`h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white/15 shadow-[0_0_8px_rgba(255,255,255,0.2)] ${dossierLifecycleTriggerDotClass(dossierStatusDraft)}`}
-                                        aria-hidden
-                                    />
-                                </button>
-                                {dossierLifecyclePanelOpen && dossierLifecyclePopStyle
-                                    ? <DossierLifecyclePanel
-                                        dossierLifecyclePanelOpen={dossierLifecyclePanelOpen}
-                                        dossierLifecyclePopStyle={dossierLifecyclePopStyle}
-                                        dossierLifecyclePanelPhase={dossierLifecyclePanelPhase}
-                                        setDossierLifecyclePanelPhase={setDossierLifecyclePanelPhase}
-                                        dossierStatusDraft={dossierStatusDraft}
-                                        dossierPendingStatus={dossierPendingStatus}
-                                        setDossierPendingStatus={setDossierPendingStatus}
-                                        dossierReasonDraft={dossierReasonDraft}
-                                        setDossierReasonDraft={setDossierReasonDraft}
-                                        dossierDateDraft={dossierDateDraft}
-                                        setDossierDateDraft={setDossierDateDraft}
-                                        dossierLifecycleLabelAr={dossierLifecycleLabelAr}
-                                        handleDossierLifecyclePick={handleDossierLifecyclePick}
-                                        handleDossierLifecycleConfirmDetails={handleDossierLifecycleConfirmDetails}
-                                        dossierLifecyclePanelPortalRef={dossierLifecyclePanelPortalRef}
-                                    />
-                                    : null}
-                            </div>
-                        </div>
+                    <div className="flex w-full items-center gap-2 px-3 py-2.5">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/8 bg-[#0A0F1C]/45 text-slate-400 backdrop-blur-md transition-all duration-200 hover:border-rose-400/25 hover:bg-rose-500/10 hover:text-rose-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                            aria-label="إغلاق"
+                        >
+                            <X size={17} strokeWidth={2} />
+                        </button>
 
-                        {/* Actions Group (Left Side in RTL) */}
-                        <div className="flex items-center gap-2 px-1">
+                        <div className="relative min-w-0 flex-1 flex justify-center" ref={dossierLifecyclePopoverRef}>
                             <button
                                 type="button"
-                                onClick={() => {
-                                    const next = !aiCopilotEnabled;
-                                    setAiCopilotEnabled(next);
-                                    persistExecutionMerge({
-                                        ai_copilot_enabled: next,
-                                        ai_copilot_mode: 'hybrid',
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDossierLifecyclePanelOpen((open) => {
+                                        const next = !open;
+                                        if (next) {
+                                            setDossierLifecyclePanelPhase('menu');
+                                            setDossierPendingStatus(null);
+                                        }
+                                        return next;
                                     });
-                                    showToast(
-                                        next
-                                            ? 'تم تفعيل الذكاء الاصطناعي للإضبارة.'
-                                            : 'تم إيقاف الذكاء الاصطناعي للإضبارة.',
-                                        next ? 'success' : 'info'
-                                    );
                                 }}
-                                className={`flex shrink-0 items-center justify-center rounded-lg border p-2 text-[10px] font-bold transition-all duration-300 backdrop-blur-sm ${
-                                    aiCopilotEnabled
-                                        ? 'border-[#D4AF37]/50 bg-[#D4AF37]/20 text-[#D4AF37] shadow-[0_0_12px_rgba(212,175,55,0.2)]'
-                                        : 'border-white/5 bg-white/5 text-slate-400 hover:border-white/20 hover:bg-white/10 hover:text-white'
-                                }`}
-                                title="تشغيل/إيقاف الذكاء الاصطناعي في الإضبارة"
-                                aria-label={aiCopilotEnabled ? 'إيقاف الذكاء الاصطناعي' : 'تفعيل الذكاء الاصطناعي'}
+                                className={`inline-flex max-w-full items-center justify-center gap-2.5 rounded-xl px-2 py-1 transition-all hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/45 ${dossierLifecycleTriggerTextClass(dossierStatusDraft)}`}
+                                aria-expanded={dossierLifecyclePanelOpen}
+                                aria-haspopup="dialog"
+                                aria-label={`الإضبارة التنفيذية — ${dossierLifecycleLabelAr(dossierStatusDraft)}`}
+                                title="تغيير حالة الإضبارة — اضغط للقائمة"
                             >
-                                <Bot size={16} className={aiCopilotEnabled ? 'animate-pulse' : ''} />
+                                <span className="truncate text-lg font-semibold tracking-tight">
+                                    الإضبارة التنفيذية
+                                </span>
+                                <span
+                                    className={`h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white/15 shadow-[0_0_8px_rgba(255,255,255,0.2)] ${dossierLifecycleTriggerDotClass(dossierStatusDraft)}`}
+                                    aria-hidden
+                                />
                             </button>
-
-                            <button
-                                type="button"
-                                onClick={() => void handleShareTimeline()}
-                                className="shrink-0 rounded-lg p-2 transition-all duration-300 backdrop-blur-sm border border-transparent hover:border-white/10 hover:bg-white/10 text-slate-400 hover:text-emerald-400"
-                                title="نسخ السجل الزمني ومشاركته"
-                                aria-label="نسخ السجل الزمني ومشاركته"
-                            >
-                                <Share2 size={18} />
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={() => setShowExecutionTrashModal(true)}
-                                className="shrink-0 rounded-lg p-2 transition-all duration-300 backdrop-blur-sm border border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.07] hover:text-white"
-                                title="سلة مهملات الإضبارة (السجل والملاحظات)"
-                                aria-label="سلة مهملات الإضبارة"
-                            >
-                                <Trash size={18} />
-                            </button>
+                            {dossierLifecyclePanelOpen && dossierLifecyclePopStyle
+                                ? <DossierLifecyclePanel
+                                    dossierLifecyclePanelOpen={dossierLifecyclePanelOpen}
+                                    dossierLifecyclePopStyle={dossierLifecyclePopStyle}
+                                    dossierLifecyclePanelPhase={dossierLifecyclePanelPhase}
+                                    setDossierLifecyclePanelPhase={setDossierLifecyclePanelPhase}
+                                    dossierStatusDraft={dossierStatusDraft}
+                                    dossierPendingStatus={dossierPendingStatus}
+                                    setDossierPendingStatus={setDossierPendingStatus}
+                                    dossierReasonDraft={dossierReasonDraft}
+                                    setDossierReasonDraft={setDossierReasonDraft}
+                                    dossierDateDraft={dossierDateDraft}
+                                    setDossierDateDraft={setDossierDateDraft}
+                                    dossierLifecycleLabelAr={dossierLifecycleLabelAr}
+                                    handleDossierLifecyclePick={handleDossierLifecyclePick}
+                                    handleDossierLifecycleConfirmDetails={handleDossierLifecycleConfirmDetails}
+                                    dossierLifecyclePanelPortalRef={dossierLifecyclePanelPortalRef}
+                                />
+                                : null}
                         </div>
+
+                        <button
+                            type="button"
+                            onClick={() => setShowExecutionTrashModal(true)}
+                            className="group relative shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/8 bg-[#0A0F1C]/45 text-slate-400 backdrop-blur-md transition-all duration-200 hover:border-amber-500/30 hover:bg-amber-500/8 hover:text-amber-200/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                            title="سلة مهملات الإضبارة (السجل والملاحظات)"
+                            aria-label="سلة مهملات الإضبارة"
+                        >
+                            <Trash2 size={16} strokeWidth={1.75} className="transition-transform duration-200 group-hover:scale-105" />
+                            {trashedTimelineEvents.length + trashedCaseNotes.length + trashedCaseTasks.length > 0 ? (
+                                <span className="absolute -top-1 -left-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-amber-500/35 bg-amber-950/90 px-1 text-[9px] font-bold tabular-nums text-amber-200/95 shadow-[0_0_10px_-2px_rgba(230,198,115,0.45)]">
+                                    {trashedTimelineEvents.length + trashedCaseNotes.length + trashedCaseTasks.length}
+                                </span>
+                            ) : null}
+                        </button>
                     </div>
                 </div>
                 {stayOfExecutionActive && (
@@ -13274,10 +15918,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 )}
                 
                 {/* 🆕 Delegation Switcher — يُظهر نفسه حسب حالة الـ Store والـ URL */}
-                <DossierSwitcher
-                    parentFileId={currentFileId}
-                    parentFileSnapshot={file ?? null}
-                />
+                <DossierSwitcher parentFileId={parentDossierId} parentFileSnapshot={file ?? null} />
 
                 {/* 🆕 شريط توحيد الأضابير — مستقل بصرياً عن الإنابة */}
                 {hasChildDossiers && !isInabaActive && (
@@ -13356,20 +15997,10 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         stayOfExecutionActive={stayOfExecutionActive}
                         executionData={viewExecutionData}
                         handleLiftStayOfExecution={handleLiftStayOfExecution}
-                        aiCopilotEnabled={aiCopilotEnabled}
-                        Bot={Bot}
-                        runExecutionAICopilot={runExecutionAICopilot}
-                        aiCopilotLoading={aiCopilotLoading}
-                        aiCopilotError={aiCopilotError}
-                        aiCopilotResult={aiCopilotResult}
-                        copyCopilotDraftText={copyCopilotDraftText}
-                        applyCopilotSuggestionAsTask={applyCopilotSuggestionAsTask}
-                        applyCopilotSuggestionAsNote={applyCopilotSuggestionAsNote}
                         XCircle={XCircle}
                         isHeaderExpanded={isHeaderExpanded}
                         toggleHeaderExpanded={toggleHeaderExpanded}
-                        walnutHeaderClaimShort={walnutHeaderClaimShort}
-                        walnutHeaderExecShort={walnutHeaderExecShort}
+                        headerFields={headerFields}
                         openEditDossierMeta={openEditDossierMeta}
                         Pencil={Pencil}
                         isEvictionExecutionModule={isEvictionExecutionModule}
@@ -13382,9 +16013,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         evictionPropertyDistrict={evictionPropertyDistrict}
                         evictionPropertyTypeField={evictionPropertyTypeField}
                         evictionFullAddressField={evictionFullAddressField}
-                    evictionPremisesUseResolved={evictionPremisesUseResolved}
-                    onDossierAction={handleOpenDossierAction}
-                    isSubFile={activeSubFileId !== null}
+                    isSubFile={isInabaActive}
                     hasActiveInaba={!isInabaActive && inabaTargets.length > 0}
                     delegationPurpose={(executionData as any)?.delegationPurpose}
                     linkToken={isInabaActive ? undefined : (executionData as any)?.linkToken}
@@ -13426,6 +16055,50 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         setTransferFileNumberDraft(String(executionData?.fileNumber || '').trim());
                         setShowTransferFileNumberChangeModal(true);
                     }}
+                    onSaveSubFileNumber={(fileNumber, fileYear) => {
+                        if (!isInabaActive || !activeSubFileId) return;
+                        const num = String(fileNumber || '').trim();
+                        const year = String(fileYear || '').trim();
+                        const st = useExecutionDashboardStore.getState();
+                        const cur = st.currentFile
+                            ? ({ ...st.currentFile, fileNumber: num, fileYear: year } as ExecutionFile)
+                            : null;
+                        useExecutionDashboardStore.setState({
+                            currentFile: cur,
+                            subFiles: st.subFiles.map((f) =>
+                                f.id === activeSubFileId ? { ...f, fileNumber: num, fileYear: year } : f
+                            ),
+                        });
+                        persistExecutionMerge({ fileNumber: num, fileYear: year });
+                        setExecutionStorageTick((t) => t + 1);
+                        showToast('تم حفظ رقم الإضبارة الفرعية', 'success');
+                    }}
+                    expandedDossierFromParent={
+                        isInabaActive && parentExecutionFile
+                            ? {
+                                  headerFields: parentHeaderFields,
+                                  classificationDisplay: parentClassificationDisplay,
+                                  claimTypeArabicDisplay: parentClaimTypeArabicDisplay,
+                                  showJudgmentMeta: parentShowJudgmentMeta,
+                                  judgmentDateDisplay: parentJudgmentDateDisplay,
+                                  docNumber: parentHeaderFields.docNumber,
+                                  evictionPropertyNumber: String(
+                                      (parentExecutionFile as { property_number?: string }).property_number ?? ''
+                                  ),
+                                  evictionPropertyDistrict: String(
+                                      (parentExecutionFile as { district?: string }).district ?? ''
+                                  ),
+                                  evictionPropertyTypeField: String(
+                                      (parentExecutionFile as { property_type?: string }).property_type ?? ''
+                                  ),
+                                  evictionFullAddressField: String(
+                                      (parentExecutionFile as { full_address?: string }).full_address ?? ''
+                                  ),
+                                  isEvictionExecutionModule: parentIsEvictionForExpandedHeader,
+                                  openEditDossierMeta: openParentDossierMetaEdit,
+                              }
+                            : undefined
+                    }
                 />
 
                     <DossierActionsModal
@@ -13449,8 +16122,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         creditorWorkspaceEntries={creditorWorkspaceEntries}
                         showExtraCreditors={showExtraCreditors}
                         setShowExtraCreditors={setShowExtraCreditors}
-                        expandedCreditorById={expandedCreditorById}
-                        toggleCreditorExpanded={toggleCreditorExpanded}
                         getExecutionPartyDisplayName={getExecutionPartyDisplayName}
                         executionData={viewExecutionData}
                         buildPartyHeirsRows={buildPartyHeirsRows}
@@ -13472,22 +16143,18 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         creditorExtraMinorNames={creditorExtraMinorNames}
                         creditorExtraMinorLabel={creditorExtraMinorLabel}
                         showToast={showToast}
+                        decisionsStorageExecutionId={decisionsStorageExecutionId}
                         openEditParty={openEditParty}
                     />
                     
-                    <DebtorsSection {...{
+                    <DebtorsSection ref={debtorsSectionRef} {...{
                         Bell,
                         Calendar,
                         DebtorSeizureCategoryBadges,
-                        DollarSign,
                         ExecutionPartyInteractiveBadges,
-                        ExecutionPartySpecialActionsMenu,
                         MapPin,
-                        MoreVertical,
                         PartyOverflowToggle,
-                        Pencil,
                         Phone,
-                        Wallet,
                         X,
                         activeCoerciveActions,
                         activeDebtorHeirsForNotification,
@@ -13495,7 +16162,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         activeNoticeState,
                         activeTimelineEvents,
                         activeTimelineEventsDebtorScoped,
-                        archiveAndClearGuarantor,
                         buildDebtorSummonsMarkerPatchForKey,
                         buildEmployeeAssignmentPatchForDebtorKey,
                         buildPartyHeirsRows,
@@ -13505,7 +16171,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         completeEvictionResidentialGrace,
                         completePoliceAssistance,
                         computeTaklifDeadlineYmd,
-                        createPortal,
                         daysRemainingUntilDeadline,
                         debtorArrested,
                         debtorAttendedVoluntarily,
@@ -13518,6 +16183,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         debtorWorkspaceChipStripRef,
                         debtorWorkspaceEntries,
                         decisionsReloadEpoch,
+                        decisionsStorageExecutionId,
                         dismissDebtorAbsenceBadge,
                         effectiveDebtors,
                         evictionGraceBadgeInfo,
@@ -13525,12 +16191,9 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         executionAppealBanner,
                         executionData,
                         executionDebtorTabIndex,
-                        executionExtras,
                         executionId,
                         executionMemoBadgePopoverOpen,
-                        executionStorageKey,
                         executionToolsTimelineLockedUi,
-                        expandedDebtorById,
                         forcedAttendanceIssued,
                         forcedPathAttendanceSecured,
                         getDebtorSummonsMarkerForKey,
@@ -13539,13 +16202,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         getExecutionPartyDisplayName,
                         getPersonalCoerciveSubtypeOutcome,
                         getPublicationNoticeForDebtorKey,
-                        guarantorMenuOpen,
-                        guarantorReplaceConfirmOpen,
-                        guarantorSeizureOpen,
-                        guarantorUnlinkConfirmOpen,
                         handleDebtorDeathMenuAction,
                         handleDebtorEmploymentToggle,
-                        handleGuarantorRequestFromFollowup,
                         heirsDetailsIncludeClient,
                         isAssignmentDeadlinePassed,
                         isDebtorGovernmentEmployee,
@@ -13553,11 +16211,11 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         isEvictionExecutionModule,
                         isHistoricalMode,
                         isNonFinancialClaim,
+                        isRepresentingDebtor,
                         multiDebtorMode,
                         nextTimelineId,
                         openEditParty,
                         openEvictionResidentialGraceModal,
-                        openGuarantorDetailsModal,
                         openHeirsNotificationCenter,
                         openHeirsQuickView,
                         openPoliceAssistanceFromBadge,
@@ -13573,7 +16231,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         publicationNoticeDeadlineYmd,
                         pushTimelineEvent,
                         realEstateSeizureAssets,
-                        requestGuarantorSeizure,
                         saveSummonsMarkerPurposeEdit,
                         seizedAssets,
                         setDebtorSummonsMarkerLocal,
@@ -13581,11 +16238,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         setEvictionGraceDecisionId,
                         setExecutionDebtorTabIndex,
                         setExecutionMemoBadgePopoverOpen,
-                        setExecutionStorageTick,
-                        setGuarantorMenuOpen,
-                        setGuarantorReplaceConfirmOpen,
-                        setGuarantorSeizureOpen,
-                        setGuarantorUnlinkConfirmOpen,
                         setShowDecisionsModal,
                         setShowExtraDebtors,
                         setShowUnifiedSummonsModal,
@@ -13593,26 +16245,88 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         setSummonsHubInitialMainTab,
                         setSummonsMarkerPopoverOpen,
                         setSummonsPurposeDraft,
-                        setTimelineEvents,
-                        shouldShowEmployeeSalaryCapture,
                         showDebtorSummonsAttendanceBadge,
                         showDebtorUnservedMemoBadge,
                         showExtraDebtors,
-                        showSalaryCaptureForEmployee,
                         showToast,
                         smExecutionTarget: executionData?.executionTarget,
                         smHasGuarantorFile: executionData?.hasGuarantor,
+                        hideAllGuarantorPresence: followupSpecialization.hideAllGuarantorPresence,
                         standaloneExecutionMarks,
-                        storageCache,
                         summonsMarkerPopoverOpen,
                         summonsPurposeDraft,
                         thirdPartySeizureAssets,
                         timelineDebtorMetadata,
-                        toggleDebtorExpanded,
                         toggleEvictionGracePinned,
                         viewExecutionData,
                         voluntaryAttendanceCount
                     }} />
+
+                    {shouldShowGuarantorExternalHub(viewExecutionData) &&
+                    !followupSpecialization.hideAllGuarantorPresence ? (
+                        <div className="mx-3 mt-3.5">
+                            <GuarantorExternalHub
+                                executionData={viewExecutionData}
+                                openGuarantorDetailsModal={openGuarantorDetailsModal}
+                                archiveAndClearGuarantor={archiveAndClearGuarantor}
+                                handleGuarantorRequestFromFollowup={handleGuarantorRequestFromFollowup}
+                                setSummonsContextDebtorKey={setSummonsContextDebtorKey}
+                                setSummonsHubInitialMainTab={setSummonsHubInitialMainTab}
+                                setShowUnifiedSummonsModal={setShowUnifiedSummonsModal}
+                            />
+                        </div>
+                    ) : null}
+
+                    {isVisitationClaim && (
+                        <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                            <LazyVisitationScheduleModule
+                                executionData={viewExecutionData}
+                                visitChildNames={visitChildNames}
+                                fileNumber={String(executionData?.fileNumber ?? headerFields?.fileNumber ?? '')}
+                                todayYmd={todayYmd}
+                                persistExecutionMerge={persistExecutionMerge}
+                                pushTimelineEvent={pushTimelineEvent}
+                                nextTimelineId={nextTimelineId}
+                                showToast={showToast}
+                            />
+                        </Suspense>
+                    )}
+
+                    {isMaritalFurnitureClaim && (
+                        <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                            <LazyMaritalFurnitureModule
+                                executionData={viewExecutionData}
+                                persistExecutionMerge={persistExecutionMerge}
+                                showToast={showToast}
+                                locked={executionToolsTimelineLockedUi}
+                            />
+                        </Suspense>
+                    )}
+
+                    {isVisitationClaim &&
+                        showVisitationCalendarModal &&
+                        (viewExecutionData as { visitationSchedule?: import('@/app/types/visitationSchedule').VisitationScheduleBundle })
+                            ?.visitationSchedule?.config && (
+                            <VisitationCalendarModal
+                                open={showVisitationCalendarModal}
+                                onClose={() => setShowVisitationCalendarModal(false)}
+                                config={
+                                    (
+                                        viewExecutionData as {
+                                            visitationSchedule: import('@/app/types/visitationSchedule').VisitationScheduleBundle;
+                                        }
+                                    ).visitationSchedule.config
+                                }
+                                sessions={
+                                    (
+                                        viewExecutionData as {
+                                            visitationSchedule: import('@/app/types/visitationSchedule').VisitationScheduleBundle;
+                                        }
+                                    ).visitationSchedule.sessions
+                                }
+                                todayYmd={todayYmd}
+                            />
+                        )}
 
                     {isEvictionExecutionModule && judicialCustodiansResolved.length > 0 && (
                         <div className="mx-3 mt-1.5 space-y-1">
@@ -13769,7 +16483,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     {/* إدارة الأموال + المحفظة الخاصة: تُعرضان من «المركز المالي» في أدوات الإضبارة */}
                     <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
                     <LazyActionGridSection
-                        BookOpen={BookOpen}
                         Book={Book}
                         Calendar={Calendar}
                         FileText={FileText}
@@ -13792,9 +16505,45 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         setShowExecutionFinancialHub={setShowExecutionFinancialHub}
                         setIsLawReferenceOpen={setIsLawReferenceOpen}
                         onMemoFollowupClick={handleMemoFollowupClick}
+                        showSeizureLogButton={hasUnifiedSeizureLogContent && !isRepresentingDebtor}
                         onOpenSeizureLog={() => {
+                            if (!hasUnifiedSeizureLogContent) {
+                                showToast('لا يوجد سجل حجز في هذه الإضبارة بعد.', 'info');
+                                return;
+                            }
                             setUnifiedSeizureLogTab('all');
                             setShowUnifiedSeizureLogModal(true);
+                        }}
+                        pinnedNotes={dockPinnedNotes}
+                        pinnedTasks={dockPinnedTasks}
+                        onToggleNotePin={toggleCaseNotePin}
+                        onToggleTaskPin={toggleCaseTaskPin}
+                        onTrashPinnedNote={moveCaseNoteToTrash}
+                        showVisitationCalendarButton={isVisitationClaim}
+                        onOpenVisitationCalendar={() => {
+                            if (executionToolsTimelineLockedUi) {
+                                showToast('⚠️ لا يمكن فتح التقويم في الوضع الحالي.', 'warning');
+                                return;
+                            }
+                            const bundle = (viewExecutionData as { visitationSchedule?: VisitationScheduleBundle })
+                                ?.visitationSchedule;
+                            if (!bundle?.config) {
+                                showToast('لم يُأسَّس جدول المواعيد بعد.', 'warning');
+                                return;
+                            }
+                            const rolled = syncRollingCalendarSessions(
+                                bundle.config,
+                                bundle.sessions,
+                                todayYmd
+                            );
+                            const prevSig = bundle.sessions.map((s) => `${s.id}:${s.status}:${s.documentedAt ?? ''}`).join('|');
+                            const nextSig = rolled.map((s) => `${s.id}:${s.status}:${s.documentedAt ?? ''}`).join('|');
+                            if (prevSig !== nextSig) {
+                                persistExecutionMerge({
+                                    visitationSchedule: { config: bundle.config, sessions: rolled },
+                                });
+                            }
+                            setShowVisitationCalendarModal(true);
                         }}
                     />
                     </Suspense>
@@ -13817,18 +16566,16 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         setShowTimelineModal={setShowTimelineModal}
                         timelineRadarPreviewLimit={mergedTimelineRadarPreviewLimit}
                         isHistoricalMode={isHistoricalMode}
-                        handleRequestHistoricalSnapshotPreview={handleRequestHistoricalSnapshotPreview}
                         activeTimelineFilter={activeTimelineFilter}
                         setActiveTimelineFilter={setActiveTimelineFilter}
                         todayYmd={todayYmd}
-                        filteredTimelineEvents={filteredTimelineEvents}
+                        timelineFilterOptions={timelineFilterOptions}
                         PremiumTimelineAuditLog={PremiumTimelineAuditLog}
                         moveTimelineEventToTrash={moveTimelineEventToTrash}
                         onRequestEditTimelineEvent={requestEditTimelineEvent}
                         showOnlyActiveFileTimeline={showOnlyActiveFileTimeline}
                         setShowOnlyActiveFileTimeline={setShowOnlyActiveFileTimeline}
                         subFilesCount={subFiles.length}
-                        filteredMergedTimelineEvents={filteredMergedTimelineEvents}
                         calendarUserId={resolveCalendarUserId(null)}
                         executionEntityId={String(currentFileId || '')}
                     />
@@ -13849,20 +16596,21 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     setShowExecutionFinancialHub={setShowExecutionFinancialHub}
                     showSeizureLogModal={showSeizureLogModal}
                     setShowSeizureLogModal={setShowSeizureLogModal}
-                    executionFinancialHubTab={executionFinancialHubTab}
-                    setExecutionFinancialHubTab={setExecutionFinancialHubTab}
                     financialHubAutoOpenMode={financialHubAutoOpenMode}
                     setFinancialHubAutoOpenMode={setFinancialHubAutoOpenMode}
+                    financialHubSeizedMovableId={financialHubSeizedMovableId}
+                    setFinancialHubSeizedMovableId={setFinancialHubSeizedMovableId}
+                    financialHubSeizedPropertyId={financialHubSeizedPropertyId}
+                    setFinancialHubSeizedPropertyId={setFinancialHubSeizedPropertyId}
                     financialSeizureLogPreview={financialSeizureLogPreview}
                     financialSeizureLogEvents={financialSeizureLogEvents}
                     EXEC_MODAL_BACKDROP_STRONG={EXEC_MODAL_BACKDROP_STRONG}
                     EXEC_MODAL_Z={EXEC_MODAL_Z}
                     LazyFinancialOperationsCenter={LazyFinancialOperationsCenter}
-                    ClientWalletExecutionSection={ClientWalletExecutionSection}
                     EXEC_FOC_LAZY_FALLBACK={EXEC_FOC_LAZY_FALLBACK}
                     realEstateSeizureRegistryAssets={realEstateSeizureRegistryAssets}
                     movableSeizureRegistryAssets={movableSeizureRegistryAssets}
-                    salarySeizureRegistryAssets={salarySeizureRegistryAssets}
+                    salarySeizureRegistryAssets={salarySeizureTabRows}
                     thirdPartySeizureRegistryAssets={thirdPartySeizureRegistryAssets}
                     standaloneExecutionMarks={standaloneExecutionMarks}
                     executionData={viewExecutionData}
@@ -13917,7 +16665,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     setShowUnifiedExecutionModal={setShowUnifiedExecutionModal}
                     setExecutionDebtorTabIndex={setExecutionDebtorTabIndex}
                     primaryDebtorWorkspaceKey={primaryDebtorWorkspaceKey}
-                    setExpandedDebtorById={setExpandedDebtorById}
+                    expandDebtor={(debtorKey) => debtorsSectionRef.current?.expandDebtor(debtorKey)}
                     openGuarantorDetailsModal={openGuarantorDetailsModal}
                     appendGuarantorFollowupRequest={appendGuarantorFollowupRequest}
                     decisionsStorageExecutionId={decisionsStorageExecutionId}
@@ -13927,7 +16675,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     persistExecutionMerge={persistExecutionMerge}
                     handleEvictionLedgerActivated={handleEvictionLedgerActivated}
                     evictionAssetsTabUnlocked={evictionAssetsTabUnlocked}
-                    syncPaidClientFeesFromWallet={syncPaidClientFeesFromWallet}
                     getLocalTodayYmd={getLocalTodayYmd}
                     setCaseTasksPending={setCaseTasksPending}
                     patchRealEstateMarkConfirmation={patchRealEstateMarkConfirmation}
@@ -13959,9 +16706,11 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     toggleStandaloneExecutionMarkConfirmed={toggleStandaloneExecutionMarkConfirmed}
                     archiveStandaloneExecutionMark={archiveStandaloneExecutionMark}
                     undoArchiveStandaloneExecutionMark={undoArchiveStandaloneExecutionMark}
+                    onClearSalarySeizurePath={clearActiveSalarySeizurePath}
+                    isRepresentingDebtor={isRepresentingDebtor}
                 />
 
-                {showUnifiedSeizureLogModal && typeof document !== 'undefined'
+                {showUnifiedSeizureLogModal && hasUnifiedSeizureLogContent && !isRepresentingDebtor && typeof document !== 'undefined'
                     ? createPortal(
                           <div
                               className={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG}`}
@@ -14118,15 +16867,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                                                                 : status === 'valued'
                                                                                   ? 'border-violet-400/20 bg-violet-500/10 text-violet-200'
                                                                                   : 'border-amber-400/20 bg-amber-500/10 text-amber-200';
-                                                                  const titleTransferDone = Boolean(
-                                                                      String((p as any).titleTransferCompletedAtIso || '').trim()
-                                                                  );
-                                                                  const buyerDeliveryDone = Boolean(
-                                                                      String((p as any).buyerDeliveryCompletedAtIso || '').trim()
-                                                                  );
-                                                                  const proceedsDisburseDone = Boolean(
-                                                                      String((p as any).proceedsDisburseCompletedAtIso || '').trim()
-                                                                  );
                                                                   return (
                                                                       <div
                                                                           key={String(p.id)}
@@ -14197,578 +16937,78 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                                                               </p>
                                                                           ) : null}
 
-                                                                          {status !== 'sold' ? (
-                                                                              <div className="mt-3 flex flex-col gap-2">
-                                                                                  {status === 'seized' ? (
-                                                                                      !String((p as any).seizureMarkLetterNumber || '').trim() ? (
-                                                                                          <button
-                                                                                              type="button"
-                                                                                              onClick={() => openSeizureMarkModal('property', String(p.id))}
-                                                                                              className="w-full rounded-2xl border border-amber-400/25 bg-amber-500/10 px-3 py-3 text-[11px] font-black text-amber-100 hover:bg-amber-500/15"
-                                                                                          >
-                                                                                              تسجيل كتاب تأييد وضع الإشارة
-                                                                                          </button>
-                                                                                      ) : (
-                                                                                          <button
-                                                                                              type="button"
-                                                                                              onClick={() => {
-                                                                                                  const dossierId = String(
-                                                                                                      decisionsStorageExecutionId ||
-                                                                                                          executionData?.id ||
-                                                                                                          executionId ||
-                                                                                                          ''
-                                                                                                  ).trim();
-                                                                                                  if (!dossierId || dossierId === 'undefined') return;
-                                                                                                  const payloadJson = JSON.stringify({
-                                                                                                      seizedPropertyId: String(p.id).trim(),
-                                                                                                  });
-                                                                                                  const body = [
-                                                                                                      'طلب انتداب خبراء لتقدير العقار.',
-                                                                                                      `رقم العقار: ${String(p.propertyNumber || '').trim()}`,
-                                                                                                      `المقاطعة: ${String(p.district || '').trim()}`,
-                                                                                                      `الجنس: ${String(p.propertyGender || '').trim()}`,
-                                                                                                  ].join('\n');
-                                                                                                  const did = appendPendingExecutorSeizureDecision({
-                                                                                                      executionId: dossierId,
-                                                                                                      requestTitle:
-                                                                                                          'طلب انتداب خبراء لتقدير العقار — قيد البت لدى المنفذ',
-                                                                                                      requestBody: body,
-                                                                                                      seizureSubtype: 'property_expert' as any,
-                                                                                                      seizurePayloadJson: payloadJson,
-                                                                                                  });
-                                                                                                  if (!did) {
-                                                                                                      showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', {
-                                                                                                          decisionsLink: true,
-                                                                                                          decisionsTab: 'current',
-                                                                                                      });
-                                                                                                      return;
-                                                                                                  }
-                                                                                                  showToast('تم إرسال طلب انتداب الخبراء إلى القرارات والطعون.', 'success', {
-                                                                                                      decisionsLink: true,
-                                                                                                      decisionId: did,
-                                                                                                      decisionsTab: 'current',
-                                                                                                  });
-                                                                                              }}
-                                                                                              className="w-full rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-3 text-[11px] font-black text-emerald-100 hover:bg-emerald-500/15"
-                                                                                          >
-                                                                                              طلب انتداب خبراء للتقدير
-                                                                                          </button>
-                                                                                      )
-                                                                                  ) : null}
-
-                                                                                  {status === 'valued' ? (
-                                                                                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                                                                          <button
-                                                                                              type="button"
-                                                                                              onClick={() => {
-                                                                                                  const dossierId = String(
-                                                                                                      decisionsStorageExecutionId ||
-                                                                                                          executionData?.id ||
-                                                                                                          executionId ||
-                                                                                                          ''
-                                                                                                  ).trim();
-                                                                                                  if (!dossierId || dossierId === 'undefined') return;
-                                                                                                  const payloadJson = JSON.stringify({
-                                                                                                      seizedPropertyId: String(p.id).trim(),
-                                                                                                  });
-                                                                                                  const body = [
-                                                                                                      'طلب تحديد موعد مزايدة علنية للعقار.',
-                                                                                                      `رقم العقار: ${String(p.propertyNumber || '').trim()}`,
-                                                                                                      `المقاطعة: ${String(p.district || '').trim()}`,
-                                                                                                      `الجنس: ${String(p.propertyGender || '').trim()}`,
-                                                                                                  ].join('\n');
-                                                                                                  const did = appendPendingExecutorSeizureDecision({
-                                                                                                      executionId: dossierId,
-                                                                                                      requestTitle:
-                                                                                                          'طلب تحديد موعد مزايدة علنية — قيد البت لدى المنفذ',
-                                                                                                      requestBody: body,
-                                                                                                      seizureSubtype: 'property_auction' as any,
-                                                                                                      seizurePayloadJson: payloadJson,
-                                                                                                  });
-                                                                                                  if (!did) {
-                                                                                                      showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', {
-                                                                                                          decisionsLink: true,
-                                                                                                          decisionsTab: 'current',
-                                                                                                      });
-                                                                                                      return;
-                                                                                                  }
-                                                                                                  showToast('تم إرسال طلب تحديد موعد المزايدة إلى القرارات والطعون.', 'success', {
-                                                                                                      decisionsLink: true,
-                                                                                                      decisionId: did,
-                                                                                                      decisionsTab: 'current',
-                                                                                                      });
-                                                                                              }}
-                                                                                              className="w-full rounded-2xl border border-sky-400/25 bg-sky-500/10 px-3 py-3 text-[11px] font-black text-sky-100 hover:bg-sky-500/15"
-                                                                                          >
-                                                                                              طلب تحديد موعد مزايدة
-                                                                                          </button>
-                                                                                          <button
-                                                                                              type="button"
-                                                                                              onClick={() => {
-                                                                                                  const dossierId = String(
-                                                                                                      decisionsStorageExecutionId ||
-                                                                                                          executionData?.id ||
-                                                                                                          executionId ||
-                                                                                                          ''
-                                                                                                  ).trim();
-                                                                                                  if (!dossierId || dossierId === 'undefined') return;
-                                                                                                  const payloadJson = JSON.stringify({
-                                                                                                      seizedPropertyId: String(p.id).trim(),
-                                                                                                  });
-                                                                                                  const body = [
-                                                                                                      'طلب الاعتراض على تقرير الخبراء (تقدير العقار).',
-                                                                                                      `رقم العقار: ${String(p.propertyNumber || '').trim()}`,
-                                                                                                      `المقاطعة: ${String(p.district || '').trim()}`,
-                                                                                                      `الجنس: ${String(p.propertyGender || '').trim()}`,
-                                                                                                      String(p.expertReportDateYmd || '').trim()
-                                                                                                          ? `تاريخ التقرير: ${String(p.expertReportDateYmd || '').trim()}`
-                                                                                                          : '',
-                                                                                                  ]
-                                                                                                      .filter(Boolean)
-                                                                                                      .join('\n');
-                                                                                                  const did = appendPendingExecutorSeizureDecision({
-                                                                                                      executionId: dossierId,
-                                                                                                      requestTitle:
-                                                                                                          'طلب الاعتراض على تقرير الخبراء — قيد البت لدى المنفذ',
-                                                                                                      requestBody: body,
-                                                                                                      seizureSubtype: 'property_expert_objection' as any,
-                                                                                                      seizurePayloadJson: payloadJson,
-                                                                                                  });
-                                                                                                  if (!did) {
-                                                                                                      showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', {
-                                                                                                          decisionsLink: true,
-                                                                                                          decisionsTab: 'current',
-                                                                                                      });
-                                                                                                      return;
-                                                                                                  }
-                                                                                                  showToast('تم إرسال طلب الاعتراض على تقرير الخبراء إلى القرارات والطعون.', 'success', {
-                                                                                                      decisionsLink: true,
-                                                                                                      decisionId: did,
-                                                                                                      decisionsTab: 'current',
-                                                                                                  });
-                                                                                              }}
-                                                                                              className="w-full rounded-2xl border border-rose-400/25 bg-rose-500/10 px-3 py-3 text-[11px] font-black text-rose-100 hover:bg-rose-500/15"
-                                                                                          >
-                                                                                              الاعتراض على التقدير
-                                                                                          </button>
-                                                                                      </div>
-                                                                                  ) : null}
-
-                                                                                  {status === 'estimation_objected' ? (
-                                                                                      <button
-                                                                                          type="button"
-                                                                                          onClick={() => {
-                                                                                              const dossierId = String(
-                                                                                                  decisionsStorageExecutionId ||
-                                                                                                      executionData?.id ||
-                                                                                                      executionId ||
-                                                                                                      ''
-                                                                                              ).trim();
-                                                                                              if (!dossierId || dossierId === 'undefined') return;
-                                                                                              const payloadJson = JSON.stringify({
-                                                                                                  seizedPropertyId: String(p.id).trim(),
-                                                                                              });
-                                                                                              const body = [
-                                                                                                  'طلب انتداب لجنة خبراء جديدة لتقدير العقار بعد الاعتراض.',
-                                                                                                  `رقم العقار: ${String(p.propertyNumber || '').trim()}`,
-                                                                                                  `المقاطعة: ${String(p.district || '').trim()}`,
-                                                                                                  `الجنس: ${String(p.propertyGender || '').trim()}`,
-                                                                                              ].join('\n');
-                                                                                              const did = appendPendingExecutorSeizureDecision({
-                                                                                                  executionId: dossierId,
-                                                                                                  requestTitle:
-                                                                                                      'طلب انتداب لجنة خبراء جديدة — قيد البت لدى المنفذ',
-                                                                                                  requestBody: body,
-                                                                                                  seizureSubtype: 'property_expert_committee' as any,
-                                                                                                  seizurePayloadJson: payloadJson,
-                                                                                              });
-                                                                                              if (!did) {
-                                                                                                  showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', {
-                                                                                                      decisionsLink: true,
-                                                                                                      decisionsTab: 'current',
-                                                                                                  });
-                                                                                                  return;
-                                                                                              }
-                                                                                              showToast('تم إرسال طلب انتداب لجنة خبراء جديدة إلى القرارات والطعون.', 'success', {
-                                                                                                  decisionsLink: true,
+                                                                          <SeizedPropertyWorkflowPanel
+                                                                              property={p}
+                                                                              workflowStatus={status}
+                                                                              decisionsStorageExecutionId={decisionsStorageExecutionId}
+                                                                              executionId={executionId}
+                                                                              executionDataId={executionData?.id}
+                                                                              decisions={seizureLogExecutorDecisions}
+                                                                              properties={seizedPropertiesForSeizureLog}
+                                                                              propertyInlineSaveCtx={propertyInlineSaveCtx}
+                                                                              decisionsReloadEpoch={decisionsReloadEpoch}
+                                                                              appealPerspective={appealPerspective}
+                                                                              showToast={showToast}
+                                                                              onOpenAppeals={(did) => {
+                                                                                  try {
+                                                                                      window.dispatchEvent(
+                                                                                          new CustomEvent('hami-open-decisions-modal', {
+                                                                                              detail: {
+                                                                                                  executionId: decisionsStorageExecutionId,
+                                                                                                  tab: 'previous',
                                                                                                   decisionId: did,
-                                                                                                  decisionsTab: 'current',
-                                                                                              });
-                                                                                          }}
-                                                                                          className="w-full rounded-2xl border border-amber-400/25 bg-amber-500/10 px-3 py-3 text-[11px] font-black text-amber-100 hover:bg-amber-500/15"
-                                                                                      >
-                                                                                          طلب انتداب لجنة خبراء جديدة
-                                                                                      </button>
-                                                                                  ) : null}
+                                                                                              },
+                                                                                          })
+                                                                                      );
+                                                                                  } catch {
+                                                                                      /* ignore */
+                                                                                  }
+                                                                              }}
+                                                                          />
+                                                                      </div>
+                                                                  );
+                                                              })}
+                                                          </div>
+                                                      </div>
+                                                  ) : null}
 
-                                                                                  {status === 'published' ? (
-                                                                                      !String((p as any).newspaperName || '').trim() ||
-                                                                                      !String((p as any).publicationDateYmd || '').trim() ? (
-                                                                                          <button
-                                                                                              type="button"
-                                                                                              onClick={() => openPublicationModal('property', String(p.id))}
-                                                                                              className="w-full rounded-2xl border border-amber-400/25 bg-amber-500/10 px-3 py-3 text-[11px] font-black text-amber-100 hover:bg-amber-500/15"
-                                                                                          >
-                                                                                              تسجيل بيانات النشر والإعلان
-                                                                                          </button>
-                                                                                      ) : (
-                                                                                          <button
-                                                                                              type="button"
-                                                                                              onClick={() => openAuctionResultModal('property', String(p.id))}
-                                                                                              className="w-full rounded-2xl border border-sky-400/25 bg-sky-500/10 px-3 py-3 text-[11px] font-black text-sky-100 hover:bg-sky-500/15"
-                                                                                          >
-                                                                                              تسجيل نتيجة جلسة المزايدة
-                                                                                          </button>
-                                                                                      )
-                                                                                  ) : null}
-
-                                                                                  {status === 'no_bidders' ? (
-                                                                                      <button
-                                                                                          type="button"
-                                                                                          onClick={() => {
-                                                                                              const dossierId = String(
-                                                                                                  decisionsStorageExecutionId ||
-                                                                                                      executionData?.id ||
-                                                                                                      executionId ||
-                                                                                                      ''
-                                                                                              ).trim();
-                                                                                              if (!dossierId || dossierId === 'undefined') return;
-                                                                                              const payloadJson = JSON.stringify({
-                                                                                                  seizedPropertyId: String(p.id).trim(),
-                                                                                              });
-                                                                                              const body = [
-                                                                                                  'طلب تحديد موعد مزايدة جديد (كسر القرار) بعد عدم حصول راغب بالشراء.',
-                                                                                                  `رقم العقار: ${String(p.propertyNumber || '').trim()}`,
-                                                                                                  `المقاطعة: ${String(p.district || '').trim()}`,
-                                                                                                  `الجنس: ${String(p.propertyGender || '').trim()}`,
-                                                                                                  String(p.auctionDateYmd || '').trim()
-                                                                                                      ? `الموعد السابق: ${String(p.auctionDateYmd || '').trim()}`
-                                                                                                      : '',
-                                                                                              ]
-                                                                                                  .filter(Boolean)
-                                                                                                  .join('\n');
-                                                                                              const did = appendPendingExecutorSeizureDecision({
-                                                                                                  executionId: dossierId,
-                                                                                                  requestTitle:
-                                                                                                      'طلب تحديد موعد مزايدة جديد — قيد البت لدى المنفذ',
-                                                                                                  requestBody: body,
-                                                                                                  seizureSubtype: 'property_auction' as any,
-                                                                                                  seizurePayloadJson: payloadJson,
-                                                                                              });
-                                                                                              if (!did) {
-                                                                                                  showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', {
-                                                                                                      decisionsLink: true,
-                                                                                                      decisionsTab: 'current',
-                                                                                                  });
-                                                                                                  return;
-                                                                                              }
-                                                                                              showToast('تم إرسال طلب تحديد موعد مزايدة جديد إلى القرارات والطعون.', 'success', {
-                                                                                                  decisionsLink: true,
-                                                                                                  decisionId: did,
-                                                                                                  decisionsTab: 'current',
-                                                                                              });
-                                                                                          }}
-                                                                                          className="w-full rounded-2xl border border-amber-400/25 bg-amber-500/10 px-3 py-3 text-[11px] font-black text-amber-100 hover:bg-amber-500/15"
-                                                                                      >
-                                                                                          طلب تحديد موعد مزايدة جديد (كسر القرار)
-                                                                                      </button>
-                                                                                  ) : null}
-
-                                                                                  {status === 'initial_award' ? (
-                                                                                      <>
-                                                                                          <button
-                                                                                              type="button"
-                                                                                              onClick={() => {
-                                                                                                  const dossierId = String(
-                                                                                                      decisionsStorageExecutionId ||
-                                                                                                          executionData?.id ||
-                                                                                                          executionId ||
-                                                                                                          ''
-                                                                                                  ).trim();
-                                                                                                  if (!dossierId || dossierId === 'undefined') return;
-                                                                                                  const payloadJson = JSON.stringify({
-                                                                                                      seizedPropertyId: String(p.id).trim(),
-                                                                                                  });
-                                                                                                  const body = [
-                                                                                                      'طلب إحالة قطعية للعقار بعد المزايدة.',
-                                                                                                      `رقم العقار: ${String(p.propertyNumber || '').trim()}`,
-                                                                                                      `المقاطعة: ${String(p.district || '').trim()}`,
-                                                                                                      `الجنس: ${String(p.propertyGender || '').trim()}`,
-                                                                                                  ].join('\n');
-                                                                                                  const did = appendPendingExecutorSeizureDecision({
-                                                                                                      executionId: dossierId,
-                                                                                                      requestTitle:
-                                                                                                          'طلب إحالة قطعية — قيد البت لدى المنفذ',
-                                                                                                      requestBody: body,
-                                                                                                      seizureSubtype: 'property_final_award' as any,
-                                                                                                      seizurePayloadJson: payloadJson,
-                                                                                                  });
-                                                                                                  if (!did) {
-                                                                                                      showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', {
-                                                                                                          decisionsLink: true,
-                                                                                                          decisionsTab: 'current',
-                                                                                                      });
-                                                                                                      return;
-                                                                                                  }
-                                                                                                  showToast('تم إرسال طلب الإحالة القطعية إلى القرارات والطعون.', 'success', {
-                                                                                                      decisionsLink: true,
-                                                                                                      decisionId: did,
-                                                                                                      decisionsTab: 'current',
-                                                                                                  });
-                                                                                              }}
-                                                                                              className="w-full rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-3 text-[11px] font-black text-emerald-100 hover:bg-emerald-500/15"
-                                                                                          >
-                                                                                              طلب إحالة قطعية
-                                                                                          </button>
-                                                                                          <button
-                                                                                              type="button"
-                                                                                              onClick={() => {
-                                                                                                  const dossierId = String(
-                                                                                                      decisionsStorageExecutionId ||
-                                                                                                          executionData?.id ||
-                                                                                                          executionId ||
-                                                                                                          ''
-                                                                                                  ).trim();
-                                                                                                  if (!dossierId || dossierId === 'undefined') return;
-                                                                                                  const payloadJson = JSON.stringify({
-                                                                                                      seizedPropertyId: String(p.id).trim(),
-                                                                                                  });
-                                                                                                  const body = [
-                                                                                                      'طلب الضم بزيادة 10% على بدل المزايدة.',
-                                                                                                      `رقم العقار: ${String(p.propertyNumber || '').trim()}`,
-                                                                                                      `المقاطعة: ${String(p.district || '').trim()}`,
-                                                                                                      `الجنس: ${String(p.propertyGender || '').trim()}`,
-                                                                                                  ].join('\n');
-                                                                                                  const did = appendPendingExecutorSeizureDecision({
-                                                                                                      executionId: dossierId,
-                                                                                                      requestTitle:
-                                                                                                          'طلب الضم بزيادة 10% — قيد البت لدى المنفذ',
-                                                                                                      requestBody: body,
-                                                                                                      seizureSubtype: 'property_increase_10' as any,
-                                                                                                      seizurePayloadJson: payloadJson,
-                                                                                                  });
-                                                                                                  if (!did) {
-                                                                                                      showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', {
-                                                                                                          decisionsLink: true,
-                                                                                                          decisionsTab: 'current',
-                                                                                                      });
-                                                                                                      return;
-                                                                                                  }
-                                                                                                  showToast('تم إرسال طلب الضم بزيادة 10% إلى القرارات والطعون.', 'success', {
-                                                                                                      decisionsLink: true,
-                                                                                                      decisionId: did,
-                                                                                                      decisionsTab: 'current',
-                                                                                                  });
-                                                                                              }}
-                                                                                              className="w-full rounded-2xl border border-amber-400/25 bg-amber-500/10 px-3 py-3 text-[11px] font-black text-amber-100 hover:bg-amber-500/15"
-                                                                                          >
-                                                                                              طلب الضم بزيادة 10%
-                                                                                          </button>
-                                                                                          <button
-                                                                                              type="button"
-                                                                                              onClick={() => {
-                                                                                                  const dossierId = String(
-                                                                                                      decisionsStorageExecutionId ||
-                                                                                                          executionData?.id ||
-                                                                                                          executionId ||
-                                                                                                          ''
-                                                                                                  ).trim();
-                                                                                                  if (!dossierId || dossierId === 'undefined') return;
-                                                                                                  const payloadJson = JSON.stringify({
-                                                                                                      seizedPropertyId: String(p.id).trim(),
-                                                                                                  });
-                                                                                                  const body = [
-                                                                                                      'طلب إعادة المزايدة للنكول.',
-                                                                                                      `رقم العقار: ${String(p.propertyNumber || '').trim()}`,
-                                                                                                      `المقاطعة: ${String(p.district || '').trim()}`,
-                                                                                                      `الجنس: ${String(p.propertyGender || '').trim()}`,
-                                                                                                  ].join('\n');
-                                                                                                  const did = appendPendingExecutorSeizureDecision({
-                                                                                                      executionId: dossierId,
-                                                                                                      requestTitle:
-                                                                                                          'طلب إعادة المزايدة للنكول — قيد البت لدى المنفذ',
-                                                                                                      requestBody: body,
-                                                                                                      seizureSubtype: 'property_reauction_default' as any,
-                                                                                                      seizurePayloadJson: payloadJson,
-                                                                                                  });
-                                                                                                  if (!did) {
-                                                                                                      showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', {
-                                                                                                          decisionsLink: true,
-                                                                                                          decisionsTab: 'current',
-                                                                                                      });
-                                                                                                      return;
-                                                                                                  }
-                                                                                                  showToast('تم إرسال طلب إعادة المزايدة للنكول إلى القرارات والطعون.', 'success', {
-                                                                                                      decisionsLink: true,
-                                                                                                      decisionId: did,
-                                                                                                      decisionsTab: 'current',
-                                                                                                  });
-                                                                                              }}
-                                                                                              className="w-full rounded-2xl border border-rose-400/25 bg-rose-500/10 px-3 py-3 text-[11px] font-black text-rose-100 hover:bg-rose-500/15"
-                                                                                          >
-                                                                                              طلب إعادة المزايدة للنكول
-                                                                                          </button>
-                                                                                      </>
-                                                                                  ) : null}
-                                                                              </div>
-                                                                          ) : (
-                                                                              <div className="mt-3 flex flex-col gap-2">
-                                                                                  <button
-                                                                                      type="button"
-                                                                                      disabled={titleTransferDone}
-                                                                                      onClick={() => {
-                                                                                          if (titleTransferDone) return;
-                                                                                          const dossierId = String(
-                                                                                              decisionsStorageExecutionId ||
-                                                                                                  executionData?.id ||
-                                                                                                  executionId ||
-                                                                                                  ''
-                                                                                          ).trim();
-                                                                                          if (!dossierId || dossierId === 'undefined') return;
-                                                                                          const payloadJson = JSON.stringify({
-                                                                                              seizedPropertyId: String(p.id).trim(),
-                                                                                          });
-                                                                                          const body = [
-                                                                                              'طلب مخاطبة التسجيل العقاري لنقل الملكية للمشتري (بعد الإحالة القطعية).',
-                                                                                              `رقم العقار: ${String(p.propertyNumber || '').trim()}`,
-                                                                                              `المقاطعة: ${String(p.district || '').trim()}`,
-                                                                                              `الجنس: ${String(p.propertyGender || '').trim()}`,
-                                                                                          ].join('\n');
-                                                                                          const did = appendPendingExecutorSeizureDecision({
-                                                                                              executionId: dossierId,
-                                                                                              requestTitle:
-                                                                                                  'طلب مخاطبة التسجيل العقاري لنقل الملكية — قيد البت لدى المنفذ',
-                                                                                              requestBody: body,
-                                                                                              seizureSubtype: 'property_title_transfer' as any,
-                                                                                              seizurePayloadJson: payloadJson,
-                                                                                          });
-                                                                                          if (!did) {
-                                                                                              showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', {
-                                                                                                  decisionsLink: true,
-                                                                                                  decisionsTab: 'current',
-                                                                                              });
-                                                                                              return;
-                                                                                          }
-                                                                                          showToast('تم إرسال طلب مخاطبة التسجيل العقاري إلى القرارات والطعون.', 'success', {
-                                                                                              decisionsLink: true,
-                                                                                              decisionId: did,
-                                                                                              decisionsTab: 'current',
-                                                                                          });
-                                                                                      }}
-                                                                                      className={`w-full rounded-2xl border px-3 py-3 text-[11px] font-black ${
-                                                                                          titleTransferDone
-                                                                                              ? 'border-white/10 bg-white/5 text-slate-300 opacity-60 cursor-not-allowed'
-                                                                                              : 'border-sky-400/25 bg-sky-500/10 text-sky-100 hover:bg-sky-500/15'
-                                                                                      }`}
-                                                                                  >
-                                                                                      {titleTransferDone
-                                                                                          ? 'تم إنجاز نقل الملكية (التسجيل العقاري)'
-                                                                                          : 'طلب مخاطبة التسجيل العقاري لنقل الملكية'}
-                                                                                  </button>
-                                                                                  <button
-                                                                                      type="button"
-                                                                                      disabled={buyerDeliveryDone}
-                                                                                      onClick={() => {
-                                                                                          if (buyerDeliveryDone) return;
-                                                                                          const dossierId = String(
-                                                                                              decisionsStorageExecutionId ||
-                                                                                                  executionData?.id ||
-                                                                                                  executionId ||
-                                                                                                  ''
-                                                                                          ).trim();
-                                                                                          if (!dossierId || dossierId === 'undefined') return;
-                                                                                          const payloadJson = JSON.stringify({
-                                                                                              seizedPropertyId: String(p.id).trim(),
-                                                                                          });
-                                                                                          const body = [
-                                                                                              'طلب التخلية وتسليم العقار للمشتري (بعد الإحالة القطعية).',
-                                                                                              `رقم العقار: ${String(p.propertyNumber || '').trim()}`,
-                                                                                              `المقاطعة: ${String(p.district || '').trim()}`,
-                                                                                              `الجنس: ${String(p.propertyGender || '').trim()}`,
-                                                                                          ].join('\n');
-                                                                                          const did = appendPendingExecutorSeizureDecision({
-                                                                                              executionId: dossierId,
-                                                                                              requestTitle:
-                                                                                                  'طلب التخلية وتسليم العقار للمشتري — قيد البت لدى المنفذ',
-                                                                                              requestBody: body,
-                                                                                              seizureSubtype: 'property_buyer_delivery' as any,
-                                                                                              seizurePayloadJson: payloadJson,
-                                                                                          });
-                                                                                          if (!did) {
-                                                                                              showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', {
-                                                                                                  decisionsLink: true,
-                                                                                                  decisionsTab: 'current',
-                                                                                                  });
-                                                                                              return;
-                                                                                          }
-                                                                                          showToast('تم إرسال طلب التخلية والتسليم إلى القرارات والطعون.', 'success', {
-                                                                                              decisionsLink: true,
-                                                                                              decisionId: did,
-                                                                                              decisionsTab: 'current',
-                                                                                          });
-                                                                                      }}
-                                                                                      className={`w-full rounded-2xl border px-3 py-3 text-[11px] font-black ${
-                                                                                          buyerDeliveryDone
-                                                                                              ? 'border-white/10 bg-white/5 text-slate-300 opacity-60 cursor-not-allowed'
-                                                                                              : 'border-amber-400/25 bg-amber-500/10 text-amber-100 hover:bg-amber-500/15'
-                                                                                      }`}
-                                                                                  >
-                                                                                      {buyerDeliveryDone
-                                                                                          ? 'تم إنجاز التخلية والتسليم للمشتري'
-                                                                                          : 'طلب التخلية وتسليم العقار للمشتري'}
-                                                                                  </button>
-                                                                                  <button
-                                                                                      type="button"
-                                                                                      disabled={proceedsDisburseDone}
-                                                                                      onClick={() => {
-                                                                                          if (proceedsDisburseDone) return;
-                                                                                          const dossierId = String(
-                                                                                              decisionsStorageExecutionId ||
-                                                                                                  executionData?.id ||
-                                                                                                  executionId ||
-                                                                                                  ''
-                                                                                          ).trim();
-                                                                                          if (!dossierId || dossierId === 'undefined') return;
-                                                                                          const payloadJson = JSON.stringify({
-                                                                                              seizedPropertyId: String(p.id).trim(),
-                                                                                          });
-                                                                                          const body = [
-                                                                                              'طلب صرف حصيلة البيع للدائن (بعد الإحالة القطعية).',
-                                                                                              `رقم العقار: ${String(p.propertyNumber || '').trim()}`,
-                                                                                              `المقاطعة: ${String(p.district || '').trim()}`,
-                                                                                              `الجنس: ${String(p.propertyGender || '').trim()}`,
-                                                                                          ].join('\n');
-                                                                                          const did = appendPendingExecutorSeizureDecision({
-                                                                                              executionId: dossierId,
-                                                                                              requestTitle:
-                                                                                                  'طلب صرف حصيلة البيع للدائن — قيد البت لدى المنفذ',
-                                                                                              requestBody: body,
-                                                                                              seizureSubtype: 'property_proceeds_disburse' as any,
-                                                                                              seizurePayloadJson: payloadJson,
-                                                                                          });
-                                                                                          if (!did) {
-                                                                                              showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', {
-                                                                                                  decisionsLink: true,
-                                                                                                  decisionsTab: 'current',
-                                                                                              });
-                                                                                              return;
-                                                                                          }
-                                                                                          showToast('تم إرسال طلب صرف حصيلة البيع إلى القرارات والطعون.', 'success', {
-                                                                                              decisionsLink: true,
-                                                                                              decisionId: did,
-                                                                                              decisionsTab: 'current',
-                                                                                          });
-                                                                                      }}
-                                                                                      className={`w-full rounded-2xl border px-3 py-3 text-[11px] font-black ${
-                                                                                          proceedsDisburseDone
-                                                                                              ? 'border-white/10 bg-white/5 text-slate-300 opacity-60 cursor-not-allowed'
-                                                                                              : 'border-emerald-400/25 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/15'
-                                                                                      }`}
-                                                                                  >
-                                                                                      {proceedsDisburseDone ? 'تم إنجاز صرف حصيلة البيع للدائن' : 'طلب صرف حصيلة البيع للدائن'}
-                                                                                  </button>
-                                                                              </div>
-                                                                          )}
+                                                  {pendingPropertySeizureDecisions.length > 0 ? (
+                                                      <div className="rounded-3xl border border-emerald-400/25 bg-emerald-950/20 p-3">
+                                                          <p className="mb-2 text-[11px] font-black text-emerald-200 text-right">
+                                                              طلبات عقار بانتظار إكمال السجل
+                                                          </p>
+                                                          <div className="space-y-2">
+                                                              {pendingPropertySeizureDecisions.map((row) => {
+                                                                  const did = String(row?.id || '').trim();
+                                                                  const title = String(row?.title || '').trim() || 'طلب حجز عقار';
+                                                                  const details = String(
+                                                                      row?.seizureRequestDetails || row?.body || ''
+                                                                  ).trim();
+                                                                  return (
+                                                                      <div
+                                                                          key={did}
+                                                                          className="rounded-2xl border border-white/10 bg-[#0B1120]/60 p-3 text-right"
+                                                                      >
+                                                                          <p className="text-[12px] font-black text-white">
+                                                                              {title}
+                                                                          </p>
+                                                                          <p className="mt-1 text-[10px] text-emerald-200/90">
+                                                                              موافقة المنفذ — أكمل بيانات العقار لبدء الإشارة والخبراء والمزايدة
+                                                                          </p>
+                                                                          {details ? (
+                                                                              <pre className="mt-2 whitespace-pre-wrap text-[10px] leading-relaxed text-slate-400">
+                                                                                  {details}
+                                                                              </pre>
+                                                                          ) : null}
+                                                                          <button
+                                                                              type="button"
+                                                                              onClick={() => {
+                                                                                  focusSeizurePropertyInlineCompletion(did, title);
+                                                                              }}
+                                                                              className="mt-3 w-full rounded-2xl border border-emerald-400/35 bg-emerald-500/15 px-3 py-3 text-[11px] font-black text-emerald-100 hover:bg-emerald-500/22"
+                                                                          >
+                                                                              إكمال بيانات العقار وبدء الإجراءات
+                                                                          </button>
                                                                       </div>
                                                                   );
                                                               })}
@@ -15082,16 +17322,10 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                                                                     : status === 'valued'
                                                                                       ? 'border-violet-400/20 bg-violet-500/10 text-violet-200'
                                                                                       : 'border-amber-400/20 bg-amber-500/10 text-amber-200';
-                                                                      const deliveryDone = Boolean(
-                                                                          String((m as any).buyerDeliveryCompletedAtIso || '').trim()
-                                                                      );
-                                                                      const proceedsDone = Boolean(
-                                                                          String((m as any).proceedsDisburseCompletedAtIso || '').trim()
-                                                                      );
                                                                       return (
                                                                           <div
                                                                               key={String((m as any).id)}
-                                                                              className="rounded-3xl border border-white/10 bg-slate-900/30 p-4"
+                                                                              className="rounded-2xl border border-white/10 bg-[#0B1120]/60 p-3"
                                                                           >
                                                                               <div className="flex items-start justify-between gap-3">
                                                                                   <span
@@ -15105,9 +17339,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                                                                       </p>
                                                                                       <p className="mt-0.5 text-[10px] text-slate-400">
                                                                                           المكان: {String((m as any).movableLocation || '').trim() || '—'}
-                                                                                      </p>
-                                                                                      <p className="mt-0.5 text-[10px] text-slate-400">
-                                                                                          الحارس: {String((m as any).judicialCustodianName || '').trim() || '—'}
                                                                                       </p>
                                                                                   </div>
                                                                               </div>
@@ -15132,517 +17363,34 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                                                                       {Number((m as any).auctionDepositAmountIqd).toLocaleString('ar-IQ')} د.ع
                                                                                   </p>
                                                                               ) : null}
-                                                                              {status !== 'sold' ? (
-                                                                                  <div className="mt-3 flex flex-col gap-2">
-                                                                                      {status === 'seized' ? (
-                                                                                          !String((m as any).seizureMarkLetterNumber || '').trim() ? (
-                                                                                              <button
-                                                                                                  type="button"
-                                                                                                  onClick={() =>
-                                                                                                      openSeizureMarkModal(
-                                                                                                          'movable',
-                                                                                                          String((m as any).id)
-                                                                                                      )
-                                                                                                  }
-                                                                                                  className="w-full rounded-2xl border border-amber-400/25 bg-amber-500/10 px-3 py-3 text-[11px] font-black text-amber-100 hover:bg-amber-500/15"
-                                                                                              >
-                                                                                                  تسجيل كتاب تأييد وضع الإشارة
-                                                                                              </button>
-                                                                                          ) : (
-                                                                                              <button
-                                                                                                  type="button"
-                                                                                                  onClick={() => {
-                                                                                                      const dossierId = String(
-                                                                                                          decisionsStorageExecutionId ||
-                                                                                                              executionData?.id ||
-                                                                                                              executionId ||
-                                                                                                              ''
-                                                                                                      ).trim();
-                                                                                                      if (!dossierId || dossierId === 'undefined') return;
-                                                                                                      const payloadJson = JSON.stringify({
-                                                                                                          seizedMovableId: String((m as any).id).trim(),
-                                                                                                      });
-                                                                                                      const body = [
-                                                                                                          'طلب انتداب خبراء لتقدير المال المنقول.',
-                                                                                                          `وصف المال: ${String((m as any).movableDescription || '').trim()}`,
-                                                                                                          `المكان: ${String((m as any).movableLocation || '').trim()}`,
-                                                                                                          `الحارس: ${String((m as any).judicialCustodianName || '').trim()}`,
-                                                                                                      ].join('\n');
-                                                                                                      const did = appendPendingExecutorSeizureDecision({
-                                                                                                          executionId: dossierId,
-                                                                                                          requestTitle:
-                                                                                                              'طلب انتداب خبراء — مال منقول (قيد البت لدى المنفذ)',
-                                                                                                          requestBody: body,
-                                                                                                          seizureSubtype: 'movable_expert' as any,
-                                                                                                          seizurePayloadJson: payloadJson,
-                                                                                                      });
-                                                                                                      if (!did) {
-                                                                                                          showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', {
-                                                                                                              decisionsLink: true,
-                                                                                                              decisionsTab: 'current',
-                                                                                                          });
-                                                                                                          return;
-                                                                                                      }
-                                                                                                      showToast('تم إرسال طلب الخبراء إلى القرارات والطعون.', 'success', {
-                                                                                                          decisionsLink: true,
-                                                                                                          decisionId: did,
-                                                                                                          decisionsTab: 'current',
-                                                                                                      });
-                                                                                                  }}
-                                                                                                  className="w-full rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-3 text-[11px] font-black text-emerald-100 hover:bg-emerald-500/15"
-                                                                                              >
-                                                                                                  طلب انتداب خبراء للتقدير
-                                                                                              </button>
-                                                                                          )
-                                                                                      ) : null}
-                                                                                      {status === 'valued' ? (
-                                                                                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                                                                              <button
-                                                                                                  type="button"
-                                                                                                  onClick={() => {
-                                                                                                      const dossierId = String(
-                                                                                                          decisionsStorageExecutionId ||
-                                                                                                              executionData?.id ||
-                                                                                                              executionId ||
-                                                                                                              ''
-                                                                                                      ).trim();
-                                                                                                      if (!dossierId || dossierId === 'undefined') return;
-                                                                                                      const payloadJson = JSON.stringify({
-                                                                                                          seizedMovableId: String((m as any).id).trim(),
-                                                                                                      });
-                                                                                                      const body = [
-                                                                                                          'طلب تحديد موعد مزايدة علنية للمال المنقول.',
-                                                                                                          `وصف المال: ${String((m as any).movableDescription || '').trim()}`,
-                                                                                                          `المكان: ${String((m as any).movableLocation || '').trim()}`,
-                                                                                                          `الحارس: ${String((m as any).judicialCustodianName || '').trim()}`,
-                                                                                                      ].join('\n');
-                                                                                                      const did = appendPendingExecutorSeizureDecision({
-                                                                                                          executionId: dossierId,
-                                                                                                          requestTitle:
-                                                                                                              'طلب تحديد موعد مزايدة — مال منقول (قيد البت لدى المنفذ)',
-                                                                                                          requestBody: body,
-                                                                                                          seizureSubtype: 'movable_auction_date' as any,
-                                                                                                          seizurePayloadJson: payloadJson,
-                                                                                                      });
-                                                                                                      if (!did) {
-                                                                                                          showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', {
-                                                                                                              decisionsLink: true,
-                                                                                                              decisionsTab: 'current',
-                                                                                                          });
-                                                                                                          return;
-                                                                                                      }
-                                                                                                      showToast('تم إرسال طلب تحديد موعد المزايدة إلى القرارات والطعون.', 'success', {
-                                                                                                          decisionsLink: true,
-                                                                                                          decisionId: did,
-                                                                                                          decisionsTab: 'current',
-                                                                                                      });
-                                                                                                  }}
-                                                                                                  className="w-full rounded-2xl border border-sky-400/25 bg-sky-500/10 px-3 py-3 text-[11px] font-black text-sky-100 hover:bg-sky-500/15"
-                                                                                              >
-                                                                                                  طلب تحديد موعد مزايدة
-                                                                                              </button>
-                                                                                              <button
-                                                                                                  type="button"
-                                                                                                  onClick={() => {
-                                                                                                      const dossierId = String(
-                                                                                                          decisionsStorageExecutionId ||
-                                                                                                              executionData?.id ||
-                                                                                                              executionId ||
-                                                                                                              ''
-                                                                                                      ).trim();
-                                                                                                      if (!dossierId || dossierId === 'undefined') return;
-                                                                                                      const payloadJson = JSON.stringify({
-                                                                                                          seizedMovableId: String((m as any).id).trim(),
-                                                                                                      });
-                                                                                                      const body = [
-                                                                                                          'طلب الاعتراض على تقرير الخبراء (تقدير المال المنقول).',
-                                                                                                          `وصف المال: ${String((m as any).movableDescription || '').trim()}`,
-                                                                                                          `المكان: ${String((m as any).movableLocation || '').trim()}`,
-                                                                                                          String((m as any).expertReportDateYmd || '').trim()
-                                                                                                              ? `تاريخ التقرير: ${String((m as any).expertReportDateYmd || '').trim()}`
-                                                                                                              : '',
-                                                                                                      ]
-                                                                                                          .filter(Boolean)
-                                                                                                          .join('\n');
-                                                                                                      const did = appendPendingExecutorSeizureDecision({
-                                                                                                          executionId: dossierId,
-                                                                                                          requestTitle:
-                                                                                                              'طلب الاعتراض على تقرير الخبراء — مال منقول (قيد البت لدى المنفذ)',
-                                                                                                          requestBody: body,
-                                                                                                          seizureSubtype: 'movable_expert_objection' as any,
-                                                                                                          seizurePayloadJson: payloadJson,
-                                                                                                      });
-                                                                                                      if (!did) {
-                                                                                                          showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', {
-                                                                                                              decisionsLink: true,
-                                                                                                              decisionsTab: 'current',
-                                                                                                          });
-                                                                                                          return;
-                                                                                                      }
-                                                                                                      showToast('تم إرسال طلب الاعتراض على تقرير الخبراء إلى القرارات والطعون.', 'success', {
-                                                                                                          decisionsLink: true,
-                                                                                                          decisionId: did,
-                                                                                                          decisionsTab: 'current',
-                                                                                                      });
-                                                                                                  }}
-                                                                                                  className="w-full rounded-2xl border border-rose-400/25 bg-rose-500/10 px-3 py-3 text-[11px] font-black text-rose-100 hover:bg-rose-500/15"
-                                                                                              >
-                                                                                                  الاعتراض على التقدير
-                                                                                              </button>
-                                                                                          </div>
-                                                                                      ) : null}
-
-                                                                                      {status === 'estimation_objected' ? (
-                                                                                          <button
-                                                                                              type="button"
-                                                                                              onClick={() => {
-                                                                                                  const dossierId = String(
-                                                                                                      decisionsStorageExecutionId ||
-                                                                                                          executionData?.id ||
-                                                                                                          executionId ||
-                                                                                                          ''
-                                                                                                  ).trim();
-                                                                                                  if (!dossierId || dossierId === 'undefined') return;
-                                                                                                  const payloadJson = JSON.stringify({
-                                                                                                      seizedMovableId: String((m as any).id).trim(),
-                                                                                                  });
-                                                                                                  const body = [
-                                                                                                      'طلب انتداب لجنة خبراء جديدة لتقدير المال المنقول بعد الاعتراض.',
-                                                                                                      `وصف المال: ${String((m as any).movableDescription || '').trim()}`,
-                                                                                                      `المكان: ${String((m as any).movableLocation || '').trim()}`,
-                                                                                                  ].join('\n');
-                                                                                                  const did = appendPendingExecutorSeizureDecision({
-                                                                                                      executionId: dossierId,
-                                                                                                      requestTitle:
-                                                                                                          'طلب انتداب لجنة خبراء جديدة — مال منقول (قيد البت لدى المنفذ)',
-                                                                                                      requestBody: body,
-                                                                                                      seizureSubtype: 'movable_expert_committee' as any,
-                                                                                                      seizurePayloadJson: payloadJson,
-                                                                                                  });
-                                                                                                  if (!did) {
-                                                                                                      showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', {
-                                                                                                          decisionsLink: true,
-                                                                                                          decisionsTab: 'current',
-                                                                                                      });
-                                                                                                      return;
-                                                                                                  }
-                                                                                                  showToast('تم إرسال طلب انتداب لجنة خبراء جديدة إلى القرارات والطعون.', 'success', {
-                                                                                                      decisionsLink: true,
+                                                                              <SeizedMovableWorkflowPanel
+                                                                                  movable={m as any}
+                                                                                  workflowStatus={status}
+                                                                                  decisionsStorageExecutionId={String(decisionsStorageExecutionId || '')}
+                                                                                  executionId={executionId}
+                                                                                  executionDataId={executionData?.id}
+                                                                                  decisions={seizureLogExecutorDecisions}
+                                                                                  movables={(executionData?.seizedMovables || []) as SeizedMovable[]}
+                                                                                  movableInlineSaveCtx={movableInlineSaveCtx}
+                                                                                  decisionsReloadEpoch={decisionsReloadEpoch}
+                                                                                  appealPerspective={appealPerspective}
+                                                                                  showToast={showToast}
+                                                                                  onOpenAppeals={(did) => {
+                                                                                      try {
+                                                                                          window.dispatchEvent(
+                                                                                              new CustomEvent('hami-open-decisions-modal', {
+                                                                                                  detail: {
+                                                                                                      executionId: decisionsStorageExecutionId,
+                                                                                                      tab: 'previous',
                                                                                                       decisionId: did,
-                                                                                                      decisionsTab: 'current',
-                                                                                                  });
-                                                                                              }}
-                                                                                              className="w-full rounded-2xl border border-amber-400/25 bg-amber-500/10 px-3 py-3 text-[11px] font-black text-amber-100 hover:bg-amber-500/15"
-                                                                                          >
-                                                                                              طلب انتداب لجنة خبراء جديدة
-                                                                                          </button>
-                                                                                      ) : null}
-                                                                                      {status === 'published' ? (
-                                                                                          !String((m as any).newspaperName || '').trim() ||
-                                                                                          !String((m as any).publicationDateYmd || '').trim() ? (
-                                                                                              <button
-                                                                                                  type="button"
-                                                                                                  onClick={() => openPublicationModal('movable', String((m as any).id).trim())}
-                                                                                                  className="w-full rounded-2xl border border-amber-400/25 bg-amber-500/10 px-3 py-3 text-[11px] font-black text-amber-100 hover:bg-amber-500/15"
-                                                                                              >
-                                                                                                  تسجيل بيانات النشر والإعلان
-                                                                                              </button>
-                                                                                          ) : (
-                                                                                              <button
-                                                                                                  type="button"
-                                                                                                  onClick={() => openAuctionResultModal('movable', String((m as any).id).trim())}
-                                                                                                  className="w-full rounded-2xl border border-violet-400/25 bg-violet-500/10 px-3 py-3 text-[11px] font-black text-violet-100 hover:bg-violet-500/15"
-                                                                                              >
-                                                                                                  تسجيل نتيجة جلسة المزايدة
-                                                                                              </button>
-                                                                                          )
-                                                                                      ) : null}
-                                                                                      {status === 'no_bidders' ? (
-                                                                                          <button
-                                                                                              type="button"
-                                                                                              onClick={() => {
-                                                                                                  const dossierId = String(
-                                                                                                      decisionsStorageExecutionId ||
-                                                                                                          executionData?.id ||
-                                                                                                          executionId ||
-                                                                                                          ''
-                                                                                                  ).trim();
-                                                                                                  if (!dossierId || dossierId === 'undefined') return;
-                                                                                                  const payloadJson = JSON.stringify({
-                                                                                                      seizedMovableId: String((m as any).id).trim(),
-                                                                                                  });
-                                                                                                  const body = [
-                                                                                                      'طلب تحديد موعد مزايدة جديد (كسر القرار) للمال المنقول.',
-                                                                                                      `وصف المال: ${String((m as any).movableDescription || '').trim()}`,
-                                                                                                  ].join('\n');
-                                                                                                  const did = appendPendingExecutorSeizureDecision({
-                                                                                                      executionId: dossierId,
-                                                                                                      requestTitle:
-                                                                                                          'طلب تحديد موعد مزايدة جديد — مال منقول (قيد البت لدى المنفذ)',
-                                                                                                      requestBody: body,
-                                                                                                      seizureSubtype: 'movable_auction_date' as any,
-                                                                                                      seizurePayloadJson: payloadJson,
-                                                                                                  });
-                                                                                                  if (!did) {
-                                                                                                      showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', {
-                                                                                                          decisionsLink: true,
-                                                                                                          decisionsTab: 'current',
-                                                                                                      });
-                                                                                                      return;
-                                                                                                  }
-                                                                                                  showToast('تم إرسال طلب مزايدة جديدة إلى القرارات والطعون.', 'success', {
-                                                                                                      decisionsLink: true,
-                                                                                                      decisionId: did,
-                                                                                                      decisionsTab: 'current',
-                                                                                                  });
-                                                                                              }}
-                                                                                              className="w-full rounded-2xl border border-sky-400/25 bg-sky-500/10 px-3 py-3 text-[11px] font-black text-sky-100 hover:bg-sky-500/15"
-                                                                                          >
-                                                                                              طلب تحديد موعد مزايدة جديد (كسر القرار)
-                                                                                          </button>
-                                                                                      ) : null}
-                                                                                      {status === 'initial_award' ? (
-                                                                                          <>
-                                                                                              <button
-                                                                                                  type="button"
-                                                                                                  onClick={() => {
-                                                                                                      const dossierId = String(
-                                                                                                          decisionsStorageExecutionId ||
-                                                                                                              executionData?.id ||
-                                                                                                              executionId ||
-                                                                                                              ''
-                                                                                                      ).trim();
-                                                                                                      if (!dossierId || dossierId === 'undefined') return;
-                                                                                                      const payloadJson = JSON.stringify({
-                                                                                                          seizedMovableId: String((m as any).id).trim(),
-                                                                                                      });
-                                                                                                      const body = [
-                                                                                                          'طلب إحالة قطعية للمال المنقول.',
-                                                                                                          `وصف المال: ${String((m as any).movableDescription || '').trim()}`,
-                                                                                                          `المشتري (رسو مزاد): ${String((m as any).initialAwardBuyerName || '').trim()}`,
-                                                                                                          (m as any).initialAwardAmountIqd != null &&
-                                                                                                          Number.isFinite(Number((m as any).initialAwardAmountIqd))
-                                                                                                              ? `مبلغ رسو المزاد: ${Number((m as any).initialAwardAmountIqd).toLocaleString('ar-IQ')} د.ع`
-                                                                                                              : '',
-                                                                                                      ]
-                                                                                                          .filter(Boolean)
-                                                                                                          .join('\n');
-                                                                                                      const did = appendPendingExecutorSeizureDecision({
-                                                                                                          executionId: dossierId,
-                                                                                                          requestTitle:
-                                                                                                              'طلب إحالة قطعية — مال منقول (قيد البت لدى المنفذ)',
-                                                                                                          requestBody: body,
-                                                                                                          seizureSubtype: 'movable_final_award' as any,
-                                                                                                          seizurePayloadJson: payloadJson,
-                                                                                                      });
-                                                                                                      if (!did) {
-                                                                                                          showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', {
-                                                                                                              decisionsLink: true,
-                                                                                                              decisionsTab: 'current',
-                                                                                                          });
-                                                                                                          return;
-                                                                                                      }
-                                                                                                      showToast('تم إرسال طلب الإحالة القطعية إلى القرارات والطعون.', 'success', {
-                                                                                                          decisionsLink: true,
-                                                                                                          decisionId: did,
-                                                                                                          decisionsTab: 'current',
-                                                                                                      });
-                                                                                                  }}
-                                                                                                  className="w-full rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-3 text-[11px] font-black text-emerald-100 hover:bg-emerald-500/15"
-                                                                                              >
-                                                                                                  طلب إحالة قطعية
-                                                                                              </button>
-                                                                                              <button
-                                                                                                  type="button"
-                                                                                                  onClick={() => {
-                                                                                                      const dossierId = String(
-                                                                                                          decisionsStorageExecutionId ||
-                                                                                                              executionData?.id ||
-                                                                                                              executionId ||
-                                                                                                              ''
-                                                                                                      ).trim();
-                                                                                                      if (!dossierId || dossierId === 'undefined') return;
-                                                                                                      const payloadJson = JSON.stringify({
-                                                                                                          seizedMovableId: String((m as any).id).trim(),
-                                                                                                      });
-                                                                                                      const body = [
-                                                                                                          'طلب الضم بزيادة 10% (إعادة فتح المزايدة) للمال المنقول.',
-                                                                                                          `وصف المال: ${String((m as any).movableDescription || '').trim()}`,
-                                                                                                      ].join('\n');
-                                                                                                      const did = appendPendingExecutorSeizureDecision({
-                                                                                                          executionId: dossierId,
-                                                                                                          requestTitle:
-                                                                                                              'طلب الضم 10% — مال منقول (قيد البت لدى المنفذ)',
-                                                                                                          requestBody: body,
-                                                                                                          seizureSubtype: 'movable_increase_10' as any,
-                                                                                                          seizurePayloadJson: payloadJson,
-                                                                                                      });
-                                                                                                      if (!did) {
-                                                                                                          showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', {
-                                                                                                              decisionsLink: true,
-                                                                                                              decisionsTab: 'current',
-                                                                                                          });
-                                                                                                          return;
-                                                                                                      }
-                                                                                                      showToast('تم إرسال طلب الضم 10% إلى القرارات والطعون.', 'success', {
-                                                                                                          decisionsLink: true,
-                                                                                                          decisionId: did,
-                                                                                                          decisionsTab: 'current',
-                                                                                                      });
-                                                                                                  }}
-                                                                                                  className="w-full rounded-2xl border border-amber-400/25 bg-amber-500/10 px-3 py-3 text-[11px] font-black text-amber-100 hover:bg-amber-500/15"
-                                                                                              >
-                                                                                                  طلب الضم بزيادة 10%
-                                                                                              </button>
-                                                                                              <button
-                                                                                                  type="button"
-                                                                                                  onClick={() => {
-                                                                                                      const dossierId = String(
-                                                                                                          decisionsStorageExecutionId ||
-                                                                                                              executionData?.id ||
-                                                                                                              executionId ||
-                                                                                                              ''
-                                                                                                      ).trim();
-                                                                                                      if (!dossierId || dossierId === 'undefined') return;
-                                                                                                      const payloadJson = JSON.stringify({
-                                                                                                          seizedMovableId: String((m as any).id).trim(),
-                                                                                                      });
-                                                                                                      const body = [
-                                                                                                          'طلب إعادة المزايدة للنكول (تهرب المشتري من الدفع) للمال المنقول.',
-                                                                                                          `وصف المال: ${String((m as any).movableDescription || '').trim()}`,
-                                                                                                      ].join('\n');
-                                                                                                      const did = appendPendingExecutorSeizureDecision({
-                                                                                                          executionId: dossierId,
-                                                                                                          requestTitle:
-                                                                                                              'طلب إعادة المزايدة للنكول — مال منقول (قيد البت لدى المنفذ)',
-                                                                                                          requestBody: body,
-                                                                                                          seizureSubtype: 'movable_reauction_default' as any,
-                                                                                                          seizurePayloadJson: payloadJson,
-                                                                                                      });
-                                                                                                      if (!did) {
-                                                                                                          showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', {
-                                                                                                              decisionsLink: true,
-                                                                                                              decisionsTab: 'current',
-                                                                                                          });
-                                                                                                          return;
-                                                                                                      }
-                                                                                                      showToast('تم إرسال طلب النكول/إعادة المزايدة إلى القرارات والطعون.', 'success', {
-                                                                                                          decisionsLink: true,
-                                                                                                          decisionId: did,
-                                                                                                          decisionsTab: 'current',
-                                                                                                          });
-                                                                                                  }}
-                                                                                                  className="w-full rounded-2xl border border-rose-400/25 bg-rose-500/10 px-3 py-3 text-[11px] font-black text-rose-100 hover:bg-rose-500/15"
-                                                                                              >
-                                                                                                  طلب إعادة المزايدة للنكول
-                                                                                              </button>
-                                                                                          </>
-                                                                                      ) : null}
-                                                                                  </div>
-                                                                              ) : (
-                                                                                  <div className="mt-3 flex flex-col gap-2">
-                                                                                      <button
-                                                                                          type="button"
-                                                                                          disabled={deliveryDone}
-                                                                                          onClick={() => {
-                                                                                              if (deliveryDone) return;
-                                                                                              const dossierId = String(
-                                                                                                  decisionsStorageExecutionId ||
-                                                                                                      executionData?.id ||
-                                                                                                      executionId ||
-                                                                                                      ''
-                                                                                              ).trim();
-                                                                                              if (!dossierId || dossierId === 'undefined') return;
-                                                                                              const payloadJson = JSON.stringify({
-                                                                                                  seizedMovableId: String((m as any).id).trim(),
-                                                                                              });
-                                                                                              const body = [
-                                                                                                  'طلب تسليم المال المنقول للمشتري (بعد الإحالة القطعية).',
-                                                                                                  `وصف المال: ${String((m as any).movableDescription || '').trim()}`,
-                                                                                              ].join('\n');
-                                                                                              const did = appendPendingExecutorSeizureDecision({
-                                                                                                  executionId: dossierId,
-                                                                                                  requestTitle:
-                                                                                                      'طلب تسليم المال المنقول للمشتري — قيد البت لدى المنفذ',
-                                                                                                  requestBody: body,
-                                                                                                  seizureSubtype: 'movable_buyer_delivery' as any,
-                                                                                                  seizurePayloadJson: payloadJson,
-                                                                                              });
-                                                                                              if (!did) {
-                                                                                                  showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', {
-                                                                                                      decisionsLink: true,
-                                                                                                      decisionsTab: 'current',
-                                                                                                  });
-                                                                                                  return;
-                                                                                              }
-                                                                                              showToast('تم إرسال طلب التسليم إلى القرارات والطعون.', 'success', {
-                                                                                                  decisionsLink: true,
-                                                                                                  decisionId: did,
-                                                                                                  decisionsTab: 'current',
-                                                                                              });
-                                                                                          }}
-                                                                                          className={`w-full rounded-2xl border px-3 py-3 text-[11px] font-black ${
-                                                                                              deliveryDone
-                                                                                                  ? 'border-white/10 bg-white/5 text-slate-300 opacity-60 cursor-not-allowed'
-                                                                                                  : 'border-amber-400/25 bg-amber-500/10 text-amber-100 hover:bg-amber-500/15'
-                                                                                          }`}
-                                                                                      >
-                                                                                          {deliveryDone
-                                                                                              ? 'تم إنجاز تسليم المال المنقول للمشتري'
-                                                                                              : 'طلب تسليم المال المنقول للمشتري'}
-                                                                                      </button>
-                                                                                      <button
-                                                                                          type="button"
-                                                                                          disabled={proceedsDone}
-                                                                                          onClick={() => {
-                                                                                              if (proceedsDone) return;
-                                                                                              const dossierId = String(
-                                                                                                  decisionsStorageExecutionId ||
-                                                                                                      executionData?.id ||
-                                                                                                      executionId ||
-                                                                                                      ''
-                                                                                              ).trim();
-                                                                                              if (!dossierId || dossierId === 'undefined') return;
-                                                                                              const payloadJson = JSON.stringify({
-                                                                                                  seizedMovableId: String((m as any).id).trim(),
-                                                                                              });
-                                                                                              const body = [
-                                                                                                  'طلب صرف حصيلة البيع للدائن (بعد الإحالة القطعية).',
-                                                                                                  `وصف المال: ${String((m as any).movableDescription || '').trim()}`,
-                                                                                              ].join('\n');
-                                                                                              const did = appendPendingExecutorSeizureDecision({
-                                                                                                  executionId: dossierId,
-                                                                                                  requestTitle:
-                                                                                                      'طلب صرف حصيلة البيع للدائن — قيد البت لدى المنفذ',
-                                                                                                  requestBody: body,
-                                                                                                  seizureSubtype: 'movable_proceeds_disburse' as any,
-                                                                                                  seizurePayloadJson: payloadJson,
-                                                                                              });
-                                                                                              if (!did) {
-                                                                                                  showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', {
-                                                                                                      decisionsLink: true,
-                                                                                                      decisionsTab: 'current',
-                                                                                                  });
-                                                                                                  return;
-                                                                                              }
-                                                                                              showToast('تم إرسال طلب صرف الحصيلة إلى القرارات والطعون.', 'success', {
-                                                                                                  decisionsLink: true,
-                                                                                                  decisionId: did,
-                                                                                                  decisionsTab: 'current',
-                                                                                              });
-                                                                                          }}
-                                                                                          className={`w-full rounded-2xl border px-3 py-3 text-[11px] font-black ${
-                                                                                              proceedsDone
-                                                                                                  ? 'border-white/10 bg-white/5 text-slate-300 opacity-60 cursor-not-allowed'
-                                                                                                  : 'border-emerald-400/25 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/15'
-                                                                                          }`}
-                                                                                      >
-                                                                                          {proceedsDone
-                                                                                              ? 'تم إنجاز صرف حصيلة البيع للدائن'
-                                                                                              : 'طلب صرف حصيلة البيع للدائن'}
-                                                                                      </button>
-                                                                                  </div>
-                                                                              )}
+                                                                                                  },
+                                                                                              })
+                                                                                          );
+                                                                                      } catch {
+                                                                                          /* ignore */
+                                                                                      }
+                                                                                  }}
+                                                                              />
                                                                           </div>
                                                                       );
                                                                   })}
@@ -16021,10 +17769,25 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                           ) : null}
 
                                           {unifiedSeizureLogTab === 'salary' ? (
-                                              salarySeizureRegistryAssets.length === 0 ? (
-                                                  <p className="py-8 text-center text-[10px] text-slate-500">
-                                                      لا يوجد سجل حجز للراتب بعد.
-                                                  </p>
+                                              salarySeizureTabRows.length === 0 ? (
+                                                  <div className="space-y-3 py-4">
+                                                      <p className="text-center text-[10px] text-slate-500">
+                                                          لا يوجد سجل حجز للراتب بعد.
+                                                      </p>
+                                                      {showSalarySeizureInFollowupModal ? (
+                                                          <button
+                                                              type="button"
+                                                              onClick={() => openSalarySeizureWorkflowFromLog(null)}
+                                                              className="mx-auto block w-full max-w-sm rounded-2xl border border-emerald-400/35 bg-emerald-500/10 px-4 py-3 text-[11px] font-black text-emerald-100 hover:bg-emerald-500/15"
+                                                          >
+                                                              {followupSalarySeizureLabel} — من محضر المتابعة
+                                                          </button>
+                                                      ) : (
+                                                          <p className="text-center text-[10px] text-amber-200/80">
+                                                              حجز الراتب متاح للمدين الموظف فقط.
+                                                          </p>
+                                                      )}
+                                                  </div>
                                               ) : (
                                                   <div className="rounded-2xl border border-emerald-500/20 bg-[#05060D]/60 p-3">
                                                       <div className="flex items-center justify-between gap-2">
@@ -16032,92 +17795,34 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                                               سجل الحجوزات — الراتب
                                                           </p>
                                                           <span className="text-[10px] text-slate-500 tabular-nums">
-                                                              {salarySeizureRegistryAssets.length}
+                                                              {salarySeizureTabRows.length}
                                                           </span>
                                                       </div>
                                                       <div className="mt-2 space-y-3">
-                                                          {salarySeizureRegistryAssets.map((asset: any) => {
+                                                          {salarySeizureTabRows.map((asset: SeizedAsset) => {
                                                               const locked = Boolean(asset.seizure_record_locked);
                                                               const releasedLocked =
                                                                   locked && String(asset.status) === 'released';
-                                                              const det =
-                                                                  typeof asset.details === 'object' &&
-                                                                  asset.details &&
-                                                                  !Array.isArray(asset.details)
-                                                                      ? (asset.details as Record<string, unknown>)
-                                                                      : null;
-                                                              const office = String(
-                                                                  det?.employerName || ''
-                                                              ).trim();
-                                                              const salary = String(
-                                                                  det?.salaryAmount || ''
-                                                              ).trim();
-                                                              const statusLabel =
-                                                                  asset.status === 'seized'
-                                                                      ? 'تم الحجز'
-                                                                      : asset.status === 'released'
-                                                                        ? 'فُك الحجز'
-                                                                        : String(asset.status || '—');
+                                                              const isPending = String(asset.status) === 'pending';
 
                                                               return (
-                                                                  <div
+                                                                  <SalarySeizureLogDetailCard
                                                                       key={String(asset.id)}
-                                                                      className={`relative overflow-hidden rounded-2xl border p-3 backdrop-blur-xl ${
-                                                                          locked
-                                                                              ? 'border-slate-600/40 bg-slate-900/55 opacity-90'
-                                                                              : 'border-slate-700/40 bg-slate-800/55'
-                                                                      }`}
-                                                                  >
-                                                                      <div className="mb-2 flex flex-col gap-2 sm:flex-row-reverse sm:items-start sm:justify-between">
-                                                                          <span className="shrink-0 rounded-lg bg-emerald-500/20 px-2 py-0.5 text-[10px] text-emerald-200">
-                                                                              {statusLabel}
-                                                                          </span>
-                                                                          <div className="min-w-0 text-right">
-                                                                              <p className="truncate text-[11px] font-bold text-slate-50">
-                                                                                  حجز راتب
-                                                                              </p>
-                                                                              {office ? (
-                                                                                  <p className="mt-0.5 text-[10px] text-slate-300">
-                                                                                      جهة العمل: {office}
-                                                                                  </p>
-                                                                              ) : null}
-                                                                              {salary ? (
-                                                                                  <p className="mt-0.5 text-[10px] text-slate-300 tabular-nums">
-                                                                                      الدخل الشهري: {salary} د.ع
-                                                                                  </p>
-                                                                              ) : null}
-                                                                          </div>
-                                                                      </div>
-                                                                      {releasedLocked ? (
-                                                                          <div className="absolute inset-0 flex items-center justify-center bg-black/55 p-3">
-                                                                              <button
-                                                                                  type="button"
-                                                                                  onClick={(e) => {
-                                                                                      e.stopPropagation();
-                                                                                      undoReleaseSeizureAssetRow(
-                                                                                          asset
-                                                                                      );
-                                                                                  }}
-                                                                                  className="w-full rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] font-extrabold text-amber-200 hover:bg-amber-500/15"
-                                                                              >
-                                                                                  تراجع
-                                                                              </button>
-                                                                          </div>
-                                                                      ) : null}
-                                                                      {!locked ? (
-                                                                          <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
-                                                                              <button
-                                                                                  type="button"
-                                                                                  onClick={() =>
-                                                                                      releaseSeizureAssetRow(asset)
-                                                                                  }
-                                                                                  className="w-full rounded-xl border border-slate-500/30 bg-slate-500/10 px-3 py-2 text-[11px] font-extrabold text-slate-200 hover:bg-slate-500/15"
-                                                                              >
-                                                                                  فك الحجز
-                                                                              </button>
-                                                                          </div>
-                                                                      ) : null}
-                                                                  </div>
+                                                                      asset={asset}
+                                                                      executionData={executionData ?? null}
+                                                                      executionId={String(
+                                                                          decisionsStorageExecutionId ??
+                                                                              executionId ??
+                                                                              ''
+                                                                      ).trim() || undefined}
+                                                                      titleLabel={followupSalarySeizureLabel}
+                                                                      locked={locked}
+                                                                      releasedLocked={releasedLocked}
+                                                                      isPending={isPending}
+                                                                      onSaveDetails={patchSalarySeizureAssetDetails}
+                                                                      onRelease={() => releaseSeizureAssetRow(asset)}
+                                                                      showToast={showToast}
+                                                                  />
                                                               );
                                                           })}
                                                       </div>
@@ -16141,6 +17846,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                                       thirdPartySeizures.length +
                                                       thirdPartySeizureRegistryAssets.length;
 
+                                                  if (total === 0) return null;
+
                                                   const openAppealCenter = (decisionId?: string) => {
                                                       if (!resolvedDecisionsExecutionId) return;
                                                       try {
@@ -16148,7 +17855,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                                               new CustomEvent('hami-open-decisions-modal', {
                                                                   detail: {
                                                                       executionId: resolvedDecisionsExecutionId,
-                                                                      tab: 'appeals',
+                                                                      tab: 'previous',
                                                                       decisionId: decisionId || undefined,
                                                                   },
                                                               })
@@ -16168,12 +17875,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                                                   {total}
                                                               </span>
                                                           </div>
-
-                                                          {total === 0 ? (
-                                                              <p className="py-4 text-center text-[10px] text-slate-500">
-                                                                  لا توجد مسارات أو سجل لحجز مال المدين لدى الغير بعد.
-                                                              </p>
-                                                          ) : null}
 
                                                           {thirdPartySeizures.length > 0 ? (
                                                               <div className="mt-3 space-y-3">
@@ -16818,116 +18519,13 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                                               {e.description}
                                                           </pre>
                                                       ) : null}
-
-                                                      <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-                                                          <div className="flex items-center justify-between gap-2">
-                                                              <p className="text-[10px] font-black text-[#E6C673]">
-                                                                  طريقة التعامل مع الشيء المحجوز
-                                                              </p>
-                                                              <button
-                                                                  type="button"
-                                                                  onClick={() => {
-                                                                      setShowUnifiedSeizureLogModal(false);
-                                                                      setExecutionFinancialHubTab('ledger');
-                                                                      setShowExecutionFinancialHub(true);
-                                                                  }}
-                                                                  className="rounded-xl border border-[#E6C673]/25 bg-amber-950/25 px-2 py-1 text-[9px] font-bold text-amber-200/85 hover:bg-amber-950/45 hover:border-[#E6C673]/45"
-                                                              >
-                                                                  فتح المركز المالي
-                                                              </button>
-                                                          </div>
-
-                                                          {e.kind === 'property' ? (
-                                                              <div className="mt-2 space-y-1">
-                                                                  <p className="text-[10px] text-slate-300">
-                                                                      المسار: وضع إشارة الحجز → خبراء (تقدير) → نشر/موعد مزايدة → نتيجة الجلسة → إحالة أولية → (إحالة قطعية/ضم 10%/نكول) حسب الواقعة.
-                                                                  </p>
-                                                                  {e.statusCode === 'seized' ? (
-                                                                      <p className="text-[10px] text-slate-300">
-                                                                          الخطوة التالية: من بطاقة الأموال المحجوزة اضغط "طلب انتداب خبراء"، وبعد موافقة المنفذ سجّل تقرير الخبراء (المبلغ/الأسماء/التاريخ).
-                                                                      </p>
-                                                                  ) : e.statusCode === 'valued' || e.statusCode === 'estimated' ? (
-                                                                      <p className="text-[10px] text-slate-300">
-                                                                          الخطوة التالية: من بطاقة الأموال المحجوزة إمّا "طلب تحديد موعد مزايدة" أو "الاعتراض على تقرير الخبراء" حسب الواقعة.
-                                                                      </p>
-                                                                  ) : e.statusCode === 'estimation_objected' ? (
-                                                                      <p className="text-[10px] text-slate-300">
-                                                                          تم الاعتراض على التقدير: اطلب "انتداب لجنة خبراء جديدة" ثم سجّل التقدير الجديد بعد موافقة المنفذ.
-                                                                      </p>
-                                                                  ) : e.statusCode === 'published' || e.statusCode === 'auction_scheduled' ? (
-                                                                      <p className="text-[10px] text-slate-300">
-                                                                          بعد موعد المزايدة وإجراء الجلسة: استخدم زر "تسجيل نتيجة جلسة المزايدة" لتحديد (إحالة أولية) أو (لا راغب بالشراء).
-                                                                      </p>
-                                                                  ) : e.statusCode === 'initial_award' ? (
-                                                                      <p className="text-[10px] text-slate-300">
-                                                                          بعد الإحالة الأولية: تظهر أزرار (إحالة قطعية/ضم 10%/إعادة المزايدة للنكول) وتُستخدم حصراً حسب الواقعة وبعد موافقة المنفذ.
-                                                                      </p>
-                                                                  ) : e.statusCode === 'no_bidders' ? (
-                                                                      <p className="text-[10px] text-slate-300">
-                                                                          لا راغب بالشراء: اطلب "تحديد موعد مزايدة جديد (كسر القرار)" لإعادة فتح المزايدة بموعد جديد بعد موافقة المنفذ.
-                                                                      </p>
-                                                                  ) : e.statusCode === 'sold' ? (
-                                                                      <p className="text-[10px] text-slate-300">
-                                                                          تم البيع: البيانات النهائية محفوظة في بطاقة العقار (اسم المشتري/المبلغ) وتُستخدم كمرجع للتنفيذ المالي اللاحق.
-                                                                      </p>
-                                                                  ) : (
-                                                                      <p className="text-[10px] text-slate-300">
-                                                                          إدارة هذا العقار تتم حصراً من بطاقة الأموال المحجوزة داخل سجل الحجز الموحد.
-                                                                      </p>
-                                                                  )}
-                                                              </div>
-                                                          ) : null}
-
-                                                          {e.kind === 'salary' ? (
-                                                              <div className="mt-2 space-y-1">
-                                                                  <p className="text-[10px] text-slate-300">
-                                                                      التعامل: تثبيت جهة العمل/التقاعد + مقدار الدخل ثم متابعة الاستقطاع/التبليغات.
-                                                                  </p>
-                                                                  <p className="text-[10px] text-slate-300">
-                                                                      الإدارة تتم من تبويب "الراتب" داخل سجل الحجز الموحد (تحديث حالة الحجز/فك الحجز عند الحاجة).
-                                                                  </p>
-                                                              </div>
-                                                          ) : null}
-
-                                                          {e.kind === 'movable' ? (
-                                                              <div className="mt-2 space-y-1">
-                                                                  <p className="text-[10px] text-slate-300">
-                                                                      التعامل: وصف المال المنقول بدقة + قيمة تقديرية + ملاحظات (رقم/علامة/مواصفات) ثم متابعة إجراءات البيع/التصرف حسب القرارات.
-                                                                  </p>
-                                                                  <p className="text-[10px] text-slate-300">
-                                                                      الإدارة تتم من تبويب "المال المنقول" داخل سجل الحجز الموحد (تعديل البيانات/فك الحجز حسب الحالة).
-                                                                  </p>
-                                                              </div>
-                                                          ) : null}
-
-                                                          {e.kind === 'third_party' ? (
-                                                              <div className="mt-2 space-y-1">
-                                                                  <p className="text-[10px] text-slate-300">
-                                                                      التعامل: مخاطبة الطرف الثالث ثم متابعة الاستلام. عند الاستلام تُثبت المبالغ وتنتقل الحالة إلى "تم الاستلام".
-                                                                  </p>
-                                                                  <p className="text-[10px] text-slate-300">
-                                                                      الإدارة تتم من تبويب "مال المدين لدى الغير" داخل سجل الحجز الموحد.
-                                                                  </p>
-                                                              </div>
-                                                          ) : null}
-
-                                                          {e.kind === 'marks' ? (
-                                                              <div className="mt-2 space-y-1">
-                                                                  <p className="text-[10px] text-slate-300">
-                                                                      التعامل: تثبيت الإشارة/التعميم + تأكيد الجهة المخاطبة + أرشفة الإشارة عند انتهاء الغاية.
-                                                                  </p>
-                                                                  <p className="text-[10px] text-slate-300">
-                                                                      الإدارة تتم من تبويب "شارات/تعاميم" داخل سجل الحجز الموحد.
-                                                                  </p>
-                                                              </div>
-                                                          ) : null}
-                                                      </div>
                                                   </div>
                                               ))}
                                           {(() => {
                                               const hasPropertyPanelsContent =
                                                   seizedPropertiesForSeizureLog.length > 0 ||
-                                                  realEstateSeizureRegistryAssets.length > 0;
+                                                  realEstateSeizureRegistryAssets.length > 0 ||
+                                                  pendingPropertySeizureDecisions.length > 0;
                                               const listCount = unifiedSeizureLogEntries.filter((e) => {
                                                   if (unifiedSeizureLogTab === 'all') return e.kind !== 'property';
                                                   return false;
@@ -16938,7 +18536,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                                       seizedMovablesForSeizureLog.length === 0 &&
                                                       movableSeizureRegistryAssets.length === 0
                                                   );
-                                              if (unifiedSeizureLogTab === 'salary') return salarySeizureRegistryAssets.length === 0;
+                                              if (unifiedSeizureLogTab === 'salary') return salarySeizureTabRows.length === 0;
                                               if (unifiedSeizureLogTab === 'third_party') return thirdPartySeizureRegistryAssets.length === 0;
                                               if (unifiedSeizureLogTab === 'marks') return standaloneExecutionMarks.length === 0;
                                               return !hasPropertyPanelsContent && listCount === 0;
@@ -17061,179 +18659,9 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                       )
                     : null}
 
-                {seizedPropertyInitModalOpen && typeof document !== 'undefined'
-                    ? createPortal(
-                          <div
-                              className={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG}`}
-                              style={{ zIndex: EXEC_MODAL_Z.nestedOverFollowUpPortal }}
-                              role="presentation"
-                              onClick={(e) => {
-                                  if (e.target === e.currentTarget) setSeizedPropertyInitModalOpen(false);
-                              }}
-                          >
-                              <div
-                                  className="w-full max-w-md rounded-3xl border-2 border-emerald-500/30 bg-[#0B1120] shadow-2xl shadow-black/50"
-                                  onClick={(e) => e.stopPropagation()}
-                                  dir="rtl"
-                              >
-                                  <div className="flex items-center justify-between border-b border-emerald-500/20 p-4">
-                                      <button
-                                          type="button"
-                                          onClick={() => setSeizedPropertyInitModalOpen(false)}
-                                          className="rounded-lg p-2 text-slate-400 hover:bg-white/5 hover:text-white"
-                                          aria-label="إغلاق"
-                                      >
-                                          <X size={18} />
-                                      </button>
-                                      <div className="text-right">
-                                          <p className="text-[12px] font-black text-emerald-200">
-                                              بيانات العقار — بعد موافقة المنفذ
-                                          </p>
-                                          {String(seizedPropertyInitSubject || '').trim() ? (
-                                              <p className="text-[10px] text-slate-400 mt-0.5">
-                                                  {String(seizedPropertyInitSubject || '').trim()}
-                                              </p>
-                                          ) : null}
-                                      </div>
-                                      <span className="w-8" aria-hidden />
-                                  </div>
-                                  <div className="p-4 space-y-3">
-                                      <div className="rounded-2xl border border-white/10 bg-slate-900/35 p-3">
-                                          <label className="block text-[10px] text-slate-400 text-right mb-2">
-                                              رقم العقار
-                                          </label>
-                                          <input
-                                              value={seizedPropertyNumberDraft}
-                                              onChange={(e) => setSeizedPropertyNumberDraft(e.target.value)}
-                                              className="w-full rounded-2xl border border-slate-700/40 bg-slate-900/40 px-4 py-3 text-[12px] text-white outline-none"
-                                              placeholder="مثال: 1540"
-                                          />
-                                      </div>
-                                      <div className="rounded-2xl border border-white/10 bg-slate-900/35 p-3">
-                                          <label className="block text-[10px] text-slate-400 text-right mb-2">
-                                              الجنس
-                                          </label>
-                                          <select
-                                              value={seizedPropertyGenderDraft}
-                                              onChange={(e) => setSeizedPropertyGenderDraft(e.target.value as RealEstateGender)}
-                                              className="w-full rounded-2xl border border-slate-700/40 bg-slate-900/40 px-4 py-3 text-[12px] text-white outline-none"
-                                          >
-                                              <option value="دار">دار</option>
-                                              <option value="شقة">شقة</option>
-                                              <option value="عرصة">عرصة</option>
-                                              <option value="بستان">بستان</option>
-                                          </select>
-                                      </div>
-                                      <div className="rounded-2xl border border-white/10 bg-slate-900/35 p-3">
-                                          <label className="block text-[10px] text-slate-400 text-right mb-2">
-                                              تفاصيل السند
-                                          </label>
-                                          <textarea
-                                              value={seizedPropertyDeedNotesDraft}
-                                              onChange={(e) => setSeizedPropertyDeedNotesDraft(e.target.value)}
-                                              className="min-h-[96px] w-full resize-none rounded-2xl border border-slate-700/40 bg-slate-900/40 px-4 py-3 text-[12px] text-white outline-none"
-                                              placeholder="بيانات السند/الطابو/القيد..."
-                                          />
-                                      </div>
-                                      <button
-                                          type="button"
-                                          onClick={saveSeizedPropertyInitDetails}
-                                          className="w-full rounded-2xl border border-emerald-500/35 bg-emerald-600/15 px-4 py-3 text-[12px] font-black text-emerald-100 hover:bg-emerald-600/20"
-                                      >
-                                          حفظ بيانات العقار
-                                      </button>
-                                  </div>
-                              </div>
-                          </div>,
-                          document.body
-                      )
-                    : null}
-
-                {seizedMovableInitModalOpen && typeof document !== 'undefined'
-                    ? createPortal(
-                          <div
-                              className={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG}`}
-                              style={{ zIndex: EXEC_MODAL_Z.nestedOverFollowUpPortal }}
-                              role="presentation"
-                              onClick={(e) => {
-                                  if (e.target === e.currentTarget) setSeizedMovableInitModalOpen(false);
-                              }}
-                          >
-                              <div
-                                  className="w-full max-w-md rounded-3xl border-2 border-sky-500/30 bg-[#0B1120] shadow-2xl shadow-black/50"
-                                  onClick={(e) => e.stopPropagation()}
-                                  dir="rtl"
-                              >
-                                  <div className="flex items-center justify-between border-b border-sky-500/20 p-4">
-                                      <button
-                                          type="button"
-                                          onClick={() => setSeizedMovableInitModalOpen(false)}
-                                          className="rounded-lg p-2 text-slate-400 hover:bg-white/5 hover:text-white"
-                                          aria-label="إغلاق"
-                                      >
-                                          <X size={18} />
-                                      </button>
-                                      <div className="text-right">
-                                          <p className="text-[12px] font-black text-sky-200">
-                                              بيانات المال المنقول — بعد موافقة المنفذ
-                                          </p>
-                                          {String(seizedMovableInitSubject || '').trim() ? (
-                                              <p className="text-[10px] text-slate-400 mt-0.5">
-                                                  {String(seizedMovableInitSubject || '').trim()}
-                                              </p>
-                                          ) : null}
-                                      </div>
-                                      <span className="w-8" aria-hidden />
-                                  </div>
-                                  <div className="p-4 space-y-3">
-                                      <div className="rounded-2xl border border-white/10 bg-slate-900/35 p-3">
-                                          <label className="block text-[10px] text-slate-400 text-right mb-2">
-                                              وصف المال المنقول
-                                          </label>
-                                          <textarea
-                                              value={seizedMovableDescriptionDraft}
-                                              onChange={(e) => setSeizedMovableDescriptionDraft(e.target.value)}
-                                              className="min-h-[84px] w-full resize-none rounded-2xl border border-slate-700/40 bg-slate-900/40 px-4 py-3 text-[12px] text-white outline-none"
-                                              placeholder="مثال: مولدة كهربائية 100KVA / مكائن / بضائع..."
-                                          />
-                                      </div>
-                                      <div className="rounded-2xl border border-white/10 bg-slate-900/35 p-3">
-                                          <label className="block text-[10px] text-slate-400 text-right mb-2">
-                                              مكان تواجده
-                                          </label>
-                                          <input
-                                              value={seizedMovableLocationDraft}
-                                              onChange={(e) => setSeizedMovableLocationDraft(e.target.value)}
-                                              className="w-full rounded-2xl border border-slate-700/40 bg-slate-900/40 px-4 py-3 text-[12px] text-white outline-none"
-                                              placeholder="عنوان/مخزن/محل..."
-                                          />
-                                      </div>
-                                      <div className="rounded-2xl border border-white/10 bg-slate-900/35 p-3">
-                                          <label className="block text-[10px] text-slate-400 text-right mb-2">
-                                              اسم الحارس القضائي
-                                          </label>
-                                          <input
-                                              value={seizedMovableCustodianDraft}
-                                              onChange={(e) => setSeizedMovableCustodianDraft(e.target.value)}
-                                              className="w-full rounded-2xl border border-slate-700/40 bg-slate-900/40 px-4 py-3 text-[12px] text-white outline-none"
-                                              placeholder="اسم الحارس القضائي"
-                                          />
-                                      </div>
-                                      <button
-                                          type="button"
-                                          onClick={saveSeizedMovableInitDetails}
-                                          className="w-full rounded-2xl border border-sky-500/35 bg-sky-600/15 px-4 py-3 text-[12px] font-black text-sky-100 hover:bg-sky-600/20"
-                                      >
-                                          حفظ بيانات المال المنقول
-                                      </button>
-                                  </div>
-                              </div>
-                          </div>,
-                          document.body
-                      )
-                    : null}
-
-                {seizedPropertyStepModalOpen && typeof document !== 'undefined'
+                {seizedPropertyStepModalOpen &&
+                seizedPropertyStepEntityKind !== 'movable' &&
+                typeof document !== 'undefined'
                     ? createPortal(
                           <div
                               className={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG}`}
@@ -17264,24 +18692,40 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                                 ? `تسجيل موعد المزايدة${seizedPropertyStepEntityKind === 'movable' ? ' — مال منقول' : ''}`
                                                 : seizedPropertyStepKind === 'award'
                                                   ? `تسجيل الإحالة${seizedPropertyStepEntityKind === 'movable' ? ' — مال منقول' : ''}`
-                                                  : seizedPropertyStepKind === 'increase10'
-                                                    ? `تسجيل الضم 10%${seizedPropertyStepEntityKind === 'movable' ? ' — مال منقول' : ''}`
-                                                    : `تسجيل النكول/إعادة المزايدة${seizedPropertyStepEntityKind === 'movable' ? ' — مال منقول' : ''}`}
+                                                  : `تسجيل النكول/إعادة المزايدة${seizedPropertyStepEntityKind === 'movable' ? ' — مال منقول' : ''}`}
                                       </p>
                                       <span className="w-8" aria-hidden />
                                   </div>
                                   <div className="p-4 space-y-3">
                                       {seizedPropertyStepKind === 'experts' ? (
                                           <>
+                                              {(() => {
+                                                  const entityId = String(seizedPropertyStepPropertyId || '').trim();
+                                                  const entities =
+                                                      seizedPropertyStepEntityKind === 'movable'
+                                                          ? (executionData?.seizedMovables || [])
+                                                          : (executionData?.seizedProperties || []);
+                                                  const entityHit = entities.find(
+                                                      (x) => String(x.id) === entityId
+                                                  );
+                                                  const requiredExpertCount = entityHit
+                                                      ? readExpertCommitteeSize(entityHit)
+                                                      : 1;
+                                                  return (
+                                                      <>
                                               <div className="rounded-2xl border border-white/10 bg-slate-900/35 p-3">
                                                   <label className="block text-[10px] text-slate-400 text-right mb-2">
-                                                      أسماء الخبراء
+                                                      أسماء الخبراء — {expertCommitteeSizeLabelAr(requiredExpertCount)}
                                                   </label>
                                                   <input
                                                       value={seizedPropertyExpertsNamesDraft}
                                                       onChange={(e) => setSeizedPropertyExpertsNamesDraft(e.target.value)}
                                                       className="w-full rounded-2xl border border-slate-700/40 bg-slate-900/40 px-4 py-3 text-[12px] text-white outline-none"
-                                                      placeholder="اكتب الأسماء مفصولة بفاصلة: أحمد، علي"
+                                                      placeholder={
+                                                          requiredExpertCount === 1
+                                                              ? 'اسم الخبير'
+                                                              : `اكتب ${requiredExpertCount} أسماء مفصولة بفاصلة`
+                                                      }
                                                   />
                                               </div>
                                               <div className="rounded-2xl border border-white/10 bg-slate-900/35 p-3">
@@ -17302,27 +18746,45 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                                   <input
                                                       type="text"
                                                       inputMode="numeric"
-                                                      pattern="[0-9]*"
+                                                      dir="ltr"
                                                       value={seizedPropertyExpertPriceDraft}
-                                                      onChange={(e) => setSeizedPropertyExpertPriceDraft(e.target.value.replace(/[^\d]/g, ''))}
-                                                      className="w-full rounded-2xl border border-slate-700/40 bg-slate-900/40 px-4 py-3 text-[12px] text-white outline-none"
-                                                      placeholder="مثال: 300000000"
+                                                      onChange={(e) =>
+                                                          setSeizedPropertyExpertPriceDraft(
+                                                              formatNumberInput(e.target.value)
+                                                          )
+                                                      }
+                                                      className="w-full rounded-2xl border border-slate-700/40 bg-slate-900/40 px-4 py-3 text-[12px] font-mono text-white outline-none text-right"
+                                                      placeholder="0"
                                                   />
                                               </div>
+                                                      </>
+                                                  );
+                                              })()}
                                           </>
                                       ) : null}
                                       {seizedPropertyStepKind === 'auction' ? (
-                                          <div className="rounded-2xl border border-white/10 bg-slate-900/35 p-3">
-                                              <label className="block text-[10px] text-slate-400 text-right mb-2">
-                                                  موعد المزايدة
-                                              </label>
-                                              <input
-                                                  type="date"
-                                                  value={seizedPropertyAuctionDateDraft}
-                                                  onChange={(e) => setSeizedPropertyAuctionDateDraft(e.target.value)}
-                                                  className="w-full rounded-2xl border border-slate-700/40 bg-slate-900/40 px-4 py-3 text-[12px] text-white outline-none"
+                                          <>
+                                              <div className="rounded-2xl border border-white/10 bg-slate-900/35 p-3">
+                                                  <label className="block text-[10px] text-slate-400 text-right mb-2">
+                                                      موعد المزايدة
+                                                  </label>
+                                                  <input
+                                                      type="date"
+                                                      value={seizedPropertyAuctionDateDraft}
+                                                      onChange={(e) =>
+                                                          setSeizedPropertyAuctionDateDraft(e.target.value)
+                                                      }
+                                                      className="w-full rounded-2xl border border-slate-700/40 bg-slate-900/40 px-4 py-3 text-[12px] text-white outline-none"
+                                                      style={{ direction: 'ltr', textAlign: 'right' }}
+                                                  />
+                                              </div>
+                                              <FollowupSectionLinkCheckbox
+                                                  checked={linkSeizureAuctionToAppointments}
+                                                  onChange={setLinkSeizureAuctionToAppointments}
+                                                  label="إضافة الموعد إلى قسم المواعيد"
+                                                  hint="يمكنك إلغاء التحديد إذا أردت الحفظ في سجل العقار/المنقول فقط."
                                               />
-                                          </div>
+                                          </>
                                       ) : null}
                                       {seizedPropertyStepKind === 'award' ? (
                                           <>
@@ -17353,7 +18815,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                               </div>
                                           </>
                                       ) : null}
-                                      {seizedPropertyStepKind === 'increase10' || seizedPropertyStepKind === 'reauction_default' ? (
+                                      {seizedPropertyStepKind === 'reauction_default' ? (
                                           <div className="rounded-2xl border border-white/10 bg-slate-900/35 p-3">
                                               <label className="block text-[10px] text-slate-400 text-right mb-2">
                                                   الملاحظات
@@ -17380,7 +18842,9 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                       )
                     : null}
 
-                {seizedPropertyAuctionResultModalOpen && typeof document !== 'undefined'
+                {seizedPropertyAuctionResultModalOpen &&
+                seizedPropertyAuctionResultEntityKind !== 'movable' &&
+                typeof document !== 'undefined'
                     ? createPortal(
                           <div
                               className={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG}`}
@@ -17524,7 +18988,9 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                       )
                     : null}
 
-                {seizureMarkModalOpen && typeof document !== 'undefined'
+                {seizureMarkModalOpen &&
+                seizureMarkModalEntityKind !== 'movable' &&
+                typeof document !== 'undefined'
                     ? createPortal(
                           <div
                               className={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG}`}
@@ -17616,7 +19082,9 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                       )
                     : null}
 
-                {publicationModalOpen && typeof document !== 'undefined'
+                {publicationModalOpen &&
+                publicationModalEntityKind !== 'movable' &&
+                typeof document !== 'undefined'
                     ? createPortal(
                           <div
                               className={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG}`}
@@ -17695,102 +19163,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                       )
                     : null}
 
-                {increase10ResultModalOpen && typeof document !== 'undefined'
-                    ? createPortal(
-                          <div
-                              className={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG}`}
-                              style={{ zIndex: EXEC_MODAL_Z.nestedOverFollowUpPortal }}
-                              role="presentation"
-                              onClick={(e) => {
-                                  if (e.target === e.currentTarget) {
-                                      setIncrease10ResultModalOpen(false);
-                                      setIncrease10ResultEntityId(null);
-                                      setIncrease10ResultDecisionId(null);
-                                      setIncrease10BuyerNameDraft('');
-                                      setIncrease10AmountDraft('');
-                                      setIncrease10DepositDraft('');
-                                  }
-                              }}
-                          >
-                              <div
-                                  className="w-full max-w-md rounded-3xl border-2 border-emerald-500/25 bg-[#0B1120] shadow-2xl shadow-black/50"
-                                  onClick={(e) => e.stopPropagation()}
-                                  dir="rtl"
-                                  role="dialog"
-                                  aria-label="تسجيل نتيجة الضم 10%"
-                              >
-                                  <div className="flex items-center justify-between border-b border-emerald-500/15 p-4">
-                                      <button
-                                          type="button"
-                                          onClick={() => {
-                                              setIncrease10ResultModalOpen(false);
-                                              setIncrease10ResultEntityId(null);
-                                              setIncrease10ResultDecisionId(null);
-                                              setIncrease10BuyerNameDraft('');
-                                              setIncrease10AmountDraft('');
-                                              setIncrease10DepositDraft('');
-                                          }}
-                                          className="rounded-lg p-2 text-slate-400 hover:bg-white/5 hover:text-white"
-                                          aria-label="إغلاق"
-                                      >
-                                          <X size={18} />
-                                      </button>
-                                      <p className="text-[12px] font-black text-emerald-200">
-                                          تسجيل نتيجة الضم 10%
-                                          {increase10ResultEntityKind === 'movable' ? ' — مال منقول' : ' — عقار'}
-                                      </p>
-                                      <span className="w-8" aria-hidden />
-                                  </div>
-                                  <div className="p-4 space-y-3">
-                                      <div className="rounded-2xl border border-white/10 bg-slate-900/35 p-3">
-                                          <label className="block text-[10px] text-slate-400 text-right mb-2">
-                                              اسم الضام/المزايد الجديد
-                                          </label>
-                                          <input
-                                              value={increase10BuyerNameDraft}
-                                              onChange={(e) => setIncrease10BuyerNameDraft(e.target.value)}
-                                              className="w-full rounded-2xl border border-slate-700/40 bg-slate-900/40 px-4 py-3 text-[12px] text-white outline-none"
-                                              placeholder="مثال: أحمد محمد"
-                                          />
-                                      </div>
-                                      <div className="rounded-2xl border border-white/10 bg-slate-900/35 p-3">
-                                          <label className="block text-[10px] text-slate-400 text-right mb-2">
-                                              مبلغ الضم الجديد
-                                          </label>
-                                          <input
-                                              value={increase10AmountDraft}
-                                              onChange={(e) => setIncrease10AmountDraft(e.target.value.replace(/[^\d]/g, ''))}
-                                              inputMode="numeric"
-                                              className="w-full rounded-2xl border border-slate-700/40 bg-slate-900/40 px-4 py-3 text-[12px] text-white outline-none text-right"
-                                              placeholder="مثال: 150000000"
-                                          />
-                                      </div>
-                                      <div className="rounded-2xl border border-white/10 bg-slate-900/35 p-3">
-                                          <label className="block text-[10px] text-slate-400 text-right mb-2">
-                                              مبلغ التأمينات المدفوعة الجديدة
-                                          </label>
-                                          <input
-                                              value={increase10DepositDraft}
-                                              onChange={(e) => setIncrease10DepositDraft(e.target.value.replace(/[^\d]/g, ''))}
-                                              inputMode="numeric"
-                                              className="w-full rounded-2xl border border-slate-700/40 bg-slate-900/40 px-4 py-3 text-[12px] text-white outline-none text-right"
-                                              placeholder="مثال: 15000000"
-                                          />
-                                      </div>
-                                      <button
-                                          type="button"
-                                          onClick={saveIncrease10Result}
-                                          className="w-full rounded-2xl border border-emerald-500/35 bg-emerald-600/15 px-4 py-3 text-[12px] font-black text-emerald-100 hover:bg-emerald-600/20"
-                                      >
-                                          حفظ
-                                      </button>
-                                  </div>
-                              </div>
-                          </div>,
-                          document.body
-                      )
-                    : null}
-                    
                     {/* BOTTOM SPACER FOR SMOOTH SCROLLING */}
                     <div className="h-6"></div>
                     
@@ -17832,198 +19204,117 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                             style={{ zIndex: EXEC_MODAL_Z.unifiedFollowUp }}
                             role="presentation"
                             onClick={(e) => {
-                                if (e.target === e.currentTarget) setShowUnifiedExecutionModal(false);
+                                if (e.target === e.currentTarget) closeFollowupModalPersisted();
                             }}
                         >
 						<div className="w-full" onClick={(e) => e.stopPropagation()}>
-							<div className="relative w-full max-w-5xl max-h-[90vh] bg-slate-900/40 backdrop-blur-3xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)] ring-1 ring-white/5 rounded-3xl overflow-hidden flex flex-col md:flex-row">
-								<div className="pointer-events-none absolute top-0 inset-x-0 z-10 flex items-center justify-between px-4 py-3 bg-white/[0.02] border-b border-white/10 backdrop-blur-3xl">
+							<div className="relative mx-auto flex h-[min(90vh,920px)] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-900/40 shadow-[0_8px_32px_rgba(0,0,0,0.5)] ring-1 ring-white/5 backdrop-blur-3xl">
+								<div className="flex shrink-0 items-center justify-between border-b border-white/10 bg-white/[0.02] px-4 py-3 backdrop-blur-3xl">
 									<button
                                     type="button"
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        setShowUnifiedExecutionModal(false);
+                                        closeFollowupModalPersisted();
                                     }}
-										className="pointer-events-auto rounded-full p-2 text-slate-200/90 transition-all hover:bg-white/10 hover:text-white"
+										className="rounded-full p-2 text-slate-200/90 transition-all hover:bg-white/10 hover:text-white"
                                     aria-label="إغلاق محضر المتابعة"
                                 >
                                     <X size={20} className="text-white" />
                                 </button>
-								<h2 className="text-amber-200 font-bold text-lg flex items-center gap-2 flex-row-reverse tracking-wide">
+								<h2 className="flex flex-row-reverse items-center gap-2 text-lg font-bold tracking-wide text-amber-200">
                                     <span>محضر المتابعة</span>
 									<ClipboardList
 										size={22}
-										className="text-amber-300 shrink-0 drop-shadow-[0_0_14px_rgba(230,198,115,0.35)]"
+										className="shrink-0 text-amber-300 drop-shadow-[0_0_14px_rgba(230,198,115,0.35)]"
 									/>
                                 </h2>
+                                    <span className="w-9" aria-hidden />
                             </div>
 
-								<div className="w-full flex-1 min-h-0 flex flex-col md:flex-row gap-6 p-4 md:p-6 pt-16" dir="rtl">
-									<aside className="relative flex flex-row md:flex-col gap-2 p-4 md:p-6 md:w-72 bg-gradient-to-b from-white/[0.02] to-transparent border-b md:border-b-0 md:border-l border-white/10 md:overflow-visible">
-                                    <div className="flex shrink-0 flex-col gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => goFollowupSectionTabByDelta(-1)}
-                                            className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-slate-200 hover:bg-white/[0.06]"
-                                            title="التبويب السابق (Alt + ←)"
-                                            aria-label="التبويب السابق"
-                                        >
-                                            <ChevronRight size={18} />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => goFollowupSectionTabByDelta(1)}
-                                            className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-slate-200 hover:bg-white/[0.06]"
-                                            title="التبويب التالي (Alt + →)"
-                                            aria-label="التبويب التالي"
-                                        >
-                                            <ChevronLeft size={18} />
-                                        </button>
+                                <div
+                                    className="shrink-0 border-b border-white/10 bg-gradient-to-b from-[#0A0F1C]/80 to-transparent px-3 py-2.5"
+                                    dir="rtl"
+                                >
+                                    <div className="mb-2 flex items-center justify-between gap-2">
+                                        <p className="text-[10px] font-bold text-slate-500">أقسام المحضر</p>
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => goFollowupSectionTabByDelta(-1)}
+                                                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06]"
+                                                title="التبويب السابق (Alt + ←)"
+                                                aria-label="التبويب السابق"
+                                            >
+                                                <ChevronRight size={16} />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => goFollowupSectionTabByDelta(1)}
+                                                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06]"
+                                                title="التبويب التالي (Alt + →)"
+                                                aria-label="التبويب التالي"
+                                            >
+                                                <ChevronLeft size={16} />
+                                            </button>
+                                        </div>
                                     </div>
-									<div
+                                    <div
                                         ref={(el) => {
                                             (followupModalChipTablistRef as any).current = el;
                                             (followupModalSectionTabsRef as any).current = el;
                                         }}
                                         role="tablist"
                                         aria-label="أقسام محضر المتابعة"
-										className="flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-visible scroll-smooth snap-x [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-										onWheelCapture={(e) => {
-											const el = e.currentTarget;
-											if (el.scrollWidth <= el.clientWidth) return;
-											const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-											if (delta === 0) return;
-											e.preventDefault();
-											el.scrollLeft += delta;
-										}}
+                                        className="flex gap-1.5 overflow-x-auto scroll-smooth pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                                        onWheelCapture={(e) => {
+                                            const el = e.currentTarget;
+                                            if (el.scrollWidth <= el.clientWidth) return;
+                                            const delta =
+                                                Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+                                            if (delta === 0) return;
+                                            e.preventDefault();
+                                            el.scrollLeft += delta;
+                                        }}
                                     >
-                                        {showPersonalCoerciveFollowupTab ? (
-												<button
-                                                type="button"
-                                                role="tab"
-                                                data-followup-tab="personal"
-                                                aria-selected={unifiedModalTab === 'personal'}
-                                                onClick={() => setUnifiedModalTab('personal')}
-												className={`px-5 py-3 rounded-2xl whitespace-nowrap transition-all snap-start ${
-													unifiedModalTab === 'personal'
-														? 'bg-white/10 text-white font-bold border border-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3)] backdrop-blur-md'
-														: 'text-slate-400 hover:text-white hover:bg-white/5'
-												}`}
-                                                title={
-                                                    personalTabLockedForEmployee
-                                                        ? 'المدين موظف — الخيارات مقفلة حتى فك القفل'
-                                                        : undefined
-                                                }
-                                            >
-													{unifiedModalTab === 'personal' ? (
-														<span className="hidden" />
-													) : null}
-                                                {personalTabLockedForEmployee
-                                                    ? '🔒 التنفيذ الجبري الشخصي'
-                                                    : 'التنفيذ الجبري الشخصي'}
-                                            </button>
-                                        ) : null}
-											<button
-                                            type="button"
-                                            role="tab"
-                                            data-followup-tab="coercive"
-                                            aria-selected={
-                                                unifiedModalTab === 'coercive' ||
-                                                (unifiedModalTab === 'personal' && !showPersonalCoerciveFollowupTab)
-                                            }
-                                            onClick={() => setUnifiedModalTab('coercive')}
-											className={`px-5 py-3 rounded-2xl whitespace-nowrap transition-all snap-start ${
-                                                unifiedModalTab === 'coercive' ||
-                                                (unifiedModalTab === 'personal' && !showPersonalCoerciveFollowupTab)
-													? 'bg-white/10 text-white font-bold border border-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3)] backdrop-blur-md'
-												: 'text-slate-400 hover:text-white hover:bg-white/5'
-                                            }`}
-                                        >
-												{unifiedModalTab === 'coercive' ||
-												(unifiedModalTab === 'personal' && !showPersonalCoerciveFollowupTab) ? (
-													<span className="hidden" />
-												) : null}
-                                            الإجراءات الجبرية
-                                        </button>
-											<button
-                                            type="button"
-                                            role="tab"
-                                            data-followup-tab="seizure_requests"
-                                            aria-selected={unifiedModalTab === 'seizure_requests'}
-                                            onClick={() => setUnifiedModalTab('seizure_requests')}
-											className={`px-5 py-3 rounded-2xl whitespace-nowrap transition-all snap-start ${
-                                                unifiedModalTab === 'seizure_requests'
-													? 'bg-white/10 text-white font-bold border border-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3)] backdrop-blur-md'
-													: 'text-slate-400 hover:text-white hover:bg-white/5'
-                                            }`}
-                                        >
-												{unifiedModalTab === 'seizure_requests' ? <span className="hidden" /> : null}
-                                            طلبات الحجز الماليه
-                                        </button>
-											<button
-                                            type="button"
-                                            role="tab"
-                                            data-followup-tab="correspondences"
-                                            aria-selected={unifiedModalTab === 'correspondences'}
-                                            onClick={() => setUnifiedModalTab('correspondences')}
-											className={`px-5 py-3 rounded-2xl whitespace-nowrap transition-all snap-start ${
-                                                unifiedModalTab === 'correspondences'
-													? 'bg-white/10 text-white font-bold border border-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3)] backdrop-blur-md'
-													: 'text-slate-400 hover:text-white hover:bg-white/5'
-                                            }`}
-                                        >
-												{unifiedModalTab === 'correspondences' ? <span className="hidden" /> : null}
-                                            📨 المخاطبات
-                                        </button>
-											<button
-                                            type="button"
-                                            role="tab"
-                                            data-followup-tab="admin"
-                                            aria-selected={unifiedModalTab === 'admin'}
-                                            onClick={() => setUnifiedModalTab('admin')}
-											className={`px-5 py-3 rounded-2xl whitespace-nowrap transition-all snap-start ${
-                                                unifiedModalTab === 'admin'
-													? 'bg-white/10 text-white font-bold border border-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3)] backdrop-blur-md'
-													: 'text-slate-400 hover:text-white hover:bg-white/5'
-                                            }`}
-                                        >
-												{unifiedModalTab === 'admin' ? <span className="hidden" /> : null}
-                                            📝 نماذج الطلبات
-                                        </button>
-											<button
-                                            type="button"
-                                            role="tab"
-                                            data-followup-tab="dossier_controls"
-                                            aria-selected={unifiedModalTab === 'dossier_controls'}
-                                            onClick={() => setUnifiedModalTab('dossier_controls')}
-											className={`px-5 py-3 rounded-2xl whitespace-nowrap transition-all snap-start ${
-                                                unifiedModalTab === 'dossier_controls'
-													? 'bg-white/10 text-white font-bold border border-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3)] backdrop-blur-md'
-													: 'text-slate-400 hover:text-white hover:bg-white/5'
-                                            }`}
-                                        >
-												{unifiedModalTab === 'dossier_controls' ? <span className="hidden" /> : null}
-                                            التحكم في الإضبارة
-                                        </button>
-											<button
-                                            type="button"
-                                            role="tab"
-                                            data-followup-tab="other_party"
-                                            aria-selected={unifiedModalTab === 'other_party'}
-                                            onClick={() => setUnifiedModalTab('other_party')}
-											className={`px-5 py-3 rounded-2xl whitespace-nowrap transition-all snap-start ${
-                                                unifiedModalTab === 'other_party'
-													? 'bg-white/10 text-white font-bold border border-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3)] backdrop-blur-md'
-													: 'text-slate-400 hover:text-white hover:bg-white/5'
-                                            }`}
-                                        >
-												{unifiedModalTab === 'other_party' ? <span className="hidden" /> : null}
-                                            تحركات الطرف الآخر
-                                        </button>
+                                        {effectiveFollowupModalTabs.map((tab) => {
+                                            const active = isFollowupTabActive(tab.id);
+                                            return (
+                                                <button
+                                                    key={tab.id}
+                                                    type="button"
+                                                    role="tab"
+                                                    data-followup-tab={tab.id}
+                                                    aria-selected={active}
+                                                    onClick={() => {
+                                                        if (tab.id === 'seizure_requests') {
+                                                            openSeizureRequestsTab();
+                                                            return;
+                                                        }
+                                                        setUnifiedModalTab(tab.id);
+                                                    }}
+                                                    title={
+                                                        tab.id === 'personal' && personalTabLockedForEmployee
+                                                            ? 'المدين موظف — الخيارات مقفلة حتى فك القفل'
+                                                            : undefined
+                                                    }
+                                                    className={`flex shrink-0 snap-start flex-row-reverse items-center gap-1.5 whitespace-nowrap rounded-xl border px-4 py-2.5 text-[11px] font-bold transition-all ${
+                                                        active
+                                                            ? 'border-amber-400/35 bg-gradient-to-b from-amber-500/20 to-amber-500/5 text-amber-50 shadow-[0_0_22px_-8px_rgba(230,198,115,0.45)]'
+                                                            : 'border-transparent bg-white/[0.03] text-slate-400 hover:border-white/10 hover:bg-white/[0.06] hover:text-slate-200'
+                                                    }`}
+                                                >
+                                                    {tab.label}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
-                                </aside>
+                                </div>
 
-								<div className="flex-1 overflow-y-auto p-4 md:p-8 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full">
+								<div
+                                    ref={followupModalBodyScrollRef}
+                                    onScroll={() => persistFollowupModalViewport()}
+                                    className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10"
+                                >
                                 {!isSolidaryLiability && allDebtorsUnified.length > 1 ? (
                                     <div className="sticky top-0 z-[5] border-b border-slate-700/50 bg-[#0B1120]/98 px-2 pt-2 pb-2 backdrop-blur-md">
                                         <p className="mb-1 px-1 text-right text-[9px] text-slate-500">
@@ -18158,10 +19449,17 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                             const did = String(opts?.decisionId ?? '').trim();
                                             if (tab === 'appeals') {
                                                 setDecisionsModalBootHubTab('appeals');
+                                                setDecisionsModalBootListTab('appeals');
                                                 setAppealsModalScrollToDecisionId(did || null);
                                                 setDecisionsModalScrollToDecisionId(null);
+                                            } else if (tab === 'current' || tab === 'previous') {
+                                                setDecisionsModalBootHubTab(null);
+                                                setDecisionsModalBootListTab(tab);
+                                                setDecisionsModalScrollToDecisionId(did || null);
+                                                setAppealsModalScrollToDecisionId(null);
                                             } else {
                                                 setDecisionsModalBootHubTab(null);
+                                                setDecisionsModalBootListTab(null);
                                                 setDecisionsModalScrollToDecisionId(did || null);
                                                 setAppealsModalScrollToDecisionId(null);
                                             }
@@ -18178,15 +19476,21 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                             setShowUnifiedExecutionModal(false);
                                             setExecutionDebtorTabIndex(0);
                                             if (primaryDebtorWorkspaceKey) {
-                                                setExpandedDebtorById((prev) => ({
-                                                    ...prev,
-                                                    [primaryDebtorWorkspaceKey]: true,
-                                                }));
+                                                debtorsSectionRef.current?.expandDebtor(
+                                                    primaryDebtorWorkspaceKey
+                                                );
                                             }
                                             openGuarantorDetailsModal();
                                         }}
                                         kasabTerminationEmphasis={kasabTerminationEmphasis}
                                         activeDebtorIsEmployee={activeDebtorIsEmployee}
+                                        hidePersonalJudgePresentation={
+                                            followupSpecialization.hidePersonalJudgePresentation ||
+                                            activeDebtorIsEmployee
+                                        }
+                                        hidePersonalForcedBringActivation={
+                                            followupSpecialization.hidePersonalForcedBringActivation
+                                        }
                                         activeDebtorNoticeScope={activeDebtorNoticeScope}
                                         handleEmployeeAssignmentRequestInvestigation={handleEmployeeAssignmentRequestInvestigation}
                                         handleEmployeeRegisterArrestOrder={handleEmployeeRegisterArrestOrder}
@@ -18195,8 +19499,9 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                         handleEmployeeWarrantOutcome={handleEmployeeWarrantOutcome}
                                         handleEmployeeAssignmentTerminate={handleEmployeeAssignmentTerminate}
                                     />
-								) : unifiedModalTab === 'coercive' ||
-								  (unifiedModalTab === 'personal' && !showPersonalCoerciveFollowupTab) ? (
+								) : !followupSpecialization.hideFollowupCoerciveTab &&
+								  (unifiedModalTab === 'coercive' ||
+								  (unifiedModalTab === 'personal' && !showPersonalCoerciveFollowupTab)) ? (
 									<motion.div
 										key="followup-coercive"
 										initial="hidden"
@@ -18229,8 +19534,11 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                             activeTimelineEvents={activeTimelineEvents}
                                             evictionPremisesUseResolved={evictionPremisesUseResolved}
                                             showResidentialEvictionGraceControl={showResidentialEvictionGraceControl}
+                                            residentialGracePeriodSaved={residentialGracePeriodSaved}
                                             openEvictionResidentialGraceModal={openEvictionResidentialGraceModal}
                                             showResidentialGraceEarlyEndRequest={showResidentialGraceEarlyEndRequest}
+                                            showBreakInventoryRequest={showBreakInventoryRequest}
+                                            showEvictionFieldworkRequests={residentialGraceAllowsFieldwork}
                                             evictionHeirsNotificationDateYmd={evictionHeirsNotificationDateYmd}
                                             handleEvictionHeirsNotificationDateChange={handleEvictionHeirsNotificationDateChange}
                                             handleIssueHeirsExecutionNoticeMemo={handleIssueHeirsExecutionNoticeMemo}
@@ -18238,8 +19546,65 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                             tryOpenPendingBreakInventoryLedger={tryOpenPendingBreakInventoryLedger}
                                             tryOpenPendingCustodianDetails={tryOpenPendingCustodianDetails}
                                             openPoliceAssistanceDetails={openPoliceAssistanceDetailsForDecision}
+                                            savePoliceAssistance={savePoliceAssistanceEntry}
+                                            saveBreakInventoryLedger={saveBreakInventoryLedgerEntry}
+                                            finalizeBreakInventoryRequest={finalizeBreakInventoryEntry}
+                                            isMaritalFurnitureClaim={isMaritalFurnitureClaim}
+                                            maritalFurnitureItems={maritalFurnitureItemsForFollowup}
+                                            saveMaritalFurnitureDeliveryInventory={
+                                                saveMaritalFurnitureDeliveryInventoryEntry
+                                            }
+                                            expandProcedureKey={followupExpandProcedureKey}
+                                            onExpandProcedureConsumed={consumeFollowupExpandProcedure}
                                             followupEmployeeFinancialSalaryOnlyCoercive={followupEmployeeFinancialSalaryOnlyCoercive}
                                             followupMonetaryCoerciveLimitedOnly={followupMonetaryCoerciveLimitedOnly}
+                                            hideCoerciveGraceNoticeBanner={followupSpecialization.hideCoerciveGraceNoticeBanner}
+                                            hideCoerciveFinancialBanners={followupSpecialization.hideCoerciveFinancialBanners}
+                                            hideCoerciveSeizureSalaryAndProperty={followupSpecialization.hideCoerciveSeizureSalaryAndProperty}
+                                            hideEncroachmentEvictionProcedureItems={followupSpecialization.hideEncroachmentEvictionProcedureItems}
+                                            showEncroachmentRemovalRequestCards={
+                                                followupSpecialization.showEncroachmentRemovalRequestCards
+                                            }
+                                            showSpecificDeliverySurveyorCard={
+                                                followupSpecialization.showSpecificDeliverySurveyorCard
+                                            }
+                                            showSpecificDeliveryConversionCard={
+                                                followupSpecialization.showSpecificDeliveryConversionCard
+                                            }
+                                            hideEvictionCustodianProcedure={
+                                                followupSpecialization.hideEvictionCustodianProcedure
+                                            }
+                                            showSpecificDeliveryBreakInventoryCard={
+                                                followupSpecialization.showSpecificDeliveryBreakInventoryCard
+                                            }
+                                            showSpecificDeliveryFieldProcedures={
+                                                followupSpecialization.showSpecificDeliveryFieldProcedures
+                                            }
+                                            showGenericFieldProcedureCards={
+                                                followupSpecialization.showSpecificDeliveryFieldProcedures &&
+                                                !isMaritalFurnitureClaim
+                                            }
+                                            hideFollowupCoerciveTab={
+                                                followupSpecialization.hideFollowupCoerciveTab
+                                            }
+                                            isSpecificDeliveryModule={isSpecificDeliveryClaim(
+                                                claimTypeForExecutionModule
+                                            )}
+                                            specificDeliveryFinancialized={Boolean(
+                                                (executionData as { specificDeliveryFinancialized?: boolean })
+                                                    ?.specificDeliveryFinancialized
+                                            )}
+                                            specificDeliveryItemName={headerFields.specificDeliveryItemName}
+                                            specificDeliveryItemNature={headerFields.specificDeliveryItemNature}
+                                            debtAmount={executionData?.debtAmount}
+                                            totalAmount={executionData?.totalAmount}
+                                            specificDeliveryConvertedAmount={
+                                                (executionData as { specificDeliveryConvertedAmount?: number })
+                                                    ?.specificDeliveryConvertedAmount
+                                            }
+                                            onSpecificDeliveryFinancialized={handleSpecificDeliveryFinancialized}
+                                            onEncroachmentExpenseRecorded={handleEncroachmentExpenseRecorded}
+                                            onSpecificDeliveryExpenseRecorded={handleSpecificDeliveryExpenseRecorded}
                                             executionCoerciveButtonDisabled={executionCoerciveButtonDisabled}
                                             inlineActionGateKey={inlineActionGateKey}
                                             setInlineActionGateKey={setInlineActionGateKey}
@@ -18261,14 +19626,21 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                     <OtherPartyTab
                                         executionData={viewExecutionData}
                                         persistExecutionMerge={persistExecutionMerge}
-                                        handleOtherPartyActionSubmitToDecisions={handleOtherPartyActionSubmitToDecisions}
+                                        handleOtherPartyActionSubmitToDecisions={otherPartyTabSubmitHandler}
                                         EXEC_OVERLAY_LAZY_FALLBACK={EXEC_OVERLAY_LAZY_FALLBACK}
                                         LazyOtherPartyActionsLog={LazyOtherPartyActionsLog}
+                                        showCreditorRequestsMirror={isRepresentingDebtor}
+                                        creditorRequestsMirror={otherPartyCreditorMirrorProps ?? undefined}
+                                        onOpenAppeals={openOtherPartyAppealsModal}
+                                        creditorTrackHandlers={creditorOtherPartyTrackHandlers}
                                     />
                                 ) : unifiedModalTab === 'seizure_requests' ? (
                                     <SeizureRequestsTab
                                         executionId={decisionsStorageExecutionId ?? executionId}
                                         executionData={viewExecutionData}
+                                        remainingBalanceIqd={remainingBalanceForSeizure}
+                                        financialCenterTotalIqd={remainingBalanceForSeizure}
+                                        seizureMatrix={seizureMatrix}
                                         seizureDetailCompletion={seizureDetailCompletion}
                                         saveCoerciveAction={saveCoerciveAction}
                                         persistExecutionMerge={persistExecutionMerge}
@@ -18278,6 +19650,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                         getLocalTodayYmd={getLocalTodayYmd}
                                         showToast={showToast}
                                         activeDebtorIsDeceased={activeDebtorIsDeceased}
+                                        activeDebtorIsEmployee={activeDebtorIsEmployee}
                                         executionCoerciveButtonDisabled={executionCoerciveButtonDisabled}
                                         coerciveUiLocked={coerciveUiLocked}
                                         isHistoricalMode={isHistoricalMode}
@@ -18286,11 +19659,52 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                         handleCoerciveAction={handleCoerciveAction}
                                         handleGuarantorRequestFromFollowup={handleGuarantorRequestFromFollowup}
                                         requestFollowupSeizureDecision={requestFollowupSeizureDecision}
+                                        saveSeizedPropertyInitForDecision={saveSeizedPropertyInitForDecision}
+                                        saveSeizedMovableInitForDecision={saveSeizedMovableInitForDecision}
+                                        saveThirdPartySeizureForDecision={saveThirdPartySeizureForDecision}
+                                        saveStandaloneExecutionMarkForDecision={
+                                            saveStandaloneExecutionMarkForDecision
+                                        }
+                                        requestGuarantorSeizure={requestGuarantorSeizure}
+                                        forceHideGuarantorSeizureSubTab={
+                                            followupSpecialization.hideGuarantorSeizureSubTab
+                                        }
+                                        financialGuarantorRequestOnly={
+                                            followupSpecialization.showFinancialGuarantorRequestOnly
+                                        }
+                                        isFinancialDebtCollectionClaim={
+                                            followupSpecialization.isFinancialDebtCollection
+                                        }
+                                        settlementBreachTriggeredAt={
+                                            settlementGuarantorGate.settlementBreachTriggeredAt
+                                        }
+                                        hideAllGuarantorPresence={
+                                            followupSpecialization.hideAllGuarantorPresence
+                                        }
+                                        ledgerPendingSettlement={
+                                            settlementGuarantorGate.pendingSettlement
+                                        }
+                                        isAlimonyClaim={isAlimonyClaimType}
+                                        claimType={claimType}
                                     />
 								) : unifiedModalTab === 'correspondences' ? (
                                     <CommunicationsTab
                                         decisionsStorageExecutionId={decisionsStorageExecutionId}
                                         showToast={showToast}
+                                        showSoftFieldProcedures={
+                                            followupSpecialization.showCorrespondencesSoftProcedures
+                                        }
+                                        showEncroachmentSurveyor={
+                                            followupSpecialization.showEncroachmentRemovalRequestCards
+                                        }
+                                        showSpecificDeliverySurveyor={
+                                            followupSpecialization.showSpecificDeliverySurveyorCard
+                                        }
+                                        inlineActionGateKey={inlineActionGateKey}
+                                        setInlineActionGateKey={setInlineActionGateKey}
+                                        onEncroachmentExpenseRecorded={(row) => {
+                                            setEncroachmentCaseExpenses((prev) => [...prev, row]);
+                                        }}
                                         pushTimelineEvent={(event) => {
                                             setTimelineEvents((prev) => {
                                                 const next = mergeSimilarRecentTimelineEvent(prev, event);
@@ -18328,127 +19742,157 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                                 transition: { duration: 0.25 },
                                             },
                                         }}
-                                        className="p-4 sm:p-5 space-y-3"
+                                        className="p-4 sm:p-5"
                                         dir="rtl"
                                     >
-                                        <div className="flex justify-end" dir="rtl">
-                                            <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setDossierControlsOpen((v) => !v);
-                                                }}
-                                                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/25 bg-amber-950/25 px-2.5 py-1.5 text-[10px] font-bold text-amber-200/85 transition hover:bg-amber-950/45 hover:border-amber-500/45"
-                                            >
-                                                <SlidersHorizontal size={13} className="text-amber-400" />
-                                                التحكم في الإضبارة
-                                            </button>
-                                        </div>
-
-                                        <AnimatePresence>
-                                            {dossierControlsOpen ? (
-                                                <motion.div
-                                                    initial={{ height: 0, opacity: 0 }}
-                                                    animate={{ height: 'auto', opacity: 1 }}
-                                                    exit={{ height: 0, opacity: 0 }}
-                                                    className="overflow-hidden rounded-xl border border-amber-500/20 bg-black/15 p-2.5"
-                                                    dir="rtl"
-                                                >
-                                                    <p className="mb-2 text-[10px] font-bold text-amber-400/80 tracking-wide text-center">
-                                                        لوحة تحكم الإضبارة
-                                                    </p>
-                                                    <div className="flex flex-row flex-wrap items-center justify-center gap-2">
-                                                        <button
-                                                            type="button"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleOpenDossierAction('delegation');
-                                                                setDossierControlsOpen(false);
-                                                            }}
-                                                            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/25 bg-amber-950/25 px-2.5 py-1.5 text-[10px] font-bold text-amber-200/85 transition hover:bg-amber-950/45 hover:border-amber-500/45"
-                                                        >
-                                                            <Forward size={13} className="text-amber-400" />
-                                                            طلب الإنابة التنفيذية
-                                                        </button>
-                                                        {activeSubFileId === null && !isInabaActive && inabaTargets.length > 0 ? (
-                                                            <button
-                                                                type="button"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleOpenDossierAction('inaba_correspondence');
-                                                                    setDossierControlsOpen(false);
-                                                                }}
-                                                                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/25 bg-amber-950/25 px-2.5 py-1.5 text-[10px] font-bold text-amber-200/85 transition hover:bg-amber-950/45 hover:border-amber-500/45"
-                                                            >
-                                                                <MessageSquare size={13} className="text-amber-400" />
-                                                                طلب مخاطبة الإنابة
-                                                            </button>
-                                                        ) : null}
-                                                        <button
-                                                            type="button"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleOpenDossierAction('unify');
-                                                                setDossierControlsOpen(false);
-                                                            }}
-                                                            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/25 bg-amber-950/25 px-2.5 py-1.5 text-[10px] font-bold text-amber-200/85 transition hover:bg-amber-950/45 hover:border-amber-500/45"
-                                                        >
-                                                            <Shuffle size={13} className="text-amber-400" />
-                                                            طلب توحيد الأضابير
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleOpenDossierAction('transfer');
-                                                                setDossierControlsOpen(false);
-                                                            }}
-                                                            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/25 bg-amber-950/25 px-2.5 py-1.5 text-[10px] font-bold text-amber-200/85 transition hover:bg-amber-950/45 hover:border-amber-500/45"
-                                                        >
-                                                            <FileText size={13} className="text-amber-400" />
-                                                            طلب نقل الإضبارة
-                                                        </button>
-                                                        {activeSubFileId === null &&
-                                                        (executionPaused ||
-                                                            stayOfExecutionActive ||
-                                                            normalizeDossierLifecycleStatus((executionData as any)?.dossier_lifecycle_status) === 'paused' ||
-                                                            normalizeDossierLifecycleStatus((executionData as any)?.dossier_lifecycle_status) === 'suspended') ? (
-                                                            <button
-                                                                type="button"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleOpenDossierAction('renew');
-                                                                    setDossierControlsOpen(false);
-                                                                }}
-                                                                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/25 bg-amber-950/25 px-2.5 py-1.5 text-[10px] font-bold text-amber-200/85 transition hover:bg-amber-950/45 hover:border-amber-500/45"
-                                                            >
-                                                                <RefreshCw size={13} className="text-amber-400" />
-                                                                طلب تجديد الإضبارة
-                                                            </button>
-                                                        ) : null}
-                                                    </div>
-                                                </motion.div>
-                                            ) : null}
-                                        </AnimatePresence>
+                                        <DossierControlsTab
+                                            parentFileId={parentDossierId}
+                                            decisionsStorageExecutionId={decisionsStorageExecutionId}
+                                            appealPerspective={appealPerspective}
+                                            inabaTargets={inabaTargets}
+                                            inabaCorrespondenceLog={inabaCorrespondenceLog}
+                                            onExecutorOutcomeApplied={() => {
+                                                setExecutionStorageTick((t) => t + 1);
+                                            }}
+                                            showInabaCorrespondence={
+                                                activeSubFileId === null &&
+                                                !isInabaActive &&
+                                                inabaTargets.length > 0
+                                            }
+                                            showRenew={
+                                                activeSubFileId === null &&
+                                                (executionPaused ||
+                                                    stayOfExecutionActive ||
+                                                    normalizeDossierLifecycleStatus(
+                                                        (executionData as any)?.dossier_lifecycle_status
+                                                    ) === 'paused' ||
+                                                    normalizeDossierLifecycleStatus(
+                                                        (executionData as any)?.dossier_lifecycle_status
+                                                    ) === 'suspended')
+                                            }
+                                            saving={dossierActionModalSaving}
+                                            onSubmit={(payload) => {
+                                                setDossierActionModalSaving(true);
+                                                return handleDossierAction(payload);
+                                            }}
+                                        />
                                     </motion.div>
                                 ) : unifiedModalTab === 'admin' ? (
                                     <RequestsTab
                                         executionId={decisionsStorageExecutionId ?? executionId}
+                                        appealPerspective={appealPerspective}
                                         specialRequestTemplatePick={specialRequestTemplatePick}
                                         setSpecialRequestTemplatePick={setSpecialRequestTemplatePick}
                                         specialRequestDate={specialRequestDate}
                                         setSpecialRequestDate={setSpecialRequestDate}
                                         specialRequestContent={specialRequestContent}
                                         setSpecialRequestContent={setSpecialRequestContent}
+                                        specialRequestManualTitle={specialRequestManualTitle}
+                                        setSpecialRequestManualTitle={setSpecialRequestManualTitle}
                                         inlineActionGateKey={inlineActionGateKey}
                                         setInlineActionGateKey={setInlineActionGateKey}
                                         runSpecialFollowupSubmit={runSpecialFollowupSubmit}
+                                        activeDebtorIsDeceased={activeDebtorIsDeceased}
+                                        activeDebtorIsLegalEntity={activeDebtorIsLegalEntity}
+                                        hideHiddenFollowupRequests={
+                                            activeDebtorIsLegalEntity || hideCoerciveTabsForDebtorAgent
+                                        }
+                                        hiddenFollowupRequestOptions={{
+                                            domainContext: executionDomainContext,
+                                            flags: {
+                                                ...followupSpecialization,
+                                                showPersonalCoerciveFollowupTab,
+                                                showGuarantorInSeizureTab:
+                                                    showGuarantorInSeizureFollowupTab,
+                                                isPersonalStatusExecutionClaim,
+                                                isAlimonyClaim: isAlimonyClaimType,
+                                                activeDebtorIsEmployee,
+                                                showHiddenExecutiveDossierPresentation:
+                                                    !followupSpecialization.hidePersonalJudgePresentation &&
+                                                    !activeDebtorIsEmployee &&
+                                                    remainingBalanceForSeizure > 0,
+                                            },
+                                            guarantorCtx: {
+                                                executionData: viewExecutionData,
+                                                settlementBreachTriggeredAt:
+                                                    settlementGuarantorGate.settlementBreachTriggeredAt,
+                                                ledgerPendingSettlement:
+                                                    settlementGuarantorGate.pendingSettlement,
+                                                financialCenterTotalIqd: remainingBalanceForSeizure,
+                                                activeDebtorIsDeceased,
+                                                activeDebtorIsEmployee,
+                                            },
+                                            personal: {
+                                                appealPerspective,
+                                                coerciveUiLocked,
+                                                isHistoricalMode,
+                                                activeDebtorKey:
+                                                    assignmentWorkspaceCtx.activeDebtorKey,
+                                                primaryDebtorKey: primaryDebtorKeyResolved,
+                                                kasabRelaxedGates: !activeDebtorIsEmployee,
+                                                forcedSummonAllowed:
+                                                    forcedSummoningAnalysis.canForceSummon,
+                                                forcedSummonLockReason:
+                                                    forcedSummoningAnalysis.lockReasonAr,
+                                                showToast,
+                                                persistExecutionMerge,
+                                                onOpenDecisions: (opts) => {
+                                                    const tab = opts?.tab ?? null;
+                                                    const did = String(opts?.decisionId ?? '').trim();
+                                                    if (tab === 'appeals') {
+                                                        setDecisionsModalBootHubTab('appeals');
+                                                        setDecisionsModalBootListTab('appeals');
+                                                        setAppealsModalScrollToDecisionId(did || null);
+                                                        setDecisionsModalScrollToDecisionId(null);
+                                                    } else if (tab === 'current' || tab === 'previous') {
+                                                        setDecisionsModalBootHubTab(null);
+                                                        setDecisionsModalBootListTab(tab);
+                                                        setDecisionsModalScrollToDecisionId(did || null);
+                                                        setAppealsModalScrollToDecisionId(null);
+                                                    } else {
+                                                        setDecisionsModalBootHubTab(null);
+                                                        setDecisionsModalBootListTab(null);
+                                                        setDecisionsModalScrollToDecisionId(did || null);
+                                                        setAppealsModalScrollToDecisionId(null);
+                                                    }
+                                                    setShowDecisionsModal(true);
+                                                },
+                                            },
+                                            guarantor: {
+                                                executionData: viewExecutionData,
+                                                coerciveUiLocked,
+                                                isHistoricalMode,
+                                                handleGuarantorRequestFromFollowup,
+                                                requestGuarantorSeizure,
+                                                onOpenDecisions: (opts) => {
+                                                    const tab = opts?.tab ?? null;
+                                                    const did = String(opts?.decisionId ?? '').trim();
+                                                    if (tab === 'appeals') {
+                                                        setDecisionsModalBootHubTab('appeals');
+                                                        setDecisionsModalBootListTab('appeals');
+                                                        setAppealsModalScrollToDecisionId(did || null);
+                                                        setDecisionsModalScrollToDecisionId(null);
+                                                    } else if (tab === 'current' || tab === 'previous') {
+                                                        setDecisionsModalBootHubTab(null);
+                                                        setDecisionsModalBootListTab(tab);
+                                                        setDecisionsModalScrollToDecisionId(did || null);
+                                                        setAppealsModalScrollToDecisionId(null);
+                                                    } else {
+                                                        setDecisionsModalBootHubTab(null);
+                                                        setDecisionsModalBootListTab(null);
+                                                        setDecisionsModalScrollToDecisionId(did || null);
+                                                        setAppealsModalScrollToDecisionId(null);
+                                                    }
+                                                    setShowDecisionsModal(true);
+                                                },
+                                                showToast,
+                                            },
+                                        }}
                                     />
 													) : null}
                             </div>
                         </div>
-                    </div>
-                    </div>
+						</div>
                     </div>,
                         document.body
                     )}
@@ -18515,7 +19959,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     markHeirSummonsAttended={markHeirSummonsAttended}
                     markHeirSummonsPeriodEnded={markHeirSummonsPeriodEnded}
                 />
-
             {showGuarantorDetailsModal || showStayOfExecutionModal || Boolean(partyDeathModalParty) || showPauseModal ? (
             <ExecutionModalsContainer
                 EXEC_OVERLAY_LAZY_FALLBACK={EXEC_OVERLAY_LAZY_FALLBACK}
@@ -18530,8 +19973,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 showGuarantorDetailsModal={showGuarantorDetailsModal}
                 setShowGuarantorDetailsModal={setShowGuarantorDetailsModal}
                 setGuarantorDetailsDecisionId={setGuarantorDetailsDecisionId}
-                guarantorGuaranteeTypeDraft={guarantorGuaranteeTypeDraft}
-                setGuarantorGuaranteeTypeDraft={setGuarantorGuaranteeTypeDraft}
                 guarantorNameDraft={guarantorNameDraft}
                 guarantorWorkplaceDraft={guarantorWorkplaceDraft}
                 guarantorSalaryDraft={guarantorSalaryDraft}
@@ -18555,8 +19996,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 handleRequestCreditorSubstitution={handleRequestCreditorSubstitution}
                 debtorSubstitutionRequestStatus={debtorSubstitutionRequestStatus}
                 handleRequestDebtorSubstitution={handleRequestDebtorSubstitution}
-                heirsQuickView={heirsQuickView}
-                setHeirsQuickView={setHeirsQuickView}
                 X={X}
                 showPauseModal={showPauseModal}
                 setShowPauseModal={setShowPauseModal}
@@ -18653,46 +20092,64 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             />
             ) : null}
 
-            {memoWarningDialogOpen && (
-                <div
-                    className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
-                    dir="rtl"
-                    onClick={() => setMemoWarningDialogOpen(false)}
-                >
-                    <div
-                        className="w-full max-w-md overflow-hidden rounded-3xl border border-amber-500/25 bg-gradient-to-br from-[#1A1510] via-[#1E1812] to-[#221A12] p-6 shadow-[0_30px_80px_rgba(0,0,0,0.65)] backdrop-blur-2xl"
-                        onClick={e => e.stopPropagation()}
-                    >
-                        <div className="flex flex-col items-center text-center gap-4">
-                            <div className="grid h-16 w-16 place-items-center rounded-full border border-amber-400/25 bg-amber-400/10">
-                                <AlertTriangle size={32} className="text-amber-300" />
-                            </div>
-                            <div className="space-y-2">
-                                <h3 className="text-lg font-black text-amber-100">تنبيه بخصوص التبليغ</h3>
-                                <p className="text-sm leading-relaxed text-slate-300">
-                                    لم يتم استكمال مرحلة التبليغ بمذكرة الإخبار بالتنفيذ بعد. 
-                                    يرجى توجيه وإبلاغ المدين بمذكرة الإخبار بالتنفيذ 
-                                    أو تسجيل حضوره (أو حضور وكيله) قبل اتخاذ أي إجراء في محضر المتابعة.
-                                </p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => { setMemoWarningDialogOpen(false); setShowUnifiedExecutionModal(true); setUnifiedModalTab('coercive'); }}
-                                className="w-full rounded-xl bg-gradient-to-l from-amber-600 to-amber-500 px-6 py-3 text-sm font-black text-white shadow-[0_0_24px_rgba(217,119,6,0.25)] hover:from-amber-500 hover:to-amber-400 transition-all"
-                            >
-                                تفهمت ذلك
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setMemoWarningDialogOpen(false)}
-                                className="w-full rounded-xl border border-white/10 px-6 py-2.5 text-sm font-bold text-slate-300 hover:bg-white/5 transition-all"
-                            >
-                                إلغاء
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {memoWarningDialogOpen && typeof document !== 'undefined'
+                ? createPortal(
+                      <div
+                          className={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG}`}
+                          style={{ zIndex: EXEC_MODAL_Z.nestedOverFollowUpPortal + 10 }}
+                          dir="rtl"
+                          role="presentation"
+                          onClick={() => acknowledgeMemoFollowupWarning()}
+                      >
+                          <div
+                              className="w-full max-w-md overflow-hidden rounded-3xl border border-amber-500/25 bg-gradient-to-br from-[#1A1510]/95 via-[#1E1812]/95 to-[#221A12]/95 p-6 shadow-[0_30px_80px_rgba(0,0,0,0.65)] backdrop-blur-2xl"
+                              onClick={(e) => e.stopPropagation()}
+                          >
+                              <div className="flex flex-col items-center text-center gap-4">
+                                  <div className="grid h-16 w-16 place-items-center rounded-full border border-amber-400/25 bg-amber-400/10">
+                                      <AlertTriangle size={32} className="text-amber-300" />
+                                  </div>
+                                  <div className="space-y-2">
+                                      <h3 className="text-lg font-black text-amber-100">تنبيه بخصوص التبليغ</h3>
+                                      <p className="text-sm leading-relaxed text-slate-300">
+                                          {activeDebtorIsDeceased ? (
+                                              <>
+                                                  لم يتم استكمال مرحلة التبليغ بمذكرة الإخبار بالتنفيذ بعد.
+                                                  يرجى توجيه وإبلاغ {memoWarningHeirsLabel} بمذكرة الإخبار بالتنفيذ
+                                                  أو تسجيل حضور الوريث (أو وكيله) قبل اتخاذ أي إجراء في محضر المتابعة.
+                                              </>
+                                          ) : (
+                                              <>
+                                                  لم يتم استكمال مرحلة التبليغ بمذكرة الإخبار بالتنفيذ بعد.
+                                                  يرجى توجيه وإبلاغ المدين بمذكرة الإخبار بالتنفيذ
+                                                  أو تسجيل حضوره (أو حضور وكيله) قبل اتخاذ أي إجراء في محضر المتابعة.
+                                              </>
+                                          )}
+                                      </p>
+                                  </div>
+                                  <button
+                                      type="button"
+                                      onClick={() => {
+                                          acknowledgeMemoFollowupWarning();
+                                          openFollowupModalPersisted();
+                                      }}
+                                      className="w-full rounded-xl bg-gradient-to-l from-amber-600 to-amber-500 px-6 py-3 text-sm font-black text-white shadow-[0_0_24px_rgba(217,119,6,0.25)] hover:from-amber-500 hover:to-amber-400 transition-all"
+                                  >
+                                      تفهمت ذلك
+                                  </button>
+                                  <button
+                                      type="button"
+                                      onClick={() => acknowledgeMemoFollowupWarning()}
+                                      className="w-full rounded-xl border border-white/10 px-6 py-2.5 text-sm font-bold text-slate-300 hover:bg-white/5 transition-all"
+                                  >
+                                      إلغاء
+                                  </button>
+                              </div>
+                          </div>
+                      </div>,
+                      document.body
+                  )
+                : null}
 
             {/* 🆕 V9: PAYMENT CALCULATOR */}
             {showPaymentCalculator && (

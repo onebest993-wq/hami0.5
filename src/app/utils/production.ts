@@ -147,14 +147,12 @@ export const validateRequiredAPIs = (): {
 
   // ✅ مفاتيح مطلوبة
   const required = {
-    GEMINI_API_KEY: import.meta.env.VITE_GEMINI_API_KEY,
     SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
     SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY,
   };
 
   // ✅ مفاتيح اختيارية (تحذيرات فقط)
   const optional = {
-    OPENAI_API_KEY: import.meta.env.VITE_OPENAI_API_KEY,
     PINECONE_API_KEY: import.meta.env.VITE_PINECONE_API_KEY,
     TWILIO_ACCOUNT_SID: import.meta.env.VITE_TWILIO_ACCOUNT_SID,
   };

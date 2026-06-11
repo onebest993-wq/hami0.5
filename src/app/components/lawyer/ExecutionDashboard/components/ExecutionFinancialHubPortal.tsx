@@ -1,23 +1,27 @@
 import React, { Suspense } from 'react';
 import { createPortal } from 'react-dom';
-import { X, CreditCard, Wallet } from 'lucide-react';
-import type { TimelineEvent } from '@/app/types/execution';
+import { X, Wallet } from 'lucide-react';
+import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
+import { publishFinancialCenterTimelineNote } from '@/app/utils/financialCenterTimeline';
+import { buildGhuramaaCreditorRows } from '@/app/utils/creditorPaymentProRata';
+import { buildDebtorAgentSeizedItems } from '@/app/components/lawyer/FinancialOperationsCenter/debtorAgentSeizedItems';
 
 export interface ExecutionFinancialHubPortalProps {
     showExecutionFinancialHub: boolean;
     setShowExecutionFinancialHub: (v: boolean) => void;
     showSeizureLogModal: boolean;
     setShowSeizureLogModal: (v: boolean) => void;
-    executionFinancialHubTab: 'ledger' | 'wallet';
-    setExecutionFinancialHubTab: (v: 'ledger' | 'wallet') => void;
     financialHubAutoOpenMode: 'disburse' | null;
     setFinancialHubAutoOpenMode: React.Dispatch<React.SetStateAction<'disburse' | null>>;
+    financialHubSeizedMovableId: string | null;
+    setFinancialHubSeizedMovableId: React.Dispatch<React.SetStateAction<string | null>>;
+    financialHubSeizedPropertyId: string | null;
+    setFinancialHubSeizedPropertyId: React.Dispatch<React.SetStateAction<string | null>>;
     financialSeizureLogPreview: any[];
     financialSeizureLogEvents: any[];
     EXEC_MODAL_BACKDROP_STRONG: string;
     EXEC_MODAL_Z: { unifiedFollowUp: number };
     LazyFinancialOperationsCenter: React.LazyExoticComponent<React.ComponentType<any>>;
-    ClientWalletExecutionSection: React.LazyExoticComponent<React.ComponentType<any>>;
     EXEC_FOC_LAZY_FALLBACK: React.ReactNode;
     realEstateSeizureRegistryAssets: any[];
     movableSeizureRegistryAssets: any[];
@@ -76,7 +80,7 @@ export interface ExecutionFinancialHubPortalProps {
     setShowUnifiedExecutionModal: (v: boolean) => void;
     setExecutionDebtorTabIndex: (v: number) => void;
     primaryDebtorWorkspaceKey: string | undefined;
-    setExpandedDebtorById: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+    expandDebtor: (debtorKey: string) => void;
     openGuarantorDetailsModal: () => void;
     appendGuarantorFollowupRequest: (data: { executionId: string | undefined }) => { ok: boolean; decisionId?: string };
     decisionsStorageExecutionId: string | undefined;
@@ -86,7 +90,6 @@ export interface ExecutionFinancialHubPortalProps {
     persistExecutionMerge: (patch: Record<string, unknown>) => void;
     handleEvictionLedgerActivated: () => void;
     evictionAssetsTabUnlocked: boolean;
-    syncPaidClientFeesFromWallet: (total: number) => void;
     getLocalTodayYmd: () => string;
     setCaseTasksPending: React.Dispatch<React.SetStateAction<any[]>>;
     patchRealEstateMarkConfirmation: (id: string, data: Record<string, unknown>) => void;
@@ -118,6 +121,8 @@ export interface ExecutionFinancialHubPortalProps {
     toggleStandaloneExecutionMarkConfirmed: (mark: any) => void;
     archiveStandaloneExecutionMark: (mark: any) => void;
     undoArchiveStandaloneExecutionMark: (mark: any) => void;
+    onClearSalarySeizurePath?: () => void;
+    isRepresentingDebtor?: boolean;
 }
 
 export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalProps> = ({
@@ -125,16 +130,17 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
     setShowExecutionFinancialHub,
     showSeizureLogModal,
     setShowSeizureLogModal,
-    executionFinancialHubTab,
-    setExecutionFinancialHubTab,
     financialHubAutoOpenMode,
     setFinancialHubAutoOpenMode,
+    financialHubSeizedMovableId,
+    setFinancialHubSeizedMovableId,
+    financialHubSeizedPropertyId,
+    setFinancialHubSeizedPropertyId,
     financialSeizureLogPreview,
     financialSeizureLogEvents,
     EXEC_MODAL_BACKDROP_STRONG,
     EXEC_MODAL_Z,
     LazyFinancialOperationsCenter,
-    ClientWalletExecutionSection,
     EXEC_FOC_LAZY_FALLBACK,
     realEstateSeizureRegistryAssets,
     movableSeizureRegistryAssets,
@@ -193,7 +199,7 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
     setShowUnifiedExecutionModal,
     setExecutionDebtorTabIndex,
     primaryDebtorWorkspaceKey,
-    setExpandedDebtorById,
+    expandDebtor,
     openGuarantorDetailsModal,
     appendGuarantorFollowupRequest,
     decisionsStorageExecutionId,
@@ -203,7 +209,6 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
     persistExecutionMerge,
     handleEvictionLedgerActivated,
     evictionAssetsTabUnlocked,
-    syncPaidClientFeesFromWallet,
     getLocalTodayYmd,
     setCaseTasksPending,
     patchRealEstateMarkConfirmation,
@@ -235,6 +240,8 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
     toggleStandaloneExecutionMarkConfirmed,
     archiveStandaloneExecutionMark,
     undoArchiveStandaloneExecutionMark,
+    onClearSalarySeizurePath,
+    isRepresentingDebtor = false,
 }) => {
     const debtors = (executionData?.debtors as any[]) || [];
     const firstDebtor = debtors[0] || {};
@@ -242,28 +249,47 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
     const debtorEmploymentType = firstDebtor?.employmentType;
     const debtorKinship = firstDebtor?.kinship || '';
     const creditors = (executionData?.creditors as any[]) || [];
-    const creditorsCount = Array.isArray(creditors) ? creditors.length : 0;
+    const additionalCreditorsPm =
+        executionData?.party_multiplicity?.additionalCreditors ?? [];
+    const creditorsCount =
+        (Array.isArray(creditors) ? creditors.length : 0) +
+        (Array.isArray(additionalCreditorsPm) ? additionalCreditorsPm.length : 0);
+    const debtorAgentSeizedItems = React.useMemo(
+        () =>
+            buildDebtorAgentSeizedItems({
+                realEstate: realEstateSeizureRegistryAssets,
+                movable: movableSeizureRegistryAssets,
+                salary: salarySeizureRegistryAssets,
+                thirdParty: thirdPartySeizureRegistryAssets,
+                marks: standaloneExecutionMarks,
+            }),
+        [
+            realEstateSeizureRegistryAssets,
+            movableSeizureRegistryAssets,
+            salarySeizureRegistryAssets,
+            thirdPartySeizureRegistryAssets,
+            standaloneExecutionMarks,
+        ]
+    );
     const ghuramaaCreditors = React.useMemo(() => {
-        const list = Array.isArray(creditors) ? creditors : [];
-        return list.map((c: any) => {
-            const creditorId = String(c?.id ?? '').trim();
-            const creditorName = String(c?.fullName ?? c?.name ?? 'دائن').trim() || 'دائن';
-            const allocRaw =
-                c?.allocated_debt ??
-                c?.allocatedDebt ??
-                c?.debtAmountIqd ??
-                c?.debtAmount ??
-                c?.claimAmountIqd ??
-                c?.creditorDebtAmountIqd;
-            const paidRaw = c?.paid_amount ?? c?.paidAmount ?? c?.paidDebtAmountIqd ?? 0;
-            const alloc = Number(allocRaw);
-            const paid = Number(paidRaw);
-            const debtBeforeDistribution = Number.isFinite(alloc) ? Math.max(0, Math.trunc(alloc)) : 0;
-            const paidSafe = Number.isFinite(paid) ? Math.max(0, Math.trunc(paid)) : 0;
-            const remainingDebt = Math.max(0, debtBeforeDistribution - paidSafe);
-            return { creditorId, creditorName, debtBeforeDistribution, remainingDebt };
-        });
-    }, [creditors]);
+        const claimFallback = Math.max(
+            0,
+            Number(executionData?.totalAmount ?? executionData?.debtAmount ?? 0) || 0,
+            Number(principalDebtAmount ?? 0) || 0,
+            Number(totalOwed ?? 0) || 0
+        );
+        return buildGhuramaaCreditorRows(
+            {
+                ...(executionData ?? {}),
+                creditors,
+                party_multiplicity: {
+                    ...(executionData?.party_multiplicity ?? {}),
+                    additionalCreditors: additionalCreditorsPm,
+                },
+            },
+            claimFallback
+        );
+    }, [executionData, creditors, additionalCreditorsPm, principalDebtAmount, totalOwed]);
 
     if (!showExecutionFinancialHub || typeof document === 'undefined') return null;
 
@@ -276,6 +302,7 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
                 if (e.target === e.currentTarget) {
                     setShowSeizureLogModal(false);
                     setFinancialHubAutoOpenMode(null);
+                    setFinancialHubSeizedMovableId(null);
                     setShowExecutionFinancialHub(false);
                 }
             }}
@@ -347,6 +374,7 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
                         onClick={() => {
                             setShowSeizureLogModal(false);
                             setFinancialHubAutoOpenMode(null);
+                            setFinancialHubSeizedMovableId(null);
                             setShowExecutionFinancialHub(false);
                         }}
                         className="rounded-lg p-2 text-slate-400 transition-all hover:bg-[#E6C673]/15 hover:text-white"
@@ -356,49 +384,14 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
                     </button>
                     <h2 className="flex flex-row-reverse items-center gap-2 text-base font-bold text-[#E6C673]">
                         <Wallet size={20} className="shrink-0 text-[#E6C673]" />
-                        المركز المالي
+                        {isRepresentingDebtor ? 'المركز المالي — موكل المدين' : 'المركز المالي'}
                     </h2>
                     <span className="w-9 shrink-0" aria-hidden />
                 </div>
 
-                <div className="shrink-0 border-b border-white/10 bg-gradient-to-l from-slate-950/90 to-[#0A0F1C] px-2.5 py-2">
-                    <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-[#05060D]/80 p-1 ring-1 ring-[#E6C673]/25">
-                        <button
-                            type="button"
-                            onClick={() => setExecutionFinancialHubTab('ledger')}
-                            className={`flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2.5 text-center transition-all ${
-                                executionFinancialHubTab === 'ledger'
-                                    ? 'border border-[#E6C673]/50 bg-gradient-to-br from-[#E6C673]/20 to-amber-950/40 text-[#E6C673] shadow-[inset_0_1px_0_rgba(230,198,115,0.25)]'
-                                    : 'border border-transparent text-slate-500 hover:bg-white/[0.04] hover:text-slate-300'
-                            }`}
-                        >
-                            <CreditCard size={16} className="shrink-0 opacity-90" />
-                            <span className="text-[10px] font-bold leading-tight">
-                                إدارة الأموال والمصاريف
-                            </span>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setExecutionFinancialHubTab('wallet')}
-                            className={`flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2.5 text-center transition-all ${
-                                executionFinancialHubTab === 'wallet'
-                                    ? 'border border-[#E6C673]/50 bg-gradient-to-br from-[#E6C673]/20 to-amber-950/40 text-[#E6C673] shadow-[inset_0_1px_0_rgba(230,198,115,0.25)]'
-                                    : 'border border-transparent text-slate-500 hover:bg-white/[0.04] hover:text-slate-300'
-                            }`}
-                        >
-                            <Wallet size={16} className="shrink-0 opacity-90" />
-                            <span className="text-[10px] font-bold leading-tight">
-                                محفظة الموكلي
-                            </span>
-                        </button>
-                    </div>
-                </div>
-
-                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-5 pt-2">
-                    {executionFinancialHubTab === 'ledger' ? (
-                        <>
-                        <Suspense fallback={EXEC_FOC_LAZY_FALLBACK}>
-                        <LazyFinancialOperationsCenter
+                <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-4 pt-1">
+                    <Suspense fallback={EXEC_FOC_LAZY_FALLBACK}>
+                    <LazyFinancialOperationsCenter
                             embeddedInFinancialHub
                             isExpanded={isFinancialCenterExpanded}
                             onToggle={() =>
@@ -408,18 +401,22 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
                             onTabChange={setActiveFinancialTab}
                             principal_amount={principalDebtAmount}
                             court_ordered_fees={evictionLawyerFeesInTotals}
-                            evictionLawyerFeeWaivedAtIntake={Boolean(
-                                executionData?.eviction_lawyer_fee_waived_at_intake
-                            )}
+                            evictionLawyerFeeWaivedAtIntake={
+                                isEvictionExecutionModule
+                                    ? !executionData?.eviction_initial_notice_lawyer_fees_included
+                                    : Boolean(executionData?.eviction_lawyer_fee_waived_at_intake)
+                            }
                             evictionReenableCourtOrderedFees={
                                 isEvictionExecutionModule &&
-                                executionData?.eviction_lawyer_fee_waived_at_intake &&
+                                !executionData?.eviction_initial_notice_lawyer_fees_included &&
                                 parsedLawyerFees > 0
                                     ? {
                                           grossAmount: parsedLawyerFees,
                                           onEnable: () =>
                                               persistExecutionMerge({
                                                   eviction_lawyer_fee_waived_at_intake: false,
+                                                  eviction_initial_notice_lawyer_fees_included: true,
+                                                  eviction_lawyer_fee_requested: true,
                                               }),
                                       }
                                     : undefined
@@ -427,6 +424,11 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
                             execution_expenses_sum={total_execution_expenses}
                             past_wife_alimony={executionData?.pastWifeAlimony || 0}
                             past_children_alimony={executionData?.pastChildrenAlimony || 0}
+                            alimonyCalculated={executionData?.alimony?.calculated ?? null}
+                            pastAlimonyClaim={
+                                (executionData as { pastAlimonyClaim?: unknown } | null | undefined)
+                                    ?.pastAlimonyClaim ?? null
+                            }
                             monthly_wife_alimony={executionData?.monthlyWifeAlimony || monthlyAlimony}
                             monthly_children_alimony={
                                 executionData?.monthlyChildrenAlimony || 0
@@ -441,6 +443,11 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
                             isNonFinancialClaim={isNonFinancialClaim}
                             isAlimonyClaim={isAlimonyClaim}
                             claimType={claimType}
+                            claimTypes={
+                                Array.isArray((executionData as { claimTypes?: string[] })?.claimTypes)
+                                    ? (executionData as { claimTypes?: string[] }).claimTypes
+                                    : undefined
+                            }
                             paidDebt={paidDebt}
                             totalWithExecutionFee={totalWithExecutionFee}
                             executionFee={calculatedExecutionFee}
@@ -471,7 +478,13 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
                             onShowSeizureLog={() => setShowSeizureLogModal(true)}
                             financialLedger={financialLedger}
                             autoOpenLedgerMode={financialHubAutoOpenMode}
-                            onAutoOpenHandled={() => setFinancialHubAutoOpenMode(null)}
+                            onAutoOpenHandled={() => {
+                                setFinancialHubAutoOpenMode(null);
+                            }}
+                            proceedsDisburseSeizedMovableId={financialHubSeizedMovableId}
+                            onProceedsDisburseHandled={() => setFinancialHubSeizedMovableId(null)}
+                            proceedsDisburseSeizedPropertyId={financialHubSeizedPropertyId}
+                            onProceedsDisbursePropertyHandled={() => setFinancialHubSeizedPropertyId(null)}
                             executionId={(() => {
                                 const resolved = String(executionData?.id ?? executionId ?? '').trim();
                                 return resolved && resolved !== 'undefined' ? resolved : undefined;
@@ -499,20 +512,38 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
                                         amountDistributed: Math.max(0, Math.trunc(Number(d?.amountDistributed ?? 0) || 0)),
                                     })),
                                 };
-                                const nextCreditors = (Array.isArray(creditors) ? creditors : []).map((c: any) => {
-                                    const cid = String(c?.id ?? '').trim();
-                                    if (!cid) return c;
-                                    const hit = nextLog.distributionDetails.find((x: any) => String(x.creditorId) === cid);
+                                const applyPaidShare = (c: any, id: string) => {
+                                    const hit = nextLog.distributionDetails.find(
+                                        (x: any) => String(x.creditorId) === id
+                                    );
                                     if (!hit) return c;
                                     const prevPaidRaw = c?.paid_amount ?? c?.paidAmount ?? c?.paidDebtAmountIqd ?? 0;
                                     const prevPaid = Number(prevPaidRaw);
                                     const paidSafe = Number.isFinite(prevPaid) ? Math.max(0, Math.trunc(prevPaid)) : 0;
                                     return { ...c, paid_amount: paidSafe + hit.amountDistributed };
-                                });
+                                };
+                                const nextCreditors = (Array.isArray(creditors) ? creditors : []).map((c: any) =>
+                                    applyPaidShare(c, String(c?.id ?? '').trim())
+                                );
+                                const pmBase = executionData?.party_multiplicity ?? {};
+                                const nextAdditionalCreditors = (
+                                    Array.isArray(pmBase.additionalCreditors) ? pmBase.additionalCreditors : []
+                                ).map((c: any) => applyPaidShare(c, String(c?.id ?? '').trim()));
                                 persistExecutionMerge({
                                     creditors: nextCreditors,
+                                    creditor: nextCreditors[0] ?? executionData?.creditor,
+                                    party_multiplicity: {
+                                        ...pmBase,
+                                        additionalCreditors: nextAdditionalCreditors,
+                                    },
                                     ghuramaDistributionLogs: [nextLog, ...prevLogs],
                                 });
+                                publishFinancialCenterTimelineNote(
+                                    String(executionData?.id ?? executionId ?? ''),
+                                    '⚖️ قسمة الغرماء — توزيع الأمانات',
+                                    `تم توزيع ${total.toLocaleString('ar-IQ')} د.ع على ${details.length} دائن/دائنين (حصص يدوية).`,
+                                    'payment'
+                                );
                             }}
                             eviction_case_expenses_sum={
                                 isEvictionExecutionModule ? evictionCaseExpensesTotalForFinancial : 0
@@ -534,16 +565,12 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
                             }
                             onFundsLedgerPayment={handleFundsLedgerPayment}
                             onFinancialTimelineNote={(title: string, description: string) => {
-                                const ev: TimelineEvent = {
-                                    id: nextTimelineId(),
-                                    date: new Date().toISOString(),
-                                    timestamp: new Date().toISOString(),
+                                publishFinancialCenterTimelineNote(
+                                    String(executionData?.id ?? executionId ?? ''),
                                     title,
                                     description,
-                                    type: 'other',
-                                    source: 'إدارة الأموال والمصاريف',
-                                };
-                                setTimelineEvents((prev) => [ev, ...prev]);
+                                    'other'
+                                );
                             }}
                             onGuarantorRequest={() => {
                                 if (
@@ -554,10 +581,7 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
                                     setShowUnifiedExecutionModal(false);
                                     setExecutionDebtorTabIndex(0);
                                     if (primaryDebtorWorkspaceKey) {
-                                        setExpandedDebtorById((prev) => ({
-                                            ...prev,
-                                            [primaryDebtorWorkspaceKey]: true,
-                                        }));
+                                        expandDebtor(primaryDebtorWorkspaceKey);
                                     }
                                     openGuarantorDetailsModal();
                                     return;
@@ -654,6 +678,31 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
                                 });
                                 showToast('\u26A0\uFE0F \u0646\u0643\u0633 \u0627\u0644\u062A\u0633\u0648\u064A\u0629: \u062A\u0645 \u062A\u0641\u0639\u064A\u0644 \u0627\u0644\u062A\u0646\u0628\u064A\u0647 \u0641\u064A \u0627\u0644\u0625\u0636\u0628\u0627\u0631\u0629.', 'warning');
                             }}
+                            onAlimonyOngoingAccrued={({
+                                newPrincipalTotal,
+                                accruedAmount,
+                                billableDays,
+                            }: {
+                                newPrincipalTotal: number;
+                                accruedAmount: number;
+                                billableDays: number;
+                            }) => {
+                                const safeTotal = Math.max(0, Math.round(newPrincipalTotal || 0));
+                                const safeAccrued = Math.max(0, Math.round(accruedAmount || 0));
+                                persistExecutionMerge({
+                                    totalAmount: safeTotal,
+                                    debtAmount: safeTotal,
+                                    alimony: {
+                                        ...(executionData?.alimony || {}),
+                                        calculated: {
+                                            ...(executionData?.alimony?.calculated || {}),
+                                            totalAccumulated: safeTotal,
+                                            lastOngoingAccrualAmount: safeAccrued,
+                                            lastOngoingAccrualDays: billableDays,
+                                        },
+                                    },
+                                } as any);
+                            }}
                             onMonthlySettlementPaid={({ dueDate, nextDueDate, amount }: { dueDate: string; nextDueDate: string; amount: number }) => {
                                 const ts = new Date().toISOString();
                                 setCaseTasksPending((prev: any) => {
@@ -694,6 +743,8 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
                             onEvictionCourtOrderedFeesActivatedFromLedger={(totalAmount: number) => {
                                 persistExecutionMerge({
                                     eviction_lawyer_fee_waived_at_intake: false,
+                                    eviction_initial_notice_lawyer_fees_included: true,
+                                    eviction_lawyer_fee_requested: true,
                                     includeLawyerFees: true,
                                     lawyerFeesAmount: totalAmount,
                                 });
@@ -702,6 +753,23 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
                                     'success'
                                 );
                             }}
+                            onManualDebtTotalsUpdated={({
+                                principalSnapshot,
+                                totalOwed,
+                            }: {
+                                principalSnapshot: number;
+                                totalOwed: number;
+                                remaining: number;
+                            }) => {
+                                persistExecutionMerge({
+                                    debtAmount: principalSnapshot,
+                                    totalAmount: totalOwed,
+                                } as Record<string, unknown>);
+                            }}
+                            salarySeizureRegistryAssets={salarySeizureRegistryAssets}
+                            onClearSalarySeizurePath={onClearSalarySeizurePath}
+                            isRepresentingDebtor={isRepresentingDebtor}
+                            debtorAgentSeizedItems={debtorAgentSeizedItems}
                         />
                         </Suspense>
 
@@ -1236,22 +1304,6 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
                                 </div>
                             </div>
                         ) : null}
-                        </>
-                    ) : (
-                        <Suspense fallback={EXEC_FOC_LAZY_FALLBACK}>
-                            <ClientWalletExecutionSection
-                                embedded
-                                executionId={executionData?.id || executionId}
-                                agreedClientFees={parsedClientFees}
-                                legacyPaidClientFees={
-                                    typeof executionData?.paidClientFees === 'number'
-                                        ? executionData.paidClientFees
-                                        : 0
-                                }
-                                onPaidTotalSync={syncPaidClientFeesFromWallet}
-                            />
-                        </Suspense>
-                    )}
                 </div>
             </div>
         </div>,

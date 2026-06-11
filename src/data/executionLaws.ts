@@ -1,57 +1,44 @@
 /**
- * قانون التنفيذ العراقي رقم 45 لسنة 1980 (وما طرأ عليه من تعديلات) — مرجع مهيكل للواجهة.
- * نص المواد الكامل (130) في executionLaws.articles.json.
+ * قانون التنفيذ العراقي رقم 45 لسنة 1980 — بيانات المواد + فلترة وبحث.
  */
 
 import executionLawArticles from './executionLaws.articles.json';
+import {
+    resolveExecutionLawLeaf,
+    type ExecutionLawLeafId,
+    type ExecutionLawParentId,
+    type ExecutionLawLeafFilter,
+} from './executionLawHierarchy';
 
-export type ExecutionLawCategory =
-    | 'general_provisions'
-    | 'notifications_summons'
-    | 'delivery_eviction'
-    | 'imprisonment'
-    | 'seizure_movables'
-    | 'real_estate_seizure'
-    | 'third_party_garnishment'
-    | 'division_among_creditors';
+export type {
+    ExecutionLawParentId,
+    ExecutionLawLeafId,
+    ExecutionLawLeafFilter,
+    ExecutionLawParentDef,
+    ExecutionLawLeafDef,
+} from './executionLawHierarchy';
+
+export {
+    EXECUTION_LAW_HIERARCHY,
+    EXECUTION_LAW_PARENTS,
+    getExecutionLawParentById,
+    getExecutionLawParentIndex,
+    getExecutionLawLeafById,
+    articleInLeafRange,
+    resolveExecutionLawLeaf,
+    TAKHLYA_PARENT_ID,
+    TAKHLYA_DEFAULT_LEAF_ID,
+} from './executionLawHierarchy';
 
 export interface ExecutionLawArticle {
     number: number;
     title: string;
     content: string;
-    aiExplanation: string;
-    category: ExecutionLawCategory;
+    parentId: ExecutionLawParentId;
+    leafId: ExecutionLawLeafId;
+    leafLabel: string;
 }
 
-/** تسميات التبويبات في الواجهة */
-export const EXECUTION_LAW_CATEGORY_LABELS: Record<ExecutionLawCategory, string> = {
-    general_provisions: 'أحكام عامة',
-    notifications_summons: 'التبليغ والإخبار',
-    delivery_eviction: 'إجراءات التسليم والتخلية',
-    imprisonment: 'التنفيذ الجبري الشخصي - الحبس',
-    seizure_movables: 'الحجز والمنقول والرواتب',
-    real_estate_seizure: 'حجز العقار وبيعه',
-    third_party_garnishment: 'حجز مال المدين لدى الغير',
-    division_among_creditors: 'قسمة الغرماء',
-};
-
-export function categorizeExecutionLawArticleNumber(articleNumber: number): ExecutionLawCategory {
-    const n = Number(articleNumber);
-    if (!Number.isFinite(n)) return 'general_provisions';
-    if (n >= 1 && n <= 13) return 'general_provisions';
-    if (n >= 14 && n <= 29) return 'notifications_summons';
-    if (n >= 30 && n <= 39) return 'delivery_eviction';
-    if (n >= 40 && n <= 46) return 'imprisonment';
-    if (n >= 62 && n <= 86) return 'seizure_movables';
-    if (n >= 87 && n <= 108) return 'real_estate_seizure';
-    if (n >= 109 && n <= 117) return 'third_party_garnishment';
-    if (n >= 118 && n <= 123) return 'division_among_creditors';
-    return 'general_provisions';
-}
-
-export type ExecutionLawTabFilter = 'all' | ExecutionLawCategory | 'takhlya';
-
-/** توحيد بسيط للبحث العربي/اللاتيني (غير حساس لحالة الأحرف + أشكال الألف/الياء) */
 export function normalizeLawSearchText(s: string): string {
     return s
         .trim()
@@ -95,28 +82,36 @@ function articleSearchHaystack(art: ExecutionLawArticle): string {
     const numLat = String(art.number);
     const numIndic = toIndicDigits(art.number);
     return normalizeLawSearchText(
-        `${numLat}\n${numIndic}\n${westernDigits(numLat)}\n${art.title}\n${art.content}\n${art.aiExplanation}`
+        `${numLat}\n${numIndic}\n${westernDigits(numLat)}\n${art.title}\n${art.content}\n${art.leafLabel}`
     );
 }
 
-export function filterExecutionLaws(
+export function filterExecutionLawsByHierarchy(
     laws: ExecutionLawArticle[],
-    category: ExecutionLawTabFilter,
+    parentId: ExecutionLawParentId,
+    leafFilter: ExecutionLawLeafFilter,
     searchQuery: string
 ): ExecutionLawArticle[] {
-    let list: ExecutionLawArticle[];
-    if (category === 'all') {
-        list = laws;
-    } else if (category === 'takhlya') {
-        list = laws.filter((a) => a.category === 'delivery_eviction');
-    } else {
-        list = laws.filter((a) => a.category === category);
-    }
     const qNorm = normalizeLawSearchText(westernDigits(searchQuery));
+    let list = laws.filter((a) => a.parentId === parentId);
+    if (leafFilter !== 'all_in_parent') {
+        list = list.filter((a) => a.leafId === leafFilter);
+    }
     if (qNorm) {
-        list = list.filter((a) => articleSearchHaystack(a).includes(qNorm));
+        list = laws.filter((a) => articleSearchHaystack(a).includes(qNorm));
     }
     return [...list].sort((a, b) => a.number - b.number);
+}
+
+export function searchExecutionLawsGlobal(
+    laws: ExecutionLawArticle[],
+    searchQuery: string
+): ExecutionLawArticle[] {
+    const qNorm = normalizeLawSearchText(westernDigits(searchQuery));
+    if (!qNorm) return [];
+    return [...laws.filter((a) => articleSearchHaystack(a).includes(qNorm))].sort(
+        (a, b) => a.number - b.number
+    );
 }
 
 export const executionArticles = [
@@ -168,11 +163,13 @@ export const executionLawData: ExecutionLawArticle[] = (executionLawArticles as 
     content?: string;
 }>).map((a) => {
     const override = executionLawSeedOverrides.get(a.number);
+    const leaf = resolveExecutionLawLeaf(a.number);
     return {
         number: a.number,
         title: override?.title ?? String(a.title || ''),
         content: override?.text ?? String(a.content || ''),
-        aiExplanation: '',
-        category: categorizeExecutionLawArticleNumber(a.number),
+        parentId: leaf.parentId,
+        leafId: leaf.id,
+        leafLabel: leaf.label,
     };
 });

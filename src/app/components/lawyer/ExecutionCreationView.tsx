@@ -1,31 +1,67 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
     X, Plus, Trash2, Gavel, FileText,
     DollarSign, AlertTriangle, Code, Calendar, Zap,
-    ChevronDown
+    ChevronDown, Scale, Package, Building2, Sparkles
 } from 'lucide-react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { debug } from '@/app/utils/debug';
 import logger from '@/app/utils/logger';
 import { SupabaseService } from '@/app/services/SupabaseService';
 import { deriveMonetaryClaimNature } from '@/app/utils/summoningImmunityEngine';
 import { isEvictionClaim } from '@/app/utils/executionModuleStrategies';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import {
+    isLegalEntityDebtorKind,
+    normalizeDebtorEntityKind,
+} from '@/app/utils/debtorEntityKindUtils';
 import type { ExecutionArchiveFile, ModalProps } from '@/app/types/common';
 import { PartiesSection } from './ExecutionCreationView/components/PartiesSection';
 import ExecutionOptionSheet from './ExecutionCreationView/components/ExecutionOptionSheet';
+import { ecg } from './ExecutionCreationView/components/executionCreationGlassUi';
 import { SmartAlimonyCalculator } from './ExecutionCreationView/components/SmartAlimonyCalculator';
+import {
+    PastAlimonyFieldsSection,
+    PastAlimonyResultPreview,
+} from './ExecutionCreationView/components/PastAlimonySection';
 import { DirectorateSection } from './ExecutionCreationView/components/DirectorateSection';
+import { ExecutionCreationSection } from './ExecutionCreationView/components/ExecutionCreationSection';
 import { ForeignJudgmentSection } from './ExecutionCreationView/components/ForeignJudgmentSection';
 import { EvictionSection } from './ExecutionCreationView/components/EvictionSection';
+import {
+    VisitationScheduleSetupSection,
+    createEmptyVisitationScheduleDraft,
+} from './ExecutionCreationView/components/VisitationScheduleSetupSection';
+import { MaritalFurnitureSetupSection } from './ExecutionCreationView/components/MaritalFurnitureSetupSection';
 import { ExecutionSaveButton } from './ExecutionCreationView/components/ExecutionSaveButton';
-import { isFinancialClaimForPartySplit, parseMoneyInput, splitAmountEqually } from './ExecutionCreationView/hooks/executionFormUtils';
-import { useExecutionCreationFormOptions, EXECUTION_DOC_TYPE_OPTIONS } from './ExecutionCreationView/hooks/useExecutionCreationFormOptions';
+import {
+    claimHasFinancialAmountSection,
+    claimUsesMonetaryAmountField,
+    isFinancialClaimForPartySplit,
+    isShariaLinkedFinancialClaim,
+    parseMoneyInput,
+    SHARIA_LINKED_FINANCIAL_CLAIM_VALUES,
+    splitAmountEqually,
+} from './ExecutionCreationView/hooks/executionFormUtils';
+import {
+    useExecutionCreationFormOptions,
+    EXECUTION_DOC_TYPE_OPTIONS,
+    EXECUTION_DOC_TYPE_COMING_SOON,
+} from './ExecutionCreationView/hooks/useExecutionCreationFormOptions';
 import { useLegalWarnings } from './ExecutionCreationView/hooks/useLegalWarnings';
 import { useAlimonyCalculator } from './ExecutionCreationView/hooks/useAlimonyCalculator';
 import { useStatuteCalculations } from './ExecutionCreationView/hooks/useStatuteCalculations';
 import { useImprisonmentEligibility } from './ExecutionCreationView/hooks/useImprisonmentEligibility';
+import { generateExecutionDossierId } from '@/app/utils/executionStorageKeys';
+import type { VisitationScheduleConfig } from '@/app/types/visitationSchedule';
+import { buildVisitationScheduleBundle } from '@/app/utils/visitationScheduleEngine';
+import type { MaritalFurnitureItem } from '@/app/types/maritalFurniture';
+import {
+    createEmptyMaritalFurnitureItem,
+    normalizeMaritalFurnitureItems,
+    sumMaritalFurnitureTotal,
+} from '@/app/utils/maritalFurniture';
 
 interface ExecutionCreationViewProps extends ModalProps {
     onSave: (fileData: ExecutionArchiveFile) => void;
@@ -42,12 +78,19 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
         { id: 1, name: '', phone: '', address: '', occupation: 'كاسب' as 'موظف' | 'كاسب', isClient: false }
     ]);
     const [debtors, setDebtors] = useState([
-        { id: 1, name: '', phone: '', address: '', occupation: 'موظف' as 'موظف' | 'كاسب', isClient: false }
+        { id: 1, name: '', phone: '', address: '', occupation: 'كاسب' as 'موظف' | 'كاسب', isClient: false }
     ]);
 
     /** دائنون إضافيون (الدائن الأول يبقى في creditors[0]) */
     const [additionalCreditors, setAdditionalCreditors] = useState<
-        Array<{ id: string; name: string; phone?: string }>
+        Array<{
+            id: string;
+            name: string;
+            phone: string;
+            address: string;
+            occupation: 'موظف' | 'كاسب';
+            isClient: boolean;
+        }>
     >([]);
     /** مدينون إضافيون (المدين الأول يبقى في debtors[0]) */
     const [additionalDebtorsForm, setAdditionalDebtorsForm] = useState<
@@ -87,6 +130,8 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
     // === PHASE 25: CASCADING DROPDOWNS ===
     const [classification, setClassification] = useState('');
     const [claimType, setClaimType] = useState('');
+    const [activeClaimTypes, setActiveClaimTypes] = useState<string[]>([]);
+    const [claimAmountsByType, setClaimAmountsByType] = useState<Record<string, string>>({});
     
     // === PHASE 17: FOREIGN JUDGMENTS ===
     const [foreignData, setForeignData] = useState({ 
@@ -98,17 +143,21 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
     // === SECTION 4: CIVIL VS SHARIA BRANCHING ===
     // PHASE 29: Removed redundant states (civilExecutionType, shariaClaimType) - using unified claimType
     const [totalAmount, setTotalAmount] = useState('');
-    const [includesSleepover, setIncludesSleepover] = useState(false);
     /** أسماء الأولاد — حصراً عند «مشاهدة واستصحاب» (قرارات المحاكم شرعي) */
     const [visitationChildrenNames, setVisitationChildrenNames] = useState<string[]>(['']);
+    const [visitationScheduleDraft, setVisitationScheduleDraft] = useState<
+        Partial<VisitationScheduleConfig>
+    >(() => createEmptyVisitationScheduleDraft());
     /** أسماء المحضونين — حصراً عند «تسليم حضانة» (قيمة الخيار الداخلية: تسليم ولد) */
     const [custodyWardNames, setCustodyWardNames] = useState<string[]>(['']);
     const [docTypeSheetOpen, setDocTypeSheetOpen] = useState(false);
     const [claimTypeSheetOpen, setClaimTypeSheetOpen] = useState(false);
+    const [linkedClaimDraft, setLinkedClaimDraft] = useState<string[]>([]);
     
     // === FURNITURE DETAILS (أثاث زوجية) ===
-    const [furnitureValue, setFurnitureValue] = useState('');
-    const [furnitureDetails, setFurnitureDetails] = useState('');
+    const [maritalFurnitureItems, setMaritalFurnitureItems] = useState<MaritalFurnitureItem[]>([
+        createEmptyMaritalFurnitureItem(),
+    ]);
 
     /** تخلية مأجور / eviction — بيانات العين */
     const [evictionPropertyNumber, setEvictionPropertyNumber] = useState('');
@@ -117,6 +166,9 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
     const [evictionFullAddress, setEvictionFullAddress] = useState('');
     /** تجاري: لا مهلة تخلية سكنية طويلة | سكني: مهلة المنفذ حتى 90 يوماً */
     const [evictionPremisesUse, setEvictionPremisesUse] = useState<'commercial' | 'residential'>('residential');
+    const [specificDeliveryItemNature, setSpecificDeliveryItemNature] = useState<
+        'movable' | 'immovable' | ''
+    >('');
     
     // === PHASE 28: COMMERCIAL PAPER DUE DATE ===
     const [dueDate, setDueDate] = useState('');
@@ -166,7 +218,6 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
     const [alimonyWifeMonthly, setAlimonyWifeMonthly] = useState(''); // مقدار نفقة الزوجة الشهرية
     const [alimonyChildrenMonthly, setAlimonyChildrenMonthly] = useState(''); // مقدار نفقة الأولاد الشهرية
     const [alimonyChildrenCount, setAlimonyChildrenCount] = useState('1'); // 🆕 V11: عدد الأولاد المحكوم لهم
-    const [alimonyHasPastWife, setAlimonyHasPastWife] = useState(false); // هل حكم للزوجة بنفقة ماضية؟
     const [alimonyPastLawSystem, setAlimonyPastLawSystem] = useState<'قانون الأحوال الشخصية 1959' | 'الفقه الجعفري'>('قانون الأحوال الشخصية 1959');
     const [alimonyPastStartDate, setAlimonyPastStartDate] = useState(''); // تاريخ استحقاق النفقة الماضية
     const [pastWifeAlimonyAmount, setPastWifeAlimonyAmount] = useState(''); // 🆕 V21: مقدار النفقة الماضية المحكوم بها للزوجة
@@ -174,36 +225,64 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
     // Dowry amount (مهر) or Compensation
     const [claimAmount, setClaimAmount] = useState('');
 
+    const alimonyCalcClaimType =
+        activeClaimTypes.includes('نفقة') || claimType === 'نفقة' || activeClaimTypes.includes('نفقة ماضية')
+            ? 'نفقة'
+            : claimType;
+
+    /** النفقة الماضية مطالبة منفصلة — تُفعَّل في الحاسبة فقط عند اختيار «نفقة ماضية» */
+    const alimonyIncludesPastCalc = activeClaimTypes.includes('نفقة ماضية');
+
     const { calculatedAlimonyNew } = useAlimonyCalculator(
-        claimType,
+        alimonyCalcClaimType,
         alimonyLawsuitDate,
         alimonyExecutionDate,
         alimonyWifeMonthly,
         alimonyChildrenMonthly,
         alimonyChildrenCount,
-        alimonyHasPastWife,
+        alimonyIncludesPastCalc,
         alimonyPastLawSystem,
-        alimonyPastStartDate
+        alimonyPastStartDate,
+        pastWifeAlimonyAmount,
     );
 
     /** إجمالي المطالبة المالية لاستخدام القسمة / التضامن */
     const resolveGlobalClaimTotalNumber = useCallback((): number => {
-        if (claimType === 'نفقة' || claimType === 'حجة نفقة اتفاقية') {
-            return Math.round(calculatedAlimonyNew?.totalAccumulated ?? 0);
+        const types = activeClaimTypes.length > 0 ? activeClaimTypes : claimType ? [claimType] : [];
+        let sum = 0;
+        for (const ct of types) {
+            if (ct === 'نفقة' || ct === 'حجة نفقة اتفاقية') {
+                sum += Math.round(calculatedAlimonyNew?.baseAccumulation ?? 0);
+                continue;
+            }
+            if (ct === 'نفقة ماضية') {
+                sum +=
+                    Math.round(calculatedAlimonyNew?.pastAccumulation ?? 0) ||
+                    parseMoneyInput(claimAmountsByType[ct] ?? '');
+                continue;
+            }
+            if (ct === 'أثاث زوجية') {
+                continue;
+            }
+            if (claimUsesMonetaryAmountField(ct)) {
+                sum += parseMoneyInput(claimAmountsByType[ct] ?? totalAmount) || parseMoneyInput(claimAmount);
+            }
         }
-        if (claimType === 'أثاث زوجية') {
-            return parseMoneyInput(furnitureValue);
-        }
-        if (isFinancialClaimForPartySplit(claimType)) {
-            return parseMoneyInput(totalAmount) || parseMoneyInput(claimAmount);
-        }
-        return 0;
-    }, [claimType, totalAmount, claimAmount, furnitureValue, calculatedAlimonyNew]);
+        return sum;
+    }, [
+        claimType,
+        claimAmount,
+        claimAmountsByType,
+        calculatedAlimonyNew,
+        activeClaimTypes,
+        maritalFurnitureItems,
+        totalAmount,
+    ]);
 
     useEffect(() => {
         if (claimType !== 'مشاهدة') {
             setVisitationChildrenNames(['']);
-            setIncludesSleepover(false);
+            setVisitationScheduleDraft(createEmptyVisitationScheduleDraft());
         }
         if (claimType !== 'تسليم ولد') {
             setCustodyWardNames(['']);
@@ -219,12 +298,6 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
             setIsSolidaryLiability(false);
         }
     }, [isOpen]);
-
-    useEffect(() => {
-        if (!isFinancialClaimForPartySplit(claimType)) {
-            setIsSolidaryLiability(false);
-        }
-    }, [claimType]);
 
     const { imprisonmentStatus, financialSplitHint } = useImprisonmentEligibility(
         claimType,
@@ -254,12 +327,138 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
         currentClaimTypeLabel,
         getClassificationOptions,
         getClaimTypeOptions,
-    } = useExecutionCreationFormOptions(docType, classification, claimType);
+    } = useExecutionCreationFormOptions(docType, classification, claimType, activeClaimTypes);
+
+    const hasLegalEntityDebtor = useMemo(
+        () =>
+            [...debtors, ...additionalDebtorsForm].some((d) =>
+                isLegalEntityDebtorKind(
+                    normalizeDebtorEntityKind(
+                        (d as { entityKind?: string; entityType?: string; type?: string }).entityKind ??
+                            (d as { entityType?: string }).entityType ??
+                            ((d as { type?: string }).type === 'company'
+                                ? 'legal_entity'
+                                : 'natural_person')
+                    )
+                )
+            ),
+        [debtors, additionalDebtorsForm]
+    );
+
+    const visibleClassificationOptions = useMemo(() => {
+        if (hasLegalEntityDebtor) {
+            return classificationOptionsList.filter((o) => o.value === 'مدني');
+        }
+        return classificationOptionsList;
+    }, [classificationOptionsList, hasLegalEntityDebtor]);
+
+    useEffect(() => {
+        if (!hasLegalEntityDebtor) return;
+        const needsClassification = ['قرارات وأحكام المحاكم', 'تنفيذ الأحكام الأجنبية'].includes(
+            docType
+        );
+        if (!needsClassification) return;
+        if (classification === 'مدني') return;
+        setClassification('مدني');
+        setActiveClaimTypes([]);
+        setClaimType('');
+    }, [hasLegalEntityDebtor, docType, classification]);
+
+    const effectiveClaimTypes = activeClaimTypes.length > 0 ? activeClaimTypes : claimType ? [claimType] : [];
+    const nonFinancialLawyerFeesClaims = new Set([
+        'تسليم ولد',
+        'تسليم طفل',
+        'مشاهدة',
+        'استصحاب',
+        'مبيت',
+        'مطاوعة',
+        'حجة وصاية',
+        'أثاث زوجية',
+    ]);
+    const showLawyerFeesToggle =
+        effectiveClaimTypes.length > 0 &&
+        effectiveClaimTypes.some((ct) => !nonFinancialLawyerFeesClaims.has(ct));
+    const hasActiveClaim = (ct: string) => effectiveClaimTypes.includes(ct);
+    const financialAmountClaimTypes = effectiveClaimTypes.filter(claimHasFinancialAmountSection);
+    const showMultiClaimAggregatePanel = financialAmountClaimTypes.length > 1;
+    const claimSectionCardClass = showMultiClaimAggregatePanel ? ecg.subCard : ecg.card;
+    const aggregatedClaimTotalDisplay = resolveGlobalClaimTotalNumber();
+    const showShariaLinkedClaimPanel =
+        docType === 'قرارات وأحكام المحاكم' && classification === 'شرعي';
+    const shariaLinkedClaimOptions = showShariaLinkedClaimPanel
+        ? claimTypeOptionsList.filter((o) => isShariaLinkedFinancialClaim(o.value))
+        : [];
+    const shariaExclusiveClaimOptions = showShariaLinkedClaimPanel
+        ? claimTypeOptionsList.filter((o) => !isShariaLinkedFinancialClaim(o.value))
+        : claimTypeOptionsList;
+
+    useEffect(() => {
+        if (!claimTypeSheetOpen) return;
+        setLinkedClaimDraft(activeClaimTypes.filter((ct) => isShariaLinkedFinancialClaim(ct)));
+    }, [claimTypeSheetOpen, activeClaimTypes]);
+
+    const toggleLinkedClaimDraft = useCallback((value: string) => {
+        setLinkedClaimDraft((prev) =>
+            prev.includes(value) ? prev.filter((x) => x !== value) : [...prev, value]
+        );
+    }, []);
+
+    const saveLinkedClaimDraft = useCallback(() => {
+        if (linkedClaimDraft.length === 0) return;
+        setActiveClaimTypes(linkedClaimDraft);
+        setClaimAmountsByType((prev) => {
+            const next = { ...prev };
+            Object.keys(next).forEach((key) => {
+                if (!linkedClaimDraft.includes(key)) delete next[key];
+            });
+            return next;
+        });
+        setClaimTypeSheetOpen(false);
+    }, [linkedClaimDraft]);
+
+    const removeActiveClaimType = useCallback((value: string) => {
+        if (value === 'تسليم شيء معين') {
+            setSpecificDeliveryItemNature('');
+        }
+        setActiveClaimTypes((prev) => {
+            const next = prev.filter((x) => x !== value);
+            setClaimAmountsByType((amt) => {
+                const cleaned = { ...amt };
+                delete cleaned[value];
+                return cleaned;
+            });
+            return next;
+        });
+    }, []);
+
+    useEffect(() => {
+        setClaimType(activeClaimTypes[0] ?? '');
+    }, [activeClaimTypes]);
+
+    useEffect(() => {
+        if (!activeClaimTypes.includes('نفقة ماضية') || activeClaimTypes.includes('نفقة')) return;
+        const past = calculatedAlimonyNew?.pastAccumulation;
+        if (!past || past <= 0) return;
+        const next = String(Math.round(past));
+        setClaimAmountsByType((prev) =>
+            prev['نفقة ماضية'] === next ? prev : { ...prev, 'نفقة ماضية': next }
+        );
+    }, [activeClaimTypes, calculatedAlimonyNew?.pastAccumulation, alimonyLawsuitDate, alimonyPastStartDate]);
+
+    useEffect(() => {
+        const types = activeClaimTypes.length > 0 ? activeClaimTypes : claimType ? [claimType] : [];
+        if (!types.some((ct) => isFinancialClaimForPartySplit(ct))) {
+            setIsSolidaryLiability(false);
+        }
+    }, [claimType, activeClaimTypes]);
     
     const handleDocTypeChange = (newDocType: string) => {
         setDocType(newDocType);
         setClassification('');
         setClaimType('');
+        setActiveClaimTypes([]);
+        setClaimAmountsByType({});
+        setLinkedClaimDraft([]);
         
         // ✅ CRITICAL LOGIC: DYNAMIC FIELD MORPHING (COMMERCIAL PAPERS)
         if (newDocType === 'الأوراق التجارية') {
@@ -282,6 +481,9 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
     const handleClassificationChange = (newClassification: string) => {
         setClassification(newClassification);
         setClaimType('');
+        setActiveClaimTypes([]);
+        setClaimAmountsByType({});
+        setLinkedClaimDraft([]);
     };
 
     const { currentLegalInfo } = useLegalWarnings(claimType);
@@ -306,36 +508,145 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
     useEffect(() => {
         if (classification) {
             const claimOpts = getClaimTypeOptions();
-            if (claimOpts.length === 1 && !claimType) {
-                setClaimType(claimOpts[0].value);
+            if (claimOpts.length === 1 && activeClaimTypes.length === 0) {
+                setActiveClaimTypes([claimOpts[0].value]);
             }
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [classification]);
+    }, [classification, activeClaimTypes.length]);
+
+    /** إزالة مطالبات لم تعد ضمن الخيارات (مثل تسليم شيء معين بعد إخفائه من المدني) */
+    useEffect(() => {
+        const allowed = new Set(claimTypeOptionsList.map((o) => o.value));
+        setActiveClaimTypes((prev) => {
+            const next = prev.filter((ct) => allowed.has(ct));
+            return next.length === prev.length ? prev : next;
+        });
+        if (claimType && !allowed.has(claimType)) {
+            setClaimType('');
+        }
+    }, [claimTypeOptionsList, claimType]);
 
     // === PHASE 17 + تعدد الخصوم: دائن/مدين أساسي + مصفوفات امتداد ===
     const addCreditor = () => {
         const id = `ac_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-        setAdditionalCreditors((prev) => [...prev, { id, name: '', phone: '' }]);
+        setAdditionalCreditors((prev) => [
+            ...prev,
+            {
+                id,
+                name: '',
+                phone: '',
+                address: '',
+                occupation: 'كاسب',
+                isClient: false,
+            },
+        ]);
     };
 
     const removeAdditionalCreditor = (id: string) => {
         setAdditionalCreditors((prev) => prev.filter((c) => c.id !== id));
     };
 
-    const updateAdditionalCreditor = (id: string, field: 'name' | 'phone', value: string) => {
-        setAdditionalCreditors((prev) =>
-            prev.map((c) => (c.id === id ? { ...c, [field]: value } : c))
-        );
-    };
+    const coerceDebtorClientRow = useCallback(
+        <T extends { id: number | string; occupation: string; isClient: boolean }>(
+            row: T,
+            makeClient: boolean
+        ): T => {
+            if (!makeClient) return { ...row, isClient: false };
+            const loose = row as T & {
+                entityKind?: string;
+                entityType?: string;
+                type?: string;
+            };
+            const kind = normalizeDebtorEntityKind(
+                loose.entityKind ??
+                    loose.entityType ??
+                    (loose.type === 'company' ? 'legal_entity' : 'natural_person')
+            );
+            if (kind === 'legal_entity') {
+                return {
+                    ...row,
+                    isClient: true,
+                    entityKind: 'natural_person',
+                    entityType: 'natural_person',
+                    type: 'individual',
+                    occupation: row.occupation === 'معنوي' ? 'كاسب' : row.occupation,
+                } as T;
+            }
+            return { ...row, isClient: true };
+        },
+        []
+    );
 
-    const updateCreditor = (id: number, field: string, value: string | boolean | number) => {
-        if (field === 'isClient' && value === true) {
-            setDebtors((d0) => d0.map((d) => ({ ...d, isClient: false })));
-            setAdditionalDebtorsForm((ad) => ad.map((d) => ({ ...d, isClient: false })));
+    const applyExclusiveClient = useCallback(
+        (side: 'creditor' | 'debtor', partyId: number | string, isClient: boolean) => {
+            if (!isClient) {
+                if (side === 'creditor') {
+                    if (typeof partyId === 'number') {
+                        setCreditors((c0) =>
+                            c0.map((c) => (c.id === partyId ? { ...c, isClient: false } : c))
+                        );
+                    } else {
+                        setAdditionalCreditors((c0) =>
+                            c0.map((c) => (c.id === partyId ? { ...c, isClient: false } : c))
+                        );
+                    }
+                } else if (typeof partyId === 'number') {
+                    setDebtors((d0) =>
+                        d0.map((d) => (d.id === partyId ? { ...d, isClient: false } : d))
+                    );
+                } else {
+                    setAdditionalDebtorsForm((d0) =>
+                        d0.map((d) => (d.id === partyId ? { ...d, isClient: false } : d))
+                    );
+                }
+                return;
+            }
+
+            setCreditors((c0) =>
+                c0.map((c) => ({ ...c, isClient: side === 'creditor' && c.id === partyId }))
+            );
+            setAdditionalCreditors((c0) =>
+                c0.map((c) => ({ ...c, isClient: side === 'creditor' && c.id === partyId }))
+            );
+            setDebtors((d0) =>
+                d0.map((d) =>
+                    side === 'debtor' && d.id === partyId
+                        ? coerceDebtorClientRow(d, true)
+                        : { ...d, isClient: false }
+                )
+            );
+            setAdditionalDebtorsForm((d0) =>
+                d0.map((d) =>
+                    side === 'debtor' && d.id === partyId
+                        ? coerceDebtorClientRow(d, true)
+                        : { ...d, isClient: false }
+                )
+            );
+        },
+        [coerceDebtorClientRow]
+    );
+
+    const updateAdditionalCreditor = useCallback(
+        (id: string, field: string, value: string | boolean | number) => {
+            if (field === 'isClient') {
+                applyExclusiveClient('creditor', id, Boolean(value));
+                return;
+            }
+            setAdditionalCreditors((prev) =>
+                prev.map((c) => (c.id === id ? { ...c, [field]: value } : c))
+            );
+        },
+        [applyExclusiveClient]
+    );
+
+    const updateCreditor = useCallback((id: number, field: string, value: string | boolean | number) => {
+        if (field === 'isClient') {
+            applyExclusiveClient('creditor', id, Boolean(value));
+            return;
         }
-        setCreditors(creditors.map((c) => (c.id === id ? { ...c, [field]: value } : c)));
-    };
+        setCreditors((c0) => c0.map((c) => (c.id === id ? { ...c, [field]: value } : c)));
+    }, [applyExclusiveClient]);
 
     const addDebtor = () => {
         const id = `ad_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -356,28 +667,26 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
         setAdditionalDebtorsForm((prev) => prev.filter((d) => d.id !== id));
     };
 
-    const updateAdditionalDebtor = (
-        id: string,
-        field: string,
-        value: string | boolean | number
-    ) => {
-        if (field === 'isClient' && value === true) {
-            setCreditors((c0) => c0.map((c) => ({ ...c, isClient: false })));
-            setDebtors((d0) => d0.map((d) => ({ ...d, isClient: false })));
-            setAdditionalDebtorsForm((ad) => ad.map((d) => ({ ...d, isClient: false })));
-        }
-        setAdditionalDebtorsForm((prev) =>
-            prev.map((d) => (d.id === id ? { ...d, [field]: value } : d))
-        );
-    };
+    const updateAdditionalDebtor = useCallback(
+        (id: string, field: string, value: string | boolean | number) => {
+            if (field === 'isClient') {
+                applyExclusiveClient('debtor', id, Boolean(value));
+                return;
+            }
+            setAdditionalDebtorsForm((prev) =>
+                prev.map((d) => (d.id === id ? { ...d, [field]: value } : d))
+            );
+        },
+        [applyExclusiveClient]
+    );
 
-    const updateDebtor = (id: number, field: string, value: string | boolean | number) => {
-        if (field === 'isClient' && value === true) {
-            setCreditors((c0) => c0.map((c) => ({ ...c, isClient: false })));
-            setAdditionalDebtorsForm((ad) => ad.map((d) => ({ ...d, isClient: false })));
+    const updateDebtor = useCallback((id: number, field: string, value: string | boolean | number) => {
+        if (field === 'isClient') {
+            applyExclusiveClient('debtor', id, Boolean(value));
+            return;
         }
-        setDebtors(debtors.map((d) => (d.id === id ? { ...d, [field]: value } : d)));
-    };
+        setDebtors((d0) => d0.map((d) => (d.id === id ? { ...d, [field]: value } : d)));
+    }, [applyExclusiveClient]);
 
     // === DEVELOPER MODE: AUTO-FILL FUNCTION ===
     // ✅ IRAQI LAW UPDATE: Enhanced with new Sharia Deed examples
@@ -519,6 +828,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
         // ✅ PROMPT 2: Check if at least one party is marked as client
         const hasClient =
             creditors.some((c) => c.isClient) ||
+            additionalCreditors.some((c) => c.isClient) ||
             debtors.some((d) => d.isClient) ||
             additionalDebtorsForm.some((d) => d.isClient);
         if (!hasClient) {
@@ -533,7 +843,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
 
         for (let i = 0; i < additionalCreditors.length; i++) {
             if (!additionalCreditors[i].name.trim()) {
-                SmartToast.error(`⚠️ يرجى إكمال اسم الدائن الإضافي ${i + 1}`);
+                SmartToast.error(`⚠️ يرجى إكمال اسم ${i + 2}- دائن`);
                 return;
             }
         }
@@ -556,6 +866,16 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                 SmartToast.error(`⚠️ عنوان المدين الإضافي ${i + 1} مطلوب للتبليغ`);
                 return;
             }
+        }
+
+        const pendingClaimTypes =
+            activeClaimTypes.length > 0 ? activeClaimTypes : claimType ? [claimType] : [];
+        if (
+            pendingClaimTypes.includes('تسليم شيء معين') &&
+            !specificDeliveryItemNature
+        ) {
+            SmartToast.error('⚠️ يرجى تحديد طبيعة الشيء (منقول أو غير منقول)');
+            return;
         }
 
         if (isEvictionClaim(claimType)) {
@@ -607,13 +927,26 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
             return;
         }
 
+        if (claimType === 'مشاهدة' || activeClaimTypes.includes('مشاهدة')) {
+            const built = buildVisitationScheduleBundle(
+                visitationScheduleDraft as VisitationScheduleConfig
+            );
+            if ('error' in built) {
+                SmartToast.error(`⚠️ ${built.error}`);
+                return;
+            }
+        }
+
         // Parse file number and year
         const fileParts = fileNumber.split('/');
         let extractedNumber = fileParts[0] || fileNumber;
         let extractedYear = fileParts.length > 1 ? fileParts[1] : new Date().getFullYear().toString();
 
         // Build execution data based on type (PHASE 17: Multi-party + تعدد الخصوم)
-        const clientCreditors = creditors.filter((c) => c.isClient);
+        const clientCreditors = [
+            ...creditors.filter((c) => c.isClient),
+            ...additionalCreditors.filter((c) => c.isClient),
+        ];
         const clientDebtors = [...debtors, ...additionalDebtorsForm].filter((d) => d.isClient);
         const representedParty = clientCreditors.length > 0 ? 'creditor' : 'debtor';
 
@@ -632,7 +965,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
         const mappedCreditorsForFile = [{ ...creditors[0], type: 'creditor' as any, nationality: '' }];
 
         let executionData: ExecutionArchiveFile = {
-            id: String(Date.now()),
+            id: generateExecutionDossierId(),
             directorate,
             fileNumber: extractedNumber.trim(),
             fileYear: extractedYear.trim(),
@@ -677,16 +1010,31 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
             }
         }
 
-        // PHASE 29: Unified claim type logic
-        executionData.claimType = claimType;
+        // PHASE 29: Unified claim type logic (+ جمع مطالبات أحوال شخصية المرتبطة)
+        const savedClaimTypes =
+            activeClaimTypes.length > 0 ? activeClaimTypes : claimType ? [claimType] : [];
+        executionData.claimType = savedClaimTypes[0] ?? claimType;
+        if (savedClaimTypes.length > 0) {
+            (executionData as Record<string, unknown>).claimTypes = savedClaimTypes;
+        }
+        const parsedClaimAmounts = Object.fromEntries(
+            Object.entries(claimAmountsByType)
+                .map(([k, v]) => [k, parseMoneyInput(v)] as const)
+                .filter(([, n]) => n > 0)
+        );
+        if (Object.keys(parsedClaimAmounts).length > 0) {
+            (executionData as Record<string, unknown>).claimAmountsByType = parsedClaimAmounts;
+        }
 
         // ─── محرك الإحضار: استنتاج تلقائي من نوع المطالبة ومهنة المدين وهدف التنفيذ (دون حقول يدوية) ───
         const inferIsAlimonyClaim = (ct: string) =>
             Boolean(ct?.includes('نفقة') && !ct?.includes('نفقة عدة') && !ct?.includes('مهر'));
+        const hasOngoingAlimonyClaim = savedClaimTypes.some((ct) => ct === 'نفقة' || ct === 'حجة نفقة اتفاقية');
         // @ts-expect-error - runtime field
         executionData.summoningClaimNature = deriveMonetaryClaimNature(claimType, null);
         // @ts-expect-error - dynamic runtime property
-        executionData.isAlimony = inferIsAlimonyClaim(claimType);
+        executionData.isAlimony =
+            hasOngoingAlimonyClaim || savedClaimTypes.some((ct) => inferIsAlimonyClaim(ct));
         const targetHasGuarantor =
             typeof executionTarget === 'string' && executionTarget.includes('كفيل');
         // @ts-expect-error - dynamic runtime property
@@ -715,11 +1063,14 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
 
         const additionalDebtorRecords = additionalDebtorsForm.map((d, i) => {
             const emp = d.occupation === 'موظف';
+            const occ = d.occupation === 'موظف' ? 'موظف' : 'كاسب';
             return {
                 id: String(d.id),
                 name: d.name.trim(),
                 phone: d.phone.trim() || undefined,
                 address: d.address.trim() || undefined,
+                occupation: occ,
+                employmentType: occ,
                 isEmployee: emp,
                 employmentInitialWasEmployee: emp,
                 status: 'Active' as const,
@@ -728,13 +1079,45 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
             };
         });
 
-        const trimmedAdditionalCreditors = additionalCreditors
+        let trimmedAdditionalCreditors = additionalCreditors
             .filter((c) => c.name.trim())
-            .map((c) => ({
-                id: c.id,
-                name: c.name.trim(),
-                phone: c.phone?.trim() || undefined,
+            .map((c) => {
+                const emp = c.occupation === 'موظف';
+                const occ = c.occupation === 'موظف' ? 'موظف' : 'كاسب';
+                return {
+                    id: c.id,
+                    name: c.name.trim(),
+                    phone: c.phone.trim() || undefined,
+                    address: c.address.trim() || undefined,
+                    occupation: occ,
+                    employmentType: occ,
+                    isEmployee: emp,
+                    isClient: c.isClient || false,
+                    paid_amount: 0,
+                };
+            });
+
+        const totalCreditorSlots = 1 + trimmedAdditionalCreditors.length;
+        const creditorClaimTotal =
+            globalClaimTotal > 0
+                ? globalClaimTotal
+                : parseMoneyInput(totalAmount) > 0
+                  ? parseMoneyInput(totalAmount)
+                  : parseMoneyInput(claimAmount);
+        if (creditorClaimTotal > 0 && totalCreditorSlots >= 1) {
+            const creditorShares = splitAmountEqually(creditorClaimTotal, totalCreditorSlots);
+            const primaryCreditor = {
+                ...executionData.creditors[0],
+                allocated_debt: creditorShares[0] ?? 0,
+                paid_amount: 0,
+            };
+            executionData.creditors = [primaryCreditor];
+            executionData.creditor = primaryCreditor;
+            trimmedAdditionalCreditors = trimmedAdditionalCreditors.map((c, i) => ({
+                ...c,
+                allocated_debt: creditorShares[i + 1] ?? 0,
             }));
+        }
 
         if (
             trimmedAdditionalCreditors.length > 0 ||
@@ -749,53 +1132,168 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
         }
 
         // PHASE 30: Financial amounts (expanded list + MASTER PHASE: All 3 Sharia Deeds)
-        // ✅ UPDATED: Support new marriage deed types
-        if (parseMoneyInput(totalAmount) > 0) {
+        const aggregatedClaimTotal = resolveGlobalClaimTotalNumber();
+        if (aggregatedClaimTotal > 0) {
+            executionData.totalAmount = aggregatedClaimTotal;
+        } else if (parseMoneyInput(totalAmount) > 0) {
             executionData.totalAmount = parseMoneyInput(totalAmount);
         } else if (parseMoneyInput(claimAmount) > 0) {
             executionData.totalAmount = parseMoneyInput(claimAmount);
         }
         
         // === 🎯 CRITICAL: SMART ALIMONY DATA SAVE (2026-03-12) ===
-        if (claimType === 'نفقة') {
+        if (hasOngoingAlimonyClaim || claimType === 'نفقة') {
             // النظام الذكي الجديد
+            const parsedChildrenCount = Math.max(1, parseInt(alimonyChildrenCount, 10) || 1);
+            const parsedWifeMonthly = parseFloat(alimonyWifeMonthly) || 0;
+            const parsedChildrenMonthly = parseFloat(alimonyChildrenMonthly) || 0;
+
             executionData.alimony = {
                 beneficiary: alimonyBeneficiary,
                 lawsuitDate: alimonyLawsuitDate,
                 executionDate: alimonyExecutionDate,
                 wifeMonthly: alimonyWifeMonthly,
                 childrenMonthly: alimonyChildrenMonthly,
-                hasPastWife: alimonyHasPastWife,
+                childrenCount: parsedChildrenCount,
+                hasPastWife: alimonyIncludesPastCalc,
                 pastLawSystem: alimonyPastLawSystem,
                 pastStartDate: alimonyPastStartDate,
+                pastWifeMonthly: pastWifeAlimonyAmount || alimonyWifeMonthly,
                 calculated: calculatedAlimonyNew ? {
                     baseDurationMonths: calculatedAlimonyNew.baseDurationMonths,
                     baseDurationDays: calculatedAlimonyNew.baseDurationDays,
                     baseAccumulation: calculatedAlimonyNew.baseAccumulation,
+                    wifeBaseAccumulation: calculatedAlimonyNew.wifeBaseAccumulation,
+                    childrenBaseAccumulation: calculatedAlimonyNew.childrenBaseAccumulation,
+                    pastDurationDays: calculatedAlimonyNew.pastDurationDays,
                     pastDurationMonths: calculatedAlimonyNew.pastDurationMonths,
+                    pastDurationMonthsRaw: calculatedAlimonyNew.pastDurationMonthsRaw,
+                    pastYearCapApplied: calculatedAlimonyNew.pastYearCapApplied,
                     pastAccumulation: calculatedAlimonyNew.pastAccumulation,
+                    pastMonthlyUsed: calculatedAlimonyNew.pastMonthlyUsed,
                     totalAccumulated: calculatedAlimonyNew.totalAccumulated,
                     monthlyOngoing: calculatedAlimonyNew.monthlyOngoing,
                     legalCapApplied: calculatedAlimonyNew.legalCapApplied,
-                    explanation: calculatedAlimonyNew.explanation
-                } : null
+                    explanation: calculatedAlimonyNew.explanation,
+                } : null,
             };
             
-            // للتوافق مع Dashboard: حفظ المبلغ الكلي في totalAmount
-            executionData.totalAmount = Math.max(0, Math.round(calculatedAlimonyNew?.totalAccumulated ?? 0));
             executionData.monthlyAlimony = calculatedAlimonyNew?.monthlyOngoing || 0;
+            executionData.monthlyWifeAlimony = parsedWifeMonthly;
+            executionData.monthlyChildrenAlimony = parsedChildrenMonthly;
+            executionData.childrenCount = parsedChildrenCount;
+            if (alimonyIncludesPastCalc && calculatedAlimonyNew?.pastAccumulation) {
+                executionData.pastWifeAlimony = Math.round(calculatedAlimonyNew.pastAccumulation);
+            }
+            if (alimonyIncludesPastCalc && (calculatedAlimonyNew?.pastAccumulation ?? 0) > 0) {
+                (executionData as Record<string, unknown>).pastAlimonyClaim = {
+                    pastLawSystem: alimonyPastLawSystem,
+                    pastStartDate: alimonyPastStartDate,
+                    lawsuitDate: alimonyLawsuitDate,
+                    pastWifeMonthly: pastWifeAlimonyAmount || alimonyWifeMonthly,
+                    amount: Math.round(calculatedAlimonyNew?.pastAccumulation ?? 0),
+                    calculatedMonths: calculatedAlimonyNew?.pastDurationMonths ?? 0,
+                    pastDurationDays: calculatedAlimonyNew?.pastDurationDays ?? 0,
+                    pastYearCapApplied: calculatedAlimonyNew?.pastYearCapApplied ?? false,
+                };
+            }
+            if (savedClaimTypes.length <= 1) {
+                executionData.totalAmount = Math.max(
+                    0,
+                    Math.round(
+                        savedClaimTypes.includes('نفقة ماضية')
+                            ? (calculatedAlimonyNew?.pastAccumulation ?? 0)
+                            : (calculatedAlimonyNew?.baseAccumulation ??
+                              calculatedAlimonyNew?.totalAccumulated ??
+                              0)
+                    )
+                );
+            } else if (aggregatedClaimTotal > 0) {
+                executionData.totalAmount = aggregatedClaimTotal;
+            }
+        }
+
+        if (savedClaimTypes.includes('نفقة ماضية')) {
+            const pastTotal =
+                Math.round(calculatedAlimonyNew?.pastAccumulation ?? 0) ||
+                parseMoneyInput(claimAmountsByType['نفقة ماضية'] ?? '');
+            (executionData as Record<string, unknown>).pastAlimonyClaim = {
+                pastLawSystem: alimonyPastLawSystem,
+                pastStartDate: alimonyPastStartDate,
+                lawsuitDate: alimonyLawsuitDate,
+                pastWifeMonthly: pastWifeAlimonyAmount || alimonyWifeMonthly,
+                amount: pastTotal,
+                calculatedMonths: calculatedAlimonyNew?.pastDurationMonths ?? 0,
+                pastDurationDays: calculatedAlimonyNew?.pastDurationDays ?? 0,
+                pastYearCapApplied: calculatedAlimonyNew?.pastYearCapApplied ?? false,
+            };
+            if (pastTotal > 0) {
+                executionData.pastWifeAlimony = pastTotal;
+            }
+            // مطالبة نفقة ماضية منفصلة — لقطة calculated للمركز المالي
+            if (!hasOngoingAlimonyClaim && (pastTotal > 0 || calculatedAlimonyNew)) {
+                executionData.alimony = {
+                    beneficiary: alimonyBeneficiary || 'زوجة فقط',
+                    lawsuitDate: alimonyLawsuitDate,
+                    executionDate: alimonyExecutionDate,
+                    hasPastWife: true,
+                    pastLawSystem: alimonyPastLawSystem,
+                    pastStartDate: alimonyPastStartDate,
+                    pastWifeMonthly: pastWifeAlimonyAmount || alimonyWifeMonthly,
+                    calculated: calculatedAlimonyNew
+                        ? {
+                              baseDurationMonths: 0,
+                              baseDurationDays: 0,
+                              baseAccumulation: 0,
+                              wifeBaseAccumulation: 0,
+                              childrenBaseAccumulation: 0,
+                              pastDurationDays: calculatedAlimonyNew.pastDurationDays,
+                              pastDurationMonths: calculatedAlimonyNew.pastDurationMonths,
+                              pastDurationMonthsRaw: calculatedAlimonyNew.pastDurationMonthsRaw,
+                              pastYearCapApplied: calculatedAlimonyNew.pastYearCapApplied,
+                              pastAccumulation: pastTotal || calculatedAlimonyNew.pastAccumulation,
+                              pastMonthlyUsed: calculatedAlimonyNew.pastMonthlyUsed,
+                              totalAccumulated: pastTotal || calculatedAlimonyNew.pastAccumulation,
+                              monthlyOngoing: 0,
+                              legalCapApplied: calculatedAlimonyNew.legalCapApplied,
+                              explanation: calculatedAlimonyNew.explanation,
+                          }
+                        : pastTotal > 0
+                          ? {
+                                baseDurationMonths: 0,
+                                baseDurationDays: 0,
+                                baseAccumulation: 0,
+                                wifeBaseAccumulation: 0,
+                                childrenBaseAccumulation: 0,
+                                pastAccumulation: pastTotal,
+                                totalAccumulated: pastTotal,
+                                monthlyOngoing: 0,
+                            }
+                          : null,
+                };
+                if (savedClaimTypes.length <= 1 && pastTotal > 0) {
+                    executionData.totalAmount = pastTotal;
+                }
+            }
         }
         
-        // مشاهدة واستصحاب: مبيت جعفري + أسماء الأولاد
-        if (claimType === 'مشاهدة') {
-            executionData.includesSleepover = includesSleepover;
+        // مشاهدة واستصحاب: جدولة + أسماء الأولاد
+        if (savedClaimTypes.includes('مشاهدة') || claimType === 'مشاهدة') {
+            const built = buildVisitationScheduleBundle(
+                visitationScheduleDraft as VisitationScheduleConfig
+            );
+            if ('bundle' in built) {
+                (executionData as Record<string, unknown>).visitationSchedule = built.bundle;
+                executionData.includesSleepover =
+                    visitationScheduleDraft.decisionMode === 'viewing_pickup_sleepover';
+            }
             const trimmedChildNames = visitationChildrenNames.map((n) => n.trim()).filter(Boolean);
             if (trimmedChildNames.length > 0) {
                 (executionData as any).visitationChildrenNames = trimmedChildNames;
             }
         }
 
-        if (claimType === 'تسليم ولد') {
+        if (savedClaimTypes.includes('تسليم ولد') || claimType === 'تسليم ولد') {
             const trimmedWards = custodyWardNames.map((n) => n.trim()).filter(Boolean);
             if (trimmedWards.length > 0) {
                 (executionData as any).custodyWardNames = trimmedWards;
@@ -810,11 +1308,26 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
             (executionData as any).eviction_premises_use = evictionPremisesUse;
             (executionData as any).eviction_lawyer_fee_waived_at_intake = !includeLawyerFees;
         }
+
+        if (
+            savedClaimTypes.includes('تسليم شيء معين') &&
+            (specificDeliveryItemNature === 'movable' || specificDeliveryItemNature === 'immovable')
+        ) {
+            executionData.specificDeliveryItemNature = specificDeliveryItemNature;
+        }
         
         // Furniture details
         if (claimType === 'أثاث زوجية') {
-            executionData.furnitureValue = parseMoneyInput(furnitureValue);
-            executionData.furnitureDetails = furnitureDetails;
+            const normalizedFurniture = normalizeMaritalFurnitureItems(maritalFurnitureItems);
+            executionData.maritalFurnitureItems = normalizedFurniture;
+            executionData.furnitureValue = sumMaritalFurnitureTotal(normalizedFurniture);
+            executionData.furnitureDetails = normalizedFurniture
+                .map((row) => `${row.name} × ${row.quantity}`)
+                .join('؛ ');
+            executionData.debtAmount = 0;
+            executionData.totalAmount = 0;
+            (executionData as { total_remaining_balance?: number }).total_remaining_balance = 0;
+            (executionData as { paidDebt?: number }).paidDebt = 0;
         }
         
         // PHASE 30: Iddah alimony now handled via totalAmount in financial claims section
@@ -847,7 +1360,10 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
         }
 
         // ✅ PROMPT 2: Use representedParty derived from isClient flags (يشمل المدين الإضافي كموكل)
-        const creditorClientRow = creditors.find((c) => c.isClient) || creditors[0];
+        const creditorClientRow =
+            creditors.find((c) => c.isClient) ||
+            additionalCreditors.find((c) => c.isClient) ||
+            creditors[0];
         const debtorClientRow =
             [...debtors, ...additionalDebtorsForm].find((d) => d.isClient) || debtors[0];
         executionData.applicant =
@@ -856,16 +1372,22 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
             representedParty === 'creditor' ? debtors[0] as any : creditors[0] as any;
         executionData.initiatorRole = representedParty as string;
 
-        if (isFinancialClaimForPartySplit(claimType) && globalClaimTotal > 0) {
+        if (
+            (savedClaimTypes.some((ct) => isFinancialClaimForPartySplit(ct)) ||
+                isFinancialClaimForPartySplit(claimType)) &&
+            globalClaimTotal > 0
+        ) {
             // @ts-expect-error - runtime field
             executionData.debtAmount = globalClaimTotal;
             (executionData as any).total_remaining_balance = globalClaimTotal;
             (executionData as any).paidDebt = 0;
         }
         
-        // Add classification (from unified dropdown)
+        // Add classification (from unified dropdown) — executionType للشريط الجوزي (ليس docType)
         if (classification && classification !== 'none') {
             executionData.classification = classification;
+            executionData.executionType =
+                classification === 'شرعي' ? 'شرعي / أحوال شخصية' : 'مدني';
         }
         
         // Add clientFeesAmount if it exists
@@ -911,49 +1433,31 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
         // DON'T call onClose() here - handleAddExecutionFile will manage the flow
     };
 
-    if (!isOpen) {
-        debug.log('❌ [ExecutionCreationView] Modal is closed (isOpen = false)');
-        return null;
-    }
+    if (!isOpen) return null;
 
-    debug.log('✅ [ExecutionCreationView] Modal is OPEN! Rendering form...');
-    
     return (
         <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             dir="rtl"
-            className="flex flex-col w-full h-screen bg-[#0B1120] overflow-hidden fixed inset-0 z-[220]"
+            className={ecg.modalShell}
         >
-                {/* === FIXED HEADER === */}
-                <div className="flex-shrink-0 flex justify-between items-center w-full border-b border-gray-800 px-2 py-3 bg-[#0B1120] shadow-sm z-20">
+                <div className={ecg.modalHeader}>
                     <div className="flex items-center gap-3">
-                        <h1 className="text-xl md:text-2xl font-bold text-amber-500 flex items-center gap-3">
-                            <Gavel size={24} />
+                        <h1 className={ecg.modalTitle}>
+                            <Gavel size={22} />
                             فتح إضبارة تنفيذ
                         </h1>
-                        <button 
-                            type="button" 
-                            onClick={fillMockData} 
-                            className="flex items-center gap-1 text-[10px] bg-purple-900/30 text-purple-300 px-2 py-1 rounded border border-purple-700/50 hover:bg-purple-800/50 transition-all cursor-pointer"
-                        >
-                            <Code size={12} /> 
-                            تعبئة للمطور
-                        </button>
                     </div>
-                    <button type="button" 
-                        onClick={onClose}
-                        className="text-gray-400 hover:text-rose-500 p-2 rounded-lg transition-colors flex items-center gap-2 bg-gray-900/50"
-                    >
+                    <button type="button" onClick={onClose} className={ecg.modalClose}>
                         <X size={20} />
                         <span className="text-sm font-medium">إغلاق</span>
                     </button>
                 </div>
 
-                {/* === SCROLLABLE CONTENT === */}
-                <div className="flex-1 w-full overflow-y-auto scrollbar-none [&::-webkit-scrollbar]:hidden px-2 py-2">
-                    <div className="w-full space-y-3">
+                <div className={ecg.modalBody}>
+                    <div className={ecg.modalBodyStack}>
                         
                         <DirectorateSection
                             directorate={directorate}
@@ -981,25 +1485,18 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                             onSetIsSolidaryLiability={setIsSolidaryLiability}
                         />
 
-                        {/* === ✨ V48.6: CARD 3: BORDERLESS - NO BACKGROUND === */}
-                        <div className="w-full px-3 py-4">
-                            {/* 🎯 V48: Header - NO ICON, Premium Typography, Glowing Cyan/Emerald Accent */}
-                            <div className="mb-5 pb-3 border-b border-cyan-500/30">
-                                <h3 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-emerald-500 to-teal-600 tracking-wide drop-shadow-[0_0_8px_rgba(6,182,212,0.4)]">
-                                    السند المنفذ
-                                </h3>
-                            </div>
-
+                        <ExecutionCreationSection title="السند المنفذ">
                             <div className="flex flex-col gap-3">
                                 {/* ✅ تصحيح 1: تغيير الاسم من "نوع السند" إلى "قرارات المحاكم" عند اختيار أحكام المحاكم */}
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-400 mb-2">
-                                        نوع السند المنفذ
-                                    </label>
+                                    <label className={ecg.labelGold}>نوع السند المنفذ</label>
                                     <button
                                         type="button"
-                                        onClick={() => setDocTypeSheetOpen(true)}
-                                        className="w-full bg-[#111827] border-2 border-gray-700 rounded-lg p-3 text-white focus:border-amber-500 outline-none hover:border-gray-600 transition-all flex flex-row-reverse items-center justify-between gap-2 text-right"
+                                        onClick={() => {
+                                            setClaimTypeSheetOpen(false);
+                                            setDocTypeSheetOpen(true);
+                                        }}
+                                        className={ecg.pickerBtn}
                                     >
                                         <ChevronDown size={18} className="text-gray-400 shrink-0" />
                                         <span className="flex-1 truncate font-medium">
@@ -1010,27 +1507,27 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
 
                                 {/* ✅ تصحيح 1: رقم الحكم وتاريخ الحكم - يظهر فقط للأحكام القضائية */}
                                 {docType === 'قرارات وأحكام المحاكم' && (
-                                    <div className="bg-amber-950/10 border border-amber-900/30 rounded-xl p-3 space-y-3 animate-fade-in">
+                                    <div className={`${ecg.card} !p-4`}>
                                         <div className="grid grid-cols-2 gap-3">
                                             <div>
-                                                <label className="block text-xs font-bold text-amber-400 mb-2">رقم الحكم</label>
+                                                <label className={ecg.labelGold}>رقم الحكم</label>
                                                 <input 
                                                     type="text"
                                                     placeholder="مثال: 1234/2024"
                                                     value={docNumber}
                                                     onChange={(e) => setDocNumber(e.target.value)}
-                                                    className="w-full bg-[#0B1120] border border-gray-700 text-white p-3 rounded-lg focus:border-amber-500 outline-none placeholder-gray-600"
+                                                    className={ecg.field}
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-xs font-bold text-amber-400 mb-2">تاريخ الحكم</label>
+                                                <label className={ecg.labelGold}>تاريخ الحكم</label>
                                                 <input 
                                                     type="date"
                                                     value={judgmentDate}
                                                     onChange={(e) => setJudgmentDate(e.target.value)}
                                                     placeholder="DD/MM/YYYY"
                                                     style={{ direction: 'ltr', textAlign: 'right' }}
-                                                    className="w-full bg-[#0B1120] border border-gray-700 text-white p-3 rounded-lg focus:border-amber-500 outline-none"
+                                                    className={ecg.field}
                                                 />
                                             </div>
                                         </div>
@@ -1040,34 +1537,37 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                 {/* 2. CLASSIFICATION DROPDOWN (التصنيف) - PHASE 31: HIDE for Sharia Deeds */}
                                 {docType !== 'الحجج الشرعية' && getClassificationOptions().length > 0 && (
                                     <div>
-                                        <label className="block text-sm font-bold text-gray-400 mb-2">التصنيف</label>
-                                        <select 
-                                            value={classification}
-                                            onChange={(e) => handleClassificationChange(e.target.value)}
-                                            disabled={!docType}
-                                            className={`w-full bg-[#111827] border-2 border-gray-700 rounded-lg p-3 outline-none transition-all ${
-                                                !docType 
-                                                    ? 'text-gray-600 cursor-not-allowed opacity-50' 
-                                                    : 'text-white focus:border-indigo-500 hover:border-gray-600 cursor-pointer'
-                                            }`}
-                                        >
-                                            <option value="" disabled>
-                                                {!docType ? '-- اختر نوع السند أولاً --' : '-- اختر التصنيف --'}
-                                            </option>
-                                            {getClassificationOptions().map(opt => (
-                                                <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                            ))}
-                                        </select>
+                                        <label className={ecg.labelGold}>التصنيف</label>
+                                        {!docType ? (
+                                            <p className="text-sm text-slate-500 px-1">-- اختر نوع السند أولاً --</p>
+                                        ) : (
+                                            <div className={ecg.choiceRow} role="group" aria-label="التصنيف">
+                                                {visibleClassificationOptions.map((opt) => (
+                                                    <button
+                                                        key={opt.value}
+                                                        type="button"
+                                                        onClick={() => handleClassificationChange(opt.value)}
+                                                        className={`${ecg.choiceBtn} ${
+                                                            classification === opt.value
+                                                                ? ecg.choiceBtnActive
+                                                                : ecg.choiceBtnIdle
+                                                        }`}
+                                                    >
+                                                        {opt.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
                                 {/* 3. CLAIM TYPE DROPDOWN (نوع المطالبة والتنفيذ) - PHASE 28: Unified */}
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-400 mb-2 flex items-center gap-2 flex-wrap">
+                                    <label className={`${ecg.labelGold} flex items-center gap-2 flex-wrap`}>
                                         نوع المطالبة والتنفيذ
                                         {/* ✅ CRITICAL LOGIC: Auto-filled & Locked for Commercial Papers */}
                                         {docType === 'الأوراق التجارية' && (
-                                            <span className="text-xs text-amber-400 font-normal">(تلقائي - الصكوك دائماً مطالبات مالية)</span>
+                                            <span className="text-xs text-[#E6C673]/80 font-normal">(تلقائي - الصكوك دائماً مطالبات مالية)</span>
                                         )}
                                     </label>
                                     {(() => {
@@ -1083,12 +1583,12 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                                 type="button"
                                                 disabled={claimPickerLocked || claimPickerEmpty}
                                                 onClick={() => {
-                                                    if (!claimPickerLocked && !claimPickerEmpty) setClaimTypeSheetOpen(true);
+                                                    if (!claimPickerLocked && !claimPickerEmpty) {
+                                                        setClaimTypeSheetOpen(true);
+                                                    }
                                                 }}
-                                                className={`w-full bg-[#111827] border-2 border-gray-700 rounded-lg p-3 outline-none transition-all flex flex-row-reverse items-center justify-between gap-2 text-right ${
-                                                    claimPickerLocked || claimPickerEmpty
-                                                        ? 'text-gray-400 cursor-not-allowed opacity-70'
-                                                        : 'text-white focus:border-emerald-500 hover:border-gray-600 cursor-pointer'
+                                                className={`${ecg.pickerBtn} ${
+                                                    claimPickerLocked || claimPickerEmpty ? ecg.pickerBtnDisabled : ''
                                                 }`}
                                             >
                                                 <ChevronDown size={18} className="text-gray-400 shrink-0" />
@@ -1096,6 +1596,21 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                             </button>
                                         );
                                     })()}
+                                    {effectiveClaimTypes.length > 1 ? (
+                                        <div className="mt-2.5 flex flex-wrap gap-2 justify-end">
+                                            {effectiveClaimTypes.map((ct) => (
+                                                <button
+                                                    key={ct}
+                                                    type="button"
+                                                    onClick={() => removeActiveClaimType(ct)}
+                                                    className={ecg.chip}
+                                                    title="إزالة من المطالبة المجمّعة"
+                                                >
+                                                    {claimTypeOptionsList.find((o) => o.value === ct)?.label ?? ct} ×
+                                                </button>
+                                            ))}
+                                        </div>
+                                    ) : null}
                                 </div>
 
                                 {/* ✅ حقل رقم السند تم نقله للأعلى في قسم "رقم الحكم" للأحكام القضائية */}
@@ -1104,9 +1619,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                 {docType !== 'الحجج الشرعية' && docType !== 'قرارات وأحكام المحاكم' && docType && (
                                     <div>
                                         {docType === 'الأوراق التجارية' && (
-                                            <label className="block text-xs font-bold text-amber-400 mb-2">
-                                                رقم الصك / الكمبيالة
-                                            </label>
+                                            <label className={ecg.labelGold}>رقم الصك / الكمبيالة</label>
                                         )}
                                         <input 
                                             type="text"
@@ -1119,7 +1632,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                                     setDocNumber(e.target.value);
                                                 }
                                             }}
-                                            className="w-full bg-[#0B1120] border border-gray-700 text-white p-3 rounded-lg focus:border-amber-500 outline-none placeholder-gray-600"
+                                            className={ecg.field}
                                             disabled={docType === 'الأوراق التجارية'}
                                             title={docType === 'الأوراق التجارية' ? 'تم إدخال هذا الرقم في مدقق الصك' : ''}
                                         />
@@ -1131,59 +1644,52 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                 
                                 {/* PHASE 49: SHARIA DEED IDENTIFICATION FIELDS */}
                                 {docType === 'الحجج الشرعية' && (
-                                    <div className="bg-indigo-950/20 border border-indigo-900/50 rounded-xl p-3 space-y-3 animate-fade-in">
-                                        <div className="border-b border-indigo-800/30 pb-2 mb-3">
-                                            <h4 className="text-indigo-400 font-bold text-sm flex items-center gap-2">
-                                                <FileText size={16} />
-                                                بيانات الحجة الشرعية
-                                            </h4>
-                                        </div>
-                                        
-                                        {/* Row 1: Deed Number, Register Number, Issue Date */}
+                                    <div className={`${ecg.subCard} animate-fade-in`}>
+                                        <h4 className={`${ecg.subCardTitle} text-[#E6C673] border-b border-white/8 pb-2 mb-3 flex items-center gap-2`}>
+                                            <FileText size={16} />
+                                            بيانات الحجة الشرعية
+                                        </h4>
                                         <div className="grid grid-cols-3 gap-3">
                                             <div>
-                                                <label className="text-xs text-gray-400 block mb-1">العدد / رقم الحجة</label>
-                                                <input 
+                                                <label className={ecg.labelGold}>العدد / رقم الحجة</label>
+                                                <input
                                                     type="text"
                                                     placeholder="مثال: 1234"
                                                     value={shariaDeedNumber}
                                                     onChange={(e) => setShariaDeedNumber(e.target.value)}
-                                                    className="w-full bg-[#0B1120] border border-gray-700 text-white p-3 rounded-lg focus:border-indigo-500 outline-none placeholder-gray-600 text-sm"
+                                                    className={`${ecg.field} text-sm`}
                                                 />
                                             </div>
                                             <div>
-                                                <label className="text-xs text-gray-400 block mb-1">رقم السجل</label>
-                                                <input 
+                                                <label className={ecg.labelGold}>رقم السجل</label>
+                                                <input
                                                     type="text"
                                                     placeholder="مثال: 56"
                                                     value={shariaRegisterNumber}
                                                     onChange={(e) => setShariaRegisterNumber(e.target.value)}
-                                                    className="w-full bg-[#0B1120] border border-gray-700 text-white p-3 rounded-lg focus:border-indigo-500 outline-none placeholder-gray-600 text-sm"
+                                                    className={`${ecg.field} text-sm`}
                                                 />
                                             </div>
                                             <div>
-                                                <label className="text-xs text-gray-400 block mb-1">تاريخ الإصدار</label>
-                                                <input 
+                                                <label className={ecg.labelGold}>تاريخ الإصدار</label>
+                                                <input
                                                     type="date"
                                                     value={shariaIssueDate}
                                                     onChange={(e) => setShariaIssueDate(e.target.value)}
                                                     style={{ direction: 'ltr', textAlign: 'right' }}
-                                                    className="w-full bg-[#0B1120] border border-gray-700 text-white p-3 rounded-lg focus:border-indigo-500 outline-none text-sm"
+                                                    className={`${ecg.field} text-sm`}
                                                 />
                                             </div>
                                         </div>
-                                        
-                                        {/* Row 2: Issuing Court - PHASE 50: HIDDEN for Dowry */}
-                                        {/* ✅ UPDATED: Hide for all marriage deed types */}
                                         {!['مهر مؤجل', 'حجة زواج - مهر معجل', 'حجة زواج - مهر مؤجل'].includes(claimType) && (
-                                            <div>
-                                                <label className="text-xs text-gray-400 block mb-1">المحكمة الشرعية المصدرة</label>
-                                                <input 
+                                            <div className="mt-3">
+                                                <label className={ecg.labelGold}>المحكمة الشرعية المصدرة</label>
+                                                <input
                                                     type="text"
                                                     placeholder="مثال: محكمة الأحوال الشخصية في الكرخ"
                                                     value={shariaIssuingCourt}
                                                     onChange={(e) => setShariaIssuingCourt(e.target.value)}
-                                                    className="w-full bg-[#0B1120] border border-gray-700 text-white p-3 rounded-lg focus:border-indigo-500 outline-none placeholder-gray-600 text-sm"
+                                                    className={`${ecg.field} text-sm`}
                                                 />
                                             </div>
                                         )}
@@ -1191,57 +1697,144 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                 )}
                                 
                                 {/* === PHASE 28: CONDITIONAL DYNAMIC INPUTS === */}
-                                
-                                {/* STATE A: MONETARY CLAIMS - Amount Input - PHASE 42: All Sharia Deeds */}
-                                {/* ✅ UPDATED: Support new marriage deed types */}
-                                {claimType && ['استحصال دين مالي', 'استخلاص دين مالي', 'مهر مؤجل', 'حجة زواج - مهر معجل', 'حجة زواج - مهر مؤجل', 'حجة وصية', 'حجة تخارج', 'حجة مخالعة', 'حجة إقرار بدين', 'نفقة عدة', 'تعويض عن طلاق تعسفي', 'استيفاء دين من بيع عقار'].includes(claimType) && (
-                                    <div className="bg-emerald-950/20 border border-emerald-900/50 rounded-xl p-3 animate-fade-in space-y-3">
-                                        <label className="block text-sm font-bold text-emerald-400 mb-2">المبلغ المطلوب (دينار)</label>
-                                        <div className="flex items-center gap-2 w-full bg-[#0B1120] border border-gray-700 rounded-lg p-3 focus-within:border-emerald-500">
-                                            <DollarSign className="text-gray-500 flex-shrink-0" size={18} />
-                                            <input 
+                                {(() => {
+                                    const claimTypeInputSections = effectiveClaimTypes.map((ct) => {
+                                    const ctLabel =
+                                        claimTypeOptionsList.find((o) => o.value === ct)?.label ?? ct;
+                                    if (ct === 'نفقة') {
+                                        return (
+                                            <SmartAlimonyCalculator
+                                                key={ct}
+                                                alimonyBeneficiary={alimonyBeneficiary}
+                                                alimonyLawsuitDate={alimonyLawsuitDate}
+                                                alimonyExecutionDate={alimonyExecutionDate}
+                                                alimonyWifeMonthly={alimonyWifeMonthly}
+                                                alimonyChildrenMonthly={alimonyChildrenMonthly}
+                                                alimonyChildrenCount={alimonyChildrenCount}
+                                                calculatedAlimonyNew={calculatedAlimonyNew}
+                                                onBeneficiaryChange={setAlimonyBeneficiary}
+                                                onLawsuitDateChange={setAlimonyLawsuitDate}
+                                                onExecutionDateChange={setAlimonyExecutionDate}
+                                                onWifeMonthlyChange={setAlimonyWifeMonthly}
+                                                onChildrenMonthlyChange={setAlimonyChildrenMonthly}
+                                                onChildrenCountChange={setAlimonyChildrenCount}
+                                            />
+                                        );
+                                    }
+                                    if (ct === 'نفقة ماضية') {
+                                        const pastCalc = calculatedAlimonyNew;
+                                        return (
+                                            <div key={ct} className={`${claimSectionCardClass} space-y-4`}>
+                                                <div className={ecg.cardHeader}>
+                                                    <h4 className={ecg.cardTitle}>
+                                                        <DollarSign size={18} className="text-[#E6C673]" />
+                                                        {ctLabel}
+                                                    </h4>
+                                                    <p className={ecg.cardSubtitle}>
+                                                        احتساب النفقة الماضية من تاريخ الاستحقاق حتى إقامة الدعوى
+                                                    </p>
+                                                </div>
+                                                <PastAlimonyFieldsSection
+                                                    alimonyPastLawSystem={alimonyPastLawSystem}
+                                                    alimonyPastStartDate={alimonyPastStartDate}
+                                                    alimonyLawsuitDate={alimonyLawsuitDate}
+                                                    alimonyPastWifeMonthly={pastWifeAlimonyAmount}
+                                                    onPastLawSystemChange={setAlimonyPastLawSystem}
+                                                    onPastStartDateChange={setAlimonyPastStartDate}
+                                                    onLawsuitDateChange={setAlimonyLawsuitDate}
+                                                    onPastWifeMonthlyChange={setPastWifeAlimonyAmount}
+                                                    calculated={pastCalc}
+                                                />
+                                                <PastAlimonyResultPreview
+                                                    calculated={pastCalc}
+                                                    pastLawSystem={alimonyPastLawSystem}
+                                                    variant="standalone"
+                                                />
+                                            </div>
+                                        );
+                                    }
+                                    if (claimUsesMonetaryAmountField(ct)) {
+                                        return (
+                                            <div key={ct} className={claimSectionCardClass}>
+                                                <label className={ecg.labelGold}>
+                                                    {ctLabel} — المبلغ المطلوب (دينار)
+                                                </label>
+                                                <div className={ecg.moneyWrap}>
+                                                    <DollarSign className="text-slate-500 flex-shrink-0" size={18} />
+                                                    <input
+                                                        type="text"
+                                                        value={formatCurrency(
+                                                            claimAmountsByType[ct] ??
+                                                                (effectiveClaimTypes.length === 1 ? totalAmount : '')
+                                                        )}
+                                                        onChange={(e) =>
+                                                            handleAmountChange(e, (v) => {
+                                                                setClaimAmountsByType((prev) => ({
+                                                                    ...prev,
+                                                                    [ct]: v,
+                                                                }));
+                                                                if (effectiveClaimTypes.length === 1) {
+                                                                    setTotalAmount(v);
+                                                                }
+                                                            })
+                                                        }
+                                                        className={ecg.moneyInput}
+                                                        placeholder="0"
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                });
+
+                                    if (showMultiClaimAggregatePanel) {
+                                        return (
+                                            <div className={ecg.aggregatePanel}>
+                                                <div className={ecg.cardHeader}>
+                                                    <h4 className={ecg.cardTitle}>
+                                                        <Scale size={18} className="text-[#E6C673]" />
+                                                        تفاصيل المطالبات المالية المجمّعة
+                                                    </h4>
+                                                    <p className={ecg.cardSubtitle}>
+                                                        أدخل مبلغ كل مطالبة على حدة؛ يُحسب الإجمالي تلقائياً أدناه.
+                                                    </p>
+                                                </div>
+                                                <div className="space-y-3">{claimTypeInputSections}</div>
+                                                <div className={ecg.aggregateTotalRow}>
+                                                    <span className={ecg.aggregateTotalLabel}>
+                                                        إجمالي المطالبات (دينار)
+                                                    </span>
+                                                    <span className={ecg.aggregateTotalValue}>
+                                                        {formatCurrency(String(aggregatedClaimTotalDisplay))}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+
+                                    return <>{claimTypeInputSections}</>;
+                                })()}
+
+                                {/* مطالبات مالية لمسارات غير المجمّع (مدني / سندات) */}
+                                {effectiveClaimTypes.length === 0 &&
+                                claimType &&
+                                claimUsesMonetaryAmountField(claimType) &&
+                                !isShariaLinkedFinancialClaim(claimType) ? (
+                                    <div className={ecg.card}>
+                                        <label className={ecg.labelGold}>المبلغ المطلوب (دينار)</label>
+                                        <div className={ecg.moneyWrap}>
+                                            <DollarSign className="text-slate-500 flex-shrink-0" size={18} />
+                                            <input
                                                 type="text"
                                                 value={formatCurrency(totalAmount)}
                                                 onChange={(e) => handleAmountChange(e, setTotalAmount)}
-                                                className="flex-1 bg-transparent text-white outline-none font-mono text-lg"
+                                                className={ecg.moneyInput}
                                                 placeholder="0"
                                             />
                                         </div>
-                                        
-                                        {/* MASTER PHASE: 5% Collection Fee Badge for Sharia Deeds */}
-                                        {/* ✅ UPDATED: Include new marriage deed types */}
-                                        {['مهر مؤجل', 'حجة زواج - مهر معجل', 'حجة زواج - مهر مؤجل', 'حجة وصية', 'حجة تخارج', 'حجة مخالعة'].includes(claimType) && (
-                                            <div className="flex items-center gap-2 bg-amber-950/30 border border-amber-800/50 rounded-lg p-2">
-                                                <Zap className="text-amber-500 flex-shrink-0" size={16} />
-                                                <span className="text-amber-400 text-xs font-bold">خاضع لرسم التحصيل: 5%</span>
-                                            </div>
-                                        )}
                                     </div>
-                                )}
-                                
-                                {claimType === 'نفقة' && (
-                                    <SmartAlimonyCalculator
-                                        alimonyBeneficiary={alimonyBeneficiary}
-                                        alimonyLawsuitDate={alimonyLawsuitDate}
-                                        alimonyExecutionDate={alimonyExecutionDate}
-                                        alimonyWifeMonthly={alimonyWifeMonthly}
-                                        alimonyChildrenMonthly={alimonyChildrenMonthly}
-                                        alimonyChildrenCount={alimonyChildrenCount}
-                                        alimonyHasPastWife={alimonyHasPastWife}
-                                        alimonyPastLawSystem={alimonyPastLawSystem}
-                                        alimonyPastStartDate={alimonyPastStartDate}
-                                        calculatedAlimonyNew={calculatedAlimonyNew}
-                                        onBeneficiaryChange={setAlimonyBeneficiary}
-                                        onLawsuitDateChange={setAlimonyLawsuitDate}
-                                        onExecutionDateChange={setAlimonyExecutionDate}
-                                        onWifeMonthlyChange={setAlimonyWifeMonthly}
-                                        onChildrenMonthlyChange={setAlimonyChildrenMonthly}
-                                        onChildrenCountChange={setAlimonyChildrenCount}
-                                        onHasPastWifeChange={setAlimonyHasPastWife}
-                                        onPastLawSystemChange={setAlimonyPastLawSystem}
-                                        onPastStartDateChange={setAlimonyPastStartDate}
-                                    />
-                                )}
+                                ) : null}
                                 
                                 {claimType === 'حجة نفقة اتفاقية' && (
                                     <SmartAlimonyCalculator
@@ -1251,9 +1844,6 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                         alimonyWifeMonthly={alimonyWifeMonthly}
                                         alimonyChildrenMonthly={alimonyChildrenMonthly}
                                         alimonyChildrenCount={alimonyChildrenCount}
-                                        alimonyHasPastWife={alimonyHasPastWife}
-                                        alimonyPastLawSystem={alimonyPastLawSystem}
-                                        alimonyPastStartDate={alimonyPastStartDate}
                                         calculatedAlimonyNew={calculatedAlimonyNew}
                                         onBeneficiaryChange={setAlimonyBeneficiary}
                                         onLawsuitDateChange={setAlimonyLawsuitDate}
@@ -1261,29 +1851,26 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                         onWifeMonthlyChange={setAlimonyWifeMonthly}
                                         onChildrenMonthlyChange={setAlimonyChildrenMonthly}
                                         onChildrenCountChange={setAlimonyChildrenCount}
-                                        onHasPastWifeChange={setAlimonyHasPastWife}
-                                        onPastLawSystemChange={setAlimonyPastLawSystem}
-                                        onPastStartDateChange={setAlimonyPastStartDate}
                                     />
                                 )}
                                 
                                 {/* ✅ IRAQI LAW: Deferred Dowry Reason — مخفي لمسار أحكام المحاكم + مهر مؤجل (الطلب حصراً من مسار الحجج الشرعية) */}
-                                {['مهر مؤجل', 'حجة زواج - مهر مؤجل'].includes(claimType) && !(docType === 'قرارات وأحكام المحاكم' && claimType === 'مهر مؤجل') && (
-                                    <div className="bg-rose-950/20 border border-rose-900/50 rounded-xl p-3 animate-fade-in space-y-3">
-                                        <label className="block text-sm font-bold text-rose-400 mb-2">
+                                {hasActiveClaim('مهر مؤجل') &&
+                                ['مهر مؤجل', 'حجة زواج - مهر مؤجل'].includes(claimType) &&
+                                !(docType === 'قرارات وأحكام المحاكم' && claimType === 'مهر مؤجل') && (
+                                    <div className={ecg.callout}>
+                                        <label className={ecg.labelGold}>
                                             سبب استحقاق المهر المؤجل
-                                            <span className="text-gray-500 text-xs font-normal mr-2">
+                                            <span className="text-slate-500 text-xs font-normal mr-2">
                                                 (أقرب الأجلين: الطلاق أو الوفاة)
                                             </span>
                                         </label>
-                                        <div className="grid grid-cols-2 gap-3">
+                                        <div className={ecg.choiceRow}>
                                             <button
                                                 type="button"
                                                 onClick={() => setDowryReason('طلاق')}
-                                                className={`px-4 py-3 rounded-lg border font-bold text-sm transition-all ${
-                                                    dowryReason === 'طلاق'
-                                                        ? 'bg-rose-500/30 border-rose-500 text-rose-300'
-                                                        : 'bg-[#0B1120] border-gray-700 text-gray-400 hover:border-rose-500/30'
+                                                className={`${ecg.choiceBtn} ${
+                                                    dowryReason === 'طلاق' ? ecg.choiceBtnActive : ecg.choiceBtnIdle
                                                 }`}
                                             >
                                                 طلاق
@@ -1291,16 +1878,14 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                             <button
                                                 type="button"
                                                 onClick={() => setDowryReason('وفاة')}
-                                                className={`px-4 py-3 rounded-lg border font-bold text-sm transition-all ${
-                                                    dowryReason === 'وفاة'
-                                                        ? 'bg-rose-500/30 border-rose-500 text-rose-300'
-                                                        : 'bg-[#0B1120] border-gray-700 text-gray-400 hover:border-rose-500/30'
+                                                className={`${ecg.choiceBtn} ${
+                                                    dowryReason === 'وفاة' ? ecg.choiceBtnActive : ecg.choiceBtnIdle
                                                 }`}
                                             >
                                                 وفاة
                                             </button>
                                         </div>
-                                        <div className="text-xs text-rose-300 bg-rose-900/20 border border-rose-800/30 rounded p-2">
+                                        <div className={ecg.hintDangerInline}>
                                             {dowryReason === 'طلاق' 
                                                 ? '⚠️ يجب إرفاق قرار حكم الطلاق القطعي (المكتسب الدرجة القطعية)'
                                                 : '⚠️ يجب إرفاق شهادة وفاة الزوج + قسام شرعي لتحديد الورثة'
@@ -1311,10 +1896,10 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
 
                                 {/* MASTER PHASE: SHARIA DEED DETAILS (Will & Takharuj only) */}
                                 {['حجة وصية', 'حجة تخارج'].includes(claimType) && (
-                                    <div className="bg-indigo-950/20 border border-indigo-900/50 rounded-xl p-3 animate-fade-in">
-                                        <label className="block text-sm font-bold text-indigo-400 mb-2">
+                                    <div className={ecg.subCard}>
+                                        <label className={ecg.labelGold}>
                                             تفاصيل الحجة
-                                            <span className="text-gray-500 text-xs font-normal mr-2">
+                                            <span className="text-slate-500 text-xs font-normal mr-2">
                                                 (مثال: لمن الوصية، أو من تخارج لمن)
                                             </span>
                                         </label>
@@ -1323,7 +1908,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                             onChange={(e) => setShariaDeedDetails(e.target.value)}
                                             rows={3}
                                             placeholder="اكتب تفاصيل الحجة هنا..."
-                                            className="w-full bg-[#0B1120] border border-gray-700 text-white p-3 rounded-lg focus:border-indigo-500 outline-none placeholder-gray-600 resize-none"
+                                            className={ecg.textarea}
                                         />
                                     </div>
                                 )}
@@ -1334,58 +1919,126 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                         evictionDistrict={evictionDistrict}
                                         evictionPropertyType={evictionPropertyType}
                                         evictionFullAddress={evictionFullAddress}
-                                        evictionPremisesUse={evictionPremisesUse}
                                         onPropertyNumberChange={setEvictionPropertyNumber}
                                         onDistrictChange={setEvictionDistrict}
                                         onPropertyTypeChange={setEvictionPropertyType}
                                         onFullAddressChange={setEvictionFullAddress}
-                                        onPremisesUseChange={setEvictionPremisesUse}
                                     />
                                 )}
 
-                                {claimType === 'أثاث زوجية' && (
-                                    <div className="bg-purple-950/20 border border-purple-900/50 rounded-xl p-3 space-y-3 animate-fade-in">
-                                        <div>
-                                            <label className="block text-sm font-bold text-purple-400 mb-2">قيمة الأثاث المقدرة في الحكم (دينار)</label>
-                                            <div className="flex items-center gap-2 w-full bg-[#0B1120] border border-gray-700 rounded-lg p-3 focus-within:border-purple-500">
-                                                <DollarSign className="text-gray-500 flex-shrink-0" size={18} />
-                                                <input 
-                                                    type="text"
-                                                    value={formatCurrency(furnitureValue)}
-                                                    onChange={(e) => handleAmountChange(e, setFurnitureValue)}
-                                                    className="flex-1 bg-transparent text-white outline-none font-mono text-lg"
-                                                    placeholder="0"
-                                                />
+                                {hasActiveClaim('تسليم شيء معين') && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 8 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.28 }}
+                                        className="relative overflow-hidden rounded-2xl border border-[#E6C673]/20 bg-gradient-to-br from-[#0A0F1C]/95 via-[#0B1120]/90 to-[#05060D]/95 p-4 shadow-[0_8px_32px_rgba(0,0,0,0.45)] ring-1 ring-white/5 backdrop-blur-xl"
+                                    >
+                                        <div
+                                            className="pointer-events-none absolute -top-12 -left-12 h-32 w-32 rounded-full bg-[#E6C673]/8 blur-3xl"
+                                            aria-hidden
+                                        />
+                                        <div
+                                            className="pointer-events-none absolute -bottom-10 -right-8 h-28 w-28 rounded-full bg-sky-500/10 blur-3xl"
+                                            aria-hidden
+                                        />
+                                        <div className="relative flex flex-row-reverse items-center justify-between gap-2 mb-3">
+                                            <div className="flex flex-row-reverse items-center gap-2">
+                                                <Sparkles className="h-4 w-4 text-[#E6C673]/80" />
+                                                <p className="text-sm font-bold tracking-wide text-[#F5E6B8]">
+                                                    طبيعة الشيء
+                                                </p>
                                             </div>
+                                            <span className="rounded-full border border-[#E6C673]/25 bg-[#E6C673]/8 px-2 py-0.5 text-[9px] font-bold text-[#E6C673]/90">
+                                                مطلوب
+                                            </span>
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-bold text-purple-400 mb-2">الأثاث المحكوم بها (اكتب التفاصيل)</label>
-                                            <textarea
-                                                value={furnitureDetails}
-                                                onChange={(e) => setFurnitureDetails(e.target.value)}
-                                                className="w-full bg-[#0B1120] border border-gray-700 text-white p-3 rounded-lg focus:border-purple-500 outline-none placeholder-gray-600 min-h-[80px]"
-                                                placeholder="مثال: سرير غرفة نوم، ثلاجة، أريكة..."
-                                            />
+                                        <p className="relative mb-3 text-[10px] leading-relaxed text-slate-400/90 text-right">
+                                            يحدد مسار الإجراءات الميدانية والجبرية في محضر المتابعة.
+                                        </p>
+                                        <div className="relative grid grid-cols-2 gap-2.5">
+                                            {(
+                                                [
+                                                    {
+                                                        value: 'movable' as const,
+                                                        label: 'منقول',
+                                                        hint: 'سيارة، آلة، منقولات…',
+                                                        Icon: Package,
+                                                    },
+                                                    {
+                                                        value: 'immovable' as const,
+                                                        label: 'غير منقول',
+                                                        hint: 'عقار، أرض، بناء…',
+                                                        Icon: Building2,
+                                                    },
+                                                ] as const
+                                            ).map(({ value, label, hint, Icon }) => {
+                                                const selected = specificDeliveryItemNature === value;
+                                                return (
+                                                    <button
+                                                        key={value}
+                                                        type="button"
+                                                        onClick={() => setSpecificDeliveryItemNature(value)}
+                                                        className={`group relative flex flex-col items-end gap-2 rounded-2xl border px-3 py-3.5 text-right transition-all duration-300 ${
+                                                            selected
+                                                                ? ecg.choiceBtnActive +
+                                                                  ' border-[#E6C673]/50 shadow-[0_0_24px_-8px_rgba(230,198,115,0.55)]'
+                                                                : ecg.choiceBtnIdle +
+                                                                  ' border-white/10 bg-white/[0.02] hover:border-[#E6C673]/20'
+                                                        }`}
+                                                    >
+                                                        <span
+                                                            className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-all ${
+                                                                selected
+                                                                    ? 'border-[#E6C673]/40 bg-[#E6C673]/12 text-[#F5E6B8]'
+                                                                    : 'border-white/10 bg-black/20 text-slate-400 group-hover:text-[#E6C673]/80'
+                                                            }`}
+                                                        >
+                                                            <Icon className="h-5 w-5" />
+                                                        </span>
+                                                        <span className="text-sm font-extrabold text-inherit">
+                                                            {label}
+                                                        </span>
+                                                        <span className="text-[9px] font-medium text-slate-500 group-hover:text-slate-400">
+                                                            {hint}
+                                                        </span>
+                                                        {selected ? (
+                                                            <span className="absolute top-2 left-2 h-2 w-2 rounded-full bg-[#E6C673] shadow-[0_0_8px_rgba(230,198,115,0.9)]" />
+                                                        ) : null}
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
-                                    </div>
+                                    </motion.div>
+                                )}
+
+                                {claimType === 'أثاث زوجية' && (
+                                    <MaritalFurnitureSetupSection
+                                        items={maritalFurnitureItems}
+                                        onChange={setMaritalFurnitureItems}
+                                        formatCurrency={formatCurrency}
+                                        onPriceInput={(e, onParsed) => {
+                                            const raw = e.target.value.replace(/[^\d]/g, '');
+                                            onParsed(parseMoneyInput(raw));
+                                        }}
+                                    />
                                 )}
                                 
                                 {/* STATE C: COMMERCIAL PAPERS - Due Date */}
                                 {docType === 'الأوراق التجارية' && (
-                                    <div className="bg-indigo-950/20 border border-indigo-900/50 rounded-xl p-3 animate-fade-in">
-                                        <label className="block text-sm font-bold text-indigo-400 mb-2 flex items-center gap-2">
+                                    <div className={ecg.subCard}>
+                                        <label className={`${ecg.labelGold} flex items-center gap-2`}>
                                             <Calendar size={16} />
                                             تاريخ الاستحقاق (إلزامي)
                                         </label>
-                                        <input 
+                                        <input
                                             type="date"
                                             value={dueDate}
                                             onChange={(e) => setDueDate(e.target.value)}
                                             style={{ direction: 'ltr', textAlign: 'right' }}
-                                            className="w-full bg-[#0B1120] border border-gray-700 text-white p-3 rounded-lg focus:border-indigo-500 outline-none"
+                                            className={ecg.field}
                                         />
                                         {dueDate && new Date(dueDate) > new Date() && (
-                                            <p className="text-amber-500 text-xs mt-2 flex items-center gap-1">
+                                            <p className="text-[#E6C673] text-xs mt-2 flex items-center gap-1">
                                                 <AlertTriangle size={14} />
                                                 التاريخ في المستقبل - لن يتم قبول التقديم حتى تاريخ الاستحقاق
                                             </p>
@@ -1395,14 +2048,14 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                 
                                 {/* 🔍 EXECUTION TARGET FILTER - Commercial Papers & Debt Acknowledgments */}
                                 {(docType === 'الأوراق التجارية' || docType === 'السندات المتضمنة إقراراً بدين') && (
-                                    <div className="bg-amber-950/20 border border-amber-900/50 rounded-xl p-3 animate-fade-in">
-                                        <label className="block text-sm font-bold text-amber-400 mb-2">
+                                    <div className={ecg.subCard}>
+                                        <label className={ecg.labelGold}>
                                             المنفذ ضده (الطرف المستهدف بالتنفيذ)
                                         </label>
-                                        <select 
+                                        <select
                                             value={executionTarget}
                                             onChange={(e) => setExecutionTarget(e.target.value as any)}
-                                            className="w-full bg-[#0B1120] border border-gray-700 text-white p-3 rounded-lg focus:border-amber-500 outline-none"
+                                            className={ecg.select}
                                         >
                                             <option value="">-- اختر المنفذ ضده --</option>
                                             <option value="المدين الأصلي">المدين الأصلي (الساحب)</option>
@@ -1422,8 +2075,8 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                         
                                         {/* Dynamic Warnings */}
                                         {docType === 'الأوراق التجارية' && executionTarget === 'كفيل متضامن' && (
-                                            <div className="mt-2 bg-yellow-950/30 border border-yellow-900/50 rounded-lg p-2">
-                                                <p className="text-yellow-400 text-xs flex items-center gap-1">
+                                            <div className={ecg.hintWarn}>
+                                                <p className="text-amber-200 text-xs flex items-center gap-1">
                                                     <AlertTriangle size={14} />
                                                     مسموح، لكن المنفذ العدل مُلزم بتبليغ المدين الأصلي أولاً للوقوف على اعتراضاته
                                                 </p>
@@ -1431,8 +2084,8 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                         )}
                                         
                                         {docType === 'السندات المتضمنة إقراراً بدين' && executionTarget === 'كفيل متضامن' && (
-                                            <div className="mt-2 bg-emerald-950/30 border border-emerald-900/50 rounded-lg p-2">
-                                                <p className="text-emerald-400 text-xs flex items-center gap-1">
+                                            <div className={ecg.hintSuccess}>
+                                                <p className="text-emerald-300 text-xs flex items-center gap-1">
                                                     <Zap size={14} />
                                                     سيتم إمهال المدين الأصلي 7 أيام من تاريخ التبليغ قبل الحجز على الكفيل
                                                 </p>
@@ -1443,17 +2096,17 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                 
                                 {/* 🛑 DOCUMENT BLOCKED BANNER */}
                                 {isDocumentBlocked && (
-                                    <div className="bg-rose-950/30 border-2 border-rose-500 rounded-xl p-4 animate-fade-in">
-                                        <h4 className="text-rose-400 font-bold text-lg mb-2 flex items-center gap-2">
+                                    <div className={ecg.calloutDanger}>
+                                        <h4 className={ecg.calloutDangerTitle}>
                                             <AlertTriangle size={20} />
                                             🛑 توقف - السند فقد قوته التنفيذية
                                         </h4>
-                                        <p className="text-rose-300 text-sm leading-relaxed mb-3">
+                                        <p className="text-rose-200/90 text-sm leading-relaxed">
                                             استناداً للفقرة رابعاً من المادة 14، فقدَ هذا السند قوته التنفيذية المباشرة. لا تراجع مديرية التنفيذ.
                                         </p>
-                                        <div className="bg-rose-900/30 border border-rose-800/50 rounded-lg p-3">
+                                        <div className={ecg.hintDangerInline}>
                                             <p className="text-white text-sm font-bold mb-1">الحل القانوني:</p>
-                                            <p className="text-gray-300 text-xs">
+                                            <p className="text-slate-300 text-xs">
                                                 أقم (دعوى إثبات دين) في محكمة البداءة، وبعد اكتساب الحكم الدرجة القطعية قم بتنفيذه.
                                             </p>
                                         </div>
@@ -1468,30 +2121,30 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                         {/* Amount already shown above in STATE A */}
                                         
                                         {/* Dowry Reason Radio */}
-                                        <div className="bg-purple-950/20 border border-purple-900/50 rounded-xl p-3 animate-fade-in">
-                                            <label className="block text-sm font-bold text-purple-400 mb-3">سبب الاستحقاق:</label>
-                                            <div className="flex gap-3">
-                                                <label className="flex items-center gap-2 cursor-pointer">
-                                                    <input 
+                                        <div className={ecg.subCard}>
+                                            <label className={ecg.labelGold}>سبب الاستحقاق:</label>
+                                            <div className={`${ecg.choiceRow} !gap-3`}>
+                                                <label className={`${ecg.radioRow} ${dowryReason === 'طلاق' ? ecg.radioRowActive : ecg.radioRowIdle} flex-1`}>
+                                                    <input
                                                         type="radio"
                                                         name="dowryReason"
                                                         value="طلاق"
                                                         checked={dowryReason === 'طلاق'}
                                                         onChange={(e) => setDowryReason(e.target.value as 'طلاق' | 'وفاة')}
-                                                        className="w-4 h-4 accent-purple-500"
+                                                        className="accent-[#E6C673]"
                                                     />
-                                                    <span className="text-white">الطلاق</span>
+                                                    <span className="text-white text-sm">الطلاق</span>
                                                 </label>
-                                                <label className="flex items-center gap-2 cursor-pointer">
-                                                    <input 
+                                                <label className={`${ecg.radioRow} ${dowryReason === 'وفاة' ? ecg.radioRowActive : ecg.radioRowIdle} flex-1`}>
+                                                    <input
                                                         type="radio"
                                                         name="dowryReason"
                                                         value="وفاة"
                                                         checked={dowryReason === 'وفاة'}
                                                         onChange={(e) => setDowryReason(e.target.value as 'طلاق' | 'وفاة')}
-                                                        className="w-4 h-4 accent-purple-500"
+                                                        className="accent-[#E6C673]"
                                                     />
-                                                    <span className="text-white">الوفاة</span>
+                                                    <span className="text-white text-sm">الوفاة</span>
                                                 </label>
                                             </div>
                                         </div>
@@ -1500,14 +2153,14 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                 
                                 {/* VARIANT C: WILL & TAKHARUJ DEEDS - PHASE 42 */}
                                 {docType === 'الحجج الشرعية' && (claimType === 'حجة وصية' || claimType === 'حجة تخارج') && (
-                                    <div className="bg-blue-950/20 border border-blue-900/50 rounded-xl p-3 animate-fade-in">
-                                        <label className="block text-sm font-bold text-blue-400 mb-2">
+                                    <div className={ecg.subCard}>
+                                        <label className={ecg.labelGold}>
                                             تفاصيل الحجة (مثال: اسم الموصى له، أو تفاصيل حصص التخارج)
                                         </label>
-                                        <textarea 
+                                        <textarea
                                             value={guardianshipDetails}
                                             onChange={(e) => setGuardianshipDetails(e.target.value)}
-                                            className="w-full bg-[#0B1120] border border-gray-700 text-white p-3 rounded-lg focus:border-blue-500 outline-none resize-none"
+                                            className={ecg.textarea}
                                             rows={4}
                                             placeholder={claimType === 'حجة وصية' 
                                                 ? "مثال: الموصى له: محمد علي، الحصة الموصى بها: ربع التركة..."
@@ -1516,58 +2169,27 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                         />
                                     </div>
                                 )}
-                                
-                                {/* === PHASE 43: SHARIA DEEDS BADGES (Legal Fees & Expedited Execution) === */}
-                                {docType === 'الحجج الشرعية' && claimType && (
-                                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                                        {/* Standard 5% Collection Fee Badge */}
-                                        <div className="bg-gray-800/60 border border-gray-700 px-4 py-2 rounded-lg flex items-center gap-2">
-                                            <DollarSign size={16} className="text-gray-400" />
-                                            <span className="text-gray-300 text-sm font-semibold">
-                                                خاضع لرسم التحصيل: 5%
-                                            </span>
-                                        </div>
-                                    </div>
+
+                                {docType === 'تنفيذ الأحكام الأجنبية' && (
+                                    <ForeignJudgmentSection
+                                        foreignData={foreignData}
+                                        onForeignDataChange={setForeignData}
+                                    />
                                 )}
                             </div>
-
-                            {docType === 'تنفيذ الأحكام الأجنبية' && (
-                                <ForeignJudgmentSection
-                                    foreignData={foreignData}
-                                    onForeignDataChange={setForeignData}
-                                />
-                            )}
-                        </div>
+                        </ExecutionCreationSection>
 
                         {/* ✅ DELETED: دليل التنفيذ القانوني - All tracking, calculations, and legal warnings belong exclusively to the Active Dashboard, NOT the creation form */}
 
                         {/* ✅ DELETED: متتبع المواعيد القانونية - Statute of Limitations & Notification Tracker belong to Dashboard */}
 
-                        {/* === PHASE 30: ADDITIONAL SHARIA-SPECIFIC INPUTS === */}
                         {claimType && ['مشاهدة', 'تسليم ولد', 'أثاث زوجية'].includes(claimType) && (
-                            <div className="w-full px-3 py-4">{/* Header */}
-                                <div className="pb-3 mb-3 border-b border-amber-800/30">
-                                    <h3 className="text-amber-400 font-bold text-lg">تفاصيل إضافية للمطالبة الشرعية</h3>
-                                </div>
-
-                                {/* === CONDITIONAL: VISITATION SLEEPOVER === */}
+                            <ExecutionCreationSection title="تفاصيل إضافية للمطالبة الشرعية">
                                 {claimType === 'مشاهدة' && (
-                                    <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                                        <label className="flex items-center gap-3 cursor-pointer">
-                                            <input 
-                                                type="checkbox"
-                                                checked={includesSleepover}
-                                                onChange={(e) => setIncludesSleepover(e.target.checked)}
-                                                className="w-5 h-5 accent-blue-500 flex-shrink-0"
-                                            />
-                                            <span className="text-blue-400 font-bold text-sm">يتضمن مبيت (وفق الفقه الجعفري)</span>
-                                        </label>
-                                    </div>
-                                )}
-
-                                {claimType === 'مشاهدة' && (
-                                    <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg space-y-3">
-                                        <p className="text-blue-400 font-bold text-sm">أسماء الأولاد (مشاهدة واستصحاب)</p>
+                                    <div className={`${ecg.subCard} space-y-4`}>
+                                        <p className={`${ecg.subCardTitle} text-[#E6C673]`}>
+                                            أسماء الأولاد (مشاهدة واستصحاب)
+                                        </p>
                                         {visitationChildrenNames.map((childName, idx) => (
                                             <div key={idx} className="flex gap-2 items-center flex-row-reverse">
                                                 <input
@@ -1579,8 +2201,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                                             prev.map((n, i) => (i === idx ? v : n))
                                                         );
                                                     }}
-                                                    placeholder={`اسم الولد ${idx + 1}`}
-                                                    className="flex-1 bg-[#0B1120] border border-gray-700 text-white p-3 rounded-lg focus:border-blue-500 outline-none placeholder-gray-600 text-sm"
+                                                    className={`${ecg.field} flex-1 text-sm`}
                                                 />
                                                 {visitationChildrenNames.length > 1 && (
                                                     <button
@@ -1601,7 +2222,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                         <button
                                             type="button"
                                             onClick={() => setVisitationChildrenNames((prev) => [...prev, ''])}
-                                            className="flex items-center gap-2 text-xs text-blue-300 hover:text-blue-200 font-bold"
+                                            className={`${ecg.addBtn} !mt-0`}
                                         >
                                             <Plus size={14} />
                                             إضافة اسم
@@ -1609,9 +2230,16 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                     </div>
                                 )}
 
+                                {claimType === 'مشاهدة' && (
+                                    <VisitationScheduleSetupSection
+                                        draft={visitationScheduleDraft}
+                                        onChange={setVisitationScheduleDraft}
+                                    />
+                                )}
+
                                 {claimType === 'تسليم ولد' && (
-                                    <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg space-y-3">
-                                        <p className="text-blue-400 font-bold text-sm">أسماء المحضونين (تسليم حضانة)</p>
+                                    <div className={`${ecg.subCard} space-y-3`}>
+                                        <p className={ecg.subCardTitle}>أسماء المحضونين (تسليم حضانة)</p>
                                         {custodyWardNames.map((wardName, idx) => (
                                             <div key={idx} className="flex gap-2 items-center flex-row-reverse">
                                                 <input
@@ -1624,7 +2252,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                                         );
                                                     }}
                                                     placeholder={`اسم المحضون ${idx + 1}`}
-                                                    className="flex-1 bg-[#0B1120] border border-gray-700 text-white p-3 rounded-lg focus:border-blue-500 outline-none placeholder-gray-600 text-sm"
+                                                    className={`${ecg.field} flex-1 text-sm`}
                                                 />
                                                 {custodyWardNames.length > 1 && (
                                                     <button
@@ -1645,20 +2273,14 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                         <button
                                             type="button"
                                             onClick={() => setCustodyWardNames((prev) => [...prev, ''])}
-                                            className="flex items-center gap-2 text-xs text-blue-300 hover:text-blue-200 font-bold"
+                                            className={`${ecg.addBtn} !mt-0`}
                                         >
                                             <Plus size={14} />
                                             إضافة محضون
                                         </button>
                                     </div>
                                 )}
-
-                                {/* === PHASE 30: Removed IDDAH ALIMONY section - now handled via unified amount input === */}
-                                {/* === PHASE 30: Removed MONEY CLAIM section - now handled via unified amount input === */}
-                                {/* === CONDITIONAL: ALIMONY ENGINE - REMOVED IN PHASE 48 === */}
-                                
-                                {/* === Furniture details moved to dynamic inputs === */}
-                            </div>
+                            </ExecutionCreationSection>
                         )}
                         
                         {/* ✅ DELETED: الملخص المالي الذكي - Auto-calculated financial summary belongs to Dashboard */}
@@ -1666,60 +2288,75 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                         {/* === FINANCIAL SETTINGS & FEES (الإعدادات المالية والأتعاب) === */}
                         {/* ✅ CRITICAL UPDATE (2026-03-11): HIDE FOR ALL NON-FINANCIAL CLAIMS */}
                         {/* Rule: Hide "المبلغ المطلوب" field for non-financial executions */}
-                        {claimType && ![
-                            'تسليم طفل', 'استصحاب', 'مبيت', 'حجة وصاية'
-                        ].includes(claimType) && (
-                        <div className="w-full bg-gradient-to-br from-[#111827] to-[#0f172a] border-2 border-indigo-900/50 p-4 rounded-xl">
-                            {/* Header */}
-                            <h3 className="text-indigo-400 font-black text-lg mb-3 flex items-center gap-2">
-                                <DollarSign size={20} />
-                                الإعدادات المالية والأتعاب
-                            </h3>
-                            
-                            {/* NEW: Client Fees Input */}
-                            <div className="mb-3">
-                                <label className="text-xs text-gray-400 block mb-2">أتعاب المحاماة المتفق عليها مع الموكل (دينار)</label>
-                                <input 
-                                    type="text"
-                                    value={formatCurrency(clientFeesAmount)}
-                                    onChange={(e) => handleAmountChange(e, setClientFeesAmount)}
-                                    className="w-full bg-[#0B1120] border border-gray-700 p-3 rounded-lg text-white font-mono"
-                                    placeholder="تُدفع من الموكل للمحامي..."
-                                />
-                            </div>
-                            
-                            {/* Existing: Court-Awarded Fees Checkbox */}
-                            <div className="bg-[#0B1120] border border-gray-800 p-3 rounded-lg">
-                                <label className="flex items-center gap-3 cursor-pointer">
-                                    <input 
+                        {showLawyerFeesToggle ? (
+                            <div
+                                className={[
+                                    'rounded-2xl border backdrop-blur-sm transition-all duration-300 overflow-hidden',
+                                    includeLawyerFees
+                                        ? 'border-[#E6C673]/40 bg-gradient-to-l from-[#E6C673]/12 via-[#E6C673]/5 to-transparent shadow-[0_0_24px_-12px_rgba(230,198,115,0.35)]'
+                                        : 'border-white/10 bg-white/[0.03]',
+                                ].join(' ')}
+                            >
+                                <label
+                                    className="flex flex-row-reverse items-center gap-3 min-h-[48px] px-3.5 py-3 cursor-pointer"
+                                >
+                                    <input
                                         type="checkbox"
                                         checked={includeLawyerFees}
                                         onChange={(e) => setIncludeLawyerFees(e.target.checked)}
-                                        className="w-5 h-5 accent-amber-500 rounded border-gray-700"
+                                        className="sr-only"
                                     />
-                                    <span className="text-amber-500 font-bold">⚖️ المطالبة بأتعاب المحاماة المحكوم بها</span>
+                                    <span
+                                        className={`${ecg.multiToggle} ${
+                                            includeLawyerFees ? ecg.multiToggleChecked : ecg.multiToggleIdle
+                                        }`}
+                                        aria-hidden
+                                    >
+                                        {includeLawyerFees ? (
+                                            <Scale size={12} className="text-[#0A0F1C]" strokeWidth={2.5} />
+                                        ) : null}
+                                    </span>
+                                    <span className="flex-1 text-right text-sm font-bold text-[#F0DFA8]">
+                                        المطالبة بأتعاب المحاماة المحكوم بها
+                                    </span>
                                 </label>
-                                {includeLawyerFees && (
-                                    <div className="mt-3 pl-8">
-                                        <label className="text-xs text-gray-400 mb-1 block">مقدار أتعاب المحاماة (دينار)</label>
-                                        <input 
-                                            type="text"
-                                            value={formatCurrency(lawyerFeesAmount)}
-                                            onChange={(e) => handleAmountChange(e, setLawyerFeesAmount)}
-                                            className="w-full md:w-1/2 bg-[#111827] border border-gray-700 p-3 rounded-lg text-white font-mono"
-                                            placeholder="مثال: 150000"
-                                        />
-                                    </div>
-                                )}
+
+                                <AnimatePresence initial={false}>
+                                    {includeLawyerFees ? (
+                                        <motion.div
+                                            key="lawyer-fees-amount"
+                                            initial={{ height: 0, opacity: 0 }}
+                                            animate={{ height: 'auto', opacity: 1 }}
+                                            exit={{ height: 0, opacity: 0 }}
+                                            transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+                                            className="overflow-hidden"
+                                        >
+                                            <div className="border-t border-[#E6C673]/15 px-3.5 pb-3.5 pt-3">
+                                                <div className={`${ecg.moneyWrap} focus-within:border-[#E6C673]/45`}>
+                                                    <Scale className="text-[#E6C673]/80 flex-shrink-0" size={16} />
+                                                    <input
+                                                        type="text"
+                                                        value={formatCurrency(lawyerFeesAmount)}
+                                                        onChange={(e) =>
+                                                            handleAmountChange(e, setLawyerFeesAmount)
+                                                        }
+                                                        className={ecg.moneyInput}
+                                                        placeholder="مقدار أتعاب المحاماة (دينار)"
+                                                        aria-label="مقدار أتعاب المحاماة (دينار)"
+                                                    />
+                                                    <span className="text-slate-500 text-[10px] font-bold">IQD</span>
+                                                </div>
+                                            </div>
+                                        </motion.div>
+                                    ) : null}
+                                </AnimatePresence>
                             </div>
-                        </div>
-                        )}
+                        ) : null}
                         
                         <div className="h-6"></div> {/* Spacer */}
                     </div>
                 </div>
 
-                {/* 🎯 ExecutionSaveButton Component */}
                 <ExecutionSaveButton onSubmit={handleSubmit} />
 
                 <ExecutionOptionSheet
@@ -1727,6 +2364,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                     onClose={() => setDocTypeSheetOpen(false)}
                     title="نوع السند المنفذ"
                     options={EXECUTION_DOC_TYPE_OPTIONS}
+                    comingSoonOptions={EXECUTION_DOC_TYPE_COMING_SOON}
                     selectedValue={docType}
                     onSelect={(v) => handleDocTypeChange(v)}
                 />
@@ -1734,69 +2372,80 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                     open={claimTypeSheetOpen}
                     onClose={() => setClaimTypeSheetOpen(false)}
                     title="نوع المطالبة والتنفيذ"
-                    options={claimTypeOptionsList}
+                    options={shariaExclusiveClaimOptions}
                     selectedValue={claimType}
-                    onSelect={(v) => setClaimType(v)}
+                    exclusiveSectionTitle={
+                        showShariaLinkedClaimPanel ? 'مطالبات منفردة' : undefined
+                    }
+                    onSelect={(v) => {
+                        setActiveClaimTypes([v]);
+                        setClaimAmountsByType({});
+                        setLinkedClaimDraft([]);
+                        setClaimTypeSheetOpen(false);
+                    }}
+                    multiSelectPanel={
+                        showShariaLinkedClaimPanel
+                            ? {
+                                  sectionTitle: 'مطالبات مالية',
+                                  options: shariaLinkedClaimOptions,
+                                  draftValues: linkedClaimDraft,
+                                  onToggleDraft: toggleLinkedClaimDraft,
+                                  onConfirm: saveLinkedClaimDraft,
+                                  confirmLabel: 'حفظ الاختيار',
+                              }
+                            : undefined
+                    }
                 />
                 
                 {/* ✅ PRACTICAL CHEQUE VALIDATOR - DATA CAPTURE MODAL */}
                 {showChequeValidatorModal && (
-                    <div className="fixed inset-0 bg-black/80 z-[999999] flex items-center justify-center p-4" onClick={(e) => {
-                        // Prevent closing on backdrop click if data is entered
+                    <div className={ecg.modalBackdrop} onClick={() => {
                         if (!chequeBankName && !chequeIssueDate && !chequeNumber) {
                             setShowChequeValidatorModal(false);
                         }
                     }}>
-                        <div className="bg-[#111827] border-2 border-amber-500/50 rounded-2xl p-6 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
-                            <h3 className="text-xl font-bold text-amber-500 mb-2 flex items-center gap-2">
+                        <div className={ecg.modalPanel} onClick={(e) => e.stopPropagation()}>
+                            <h3 className={ecg.modalTitle}>
                                 <AlertTriangle size={24} />
                                 بيانات الورقة التجارية (صك/كمبيالة)
                             </h3>
-                            <p className="text-gray-300 text-sm mb-4">
+                            <p className="text-slate-400 text-sm mb-4">
                                 📋 هذه البيانات ستُستخدم في طلب التنفيذ ومخاطبة المصرف
                             </p>
                             
                             <div className="space-y-4 mb-6">
                                 {/* Bank Name */}
                                 <div>
-                                    <label className="block text-sm font-bold text-amber-400 mb-2">
-                                        اسم المصرف المسحوب عليه *
-                                    </label>
-                                    <input 
+                                    <label className={ecg.labelGold}>اسم المصرف المسحوب عليه *</label>
+                                    <input
                                         type="text"
                                         value={chequeBankName}
                                         onChange={(e) => setChequeBankName(e.target.value)}
                                         placeholder="مثال: مصرف الرافدين، المصرف الأهلي العراقي..."
-                                        className="w-full bg-[#0B1120] border border-gray-700 text-white p-3 rounded-lg focus:border-amber-500 outline-none"
+                                        className={ecg.field}
                                     />
                                 </div>
-                                
-                                {/* Cheque Number */}
                                 <div>
-                                    <label className="block text-sm font-bold text-amber-400 mb-2">
-                                        رقم الصك / الكمبيالة *
-                                    </label>
-                                    <input 
+                                    <label className={ecg.labelGold}>رقم الصك / الكمبيالة *</label>
+                                    <input
                                         type="text"
                                         value={chequeNumber}
                                         onChange={(e) => setChequeNumber(e.target.value)}
                                         placeholder="مثال: 12345678"
-                                        className="w-full bg-[#0B1120] border border-gray-700 text-white p-3 rounded-lg focus:border-amber-500 outline-none"
+                                        className={ecg.field}
                                     />
                                 </div>
-                                
-                                {/* Issue Date */}
                                 <div>
-                                    <label className="block text-sm font-bold text-amber-400 mb-2 flex items-center gap-2">
+                                    <label className={`${ecg.labelGold} flex items-center gap-2 flex-wrap`}>
                                         <Calendar size={16} />
                                         تاريخ إنشاء الصك
-                                        <span className="text-gray-500 text-xs font-normal">(اختياري لكن مهم قانونياً)</span>
+                                        <span className="text-slate-500 text-xs font-normal">(اختياري لكن مهم قانونياً)</span>
                                     </label>
-                                    <input 
+                                    <input
                                         type="date"
                                         value={chequeIssueDate}
                                         onChange={(e) => setChequeIssueDate(e.target.value)}
-                                        className="w-full bg-[#0B1120] border border-gray-700 text-white p-3 rounded-lg focus:border-amber-500 outline-none"
+                                        className={ecg.field}
                                     />
                                     {!chequeIssueDate && (
                                         <p className="text-rose-400 text-xs mt-2 flex items-center gap-1">
@@ -1819,7 +2468,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                         setShowChequeValidatorModal(false);
                                     }}
                                     disabled={!chequeBankName || !chequeNumber}
-                                    className="flex-1 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-black font-bold py-3 rounded-lg transition-all"
+                                    className={ecg.modalBtnPrimary}
                                 >
                                     {chequeIssueDate ? 'تأكيد البيانات' : 'متابعة كسند عادي'}
                                 </button>
@@ -1829,7 +2478,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                         setDocType('');
                                         setClaimType('');
                                     }}
-                                    className="px-6 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-lg transition-all"
+                                    className={ecg.modalBtnGhost}
                                 >
                                     إلغاء
                                 </button>
@@ -1840,13 +2489,13 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                 
                 {/* 🛑 ABSENTEE CHECKLIST MODAL */}
                 {showAbsenteeModal && (
-                    <div className="fixed inset-0 bg-black/80 z-[999999] flex items-center justify-center p-4" onClick={() => setShowAbsenteeModal(false)}>
-                        <div className="bg-[#111827] border-2 border-rose-500/50 rounded-2xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-                            <h3 className="text-xl font-bold text-rose-500 mb-4 flex items-center gap-2">
+                    <div className={ecg.modalBackdrop} onClick={() => setShowAbsenteeModal(false)}>
+                        <div className={ecg.modalPanelDanger} onClick={(e) => e.stopPropagation()}>
+                            <h3 className={`${ecg.calloutDangerTitle} mb-4`}>
                                 <AlertTriangle size={24} />
                                 فحص الغياب الإلزامي
                             </h3>
-                            <p className="text-gray-300 text-sm mb-4">
+                            <p className="text-slate-400 text-sm mb-4">
                                 يرجى الإجابة على الأسئلة التالية:
                             </p>
                             <div className="space-y-3 mb-6">
@@ -1855,7 +2504,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                     { key: 'isAddressUnknown', label: 'هل محل إقامة المدين مجهول؟' },
                                     { key: 'isDiedDuringNotice', label: 'هل توفي المدين خلال فترة الإخبار؟' }
                                 ].map(item => (
-                                    <label key={item.key} className="flex items-center gap-3 bg-[#0B1120] border border-gray-700 p-3 rounded-lg">
+                                    <label key={item.key} className={ecg.optionRow}>
                                         <span className="text-white text-sm flex-1">{item.label}</span>
                                         <div className="flex gap-2">
                                             <label className="flex items-center gap-1 cursor-pointer">

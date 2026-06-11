@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from "motion/react";
 // Core imports with error handling
 import { FontInjector } from "./components/SharedComponents";
 import { AppProvider } from "./context/AppContext";
-import { AIGuardianProvider } from "./context/AIGuardianContext";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { GlobalErrorBoundary } from "./components/shared/GlobalErrorBoundary";
 import { debug } from "./utils/debug";
@@ -21,6 +20,7 @@ import { LoginScreen } from "./components/auth/LoginScreen";
 import { hasPersistedSupabaseSession } from "./utils/authStorage";
 
 const CHUNK_RELOAD_SESSION_KEY = "hami:chunk-reload-once";
+const VITE_STALE_IMPORT_RELOAD_KEY = "hami:vite-stale-import-reload";
 
 function isSuperAdminUser(user: { user_metadata?: unknown } | null): boolean {
   if (!user) return false;
@@ -47,15 +47,6 @@ const LawyerDashboard = lazyWithRetry(() =>
   })),
 );
 // --- LAZY: Other heavy screens ---
-const GhostInsightBar = React.lazy(() => 
-  import("./components/ghost/GhostInsightBar")
-    .then(m => ({ default: m.GhostInsightBar }))
-    .catch((err): { default: () => null } => {
-      debug.error("Failed to load GhostInsightBar:", err);
-      return { default: (): null => null };
-    })
-);
-
 const AdminDashboard = React.lazy(() => import("./components/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
 const AdminLawLibraryPage = React.lazy(() => import("./admin/page"));
 const RoyalLawyerProfile = React.lazy(() =>
@@ -117,6 +108,7 @@ export default function App(): ReactElement {
 
       try {
         sessionStorage.removeItem(CHUNK_RELOAD_SESSION_KEY);
+        sessionStorage.removeItem(VITE_STALE_IMPORT_RELOAD_KEY);
       } catch {
         /* ignore */
       }
@@ -341,7 +333,6 @@ function AppContent(props: {
                 <LoginScreen />
               ) : (
         <AppProvider>
-          <AIGuardianProvider>
             <Suspense fallback={null}>
               <SecurityInitializer />
             </Suspense>
@@ -436,13 +427,7 @@ function AppContent(props: {
                 )}
                 </AnimatePresence>
 
-              {screen === "lawyer" ? (
-                <Suspense fallback={null}>
-                  <GhostInsightBar />
-                </Suspense>
-              ) : null}
             </div>
-          </AIGuardianProvider>
         </AppProvider>
               )}
         </>

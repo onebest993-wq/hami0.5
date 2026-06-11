@@ -1,18 +1,14 @@
-import { describe, expect, it, vi } from 'vitest';
-import { extractTextFromDocumentImage, ocrFallbackMessage } from './documentOcrService';
-
-vi.mock('@/app/services/ai-service', () => ({
-    hasOpenRouterKey: () => false,
-}));
+import { describe, expect, it } from 'vitest';
+import { extractTextFromDocumentImage, formatOcrFallbackMessage } from './documentOcrService';
 
 describe('documentOcrService', () => {
-    it('returns fallback when no API key', async () => {
+    it('returns empty text when OCR is disabled', async () => {
         const result = await extractTextFromDocumentImage('data:image/png;base64,abc');
-        expect(result.source).toBe('fallback');
+        expect(result.source).toBe('none');
         expect(result.text).toBe('');
     });
 
     it('builds fallback message for uploaded scans', () => {
-        expect(ocrFallbackMessage(true)).toContain('المخزن');
+        expect(formatOcrFallbackMessage()).toContain('المخزن');
     });
 });

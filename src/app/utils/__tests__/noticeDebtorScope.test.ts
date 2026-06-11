@@ -8,6 +8,7 @@ import {
     getDebtorNoticeStateForKey,
     getDebtorNotificationCountForKey,
     getDebtorSummonsMarkerForKey,
+    isDebtorNotifiedForCoerciveActions,
 } from '@/app/utils/noticeDebtorScope';
 
 const primaryKey = 'primary_debtor';
@@ -215,5 +216,47 @@ describe('noticeDebtorScope — summons marker', () => {
                 primaryKey
             )
         ).toBeNull();
+    });
+});
+
+describe('noticeDebtorScope — isDebtorNotifiedForCoerciveActions', () => {
+    it('returns false when debtor has no notification record', () => {
+        expect(isDebtorNotifiedForCoerciveActions(baseFile(), primaryKey, primaryKey)).toBe(false);
+    });
+
+    it('returns true when notification date or memo anchor exists', () => {
+        expect(
+            isDebtorNotifiedForCoerciveActions(
+                baseFile({ debtorNotificationDate: '2026-04-01' }),
+                primaryKey,
+                primaryKey,
+            ),
+        ).toBe(true);
+        expect(
+            isDebtorNotifiedForCoerciveActions(
+                baseFile({ execution_memo_anchor_date: '2026-04-02' }),
+                primaryKey,
+                primaryKey,
+            ),
+        ).toBe(true);
+    });
+
+    it('returns true when summons marker or notification count is recorded', () => {
+        expect(
+            isDebtorNotifiedForCoerciveActions(
+                baseFile({
+                    debtor_summons_marker: { id: 's1', date: '2026-04-03', purpose: 'تبليغ' },
+                }),
+                primaryKey,
+                primaryKey,
+            ),
+        ).toBe(true);
+        expect(
+            isDebtorNotifiedForCoerciveActions(
+                baseFile({ notificationCount: 1 }),
+                primaryKey,
+                primaryKey,
+            ),
+        ).toBe(true);
     });
 });

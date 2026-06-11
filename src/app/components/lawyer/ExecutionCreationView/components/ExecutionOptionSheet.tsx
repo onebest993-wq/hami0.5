@@ -1,4 +1,16 @@
 import React from 'react';
+import { Check } from 'lucide-react';
+import { ecg } from './executionCreationGlassUi';
+
+export type ExecutionOptionSheetMultiSelectPanel = {
+    options: { value: string; label: string }[];
+    draftValues: string[];
+    onToggleDraft: (value: string) => void;
+    onConfirm: () => void;
+    confirmLabel?: string;
+    sectionTitle?: string;
+    hint?: string;
+};
 
 interface ExecutionOptionSheetProps {
     open: boolean;
@@ -7,53 +19,165 @@ interface ExecutionOptionSheetProps {
     options: { value: string; label: string }[];
     selectedValue: string;
     onSelect: (value: string) => void;
+    comingSoonOptions?: { label: string }[];
+    comingSoonCaption?: string;
+    multiSelectPanel?: ExecutionOptionSheetMultiSelectPanel;
+    exclusiveSectionTitle?: string;
 }
 
-function ExecutionOptionSheet({ open, onClose, title, options, selectedValue, onSelect }: ExecutionOptionSheetProps) {
+function ExecutionOptionSheet({
+    open,
+    onClose,
+    title,
+    options,
+    selectedValue,
+    onSelect,
+    comingSoonOptions,
+    comingSoonCaption = 'في مرحلة الدراسة والتطوير',
+    multiSelectPanel,
+    exclusiveSectionTitle,
+}: ExecutionOptionSheetProps) {
+    const draftSet = new Set(multiSelectPanel?.draftValues ?? []);
     if (!open) return null;
+
+    const hasExclusive = options.length > 0 || (comingSoonOptions?.length ?? 0) > 0;
+    /** ارتفاع ثابت — max-h وحده يُفشل flex-1 فيُقصّ الأزرار ولا تُستقبل النقرات */
+    const sheetHeight = multiSelectPanel
+        ? 'h-[min(88vh,720px)] max-h-[min(88vh,720px)]'
+        : 'h-[min(56vh,440px)] max-h-[min(56vh,440px)]';
+
+    const exclusiveButtons = (
+        <>
+            {options.map((opt) => (
+                <button
+                    key={opt.value}
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onSelect(opt.value);
+                        onClose();
+                    }}
+                    className={`${ecg.optionBtn} ${
+                        selectedValue === opt.value ? ecg.optionBtnActive : ecg.optionBtnIdle
+                    }`}
+                >
+                    {opt.label}
+                </button>
+            ))}
+            {comingSoonOptions && comingSoonOptions.length > 0 ? (
+                <div className="mt-2 border-t border-white/8 pt-2 space-y-1.5">
+                    <p className="px-2 pb-1 text-[10px] font-bold text-slate-500">{comingSoonCaption}</p>
+                    {comingSoonOptions.map((opt) => (
+                        <div
+                            key={opt.label}
+                            aria-disabled="true"
+                            className="w-full text-right rounded-2xl px-4 py-3 text-sm font-medium text-slate-500/75 border border-white/5 bg-white/[0.02] cursor-not-allowed select-none"
+                        >
+                            {opt.label}
+                        </div>
+                    ))}
+                </div>
+            ) : null}
+        </>
+    );
+
     return (
         <>
             <div
-                className="fixed inset-0 z-[235] bg-black/55"
+                className={ecg.sheetBackdrop}
                 onClick={onClose}
                 onKeyDown={(e) => e.key === 'Escape' && onClose()}
                 role="presentation"
             />
             <div
-                className="fixed inset-x-0 bottom-0 z-[236] max-h-[min(56vh,440px)] flex flex-col rounded-t-2xl border-t-2 border-emerald-500/40 bg-[#0B1120] shadow-[0_-12px_48px_rgba(0,0,0,0.55)]"
+                className={`${ecg.sheetPanel} ${sheetHeight} overflow-hidden flex flex-col`}
                 dir="rtl"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="execution-sheet-title"
             >
-                <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-800">
-                    <button type="button" onClick={onClose} className="text-sm text-gray-400 hover:text-white min-w-[3rem] text-right">
+                <div className={ecg.sheetHeader}>
+                    <button type="button" onClick={onClose} className={ecg.sheetClose}>
                         إغلاق
                     </button>
-                    <span id="execution-sheet-title" className="text-sm font-bold text-emerald-400 flex-1 text-center">
+                    <span id="execution-sheet-title" className={ecg.sheetTitle}>
                         {title}
                     </span>
                     <span className="min-w-[3rem]" />
                 </div>
-                <div className="flex-1 overflow-y-auto overscroll-contain p-2 pb-6 space-y-0.5">
-                    {options.map((opt) => (
-                        <button
-                            key={opt.value}
-                            type="button"
-                            onClick={() => {
-                                onSelect(opt.value);
-                                onClose();
-                            }}
-                            className={`w-full text-right rounded-lg px-3 py-3 text-sm font-medium transition-colors ${
-                                selectedValue === opt.value
-                                    ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/40'
-                                    : 'text-gray-200 hover:bg-white/5 border border-transparent'
-                            }`}
-                        >
-                            {opt.label}
-                        </button>
-                    ))}
-                </div>
+
+                {multiSelectPanel ? (
+                    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                        {hasExclusive ? (
+                            <div className={`${ecg.sheetExclusiveBlock} max-h-[42vh] overflow-y-auto overscroll-contain`}>
+                                {exclusiveSectionTitle ? (
+                                    <p className={ecg.sheetSectionTitle}>{exclusiveSectionTitle}</p>
+                                ) : null}
+                                {exclusiveButtons}
+                            </div>
+                        ) : null}
+                        <div className={`${ecg.multiPanel} min-h-0 flex-1 overflow-y-auto overscroll-contain`}>
+                            {multiSelectPanel.sectionTitle ? (
+                                <p className={ecg.sheetSectionTitle}>{multiSelectPanel.sectionTitle}</p>
+                            ) : null}
+                            <p className={ecg.multiHint}>
+                                {multiSelectPanel.hint ?? 'يمكن اختيار أكثر من مطالبة هنا'}
+                            </p>
+                            <div className={ecg.multiList}>
+                                {multiSelectPanel.options.map((opt) => {
+                                    const checked = draftSet.has(opt.value);
+                                    return (
+                                        <label
+                                            key={opt.value}
+                                            className={`${ecg.multiItem} ${
+                                                checked ? ecg.multiItemChecked : ecg.multiItemIdle
+                                            }`}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={checked}
+                                                onChange={() => multiSelectPanel.onToggleDraft(opt.value)}
+                                                className="sr-only"
+                                            />
+                                            <span className="flex-1 text-sm font-semibold text-slate-50 text-right leading-snug">
+                                                {opt.label}
+                                            </span>
+                                            <span
+                                                aria-hidden="true"
+                                                className={`${ecg.multiToggle} ${
+                                                    checked ? ecg.multiToggleChecked : ecg.multiToggleIdle
+                                                }`}
+                                            >
+                                                {checked ? (
+                                                    <Check
+                                                        size={13}
+                                                        strokeWidth={3}
+                                                        className="text-[#0A0F1C] drop-shadow-sm"
+                                                    />
+                                                ) : null}
+                                            </span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                            <button
+                                type="button"
+                                disabled={multiSelectPanel.draftValues.length === 0}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    multiSelectPanel.onConfirm();
+                                }}
+                                className={ecg.saveBtn}
+                            >
+                                {multiSelectPanel.confirmLabel ?? 'حفظ الاختيار'}
+                            </button>
+                        </div>
+                    </div>
+                ) : hasExclusive ? (
+                    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-2 space-y-1.5 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                        {exclusiveButtons}
+                    </div>
+                ) : null}
             </div>
         </>
     );

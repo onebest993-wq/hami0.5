@@ -9,6 +9,7 @@ import {
     type ForumPostRow,
 } from './forumMapper';
 import { getForumSupabaseAdmin, isForumSupabaseConfigured } from './supabaseAdmin';
+import { buildForumEditPatch } from './forumEditUtils';
 
 function createId(): string {
     const cryptoObj = globalThis.crypto as Crypto | undefined;
@@ -118,8 +119,8 @@ export const ForumRepository = {
     async listPosts(limit = 500, offset = 0): Promise<{ posts: CommunityPost[]; total: number }> {
         const admin = getForumSupabaseAdmin();
         if (!admin) {
-            const { getCommunityPosts } = await import('@/app/services/lawyer-cloud');
-            const all = await getCommunityPosts();
+            const { CommunityDB } = await import('@/app/services/lawyer-cloud');
+            const all = await CommunityDB.listPosts();
             const sorted = sortPosts(all);
             return { posts: sorted.slice(offset, offset + limit), total: sorted.length };
         }
@@ -135,8 +136,8 @@ export const ForumRepository = {
             .range(offset, offset + limit - 1);
 
         if (error || !data) {
-            const { getCommunityPosts } = await import('@/app/services/lawyer-cloud');
-            const all = await getCommunityPosts();
+            const { CommunityDB } = await import('@/app/services/lawyer-cloud');
+            const all = await CommunityDB.listPosts();
             const sorted = sortPosts(all);
             return { posts: sorted.slice(offset, offset + limit), total: sorted.length };
         }
@@ -213,9 +214,7 @@ export const ForumRepository = {
         }
         const updated: CommunityPost = {
             ...post,
-            content,
-            isEdited: true,
-            updatedAt: new Date().toISOString(),
+            ...buildForumEditPatch(post, content),
         };
         return this.savePost(updated);
     },
@@ -519,7 +518,11 @@ export const ForumRepository = {
     // ====================== Bookmarks ======================
     async toggleBookmark(postId: string, userId: string): Promise<{ bookmarked: boolean }> {
         const admin = getForumSupabaseAdmin();
-        if (!admin) return { bookmarked: false };
+        if (!admin) {
+            const { ForumBookmarkDB } = await import('@/app/services/lawyer-cloud');
+            const bookmarked = await ForumBookmarkDB.toggle(userId, postId);
+            return { bookmarked };
+        }
         const { data: existing } = await admin
             .from('forum_bookmarks')
             .select('post_id')
@@ -539,7 +542,10 @@ export const ForumRepository = {
 
     async listBookmarkedPostIds(userId: string): Promise<string[]> {
         const admin = getForumSupabaseAdmin();
-        if (!admin) return [];
+        if (!admin) {
+            const { ForumBookmarkDB } = await import('@/app/services/lawyer-cloud');
+            return ForumBookmarkDB.listPostIds(userId);
+        }
         const { data } = await admin
             .from('forum_bookmarks')
             .select('post_id')
@@ -603,8 +609,14 @@ export const ForumRepository = {
         }
         const admin = getForumSupabaseAdmin();
         if (!admin) {
-            // fallback لا يدعم locking في KV — نرجع نسخة محدّثة فقط
-            return { ...post, isLocked: locked || undefined };
+            const updated: CommunityPost = {
+                ...post,
+                isLocked: locked || undefined,
+                updatedAt: new Date().toISOString(),
+            };
+            const { CommunityDB } = await import('@/app/services/lawyer-cloud');
+            await CommunityDB.savePost(updated);
+            return updated;
         }
         const { error } = await admin
             .from('forum_posts')

@@ -2,13 +2,12 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { X } from 'lucide-react';
 import { EXEC_MODAL_BACKDROP_STRONG, EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
+import { formatNumberInput } from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
 
 export function GuarantorDetailsPostApprovalModal(props: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     disabled?: boolean;
-    guaranteeType: 'amount' | 'attendance';
-    setGuaranteeType: (v: 'amount' | 'attendance') => void;
     name: string;
     workplace: string;
     salary: string;
@@ -60,38 +59,6 @@ export function GuarantorDetailsPostApprovalModal(props: {
                     <div className="p-5">
                         <div className="grid grid-cols-1 gap-3">
                             <div>
-                                <label className="mb-1 block text-[11px] font-bold text-slate-300">
-                                    نوع الكفالة
-                                </label>
-                                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                    <button
-                                        type="button"
-                                        disabled={props.disabled}
-                                        onClick={() => props.setGuaranteeType('amount')}
-                                        className={`rounded-xl border px-3 py-2 text-[12px] font-bold transition-colors ${
-                                            props.guaranteeType === 'amount'
-                                                ? 'border-emerald-500/45 bg-emerald-500/10 text-emerald-100'
-                                                : 'border-white/10 bg-white/5 text-slate-200 hover:bg-white/10'
-                                        }`}
-                                    >
-                                        كفالة ضامنة للمبلغ
-                                    </button>
-                                    <button
-                                        type="button"
-                                        disabled={props.disabled}
-                                        onClick={() => props.setGuaranteeType('attendance')}
-                                        className={`rounded-xl border px-3 py-2 text-[12px] font-bold transition-colors ${
-                                            props.guaranteeType === 'attendance'
-                                                ? 'border-amber-500/45 bg-amber-500/10 text-amber-100'
-                                                : 'border-white/10 bg-white/5 text-slate-200 hover:bg-white/10'
-                                        }`}
-                                    >
-                                        كفالة إحضار شخصية
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div>
                                 <label className="mb-1 block text-[11px] font-bold text-slate-300">اسم الكفيل</label>
                                 <input
                                     type="text"
@@ -122,7 +89,7 @@ export function GuarantorDetailsPostApprovalModal(props: {
                                         type="text"
                                         inputMode="numeric"
                                         value={props.salary}
-                                        onChange={(e) => props.setSalary(e.target.value.replace(/[^\d]/g, ''))}
+                                        onChange={(e) => props.setSalary(formatNumberInput(e.target.value))}
                                         className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-slate-100 text-right"
                                         placeholder="اختياري"
                                         disabled={props.disabled}
@@ -134,7 +101,7 @@ export function GuarantorDetailsPostApprovalModal(props: {
                                         type="text"
                                         inputMode="numeric"
                                         value={props.deduction}
-                                        onChange={(e) => props.setDeduction(e.target.value.replace(/[^\d]/g, ''))}
+                                        onChange={(e) => props.setDeduction(formatNumberInput(e.target.value))}
                                         className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-slate-100 text-right"
                                         placeholder="اختياري"
                                         disabled={props.disabled}

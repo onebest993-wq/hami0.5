@@ -29,13 +29,18 @@ const ARCHIVE_DIR = path.join(DOCS_DIR, 'archive');
 const KEEP_IN_ROOT = [
     'README.md',
     'CHANGELOG.md',
+    'ARCHITECTURE.md',
+    'SECURITY.md',
+    'ATTRIBUTIONS.md',
     'LICENSE',
     'package.json',
     'package-lock.json',
     'tsconfig.json',
+    'tsconfig.node.json',
+    'vite.config.mts',
     'vite.config.ts',
     '.gitignore',
-    '.env.example'
+    '.env.example',
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════

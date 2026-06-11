@@ -1,13 +1,15 @@
 import { useMemo } from 'react';
+import type { ExecutionFile } from '@/app/types/execution';
 import type { EvictionPremisesUse } from '@/app/utils/executionModuleStrategies';
 import {
     inferEvictionPremisesUse,
-    formatClaimTypeArabic,
     hasAnyEvictionFieldStepRecorded,
 } from '@/app/utils/executionModuleStrategies';
+import { resolveDossierHeaderFields } from '@/app/utils/executionDossierHeaderFields';
+import { executionFileContentSignature } from './useExecutionData';
 
 export function useDossierHeaderMetadata(
-    executionData: any,
+    executionData: ExecutionFile | null | undefined,
     classification: string | undefined,
     claimType: string,
     evictionCaseExpenses: any[],
@@ -21,6 +23,11 @@ export function useDossierHeaderMetadata(
     docType: string,
     docNumber: string,
 ) {
+    const headerFields = useMemo(
+        () => resolveDossierHeaderFields(executionData),
+        [executionData ? executionFileContentSignature(executionData) : ''],
+    );
+
     const evictionPremisesUseResolved = useMemo(
         () =>
             inferEvictionPremisesUse({
@@ -40,20 +47,8 @@ export function useDossierHeaderMetadata(
     const creditorExtraMinorLabel =
         claimType === 'مشاهدة' ? 'أسماء الأولاد' : claimType === 'تسليم ولد' ? 'أسماء المحضونين' : '';
 
-    const classificationDisplay = useMemo(() => {
-        if (classification === 'شرعي') return 'شرعي / أحوال شخصية';
-        if (classification === 'مدني') return 'مدني';
-        if (classification && classification !== 'none') return classification;
-        const cat = (executionData as { category?: string })?.category;
-        if (cat === 'sharia') return 'شرعي / أحوال شخصية';
-        if (cat === 'civil') return 'مدني';
-        return '—';
-    }, [classification, executionData]);
-
-    const claimTypeArabicDisplay = useMemo(
-        () => formatClaimTypeArabic(claimType, evictionPremisesUseResolved),
-        [claimType, evictionPremisesUseResolved]
-    );
+    const classificationDisplay = headerFields.classificationDisplay || '—';
+    const claimTypeArabicDisplay = headerFields.claimTypeDisplay || '—';
 
     const lawyerStartedPostNoticeExecution = useMemo(
         () =>
@@ -68,24 +63,13 @@ export function useDossierHeaderMetadata(
         return Number.isNaN(dt.getTime()) ? judgmentDate : dt.toLocaleDateString('ar-IQ');
     }, [judgmentDate]);
 
-    const walnutHeaderClaimShort = useMemo(() => {
-        const full = String(claimTypeArabicDisplay || '').trim();
-        if (!full) return '';
-        const first = full.split(/\s*[—–-]\s*/)[0]?.trim();
-        return first || full;
-    }, [claimTypeArabicDisplay]);
-
-    const walnutHeaderExecShort = useMemo(() => {
-        const t = String((executionData as { executionType?: string })?.executionType || '').trim();
-        if (!t) return '';
-        if (/^(مدني|شرعي)(\s|\/|$)/.test(t) || t === 'شرعي / أحوال شخصية') return '';
-        return t;
-    }, [executionData]);
-
     const showJudgmentMeta =
-        docType === 'قرارات وأحكام المحاكم' || Boolean(docNumber?.trim()) || Boolean(judgmentDate?.trim());
+        headerFields.docType === 'قرارات وأحكام المحاكم' ||
+        Boolean(headerFields.docNumber) ||
+        Boolean(headerFields.judgmentDate);
 
     return {
+        headerFields,
         evictionPremisesUseResolved,
         evictionCaseExpensesSum,
         creditorExtraMinorNames,
@@ -94,8 +78,6 @@ export function useDossierHeaderMetadata(
         claimTypeArabicDisplay,
         lawyerStartedPostNoticeExecution,
         judgmentDateDisplay,
-        walnutHeaderClaimShort,
-        walnutHeaderExecShort,
         showJudgmentMeta,
     };
 }

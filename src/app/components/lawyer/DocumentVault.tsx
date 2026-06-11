@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, FileText, Image, File, Calendar } from 'lucide-react';
+import { X, FileText, Image, File, Calendar, Trash2 } from 'lucide-react';
 import { executionDocumentFoldersStorageKey, executionDocumentsStorageKey } from '@/app/utils/executionStorageKeys';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { SmartToast } from '@/app/components/ui/SmartToast';
@@ -107,18 +107,16 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
     };
 
     const initial = loadVault();
-    const [folders, setFolders] = useState<Folder[]>(initial.folders);
+    const [folders] = useState<Folder[]>(initial.folders);
     const [documents, setDocuments] = useState<Document[]>(initial.docs);
     
     const [showUploadForm, setShowUploadForm] = useState(false);
-    const [activeFolderId, setActiveFolderId] = useState<string>('all');
+    const activeFolderId = 'all';
     const [sortMode, setSortMode] = useState<'newest' | 'oldest' | 'name_asc'>('newest');
     const [filterType, setFilterType] = useState<'all' | 'image' | 'pdf'>('all');
 
     const [pendingFile, setPendingFile] = useState<File | null>(null);
     const [pendingName, setPendingName] = useState<string>('');
-    const [pendingFolderId, setPendingFolderId] = useState<string>('default');
-    const [pendingSaveAs, setPendingSaveAs] = useState<'image' | 'pdf'>('image');
     const [pendingSource, setPendingSource] = useState<'upload' | 'camera'>('upload');
     const [pendingPreviewUrl, setPendingPreviewUrl] = useState<string>('');
     const [showSaveModal, setShowSaveModal] = useState(false);
@@ -126,11 +124,7 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
 
     const [renameDocId, setRenameDocId] = useState<string | null>(null);
     const [renameValue, setRenameValue] = useState<string>('');
-    const [moveDocId, setMoveDocId] = useState<string | null>(null);
-    const [moveFolderTarget, setMoveFolderTarget] = useState<string>('default');
     const [previewDocId, setPreviewDocId] = useState<string | null>(null);
-    const [createFolderOpen, setCreateFolderOpen] = useState(false);
-    const [createFolderName, setCreateFolderName] = useState('');
 
     const suggestName = (fileName: string): string => {
         const base = String(fileName || '').trim();
@@ -146,25 +140,6 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
             reader.readAsDataURL(file);
         });
 
-    const makePdfFromImageDataUrl = async (imageDataUrl: string): Promise<string> => {
-        const { jsPDF } = await import('jspdf');
-        const img = new window.Image();
-        const loaded = new Promise<void>((resolve, reject) => {
-            img.onload = () => resolve();
-            img.onerror = () => reject(new Error('image load failed'));
-        });
-        img.src = imageDataUrl;
-        await loaded;
-        const pdf = new jsPDF({
-            orientation: img.width >= img.height ? 'l' : 'p',
-            unit: 'px',
-            format: [img.width, img.height],
-        });
-        pdf.addImage(imageDataUrl, 'JPEG', 0, 0, img.width, img.height);
-        const blob = pdf.output('blob');
-        return await readFileAsDataUrl(blob);
-    };
-
     const persist = (nextDocs: Document[], nextFolders: Folder[]) => {
         try {
             SecureStoreService.setItemSync(documentsStorageKey, JSON.stringify(nextDocs));
@@ -178,31 +153,11 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
         }
     };
 
-    const handleCreateFolder = () => {
-        setCreateFolderName('');
-        setCreateFolderOpen(true);
-    };
-
-    const confirmCreateFolder = () => {
-        const t = String(createFolderName || '').trim();
-        if (!t) return;
-        if (folders.some((f) => f.name === t)) return;
-        const next: Folder = { id: `folder_${Date.now()}`, name: t, createdAt: new Date().toISOString() };
-        const updated = [...folders, next];
-        setFolders(updated);
-        persist(documents, updated);
-        setActiveFolderId(next.id);
-        setCreateFolderOpen(false);
-        setCreateFolderName('');
-    };
-
     const startPendingSave = async (file: File, source: 'upload' | 'camera') => {
         setPendingFile(file);
         setPendingSource(source);
         setPendingName(suggestName(file.name));
-        setPendingFolderId(activeFolderId === 'all' ? 'default' : activeFolderId);
         const isImage = file.type.startsWith('image/');
-        setPendingSaveAs(isImage ? 'image' : 'pdf');
         if (isImage) {
             try {
                 const dataUrl = await readFileAsDataUrl(file);
@@ -242,24 +197,14 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
             const createdAt = new Date().toISOString();
             const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Date.now());
             const isImage = pendingFile.type.startsWith('image/');
-            let finalType: 'image' | 'pdf' = isImage ? pendingSaveAs : 'pdf';
-            let dataUrl = '';
-            if (finalType === 'image') {
-                dataUrl = await readFileAsDataUrl(pendingFile);
-            } else {
-                if (isImage) {
-                    const imgDataUrl = pendingPreviewUrl || (await readFileAsDataUrl(pendingFile));
-                    dataUrl = await makePdfFromImageDataUrl(imgDataUrl);
-                } else {
-                    dataUrl = await readFileAsDataUrl(pendingFile);
-                }
-            }
+            const finalType: 'image' | 'pdf' = isImage ? 'image' : 'pdf';
+            const dataUrl = await readFileAsDataUrl(pendingFile);
 
             const nextDoc: Document = {
                 id,
                 name: nameTrim,
                 type: finalType,
-                folderId: pendingFolderId || 'default',
+                folderId: 'default',
                 createdAt,
                 dataUrl,
                 originalFileName: pendingFile.name,
@@ -322,21 +267,20 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
         setRenameValue('');
     };
 
-    const handleMove = (docId: string) => {
-        const d = documents.find((x) => x.id === docId);
-        if (!d) return;
-        setMoveDocId(docId);
-        setMoveFolderTarget(d.folderId || 'default');
-    };
-
-    const confirmMove = () => {
-        if (!moveDocId) return;
-        const updatedDocs = documents.map((d) => (d.id === moveDocId ? { ...d, folderId: moveFolderTarget } : d));
+    const handleDeleteDocument = (docId: string) => {
+        const target = documents.find((d) => d.id === docId);
+        if (!target) return;
+        const updatedDocs = documents.filter((d) => d.id !== docId);
         setDocuments(updatedDocs);
         persist(updatedDocs, folders);
-        setMoveDocId(null);
+        if (previewDocId === docId) setPreviewDocId(null);
+        if (renameDocId === docId) {
+            setRenameDocId(null);
+            setRenameValue('');
+        }
+        SmartToast.success(`تم حذف «${target.name}»`);
     };
-    
+
     const getFileIcon = (type: string) => {
         switch (type) {
             case 'image': return <Image size={20} className="text-blue-400" />;
@@ -370,33 +314,7 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                         إضافة مستند
                     </button>
 
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                            <button
-                                type="button"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleCreateFolder();
-                                }}
-                                className="px-3 py-2 bg-slate-800/40 hover:bg-slate-800/60 border border-slate-700/40 rounded-lg transition-all text-[11px] font-bold text-white"
-                            >
-                                مجلد جديد
-                            </button>
-                            <select
-                                value={activeFolderId}
-                                onChange={(e) => setActiveFolderId(e.target.value)}
-                                className="bg-slate-800/40 border border-slate-700/40 rounded-lg px-3 py-2 text-white text-[11px] font-bold"
-                                dir="rtl"
-                            >
-                                <option value="all">الكل</option>
-                                {folders.map((f) => (
-                                    <option key={f.id} value={f.id}>
-                                        {f.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
+                    <div className="flex flex-wrap items-center justify-end gap-2">
                         <div className="flex items-center gap-2">
                             <select
                                 value={sortMode}
@@ -506,30 +424,21 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                                 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                                     <button
                                         type="button"
-                                        onClick={() => handleMove(doc.id)}
-                                        className="px-3 py-2 bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700/40 rounded-lg transition-all text-[11px] font-bold text-white"
-                                        title="نقل"
-                                    >
-                                        نقل
-                                    </button>
-                                    <button
-                                        type="button"
                                         onClick={() => handleRename(doc.id)}
                                         className="px-3 py-2 bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700/40 rounded-lg transition-all text-[11px] font-bold text-white"
                                         title="إعادة تسمية"
                                     >
                                         تسمية
                                     </button>
-                                    {doc.dataUrl ? (
-                                        <a
-                                            href={doc.dataUrl}
-                                            download={doc.originalFileName || doc.name}
-                                            className="px-3 py-2 bg-cyan-600/15 hover:bg-cyan-600/25 border border-cyan-500/25 rounded-lg transition-all text-[11px] font-bold text-cyan-100"
-                                            title="تحميل"
-                                        >
-                                            تحميل
-                                        </a>
-                                    ) : null}
+                                    <button
+                                        type="button"
+                                        onClick={() => handleDeleteDocument(doc.id)}
+                                        className="inline-flex items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-950/30 px-3 py-2 text-[11px] font-bold text-rose-200 transition-all hover:bg-rose-950/50"
+                                        title="حذف المستند"
+                                    >
+                                        <Trash2 size={13} />
+                                        حذف
+                                    </button>
                                 </div>
                             </motion.div>
                         ))
@@ -573,52 +482,6 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                                             dir="rtl"
                                         />
                                     </div>
-
-                                    <div>
-                                        <label className="text-xs font-bold text-cyan-400 mb-2 block">المجلد</label>
-                                        <select
-                                            value={pendingFolderId}
-                                            onChange={(e) => setPendingFolderId(e.target.value)}
-                                            className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white text-right"
-                                            dir="rtl"
-                                        >
-                                            {folders.map((f) => (
-                                                <option key={f.id} value={f.id}>
-                                                    {f.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    {pendingFile?.type?.startsWith('image/') ? (
-                                        <div className="space-y-2">
-                                            <label className="text-xs font-bold text-cyan-400 block">كيف تريد حفظه؟</label>
-                                            <div className="grid grid-cols-2 gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setPendingSaveAs('image')}
-                                                    className={`rounded-xl border px-3 py-2 text-[11px] font-black transition-all ${
-                                                        pendingSaveAs === 'image'
-                                                            ? 'border-white/15 bg-white/10 text-white'
-                                                            : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
-                                                    }`}
-                                                >
-                                                    كصورة
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setPendingSaveAs('pdf')}
-                                                    className={`rounded-xl border px-3 py-2 text-[11px] font-black transition-all ${
-                                                        pendingSaveAs === 'pdf'
-                                                            ? 'border-white/15 bg-white/10 text-white'
-                                                            : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
-                                                    }`}
-                                                >
-                                                    PDF
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ) : null}
 
                                     {pendingPreviewUrl ? (
                                         <div className="border border-slate-700/50 rounded-xl p-2">
@@ -683,54 +546,6 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                 </AnimatePresence>
 
                 <AnimatePresence>
-                    {moveDocId && (
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="fixed inset-0 z-[120] bg-black/80 flex items-center justify-center p-4"
-                            onClick={() => setMoveDocId(null)}
-                        >
-                            <motion.div
-                                initial={{ scale: 0.96, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                exit={{ scale: 0.96, opacity: 0 }}
-                                className="bg-[#0B1120] border-2 border-cyan-500/40 rounded-3xl w-full max-w-lg overflow-hidden"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                <div className="border-b border-cyan-500/30 p-4 flex justify-between items-center">
-                                    <button type="button" onClick={() => setMoveDocId(null)} className="p-2 hover:bg-cyan-500/20 rounded-lg transition-all">
-                                        <X size={20} className="text-white" />
-                                    </button>
-                                    <h3 className="text-cyan-400 font-bold text-sm">نقل إلى مجلد</h3>
-                                </div>
-                                <div className="p-4 space-y-3 bg-slate-900/30">
-                                    <select
-                                        value={moveFolderTarget}
-                                        onChange={(e) => setMoveFolderTarget(e.target.value)}
-                                        className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white text-right"
-                                        dir="rtl"
-                                    >
-                                        {folders.map((f) => (
-                                            <option key={f.id} value={f.id}>
-                                                {f.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <button
-                                        type="button"
-                                        onClick={confirmMove}
-                                        className="w-full bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/30"
-                                    >
-                                        نقل
-                                    </button>
-                                </div>
-                            </motion.div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-
-                <AnimatePresence>
                     {previewDocId ? (
                         <motion.div
                             initial={{ opacity: 0 }}
@@ -746,11 +561,28 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                                 className="bg-[#0B1120] border-2 border-cyan-500/40 rounded-3xl w-full max-w-5xl h-[85vh] overflow-hidden flex flex-col"
                                 onClick={(e) => e.stopPropagation()}
                             >
-                                <div className="border-b border-cyan-500/30 p-4 flex justify-between items-center">
-                                    <button type="button" onClick={() => setPreviewDocId(null)} className="p-2 hover:bg-cyan-500/20 rounded-lg transition-all">
-                                        <X size={20} className="text-white" />
-                                    </button>
-                                    <h3 className="text-cyan-400 font-bold text-sm">
+                                <div className="border-b border-cyan-500/30 p-4 flex justify-between items-center gap-2">
+                                    <div className="flex items-center gap-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => setPreviewDocId(null)}
+                                            className="rounded-lg p-2 transition-all hover:bg-cyan-500/20"
+                                        >
+                                            <X size={20} className="text-white" />
+                                        </button>
+                                        {previewDocId ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteDocument(previewDocId)}
+                                                className="inline-flex items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-950/30 px-2.5 py-1.5 text-[11px] font-bold text-rose-200 hover:bg-rose-950/50"
+                                                title="حذف المستند"
+                                            >
+                                                <Trash2 size={14} />
+                                                حذف
+                                            </button>
+                                        ) : null}
+                                    </div>
+                                    <h3 className="min-w-0 truncate text-cyan-400 font-bold text-sm">
                                         {documents.find((d) => d.id === previewDocId)?.name || 'معاينة'}
                                     </h3>
                                 </div>
@@ -779,54 +611,6 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                     ) : null}
                 </AnimatePresence>
 
-                <AnimatePresence>
-                    {createFolderOpen ? (
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="fixed inset-0 z-[120] bg-black/80 flex items-center justify-center p-4"
-                            onClick={() => setCreateFolderOpen(false)}
-                        >
-                            <motion.div
-                                initial={{ scale: 0.96, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                exit={{ scale: 0.96, opacity: 0 }}
-                                className="bg-[#0B1120] border-2 border-cyan-500/40 rounded-3xl w-full max-w-lg overflow-hidden"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                <div className="border-b border-cyan-500/30 p-4 flex justify-between items-center">
-                                    <button type="button"
-                                        onClick={() => setCreateFolderOpen(false)}
-                                        className="p-2 hover:bg-cyan-500/20 rounded-lg transition-all"
-                                    >
-                                        <X size={20} className="text-white" />
-                                    </button>
-                                    <h3 className="text-cyan-400 font-bold text-sm">مجلد جديد</h3>
-                                </div>
-                                <div className="p-4 space-y-3 bg-slate-900/30">
-                                    <div>
-                                        <label className="text-xs font-bold text-cyan-400 mb-2 block">اسم المجلد</label>
-                                        <input
-                                            type="text"
-                                            value={createFolderName}
-                                            onChange={(e) => setCreateFolderName(e.target.value)}
-                                            className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white text-right"
-                                            dir="rtl"
-                                        />
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={confirmCreateFolder}
-                                        className="w-full bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/30"
-                                    >
-                                        إنشاء
-                                    </button>
-                                </div>
-                            </motion.div>
-                        </motion.div>
-                    ) : null}
-                </AnimatePresence>
             </motion.div>
         </div>
     );

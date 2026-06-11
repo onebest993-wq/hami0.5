@@ -24,11 +24,15 @@ function nodeDotClass(status: TransactionTaskStatus) {
   return 'bg-gray-400 shadow-[0_0_0_4px_rgba(156,163,175,0.12)]';
 }
 
+const TREE_INDENT = 20;
+const TREE_GUTTER_BASE = 14;
+
 function NodeRenderer({
   node,
   depth,
   index,
   siblingsCount,
+  taskNumber,
   onToggleStatus,
   onMarkDone,
   onAddSubTask,
@@ -40,6 +44,7 @@ function NodeRenderer({
   depth: number;
   index: number;
   siblingsCount: number;
+  taskNumber: string;
   onToggleStatus: (task: TransactionTask) => void;
   onMarkDone: (task: TransactionTask) => void;
   onAddSubTask: (task: TransactionTask) => void;
@@ -47,33 +52,51 @@ function NodeRenderer({
   onDelete: (task: TransactionTask) => void;
   readOnly?: boolean;
 }) {
-  const lane = depth * 28 + 14;
-  const parentLane = (depth - 1) * 28 + 14;
+  const laneRight = 8 + depth * TREE_INDENT;
+  const gutterWidth = TREE_GUTTER_BASE + depth * TREE_INDENT;
   const showBottomLine = node.children.length > 0 || index < siblingsCount - 1;
-  const dotOffset = lane - 8;
-  const lineOffset = lane - 1;
+  const branchLineClass = depth === 0 ? 'bg-[#D4AF37]/25' : 'bg-sky-400/25';
 
   return (
-    <div className="relative overflow-visible" style={{ paddingRight: lane + 34 }}>
-      {depth > 0 && (
-        <div className="absolute pointer-events-none h-px bg-white/10" style={{ right: parentLane, top: 26, width: lane - parentLane, opacity: 0.85 }} />
-      )}
+    <div className="relative w-full">
       {showBottomLine ? (
-        <div className="absolute pointer-events-none w-px bg-white/10" style={{ right: lineOffset, top: 26, bottom: -12, opacity: 0.85 }} />
+        <div
+          className={`absolute w-px pointer-events-none ${branchLineClass}`}
+          style={{ right: laneRight, top: 26, bottom: -12, opacity: 0.85 }}
+        />
       ) : (
-        <div className="absolute pointer-events-none w-px bg-white/10" style={{ right: lineOffset, top: 0, height: 26, opacity: 0.85 }} />
+        <div
+          className={`absolute w-px pointer-events-none ${branchLineClass}`}
+          style={{ right: laneRight, top: 0, height: 26, opacity: 0.85 }}
+        />
       )}
-      <div className={`absolute pointer-events-none w-4 h-4 rounded-full ${nodeDotClass(node.status)}`} style={{ right: dotOffset, top: 18 }} />
-
-      <TaskNodeCard
-        task={node}
-        onToggleStatus={onToggleStatus}
-        onMarkDone={onMarkDone}
-        onAddSubTask={onAddSubTask}
-        onEdit={onEdit}
-        onDelete={onDelete}
-        readOnly={readOnly}
+      {depth > 0 && (
+        <div
+          className={`absolute h-px pointer-events-none ${branchLineClass}`}
+          style={{ right: 8 + (depth - 1) * TREE_INDENT, top: 26, width: TREE_INDENT, opacity: 0.85 }}
+        />
+      )}
+      <div
+        className={`absolute w-4 h-4 rounded-full pointer-events-none ${nodeDotClass(node.status)}`}
+        style={{ right: laneRight - 7, top: 18 }}
       />
+
+      <div className="flex w-full items-stretch gap-2">
+        <div className="shrink-0" style={{ width: gutterWidth }} aria-hidden />
+        <div className="flex-1 min-w-0">
+          <TaskNodeCard
+            task={node}
+            taskNumber={taskNumber}
+            depth={depth}
+            onToggleStatus={onToggleStatus}
+            onMarkDone={onMarkDone}
+            onAddSubTask={onAddSubTask}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            readOnly={readOnly}
+          />
+        </div>
+      </div>
 
       {node.children.length > 0 && (
         <div className="mt-3 space-y-3">
@@ -84,6 +107,7 @@ function NodeRenderer({
               depth={depth + 1}
               index={i}
               siblingsCount={node.children.length}
+              taskNumber={`${taskNumber}.${i + 1}`}
               onToggleStatus={onToggleStatus}
               onMarkDone={onMarkDone}
               onAddSubTask={onAddSubTask}
@@ -217,7 +241,7 @@ export function TaskThreadView({
   }, [tasks]);
 
   return (
-    <div dir="rtl" className="px-5 py-5 space-y-3 pb-28 max-w-[640px] mx-auto">
+    <div dir="rtl" className="px-5 py-5 space-y-3 pb-28 w-full">
       <div className="rounded-2xl bg-white/5 border border-white/10 px-4 py-4 shadow-[0_16px_55px_rgba(0,0,0,0.30)]">
         <div className="flex items-center justify-between gap-3">
           <div className="text-white font-extrabold text-sm">نسبة الإنجاز</div>
@@ -260,6 +284,7 @@ export function TaskThreadView({
             depth={0}
             index={i}
             siblingsCount={tree.length}
+            taskNumber={String(i + 1)}
             onToggleStatus={onToggleStatus}
             onMarkDone={onMarkDone}
             onAddSubTask={(t) => onRequestAddTask(t)}

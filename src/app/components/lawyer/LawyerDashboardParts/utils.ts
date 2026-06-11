@@ -2,6 +2,11 @@ import type { FileData, Party } from '../LawyerShared';
 import type { LegalCase } from '@/app/stores/caseStore';
 import type { ArchiveType } from '@/app/types/common';
 import type { ExecutionFile } from './types';
+import {
+    normalizeExecutionParty,
+    normalizeExecutionPartyList,
+    resolvePartyStoredName,
+} from '@/app/utils/executionPartyNormalize';
 
 export function mapFileStatusToCaseStatus(status: FileData['status']): LegalCase['status'] {
     if (status === 'deleted') return 'deleted';
@@ -74,30 +79,16 @@ export function coerceExecutionFilePreserveId(input: unknown): ExecutionFile {
               ? v.directorate
               : 'محكمة التنفيذ';
 
-    const extractPartyName = (p: unknown): string => {
-        if (!p) return '';
-        if (typeof p === 'string') return p.trim();
-        if (!isRecord(p)) return '';
-        const n = p.name;
-        return typeof n === 'string' ? n.trim() : '';
-    };
+    const extractPartyName = (p: unknown): string => resolvePartyStoredName(p);
 
-    const coerceParty = (p: unknown, fallbackId: number, fallbackRole: string): Party => {
-        if (isRecord(p)) {
-            const name = typeof p.name === 'string' ? p.name : '';
-            const role = typeof p.role === 'string' ? p.role : fallbackRole;
-            const isClient = typeof p.isClient === 'boolean' ? p.isClient : false;
-            const phone = typeof p.phone === 'string' ? p.phone : undefined;
-            const address = typeof p.address === 'string' ? p.address : undefined;
-            const pid = typeof p.id === 'number' ? p.id : fallbackId;
-            return { id: pid, name, role, isClient, phone, address };
-        }
-        return { id: fallbackId, name: '', role: fallbackRole, isClient: false };
-    };
+    const coerceParty = (p: unknown, fallbackId: number, fallbackRole: string): Party =>
+        normalizeExecutionParty(p, fallbackId, fallbackRole);
 
     const partiesFromValue = (): Party[] => {
         if (Array.isArray(v.parties) && v.parties.length > 0) {
-            return v.parties.map((p, i) => coerceParty(p, i + 1, i === 0 ? 'الدائن' : 'المدين'));
+            return v.parties
+                .map((p, i) => coerceParty(p, i + 1, i === 0 ? 'الدائن' : 'المدين'))
+                .filter((p) => p.name.trim().length > 0);
         }
         const creditorName =
             extractPartyName(v.creditor) ||
@@ -154,11 +145,51 @@ export function coerceExecutionFilePreserveId(input: unknown): ExecutionFile {
     const partiesResult = partiesFromValue();
     const creditorsFromParties = partiesResult.filter((p) => p.role === 'الدائن');
     const debtorsFromParties = partiesResult.filter((p) => p.role === 'المدين');
+    const creditorsNormalized = normalizeExecutionPartyList(v.creditors, 'الدائن');
+    const debtorsNormalized = normalizeExecutionPartyList(v.debtors, 'المدين');
+    const partiesCreditors = normalizeExecutionPartyList(v.parties, 'الدائن').filter(
+        (p) => p.role === 'الدائن',
+    );
+    const partiesDebtors = normalizeExecutionPartyList(v.parties, 'المدين').filter(
+        (p) => p.role === 'المدين',
+    );
+    const creditorsResolved =
+        creditorsFromParties.length > 0
+            ? creditorsFromParties
+            : creditorsNormalized.length > 0
+              ? creditorsNormalized
+              : partiesCreditors;
+    /** يفضّل مصفوفة debtors الصريحة — تحمل isEmployee/occupation؛ المشتق من creditor/debtor يفقدها */
+    const debtorsResolved =
+        debtorsNormalized.length > 0
+            ? debtorsNormalized
+            : debtorsFromParties.length > 0
+              ? debtorsFromParties
+              : partiesDebtors;
 
     const history = Array.isArray(v.history) ? (v.history as FileData['history']) : [];
     const notes = Array.isArray(v.notes) ? (v.notes as FileData['notes']) : [];
     const images = Array.isArray(v.images) ? (v.images as FileData['images']) : [];
     const date = typeof v.date === 'string' ? v.date : new Date().toISOString();
+
+    const DOC_TYPES_AS_EXEC_TYPE = new Set([
+        'قرارات وأحكام المحاكم',
+        'الأوراق التجارية',
+        'الحجج الشرعية',
+        'تنفيذ الأحكام الأجنبية',
+        'السندات المتضمنة إقراراً بدين',
+    ]);
+    let executionType =
+        typeof v.executionType === 'string' ? String(v.executionType).trim() : undefined;
+    if (executionType && DOC_TYPES_AS_EXEC_TYPE.has(executionType)) {
+        const cl = typeof v.classification === 'string' ? v.classification : '';
+        executionType =
+            cl === 'شرعي'
+                ? 'شرعي / أحوال شخصية'
+                : cl === 'مدني'
+                  ? 'مدني'
+                  : undefined;
+    }
 
     return {
         ...v,
@@ -167,9 +198,13 @@ export function coerceExecutionFilePreserveId(input: unknown): ExecutionFile {
         status,
         caseNo,
         court,
-        parties: partiesResult,
-        creditors: creditorsFromParties.length > 0 ? creditorsFromParties : [],
-        debtors: debtorsFromParties.length > 0 ? debtorsFromParties : [],
+        executionType,
+        parties:
+            partiesResult.length > 0
+                ? partiesResult
+                : [...creditorsResolved, ...debtorsResolved],
+        creditors: creditorsResolved,
+        debtors: debtorsResolved,
         history,
         notes,
         images,
@@ -179,37 +214,32 @@ export function coerceExecutionFilePreserveId(input: unknown): ExecutionFile {
     } as ExecutionFile;
 }
 
-export function coerceExecutionFile(input: Record<string, unknown>, id: number): ExecutionFile {
-    const caseNo =
-        typeof input.caseNo === 'string'
-            ? input.caseNo
-            : typeof input.fileNumber === 'string'
-              ? input.fileNumber
-              : 'تنفيذ جديد';
-    const court = typeof input.court === 'string' ? input.court : 'محكمة التنفيذ';
-    const status =
-        input.status === 'active' || input.status === 'archived' || input.status === 'archived_stage' || input.status === 'deleted' || input.status === 'paused'
-            ? input.status
-            : 'active';
-    const parties = Array.isArray(input.parties) ? (input.parties as Party[]) : [];
-    const history = Array.isArray(input.history) ? (input.history as FileData['history']) : [];
-    const notes = Array.isArray(input.notes) ? (input.notes as FileData['notes']) : [];
-    const images = Array.isArray(input.images) ? (input.images as FileData['images']) : [];
-    const date = typeof input.date === 'string' ? input.date : new Date().toISOString();
+/** تطبيع إضبارة تنفيذ قبل العرض أو الحفظ في activeFile */
+export function normalizeExecutionFileRecord(input: unknown): ExecutionFile {
+    return coerceExecutionFilePreserveId(input);
+}
 
-    return {
+/** فتح ملف نشط — يضمن تطبيع أطراف التنفيذ */
+export function coerceActiveFileTarget(target: unknown): FileData | ExecutionFile {
+    if (isRecord(target) && target.type === 'execution') {
+        return normalizeExecutionFileRecord(target);
+    }
+    return target as FileData | ExecutionFile;
+}
+
+export function coerceExecutionFile(input: Record<string, unknown>, id: number): ExecutionFile {
+    const idRaw = input.id;
+    const resolvedId: string | number =
+        typeof idRaw === 'number'
+            ? idRaw
+            : typeof idRaw === 'string' && idRaw.trim()
+              ? idRaw.trim()
+              : id;
+    return normalizeExecutionFileRecord({
         ...input,
-        id,
+        id: resolvedId,
         type: 'execution',
-        status,
-        caseNo,
-        court,
-        parties,
-        history,
-        notes,
-        images,
-        date,
-    } as ExecutionFile;
+    });
 }
 
 export function coerceLawsuitStage(value: unknown): 'بداءة' | 'استئناف' | 'تمييز' {

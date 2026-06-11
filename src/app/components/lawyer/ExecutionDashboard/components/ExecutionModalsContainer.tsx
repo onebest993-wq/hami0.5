@@ -1,5 +1,4 @@
 import React, { Suspense } from 'react';
-import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import type { Dispatch, ElementType, SetStateAction } from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
@@ -8,18 +7,7 @@ import type {
     PartyDeathReportModalProps,
     PartyDeathSavePayload,
 } from '@/app/components/lawyer/execution/PartyDeathReportModal';
-
-type HeirQuickViewRow = {
-    name: string;
-    phone: string;
-    address: string;
-    isClient?: boolean;
-};
-
-type HeirsQuickViewState = {
-    title: string;
-    rows: HeirQuickViewRow[];
-} | null;
+import { parseAmount } from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
 
 interface ExecutionModalsContainerProps {
     EXEC_OVERLAY_LAZY_FALLBACK: React.ReactNode;
@@ -40,8 +28,6 @@ interface ExecutionModalsContainerProps {
         open: boolean;
         onOpenChange: (open: boolean) => void;
         disabled: boolean;
-        guaranteeType: 'amount' | 'attendance';
-        setGuaranteeType: Dispatch<SetStateAction<'amount' | 'attendance'>>;
         name: string;
         workplace: string;
         salary: string;
@@ -55,8 +41,6 @@ interface ExecutionModalsContainerProps {
     showGuarantorDetailsModal: boolean;
     setShowGuarantorDetailsModal: Dispatch<SetStateAction<boolean>>;
     setGuarantorDetailsDecisionId: Dispatch<SetStateAction<string | null>>;
-    guarantorGuaranteeTypeDraft: 'amount' | 'attendance';
-    setGuarantorGuaranteeTypeDraft: Dispatch<SetStateAction<'amount' | 'attendance'>>;
     guarantorNameDraft: string;
     guarantorWorkplaceDraft: string;
     guarantorSalaryDraft: string;
@@ -71,7 +55,6 @@ interface ExecutionModalsContainerProps {
         opts?: {
             salaryIqd: number | null;
             deductionIqd: number | null;
-            guaranteeType?: 'amount' | 'attendance';
         }
     ) => void;
 
@@ -91,8 +74,6 @@ interface ExecutionModalsContainerProps {
     debtorSubstitutionRequestStatus: PartyDeathReportModalProps['debtorSubstitutionRequestStatus'];
     handleRequestDebtorSubstitution: () => boolean;
 
-    heirsQuickView: HeirsQuickViewState;
-    setHeirsQuickView: Dispatch<SetStateAction<HeirsQuickViewState>>;
     X: ElementType;
 
     showPauseModal: boolean;
@@ -120,8 +101,6 @@ export const ExecutionModalsContainer: React.FC<ExecutionModalsContainerProps> =
     showGuarantorDetailsModal,
     setShowGuarantorDetailsModal,
     setGuarantorDetailsDecisionId,
-    guarantorGuaranteeTypeDraft,
-    setGuarantorGuaranteeTypeDraft,
     guarantorNameDraft,
     guarantorWorkplaceDraft,
     guarantorSalaryDraft,
@@ -145,8 +124,6 @@ export const ExecutionModalsContainer: React.FC<ExecutionModalsContainerProps> =
     handleRequestCreditorSubstitution,
     debtorSubstitutionRequestStatus,
     handleRequestDebtorSubstitution,
-    heirsQuickView,
-    setHeirsQuickView,
     X,
     showPauseModal,
     setShowPauseModal,
@@ -170,8 +147,6 @@ export const ExecutionModalsContainer: React.FC<ExecutionModalsContainerProps> =
                             if (!open) setGuarantorDetailsDecisionId(null);
                         }}
                         disabled={isHistoricalMode}
-                        guaranteeType={guarantorGuaranteeTypeDraft}
-                        setGuaranteeType={setGuarantorGuaranteeTypeDraft}
                         name={guarantorNameDraft}
                         workplace={guarantorWorkplaceDraft}
                         salary={guarantorSalaryDraft}
@@ -182,15 +157,12 @@ export const ExecutionModalsContainer: React.FC<ExecutionModalsContainerProps> =
                         setDeduction={setGuarantorDeductionDraft}
                         onSave={() => {
                             const parseIqd = (s: string): number | null => {
-                                const t = String(s).replace(/,/g, '').replace(/\s/g, '').trim();
-                                if (!t) return null;
-                                const x = Number(t);
-                                return Number.isFinite(x) ? x : null;
+                                const n = parseAmount(s);
+                                return Number.isFinite(n) ? n : null;
                             };
                             persistGuarantorFollowupDetails(guarantorNameDraft, guarantorWorkplaceDraft, {
                                 salaryIqd: parseIqd(guarantorSalaryDraft),
                                 deductionIqd: parseIqd(guarantorDeductionDraft),
-                                guaranteeType: guarantorGuaranteeTypeDraft,
                             });
                             setShowGuarantorDetailsModal(false);
                         }}
@@ -218,7 +190,17 @@ export const ExecutionModalsContainer: React.FC<ExecutionModalsContainerProps> =
                             setPartyDeathModalDecisionId(null);
                         }}
                         deceasedParty={partyDeathModalParty}
-                        partyDeathCase={executionData?.party_death_case}
+                        partyDeathCase={
+                            partyDeathModalParty === 'creditor'
+                                ? executionData?.creditor_party_death_case ??
+                                  (executionData?.party_death_case?.deceased_party === 'creditor'
+                                      ? executionData.party_death_case
+                                      : null)
+                                : executionData?.debtor_party_death_case ??
+                                  (executionData?.party_death_case?.deceased_party === 'debtor'
+                                      ? executionData.party_death_case
+                                      : null)
+                        }
                         existingPartyHeirs={
                             partyDeathModalParty === 'creditor'
                                 ? (executionData?.creditors?.[0]?.heirs as string[] | undefined)
@@ -246,68 +228,6 @@ export const ExecutionModalsContainer: React.FC<ExecutionModalsContainerProps> =
                     />
                 </Suspense>
             ) : null}
-            {heirsQuickView &&
-                typeof document !== 'undefined' &&
-                createPortal(
-                    <div
-                        className="fixed inset-0 z-[210] flex items-center justify-center bg-black/70 p-4"
-                        role="presentation"
-                        onClick={() => setHeirsQuickView(null)}
-                    >
-                        <div
-                            className="w-full max-w-md rounded-2xl border border-cyan-400/35 bg-[#0A0F1C] p-3 text-right"
-                            dir="rtl"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="mb-2 flex items-center justify-between border-b border-white/10 pb-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setHeirsQuickView(null)}
-                                    className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10"
-                                    aria-label="إغلاق عرض الورثة"
-                                >
-                                    <X size={16} />
-                                </button>
-                                <p className="text-[12px] font-bold text-cyan-200">{heirsQuickView.title}</p>
-                                <span className="w-7" aria-hidden />
-                            </div>
-                            <div className="max-h-[60vh] space-y-2 overflow-y-auto">
-                                {heirsQuickView.rows.map((h, idx) => (
-                                    <div
-                                        key={`${h.name}-${idx}`}
-                                        className="rounded-xl border border-white/10 bg-slate-900/35 px-2.5 py-2"
-                                    >
-                                        <p className="flex items-center justify-end gap-1 text-[11px] font-bold text-slate-100">
-                                            <span>{h.name}</span>
-                                            <span className="text-[11px] font-black text-white/50">#{idx + 1}</span>
-                                            {h.isClient ? (
-                                                <span className="text-[11px] text-[#E6C673]" title="موكلي">
-                                                    ★
-                                                </span>
-                                            ) : null}
-                                        </p>
-                                        <div className="mt-1 grid grid-cols-2 gap-1.5">
-                                            <div className="rounded-lg border border-white/10 bg-slate-950/35 px-2 py-1.5">
-                                                <p className="text-[9px] text-slate-500">رقم الهاتف</p>
-                                                <p className="text-[10px] text-slate-300 break-words">
-                                                    {h.phone || '—'}
-                                                </p>
-                                            </div>
-                                            <div className="rounded-lg border border-white/10 bg-slate-950/35 px-2 py-1.5">
-                                                <p className="text-[9px] text-slate-500">العنوان</p>
-                                                <p className="text-[10px] text-slate-300 break-words">
-                                                    {h.address || '—'}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>,
-                    document.body
-                )}
-
             {/* 🧠 STATE MACHINE: Pause/Resume Execution Modal */}
             {showPauseModal && (
                 <div

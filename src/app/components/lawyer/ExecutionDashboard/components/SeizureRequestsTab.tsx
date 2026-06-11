@@ -1,5 +1,6 @@
 import React from 'react';
-import { Shield, Wallet, Building2, Package, Users, ClipboardList } from 'lucide-react';
+import { Building2, ClipboardList, Lock, Package, Shield, Users, Wallet } from 'lucide-react';
+import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import { InlineActionGate } from './InlineActionGate';
 import type { InlineActionGateKey } from '../types';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
@@ -10,15 +11,77 @@ import {
     isExecutorRowEffectivelyApproved,
     isExecutorRowRejectedAndFinal,
     isGuarantorRequestDecisionRow,
+    listGuarantorHubRows,
+    listSeizureHubRows,
     patchExecutorDecisionRowEverywhere,
     readExecutorDecisionsArray,
 } from '@/app/utils/executorSeizureDecisionQueue';
+import { summarizeExecutorHubRequestLifecycle } from '@/app/utils/executorRequestLifecycle';
+import {
+    RequestLifecycleBadgeSlot,
+    RequestLifecyclePanel,
+} from '@/app/components/lawyer/ExecutionDashboard/components/RequestLifecycleBadge';
+import type { ExecutorRequestLifecycleSummary } from '@/app/utils/executorRequestLifecycle';
 import {
     ExecutionInlineAccordion,
     ExecutionInlineExecutorDecisionActions,
     type ExecutionInlineStep,
 } from '@/app/components/lawyer/ExecutionDashboard/components/ExecutionInlineAccordion';
-import { patchExecutorDecisionRow } from '@/app/utils/executorSeizureDecisionQueue';
+import type { SeizureMatrixButtonKey, SeizureMatrixResult } from '@/app/utils/seizureMatrix';
+import { resolveSeizureMatrixFromExecution } from '@/app/utils/seizureMatrix';
+import { SeizureMatrixExpandLink } from '@/app/components/lawyer/execution/SeizureMatrixExpandLink';
+import { GuarantorWorkspaceWrapper } from './GuarantorWorkspaceWrapper';
+import { shouldShowGuarantorRequestInSeizureTab } from './hiddenFollowupRequestsUtils';
+import { isSalarySeizureAsset } from '@/app/components/lawyer/ExecutionDashboard/hooks/useSeizureRegistryAssets';
+import { isSalarySeizureLaneOccupied } from '@/app/components/lawyer/ExecutionDashboard/utils/salarySeizureTabUtils';
+import { isFollowupRequestKindAllowed } from '@/app/utils/executionDomainIsolation';
+
+function isSeizureRequestFullyRegistered(row: any): boolean {
+    if (!row?.id) return false;
+    if (isExecutorRowRejectedAndFinal(row)) return false;
+    if (!isExecutorRowEffectivelyApproved(row)) return false;
+    return Boolean(String(row.seizureRequestSavedAt || '').trim());
+}
+
+type UnifiedSeizureLogTab = 'movable' | 'property' | 'third_party' | 'salary';
+
+function openUnifiedSeizureLogTab(tab: UnifiedSeizureLogTab): void {
+    try {
+        window.dispatchEvent(
+            new CustomEvent('hami-open-unified-seizure-log', { detail: { tab } })
+        );
+    } catch {
+        /* ignore */
+    }
+}
+
+function SeizureLogNavigateBadge(props: { tab: UnifiedSeizureLogTab; tone?: 'sky' | 'violet' | 'amber' | 'emerald' }) {
+    const toneClass =
+        props.tone === 'violet'
+            ? 'border-violet-300/35 bg-violet-500/10 text-violet-100 hover:bg-violet-500/18'
+            : props.tone === 'amber'
+              ? 'border-amber-300/35 bg-amber-500/10 text-amber-100 hover:bg-amber-500/18'
+              : props.tone === 'emerald'
+                ? 'border-emerald-300/35 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/18'
+                : 'border-sky-300/35 bg-sky-500/10 text-sky-100 hover:bg-sky-500/18';
+
+    return (
+        <button
+            type="button"
+            onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                openUnifiedSeizureLogTab(props.tab);
+            }}
+            className={`inline-flex shrink-0 flex-row-reverse items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-bold transition-colors ${toneClass}`}
+            title="فتح سجل الحجز"
+            aria-label="فتح سجل الحجز"
+        >
+            <ClipboardList size={12} strokeWidth={2.25} className="opacity-90" />
+            <span>السجل</span>
+        </button>
+    );
+}
 
 type SeizureWorkspaceWrapperProps = {
     executionId: string;
@@ -27,7 +90,9 @@ type SeizureWorkspaceWrapperProps = {
     title: string;
     completion: React.ReactNode;
     onOpenAppeals: (decisionId?: string) => void;
+    onOpenDecisions?: (decisionId?: string) => void;
     expandSignal?: number;
+    hideExecutorShortcuts?: boolean;
 };
 
 const SeizureWorkspaceWrapper: React.FC<SeizureWorkspaceWrapperProps> = ({
@@ -37,7 +102,9 @@ const SeizureWorkspaceWrapper: React.FC<SeizureWorkspaceWrapperProps> = ({
     title,
     completion,
     onOpenAppeals,
+    onOpenDecisions,
     expandSignal,
+    hideExecutorShortcuts = false,
 }) => {
     const decisionId = String(row?.id || '').trim();
     const rejected = Boolean(decisionId) && isExecutorRowRejectedAndFinal(row);
@@ -128,6 +195,28 @@ const SeizureWorkspaceWrapper: React.FC<SeizureWorkspaceWrapperProps> = ({
     const pending = !approved && !rejected;
 
     if (pending) {
+        if (hideExecutorShortcuts) {
+            return (
+                <div className="mt-2 rounded-2xl border border-white/10 bg-[#05060D]/55 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                        <p className="text-[11px] font-black text-right text-slate-100">قرار المنفذ</p>
+                        <p className="text-[10px] text-slate-400">قيد البت</p>
+                    </div>
+                    <p className="mt-2 text-[10px] leading-relaxed text-slate-400 text-right">
+                        سجِّل موافقة المنفذ أو رفضه من مركز القرارات والطعون — لا يُختصر من هنا.
+                    </p>
+                    {onOpenDecisions ? (
+                        <button
+                            type="button"
+                            onClick={() => onOpenDecisions(decisionId)}
+                            className="mt-3 w-full rounded-xl border border-[#E6C673]/35 bg-[#E6C673]/10 px-3 py-2 text-[11px] font-extrabold text-[#F5E6A8] hover:bg-[#E6C673]/15"
+                        >
+                            فتح مركز القرارات
+                        </button>
+                    ) : null}
+                </div>
+            );
+        }
         return (
             <div className="mt-2 rounded-2xl border border-white/10 bg-[#05060D]/55 p-3">
                 <div className="flex items-center justify-between gap-2">
@@ -171,14 +260,18 @@ const SeizureWorkspaceWrapper: React.FC<SeizureWorkspaceWrapperProps> = ({
             status: 'done',
             tone: 'success',
         },
-        {
-            id: `${decisionId}:complete`,
-            title: 'إكمال بيانات الحجز',
-            subtitle: 'أكمل الحقول ثم احفظ',
-            status: 'active',
-            tone: 'neutral',
-            content: completion,
-        },
+        ...(needsCompletion
+            ? [
+                  {
+                      id: `${decisionId}:complete`,
+                      title: 'إكمال بيانات الحجز',
+                      subtitle: 'أكمل الحقول ثم احفظ',
+                      status: 'active' as const,
+                      tone: 'neutral' as const,
+                      content: completion,
+                  },
+              ]
+            : []),
     ];
 
     return (
@@ -200,283 +293,61 @@ const SeizureWorkspaceWrapper: React.FC<SeizureWorkspaceWrapperProps> = ({
     );
 };
 
-type GuarantorWorkspaceWrapperProps = {
-    executionId: string;
-    row: any;
-    guarantorFollowup: ExecutionFile['guarantor_followup'] | null | undefined;
-    persistGuarantorFollowupDetails: (
-        guarantorName: string,
-        guarantorWorkplace: string,
-        opts?: {
-            salaryIqd: number | null;
-            deductionIqd: number | null;
-            guaranteeType?: 'amount' | 'attendance';
-        }
-    ) => void;
+function SeizureRequestBlock(props: {
+    lifecycle: ExecutorRequestLifecycleSummary | null | undefined;
+    onClick: () => void;
     disabled?: boolean;
-    onOpenAppeals: (decisionId?: string) => void;
-    onOpenDecisions: (decisionId?: string) => void;
-    onOpenGuarantorDetails: (decisionId?: string) => void;
-};
-
-const GuarantorWorkspaceWrapper: React.FC<GuarantorWorkspaceWrapperProps> = ({
-    executionId,
-    row,
-    guarantorFollowup,
-    persistGuarantorFollowupDetails,
-    disabled,
-    onOpenAppeals,
-    onOpenDecisions,
-    onOpenGuarantorDetails,
-}) => {
-    const decisionId = String(row?.id || '').trim();
-    const rejected = Boolean(decisionId) && isExecutorRowRejectedAndFinal(row);
-    const outcome = String(row?.executorOutcome ?? 'pending').trim();
-    const alternative = outcome === 'alternative';
-    const approved =
-        Boolean(decisionId) && !rejected && (alternative || isExecutorRowEffectivelyApproved(row));
-    const detailsSaved = Boolean(String(row?.guarantorDetailsSavedAt || '').trim());
-    const needsCompletion = approved && !detailsSaved;
-    const vanish = approved && detailsSaved;
-
-    const [expanded, setExpanded] = React.useState(false);
-    const prevNeedsCompletionRef = React.useRef<boolean>(false);
-    React.useEffect(() => {
-        const prev = prevNeedsCompletionRef.current;
-        prevNeedsCompletionRef.current = needsCompletion;
-        if (needsCompletion && !prev) setExpanded(true);
-        if (!needsCompletion) setExpanded(false);
-    }, [needsCompletion]);
-
-    const [guaranteeType, setGuaranteeType] = React.useState<'amount' | 'attendance'>('amount');
-    const [name, setName] = React.useState<string>('');
-    const [workplace, setWorkplace] = React.useState<string>('');
-    const [salary, setSalary] = React.useState<string>('');
-    const [deduction, setDeduction] = React.useState<string>('');
-
-    React.useEffect(() => {
-        if (!needsCompletion) return;
-        setGuaranteeType('amount');
-        setName('');
-        setWorkplace('');
-        setSalary('');
-        setDeduction('');
-    }, [decisionId, needsCompletion]);
-
-    const parseIqd = (s: string): number | null => {
-        const t = String(s).replace(/,/g, '').replace(/\s/g, '').trim();
-        if (!t) return null;
-        const x = Number(t);
-        return Number.isFinite(x) ? x : null;
-    };
-
-    const canSave =
-        Boolean(String(name || '').trim()) && Boolean(String(workplace || '').trim()) && !disabled;
-
-    if (!decisionId) return null;
-    if (vanish) return null;
-
-    if (rejected) {
-        return (
-            <div className="mt-2 rounded-2xl border p-3 border-rose-500/35 bg-rose-950/25">
-                <p className="text-[11px] font-black text-right text-rose-200">قرار المنفذ</p>
-                <p className="mt-1 text-[10px] text-slate-400 text-right">تم رفض الطلب</p>
-                <div className="mt-3 border-t border-white/10 pt-3">
-                    <button
-                        type="button"
-                        onClick={() => onOpenAppeals(decisionId)}
-                        className="w-full rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-[11px] font-extrabold text-amber-200 hover:bg-amber-500/15"
-                    >
-                        تقديم طعن (الذهاب لمركز القرارات)
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
-    const pending = !approved && !rejected;
-
-    if (pending) {
-        return (
-            <div className="mt-2 rounded-2xl border border-white/10 bg-black/15 p-3">
-                <p className="text-[11px] font-black text-right text-slate-200">قرار المنفذ</p>
-                <p className="mt-1 text-[10px] text-slate-400 text-right">قيد البت</p>
-                <div className="mt-3 border-t border-white/10 pt-3">
-                    <ExecutionInlineExecutorDecisionActions
-                        executionId={executionId}
-                        decisionId={decisionId}
-                        requestKind="guarantor_request"
-                    />
-                </div>
-            </div>
-        );
-    }
-
-    if (!needsCompletion) return null;
-
-    const steps: ExecutionInlineStep[] = [
-        {
-            id: `${decisionId}:sent`,
-            title: 'طلب كفيل ضامن',
-            subtitle: 'تم إرسال الطلب',
-            status: 'done',
-            tone: 'success',
-        },
-        {
-            id: `${decisionId}:executor`,
-            title: 'قرار المنفذ',
-            subtitle: alternative ? 'قرار بديل — أكمل بيانات الكفيل' : 'تمت الموافقة',
-            status: 'done',
-            tone: 'success',
-        },
-        {
-            id: `${decisionId}:complete`,
-            title: 'إكمال بيانات الكفيل',
-            subtitle: 'أكمل البيانات ثم احفظ',
-            status: 'active',
-            tone: 'neutral',
-            content: (
-                <div className="space-y-2">
-                    <div className="grid grid-cols-1 gap-3">
-                        <div>
-                            <label className="mb-1 block text-[11px] font-bold text-slate-300">نوع الكفالة</label>
-                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                <button
-                                    type="button"
-                                    disabled={disabled}
-                                    onClick={() => setGuaranteeType('amount')}
-                                    className={`rounded-xl border px-3 py-2 text-[12px] font-bold transition-colors ${
-                                        guaranteeType === 'amount'
-                                            ? 'border-emerald-500/45 bg-emerald-500/10 text-emerald-100'
-                                            : 'border-white/10 bg-white/5 text-slate-200 hover:bg-white/10'
-                                    }`}
-                                >
-                                    كفالة ضامنة للمبلغ
-                                </button>
-                                <button
-                                    type="button"
-                                    disabled={disabled}
-                                    onClick={() => setGuaranteeType('attendance')}
-                                    className={`rounded-xl border px-3 py-2 text-[12px] font-bold transition-colors ${
-                                        guaranteeType === 'attendance'
-                                            ? 'border-amber-500/45 bg-amber-500/10 text-amber-100'
-                                            : 'border-white/10 bg-white/5 text-slate-200 hover:bg-white/10'
-                                    }`}
-                                >
-                                    كفالة إحضار شخصية
-                                </button>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="mb-1 block text-[11px] font-bold text-slate-300">اسم الكفيل</label>
-                            <input
-                                type="text"
-                                disabled={disabled}
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-slate-100 text-right"
-                                placeholder="اسم الكفيل"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="mb-1 block text-[11px] font-bold text-slate-300">مكان العمل</label>
-                            <input
-                                type="text"
-                                disabled={disabled}
-                                value={workplace}
-                                onChange={(e) => setWorkplace(e.target.value)}
-                                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-slate-100 text-right"
-                                placeholder="مكان العمل"
-                            />
-                        </div>
-
-                        {guaranteeType === 'amount' ? (
-                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                <div>
-                                    <label className="mb-1 block text-[11px] font-bold text-slate-300">
-                                        الراتب (اختياري)
-                                    </label>
-                                    <input
-                                        type="text"
-                                        inputMode="numeric"
-                                        disabled={disabled}
-                                        value={salary}
-                                        onChange={(e) => setSalary(e.target.value)}
-                                        className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-slate-100 text-right"
-                                        placeholder="0"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="mb-1 block text-[11px] font-bold text-slate-300">
-                                        الاستقطاع (اختياري)
-                                    </label>
-                                    <input
-                                        type="text"
-                                        inputMode="numeric"
-                                        disabled={disabled}
-                                        value={deduction}
-                                        onChange={(e) => setDeduction(e.target.value)}
-                                        className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-slate-100 text-right"
-                                        placeholder="0"
-                                    />
-                                </div>
-                            </div>
-                        ) : null}
-                    </div>
-
-                    <button
-                        type="button"
-                        disabled={!canSave}
-                        onClick={() => {
-                            persistGuarantorFollowupDetails(String(name || ''), String(workplace || ''), {
-                                salaryIqd: guaranteeType === 'amount' ? parseIqd(salary) : null,
-                                deductionIqd: guaranteeType === 'amount' ? parseIqd(deduction) : null,
-                                guaranteeType,
-                            });
-                            const ts = new Date().toISOString();
-                            patchExecutorDecisionRow(executionId, decisionId, { guarantorDetailsSavedAt: ts } as any);
-                        }}
-                        className="w-full rounded-xl bg-gradient-to-l from-indigo-500 to-violet-700 px-5 py-2.5 text-[12px] font-black text-white shadow-md shadow-black/20 disabled:opacity-40"
-                    >
-                        حفظ بيانات الكفيل
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => onOpenDecisions(decisionId)}
-                        className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 text-[11px] font-bold text-slate-200 hover:bg-white/10"
-                    >
-                        فتح مركز القرارات
-                    </button>
-                </div>
-            ),
-        },
-    ];
+    className: string;
+    icon: React.ReactNode;
+    label: React.ReactNode;
+    children?: React.ReactNode;
+    afterButton?: React.ReactNode;
+    showLifecycleBadge?: boolean;
+    trailingSlot?: React.ReactNode;
+}) {
+    const [lifecycleOpen, setLifecycleOpen] = React.useState(false);
+    const {
+        lifecycle,
+        onClick,
+        disabled,
+        className,
+        icon,
+        label,
+        children,
+        afterButton,
+        showLifecycleBadge = true,
+        trailingSlot,
+    } = props;
 
     return (
-        <div className="mt-2">
-            <button
-                type="button"
-                aria-expanded={expanded}
-                onClick={() => setExpanded((v) => !v)}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-black/10 py-2 text-[11px] font-bold text-slate-200 transition hover:bg-black/20"
-            >
-                <span className="text-[#D4AF37]/85">{expanded ? 'تصغير' : 'توسيع'}</span>
+        <div className="relative">
+            <button type="button" onClick={onClick} disabled={disabled} className={className}>
+                <span className="flex flex-row-reverse items-center gap-3 w-full">
+                    {icon}
+                    <span className="flex-1 min-w-0 text-right">{label}</span>
+                    {trailingSlot}
+                    {showLifecycleBadge && lifecycle ? (
+                        <RequestLifecycleBadgeSlot
+                            summary={lifecycle}
+                            expanded={lifecycleOpen}
+                            onToggle={() => setLifecycleOpen((v) => !v)}
+                        />
+                    ) : null}
+                </span>
             </button>
-            {expanded ? (
-                <div className="mt-2">
-                    <ExecutionInlineAccordion steps={steps} />
-                </div>
-            ) : null}
+            {lifecycleOpen && lifecycle ? <RequestLifecyclePanel summary={lifecycle} /> : null}
+            {afterButton}
+            {children}
         </div>
     );
-};
+}
 
 export interface SeizureRequestsTabProps {
     executionId: string | undefined;
     executionData: ExecutionFile | null;
+    remainingBalanceIqd?: number;
+    financialCenterTotalIqd?: number;
+    seizureMatrix?: SeizureMatrixResult;
     seizureDetailCompletion: { decisionRowId: string; assetId: string; actionType: 'salary' | 'property' | 'vehicle' } | null;
     saveCoerciveAction: (actionType: string, details: Record<string, string>) => void;
     persistExecutionMerge: (patch: Record<string, unknown>) => void;
@@ -494,6 +365,7 @@ export interface SeizureRequestsTabProps {
     getLocalTodayYmd: () => string;
     showToast: (message: string, type: 'success' | 'error' | 'warning' | 'info', options?: any) => void;
     activeDebtorIsDeceased: boolean;
+    activeDebtorIsEmployee?: boolean;
     executionCoerciveButtonDisabled: boolean;
     coerciveUiLocked: boolean;
     isHistoricalMode: boolean;
@@ -501,12 +373,21 @@ export interface SeizureRequestsTabProps {
     setInlineActionGateKey: (key: InlineActionGateKey | null) => void;
     handleCoerciveAction: (type: string) => void;
     handleGuarantorRequestFromFollowup: () => void;
-    requestFollowupSeizureDecision: (subtype: 'third_party' | 'notice', title: string, body: string) => void;
+    requestFollowupSeizureDecision: (subtype: 'third_party', title: string, body: string) => void;
+    hideAllGuarantorPresence?: boolean;
+    financialGuarantorRequestOnly?: boolean;
+    isFinancialDebtCollectionClaim?: boolean;
+    settlementBreachTriggeredAt?: string | null;
+    ledgerPendingSettlement?: unknown;
+    isAlimonyClaim?: boolean;
+    claimType?: string;
 }
 
 export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
     executionId,
     executionData,
+    remainingBalanceIqd = 0,
+    seizureMatrix: seizureMatrixProp,
     seizureDetailCompletion,
     saveCoerciveAction,
     persistExecutionMerge,
@@ -516,6 +397,7 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
     getLocalTodayYmd,
     showToast,
     activeDebtorIsDeceased,
+    activeDebtorIsEmployee = false,
     executionCoerciveButtonDisabled,
     coerciveUiLocked,
     isHistoricalMode,
@@ -524,7 +406,128 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
     handleCoerciveAction,
     handleGuarantorRequestFromFollowup,
     requestFollowupSeizureDecision,
+    hideAllGuarantorPresence = false,
+    financialGuarantorRequestOnly = false,
+    isFinancialDebtCollectionClaim = false,
+    settlementBreachTriggeredAt = null,
+    ledgerPendingSettlement = null,
+    isAlimonyClaim = false,
+    claimType = '',
 }) => {
+    const seizureMatrix = React.useMemo(
+        () =>
+            seizureMatrixProp ??
+            resolveSeizureMatrixFromExecution({
+                remainingBalanceIqd,
+                executionData,
+                activeDebtorIsEmployee,
+            }),
+        [seizureMatrixProp, remainingBalanceIqd, executionData, activeDebtorIsEmployee]
+    );
+    const matrixBlocksSeizure = seizureMatrix.allSeizureDisabled;
+    const domainBlocksSeizure = React.useMemo(() => {
+        const gate = isFollowupRequestKindAllowed(
+            executionData as Record<string, unknown> | null | undefined,
+            executionId,
+            'seizure'
+        );
+        return !gate.allowed;
+    }, [executionData, executionId]);
+    const effectiveMatrixBlocksSeizure = matrixBlocksSeizure || domainBlocksSeizure;
+    const progressive = seizureMatrix.progressiveDisclosure;
+    const seizureActionsDisabled =
+        executionCoerciveButtonDisabled || isHistoricalMode || effectiveMatrixBlocksSeizure;
+
+    const [additionalSeizureExpanded, setAdditionalSeizureExpanded] = React.useState(false);
+    const [maximumSeizureExpanded, setMaximumSeizureExpanded] = React.useState(false);
+
+    React.useEffect(() => {
+        setAdditionalSeizureExpanded(false);
+        setMaximumSeizureExpanded(false);
+    }, [
+        seizureMatrix.ruleId,
+        seizureMatrix.remainingBalanceIqd,
+        seizureMatrix.buttons.salary,
+        seizureMatrix.buttons.movable,
+        seizureMatrix.buttons.third_party,
+        seizureMatrix.buttons.property,
+    ]);
+
+    const financialCenterBalanceIqd = Math.max(
+        0,
+        Math.round(Number(seizureMatrix.remainingBalanceIqd ?? remainingBalanceIqd) || 0)
+    );
+
+    const matrixRecommendsButton = React.useCallback(
+        (key: SeizureMatrixButtonKey) => {
+            if (!seizureMatrix.showTabContentButtons || effectiveMatrixBlocksSeizure) return false;
+            if (key === 'salary' && (activeDebtorIsEmployee || activeDebtorIsDeceased)) {
+                return financialCenterBalanceIqd > 0;
+            }
+            return Boolean(seizureMatrix.buttons[key]);
+        },
+        [
+            activeDebtorIsDeceased,
+            activeDebtorIsEmployee,
+            financialCenterBalanceIqd,
+            effectiveMatrixBlocksSeizure,
+            seizureMatrix.buttons,
+            seizureMatrix.showTabContentButtons,
+        ]
+    );
+
+    const showRecommendedButton = React.useCallback(
+        (key: SeizureMatrixButtonKey) => {
+            if (key === 'salary') {
+                return matrixRecommendsButton('salary');
+            }
+            return matrixRecommendsButton(key);
+        },
+        [matrixRecommendsButton]
+    );
+
+    const showManualButton = React.useCallback(
+        (key: SeizureMatrixButtonKey, tier: 'additional' | 'maximum') => {
+            if (!seizureMatrix.showTabContentButtons || effectiveMatrixBlocksSeizure) return false;
+            if (tier === 'additional') {
+                return additionalSeizureExpanded && progressive.additionalButtons.includes(key);
+            }
+            return maximumSeizureExpanded && progressive.maximumButtons.includes(key);
+        },
+        [
+            additionalSeizureExpanded,
+            maximumSeizureExpanded,
+            effectiveMatrixBlocksSeizure,
+            progressive.additionalButtons,
+            progressive.maximumButtons,
+            seizureMatrix.showTabContentButtons,
+        ]
+    );
+
+    const domainAllowsGuarantorRequest = React.useMemo(() => {
+        return isFollowupRequestKindAllowed(
+            executionData as Record<string, unknown> | null | undefined,
+            executionId,
+            'guarantor_request'
+        ).allowed;
+    }, [executionData, executionId]);
+    const showGuarantorRequestInTab =
+        domainAllowsGuarantorRequest &&
+        shouldShowGuarantorRequestInSeizureTab(
+            {
+                hideAllGuarantorPresence,
+                isFinancialDebtCollection: isFinancialDebtCollectionClaim,
+                showFinancialGuarantorRequestOnly: financialGuarantorRequestOnly,
+            } as Parameters<typeof shouldShowGuarantorRequestInSeizureTab>[0],
+            {
+                executionData,
+                financialCenterTotalIqd: financialCenterBalanceIqd,
+                settlementBreachTriggeredAt,
+                ledgerPendingSettlement,
+                activeDebtorIsDeceased,
+                activeDebtorIsEmployee,
+            }
+        );
     const normalizeExecutionId = React.useCallback((v: unknown): string => {
         const s = String(v ?? '').trim();
         if (!s) return '';
@@ -539,8 +542,8 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
     }, [executionData?.id, executionId, normalizeExecutionId]);
     const resolvedExecutionId = executionIdsForDecisions[0] || '';
     const [guarantorExistingWarningOpen, setGuarantorExistingWarningOpen] = React.useState(false);
-    const [salaryExpandEpoch, setSalaryExpandEpoch] = React.useState(0);
     const [lastSalaryDecisionId, setLastSalaryDecisionId] = React.useState('');
+    const salaryAutoRegisterSigRef = React.useRef('');
 
     const readAllDecisions = React.useCallback((): Record<string, unknown>[] => {
         const merged: Record<string, unknown>[] = [];
@@ -577,12 +580,34 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
         };
     }, [readAllDecisions]);
 
+    const lifecycleSalary = React.useMemo(
+        () => summarizeExecutorHubRequestLifecycle(listSeizureHubRows(decisions, 'salary')),
+        [decisions]
+    );
+    const lifecycleProperty = React.useMemo(
+        () => summarizeExecutorHubRequestLifecycle(listSeizureHubRows(decisions, 'property')),
+        [decisions]
+    );
+    const lifecycleMovable = React.useMemo(
+        () => summarizeExecutorHubRequestLifecycle(listSeizureHubRows(decisions, 'movable_auction')),
+        [decisions]
+    );
+    const lifecycleThirdParty = React.useMemo(
+        () => summarizeExecutorHubRequestLifecycle(listSeizureHubRows(decisions, 'third_party')),
+        [decisions]
+    );
+    const lifecycleGuarantor = React.useMemo(
+        () => summarizeExecutorHubRequestLifecycle(listGuarantorHubRows(decisions)),
+        [decisions]
+    );
+
     const [thirdPartyNameDraft, setThirdPartyNameDraft] = React.useState('');
     const [thirdPartyAmountDraft, setThirdPartyAmountDraft] = React.useState('');
     const [thirdPartyNotifyYmdDraft, setThirdPartyNotifyYmdDraft] = React.useState('');
-    const [salaryDetailsDraftByDecisionId, setSalaryDetailsDraftByDecisionId] = React.useState<Record<string, { employerName: string; salaryAmount: string }>>({});
     const [propertyDetailsDraftByDecisionId, setPropertyDetailsDraftByDecisionId] = React.useState<Record<string, { propertyNumber: string; propertyDistrict: string; propertyType: string }>>({});
-    const [vehicleDetailsDraftByDecisionId, setVehicleDetailsDraftByDecisionId] = React.useState<Record<string, { movableDescription: string; movableLocation: string; judicialCustodianName: string }>>({});
+    const [vehicleDetailsDraftByDecisionId, setVehicleDetailsDraftByDecisionId] = React.useState<
+        Record<string, { movableDescription: string; movableLocation: string }>
+    >({});
 
     const openAppeals = React.useCallback(
         (decisionId?: string) => {
@@ -646,10 +671,6 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
 
     const thirdPartyDecision = React.useMemo(
         () => getLatestSeizureDecisionBySubtype(resolvedExecutionId, 'third_party'),
-        [resolvedExecutionId, decisions]
-    );
-    const noticeDecision = React.useMemo(
-        () => getLatestSeizureDecisionBySubtype(resolvedExecutionId, 'notice'),
         [resolvedExecutionId, decisions]
     );
     const salaryDecision = React.useMemo(() => {
@@ -862,6 +883,18 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
         (args: { actionType: 'salary' | 'property' | 'vehicle'; title: string; body: string; subtype: any }) => {
             const exId = resolvedExecutionId;
             if (!exId) return null;
+            if (
+                args.actionType === 'salary' &&
+                isSalarySeizureLaneOccupied({
+                    seizedAssets: executionData?.seizedAssets,
+                    seizureDraftsByDecisionId: executionData?.seizureDraftsByDecisionId as
+                        | Record<string, import('@/app/types/execution').SeizedAsset>
+                        | undefined,
+                })
+            ) {
+                showToast('يوجد حجز راتب نشط أو طلب قيد البت — لا يمكن التكرار قبل فك الحجز.', 'warning');
+                return null;
+            }
             const decisionId = appendPendingExecutorSeizureDecision({
                 executionId: exId,
                 requestTitle: `${args.title} — قيد البت لدى المنفذ`,
@@ -888,7 +921,7 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
             showToast('تم إنشاء الطلب — قرار المنفذ يظهر هنا مباشرة.', 'success');
             return decisionId;
         },
-        [appendPendingExecutorSeizureDecision, nextTimelineId, pushTimelineEvent, resolvedExecutionId, showToast]
+        [appendPendingExecutorSeizureDecision, executionData?.seizedAssets, executionData?.seizureDraftsByDecisionId, nextTimelineId, pushTimelineEvent, resolvedExecutionId, showToast]
     );
 
     const salaryRowForUi = React.useMemo(() => {
@@ -907,61 +940,133 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
         } as any;
     }, [activeDebtorIsDeceased, decisions, lastSalaryDecisionId, salaryDecision]);
 
-    const renderSalaryCompletion = (row: any) => {
-        const decisionId = String(row?.id || '').trim();
-        if (!decisionId) return null;
-        if (!isExecutorRowEffectivelyApproved(row)) return null;
+    const hasActiveSalarySeizure = React.useMemo(
+        () =>
+            (executionData?.seizedAssets || []).some(
+                (a) => isSalarySeizureAsset(a) && String(a.status || '') === 'seized'
+            ),
+        [executionData?.seizedAssets]
+    );
+
+    const salaryLaneOccupied = React.useMemo(
+        () =>
+            isSalarySeizureLaneOccupied({
+                seizedAssets: executionData?.seizedAssets,
+                seizureDraftsByDecisionId: executionData?.seizureDraftsByDecisionId as
+                    | Record<string, import('@/app/types/execution').SeizedAsset>
+                    | undefined,
+            }),
+        [executionData?.seizedAssets, executionData?.seizureDraftsByDecisionId]
+    );
+
+    const salaryRequestOpen = React.useMemo(() => {
+        const row = salaryRowForUi;
+        if (!row?.id) return salaryLaneOccupied;
+        if (isExecutorRowRejectedAndFinal(row)) return false;
+        const pending =
+            String(row.executorOutcome ?? 'pending') === 'pending' ||
+            String(row.executorOutcome ?? '') === '';
+        const approvedNotSaved =
+            isExecutorRowEffectivelyApproved(row) && !String(row.seizureRequestSavedAt || '').trim();
+        return salaryLaneOccupied || pending || approvedNotSaved;
+    }, [salaryLaneOccupied, salaryRowForUi]);
+
+    const salaryRequestSettled = React.useMemo(
+        () =>
+            hasActiveSalarySeizure ||
+            (salaryRowForUi ? isSeizureRequestFullyRegistered(salaryRowForUi) : false),
+        [hasActiveSalarySeizure, salaryRowForUi]
+    );
+
+    const openSalarySeizureRequest = React.useCallback(async () => {
+        if (seizureActionsDisabled) return;
+        if (hasActiveSalarySeizure) {
+            const open = await SmartDialog.confirm(
+                'تم حجز الراتب فعلاً. هل تريد فتح الطلب؟',
+                {
+                    title: 'حجز الراتب',
+                    confirmText: 'فتح الطلب',
+                    cancelText: 'إلغاء',
+                }
+            );
+            if (!open) return;
+            const did = String(salaryRowForUi?.id || '').trim();
+            if (did) {
+                openDecisions(did);
+                return;
+            }
+            try {
+                window.dispatchEvent(
+                    new CustomEvent('hami-open-unified-seizure-log', { detail: { tab: 'salary' } })
+                );
+            } catch {
+                /* ignore */
+            }
+            return;
+        }
+        const did = String(salaryRowForUi?.id || '').trim();
+        if (did) {
+            const outcome = String(salaryRowForUi?.executorOutcome ?? 'pending').trim();
+            const alternative = outcome === 'alternative';
+            const rejected = isExecutorRowRejectedAndFinal(salaryRowForUi);
+            const approved =
+                !rejected && (alternative || isExecutorRowEffectivelyApproved(salaryRowForUi));
+            const savedAt = String(salaryRowForUi?.seizureRequestSavedAt || '').trim();
+            const needsCompletion = approved && !savedAt;
+            if (needsCompletion) {
+                return;
+            }
+            if (approved && savedAt) {
+                openDecisions(did);
+                return;
+            }
+            openDecisions(did);
+            return;
+        }
+        if (coerciveUiLocked) return;
+        setInlineActionGateKey('seizure_salary');
+    }, [
+        coerciveUiLocked,
+        hasActiveSalarySeizure,
+        openDecisions,
+        salaryRowForUi,
+        seizureActionsDisabled,
+    ]);
+
+    const salaryRequestTitle = activeDebtorIsDeceased
+        ? 'طلب حجز الحوافز والمخصصات'
+        : 'طلب حجز راتب';
+
+    React.useEffect(() => {
+        const row = salaryRowForUi;
+        if (!row?.id) return;
+        if (isExecutorRowRejectedAndFinal(row)) return;
+        if (!isExecutorRowEffectivelyApproved(row)) return;
         const savedAt = String(row.seizureRequestSavedAt || '').trim();
-        if (savedAt) return null;
-        const draft = salaryDetailsDraftByDecisionId[decisionId] || { employerName: '', salaryAmount: '' };
-        return (
-            <div className="space-y-2">
-                <input
-                    type="text"
-                    value={draft.employerName}
-                    onChange={(e) =>
-                        setSalaryDetailsDraftByDecisionId((prev) => ({
-                            ...prev,
-                            [decisionId]: { ...draft, employerName: e.target.value },
-                        }))
-                    }
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-slate-100 text-right"
-                    placeholder={activeDebtorIsDeceased ? 'جهة صرف الحوافز/المخصصات' : 'جهة العمل'}
-                />
-                <input
-                    type="text"
-                    inputMode="numeric"
-                    value={draft.salaryAmount}
-                    onChange={(e) =>
-                        setSalaryDetailsDraftByDecisionId((prev) => ({
-                            ...prev,
-                            [decisionId]: { ...draft, salaryAmount: normalizeDigitsOnly(String(e.target.value || '')) },
-                        }))
-                    }
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-slate-100 text-right"
-                    placeholder="مقدار الدخل الشهري (اختياري)"
-                />
-                <button
-                    type="button"
-                    disabled={!String(draft.employerName || '').trim()}
-                    onClick={() => {
-                        if (!String(draft.employerName || '').trim()) {
-                            showToast('أدخل جهة العمل/الجهة الصارفة.', 'warning');
-                            return;
-                        }
-                        saveCoerciveAction('salary', {
-                            decisionRowId: decisionId,
-                            employerName: String(draft.employerName || '').trim(),
-                            salaryAmount: String(draft.salaryAmount || '').trim(),
-                        });
-                    }}
-                    className="w-full rounded-xl bg-gradient-to-l from-amber-500 to-yellow-600 py-2.5 text-[11px] font-black text-[#0A0F1C] disabled:opacity-40"
-                >
-                    حفظ التفاصيل
-                </button>
-            </div>
-        );
-    };
+        if (savedAt) {
+            salaryAutoRegisterSigRef.current = '';
+            return;
+        }
+        const decisionId = String(row.id).trim();
+        if (!decisionId) return;
+        if (salaryAutoRegisterSigRef.current === decisionId) return;
+        const alreadyInRegistry = (executionData?.seizedAssets || []).some((a) => {
+            if (!isSalarySeizureAsset(a)) return false;
+            const det =
+                typeof a.details === 'object' && a.details && !Array.isArray(a.details)
+                    ? (a.details as Record<string, unknown>)
+                    : null;
+            return String(det?.decisionRowId || '') === decisionId;
+        });
+        if (alreadyInRegistry) return;
+        salaryAutoRegisterSigRef.current = decisionId;
+        saveCoerciveAction('salary', {
+            decisionRowId: decisionId,
+            employerName: '',
+            salaryAmount: '',
+            monthlyDeductionIqd: '',
+        });
+    }, [executionData?.seizedAssets, salaryRowForUi, saveCoerciveAction]);
 
     const renderPropertyCompletion = (row: any) => {
         const decisionId = String(row?.id || '').trim();
@@ -1036,7 +1141,10 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
         if (!isExecutorRowEffectivelyApproved(row)) return null;
         const savedAt = String(row.seizureRequestSavedAt || '').trim();
         if (savedAt) return null;
-        const draft = vehicleDetailsDraftByDecisionId[decisionId] || { movableDescription: '', movableLocation: '', judicialCustodianName: '' };
+        const draft = vehicleDetailsDraftByDecisionId[decisionId] || {
+            movableDescription: '',
+            movableLocation: '',
+        };
         return (
             <div className="space-y-2">
                 <input
@@ -1063,29 +1171,21 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
                     className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-slate-100 text-right"
                     placeholder="مكان تواجد المال المنقول"
                 />
-                <input
-                    type="text"
-                    value={draft.judicialCustodianName}
-                    onChange={(e) =>
-                        setVehicleDetailsDraftByDecisionId((prev) => ({
-                            ...prev,
-                            [decisionId]: { ...draft, judicialCustodianName: e.target.value },
-                        }))
-                    }
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-slate-100 text-right"
-                    placeholder="اسم الحارس القضائي (اختياري)"
-                />
                 <button
                     type="button"
-                    disabled={!String(draft.movableDescription || '').trim() || !String(draft.movableLocation || '').trim()}
+                    disabled={
+                        !String(draft.movableDescription || '').trim() ||
+                        !String(draft.movableLocation || '').trim()
+                    }
                     onClick={() => {
-                        if (!String(draft.movableDescription || '').trim()) return showToast('أدخل وصف المال المنقول', 'warning');
-                        if (!String(draft.movableLocation || '').trim()) return showToast('أدخل مكان تواجد المال المنقول', 'warning');
+                        if (!String(draft.movableDescription || '').trim())
+                            return showToast('أدخل وصف المال المنقول', 'warning');
+                        if (!String(draft.movableLocation || '').trim())
+                            return showToast('أدخل مكان تواجد المال المنقول', 'warning');
                         saveCoerciveAction('vehicle', {
                             decisionRowId: decisionId,
                             movableDescription: String(draft.movableDescription || '').trim(),
                             movableLocation: String(draft.movableLocation || '').trim(),
-                            judicialCustodianName: String(draft.judicialCustodianName || '').trim(),
                         });
                     }}
                     className="w-full rounded-xl bg-gradient-to-l from-amber-500 to-yellow-600 py-2.5 text-[11px] font-black text-[#0A0F1C] disabled:opacity-40"
@@ -1132,60 +1232,253 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
         ];
     };
 
-    return (
-        <div className="p-4 space-y-3 text-right">
-        {!activeDebtorIsDeceased ? (
-            <div className="relative">
-                <button
-                    type="button"
-                    onClick={() => {
-                        if (executionCoerciveButtonDisabled || coerciveUiLocked || isHistoricalMode)
-                            return;
-                        const did = String(findLatestGuarantorDecision?.id || '').trim();
-                        const rejected = Boolean(did) && isExecutorRowRejectedAndFinal(findLatestGuarantorDecision);
-                        const outcome = String(findLatestGuarantorDecision?.executorOutcome ?? 'pending').trim();
-                        const alternative = outcome === 'alternative';
-                        const approved =
-                            Boolean(did) &&
-                            !rejected &&
-                            (alternative || isExecutorRowEffectivelyApproved(findLatestGuarantorDecision));
-                        const detailsSaved = Boolean(
-                            String(findLatestGuarantorDecision?.guarantorDetailsSavedAt || '').trim()
-                        );
-                        const needsCompletion = approved && !detailsSaved;
-                        if (needsCompletion) {
-                            openGuarantorDetails(did || undefined);
-                            return;
-                        }
-                        if (executionData?.guarantor_followup?.details_saved === true) {
-                            setGuarantorExistingWarningOpen(true);
-                            return;
-                        }
-                        setInlineActionGateKey('guarantor_request');
-                    }}
-                    disabled={
-                        executionCoerciveButtonDisabled || coerciveUiLocked || isHistoricalMode
-                    }
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3 text-[12px] font-bold text-slate-100 backdrop-blur-xl transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:-translate-y-0.5 hover:border-amber-400/35 hover:shadow-[0_18px_48px_rgba(0,0,0,0.45),0_0_0_1px_rgba(230,198,115,0.08)] disabled:opacity-40"
-                >
-                    <div className="flex flex-row-reverse items-center gap-3">
-                        <span className="grid size-10 place-items-center rounded-full bg-amber-500/10 text-amber-200">
-                            <Shield size={18} className="text-current" />
+    const renderMovableSeizureBlock = () => {
+        const movableSettled = movableDecision && isSeizureRequestFullyRegistered(movableDecision);
+        return (
+        <SeizureRequestBlock
+            lifecycle={lifecycleMovable}
+            showLifecycleBadge={!movableSettled}
+            disabled={seizureActionsDisabled}
+            className="w-full rounded-2xl border border-sky-300/15 bg-sky-500/[0.06] px-4 py-3 text-[12px] font-bold text-slate-100 hover:bg-sky-500/[0.10] hover:border-sky-200/25 disabled:opacity-40"
+            onClick={() => {
+                if (seizureActionsDisabled) return;
+                if (movableSettled) {
+                    openUnifiedSeizureLogTab('movable');
+                    return;
+                }
+                setInlineActionGateKey('seizure_vehicle');
+            }}
+            icon={
+                <span className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/5">
+                    <Package className="w-6 h-6 text-white/70" />
+                </span>
+            }
+            label={
+                <span className="flex flex-col items-end gap-0.5">
+                    <span>طلب حجز مال منقول</span>
+                    {movableSettled ? (
+                        <span className="text-[10px] font-semibold text-sky-200/80">
+                            تم التسجيل — اضغط أو «السجل» للمتابعة
                         </span>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-white font-bold text-sm">طلب كفيل ضامن</p>
-                        </div>
-                    </div>
-                </button>
+                    ) : null}
+                </span>
+            }
+            trailingSlot={movableSettled ? <SeizureLogNavigateBadge tab="movable" tone="sky" /> : null}
+            afterButton={
                 <InlineActionGate
-                    gateKey="guarantor_request"
+                    gateKey="seizure_vehicle"
                     activeKey={inlineActionGateKey}
                     onConfirm={() => {
                         setInlineActionGateKey(null);
-                        handleGuarantorRequestFromFollowup();
+                        submitBasicSeizureRequest({
+                            actionType: 'vehicle',
+                            title: 'طلب حجز مال منقول',
+                            body: 'طلب حجز مال منقول (مبدئي) — تُستكمل التفاصيل بعد موافقة منفذ العدل.',
+                            subtype: 'movable_auction',
+                        });
                     }}
                     onCancel={() => setInlineActionGateKey(null)}
                 />
+            }
+        >
+            {movableDecision && !movableSettled ? (
+                <div className="mt-2">
+                    <ExecutionInlineAccordion
+                        steps={buildRequestSteps(
+                            'طلب حجز مال منقول',
+                            movableDecision,
+                            'seizure',
+                            renderVehicleCompletion(movableDecision)
+                        )}
+                    />
+                </div>
+            ) : null}
+        </SeizureRequestBlock>
+        );
+    };
+
+    const renderThirdPartySeizureBlock = () => {
+        const thirdPartySettled =
+            thirdPartyDecision && isSeizureRequestFullyRegistered(thirdPartyDecision);
+        return (
+        <SeizureRequestBlock
+            lifecycle={lifecycleThirdParty}
+            showLifecycleBadge={!thirdPartySettled}
+            disabled={seizureActionsDisabled}
+            className="w-full rounded-2xl border border-violet-300/15 bg-violet-500/[0.06] px-4 py-3 text-[12px] font-bold text-slate-100 hover:bg-violet-500/[0.10] hover:border-violet-200/25 disabled:opacity-40"
+            onClick={() => {
+                if (seizureActionsDisabled) return;
+                if (thirdPartySettled) {
+                    openUnifiedSeizureLogTab('third_party');
+                    return;
+                }
+                setInlineActionGateKey('seizure_third_party');
+            }}
+            icon={
+                <span className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/5">
+                    <Users className="w-6 h-6 text-white/70" />
+                </span>
+            }
+            label={
+                <span className="flex flex-col items-end gap-0.5">
+                    <span>طلب حجز مال المدين لدى الغير</span>
+                    {thirdPartySettled ? (
+                        <span className="text-[10px] font-semibold text-violet-200/80">
+                            تم التسجيل — اضغط أو «السجل» للمتابعة
+                        </span>
+                    ) : null}
+                </span>
+            }
+            trailingSlot={
+                thirdPartySettled ? <SeizureLogNavigateBadge tab="third_party" tone="violet" /> : null
+            }
+            afterButton={
+                <InlineActionGate
+                    gateKey="seizure_third_party"
+                    activeKey={inlineActionGateKey}
+                    onConfirm={() => {
+                        setInlineActionGateKey(null);
+                        requestFollowupSeizureDecision(
+                            'third_party',
+                            'حجز مال المدين لدى الغير',
+                            'طلب حجز مال المدين لدى الغير وفقاً لإجراءات التنفيذ.'
+                        );
+                    }}
+                    onCancel={() => setInlineActionGateKey(null)}
+                />
+            }
+        >
+            {thirdPartyDecision && !thirdPartySettled ? (
+                <div className="mt-2">
+                    <ExecutionInlineAccordion
+                        steps={buildRequestSteps(
+                            'طلب حجز مال المدين لدى الغير',
+                            thirdPartyDecision,
+                            'seizure',
+                            renderThirdPartyInlineCompletionIfAny(thirdPartyDecision)
+                        )}
+                    />
+                </div>
+            ) : null}
+        </SeizureRequestBlock>
+        );
+    };
+
+    const renderPropertySeizureBlock = () => {
+        const propertySettled = propertyDecision && isSeizureRequestFullyRegistered(propertyDecision);
+        return (
+        <SeizureRequestBlock
+            lifecycle={lifecycleProperty}
+            showLifecycleBadge={!propertySettled}
+            disabled={seizureActionsDisabled}
+            className="w-full rounded-2xl border border-amber-300/15 bg-amber-500/[0.06] px-4 py-3 text-[12px] font-bold text-slate-100 hover:bg-amber-500/[0.10] hover:border-amber-200/25 disabled:opacity-40"
+            onClick={() => {
+                if (seizureActionsDisabled) return;
+                if (propertySettled) {
+                    openUnifiedSeizureLogTab('property');
+                    return;
+                }
+                setInlineActionGateKey('seizure_property');
+            }}
+            icon={
+                <span className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/5">
+                    <Building2 className="w-6 h-6 text-white/70" />
+                </span>
+            }
+            label={
+                <span className="flex flex-col items-end gap-0.5">
+                    <span>طلب حجز عقار</span>
+                    {propertySettled ? (
+                        <span className="text-[10px] font-semibold text-amber-200/80">
+                            تم التسجيل — اضغط أو «السجل» للمتابعة
+                        </span>
+                    ) : null}
+                </span>
+            }
+            trailingSlot={propertySettled ? <SeizureLogNavigateBadge tab="property" tone="amber" /> : null}
+            afterButton={
+                <InlineActionGate
+                    gateKey="seizure_property"
+                    activeKey={inlineActionGateKey}
+                    onConfirm={() => {
+                        setInlineActionGateKey(null);
+                        submitBasicSeizureRequest({
+                            actionType: 'property',
+                            title: 'طلب حجز عقار',
+                            body: 'طلب حجز عقار (مبدئي) — تُستكمل التفاصيل بعد موافقة منفذ العدل.',
+                            subtype: 'property',
+                        });
+                    }}
+                    onCancel={() => setInlineActionGateKey(null)}
+                />
+            }
+        >
+            {propertyDecision && !propertySettled ? (
+                <div className="mt-2">
+                    <ExecutionInlineAccordion
+                        steps={buildRequestSteps(
+                            'طلب حجز عقار',
+                            propertyDecision,
+                            'seizure',
+                            renderPropertyCompletion(propertyDecision)
+                        )}
+                    />
+                </div>
+            ) : null}
+        </SeizureRequestBlock>
+        );
+    };
+
+    return (
+        <div className="p-4 space-y-3 text-right">
+        {showGuarantorRequestInTab ? (
+            <SeizureRequestBlock
+                lifecycle={lifecycleGuarantor}
+                disabled={executionCoerciveButtonDisabled || coerciveUiLocked || isHistoricalMode}
+                className="w-full rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3 text-[12px] font-bold text-slate-100 backdrop-blur-xl transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:-translate-y-0.5 hover:border-amber-400/35 hover:shadow-[0_18px_48px_rgba(0,0,0,0.45),0_0_0_1px_rgba(230,198,115,0.08)] disabled:opacity-40"
+                onClick={() => {
+                    if (executionCoerciveButtonDisabled || coerciveUiLocked || isHistoricalMode)
+                        return;
+                    const did = String(findLatestGuarantorDecision?.id || '').trim();
+                    const rejected = Boolean(did) && isExecutorRowRejectedAndFinal(findLatestGuarantorDecision);
+                    const outcome = String(findLatestGuarantorDecision?.executorOutcome ?? 'pending').trim();
+                    const alternative = outcome === 'alternative';
+                    const approved =
+                        Boolean(did) &&
+                        !rejected &&
+                        (alternative || isExecutorRowEffectivelyApproved(findLatestGuarantorDecision));
+                    const detailsSaved = Boolean(
+                        String(findLatestGuarantorDecision?.guarantorDetailsSavedAt || '').trim()
+                    );
+                    const needsCompletion = approved && !detailsSaved;
+                    if (needsCompletion) {
+                        openGuarantorDetails(did || undefined);
+                        return;
+                    }
+                    if (executionData?.guarantor_followup?.details_saved === true) {
+                        setGuarantorExistingWarningOpen(true);
+                        return;
+                    }
+                    setInlineActionGateKey('guarantor_request');
+                }}
+                icon={
+                    <span className="grid size-10 place-items-center rounded-full bg-amber-500/10 text-amber-200">
+                        <Shield size={18} className="text-current" />
+                    </span>
+                }
+                label={<p className="text-white font-bold text-sm">طلب كفيل ضامن</p>}
+                afterButton={
+                    <InlineActionGate
+                        gateKey="guarantor_request"
+                        activeKey={inlineActionGateKey}
+                        onConfirm={() => {
+                            setInlineActionGateKey(null);
+                            handleGuarantorRequestFromFollowup();
+                        }}
+                        onCancel={() => setInlineActionGateKey(null)}
+                    />
+                }
+            >
                 {guarantorExistingWarningOpen ? (
                     <div className="mt-2 rounded-2xl border border-amber-500/40 bg-amber-950/20 p-3 text-right">
                         <p className="text-amber-200 text-[11px] font-black">يوجد كفيل ضامن مُسجَّل في الإضبارة</p>
@@ -1225,231 +1518,129 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
                         onOpenGuarantorDetails={openGuarantorDetails}
                     />
                 ) : null}
-            </div>
+            </SeizureRequestBlock>
         ) : null}
-        <div className="relative">
-            <button
-                type="button"
-                onClick={() => {
-                    if (executionCoerciveButtonDisabled || isHistoricalMode) return;
-                    const did = String(salaryRowForUi?.id || '').trim();
-                    if (did) {
-                        const outcome = String(salaryRowForUi?.executorOutcome ?? 'pending').trim();
-                        const alternative = outcome === 'alternative';
-                        const rejected = isExecutorRowRejectedAndFinal(salaryRowForUi);
-                        const approved =
-                            !rejected && (alternative || isExecutorRowEffectivelyApproved(salaryRowForUi));
-                        const savedAt = String(salaryRowForUi?.seizureRequestSavedAt || '').trim();
-                        const needsCompletion = approved && !savedAt;
-                        if (needsCompletion) {
-                            setSalaryExpandEpoch((v) => v + 1);
-                            return;
-                        }
-                        if (approved && savedAt) {
-                            if (coerciveUiLocked) return;
-                            setInlineActionGateKey('seizure_salary');
-                            return;
-                        }
-                        return;
-                    }
-                    if (coerciveUiLocked) return;
-                    setInlineActionGateKey('seizure_salary');
-                }}
-                disabled={executionCoerciveButtonDisabled || isHistoricalMode}
-                className="w-full rounded-2xl border border-emerald-300/15 bg-emerald-500/[0.06] px-4 py-3 text-[12px] font-bold text-slate-100 hover:bg-emerald-500/[0.10] hover:border-emerald-200/25 disabled:opacity-40"
-            >
-                <span className="flex flex-row-reverse items-center gap-3">
-                    <span className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/5">
+        {!seizureMatrix.showTabContentButtons ? (
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-8 text-center">
+                <p className="text-sm leading-relaxed text-slate-400">
+                    لا تتوفر إجراءات حجز — تحقق من الوعاء المتبقي أو حالة الإضبارة.
+                </p>
+                <p className="mt-2 text-xs text-slate-500 tabular-nums">
+                    المتبقي بذمة المدين: {financialCenterBalanceIqd.toLocaleString('ar-IQ')} د.ع
+                </p>
+            </div>
+        ) : (
+        <div className="flex flex-col gap-3">
+        {showRecommendedButton('salary') && !salaryRequestOpen ? (
+        <SeizureRequestBlock
+            lifecycle={lifecycleSalary}
+            showLifecycleBadge={!salaryRequestSettled}
+            disabled={seizureActionsDisabled}
+            className={`w-full rounded-2xl border px-4 py-3 text-[12px] font-bold text-slate-100 disabled:opacity-40 ${
+                hasActiveSalarySeizure
+                    ? 'border-slate-500/30 bg-slate-800/40 text-slate-300 cursor-pointer'
+                    : 'border-emerald-300/15 bg-emerald-500/[0.06] hover:bg-emerald-500/[0.10] hover:border-emerald-200/25'
+            }`}
+            onClick={() => {
+                if (seizureActionsDisabled) return;
+                if (salaryRequestSettled) {
+                    openUnifiedSeizureLogTab('salary');
+                    return;
+                }
+                if (hasActiveSalarySeizure) {
+                    void openSalarySeizureRequest();
+                    return;
+                }
+                setInlineActionGateKey('seizure_salary');
+            }}
+            icon={
+                <span
+                    className={`w-12 h-12 flex items-center justify-center rounded-2xl ${
+                        hasActiveSalarySeizure ? 'bg-slate-700/40' : 'bg-white/5'
+                    }`}
+                >
+                    {hasActiveSalarySeizure ? (
+                        <Lock className="w-5 h-5 text-slate-400" />
+                    ) : (
                         <Wallet className="w-6 h-6 text-white/70" />
-                    </span>
-                    {activeDebtorIsDeceased ? 'طلب حجز الحوافز والمخصصات' : 'طلب حجز راتب'}
+                    )}
                 </span>
-            </button>
-            <InlineActionGate
-                gateKey="seizure_salary"
-                activeKey={inlineActionGateKey}
-                onConfirm={() => {
-                    setInlineActionGateKey(null);
-                    const did = submitBasicSeizureRequest({
-                        actionType: 'salary',
-                        title: activeDebtorIsDeceased ? 'طلب حجز الحوافز والمخصصات' : 'طلب حجز راتب',
-                        body: activeDebtorIsDeceased
-                            ? 'طلب حجز الحوافز والمخصصات (مبدئي) — تُستكمل التفاصيل بعد موافقة منفذ العدل.'
-                            : 'طلب حجز راتب (مبدئي) — تُستكمل التفاصيل بعد موافقة منفذ العدل.',
-                        subtype: 'salary',
-                    });
-                    if (did) {
-                        setLastSalaryDecisionId(did);
-                        setSalaryExpandEpoch((v) => v + 1);
-                    }
-                }}
-                onCancel={() => setInlineActionGateKey(null)}
+            }
+            label={
+                <span className="flex flex-col items-end gap-0.5">
+                    <span>{salaryRequestTitle}</span>
+                    {hasActiveSalarySeizure || salaryRequestSettled ? (
+                        <span className="text-[10px] font-semibold text-slate-400">
+                            {salaryRequestSettled ? 'تم التسجيل — اضغط أو «السجل» للمتابعة' : 'تم الحجز — اضغط للاطلاع'}
+                        </span>
+                    ) : null}
+                </span>
+            }
+            trailingSlot={
+                salaryRequestSettled ? (
+                    <SeizureLogNavigateBadge tab="salary" tone="emerald" />
+                ) : null
+            }
+            afterButton={
+                hasActiveSalarySeizure ? null : (
+                    <InlineActionGate
+                        gateKey="seizure_salary"
+                        activeKey={inlineActionGateKey}
+                        onConfirm={() => {
+                            setInlineActionGateKey(null);
+                            const did = submitBasicSeizureRequest({
+                                actionType: 'salary',
+                                title: salaryRequestTitle,
+                                body: activeDebtorIsDeceased
+                                    ? 'طلب حجز الحوافز والمخصصات (مبدئي) — يُسجَّل قرار المنفذ فقط.'
+                                    : 'طلب حجز راتب (مبدئي) — يُسجَّل قرار المنفذ فقط.',
+                                subtype: 'salary',
+                            });
+                            if (did) setLastSalaryDecisionId(did);
+                        }}
+                        onCancel={() => setInlineActionGateKey(null)}
+                    />
+                )
+            }
+        >
+            {salaryRowForUi && !salaryRequestSettled ? (
+                <div className="mt-2">
+                    <ExecutionInlineAccordion
+                        steps={buildRequestSteps(salaryRequestTitle, salaryRowForUi, 'seizure')}
+                    />
+                </div>
+            ) : null}
+        </SeizureRequestBlock>
+        ) : null}
+        {showRecommendedButton('movable') ? renderMovableSeizureBlock() : null}
+        {showRecommendedButton('third_party') ? renderThirdPartySeizureBlock() : null}
+        {showRecommendedButton('property') ? renderPropertySeizureBlock() : null}
+
+        {progressive.showAdditionalExpand && !additionalSeizureExpanded ? (
+            <SeizureMatrixExpandLink
+                variant="additional"
+                label="إظهار خيارات حجز إضافية..."
+                onClick={() => setAdditionalSeizureExpanded(true)}
             />
-            {salaryRowForUi ? (
-                <SeizureWorkspaceWrapper
-                    executionId={resolvedExecutionId}
-                    patchExecutionIds={executionIdsForDecisions}
-                    row={salaryRowForUi}
-                    title={activeDebtorIsDeceased ? 'طلب حجز الحوافز والمخصصات' : 'طلب حجز راتب'}
-                    completion={renderSalaryCompletion(salaryRowForUi)}
-                    onOpenAppeals={openAppeals}
-                    expandSignal={salaryExpandEpoch}
-                />
-            ) : null}
-        </div>
-        <div className="relative">
-            <button
-                type="button"
-                onClick={() => {
-                    if (executionCoerciveButtonDisabled || isHistoricalMode) return;
-                    setInlineActionGateKey('seizure_property');
-                }}
-                disabled={executionCoerciveButtonDisabled || isHistoricalMode}
-                className="w-full rounded-2xl border border-amber-300/15 bg-amber-500/[0.06] px-4 py-3 text-[12px] font-bold text-slate-100 hover:bg-amber-500/[0.10] hover:border-amber-200/25 disabled:opacity-40"
-            >
-                <span className="flex flex-row-reverse items-center gap-3">
-                    <span className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/5">
-                        <Building2 className="w-6 h-6 text-white/70" />
-                    </span>
-                    طلب حجز عقار
-                </span>
-            </button>
-            <InlineActionGate
-                gateKey="seizure_property"
-                activeKey={inlineActionGateKey}
-                onConfirm={() => {
-                    setInlineActionGateKey(null);
-                    submitBasicSeizureRequest({
-                        actionType: 'property',
-                        title: 'طلب حجز عقار',
-                        body: 'طلب حجز عقار (مبدئي) — تُستكمل التفاصيل بعد موافقة منفذ العدل.',
-                        subtype: 'property',
-                    });
-                }}
-                onCancel={() => setInlineActionGateKey(null)}
+        ) : null}
+
+        {showManualButton('movable', 'additional') ? renderMovableSeizureBlock() : null}
+        {showManualButton('third_party', 'additional') ? renderThirdPartySeizureBlock() : null}
+        {showManualButton('property', 'additional') ? renderPropertySeizureBlock() : null}
+
+        {progressive.showMaximumExpand && additionalSeizureExpanded && !maximumSeizureExpanded ? (
+            <SeizureMatrixExpandLink
+                variant="maximum"
+                label="إظهار خيارات الحجز القصوى..."
+                onClick={() => setMaximumSeizureExpanded(true)}
             />
-            {propertyDecision ? (
-                <div className="mt-2">
-                    <ExecutionInlineAccordion
-                        steps={buildRequestSteps('طلب حجز عقار', propertyDecision, 'seizure', renderPropertyCompletion(propertyDecision))}
-                    />
-                </div>
-            ) : null}
+        ) : null}
+
+        {showManualButton('movable', 'maximum') ? renderMovableSeizureBlock() : null}
+        {showManualButton('third_party', 'maximum') ? renderThirdPartySeizureBlock() : null}
+        {showManualButton('property', 'maximum') ? renderPropertySeizureBlock() : null}
         </div>
-        <div className="relative">
-            <button
-                type="button"
-                onClick={() => {
-                    if (executionCoerciveButtonDisabled || isHistoricalMode) return;
-                    setInlineActionGateKey('seizure_vehicle');
-                }}
-                disabled={executionCoerciveButtonDisabled || isHistoricalMode}
-                className="w-full rounded-2xl border border-sky-300/15 bg-sky-500/[0.06] px-4 py-3 text-[12px] font-bold text-slate-100 hover:bg-sky-500/[0.10] hover:border-sky-200/25 disabled:opacity-40"
-            >
-                <span className="flex flex-row-reverse items-center gap-3">
-                    <span className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/5">
-                        <Package className="w-6 h-6 text-white/70" />
-                    </span>
-                    طلب حجز مال منقول
-                </span>
-            </button>
-            <InlineActionGate
-                gateKey="seizure_vehicle"
-                activeKey={inlineActionGateKey}
-                onConfirm={() => {
-                    setInlineActionGateKey(null);
-                    submitBasicSeizureRequest({
-                        actionType: 'vehicle',
-                        title: 'طلب حجز مال منقول',
-                        body: 'طلب حجز مال منقول (مبدئي) — تُستكمل التفاصيل بعد موافقة منفذ العدل.',
-                        subtype: 'movable_auction',
-                    });
-                }}
-                onCancel={() => setInlineActionGateKey(null)}
-            />
-            {movableDecision ? (
-                <div className="mt-2">
-                    <ExecutionInlineAccordion
-                        steps={buildRequestSteps('طلب حجز مال منقول', movableDecision, 'seizure', renderVehicleCompletion(movableDecision))}
-                    />
-                </div>
-            ) : null}
-        </div>
-        <div className="relative">
-            <button
-                type="button"
-                onClick={() => {
-                    if (executionCoerciveButtonDisabled || isHistoricalMode) return;
-                    setInlineActionGateKey('seizure_third_party');
-                }}
-                disabled={executionCoerciveButtonDisabled || isHistoricalMode}
-                className="w-full rounded-2xl border border-violet-300/15 bg-violet-500/[0.06] px-4 py-3 text-[12px] font-bold text-slate-100 hover:bg-violet-500/[0.10] hover:border-violet-200/25 disabled:opacity-40"
-            >
-                <span className="flex flex-row-reverse items-center gap-3">
-                    <span className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/5">
-                        <Users className="w-6 h-6 text-white/70" />
-                    </span>
-                    طلب حجز مال المدين لدى الغير
-                </span>
-            </button>
-            <InlineActionGate gateKey="seizure_third_party" activeKey={inlineActionGateKey} onConfirm={() =>
-                (() => {
-                    setInlineActionGateKey(null);
-                    requestFollowupSeizureDecision(
-                        'third_party',
-                        'حجز مال المدين لدى الغير',
-                        'طلب حجز مال المدين لدى الغير وفقاً لإجراءات التنفيذ.'
-                    );
-                })()
-            } onCancel={() => setInlineActionGateKey(null)} />
-            {thirdPartyDecision ? (
-                <div className="mt-2">
-                    <ExecutionInlineAccordion
-                        steps={buildRequestSteps(
-                            'طلب حجز مال المدين لدى الغير',
-                            thirdPartyDecision,
-                            'seizure',
-                            renderThirdPartyInlineCompletionIfAny(thirdPartyDecision)
-                        )}
-                    />
-                </div>
-            ) : null}
-        </div>
-        <div className="relative">
-            <button
-                type="button"
-                onClick={() => {
-                    if (executionCoerciveButtonDisabled || isHistoricalMode) return;
-                    setInlineActionGateKey('seizure_notice_mark');
-                }}
-                disabled={executionCoerciveButtonDisabled || isHistoricalMode}
-                className="w-full rounded-2xl border border-rose-300/15 bg-rose-500/[0.06] px-4 py-3 text-[12px] font-bold text-slate-100 hover:bg-rose-500/[0.10] hover:border-rose-200/25 disabled:opacity-40"
-            >
-                <span className="flex flex-row-reverse items-center gap-3">
-                    <span className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/5">
-                        <ClipboardList className="w-6 h-6 text-white/70" />
-                    </span>
-                    وضع إشارة الحجز التنفيذي
-                </span>
-            </button>
-            <InlineActionGate gateKey="seizure_notice_mark" activeKey={inlineActionGateKey} onConfirm={() =>
-                (() => {
-                    setInlineActionGateKey(null);
-                    requestFollowupSeizureDecision(
-                        'notice',
-                        'وضع إشارة الحجز التنفيذي',
-                        'طلب وضع إشارة الحجز التنفيذي لضمان التنفيذ.'
-                    );
-                })()
-            } onCancel={() => setInlineActionGateKey(null)} />
-            {noticeDecision ? (
-                <div className="mt-2">
-                    <ExecutionInlineAccordion
-                        steps={buildRequestSteps('وضع إشارة الحجز التنفيذي', noticeDecision, 'seizure')}
-                    />
-                </div>
-            ) : null}
-        </div>
+        )}
     </div>
     );
 };

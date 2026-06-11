@@ -9,6 +9,10 @@ import {
 } from '@/app/services/alertFutureGate';
 import { normalizeDateToYmd } from '@/app/services/calendarBridge';
 import { calendarEventToTimestamp } from '@/app/utils/calendarDateTime';
+import {
+    isTaskDayOverdueIncomplete,
+    isTaskMarkedDone,
+} from '@/app/components/lawyer/dashboard/tasksManager/utils';
 
 export const FIELD_TASK_ALERT_ID_PREFIX = 'field-task:';
 
@@ -62,15 +66,18 @@ export function buildFieldTaskAlerts(
 
     for (const task of tasks) {
         if (task.status !== 'pending') continue;
+        if (isTaskMarkedDone(task)) continue;
 
         const ymd = fieldTaskDueYmd(task);
         const pinned = Boolean(task.pinnedToFieldCurtain);
+        const overdueIncomplete = isTaskDayOverdueIncomplete(task, now);
 
-        if (!ymd && !pinned) continue;
-        if (ymd && !isEventDateOnOrAfterToday(ymd, now)) continue;
+        if (!ymd && !pinned && !overdueIncomplete) continue;
+
+        if (ymd && !isEventDateOnOrAfterToday(ymd, now) && !overdueIncomplete) continue;
 
         const days = ymd ? daysFromTodayYmd(ymd, todayYmd) : 0;
-        if (ymd && days > 7 && !pinned) continue;
+        if (ymd && days > 7 && !pinned && !overdueIncomplete) continue;
 
         const taskId = String(task.id).trim();
         if (!taskId) continue;
@@ -84,13 +91,21 @@ export function buildFieldTaskAlerts(
             id: `${FIELD_TASK_ALERT_ID_PREFIX}${taskId}`,
             type: 'DEADLINE',
             title,
-            summary: location ? `${location} — مهمة ميدانية` : 'مهمة ميدانية',
+            summary: overdueIncomplete
+                ? location
+                    ? `${location} — مهمة لم تُؤكَّد إنجازها`
+                    : 'مهمة ميدانية لم تُؤكَّد إنجازها'
+                : location
+                  ? `${location} — مهمة ميدانية`
+                  : 'مهمة ميدانية',
             dueAt: fieldTaskDueIso(task, ymd, now),
-            suggestedAction: '📋 استعراض وإنجاز المهمة الميدانية',
+            suggestedAction: overdueIncomplete
+                ? '⚠️ اضغط «إنهاء المهمة» لتأكيد الإنجاز'
+                : '📋 استعراض وإنجاز المهمة الميدانية',
             aiDeepDive: task.rawText?.trim() || title,
             target: 'schedule',
             entityId: taskId,
-            priority: task.isFatalDeadline ? 1 : pinned ? 2 : 3,
+            priority: overdueIncomplete || task.isFatalDeadline ? 1 : pinned ? 2 : 3,
             clientName: dossier?.clientName,
             caseNumber: dossier?.caseNumber,
             actionType: location || 'مهمة ميدانية',

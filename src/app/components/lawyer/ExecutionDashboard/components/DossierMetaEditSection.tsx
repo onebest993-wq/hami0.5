@@ -1,5 +1,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
+import { fileHasSpecificDeliveryClaim } from '@/app/utils/executionDossierHeaderFields';
+import type { ExecutionFile } from '@/app/types/execution';
 
 export interface DossierMetaEditSectionProps {
     showEditDossierMetaModal: boolean;
@@ -19,6 +21,10 @@ export const DossierMetaEditSection: React.FC<DossierMetaEditSectionProps> = ({
     saveDossierMetaDraft,
 }) => {
     if (!showEditDossierMetaModal || !dossierMetaDraft) return null;
+
+    const isSpecificDeliveryClaim = fileHasSpecificDeliveryClaim({
+        claimType: dossierMetaDraft.claimType,
+    } as ExecutionFile);
 
     const baseFields = [
         { k: 'directorate', label: 'اسم المديرية / الجهة' },
@@ -122,6 +128,44 @@ export const DossierMetaEditSection: React.FC<DossierMetaEditSectionProps> = ({
                                     <option value="">— غير محدد —</option>
                                     <option value="commercial">تجاري</option>
                                     <option value="residential">سكني</option>
+                                </select>
+                            </div>
+                        </>
+                    ) : isSpecificDeliveryClaim ? (
+                        <>
+                            <div className="sm:col-span-2">
+                                <label className="mb-1 block text-[10px] text-slate-500">
+                                    الشيء المراد تسليمه
+                                </label>
+                                <input
+                                    type="text"
+                                    value={dossierMetaDraft.specificDeliveryItemName ?? ''}
+                                    onChange={(e) =>
+                                        setDossierMetaDraft((d) =>
+                                            d ? { ...d, specificDeliveryItemName: e.target.value } : d
+                                        )
+                                    }
+                                    className="w-full rounded-lg border border-white/10 bg-slate-900/80 px-2 py-2 text-xs text-white"
+                                />
+                            </div>
+                            <div className="sm:col-span-2">
+                                <label className="mb-1 block text-[10px] text-slate-500">
+                                    طبيعة الشيء
+                                </label>
+                                <select
+                                    value={dossierMetaDraft.specificDeliveryItemNature ?? ''}
+                                    onChange={(e) =>
+                                        setDossierMetaDraft((d) =>
+                                            d
+                                                ? { ...d, specificDeliveryItemNature: e.target.value }
+                                                : d
+                                        )
+                                    }
+                                    className="w-full rounded-lg border border-white/10 bg-slate-900/80 px-2 py-2 text-xs text-white"
+                                >
+                                    <option value="">— غير محدد —</option>
+                                    <option value="movable">منقول</option>
+                                    <option value="immovable">غير منقول</option>
                                 </select>
                             </div>
                         </>

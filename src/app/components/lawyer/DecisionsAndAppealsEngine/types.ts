@@ -31,10 +31,18 @@ export interface Decision {
         tone: 'emerald' | 'rose' | 'amber' | 'slate';
     }>;
     appealStatus: 'pending' | 'tadhallum_filed' | 'tamyeez_filed' | 'upheld' | 'overturned' | 'modified' | 'final';
-    appealResult?: 'تصديق القرار' | 'نقض القرار' | 'تعديل' | 'رد اللائحة';
+    appealResult?:
+        | 'تصديق القرار'
+        | 'نقض القرار'
+        | 'تعديل'
+        | 'رد اللائحة'
+        | 'قبول التظلم'
+        | 'رد التظلم';
     /** تاريخ صدور قرار الطعن (مثل: 2026-04-30) */
     appealDecisionDate?: string;
-    executorOutcome?: 'pending' | 'approved' | 'rejected' | 'alternative';
+    executorOutcome?: 'pending' | 'approved' | 'rejected' | 'alternative' | 'withdrawn';
+    lawyerWithdrawn?: boolean;
+    personalCoerciveWithdrawnAt?: string;
     executorNote?: string;
     resolvedAt?: string;
     alternativeActionId?: string;
@@ -70,6 +78,17 @@ export interface Decision {
     appealSourceDecisionId?: string | null;
     activeAppealCopyId?: string | null;
     manualExecutorLedgerEntry?: boolean;
+    /** مُفعَّل بقرار المنفذ دون طلب دائن مسبق */
+    activatedByExecutorOrder?: boolean;
+    /** قرار قاضي البداءة بالحبس التنفيذي — تمييز فقط دون تظلم */
+    cassationOnlyAppeal?: boolean;
+    executiveDetentionJudgeOutcome?: 'approved' | 'rejected' | null;
+    /** طُرحت الإضبارة على قاضي البداءة — انتهى دور المنفذ على هذا الطلب */
+    executorDetentionHandedToJudge?: boolean;
+    parentExecutorDecisionId?: string;
+    /** أُغلقت الدورة — طلب مرفوض/منتهٍ لا يُعاد التعامل معه بعد تقديم طلب جديد */
+    requestCycleSuperseded?: boolean;
+    requestCycleSupersededAt?: string;
     /** أرشفة القرار لإخفائه من القائمة الرئيسية */
     isArchived?: boolean;
     /** الإنابة التنفيذية — اسم الدائرة المُنابة */

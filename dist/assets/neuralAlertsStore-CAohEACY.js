@@ -1,1 +1,0 @@
-import{k as t}from"./chunk-lawyer-cloud-alerts-DC84akTn.js";import{K as i}from"./chunk-lawyer-dashboard-Ba4YZ5ZE.js";const a=i(e=>({activeFilter:"urgent",setActiveFilter:r=>e({activeFilter:r}),homeHubPanel:"alerts",setHomeHubPanel:r=>e({homeHubPanel:r})}));function n(e,r){return e[r]>0?null:t(e)}export{n as s,a as u};

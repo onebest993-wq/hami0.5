@@ -10,13 +10,15 @@ import { ExecutionPaymentsSection } from './ExecutionPaymentsSection';
 import { ExecutionTimelineSection } from './ExecutionTimelineSection';
 import { ExecutionActionsBar } from './ExecutionActionsBar';
 import type { Party, Payment, TimelineEvent as ModularTimelineEvent } from './types';
+import { resolvePartyStoredName } from '@/app/utils/executionPartyNormalize';
 
 function mapRowsToParties(rows: unknown[]): Party[] {
     return rows.map((raw, i) => {
         const c = raw as Record<string, unknown>;
+        const name = resolvePartyStoredName(c);
         return {
             id: String(c.id ?? i),
-            name: String(c.name ?? ''),
+            name,
             phone: c.phone as string | undefined,
             address: c.address as string | undefined,
             occupation: c.occupation as string | undefined,

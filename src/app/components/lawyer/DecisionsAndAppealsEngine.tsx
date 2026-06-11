@@ -11,7 +11,19 @@ import type {
 } from '@/app/types/execution';
 import { useDecisionDispatcher } from '@/app/hooks/useDecisionDispatcher';
 import type { ExecutorApprovalActions } from '@/app/utils/executorApprovalWorkflow';
-import { dispatchDecisionsReload } from '@/app/utils/executorSeizureDecisionQueue';
+import {
+    dispatchDecisionsReload,
+    readExecutorDecisionsArray,
+} from '@/app/utils/executorSeizureDecisionQueue';
+import { writeExecutorDecisionsArray } from '@/app/utils/executionDecisionsNamespace';
+import { applyEvictionAppealClosure } from '@/app/utils/evictionAppealSync';
+import { applyPersonalCoerciveAppealClosure } from '@/app/utils/personalCoerciveAppealSync';
+import { applyWaiveCassationAfterDebtorGrievanceForExecution } from '@/app/utils/waiveCassationAfterDebtorGrievance';
+import {
+    applyWaiveInitialAppealForExecution,
+    canWaiveInitialAppeal,
+} from '@/app/utils/waiveInitialAppeal';
+import { isSeizureDecisionFollowupComplete } from '@/app/components/lawyer/DecisionsAndAppealsEngine/seizureFollowupComplete';
 import {
     isExecutionAppealTerminal,
 } from '@/app/utils/executionDecisionAppealActive';
@@ -19,18 +31,31 @@ import {
     formatCreditorPartyDeathSummaryAr,
     parseCreditorPartyDeathPayload,
 } from '@/app/utils/creditorPartyDeathPersistence';
-import { executionDecisionsStorageKey } from '@/app/utils/executionStorageKeys';
+import {
+    filterDecisionsForDomainContext,
+    resolveExecutionDomainContext,
+} from '@/app/utils/executionDomainIsolation';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import { TooltipProvider } from '@/app/components/ui/tooltip';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { useExecutionDashboardStore, INABA_SUB_FILE_ID, makeInabaSubFileId, isInabaSubFileId } from '@/app/stores/executionDashboardStore';
 import { loadExecutionFilesRaw, saveExecutionFilesRaw, EXECUTION_FILES_STORAGE_KEY } from '@/app/utils/executionFilesStorage';
+import { applyDossierSpecialFollowupOutcome } from '@/app/components/lawyer/ExecutionDashboard/utils/applyDossierSpecialFollowupOutcome';
 import { storageCache } from '@/app/utils/storageCache';
 import GlowingDot from './DecisionsAndAppealsEngine/components/GlowingDot';
 import DecisionHintTooltip from './DecisionsAndAppealsEngine/components/DecisionHintTooltip';
 import DecisionCard from './DecisionsAndAppealsEngine/components/DecisionCard';
 import AppealWorkflowCard from './DecisionsAndAppealsEngine/components/AppealWorkflowCard';
 import type { Decision } from './DecisionsAndAppealsEngine/types';
+import {
+    DECISION_APPEAL_TOOLBAR_BTN_PRIMARY,
+    DECISION_APPEAL_TOOLBAR_BTN_SECONDARY,
+    DECISION_APPEAL_TOOLBAR_ROW,
+    DECISION_BTN_DEBTOR_APPEAL_NOTICE,
+    DECISION_BTN_GRIEVANCE_ACCEPT,
+    DECISION_BTN_GRIEVANCE_REJECT,
+    DECISION_NOTICE_GLASS,
+} from './DecisionsAndAppealsEngine/decisionCardPresentation';
 import {
     newEventId,
     DECISIONS_APPEALS_TOOLTIP_DELAY_MS,
@@ -40,22 +65,43 @@ import {
     shouldShowDecisionHubBody,
     stripRedundantLeadingLinesFromHubBody,
     appealWindowsFromClockYmd,
-    appealEntryShowsDebtorFirst,
+    resolveHarmedPartyAppealActor,
+    isCassationAffirmResult,
     petitionGrantedAfterCassation,
+    buildGrievanceResolutionPatch,
+    grievancePetitionGranted,
     decisionAppealClockYmd,
     inferAppealMethodsUsed,
     deriveDecisionHubStatus,
     getActiveAppealCopyForOriginal,
     appealPipelineRowForCard,
     formatRegisteredAppealPathForDecision,
-    effectiveExecutorOutcomeForCreditorHubPill,
+    resolveCreditorDecisionEnforcementState,
     EXECUTOR_QUEUE_REQUEST_KINDS,
     decisionAppealPipelineActive,
-    sortDecisionsWithAppealPinnedFirst,
-    appealTrackSmartPillLabel,
+    sortDecisionsNewestFirst,
+    isExecutorDecisionAppealFinal,
+    canWaiveCassationAfterDebtorGrievance,
+    canWaiveLawyerAwaitingCassation,
+    resolveCassationFilerActor,
+    resolveEffectiveAwaitingCassationParty,
+    hubWithInferredAppealOrigin,
+    isCreditorInitiatedExecutorRequest,
+    renderDecisionHubStatusPill,
     type AppealDeadlineWindows,
     type DecisionsAppealsAppealSlot,
 } from './DecisionsAndAppealsEngine/utils';
+import {
+    appealCassationEntryLabels,
+    appealDirectCassationButtonLabel,
+    appealInitialCassationEntryButtonLabel,
+    appealInitialGrievanceEntryButtonLabel,
+    appealExecutorSideDebtorPathLabel,
+    appealInitialCassationTimeline,
+    appealInitialGrievanceTimeline,
+    appealLawyerCassationAutoEntryDescription,
+    resolveAppealUiPerspective,
+} from './DecisionsAndAppealsEngine/appealUiLabels';
 
 function normalizeBaseDossierIdFromDecisionsKey(rawKey: string | undefined): string {
     const key = String(rawKey || '').trim();
@@ -135,24 +181,38 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
     isHistoricalMode = false,
     getMilestoneTimelineSnapshot,
 }) => {
-    const storageKey = useMemo(
-        () => executionDecisionsStorageKey(executionId),
-        [executionId]
-    );
-
     const [decisions, setDecisions] = useState<Decision[]>([]);
 
+    const executionDataForSync = dispatcherHub?.executionData ?? null;
+
+    const persistDecisionsToStorage = React.useCallback(
+        (next: Decision[]) => {
+            writeExecutorDecisionsArray(
+                executionId,
+                next as unknown as Record<string, unknown>[],
+                executionDataForSync as Record<string, unknown> | null | undefined
+            );
+        },
+        [executionId, executionDataForSync]
+    );
+
+    const appealPerspective = useMemo(
+        () => resolveAppealUiPerspective(executionDataForSync),
+        [executionDataForSync]
+    );
+
+    const executionDomainContext = useMemo(
+        () => resolveExecutionDomainContext(executionDataForSync, executionId),
+        [executionDataForSync, executionId]
+    );
+
+    const domainVisibleDecisions = useMemo(
+        () => filterDecisionsForDomainContext(executionDomainContext, decisions),
+        [executionDomainContext, decisions]
+    );
+
     const reloadFromStorage = React.useCallback(() => {
-        const stored = SecureStoreService.getItemSync(storageKey);
-        let raw: Decision[] = [];
-        if (stored) {
-            try {
-                const parsed = JSON.parse(stored) as unknown;
-                raw = Array.isArray(parsed) ? (parsed as Decision[]) : [];
-            } catch {
-                raw = [];
-            }
-        }
+        let raw: Decision[] = readExecutorDecisionsArray(executionId) as Decision[];
         /** إصلاح كارثي: ضمان عدم تكرار IDs — لأن التحديث يعتمد على id (وإلا تتغير عدة بطاقات معاً) */
         if (Array.isArray(raw) && raw.length > 0) {
             const seen = new Set<string>();
@@ -173,13 +233,13 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
             });
             if (mutated) {
                 try {
-                    SecureStoreService.setItemSync(storageKey, JSON.stringify(raw));
+                    persistDecisionsToStorage(raw);
                 } catch {
                     /* ignore */
                 }
             }
         }
-        const normalized = raw.map((d) => {
+        let normalized = raw.map((d) => {
             const row = { ...d } as Decision;
             if (!row.requestKind && /طلب حجز|حجز راتب|حجز عقار|منقول/.test(row.title)) {
                 row.requestKind = 'seizure';
@@ -195,6 +255,36 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
             }
             if (!row.requestKind && /طلب إدخال كفيل ضامن|طلب كفيل/i.test(String(row.title || ''))) {
                 row.requestKind = 'guarantor_request';
+            }
+            if (!row.requestKind && /^personal_coercive_/i.test(String(row.id || ''))) {
+                row.requestKind = 'personal_coercive';
+            }
+            if (row.requestKind === 'personal_coercive' && !row.personalCoerciveSubtype) {
+                const t = String(row.title || '');
+                if (/منع سفر|إشارة منع سفر/i.test(t)) row.personalCoerciveSubtype = 'travel_ban';
+                else if (/إحضار جبري/i.test(t)) row.personalCoerciveSubtype = 'forced_bring_in';
+                else if (/مفاتحة|أمر قبض|تحقيق/i.test(t)) {
+                    row.personalCoerciveSubtype =
+                        /تكليف حضور|موظف/i.test(t)
+                            ? 'employee_assignment_investigation'
+                            : 'arrest_warrant_investigation';
+                } else if (/عرض الإضبارة|عرض الاضباره/i.test(t)) {
+                    row.personalCoerciveSubtype = 'executive_dossier_presentation';
+                } else if (/حبس تنفيذي/i.test(t)) row.personalCoerciveSubtype = 'executive_detention';
+                else if (/قرار قاضي البداءة/i.test(t)) row.personalCoerciveSubtype = 'executive_detention_judge';
+                else if (/إخلاء سبيل/i.test(t)) row.personalCoerciveSubtype = 'release_debtor';
+            }
+            if (row.personalCoerciveSubtype === 'executive_detention_judge') {
+                row.cassationOnlyAppeal = true;
+            }
+            if (row.personalCoerciveSubtype === 'release_debtor') {
+                row.appealStatus = 'final';
+                row.noAppealChosen = true;
+                if (!row.executorOutcome || row.executorOutcome === 'pending') {
+                    row.executorOutcome = 'approved';
+                    row.status = 'accepted';
+                    row.resolvedAt = row.resolvedAt || new Date().toISOString();
+                }
             }
             if (!row.requestKind) {
                 const t = String(row.title || '');
@@ -251,7 +341,27 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
             }
             if (row.appealActor === undefined) row.appealActor = null;
             if (row.appealMethod === undefined) row.appealMethod = null;
-            row.noAppealChosen = false;
+            if (
+                row.appealRequestOrigin === 'creditor_side' &&
+                row.appealActor === 'debtor' &&
+                row.appealResult === 'قبول التظلم' &&
+                row.appealStatus !== 'tamyeez_filed' &&
+                row.appealPhase !== 'cassation' &&
+                row.executorOutcome === 'rejected'
+            ) {
+                row.executorOutcome = 'approved';
+                row.status = 'accepted';
+            }
+            const storedWaivedAppeal =
+                row.noAppealChosen === true &&
+                (row.appealStatus === 'final' ||
+                    (Array.isArray(row.appealTimelineLogs) &&
+                        row.appealTimelineLogs.some((l) =>
+                            /دون تظلم|دون طعن|لا حاجة للطعن|لا حاجة للتمييز/.test(String(l.message || ''))
+                        )));
+            if (!storedWaivedAppeal) {
+                row.noAppealChosen = false;
+            }
             if (!Array.isArray(row.appealTimelineLogs)) row.appealTimelineLogs = [];
             const hasAppealActivity =
                 row.appealActor === 'lawyer' ||
@@ -271,13 +381,24 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                 if (!row.appealActor) {
                     if (row.appealResult === 'تصديق القرار') {
                         row.appealActor = row.executorOutcome === 'approved' ? 'debtor' : 'lawyer';
-                    } else if (row.appealResult === 'نقض القرار') {
-                        row.appealActor = row.executorOutcome === 'rejected' ? 'debtor' : 'lawyer';
+                    } else if (
+                        row.appealResult === 'نقض القرار' ||
+                        isCassationAffirmResult(row.appealResult) ||
+                        row.appealStatus === 'tamyeez_filed' ||
+                        row.appealPhase === 'cassation'
+                    ) {
+                        row.appealActor = resolveCassationFilerActor(row);
                     } else if (row.appealStatus === 'tadhallum_filed' || row.appealPhase === 'grievance') {
                         row.appealActor = row.executorOutcome === 'approved' ? 'debtor' : 'lawyer';
-                    } else if (row.appealStatus === 'tamyeez_filed' || row.appealPhase === 'cassation') {
-                        row.appealActor = row.executorOutcome === 'approved' ? 'debtor' : 'lawyer';
                     }
+                } else if (
+                    row.appealResult === 'نقض القرار' ||
+                    isCassationAffirmResult(row.appealResult) ||
+                    row.appealStatus === 'tamyeez_filed' ||
+                    row.appealPhase === 'cassation'
+                ) {
+                    const cassationFiler = resolveCassationFilerActor(row);
+                    if (cassationFiler) row.appealActor = cassationFiler;
                 }
                 if (!row.appealMethod) {
                     if (row.appealStatus === 'tadhallum_filed' || row.appealPhase === 'grievance') {
@@ -328,6 +449,13 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                     } else if (row.appealResult === 'نقض القرار') {
                         row.appealWorkflowState =
                             row.executorOutcome === 'approved' ? 'REVOKED_BY_APPEAL' : 'FINAL_ACCEPTED';
+                    } else if (row.appealResult === 'قبول التظلم' || row.appealResult === 'رد التظلم') {
+                        row.appealWorkflowState =
+                            row.appealStatus === 'final'
+                                ? row.status === 'accepted'
+                                    ? 'FINAL_ACCEPTED'
+                                    : 'FINAL_REJECTED'
+                                : 'NONE';
                     } else {
                         row.appealWorkflowState = 'FINAL_ACCEPTED';
                     }
@@ -410,40 +538,55 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
             }
             return row;
         });
+        if (executionDataForSync) {
+            let backfillMutated = false;
+            normalized = normalized.map((row) => {
+                if (String(row.seizureRequestSavedAt || '').trim()) return row;
+                if (!isSeizureDecisionFollowupComplete(row, executionDataForSync)) return row;
+                backfillMutated = true;
+                const ts = String(row.resolvedAt || row.date || new Date().toISOString()).trim();
+                return { ...row, seizureRequestSavedAt: ts || new Date().toISOString() };
+            });
+            if (backfillMutated) {
+                try {
+                    persistDecisionsToStorage(normalized);
+                } catch {
+                    /* ignore */
+                }
+            }
+        }
         setDecisions(normalized);
-    }, [storageKey]);
+    }, [executionDataForSync, executionId, persistDecisionsToStorage]);
 
     useEffect(() => {
         reloadFromStorage();
-    }, [reloadFromStorage]);
+    }, [executionDataForSync, reloadFromStorage]);
 
     useEffect(() => {
-        let cancelled = false;
-        (async () => {
-            try {
-                const stored = await SecureStoreService.getItem(storageKey);
-                if (cancelled) return;
-                if (stored) {
-                    const parsed = JSON.parse(stored) as unknown;
-                    const storedCount = Array.isArray(parsed) ? parsed.length : 0;
-                    const currentCount = decisions.length;
-                    if (currentCount === 0 || storedCount > currentCount) {
-                        reloadFromStorage();
-                    }
-                }
-            } catch {
-                /* ignore */
-            }
-        })();
-        return () => { cancelled = true; };
-    }, [decisions.length, reloadFromStorage, storageKey]);
+        const storedCount = readExecutorDecisionsArray(executionId).length;
+        const currentCount = decisions.length;
+        if (currentCount === 0 || storedCount > currentCount) {
+            reloadFromStorage();
+        }
+    }, [decisions.length, executionId, reloadFromStorage]);
 
     useEffect(() => {
         const onExternalReload = () => {
             reloadFromStorage();
         };
+        const onDecisionOutcome = () => {
+            onExternalReload();
+        };
         window.addEventListener('hami-decisions-reload', onExternalReload);
-        return () => window.removeEventListener('hami-decisions-reload', onExternalReload);
+        window.addEventListener('hami-execution-decision-outcome', onDecisionOutcome);
+        window.addEventListener('hami-seizure-decision-step-saved', onExternalReload);
+        window.addEventListener('hami-guarantor-followup-committed', onExternalReload);
+        return () => {
+            window.removeEventListener('hami-decisions-reload', onExternalReload);
+            window.removeEventListener('hami-execution-decision-outcome', onDecisionOutcome);
+            window.removeEventListener('hami-seizure-decision-step-saved', onExternalReload);
+            window.removeEventListener('hami-guarantor-followup-committed', onExternalReload);
+        };
     }, [reloadFromStorage]);
 
     useEffect(() => {
@@ -468,13 +611,12 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
 
     const [hubNoteById, setHubNoteById] = useState<Record<string, string>>({});
     const [tamyeezNumberDraftById, setTamyeezNumberDraftById] = useState<Record<string, string>>({});
-    const [appealActorDraftById, setAppealActorDraftById] = useState<Record<string, 'lawyer' | 'debtor' | null>>({});
     const [tamyeezEditOpenById, setTamyeezEditOpenById] = useState<Record<string, boolean>>({});
 
     const [showAddModal, setShowAddModal] = useState(false);
     /** تبويب القائمة: طلبات حالية | قرارات سابقة | سجل الطعون */
     const [decisionsHubTab, setDecisionsHubTab] = useState<'current' | 'previous' | 'appeals' | 'archive'>('current');
-    const [previousFilter, setPreviousFilter] = useState<'all' | 'approved' | 'rejected' | 'active_appeals'>('all');
+    const [previousFilter, setPreviousFilter] = useState<'all' | 'approved' | 'rejected'>('all');
     const [decisionsScrollTargetId, setDecisionsScrollTargetId] = useState<string | null>(null);
     const [appealsScrollTargetId, setAppealsScrollTargetId] = useState<string | null>(null);
     const [appealDetailDecision, setAppealDetailDecision] = useState<Decision | null>(null);
@@ -521,15 +663,28 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
     const [newDate, setNewDate] = useState('');
 
     const requestNeedsExecutorOutcome = React.useCallback(
-        (d: Decision) =>
-            Boolean(d.requestKind && EXECUTOR_QUEUE_REQUEST_KINDS.includes(d.requestKind)) &&
-            (d.executorOutcome === undefined || d.executorOutcome === 'pending'),
+        (d: Decision) => {
+            if (d.executorOutcome === 'withdrawn' || d.lawyerWithdrawn === true) return false;
+            return (
+                Boolean(d.requestKind && EXECUTOR_QUEUE_REQUEST_KINDS.includes(d.requestKind)) &&
+                (d.executorOutcome === undefined || d.executorOutcome === 'pending')
+            );
+        },
         []
     );
 
     /** لا يُعرض «الطعن بالقرار» قبل بتّ المنفذ لطلبات الطابور فقط؛ غير ذلك يبقى السلوك السابق */
     const canShowAppealInitialForDecision = React.useCallback(
         (d: Decision): boolean => {
+            if (d.noAppealChosen === true) return false;
+            if (d.personalCoerciveSubtype === 'release_debtor') return false;
+            if (
+                (d.personalCoerciveSubtype === 'executive_detention' ||
+                    d.personalCoerciveSubtype === 'executive_dossier_presentation') &&
+                d.executorDetentionHandedToJudge === true
+            ) {
+                return false;
+            }
             if (d.manualExecutorLedgerEntry) return true;
             if (d.appealRequestOrigin === 'executor_side') return true;
             if (!d.requestKind || !EXECUTOR_QUEUE_REQUEST_KINDS.includes(d.requestKind)) return true;
@@ -597,12 +752,12 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
         (decisionId: string, patch: Partial<Decision>) => {
             setDecisions((prev) => {
                 const next = prev.map((d) => (d.id === decisionId ? { ...d, ...patch } : d));
-                SecureStoreService.setItemSync(storageKey, JSON.stringify(next));
+                persistDecisionsToStorage(next);
                 queueMicrotask(() => dispatchDecisionsReload());
                 return next;
             });
         },
-        [storageKey]
+        [persistDecisionsToStorage]
     );
 
 
@@ -629,10 +784,6 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                           status: 'rejected',
                       };
             patchDecisionRow(decision.id, patch);
-            setAppealActorDraftById((p) => ({
-                ...p,
-                [decision.id]: branch === 'creditor' ? 'lawyer' : 'debtor',
-            }));
             onTimelineUpdate({
                 id: newEventId(),
                 date: nowIso.slice(0, 10),
@@ -656,7 +807,7 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
         (decision: Decision, choice: 'rad_laheeza' | 'naqd') => {
             const petitionGranted = petitionGrantedAfterCassation(decision, choice);
             const labelAr: NonNullable<Decision['appealResult']> =
-                choice === 'rad_laheeza' ? 'رد اللائحة' : 'نقض القرار';
+                choice === 'rad_laheeza' ? 'تصديق القرار' : 'نقض القرار';
             const origPetitionGranted =
                 decision.appealBaseBranch === 'after_approval' ||
                 (decision.appealBaseBranch == null &&
@@ -673,18 +824,35 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                 dateStyle: 'medium',
                 timeStyle: 'short',
             });
-            const debtorOrigin = decision.appealRequestOrigin === 'debtor_side';
-            const outcomeLine = debtorOrigin
-                ? petitionGranted
-                    ? 'النتيجة: طلب المدين مقبول نهائياً وقُفل القرار.'
-                    : 'النتيجة: طلب المدين مرفوض نهائياً وقُفل القرار.'
-                : petitionGranted
-                  ? 'النتيجة: طلب الدائن/تنفيذ مقبول نهائياً وقُفل القرار.'
-                  : 'النتيجة: طلب الدائن/تنفيذ مرفوض نهائياً وقُفل القرار.';
+            const hub = hubWithInferredAppealOrigin(decision);
+            const creditorPartyRequest = isCreditorInitiatedExecutorRequest(hub);
+            const outcomeLine = (() => {
+                if (appealPerspective === 'debtor_agent') {
+                    if (creditorPartyRequest) {
+                        return petitionGranted
+                            ? 'النتيجة: طلب الدائن غير مقبول نهائياً — لصالح موكّلك.'
+                            : 'النتيجة: طلب الدائن مُثبَّت نهائياً — ضد موكّلك.';
+                    }
+                    return petitionGranted
+                        ? 'النتيجة: طلب موكّلك مقبول نهائياً وقُفل القرار.'
+                        : 'النتيجة: طلب موكّلك مرفوض نهائياً وقُفل القرار.';
+                }
+                if (!creditorPartyRequest) {
+                    return petitionGranted
+                        ? 'النتيجة: طلب المدين مقبول نهائياً وقُفل القرار.'
+                        : 'النتيجة: طلب المدين مرفوض نهائياً وقُفل القرار.';
+                }
+                return petitionGranted
+                    ? 'النتيجة: طلب الدائن/تنفيذ مقبول نهائياً وقُفل القرار.'
+                    : 'النتيجة: طلب الدائن/تنفيذ مرفوض نهائياً وقُفل القرار.';
+            })();
+            const cassationFiler = resolveCassationFilerActor(decision);
             const resolvedAppealPatch: Partial<Decision> = {
                 appealPhase: null,
                 appealStatus: 'final',
                 appealResult: labelAr,
+                appealMethod: 'tamyeez',
+                appealActor: cassationFiler ?? decision.appealActor ?? null,
                 status: petitionGranted ? 'accepted' : 'rejected',
                 executorOutcome: petitionGranted ? 'approved' : 'rejected',
                 appealWorkflowState,
@@ -748,13 +916,23 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
             }
 
             setDecisions(next);
-            SecureStoreService.setItemSync(storageKey, JSON.stringify(next));
+            persistDecisionsToStorage(next);
             queueMicrotask(() => dispatchDecisionsReload());
             const mergedRowId =
                 typeof srcId === 'string' && srcId.trim() ? srcId : decision.id;
             const mergedRow = next.find((x) => x.id === mergedRowId);
             if (mergedRow) {
                 dispatchHeirSubstitutionOutcomeIfAny(executionId, mergedRow);
+                applyPersonalCoerciveAppealClosure({
+                    executionId,
+                    row: mergedRow as unknown as Record<string, unknown>,
+                    allDecisions: next as unknown as Record<string, unknown>[],
+                });
+                applyEvictionAppealClosure({
+                    executionId,
+                    row: mergedRow as unknown as Record<string, unknown>,
+                    allDecisions: next as unknown as Record<string, unknown>[],
+                });
             }
             onTimelineUpdate({
                 id: newEventId(),
@@ -766,8 +944,232 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                 source: 'القرارات والطعون',
             });
         },
-        [decisions, executionId, onTimelineUpdate, storageKey]
+        [appealPerspective, decisions, executionId, onTimelineUpdate, persistDecisionsToStorage]
     );
+
+    const applyGrievanceCourtOutcome = React.useCallback(
+        (decision: Decision, grievanceAccepted: boolean) => {
+            const resolvedAppealPatch = buildGrievanceResolutionPatch(decision, grievanceAccepted);
+            const granted = grievancePetitionGranted(decision, grievanceAccepted);
+            const now = new Date().toISOString();
+            const when = new Date(now).toLocaleString('ar-IQ', {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+            });
+            const title = grievanceAccepted ? 'قبول التظلم' : 'رد التظلم';
+            const hubGrievance = hubWithInferredAppealOrigin(decision);
+            const creditorPartyGrievance = isCreditorInitiatedExecutorRequest(hubGrievance);
+            const outcomeLine = (() => {
+                if (appealPerspective === 'debtor_agent') {
+                    if (grievanceAccepted && granted) {
+                        return resolvedAppealPatch.awaitingCassationEntryBy
+                            ? creditorPartyGrievance
+                                ? 'النتيجة: قُبل تظلم موكّلنا — الطلب مغلق مؤقتاً بانتظار تمييز الدائن.'
+                                : 'النتيجة: قُبل تظلم موكّلنا — يتاح للدائن التمييز قبل البت النهائي.'
+                            : 'النتيجة: قُبل تظلم موكّلنا — القرار أصبح نافذاً وفق مسار الطعن.';
+                    }
+                    if (!grievanceAccepted) {
+                        return resolvedAppealPatch.appealStatus === 'final'
+                            ? creditorPartyGrievance
+                                ? 'النتيجة: رُد تظلم موكّلنا — الطلب لصالح الدائن.'
+                                : 'النتيجة: رُد التظلم — بقي القرار الأصلي نافذاً.'
+                            : creditorPartyGrievance
+                              ? 'النتيجة: رُد تظلم موكّلنا — يمكن للدائن التمييز ضمن المهلة.'
+                              : 'النتيجة: رُد التظلم — يبقى القرار مرفوضاً ويمكن التمييز ضمن المهلة.';
+                    }
+                }
+                if (granted) {
+                    return resolvedAppealPatch.awaitingCassationEntryBy
+                        ? 'النتيجة: قُبل التظلم — يتاح للطرف الآخر التمييز قبل نفاذ القرار نهائياً.'
+                        : 'النتيجة: قُبل التظلم — القرار أصبح نافذاً وفق مسار الطعن.';
+                }
+                return resolvedAppealPatch.appealStatus === 'final'
+                    ? 'النتيجة: رُد التظلم — بقي القرار الأصلي نافذاً.'
+                    : 'النتيجة: رُد التظلم — يبقى القرار مرفوضاً ويمكن التمييز ضمن المهلة.';
+            })();
+            const srcId = decision.appealSourceDecisionId;
+            const logEntry = {
+                id: newEventId(),
+                at: now,
+                message: outcomeLine,
+                tone: (granted ? 'emerald' : 'rose') as 'emerald' | 'rose',
+            };
+
+            let next: Decision[];
+            if (typeof srcId === 'string' && srcId.trim()) {
+                const orig = decisions.find((d) => d.id === srcId);
+                const mergedOriginal: Decision = {
+                    ...(orig ?? decision),
+                    ...resolvedAppealPatch,
+                    id: srcId,
+                    activeAppealCopyId:
+                        resolvedAppealPatch.appealStatus === 'final' ? null : orig?.activeAppealCopyId ?? null,
+                    appealTimelineLogs: [
+                        ...(Array.isArray(orig?.appealTimelineLogs) ? orig.appealTimelineLogs : []),
+                        ...(Array.isArray(decision.appealTimelineLogs) ? decision.appealTimelineLogs : []),
+                        logEntry,
+                    ],
+                };
+                if (resolvedAppealPatch.appealStatus === 'final') {
+                    next = decisions
+                        .filter((d) => d.id !== decision.id)
+                        .map((d) => (d.id === srcId ? mergedOriginal : d));
+                } else {
+                    const mergedCopy: Decision = {
+                        ...decision,
+                        ...resolvedAppealPatch,
+                        appealTimelineLogs: [
+                            ...(Array.isArray(decision.appealTimelineLogs) ? decision.appealTimelineLogs : []),
+                            logEntry,
+                        ],
+                    };
+                    next = decisions.map((d) => {
+                        if (d.id === srcId) {
+                            return {
+                                ...mergedOriginal,
+                                activeAppealCopyId: decision.id,
+                            };
+                        }
+                        if (d.id === decision.id) return mergedCopy;
+                        return d;
+                    });
+                }
+            } else {
+                next = decisions.map((d): Decision => {
+                    if (d.id !== decision.id) return d;
+                    return {
+                        ...d,
+                        ...resolvedAppealPatch,
+                        appealTimelineLogs: [
+                            ...(Array.isArray(d.appealTimelineLogs) ? d.appealTimelineLogs : []),
+                            logEntry,
+                        ],
+                    };
+                });
+            }
+
+            setDecisions(next);
+            persistDecisionsToStorage(next);
+            queueMicrotask(() => dispatchDecisionsReload());
+            const mergedRowId =
+                typeof srcId === 'string' && srcId.trim() ? srcId : decision.id;
+            const mergedRow = next.find((x) => x.id === mergedRowId);
+            if (mergedRow) {
+                dispatchHeirSubstitutionOutcomeIfAny(executionId, mergedRow);
+                if (resolvedAppealPatch.appealStatus === 'final') {
+                    applyPersonalCoerciveAppealClosure({
+                        executionId,
+                        row: mergedRow as unknown as Record<string, unknown>,
+                        allDecisions: next as unknown as Record<string, unknown>[],
+                    });
+                    applyEvictionAppealClosure({
+                        executionId,
+                        row: mergedRow as unknown as Record<string, unknown>,
+                        allDecisions: next as unknown as Record<string, unknown>[],
+                    });
+                }
+            }
+            onTimelineUpdate({
+                id: newEventId(),
+                date: now.slice(0, 10),
+                timestamp: now,
+                title,
+                description: [`القرار: ${decision.title}`, outcomeLine, `التوقيت: ${when}`].join('\n'),
+                type: 'appeal',
+                source: 'القرارات والطعون',
+            });
+            if (resolvedAppealPatch.appealStatus === 'final') {
+                queueMicrotask(() => setDecisionsHubTab('previous'));
+            } else if (!granted) {
+                queueMicrotask(() => {
+                    setDecisionsHubTab('appeals');
+                    setAppealsScrollTargetId(
+                        typeof srcId === 'string' && srcId.trim() ? decision.id : mergedRowId
+                    );
+                });
+            }
+        },
+        [appealPerspective, decisions, executionId, onTimelineUpdate, persistDecisionsToStorage]
+    );
+
+    const applyWaiveCassationAfterDebtorGrievance = React.useCallback(
+        (decision: Decision) => {
+            if (!canWaiveLawyerAwaitingCassation(decision, decisions)) return;
+            const result = applyWaiveCassationAfterDebtorGrievanceForExecution({
+                executionId,
+                decisionId: decision.id,
+            });
+            if (!result.ok) return;
+            const now = new Date().toISOString();
+            const when = new Date(now).toLocaleString('ar-IQ', {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+            });
+            reloadFromStorage();
+            onTimelineUpdate({
+                id: newEventId(),
+                date: now.slice(0, 10),
+                timestamp: now,
+                title: 'لا حاجة للتمييز',
+                description: [
+                    `القرار: ${decision.title}`,
+                    result.message ?? 'قُبل التظلم دون تمييز — انتهت دورة الطلب.',
+                    `التوقيت: ${when}`,
+                ].join('\n'),
+                type: 'appeal',
+                source: 'القرارات والطعون',
+            });
+            queueMicrotask(() => setDecisionsHubTab('archive'));
+        },
+        [decisions, executionId, onTimelineUpdate, reloadFromStorage]
+    );
+
+    const applyWaiveInitialAppeal = React.useCallback(
+        (decision: Decision) => {
+            if (!canWaiveInitialAppeal(decision, decisions, appealPerspective)) return;
+            const result = applyWaiveInitialAppealForExecution({
+                executionId,
+                decisionId: decision.id,
+                appealPerspective,
+            });
+            if (!result.ok) return;
+            const now = new Date().toISOString();
+            const when = new Date(now).toLocaleString('ar-IQ', {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+            });
+            reloadFromStorage();
+            onTimelineUpdate({
+                id: newEventId(),
+                date: now.slice(0, 10),
+                timestamp: now,
+                title: 'لا حاجة للطعن',
+                description: [
+                    `القرار: ${decision.title}`,
+                    result.message ?? 'قُبل قرار المنفذ دون طعن — أُغلقت دورة الطلب.',
+                    `التوقيت: ${when}`,
+                ].join('\n'),
+                type: 'appeal',
+                source: 'القرارات والطعون',
+            });
+            queueMicrotask(() => setDecisionsHubTab('archive'));
+        },
+        [appealPerspective, decisions, executionId, onTimelineUpdate, reloadFromStorage]
+    );
+
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const detail = (e as CustomEvent<{ executionId?: string; decisionId?: string }>).detail;
+            if (executionId && detail?.executionId && detail.executionId !== executionId) return;
+            const decisionId = String(detail?.decisionId || '').trim();
+            if (!decisionId) return;
+            const row = decisions.find((d) => d.id === decisionId);
+            if (!row) return;
+            applyWaiveCassationAfterDebtorGrievance(row);
+        };
+        window.addEventListener('hami-waive-cassation-for-decision', handler as EventListener);
+        return () => window.removeEventListener('hami-waive-cassation-for-decision', handler as EventListener);
+    }, [applyWaiveCassationAfterDebtorGrievance, decisions, executionId]);
 
     const logAppealTimeline = React.useCallback(
         (title: string, description?: string) => {
@@ -798,6 +1200,7 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                 resolution,
                 executorNote: hubNoteById[id],
             });
+            queueMicrotask(() => reloadFromStorage());
             setHubNoteById((p) => {
                 const n = { ...p };
                 delete n[id];
@@ -836,7 +1239,6 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
             if (resolution === 'approved') {
                 queueMicrotask(() => setDecisionsHubTab('previous'));
             }
-
             if (resolution === 'approved' && row.requestKind === 'seizure') {
                 const dossierId =
                     normalizeBaseDossierIdFromDecisionsKey(executionId) || String(executionId || '').trim();
@@ -872,18 +1274,11 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                     resolvedSubtype === 'property_expert' ||
                     resolvedSubtype === 'property_auction' ||
                     resolvedSubtype === 'property_final_award' ||
-                    resolvedSubtype === 'property_increase_10' ||
                     resolvedSubtype === 'property_reauction_default'
                 ) {
                     const rawJson = String((row as any).seizurePayloadJson || '').trim();
                     let seizedPropertyId = '';
-                    let step:
-                        | 'experts'
-                        | 'auction'
-                        | 'award'
-                        | 'increase10'
-                        | 'reauction_default'
-                        | '' = '';
+                    let step: 'experts' | 'auction' | 'award' | 'reauction_default' | '' = '';
                     if (rawJson) {
                         try {
                             const v = JSON.parse(rawJson) as any;
@@ -904,9 +1299,7 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                               ? 'auction'
                               : resolvedSubtype === 'property_final_award'
                                 ? 'award'
-                                : resolvedSubtype === 'property_increase_10'
-                                  ? 'increase10'
-                                  : 'reauction_default';
+                                : 'reauction_default';
                     try {
                         window.dispatchEvent(
                             new CustomEvent('hami-open-seized-property-step', {
@@ -923,465 +1316,60 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                 }
             }
 
-            /** التوجيه الذكي: عند الموافقة أو الرفض على طلب إنابة تنفيذية */
+            /** التوجيه الذكي: طلبات تبويب «التحكم في الإضبارة» */
             if (row.requestKind === 'special_followup') {
-                const title = String(row.title || '').trim();
-                const dispatchToast = (msg: string, type: 'success' | 'warning' | 'info' = 'success') => {
-                    try {
-                        window.dispatchEvent(new CustomEvent('hami-toast', { detail: { message: msg, type } }));
-                    } catch {}
-                };
-                if (title === 'طلب الإنابة التنفيذية') {
-                    const storeApi = useExecutionDashboardStore.getState();
-                    const parentExecutionId =
-                        normalizeBaseDossierIdFromDecisionsKey(executionId) ||
-                        String(storeApi.currentFile?.id || '').trim();
-                    if (resolution === 'rejected') {
-                        const target = storeApi.subFiles.find(
-                            (f) =>
-                                (f.id === makeInabaSubFileId(parentExecutionId) ||
-                                    (f.id === INABA_SUB_FILE_ID &&
-                                        String(f.parentFileId || '').trim() === parentExecutionId)) &&
-                                parentExecutionId.length > 0
-                        );
-                        if (target) {
-                            storeApi.removeSubFile(target.id);
-                            storeApi.restoreOriginalFile();
-                            dispatchToast('تم رفض طلب الإنابة التنفيذية وإلغاء الإضبارة الفرعية.', 'warning');
-                        }
-                    } else if (resolution === 'approved') {
-                        const store = useExecutionDashboardStore.getState();
-                        const persistedFile = (() => {
-                            try {
-                                const all = loadExecutionFilesRaw() as any[];
-                                return all.find((f: any) => String(f?.id || '').trim() === parentExecutionId) as any;
-                            } catch {
-                                return null;
-                            }
-                        })();
-                        const file = persistedFile || (store.currentFile as any) || {};
-                        if (parentExecutionId) {
-                            const ts = new Date().toISOString();
-
-                            const bodyRaw = String(row.body || '');
-
-                            let targetDirectorate = file.directorate || '';
-                            const dirMatch = bodyRaw.match(/الدائرة المناب إليها[:\s]+(.+)/);
-                            if (dirMatch?.[1]) {
-                                targetDirectorate = dirMatch[1].trim();
-                            } else {
-                                const dirFallbackMatch = bodyRaw.match(/إليها[:\s]+(.+)/);
-                                if (dirFallbackMatch?.[1]) {
-                                    const line = dirFallbackMatch[1].split('\n')[0]?.trim();
-                                    if (line) targetDirectorate = line;
-                                }
-                            }
-
-                            const inabaFileNumber = '';
-
-                            let delegationPurpose = '';
-                            const purposeMatch = bodyRaw.match(/الغاية من الإنابة:\s*(.+)/);
-                            if (purposeMatch?.[1]) {
-                                delegationPurpose = purposeMatch[1].trim();
-                            }
-
-                            const inabaSubFile: any = {
-                                id: makeInabaSubFileId(parentExecutionId),
-                                fileNumber: inabaFileNumber,
-                                parentFileId: parentExecutionId,
-                                directorate: targetDirectorate,
-                                debtorCourt: file.debtorCourt || '',
-                                creditors: file.creditors ? [...file.creditors] : [],
-                                debtors: file.debtors ? [...file.debtors] : [],
-                                debtAmount: file.debtAmount || 0,
-                                claimType: file.claimType || '',
-                                status: 'UNNOTIFIED',
-                                dossier_lifecycle_status: 'active',
-                                debtor_summons_marker: null,
-                                delegationTargetDirectorate: targetDirectorate,
-                                delegationPurpose: delegationPurpose,
-                                decisions: [],
-                                timelineEvents: [],
-                                createdAt: ts,
-                                updatedAt: ts,
-                            };
-
-                            try {
-                                store.addSubFile(inabaSubFile);
-                                queueMicrotask(() => {
-                                    try {
-                                        store.swapToSubFile(inabaSubFile);
-                                    } catch {}
-                                });
-                                dispatchToast('تم تفعيل الإنابة التنفيذية. يمكنك التبديل إلى إضبارة الإنابة.', 'success');
-                            } catch {}
-                        }
-                    }
-                } else if (title === 'طلب توحيد الأضابير') {
-                    if (resolution !== 'approved') {
-                        dispatchToast('تم رفض طلب توحيد الأضابير.', 'warning');
-                        return;
-                    }
-                    const store = useExecutionDashboardStore.getState();
-                    const parentExecutionId =
-                        normalizeBaseDossierIdFromDecisionsKey(executionId) ||
-                        String(store.currentFile?.id || '').trim();
-                    const payloadRaw = String((row as any)?.payloadJson || '').trim();
-                    if (!parentExecutionId) {
-                        dispatchToast('تعذر تنفيذ التوحيد: لم يتم تحديد الإضبارة الأصلية.', 'warning');
-                        return;
-                    }
-                    if (!payloadRaw) {
-                        dispatchToast('طلب توحيد قديم بدون بيانات منظمة — يرجى إعادة إرسال الطلب.', 'warning');
-                        return;
-                    }
-                    try {
-                        const parsed = JSON.parse(payloadRaw) as any;
-                        if (parsed?.kind !== 'unification') {
-                            dispatchToast('تعذر تنفيذ التوحيد: صيغة الطلب غير مدعومة.', 'warning');
-                            return;
-                        }
-                        const targetType = String(parsed?.targetType || '').trim();
-                        if (targetType === 'own') {
-                            const targetId = String(parsed?.targetId || '').trim();
-                            if (!targetId) {
-                                dispatchToast('تعذر تنفيذ التوحيد: لم يتم تحديد معرف الإضبارة.', 'warning');
-                                return;
-                            }
-                            if (targetId === parentExecutionId) {
-                                dispatchToast('تعذر تنفيذ التوحيد: لا يمكن توحيد الإضبارة مع نفسها.', 'warning');
-                                return;
-                            }
-                            store.setParentIdForDossier(targetId, parentExecutionId);
-                            try {
-                                const all = loadExecutionFilesRaw() as any[];
-                                const base = all.find((f: any) => String(f?.id || '').trim() === parentExecutionId) as ExecutionFile | undefined;
-                                const unified = all.find((f: any) => String(f?.id || '').trim() === targetId) as ExecutionFile | undefined;
-                                const baseNo = String(base?.fileNumber || '').trim() || parentExecutionId;
-                                const unifiedNo = String(unified?.fileNumber || '').trim() || targetId;
-                                const ts = new Date().toISOString();
-                                const ymd = ts.slice(0, 10);
-                                const alreadyBase =
-                                    Array.isArray((base as any)?.timelineEvents) &&
-                                    (base as any).timelineEvents.some((e: any) => String(e?.metadata?.decisionRowId || '') === String(row.id));
-                                const alreadyUnified =
-                                    Array.isArray((unified as any)?.timelineEvents) &&
-                                    (unified as any).timelineEvents.some((e: any) => String(e?.metadata?.decisionRowId || '') === String(row.id));
-                                if (!alreadyBase) {
-                                    store.appendTimelineEventToFile(parentExecutionId, {
-                                        id: newEventId(),
-                                        type: 'decision',
-                                        title: `تم توحيد الإضبارة رقم ${unifiedNo} مع هذه الإضبارة`,
-                                        description: `بتاريخ ${ymd}:\n\nتم قبول طلب التوحيد من قبل المنفذ، وتم ربط الإضبارة رقم ${unifiedNo} بهذه الإضبارة.`,
-                                        date: ymd,
-                                        timestamp: ts,
-                                        source: 'القرارات والطعون',
-                                        metadata: { decisionRowId: row.id, timelineThreadKey: `executor_decision:${row.id}`, unifiedDossierId: targetId },
-                                    } as any);
-                                }
-                                if (!alreadyUnified) {
-                                    store.appendTimelineEventToFile(targetId, {
-                                        id: newEventId(),
-                                        type: 'decision',
-                                        title: `تم توحيد هذه الإضبارة لتصبح تابعة للإضبارة رقم ${baseNo}`,
-                                        description: `بتاريخ ${ymd}:\n\nتم قبول طلب التوحيد من قبل المنفذ، وأصبحت هذه الإضبارة مرتبطة بالإضبارة رقم ${baseNo}.`,
-                                        date: ymd,
-                                        timestamp: ts,
-                                        source: 'القرارات والطعون',
-                                        metadata: { decisionRowId: row.id, timelineThreadKey: `executor_decision:${row.id}`, baseDossierId: parentExecutionId },
-                                    } as any);
-                                }
-                            } catch {}
-                            dispatchToast('تم توحيد الإضبارة تلقائياً بعد موافقة المنفذ.', 'success');
-                            return;
-                        }
-                        if (targetType === 'colleague') {
-                            const token = String(parsed?.colleagueToken || '').trim();
-                            if (!token) {
-                                dispatchToast('تعذر ربط إضبارة الزميل: رمز الربط مفقود.', 'warning');
-                                return;
-                            }
-                            const currentFile: any = store.currentFile;
-                            const now = new Date().toISOString();
-                            const existing = Array.isArray(currentFile?.linkedDossiers) ? currentFile.linkedDossiers : [];
-                            const next = [
-                                ...existing,
-                                {
-                                    linkedId: token,
-                                    type: 'colleague' as const,
-                                    linkToken: token,
-                                    linkedAt: now,
-                                },
-                            ].filter((d: any, idx: number, arr: any[]) => {
-                                const id = String(d?.linkedId || '').trim();
-                                if (!id) return false;
-                                return arr.findIndex((x) => String((x as any)?.linkedId || '').trim() === id) === idx;
-                            });
-                            const currentToken = String(currentFile?.linkToken || '').trim();
-                            const patch: any = { linkedDossiers: next };
-                            if (!currentToken) {
-                                patch.linkToken = store.generateLinkToken();
-                            }
-                            const curId = String(currentFile?.id || '').trim();
-                            if (curId && curId === parentExecutionId) {
-                                store.updateCurrentFile(patch);
-                            } else {
-                                try {
-                                    const all = loadExecutionFilesRaw() as any[];
-                                    const idx = all.findIndex(
-                                        (f: any) => String(f?.id || '').trim() === parentExecutionId
-                                    );
-                                    if (idx >= 0) {
-                                        all[idx] = { ...(all[idx] as any), ...patch, updatedAt: now };
-                                        saveExecutionFilesRaw(all);
-                                        const cache = storageCache.get(EXECUTION_FILES_STORAGE_KEY);
-                                        if (Array.isArray(cache)) {
-                                            const arr = cache as any[];
-                                            const cIdx = arr.findIndex(
-                                                (f: any) => String(f?.id || '').trim() === parentExecutionId
-                                            );
-                                            if (cIdx >= 0) {
-                                                arr[cIdx] = { ...(arr[cIdx] as any), ...patch, updatedAt: now };
-                                                storageCache.set(EXECUTION_FILES_STORAGE_KEY, arr);
-                                            }
-                                        }
-                                    }
-                                } catch {}
-                            }
-                            dispatchToast('تم ربط إضبارة الزميل تلقائياً بعد موافقة المنفذ.', 'success');
-                            return;
-                        }
-                        dispatchToast('تعذر تنفيذ التوحيد: نوع الربط غير معروف.', 'warning');
-                    } catch {
-                        dispatchToast('تعذر قراءة بيانات طلب التوحيد. يرجى إعادة إرسال الطلب.', 'warning');
-                    }
-                } else if (title === 'طلب مخاطبة مديرية الانابة') {
-                    if (resolution !== 'approved') {
-                        dispatchToast('تم رفض طلب مخاطبة مديرية الانابة.', 'warning');
-                        return;
-                    }
-                    const store = useExecutionDashboardStore.getState();
-                    const parentExecutionId =
-                        normalizeBaseDossierIdFromDecisionsKey(executionId) ||
-                        String(store.currentFile?.id || '').trim();
-                    const payloadRaw = String((row as any)?.payloadJson || '').trim();
-                    if (!parentExecutionId) {
-                        dispatchToast('تعذر تنفيذ الطلب: لم يتم تحديد الإضبارة الأم.', 'warning');
-                        return;
-                    }
-                    if (!payloadRaw) {
-                        dispatchToast('طلب مخاطبة قديم بدون بيانات منظمة — يرجى إعادة إرسال الطلب.', 'warning');
-                        return;
-                    }
-                    try {
-                        const parsed = JSON.parse(payloadRaw) as any;
-                        if (parsed?.kind !== 'inaba_correspondence') {
-                            dispatchToast('تعذر تنفيذ الطلب: صيغة الطلب غير مدعومة.', 'warning');
-                            return;
-                        }
-                        const inabaSubFileId = String(parsed?.inabaSubFileId || '').trim();
-                        const directorate = String(parsed?.directorate || '').trim();
-                        const subject = String(parsed?.subject || '').trim();
-                        if (!subject) {
-                            dispatchToast('تعذر تنفيذ الطلب: موضوع المخاطبة مفقود.', 'warning');
-                            return;
-                        }
-                        const mkId = () => `tl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-                        const ts = new Date().toISOString();
-                        const ymd = ts.slice(0, 10);
-                        const resolvedInabaId =
-                            inabaSubFileId ||
-                            store.subFiles.find(
-                                (sf) =>
-                                    String(sf.parentFileId || '') === parentExecutionId &&
-                                    isInabaSubFileId(sf.id) &&
-                                    String((sf as any).delegationTargetDirectorate || sf.directorate || '').trim() === directorate
-                            )?.id ||
-                            '';
-                        if (!resolvedInabaId) {
-                            dispatchToast('تعذر تنفيذ الطلب: لم يتم العثور على إضبارة الإنابة المستهدفة.', 'warning');
-                            return;
-                        }
-                        store.appendTimelineEventToFile(parentExecutionId, {
-                            id: mkId(),
-                            type: 'decision',
-                            title: 'تم إرسال مخاطبة إلى مديرية الإنابة',
-                            description: `بتاريخ ${ymd}:\n\nمديرية الإنابة: ${directorate || '---'}\nموضوع المخاطبة: ${subject}`,
-                            date: ymd,
-                            timestamp: ts,
-                            source: 'القرارات والطعون',
-                            metadata: { decisionRowId: row.id, timelineThreadKey: `executor_decision:${row.id}`, inabaSubFileId: resolvedInabaId },
-                        } as any);
-                        store.appendTimelineEventToSubFile(resolvedInabaId, parentExecutionId, {
-                            id: mkId(),
-                            type: 'decision',
-                            title: 'وردت مخاطبة من الإضبارة الأم',
-                            description: `بتاريخ ${ymd}:\n\nموضوع المخاطبة: ${subject}`,
-                            date: ymd,
-                            timestamp: ts,
-                            source: 'القرارات والطعون',
-                            metadata: { decisionRowId: row.id, timelineThreadKey: `executor_decision:${row.id}`, parentExecutionId },
-                        } as any);
-                        dispatchToast('تم تسجيل المخاطبة في الإضبارة الأم والإنابة.', 'success');
-                    } catch {
-                        dispatchToast('تعذر قراءة بيانات طلب المخاطبة. يرجى إعادة إرسال الطلب.', 'warning');
-                    }
-                } else if (title === 'طلب نقل الإضبارة') {
-                    if (resolution !== 'approved') {
-                        dispatchToast('تم رفض طلب نقل الإضبارة.', 'warning');
-                        return;
-                    }
-                    const store = useExecutionDashboardStore.getState();
-                    const dossierId =
-                        normalizeBaseDossierIdFromDecisionsKey(executionId) ||
-                        String(store.currentFile?.id || '').trim();
-                    if (!dossierId) {
-                        dispatchToast('تعذر تنفيذ النقل: لم يتم تحديد الإضبارة.', 'warning');
-                        return;
-                    }
-                    const payloadRaw = String((row as any)?.payloadJson || '').trim();
-                    let targetDirectorate = '';
-                    if (payloadRaw) {
-                        try {
-                            const parsed = JSON.parse(payloadRaw) as any;
-                            if (parsed?.kind === 'transfer') {
-                                targetDirectorate = String(parsed?.targetDirectorate || '').trim();
-                            }
-                        } catch {}
-                    }
-                    if (!targetDirectorate) {
-                        const bodyRaw = String(row.body || '');
-                        const m = bodyRaw.match(/الدائرة\s*المراد\s*النقل\s*إليها:\s*(.+)/);
-                        if (m?.[1]) targetDirectorate = m[1].split('\n')[0]?.trim() || '';
-                    }
-                    if (!targetDirectorate) {
-                        dispatchToast('تعذر تنفيذ النقل: لم يتم تحديد المديرية المراد النقل إليها.', 'warning');
-                        return;
-                    }
-                    const now = new Date().toISOString();
-                    const today = now.slice(0, 10);
-                    const patch: any = {
-                        directorate: targetDirectorate as any,
-                        transferPendingFileNumberChange: true,
-                        dossier_last_action_date: today,
-                        updatedAt: now,
-                    };
-                    const curId = String(store.currentFile?.id || '').trim();
-                    if (curId && curId === dossierId) {
-                        store.updateCurrentFile(patch);
-                    } else {
-                        try {
-                            const all = loadExecutionFilesRaw() as any[];
-                            const idx = all.findIndex((f: any) => String(f?.id || '').trim() === dossierId);
-                            if (idx >= 0) {
-                                all[idx] = { ...(all[idx] as any), ...patch };
-                                saveExecutionFilesRaw(all);
-                                const cache = storageCache.get(EXECUTION_FILES_STORAGE_KEY);
-                                if (Array.isArray(cache)) {
-                                    const arr = cache as any[];
-                                    const cIdx = arr.findIndex((f: any) => String(f?.id || '').trim() === dossierId);
-                                    if (cIdx >= 0) {
-                                        arr[cIdx] = { ...(arr[cIdx] as any), ...patch };
-                                        storageCache.set(EXECUTION_FILES_STORAGE_KEY, arr);
-                                    }
-                                }
-                            }
-                        } catch {}
-                    }
-                    dispatchToast('تم نقل الإضبارة وتحديث المديرية. يمكنك تغيير رقم الإضبارة من الخيار الظاهر فوق الرقم.', 'success');
-                } else if (title === 'طلب تجديد الإضبارة') {
-                    if (resolution !== 'approved') {
-                        dispatchToast('تم رفض طلب تجديد الإضبارة.', 'warning');
-                        return;
-                    }
-                    const store = useExecutionDashboardStore.getState();
-                    const dossierId =
-                        normalizeBaseDossierIdFromDecisionsKey(executionId) ||
-                        String(store.currentFile?.id || '').trim();
-                    if (!dossierId) {
-                        dispatchToast('تعذر تنفيذ التجديد: لم يتم تحديد الإضبارة.', 'warning');
-                        return;
-                    }
-                    const now = new Date().toISOString();
-                    const today = now.slice(0, 10);
-                    const patch: any = {
-                        dossier_lifecycle_status: 'active',
-                        dossier_status_reason: 'مجدد',
-                        dossier_status_date: today,
-                        dossier_last_action_date: today,
-                        executionPaused: false,
-                        stay_of_execution: null,
-                        updatedAt: now,
-                    };
-                    const curId = String(store.currentFile?.id || '').trim();
-                    if (curId && curId === dossierId) {
-                        store.updateCurrentFile(patch);
-                    } else {
-                        try {
-                            const all = loadExecutionFilesRaw() as any[];
-                            const idx = all.findIndex((f: any) => String(f?.id || '').trim() === dossierId);
-                            if (idx >= 0) {
-                                all[idx] = { ...(all[idx] as any), ...patch };
-                                saveExecutionFilesRaw(all);
-                                const cache = storageCache.get(EXECUTION_FILES_STORAGE_KEY);
-                                if (Array.isArray(cache)) {
-                                    const arr = cache as any[];
-                                    const cIdx = arr.findIndex((f: any) => String(f?.id || '').trim() === dossierId);
-                                    if (cIdx >= 0) {
-                                        arr[cIdx] = { ...(arr[cIdx] as any), ...patch };
-                                        storageCache.set(EXECUTION_FILES_STORAGE_KEY, arr);
-                                    }
-                                }
-                            }
-                        } catch {}
-                    }
-                    dispatchToast('تم تجديد الإضبارة وإرجاع حالتها إلى نشطة.', 'success');
-                } else {
-                    const store = useExecutionDashboardStore.getState();
-                    const existing: any[] = Array.isArray((store.currentFile as any)?.officialCorrespondences)
-                        ? (store.currentFile as any).officialCorrespondences
-                        : [];
-                    const ts = new Date().toISOString();
-                    const newRecord = {
-                        id: `corr_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-                        decisionId: id,
-                        decisionTitle: row.title || 'إنابة تنفيذية',
-                        status: 'pending_send' as const,
-                        targetDirectorate: '',
-                        purpose: '',
-                        sendLetterNumber: '',
-                        sendLetterDate: '',
-                        resultDetails: '',
-                        createdAt: ts,
-                        updatedAt: ts,
-                    };
-                    const next = [...existing, newRecord];
-                    store.updateCurrentFile({ officialCorrespondences: next } as any);
-                }
+                applyDossierSpecialFollowupOutcome({
+                    executionId,
+                    row: row as Record<string, unknown>,
+                    resolution,
+                });
             }
         },
-        [decisions, executionId, hubNoteById, resolveDecision, storageKey]
+        [decisions, executionId, hubNoteById, resolveDecision, persistDecisionsToStorage]
     );
 
     const handleDeleteDecision = React.useCallback((id: string) => {
         setDecisions((prev) => {
             const next = prev.filter((d) => d.id !== id);
-            SecureStoreService.setItemSync(storageKey, JSON.stringify(next));
+            persistDecisionsToStorage(next);
             queueMicrotask(() => dispatchDecisionsReload());
             return next;
         });
-    }, [storageKey]);
+    }, [persistDecisionsToStorage]);
 
     const handleArchiveDecision = React.useCallback((id: string) => {
         setDecisions((prev) => {
+            const now = new Date().toISOString();
             const next = prev.map((d) =>
-                d.id === id ? { ...d, isArchived: true } : d
+                d.id === id
+                    ? {
+                          ...d,
+                          isArchived: true,
+                          requestCycleSuperseded: true,
+                          requestCycleSupersededAt: now,
+                      }
+                    : d
             );
-            SecureStoreService.setItemSync(storageKey, JSON.stringify(next));
+            persistDecisionsToStorage(next);
             queueMicrotask(() => dispatchDecisionsReload());
+            const archived = next.find((d) => d.id === id);
+            if (archived) {
+                applyPersonalCoerciveAppealClosure({
+                    executionId,
+                    row: archived as unknown as Record<string, unknown>,
+                    allDecisions: next as unknown as Record<string, unknown>[],
+                    forceClose: true,
+                });
+                applyEvictionAppealClosure({
+                    executionId,
+                    row: archived as unknown as Record<string, unknown>,
+                    allDecisions: next as unknown as Record<string, unknown>[],
+                    forceClose: true,
+                });
+            }
             return next;
         });
-    }, [storageKey]);
+    }, [executionId, persistDecisionsToStorage]);
 
     const handleAddDecision = () => {
         if (!newTitle.trim() || !newDate) {
@@ -1403,7 +1391,7 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
         
         const updated = [newDecision, ...decisions];
         setDecisions(updated);
-        SecureStoreService.setItemSync(storageKey, JSON.stringify(updated));
+        persistDecisionsToStorage(updated);
         dispatchDecisionsReload();
         
         const now = new Date().toISOString();
@@ -1429,20 +1417,15 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
     
     /** قرارات أصلية فقط (ليس نسخ طعن) — طابور المنفذ ثم الباقي زمنياً */
     const archiveHubDecisions = useMemo(() => {
-        const originals = decisions.filter((d) => !d.appealSourceDecisionId && !d.isArchived);
+        const originals = domainVisibleDecisions.filter((d) => !d.appealSourceDecisionId && !d.isArchived);
         const pending = originals.filter((d) => requestNeedsExecutorOutcome(d));
         const rest = originals.filter((d) => !requestNeedsExecutorOutcome(d));
         
-        // Sorting by date descending
-        const sortedPending = [...pending].sort((a, b) => 
-            String(b.date).localeCompare(String(a.date), undefined, { numeric: true })
-        );
-        const sortedRest = [...rest].sort((a, b) =>
-            String(b.date).localeCompare(String(a.date), undefined, { numeric: true })
-        );
-        
+        const sortedPending = sortDecisionsNewestFirst(pending);
+        const sortedRest = sortDecisionsNewestFirst(rest);
+
         return [...sortedPending, ...sortedRest];
-    }, [decisions]);
+    }, [domainVisibleDecisions, requestNeedsExecutorOutcome]);
 
     const archivePendingDecisions = useMemo(
         () => archiveHubDecisions.filter((d) => requestNeedsExecutorOutcome(d)),
@@ -1455,22 +1438,23 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
 
     /** القرارات المؤرشفة */
     const archivedDecisions = useMemo(
-        () => decisions.filter((d) => !d.appealSourceDecisionId && d.isArchived),
-        [decisions]
+        () =>
+            sortDecisionsNewestFirst(
+                domainVisibleDecisions.filter((d) => !d.appealSourceDecisionId && d.isArchived)
+            ),
+        [domainVisibleDecisions]
     );
 
     /** سجل الطعون: نسخ مسار الطعن + (للبيانات القديمة) صف واحد يضم مساراً مفتوحاً */
     const appealsHubDecisions = useMemo(
         () =>
-            sortDecisionsWithAppealPinnedFirst(
-                decisions.filter((d) => {
+            sortDecisionsNewestFirst(
+                domainVisibleDecisions.filter((d) => {
                     if (d.appealSourceDecisionId) return true;
-                    const draft = appealActorDraftById[d.id] ?? null;
-                    return decisionAppealPipelineActive(d, draft);
-                }),
-                appealActorDraftById
+                    return decisionAppealPipelineActive(d, null);
+                })
             ),
-        [appealActorDraftById, decisions]
+        [domainVisibleDecisions]
     );
 
     const transitionAppealWorkflow = React.useCallback(
@@ -1526,7 +1510,7 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                                 : d
                         );
                         setDecisions(nextLinked);
-                        SecureStoreService.setItemSync(storageKey, JSON.stringify(nextLinked));
+                        persistDecisionsToStorage(nextLinked);
                         queueMicrotask(() => dispatchDecisionsReload());
                         const appealOpenSnap = getMilestoneTimelineSnapshot?.();
                         onTimelineUpdate({
@@ -1539,7 +1523,6 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                             source: 'القرارات والطعون',
                             ...(appealOpenSnap !== undefined ? { snapshot: appealOpenSnap } : {}),
                         });
-                        setAppealActorDraftById((p) => ({ ...p, [target.id]: null }));
                         goToAppealsWithScroll(linked.id);
                         return;
                     }
@@ -1574,7 +1557,7 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                 };
                 const next = decisions.map((d) => (d.id === target.id ? cleanedOriginal : d)).concat([copy]);
                 setDecisions(next);
-                SecureStoreService.setItemSync(storageKey, JSON.stringify(next));
+                persistDecisionsToStorage(next);
                 queueMicrotask(() => dispatchDecisionsReload());
                 const appealOpenSnap = getMilestoneTimelineSnapshot?.();
                 onTimelineUpdate({
@@ -1587,7 +1570,6 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                     source: 'القرارات والطعون',
                     ...(appealOpenSnap !== undefined ? { snapshot: appealOpenSnap } : {}),
                 });
-                setAppealActorDraftById((p) => ({ ...p, [target.id]: null }));
                 goToAppealsWithScroll(copyId);
                 return;
             }
@@ -1612,7 +1594,7 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                 );
             }
             setDecisions(next);
-            SecureStoreService.setItemSync(storageKey, JSON.stringify(next));
+            persistDecisionsToStorage(next);
             queueMicrotask(() => dispatchDecisionsReload());
             onTimelineUpdate({
                 id: newEventId(),
@@ -1623,10 +1605,54 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                 type: 'appeal',
                 source: 'القرارات والطعون',
             });
-            setAppealActorDraftById((p) => ({ ...p, [decision.id]: null }));
         },
-        [decisions, goToAppealsWithScroll, getMilestoneTimelineSnapshot, onTimelineUpdate, storageKey]
+        [decisions, goToAppealsWithScroll, getMilestoneTimelineSnapshot, onTimelineUpdate, persistDecisionsToStorage]
     );
+
+    const applyLawyerCassationEntry = React.useCallback(
+        (decision: Decision) => {
+            const pipeline = appealPipelineRowForCard(decision, decisions);
+            if (
+                pipeline.awaitingCassationEntryBy !== 'lawyer' ||
+                pipeline.appealStatus === 'tamyeez_filed'
+            ) {
+                return;
+            }
+            transitionAppealWorkflow(
+                pipeline,
+                {
+                    noAppealChosen: false,
+                    appealActor: 'lawyer',
+                    appealMethod: 'tamyeez',
+                    appealWorkflowState: 'PENDING_APPEAL_LAWYER',
+                    appealStatus: 'tamyeez_filed',
+                    appealPhase: 'cassation',
+                    grievanceRejectedAwaitingTamyeez: false,
+                    grievanceAcceptedAwaitingDebtorTamyeez: false,
+                    awaitingCassationEntryBy: null,
+                },
+                appealPerspective === 'debtor_agent' ? 'تمييز قرار المنفذ' : 'تمييز القرار',
+                appealLawyerCassationAutoEntryDescription(appealPerspective),
+                'amber'
+            );
+            queueMicrotask(() => goToAppealsWithScroll(pipeline.id));
+        },
+        [appealPerspective, decisions, goToAppealsWithScroll, transitionAppealWorkflow]
+    );
+
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const detail = (e as CustomEvent<{ executionId?: string; decisionId?: string }>).detail;
+            if (executionId && detail?.executionId && detail.executionId !== executionId) return;
+            const decisionId = String(detail?.decisionId || '').trim();
+            if (!decisionId) return;
+            const row = decisions.find((d) => d.id === decisionId);
+            if (!row) return;
+            applyLawyerCassationEntry(row);
+        };
+        window.addEventListener('hami-start-cassation-for-decision', handler as EventListener);
+        return () => window.removeEventListener('hami-start-cassation-for-decision', handler as EventListener);
+    }, [applyLawyerCassationEntry, decisions, executionId]);
 
     const APPEAL_ORIGINAL_LOCKED_HINT =
         'مسار الطعن يُكمل حالياً على النسخة في «سجل الطعون». لا يُفتح مسار ثانٍ من القرار الأصل حتى يُغلق المسار على النسخة. استخدم زر «فتح مسار الطعن» أعلاه.';
@@ -1636,24 +1662,27 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
         'w-full rounded-lg border border-purple-500/20 bg-purple-500/10 py-1.5 px-3 text-center text-sm font-semibold text-purple-300 backdrop-blur-sm transition-all duration-200 hover:bg-purple-500/20 focus:outline-none disabled:pointer-events-none disabled:opacity-40';
     /** زر ثانوي — زجاجي محايد */
     const DECISION_BTN_SECONDARY =
-        'rounded-lg border border-white/10 bg-white/5 py-1.5 px-3 text-center text-sm text-gray-300 backdrop-blur-sm transition-all duration-200 hover:bg-white/10 focus:outline-none disabled:pointer-events-none disabled:opacity-40';
+        'rounded-xl border border-white/10 bg-white/[0.04] py-2 px-3 text-center text-[11px] font-semibold text-slate-200 backdrop-blur-md transition-all duration-200 hover:border-white/18 hover:bg-white/[0.08] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/15 disabled:pointer-events-none disabled:opacity-40';
     const DECISION_BTN_SECONDARY_WFULL = `w-full ${DECISION_BTN_SECONDARY}`;
     const DECISION_BTN_SECONDARY_FLEX = `min-w-0 flex-1 ${DECISION_BTN_SECONDARY}`;
-    /** زر أساسي — بنفسجي (موافقة منفذ، تمييز، …) دون وهج البطاقة الأولى */
+    /** زر أساسي — زجاجي ذهبي هادئ */
     const DECISION_BTN_PRIMARY =
-        'rounded-lg bg-purple-700 py-1.5 px-3 text-center text-sm font-medium text-white transition-colors hover:bg-purple-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/35 disabled:pointer-events-none disabled:opacity-40';
+        'rounded-xl border border-[#E6C673]/25 bg-[#E6C673]/[0.08] py-2 px-3 text-center text-[11px] font-bold text-[#E6C673] backdrop-blur-md transition-all duration-200 hover:border-[#E6C673]/40 hover:bg-[#E6C673]/[0.14] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/30 disabled:pointer-events-none disabled:opacity-40';
     const DECISION_BTN_PRIMARY_WFULL = `w-full ${DECISION_BTN_PRIMARY}`;
     const DECISION_BTN_PRIMARY_FLEX = `min-w-0 flex-1 ${DECISION_BTN_PRIMARY}`;
 
-    /** أزرار اختيار مقدّم الطعن — نفس الـ classNames في تبويب الطعون والقرارات السابقة */
-    const renderAppealInitialButtons = (
+    /** أزرار الطعن المباشرة: تظلم + تمييز للطرف المتضرر — دون خطوة وسيطة */
+    const renderAppealEntryButtons = (
         decision: Decision,
-        opts?: { lockedBecauseActiveCopy?: boolean }
+        windows: AppealDeadlineWindows,
+        opts?: { pathLockedOnOriginal?: boolean; lockedBecauseActiveCopy?: boolean }
     ) => {
+        const pathLocked = Boolean(opts?.pathLockedOnOriginal);
         const locked = Boolean(opts?.lockedBecauseActiveCopy);
-        const inner =
-            decision.appealRequestOrigin === 'executor_side' ? (
-                <>
+
+        if (decision.appealRequestOrigin === 'executor_side') {
+            return (
+                <div className="flex flex-col gap-2">
                     <button
                         type="button"
                         disabled={locked}
@@ -1665,109 +1694,93 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                     <button
                         type="button"
                         onClick={() => commitExecutorSideAppealPath(decision, 'debtor')}
-                        className="text-center italic text-blue-400 text-sm my-2 cursor-pointer select-none bg-transparent border-0 outline-none"
+                        className={DECISION_BTN_DEBTOR_APPEAL_NOTICE}
                     >
-                        قام المدين بالطعن بالقرار
+                        {appealExecutorSideDebtorPathLabel(appealPerspective)}
                     </button>
-                </>
-            ) : appealEntryShowsDebtorFirst(decision) ? (
-                <button
-                    type="button"
-                    onClick={() => setAppealActorDraftById((p) => ({ ...p, [decision.id]: 'debtor' }))}
-                    className="text-center italic text-blue-400 text-sm my-2 cursor-pointer select-none bg-transparent border-0 outline-none"
-                >
-                    قام المدين بالطعن بالقرار
-                </button>
-            ) : (
-                <button
-                    type="button"
-                    disabled={locked}
-                    onClick={() => {
-                        setAppealActorDraftById((p) => ({ ...p, [decision.id]: 'lawyer' }));
-                    }}
-                    className={DECISION_BTN_APPEAL_CHALLENGE}
-                >
-                    الطعن بالقرار
-                </button>
+                </div>
             );
-        const grid = <div className="flex flex-col gap-2">{inner}</div>;
-        return grid;
-    };
+        }
 
-    /** اختيار تظلم / تمييز بعد تحديد المُطعّن — نفس الـ classNames في الموضعين */
-    const renderAppealTadhallumTamyeezDraft = (
-        decision: Decision,
-        actorDraft: 'lawyer' | 'debtor',
-        windows: AppealDeadlineWindows,
-        opts?: { pathLockedOnOriginal?: boolean }
-    ) => {
-        const pathLocked = Boolean(opts?.pathLockedOnOriginal);
+        const actor = resolveHarmedPartyAppealActor(decision, appealPerspective);
+        if (!actor) return null;
+
+        const cassationOnly = decision.cassationOnlyAppeal === true;
+        const showWaiveInitialAppeal = canWaiveInitialAppeal(
+            decision,
+            decisions,
+            appealPerspective
+        );
         const panel = (
-            <div className="space-y-2">
-                <p className="text-[10px] text-slate-400 text-right">
-                    اختر طريقة الطعن ({actorDraft === 'debtor' ? 'المدين' : 'وكيل الدائن'})
-                </p>
-                <div className="flex flex-row-reverse flex-wrap gap-2">
+            <div className={DECISION_APPEAL_TOOLBAR_ROW}>
+                {!cassationOnly ? (
                     <button
                         type="button"
-                        disabled={!windows.canTadhallum || pathLocked}
+                        disabled={!windows.canTadhallum || pathLocked || locked}
                         onClick={() =>
                             transitionAppealWorkflow(
-                            decision,
-                            {
-                                noAppealChosen: false,
-                                appealActor: actorDraft,
-                                appealMethod: 'tadhallum',
-                                appealWorkflowState:
-                                    actorDraft === 'debtor'
-                                        ? 'PENDING_APPEAL_DEBTOR'
-                                        : 'PENDING_APPEAL_LAWYER',
-                                appealStatus: 'tadhallum_filed',
-                                appealPhase: 'grievance',
-                            },
-                            'تسجيل تظلم',
-                            `تم تسجيل ${actorDraft === 'debtor' ? 'تظلم المدين' : 'تظلم وكيل الدائن'} على القرار.`,
-                            'amber'
-                        )
-                    }
-                        className={DECISION_BTN_PRIMARY_FLEX}
+                                decision,
+                                {
+                                    noAppealChosen: false,
+                                    appealActor: actor,
+                                    appealMethod: 'tadhallum',
+                                    appealWorkflowState:
+                                        actor === 'debtor'
+                                            ? 'PENDING_APPEAL_DEBTOR'
+                                            : 'PENDING_APPEAL_LAWYER',
+                                    appealStatus: 'tadhallum_filed',
+                                    appealPhase: 'grievance',
+                                },
+                                'تسجيل تظلم',
+                                appealInitialGrievanceTimeline(appealPerspective, actor),
+                                'amber'
+                            )
+                        }
+                        className={DECISION_APPEAL_TOOLBAR_BTN_PRIMARY}
                     >
-                        تظلم
+                        {appealInitialGrievanceEntryButtonLabel(appealPerspective, actor)}
                     </button>
-                    <button
-                        type="button"
-                        disabled={!windows.canTamyeez || pathLocked}
-                        onClick={() =>
-                            transitionAppealWorkflow(
+                ) : null}
+                <button
+                    type="button"
+                    disabled={!windows.canTamyeez || pathLocked || locked}
+                    onClick={() =>
+                        transitionAppealWorkflow(
                             decision,
                             {
                                 noAppealChosen: false,
-                                appealActor: actorDraft,
+                                appealActor: actor,
                                 appealMethod: 'tamyeez',
                                 appealWorkflowState:
-                                    actorDraft === 'debtor'
+                                    actor === 'debtor'
                                         ? 'PENDING_APPEAL_DEBTOR'
                                         : 'PENDING_APPEAL_LAWYER',
                                 appealStatus: 'tamyeez_filed',
                                 appealPhase: 'cassation',
                             },
                             'تسجيل تمييز',
-                            `تم تسجيل ${actorDraft === 'debtor' ? 'تمييز المدين' : 'تمييز وكيل الدائن'} على القرار.`,
+                            appealInitialCassationTimeline(appealPerspective, actor),
                             'amber'
                         )
                     }
-                        className={DECISION_BTN_PRIMARY_FLEX}
-                    >
-                        تمييز
-                    </button>
-                </div>
-                <button
-                    type="button"
-                    onClick={() => setAppealActorDraftById((p) => ({ ...p, [decision.id]: null }))}
-                    className="w-full py-1.5 text-[10px] font-bold text-slate-500 hover:text-slate-300"
+                    className={DECISION_APPEAL_TOOLBAR_BTN_PRIMARY}
                 >
-                    إلغاء
+                    {appealInitialCassationEntryButtonLabel(
+                        appealPerspective,
+                        actor,
+                        cassationOnly
+                    )}
                 </button>
+                {showWaiveInitialAppeal ? (
+                    <button
+                        type="button"
+                        disabled={pathLocked || locked}
+                        onClick={() => applyWaiveInitialAppeal(decision)}
+                        className={DECISION_APPEAL_TOOLBAR_BTN_SECONDARY}
+                    >
+                        لا حاجة للطعن
+                    </button>
+                ) : null}
             </div>
         );
         return pathLocked ? (
@@ -1788,7 +1801,7 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                     onClick={() => applyCassationCourtDecision(decision, 'rad_laheeza')}
                     className={DECISION_BTN_SECONDARY_FLEX}
                 >
-                    رد اللائحة
+                    تصديق القرار
                 </button>
             </DecisionHintTooltip>
             <DecisionHintTooltip label={cassTips.naqd}>
@@ -1808,62 +1821,19 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
             variant === 'appealsTab'
                 ? 'flex flex-row-reverse flex-wrap gap-2'
                 : 'mb-3 flex flex-row-reverse flex-wrap gap-2';
-        const rejectTimelineBody =
-            variant === 'appealsTab'
-                ? 'تم رد التظلم أمام المنفذ. يمكن لصاحب الشأن التمييز مباشرة ضمن المهلة.'
-                : 'تم رد التظلم أمام المنفذ. يمكن لصاحب الشأن التمييز ضمن المهلة.';
         return (
             <div className={rowClass}>
                 <button
                     type="button"
-                    onClick={() =>
-                        transitionAppealWorkflow(
-                            decision,
-                            {
-                                appealWorkflowState: 'NONE',
-                                appealStatus: 'pending',
-                                appealResult: undefined,
-                                appealPhase: null,
-                                grievanceRejectedAwaitingTamyeez: false,
-                                grievanceAcceptedAwaitingDebtorTamyeez: false,
-                                awaitingCassationEntryBy:
-                                    decision.appealActor === 'debtor' ? 'lawyer' : 'debtor',
-                                appealMethod: null,
-                                noAppealChosen: false,
-                            },
-                            'قبول التظلم',
-                            decision.appealActor === 'debtor'
-                                ? 'قُبل تظلم المدين. يتاح لوكيل الدائن تمييز القرار.'
-                                : 'قُبل تظلم وكيل الدائن. يتاح للمدين تمييز القرار.',
-                            'emerald'
-                        )
-                    }
-                    className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/35 disabled:pointer-events-none disabled:opacity-40"
+                    onClick={() => applyGrievanceCourtOutcome(decision, true)}
+                    className={DECISION_BTN_GRIEVANCE_ACCEPT}
                 >
                     قبول التظلم
                 </button>
                 <button
                     type="button"
-                    onClick={() =>
-                        transitionAppealWorkflow(
-                            decision,
-                            {
-                                appealWorkflowState: 'NONE',
-                                appealStatus: 'pending',
-                                appealResult: undefined,
-                                appealPhase: null,
-                                grievanceRejectedAwaitingTamyeez: false,
-                                grievanceAcceptedAwaitingDebtorTamyeez: false,
-                                awaitingCassationEntryBy: decision.appealActor ?? null,
-                                appealMethod: null,
-                                noAppealChosen: false,
-                            },
-                            'رد التظلم',
-                            rejectTimelineBody,
-                            'rose'
-                        )
-                    }
-                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/35 disabled:pointer-events-none disabled:opacity-40"
+                    onClick={() => applyGrievanceCourtOutcome(decision, false)}
+                    className={DECISION_BTN_GRIEVANCE_REJECT}
                 >
                     رد التظلم
                 </button>
@@ -1882,11 +1852,14 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
             variant === 'appealsTab'
                 ? DECISION_BTN_PRIMARY_WFULL
                 : `mb-3 ${DECISION_BTN_PRIMARY_WFULL}`;
+        const awaitingParty = resolveEffectiveAwaitingCassationParty(decision);
+        if (!awaitingParty) return null;
         return (
             <>
-                {decision.awaitingCassationEntryBy === 'debtor' &&
-                    decision.appealStatus !== 'tamyeez_filed' &&
-                    !appealWindowClosed && (
+                {awaitingParty === 'debtor' &&
+                    !appealWindowClosed && (() => {
+                        const labels = appealCassationEntryLabels(appealPerspective, 'debtor');
+                        return (
                         <button
                             type="button"
                             onClick={() =>
@@ -1903,45 +1876,74 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                                         grievanceAcceptedAwaitingDebtorTamyeez: false,
                                         awaitingCassationEntryBy: null,
                                     },
-                                    'قام المدين بتمييز القرار',
-                                    'سُجِّل تمييز المدين على قرار المنفذ.',
+                                    labels.timelineTitle,
+                                    labels.timelineDescription,
                                     'amber'
                                 )
                             }
-                            className="text-center italic text-blue-400 text-sm my-2 cursor-pointer select-none bg-transparent border-0 outline-none"
-                        >
-                            قام المدين بتمييز القرار
-                        </button>
-                    )}
-                {decision.awaitingCassationEntryBy === 'lawyer' &&
-                    decision.appealStatus !== 'tamyeez_filed' &&
-                    !appealWindowClosed && (
-                        <button
-                            type="button"
-                            onClick={() =>
-                                transitionAppealWorkflow(
-                                    decision,
-                                    {
-                                        noAppealChosen: false,
-                                        appealActor: 'lawyer',
-                                        appealMethod: 'tamyeez',
-                                        appealWorkflowState: 'PENDING_APPEAL_LAWYER',
-                                        appealStatus: 'tamyeez_filed',
-                                        appealPhase: 'cassation',
-                                        grievanceRejectedAwaitingTamyeez: false,
-                                        grievanceAcceptedAwaitingDebtorTamyeez: false,
-                                        awaitingCassationEntryBy: null,
-                                    },
-                                    'تمييز القرار',
-                                    'سُجِّل تمييز وكيل الدائن على قرار المنفذ.',
-                                    'amber'
-                                )
+                            className={
+                                appealPerspective === 'debtor_agent'
+                                    ? lawyerBtnClass
+                                    : DECISION_BTN_DEBTOR_APPEAL_NOTICE
                             }
-                            className={lawyerBtnClass}
                         >
-                            تمييز القرار
+                            {labels.button}
                         </button>
-                    )}
+                        );
+                    })()}
+                {awaitingParty === 'lawyer' &&
+                    !appealWindowClosed &&
+                    (() => {
+                        const labels = appealCassationEntryLabels(appealPerspective, 'lawyer');
+                        return (
+                        <div className="flex flex-col gap-2">
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    transitionAppealWorkflow(
+                                        decision,
+                                        {
+                                            noAppealChosen: false,
+                                            appealActor: 'lawyer',
+                                            appealMethod: 'tamyeez',
+                                            appealWorkflowState: 'PENDING_APPEAL_LAWYER',
+                                            appealStatus: 'tamyeez_filed',
+                                            appealPhase: 'cassation',
+                                            grievanceRejectedAwaitingTamyeez: false,
+                                            grievanceAcceptedAwaitingDebtorTamyeez: false,
+                                            awaitingCassationEntryBy: null,
+                                        },
+                                        labels.timelineTitle,
+                                        labels.timelineDescription,
+                                        'amber'
+                                    )
+                                }
+                                className={
+                                    appealPerspective === 'debtor_agent'
+                                        ? DECISION_BTN_DEBTOR_APPEAL_NOTICE
+                                        : lawyerBtnClass
+                                }
+                            >
+                                {appealPerspective === 'debtor_agent'
+                                    ? appealInitialGrievanceEntryButtonLabel(
+                                          appealPerspective,
+                                          'lawyer'
+                                      )
+                                    : labels.button}
+                            </button>
+                            {appealPerspective !== 'debtor_agent' &&
+                            canWaiveLawyerAwaitingCassation(decision, decisions) ? (
+                                <button
+                                    type="button"
+                                    onClick={() => applyWaiveCassationAfterDebtorGrievance(decision)}
+                                    className={DECISION_BTN_SECONDARY_WFULL}
+                                >
+                                    لا حاجة للتمييز
+                                </button>
+                            ) : null}
+                        </div>
+                        );
+                    })()}
             </>
         );
     };
@@ -1958,8 +1960,10 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
             variant === 'appealsTab' ? 'تعديل رقم القرار التمييزي' : 'تعديل رقم التمييز';
         const hasNum = Boolean(decision.tamyeezDecisionNumber?.trim());
         const showNumberSavedRow = hasNum && !tamyeezEditOpenById[decision.id];
+        const hub = hubWithInferredAppealOrigin(decision);
+        const cassationFiler = resolveCassationFilerActor(decision);
         const cassationNumberOptional =
-            decision.appealRequestOrigin === 'debtor_side' || decision.appealActor === 'debtor';
+            cassationFiler === 'debtor' && !isCreditorInitiatedExecutorRequest(hub);
         return (
             <div className={outerClass}>
                 {/* القسم العلوي: حفظ رقم التمييز */}
@@ -1969,15 +1973,35 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                         <span className="text-slate-500 mr-1">(اختياري)</span>
                     ) : null}
                 </label>
-                <div className="flex gap-2 items-center">
+                <div className="flex flex-row-reverse flex-wrap items-center gap-2">
                     {showNumberSavedRow ? (
-                        <button
-                            type="button"
-                            onClick={() => setTamyeezEditOpenById((p) => ({ ...p, [decision.id]: true }))}
-                            className="w-full rounded-lg bg-purple-700 py-1.5 px-3 text-center text-sm font-medium text-white transition-colors hover:bg-purple-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/35 disabled:pointer-events-none disabled:opacity-40"
-                        >
-                            {editLabel}
-                        </button>
+                        <>
+                            <DecisionHintTooltip label={cassTips.naqd}>
+                                <button
+                                    type="button"
+                                    onClick={() => applyCassationCourtDecision(decision, 'naqd')}
+                                    className={DECISION_BTN_PRIMARY_FLEX}
+                                >
+                                    نقض القرار
+                                </button>
+                            </DecisionHintTooltip>
+                            <DecisionHintTooltip label={cassTips.rad}>
+                                <button
+                                    type="button"
+                                    onClick={() => applyCassationCourtDecision(decision, 'rad_laheeza')}
+                                    className={DECISION_BTN_SECONDARY_FLEX}
+                                >
+                                    تصديق القرار
+                                </button>
+                            </DecisionHintTooltip>
+                            <button
+                                type="button"
+                                onClick={() => setTamyeezEditOpenById((p) => ({ ...p, [decision.id]: true }))}
+                                className={DECISION_BTN_SECONDARY_FLEX}
+                            >
+                                {editLabel}
+                            </button>
+                        </>
                     ) : (
                         <>
                             <input
@@ -2009,38 +2033,13 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                                     setTamyeezEditOpenById((p) => ({ ...p, [decision.id]: false }));
                                     if (v) onCommitTamyeezNumber(v);
                                 }}
-                                className="px-4 py-2 bg-gray-700 text-white rounded text-sm hover:bg-gray-600 transition-colors"
+                                className={DECISION_BTN_PRIMARY_FLEX}
                             >
                                 حفظ
                             </button>
                         </>
                     )}
                 </div>
-                {/* فاصل بصري — يظهر فقط بعد حفظ الرقم */}
-                {showNumberSavedRow ? <hr className="my-4 border-gray-600" /> : null}
-                {/* القسم السفلي: أزرار القرار الحاسمة — تظهر فقط بعد حفظ الرقم */}
-                {showNumberSavedRow ? (
-                    <div className="flex justify-end gap-3">
-                        <DecisionHintTooltip label={cassTips.rad}>
-                            <button
-                                type="button"
-                                onClick={() => applyCassationCourtDecision(decision, 'rad_laheeza')}
-                                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/35 disabled:pointer-events-none disabled:opacity-40"
-                            >
-                                رد اللائحة
-                            </button>
-                        </DecisionHintTooltip>
-                        <DecisionHintTooltip label={cassTips.naqd}>
-                            <button
-                                type="button"
-                                onClick={() => applyCassationCourtDecision(decision, 'naqd')}
-                                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/35 disabled:pointer-events-none disabled:opacity-40"
-                            >
-                                نقض القرار
-                            </button>
-                        </DecisionHintTooltip>
-                    </div>
-                ) : null}
             </div>
         );
     };
@@ -2055,95 +2054,68 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
         const ap = pipeline.appealPhase ?? null;
         const awaitingTamyeezAfterGrievance =
             Boolean(pipeline.awaitingCassationEntryBy) ||
-            pipeline.grievanceRejectedAwaitingTamyeez === true;
+            pipeline.grievanceRejectedAwaitingTamyeez === true ||
+            pipeline.grievanceAcceptedAwaitingDebtorTamyeez === true;
         const appealTrackVisual =
             ap === 'grievance' ||
             ap === 'cassation' ||
             pipeline.appealStatus === 'tadhallum_filed' ||
-            pipeline.appealStatus === 'tamyeez_filed';
+            pipeline.appealStatus === 'tamyeez_filed' ||
+            Boolean(pipeline.awaitingCassationEntryBy) ||
+            pipeline.grievanceAcceptedAwaitingDebtorTamyeez === true;
 
-        const effOutcome = effectiveExecutorOutcomeForCreditorHubPill(decision, pipeline);
+        const appealLegallyFinal = isExecutorDecisionAppealFinal(decision, pipeline, {
+            appealWindowClosed,
+            appealTrackActive: appealTrackVisual && !appealWindowClosed,
+            isPastTamyeezDeadline: deadlineMeta.isPastTamyeezDeadline,
+        });
+
+        const openAppealContext = (final: boolean) => {
+            if (final) {
+                setAppealDetailDecision(decision);
+                setDecisionsHubTab('appeals');
+                return;
+            }
+            goToAppealsWithScroll(decision.id);
+        };
 
         const statusPillEl = (() => {
-            if (appealTrackVisual && !appealWindowClosed) {
-                const smartLabel = appealTrackSmartPillLabel(
-                    awaitingTamyeezAfterGrievance,
-                    ap,
-                    pipeline.appealStatus
-                );
-                return (
-                    <button
-                        type="button"
-                        onClick={() => setAppealDetailDecision(decision)}
-                        className="rounded-full border border-violet-500/20 bg-violet-500/10 px-2.5 py-0.5 text-[9px] font-bold text-violet-300 transition-colors hover:border-violet-500/35 hover:bg-violet-500/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/35"
-                    >
-                        {smartLabel}
-                    </button>
-                );
-            }
-            if (requestNeedsExecutorOutcome(decision)) {
-                return (
-                    <span className="rounded-full border border-yellow-500/20 bg-yellow-500/10 px-2.5 py-0.5 text-[9px] font-bold text-yellow-400">
-                        بانتظار القرار
-                    </span>
-                );
-            }
-            const phys = decision.executorOutcome;
-            const creditorFacingMinf =
-                decision.appealRequestOrigin === 'creditor_side' &&
-                (pipeline.appealWorkflowState === 'REVOKED_BY_APPEAL' ||
-                    pipeline.appealResult === 'نقض القرار' ||
-                    ((phys === 'approved' || phys === 'alternative') && effOutcome === 'rejected'));
-
-            if (creditorFacingMinf) {
-                return (
-                    <span className="rounded-full border border-red-500/20 bg-red-500/10 px-2.5 py-0.5 text-[9px] font-bold text-red-400">
-                        رفض المنفذ
-                    </span>
-                );
-            }
-            if (phys === 'rejected' || effOutcome === 'rejected') {
-                return (
-                    <span className="rounded-full border border-red-500/20 bg-red-500/10 px-2.5 py-0.5 text-[9px] font-bold text-red-400">
-                        رفض المنفذ
-                    </span>
-                );
-            }
-            if (phys === 'approved' || phys === 'alternative') {
-                return (
-                    <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-[9px] font-bold text-emerald-300">
-                        {decisionsHubTab === 'previous' ? 'قرار قبول' : 'قبول المنفذ'}
-                    </span>
-                );
-            }
-            if (deadlineMeta.isFinal && decision.appealStatus === 'pending') {
-                return (
-                    <span className="rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-0.5 text-[9px] font-bold text-slate-200">
-                        درجة قطعية
-                    </span>
-                );
-            }
-            return null;
+            const enforcement = resolveCreditorDecisionEnforcementState(decision, pipeline, {
+                hubTab: decisionsHubTab,
+                appealLegallyFinal,
+                needsExecutor: requestNeedsExecutorOutcome(decision),
+                appealPerspective,
+                allDecisions,
+            });
+            const isFinalEnforcedLabel =
+                enforcement.pillLabel === 'القرار نافذ' ||
+                enforcement.pillLabel.endsWith('— نافذ');
+            return renderDecisionHubStatusPill(
+                enforcement.pillLabel,
+                enforcement.pillTone,
+                enforcement.enforced && isFinalEnforcedLabel
+                    ? () => openAppealContext(true)
+                    : undefined
+            );
         })();
 
         return { statusPillEl, appealTrackVisual, awaitingTamyeezAfterGrievance, ap };
-    }, [decisionsHubTab, getAppealStatus, requestNeedsExecutorOutcome]);
+    }, [appealPerspective, decisionsHubTab, getAppealStatus, goToAppealsWithScroll, requestNeedsExecutorOutcome]);
 
     const decisionCardProps = {
         decisions,
         decisionsHubTab,
         dispatcherHub,
         executionId,
+        appealPerspective,
         requestNeedsExecutorOutcome,
         buildDecisionCardStatus,
-        appealActorDraftById,
         hubNoteById,
         setHubNoteById,
         handleExecutorResolveById,
         goToAppealsWithScroll,
         canShowAppealInitialForDecision,
-        renderAppealInitialButtons,
-        renderAppealTadhallumTamyeezDraft,
+        renderAppealEntryButtons,
         renderAppealGrievanceDecideButtons,
         renderAppealAwaitingCassationButtons,
         renderAppealTamyeezPhasePanel,
@@ -2158,12 +2130,11 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
 
     const appealWorkflowCardProps = {
         decisions,
+        appealPerspective,
         requestNeedsExecutorOutcome,
-        appealActorDraftById,
         buildDecisionCardStatus,
         canShowAppealInitialForDecision,
-        renderAppealInitialButtons,
-        renderAppealTadhallumTamyeezDraft,
+        renderAppealEntryButtons,
         renderAppealGrievanceDecideButtons,
         renderAppealTamyeezPhasePanel,
         renderAppealAwaitingCassationButtons,
@@ -2279,7 +2250,7 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                             <div className="space-y-4">
                                 {/* فلاتر سريعة */}
                                 <div className="flex flex-wrap gap-2">
-                                    {(['all', 'approved', 'rejected', 'active_appeals'] as const).map((f) => (
+                                    {(['all', 'approved', 'rejected'] as const).map((f) => (
                                         <button
                                             key={f}
                                             type="button"
@@ -2290,7 +2261,11 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                                                     : 'bg-slate-800/60 text-slate-400 hover:text-slate-200 border border-white/5'
                                             }`}
                                         >
-                                            {f === 'all' ? 'الكل' : f === 'approved' ? 'الموافق عليها' : f === 'rejected' ? 'المرفوضة' : 'الطعون النشطة'}
+                                            {f === 'all'
+                                                ? 'الكل'
+                                                : f === 'approved'
+                                                  ? 'الموافق عليها'
+                                                  : 'المرفوضة'}
                                         </button>
                                     ))}
                                 </div>
@@ -2302,15 +2277,14 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                                         <div className="grid w-full grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
                                             {archiveSettledDecisions.filter((d) => {
                                                 if (previousFilter === 'all') return true;
-                                                if (previousFilter === 'approved') return d.executorOutcome === 'approved' || d.executorOutcome === 'alternative';
-                                                if (previousFilter === 'rejected') return d.executorOutcome === 'rejected';
-                                                if (previousFilter === 'active_appeals') {
-                                                    return d.appealPhase === 'grievance' || d.appealPhase === 'cassation' ||
-                                                        d.appealStatus === 'tadhallum_filed' || d.appealStatus === 'tamyeez_filed' ||
-                                                        Boolean(d.awaitingCassationEntryBy) ||
-                                                        Boolean(d.grievanceRejectedAwaitingTamyeez) ||
-                                                        Boolean(d.grievanceAcceptedAwaitingDebtorTamyeez) ||
-                                                        Boolean(d.activeAppealCopyId);
+                                                if (previousFilter === 'approved') {
+                                                    return (
+                                                        d.executorOutcome === 'approved' ||
+                                                        d.executorOutcome === 'alternative'
+                                                    );
+                                                }
+                                                if (previousFilter === 'rejected') {
+                                                    return d.executorOutcome === 'rejected';
                                                 }
                                                 return true;
                                             }).map((d) => (
@@ -2349,8 +2323,14 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                             <div className="space-y-2">
                                 {appealsHubDecisions.length > 0 ? (
                                     <div className="grid w-full grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-                                        {appealsHubDecisions.map((d) => (
-                                            <AppealWorkflowCard key={d.id} decision={d} {...appealWorkflowCardProps} />
+                                        {appealsHubDecisions.map((d, index) => (
+                                            <AppealWorkflowCard
+                                                key={d.id}
+                                                decision={d}
+                                                appealCardRank={index}
+                                                appealCardsTotal={appealsHubDecisions.length}
+                                                {...appealWorkflowCardProps}
+                                            />
                                         ))}
                                     </div>
                                 ) : (

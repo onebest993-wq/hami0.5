@@ -7,6 +7,7 @@ import { stripImageMetadata } from '@/app/utils/stripMetadata';
 import { sanitizeLawyerProfile } from '@/app/services/profileSanitizer';
 import { refreshProfileMediaUrl } from '@/app/services/profileMediaService';
 import { isKvProxyNetworkEnabled } from '@/app/services/kvProxyConfig';
+import { deleteVaultBlobByPath, isVaultIdbStoragePath } from '@/app/services/vaultBlobStore';
 
 // --- INITIALIZATION ---
 // Supabase client imported from singleton
@@ -239,12 +240,17 @@ export const LawyerDB = {
     }
 };
 
-type CommunityAttachment = {
-    type: 'image' | 'document';
+export type CommunityAttachment = {
+    type: 'image' | 'document' | 'audio';
     url: string;
     name: string;
     mimeType?: string;
     storagePath?: string;
+};
+
+export type ForumEditHistoryEntry = {
+    content: string;
+    editedAt: string;
 };
 
 export type CommunityComment = {
@@ -276,6 +282,10 @@ export type CommunityPost = {
     isUrgent?: boolean;
     isAnonymous?: boolean;
     isEdited?: boolean;
+    /** عدد مرات التعديل (يُزاد عند كل حفظ) */
+    editCount?: number;
+    /** آخر نسخ قبل التعديل (محلي — حتى 10) */
+    editHistory?: ForumEditHistoryEntry[];
     isPinned?: boolean;
     /** قفل التعليقات على المنشور (المالك أو الأدمن) */
     isLocked?: boolean;
@@ -304,24 +314,153 @@ export type BanRecord = {
 };
 
 const COMMUNITY_LOCAL_KEY = 'hami:community:posts:v1';
+const COMMUNITY_DELETED_IDS_KEY = 'hami:community:deleted-ids:v1';
+const ANONYMOUS_FORUM_AUTHOR_ID = '__anonymous__';
+const DEV_SERVER_FORUM_STORE = Symbol.for('HAMI_DEV_COMMUNITY_POSTS_V1');
+const DEV_SERVER_DELETED_STORE = Symbol.for('HAMI_DEV_COMMUNITY_DELETED_IDS_V1');
+
+function getServerDevForumPosts(): CommunityPost[] {
+    const g = globalThis as unknown as Record<symbol, CommunityPost[]>;
+    if (!Array.isArray(g[DEV_SERVER_FORUM_STORE])) {
+        g[DEV_SERVER_FORUM_STORE] = [];
+    }
+    return g[DEV_SERVER_FORUM_STORE];
+}
 
 async function loadLocalCommunityPosts(): Promise<CommunityPost[]> {
+    if (typeof window === 'undefined') {
+        return getServerDevForumPosts();
+    }
     try {
         const raw = await SecureStoreService.getItem(COMMUNITY_LOCAL_KEY);
-        if (!raw) return [];
-        const parsed = JSON.parse(raw);
-        if (!Array.isArray(parsed)) return [];
-        return parsed as CommunityPost[];
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) return parsed as CommunityPost[];
+        }
+    } catch {
+        /* fallback below */
+    }
+    try {
+        const fallback = window.localStorage.getItem(COMMUNITY_LOCAL_KEY);
+        if (!fallback) return [];
+        const parsed = JSON.parse(fallback);
+        return Array.isArray(parsed) ? (parsed as CommunityPost[]) : [];
     } catch {
         return [];
     }
 }
 
 async function saveLocalCommunityPosts(posts: CommunityPost[]): Promise<void> {
+    if (typeof window === 'undefined') {
+        const g = globalThis as unknown as Record<symbol, CommunityPost[]>;
+        g[DEV_SERVER_FORUM_STORE] = posts;
+        return;
+    }
+    const payload = JSON.stringify(posts);
     try {
-        await SecureStoreService.setItem(COMMUNITY_LOCAL_KEY, JSON.stringify(posts));
+        await SecureStoreService.setItem(COMMUNITY_LOCAL_KEY, payload);
+        try {
+            window.localStorage.setItem(COMMUNITY_LOCAL_KEY, payload);
+        } catch {
+            /* optional mirror */
+        }
+        return;
+    } catch {
+        try {
+            window.localStorage.setItem(COMMUNITY_LOCAL_KEY, payload);
+        } catch {
+            console.warn('[CommunityDB] فشل حفظ المنشورات محلياً');
+        }
+    }
+}
+
+let communityPostsWriteChain: Promise<void> = Promise.resolve();
+
+function withCommunityPostsWriteLock<T>(operation: () => Promise<T>): Promise<T> {
+    const run = communityPostsWriteChain.then(operation, operation);
+    communityPostsWriteChain = run.then(
+        () => undefined,
+        () => undefined,
+    );
+    return run;
+}
+
+function getServerDevDeletedIds(): Set<string> {
+    const g = globalThis as unknown as Record<symbol, Set<string>>;
+    if (!(g[DEV_SERVER_DELETED_STORE] instanceof Set)) {
+        g[DEV_SERVER_DELETED_STORE] = new Set<string>();
+    }
+    return g[DEV_SERVER_DELETED_STORE] as Set<string>;
+}
+
+async function loadDeletedCommunityPostIds(): Promise<Set<string>> {
+    if (typeof window === 'undefined') {
+        return new Set(getServerDevDeletedIds());
+    }
+    try {
+        const raw = await SecureStoreService.getItem(COMMUNITY_DELETED_IDS_KEY);
+        if (!raw) return new Set();
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return new Set();
+        return new Set(parsed.filter((id): id is string => typeof id === 'string' && id.length > 0));
+    } catch {
+        return new Set();
+    }
+}
+
+async function saveDeletedCommunityPostIds(ids: Set<string>): Promise<void> {
+    if (typeof window === 'undefined') {
+        const g = globalThis as unknown as Record<symbol, Set<string>>;
+        g[DEV_SERVER_DELETED_STORE] = new Set(ids);
+        return;
+    }
+    try {
+        await SecureStoreService.setItem(COMMUNITY_DELETED_IDS_KEY, JSON.stringify([...ids]));
     } catch {
     }
+}
+
+export async function markCommunityPostDeleted(postId: string): Promise<void> {
+    const ids = await loadDeletedCommunityPostIds();
+    ids.add(postId);
+    await saveDeletedCommunityPostIds(ids);
+}
+
+export async function getDeletedCommunityPostIds(): Promise<Set<string>> {
+    return loadDeletedCommunityPostIds();
+}
+
+export function filterDeletedCommunityPosts(
+    posts: CommunityPost[],
+    deletedIds: Set<string>,
+): CommunityPost[] {
+    if (deletedIds.size === 0) return posts;
+    return posts.filter((p) => !deletedIds.has(p.id));
+}
+
+function resolveCommunityPostOwnerId(
+    stored: CommunityPost | undefined,
+    authorHint?: string,
+): string {
+    const fromStored = stored?.author_id ?? stored?.authorId ?? '';
+    if (fromStored && fromStored !== ANONYMOUS_FORUM_AUTHOR_ID) return fromStored;
+    if (authorHint && authorHint !== ANONYMOUS_FORUM_AUTHOR_ID) return authorHint;
+    return fromStored || authorHint || '';
+}
+
+function canActOnCommunityPost(
+    requesterId: string | undefined,
+    ownerId: string,
+    authorHint: string | undefined,
+    requesterRole?: UserRole,
+): boolean {
+    if (!requesterId) return true;
+    const isAdmin =
+        requesterRole === UserRole.SUPER_ADMIN || requesterRole === UserRole.MODERATOR;
+    if (isAdmin) return true;
+    if (ownerId && requesterId === ownerId) return true;
+    if (authorHint && requesterId === authorHint) return true;
+    return false;
 }
 
 function normalizeCommunityPost(raw: unknown): CommunityPost | null {
@@ -367,7 +506,14 @@ function normalizeCommunityPost(raw: unknown): CommunityPost | null {
         o.attachment && typeof o.attachment === 'object'
             ? (() => {
                   const a = o.attachment as Record<string, unknown>;
-                  const type: 'image' | 'document' | null = a.type === 'image' ? 'image' : a.type === 'document' ? 'document' : null;
+                  const type: CommunityAttachment['type'] | null =
+                      a.type === 'image'
+                          ? 'image'
+                          : a.type === 'document'
+                            ? 'document'
+                            : a.type === 'audio'
+                              ? 'audio'
+                              : null;
                   const url = typeof a.url === 'string' ? a.url : null;
                   const name = typeof a.name === 'string' ? a.name : null;
                   if (!type || !url || !name) return null;
@@ -385,6 +531,19 @@ function normalizeCommunityPost(raw: unknown): CommunityPost | null {
     const isUrgent = typeof o.isUrgent === 'boolean' ? o.isUrgent : undefined;
     const isAnonymous = typeof o.isAnonymous === 'boolean' ? o.isAnonymous : undefined;
     const isEdited = typeof o.isEdited === 'boolean' ? o.isEdited : undefined;
+    const editCount = typeof o.editCount === 'number' && o.editCount >= 0 ? o.editCount : undefined;
+    const editHistory = Array.isArray(o.editHistory)
+        ? (o.editHistory
+              .map((entry) => {
+                  if (!entry || typeof entry !== 'object') return null;
+                  const e = entry as Record<string, unknown>;
+                  const content = typeof e.content === 'string' ? e.content : null;
+                  const editedAt = typeof e.editedAt === 'string' ? e.editedAt : null;
+                  if (!content || !editedAt) return null;
+                  return { content, editedAt };
+              })
+              .filter((x): x is ForumEditHistoryEntry => x !== null))
+        : undefined;
     const isPinned = typeof o.isPinned === 'boolean' ? o.isPinned : undefined;
     return {
         id,
@@ -402,11 +561,98 @@ function normalizeCommunityPost(raw: unknown): CommunityPost | null {
         isUrgent,
         isAnonymous,
         isEdited,
+        editCount,
+        editHistory,
         isPinned,
     };
 }
 
-function mergePostsById(localPosts: CommunityPost[], remotePosts: CommunityPost[]): CommunityPost[] {
+function mergeCommunityComments(
+    left: CommunityComment[],
+    right: CommunityComment[],
+): CommunityComment[] {
+    const map = new Map<string, CommunityComment>();
+    for (const c of left) map.set(c.id, c);
+    for (const c of right) {
+        const prev = map.get(c.id);
+        if (!prev) {
+            map.set(c.id, c);
+            continue;
+        }
+        map.set(c.id, c.content.length >= prev.content.length ? c : prev);
+    }
+    return Array.from(map.values()).sort(
+        (a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt),
+    );
+}
+
+function pickBestCommunityAttachment(
+    local: CommunityPost,
+    remote: CommunityPost,
+): CommunityPost['attachment'] {
+    const la = local.attachment;
+    const ra = remote.attachment;
+    if (la && !ra) return la;
+    if (ra && !la) return ra;
+    if (!la && !ra) return null;
+    if (la!.storagePath && !ra!.storagePath) return la;
+    if (ra!.storagePath && !la!.storagePath) return ra;
+    if (la!.storagePath?.startsWith('idb:forum:') && !ra!.storagePath?.startsWith('idb:forum:')) return la;
+    return la!.url && !ra!.url ? la : ra!.url && !la!.url ? ra : la;
+}
+
+function mergeSingleCommunityPost(local: CommunityPost, remote: CommunityPost): CommunityPost {
+    const localTime = Number.isFinite(Date.parse(local.updatedAt)) ? Date.parse(local.updatedAt) : 0;
+    const remoteTime = Number.isFinite(Date.parse(remote.updatedAt)) ? Date.parse(remote.updatedAt) : 0;
+    const newer = remoteTime >= localTime ? remote : local;
+    const older = remoteTime >= localTime ? local : remote;
+
+    let content = local.content;
+    let isEdited = Boolean(local.isEdited || remote.isEdited);
+    let editCount = Math.max(local.editCount ?? 0, remote.editCount ?? 0);
+    let editHistory =
+        (local.editHistory?.length ?? 0) >= (remote.editHistory?.length ?? 0)
+            ? local.editHistory
+            : remote.editHistory;
+    if (local.content !== remote.content) {
+        if (local.isEdited && !remote.isEdited) {
+            content = local.content;
+        } else if (!local.isEdited && remote.isEdited) {
+            content = remote.content;
+        } else if (remoteTime > localTime) {
+            content = remote.content;
+        } else {
+            content = local.content;
+        }
+    }
+
+    const upvoterIds = [...new Set([...(local.upvoterIds ?? []), ...(remote.upvoterIds ?? [])])];
+    const comments = mergeCommunityComments(local.comments ?? [], remote.comments ?? []);
+    const tags = Array.from(new Set([...(local.tags ?? []), ...(remote.tags ?? [])]));
+
+    return {
+        ...newer,
+        content,
+        tags,
+        isEdited,
+        editCount: editCount || undefined,
+        editHistory,
+        attachment: pickBestCommunityAttachment(local, remote),
+        upvoterIds,
+        comments,
+        bestCommentId: newer.bestCommentId ?? older.bestCommentId ?? null,
+        isPinned: local.isPinned || remote.isPinned,
+        isLocked: local.isLocked || remote.isLocked,
+        isUrgent: local.isUrgent || remote.isUrgent,
+        isAnonymous: local.isAnonymous || remote.isAnonymous,
+        updatedAt: new Date(Math.max(localTime, remoteTime)).toISOString(),
+    };
+}
+
+export function mergeCommunityPostsById(
+    localPosts: CommunityPost[],
+    remotePosts: CommunityPost[],
+): CommunityPost[] {
     const map = new Map<string, CommunityPost>();
     for (const p of localPosts) map.set(p.id, p);
     for (const p of remotePosts) {
@@ -415,18 +661,30 @@ function mergePostsById(localPosts: CommunityPost[], remotePosts: CommunityPost[
             map.set(p.id, p);
             continue;
         }
-        const prevTime = Number.isFinite(Date.parse(prev.updatedAt)) ? Date.parse(prev.updatedAt) : 0;
-        const nextTime = Number.isFinite(Date.parse(p.updatedAt)) ? Date.parse(p.updatedAt) : 0;
-        map.set(p.id, nextTime >= prevTime ? p : prev);
+        map.set(p.id, mergeSingleCommunityPost(prev, p));
     }
     return Array.from(map.values());
 }
 
+export function sortCommunityPosts(posts: CommunityPost[]): CommunityPost[] {
+    return [...posts].sort((a, b) => {
+        const aPin = a.isPinned ? 1 : 0;
+        const bPin = b.isPinned ? 1 : 0;
+        return bPin - aPin || Date.parse(b.createdAt) - Date.parse(a.createdAt);
+    });
+}
+
+function mergePostsById(localPosts: CommunityPost[], remotePosts: CommunityPost[]): CommunityPost[] {
+    return mergeCommunityPostsById(localPosts, remotePosts);
+}
+
 export const CommunityDB = {
     async listPosts(): Promise<CommunityPost[]> {
+        const deletedIds = await loadDeletedCommunityPostIds();
         const localPosts = (await loadLocalCommunityPosts()).map((p) => normalizeCommunityPost(p)).filter((p): p is CommunityPost => p !== null);
+        const withoutDeleted = filterDeletedCommunityPosts(localPosts, deletedIds);
         if (!isKvProxyNetworkEnabled()) {
-            return localPosts.sort((a, b) => {
+            return withoutDeleted.sort((a, b) => {
                 const aPin = a.isPinned ? 1 : 0;
                 const bPin = b.isPinned ? 1 : 0;
                 return bPin - aPin || Date.parse(b.createdAt) - Date.parse(a.createdAt);
@@ -435,7 +693,10 @@ export const CommunityDB = {
         try {
             const res = await kv.getByPrefix('community:posts:');
             const remotePosts = Array.isArray(res) ? res.map((p) => normalizeCommunityPost(p)).filter((p): p is CommunityPost => p !== null) : [];
-            const merged = mergePostsById(localPosts, remotePosts).sort((a, b) => {
+            const merged = filterDeletedCommunityPosts(
+                mergePostsById(withoutDeleted, remotePosts),
+                deletedIds,
+            ).sort((a, b) => {
                 const aPin = a.isPinned ? 1 : 0;
                 const bPin = b.isPinned ? 1 : 0;
                 return bPin - aPin || Date.parse(b.createdAt) - Date.parse(a.createdAt);
@@ -443,7 +704,7 @@ export const CommunityDB = {
             await saveLocalCommunityPosts(merged);
             return merged;
         } catch {
-            return localPosts.sort((a, b) => {
+            return withoutDeleted.sort((a, b) => {
                 const aPin = a.isPinned ? 1 : 0;
                 const bPin = b.isPinned ? 1 : 0;
                 return bPin - aPin || Date.parse(b.createdAt) - Date.parse(a.createdAt);
@@ -452,21 +713,43 @@ export const CommunityDB = {
     },
 
     async savePost(post: CommunityPost): Promise<void> {
-        const normalized = normalizeCommunityPost(post);
-        if (!normalized) throw new Error('بيانات المنشور غير صالحة');
-        const localPosts = await loadLocalCommunityPosts();
-        const merged = mergePostsById(localPosts, [normalized]).sort((a, b) => {
+        return withCommunityPostsWriteLock(async () => {
+            const normalized = normalizeCommunityPost(post);
+            if (!normalized) throw new Error('بيانات المنشور غير صالحة');
+            const localPosts = await loadLocalCommunityPosts();
+            const merged = mergePostsById(localPosts, [normalized]).sort((a, b) => {
                 const aPin = a.isPinned ? 1 : 0;
                 const bPin = b.isPinned ? 1 : 0;
                 return bPin - aPin || Date.parse(b.createdAt) - Date.parse(a.createdAt);
             });
-        await saveLocalCommunityPosts(merged);
-        await kv.set(`community:posts:${normalized.id}`, normalized);
+            await saveLocalCommunityPosts(merged);
+            if (isKvProxyNetworkEnabled()) {
+                try {
+                    await kv.set(`community:posts:${normalized.id}`, normalized);
+                } catch {
+                    /* المحلي محفوظ — kv اختياري في التطوير */
+                }
+            }
+        });
+    },
+
+    /** حفظ دفعي آمن — يمنع فقدان منشورات عند المزامنة */
+    async persistPostsBatch(posts: CommunityPost[]): Promise<void> {
+        return withCommunityPostsWriteLock(async () => {
+            const deletedIds = await loadDeletedCommunityPostIds();
+            const normalized = posts
+                .map((p) => normalizeCommunityPost(p))
+                .filter((p): p is CommunityPost => p !== null);
+            const filtered = filterDeletedCommunityPosts(normalized, deletedIds);
+            await saveLocalCommunityPosts(sortCommunityPosts(filtered));
+        });
     },
 
     async deletePost(postId: string): Promise<void> {
-        const localPosts = (await loadLocalCommunityPosts()).filter((p) => p?.id !== postId);
-        await saveLocalCommunityPosts(localPosts);
+        return withCommunityPostsWriteLock(async () => {
+            await markCommunityPostDeleted(postId);
+            const localPosts = (await loadLocalCommunityPosts()).filter((p) => p?.id !== postId);
+            await saveLocalCommunityPosts(localPosts);
 
         let attachmentPath: string | null = null;
         try {
@@ -487,11 +770,92 @@ export const CommunityDB = {
             }
         }
 
-        await kv.del(`community:posts:${postId}`);
+        if (isKvProxyNetworkEnabled()) {
+            try {
+                await kv.del(`community:posts:${postId}`);
+            } catch {
+                /* المحلي محدّث — kv اختياري في التطوير */
+            }
+        }
+        });
     },
 
     async saveReport(report: CommunityReport): Promise<void> {
-        await kv.set(`community:reports:${report.id}`, report);
+        if (!isKvProxyNetworkEnabled()) return;
+        try {
+            await kv.set(`community:reports:${report.id}`, report);
+        } catch {
+            /* ignore */
+        }
+    },
+};
+
+const FORUM_BOOKMARKS_KEY = 'hami:forum:bookmarks:v1';
+const DEV_SERVER_BOOKMARKS = Symbol.for('HAMI_DEV_FORUM_BOOKMARKS_V1');
+
+type ForumBookmarkStore = Record<string, string[]>;
+
+function getServerBookmarkStore(): ForumBookmarkStore {
+    const g = globalThis as unknown as Record<symbol, ForumBookmarkStore>;
+    if (!g[DEV_SERVER_BOOKMARKS] || typeof g[DEV_SERVER_BOOKMARKS] !== 'object') {
+        g[DEV_SERVER_BOOKMARKS] = {};
+    }
+    return g[DEV_SERVER_BOOKMARKS];
+}
+
+async function loadForumBookmarkStore(): Promise<ForumBookmarkStore> {
+    if (typeof window === 'undefined') {
+        return getServerBookmarkStore();
+    }
+    try {
+        const raw = await SecureStoreService.getItem(FORUM_BOOKMARKS_KEY);
+        if (!raw) return {};
+        const parsed = JSON.parse(raw) as unknown;
+        if (!parsed || typeof parsed !== 'object') return {};
+        return parsed as ForumBookmarkStore;
+    } catch {
+        return {};
+    }
+}
+
+async function saveForumBookmarkStore(store: ForumBookmarkStore): Promise<void> {
+    if (typeof window === 'undefined') {
+        const g = globalThis as unknown as Record<symbol, ForumBookmarkStore>;
+        g[DEV_SERVER_BOOKMARKS] = store;
+        return;
+    }
+    try {
+        await SecureStoreService.setItem(FORUM_BOOKMARKS_KEY, JSON.stringify(store));
+    } catch {
+    }
+}
+
+/** حفظ المنشورات للقراءة لاحقاً — محلي per-user (يعمل بدون Supabase). */
+export const ForumBookmarkDB = {
+    async listPostIds(userId: string): Promise<string[]> {
+        if (!userId) return [];
+        const store = await loadForumBookmarkStore();
+        const ids = store[userId];
+        return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string' && id.length > 0) : [];
+    },
+
+    async toggle(userId: string, postId: string): Promise<boolean> {
+        if (!userId || !postId) throw new Error('معرّف المستخدم أو المنشور غير صالح');
+        const store = await loadForumBookmarkStore();
+        const current = new Set(
+            Array.isArray(store[userId]) ? store[userId].filter((id) => typeof id === 'string') : [],
+        );
+        let bookmarked: boolean;
+        if (current.has(postId)) {
+            current.delete(postId);
+            bookmarked = false;
+        } else {
+            current.add(postId);
+            bookmarked = true;
+        }
+        store[userId] = [...current];
+        await saveForumBookmarkStore(store);
+        return bookmarked;
     },
 };
 
@@ -616,16 +980,14 @@ export async function deleteCommunityPost(
     requesterRole?: UserRole,
     authorId?: string,
 ): Promise<void> {
-    if (requesterId) {
-        let postAuthorId = authorId;
-        if (!postAuthorId) {
-            const posts = await CommunityDB.listPosts();
-            const post = posts.find((p) => p.id === postId);
-            postAuthorId = post?.author_id ?? post?.authorId ?? '';
-        }
-        if (requesterId !== postAuthorId && requesterRole !== UserRole.SUPER_ADMIN && requesterRole !== UserRole.MODERATOR) {
-            throw new Error('ليس لديك صلاحية لحذف هذا المنشور');
-        }
+    const rawPosts = await loadLocalCommunityPosts();
+    const stored = rawPosts.find((p) => p?.id === postId);
+    const ownerId = resolveCommunityPostOwnerId(
+        stored ? normalizeCommunityPost(stored) ?? undefined : undefined,
+        authorId,
+    );
+    if (!canActOnCommunityPost(requesterId, ownerId, authorId, requesterRole)) {
+        throw new Error('ليس لديك صلاحية لحذف هذا المنشور');
     }
     await CommunityDB.deletePost(postId);
 }
@@ -638,10 +1000,33 @@ export async function updateCommunityPost(postId: string, newContent: string, re
     if (requesterId && requesterId !== postAuthorId) {
         throw new Error('ليس لديك صلاحية لتعديل هذا المنشور');
     }
+    const { buildForumEditPatch } = await import('@/app/services/forum/forumEditUtils');
     const updated: CommunityPost = {
         ...post,
-        content: newContent,
-        isEdited: true,
+        ...buildForumEditPatch(post, newContent),
+    };
+    await CommunityDB.savePost(updated);
+    return updated;
+}
+
+export async function toggleLockCommunityPost(
+    postId: string,
+    locked: boolean,
+    requesterId: string,
+    requesterIsAdmin: boolean,
+    authorHint?: string,
+): Promise<CommunityPost> {
+    const posts = await CommunityDB.listPosts();
+    const post = posts.find((p) => p.id === postId);
+    if (!post) throw new Error('المنشور غير موجود');
+    const ownerId = resolveCommunityPostOwnerId(post, authorHint);
+    const adminRole = requesterIsAdmin ? UserRole.SUPER_ADMIN : undefined;
+    if (!canActOnCommunityPost(requesterId, ownerId, authorHint, adminRole)) {
+        throw new Error('ليس لديك صلاحية لقفل النقاش');
+    }
+    const updated: CommunityPost = {
+        ...post,
+        isLocked: locked || undefined,
         updatedAt: new Date().toISOString(),
     };
     await CommunityDB.savePost(updated);
@@ -1035,9 +1420,58 @@ export type RepositoryDocument = {
     mimeType: string;
     storagePath: string;
     fileSize: number;
+    /** وسوم تصنيف إضافية (#تنفيذ، #مدني، …) */
+    tags?: string[];
 };
 
 const REPOSITORY_LOCAL_KEY = 'hami:repository:docs:v1';
+
+function normalizeRepositoryDocument(raw: unknown): RepositoryDocument | null {
+    if (!raw || typeof raw !== 'object') return null;
+    const o = raw as Record<string, unknown>;
+    const id = typeof o.id === 'string' ? o.id : null;
+    const title = typeof o.title === 'string' ? o.title : null;
+    const description = typeof o.description === 'string' ? o.description : null;
+    const type = o.type;
+    const authorId = typeof o.authorId === 'string' ? o.authorId : null;
+    const authorName = typeof o.authorName === 'string' ? o.authorName : null;
+    const uploadDate = typeof o.uploadDate === 'string' ? o.uploadDate : null;
+    const fileName = typeof o.fileName === 'string' ? o.fileName : null;
+    const mimeType = typeof o.mimeType === 'string' ? o.mimeType : '';
+    const storagePath = typeof o.storagePath === 'string' ? o.storagePath : null;
+    const fileSize = typeof o.fileSize === 'number' ? o.fileSize : 0;
+    const validTypes = ['عقد', 'قرار حكم', 'عريضة', 'بحث قانوني', 'أخرى'] as const;
+    if (
+        !id ||
+        !title ||
+        !description ||
+        !validTypes.includes(type as (typeof validTypes)[number]) ||
+        !authorId ||
+        !authorName ||
+        !uploadDate ||
+        !fileName ||
+        !storagePath
+    ) {
+        return null;
+    }
+    const tags = Array.isArray(o.tags)
+        ? (o.tags.filter((t) => typeof t === 'string') as string[])
+        : undefined;
+    return {
+        id,
+        title,
+        description,
+        type: type as RepositoryDocument['type'],
+        authorId,
+        authorName,
+        uploadDate,
+        fileName,
+        mimeType,
+        storagePath,
+        fileSize,
+        tags,
+    };
+}
 
 async function loadLocalRepositoryDocs(): Promise<RepositoryDocument[]> {
     try {
@@ -1045,7 +1479,7 @@ async function loadLocalRepositoryDocs(): Promise<RepositoryDocument[]> {
         if (!raw) return [];
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed)) return [];
-        return parsed as RepositoryDocument[];
+        return parsed.map(normalizeRepositoryDocument).filter((d): d is RepositoryDocument => d !== null);
     } catch {
         return [];
     }
@@ -1081,11 +1515,9 @@ export const RepositoryDB = {
         try {
             const res = await kv.getByPrefix('repository:docs:');
             const remoteDocs = Array.isArray(res)
-                ? res.filter((d): d is RepositoryDocument => {
-                      if (!d || typeof d !== 'object') return false;
-                      const o = d as Record<string, unknown>;
-                      return typeof o.id === 'string' && typeof o.title === 'string';
-                  })
+                ? res
+                      .map(normalizeRepositoryDocument)
+                      .filter((d): d is RepositoryDocument => d !== null)
                 : [];
             const merged = mergeRepositoryDocs(localDocs, remoteDocs).sort(
                 (a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime()
@@ -1100,27 +1532,41 @@ export const RepositoryDB = {
     },
 
     async saveDocument(doc: RepositoryDocument): Promise<void> {
+        const normalized = normalizeRepositoryDocument(doc);
+        if (!normalized) throw new Error('بيانات المستند غير صالحة');
         const localDocs = await loadLocalRepositoryDocs();
-        const merged = mergeRepositoryDocs(localDocs, [doc]);
+        const merged = mergeRepositoryDocs(localDocs, [normalized]);
         await saveLocalRepositoryDocs(merged);
-        await kv.set(`repository:docs:${doc.id}`, doc);
+        if (isKvProxyNetworkEnabled()) {
+            try {
+                await kv.set(`repository:docs:${normalized.id}`, normalized);
+            } catch {
+                /* المحلي محفوظ — kv اختياري في التطوير */
+            }
+        }
     },
 
     async deleteDocument(docId: string): Promise<void> {
-        const localDocs = (await loadLocalRepositoryDocs()).filter((d) => d?.id !== docId);
-        await saveLocalRepositoryDocs(localDocs);
-        try {
-            const raw = await kv.get(`repository:docs:${docId}`);
-            if (raw && typeof raw === 'object') {
-                const doc = raw as RepositoryDocument;
-                if (doc.storagePath) {
-                    await supabase.storage.from('make-f09713ba').remove([doc.storagePath]);
-                }
+        const localDocs = await loadLocalRepositoryDocs();
+        const target = localDocs.find((d) => d?.id === docId);
+        await saveLocalRepositoryDocs(localDocs.filter((d) => d?.id !== docId));
+
+        const storagePath = target?.storagePath?.trim();
+        if (storagePath && !storagePath.startsWith('idb:forum:')) {
+            try {
+                await supabase.storage.from('make-f09713ba').remove([storagePath]);
+            } catch {
+                /* الملف قد يكون محذوفاً مسبقاً */
             }
-        } catch {
-            // continue with KV deletion
         }
-        await kv.del(`repository:docs:${docId}`);
+
+        if (isKvProxyNetworkEnabled()) {
+            try {
+                await kv.del(`repository:docs:${docId}`);
+            } catch {
+                /* المحلي محدّث — kv اختياري في التطوير */
+            }
+        }
     },
 };
 
@@ -1181,7 +1627,16 @@ export const LawyerStorage = {
      */
     async uploadSmartFile(userId: string, file: File, category: 'scans' | 'audio' | 'drafts' | 'repository' | 'vault') {
         const timestamp = Date.now();
-        const uploadFile = file.type.startsWith('image/') ? await stripImageMetadata(file) : file;
+        const looksLikeImage =
+            file.type.startsWith('image/') || /\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(file.name);
+        let uploadFile = file;
+        if (looksLikeImage) {
+            try {
+                uploadFile = await stripImageMetadata(file);
+            } catch {
+                uploadFile = file;
+            }
+        }
         const cleanName = uploadFile.name.replace(/[^a-zA-Z0-9.-]/g, '_');
         const path = `${userId}/${category}/${timestamp}_${cleanName}`;
 
@@ -1235,6 +1690,10 @@ export type SmartVaultDoc = {
     storagePath: string;
     signedUrl?: string | null;
     aiSummary?: string | null;
+    /** ملاحظة/وصف يدوي من المحامي */
+    lawyerNote?: string | null;
+    /** تصنيف مخصص يختاره المحامي */
+    customCategory?: string | null;
     isProcessing?: boolean;
     boundDossierId?: string | null;
 };
@@ -1265,13 +1724,36 @@ async function saveLocalVaultDocs(docs: SmartVaultDoc[]): Promise<void> {
     const payload = JSON.stringify(docs);
     try {
         await SecureStoreService.setItem(VAULT_LOCAL_KEY, payload);
-    } catch (e) {
+        return;
+    } catch {
         try {
             localStorage.setItem(VAULT_LOCAL_KEY, payload);
-        } catch {
+            return;
+        } catch (e) {
             console.error('[Vault] Failed to persist vault docs:', e);
+            throw new Error('vault persist failed');
         }
     }
+}
+
+function vaultDocPayloadForKv(doc: SmartVaultDoc): SmartVaultDoc {
+    const path = doc.storagePath || '';
+    if (isVaultIdbStoragePath(path)) {
+        return { ...doc, signedUrl: null };
+    }
+    if (path.startsWith('local:vault:') && doc.signedUrl?.startsWith('data:')) {
+        return { ...doc, signedUrl: null };
+    }
+    return doc;
+}
+
+function vaultDocsPersistSignature(docs: SmartVaultDoc[]): string {
+    return docs
+        .map(
+            (d) =>
+                `${d.id}\0${d.updatedAt}\0${d.storagePath}\0${d.signedUrl ? 1 : 0}\0${d.customCategory ?? ''}\0${d.title}`,
+        )
+        .join('\x01');
 }
 
 function mergeVaultDocs(local: SmartVaultDoc[], remote: SmartVaultDoc[]): SmartVaultDoc[] {
@@ -1285,7 +1767,13 @@ function mergeVaultDocs(local: SmartVaultDoc[], remote: SmartVaultDoc[]): SmartV
         }
         const prevTime = Number.isFinite(Date.parse(prev.updatedAt)) ? Date.parse(prev.updatedAt) : 0;
         const nextTime = Number.isFinite(Date.parse(d.updatedAt)) ? Date.parse(d.updatedAt) : 0;
-        map.set(d.id, nextTime > prevTime ? d : prev);
+        const winner = nextTime > prevTime ? d : prev;
+        const other = nextTime > prevTime ? prev : d;
+        map.set(d.id, {
+            ...winner,
+            signedUrl: winner.signedUrl ?? other.signedUrl ?? null,
+            storagePath: winner.storagePath || other.storagePath,
+        });
     }
     return Array.from(map.values());
 }
@@ -1315,7 +1803,12 @@ export const SmartVaultDB = {
             );
             const allLocal = await loadLocalVaultDocs();
             const others = allLocal.filter((d) => d.authorId !== uid);
-            await saveLocalVaultDocs([...others, ...mergedForUser]);
+            const nextLocal = [...others, ...mergedForUser];
+            const prevUserSig = vaultDocsPersistSignature(allLocal.filter((d) => d.authorId === uid));
+            const nextUserSig = vaultDocsPersistSignature(mergedForUser);
+            if (prevUserSig !== nextUserSig) {
+                await saveLocalVaultDocs(nextLocal);
+            }
             return mergedForUser;
         } catch {
             return localDocs.sort(
@@ -1331,7 +1824,7 @@ export const SmartVaultDB = {
         const localDocs = await loadLocalVaultDocs();
         const merged = mergeVaultDocs(localDocs, [doc]);
         try {
-            await kv.set(`vault:docs:${doc.authorId}:${doc.id}`, doc);
+            await kv.set(`vault:docs:${doc.authorId}:${doc.id}`, vaultDocPayloadForKv(doc));
         } catch {
             // Cloud-First: save locally even if remote fails
         }
@@ -1340,12 +1833,15 @@ export const SmartVaultDB = {
 
     async deleteDoc(docId: string, authorId: string): Promise<void> {
         if (!authorId || !docId) throw new Error('معرف الملف والمستخدم مطلوب');
+        const localDocs = await loadLocalVaultDocs();
+        const localDoc = localDocs.find((d) => d?.id === docId && d.authorId === authorId);
         try {
             const raw = await kv.get(`vault:docs:${authorId}:${docId}`);
             if (raw && typeof raw === 'object') {
                 const doc = raw as SmartVaultDoc;
-                if (doc.storagePath) {
-                    await supabase.storage.from('make-f09713ba').remove([doc.storagePath]);
+                const path = doc.storagePath || '';
+                if (path && !path.startsWith('local:') && !isVaultIdbStoragePath(path)) {
+                    await supabase.storage.from('make-f09713ba').remove([path]);
                 }
             }
         } catch {
@@ -1356,8 +1852,11 @@ export const SmartVaultDB = {
         } catch {
             // Cloud-First: delete locally even if remote fails
         }
-        const localDocs = (await loadLocalVaultDocs()).filter((d) => d?.id !== docId);
-        await saveLocalVaultDocs(localDocs);
+        if (localDoc?.storagePath && isVaultIdbStoragePath(localDoc.storagePath)) {
+            await deleteVaultBlobByPath(localDoc.storagePath);
+        }
+        const remaining = localDocs.filter((d) => d?.id !== docId);
+        await saveLocalVaultDocs(remaining);
     },
 
     async updateDoc(doc: SmartVaultDoc, requesterId?: string): Promise<void> {
@@ -1390,7 +1889,7 @@ export const SmartVaultDB = {
 
         const updated: SmartVaultDoc = { ...doc, boundDossierId: dossierId, updatedAt: new Date().toISOString() };
         try {
-            await kv.set(`vault:docs:${authorId}:${docId}`, updated);
+            await kv.set(`vault:docs:${authorId}:${docId}`, vaultDocPayloadForKv(updated));
         } catch {
             // Cloud-First: save locally even if remote fails
         }
@@ -2012,59 +2511,4 @@ export const ProfileDB = {
             window.dispatchEvent(new CustomEvent(LAWYER_PROFILE_UPDATED, { detail: { userId } }));
         }
     },
-};
-
-// --- 3. CLOUD FUNCTIONS INTERFACE (AI BRIDGE) ---
-
-export const LawyerAI = {
-    async processDocument(file: File) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = async () => {
-                try {
-                    const base64 = reader.result;
-                    if (typeof base64 !== 'string') {
-                        reject(new Error('Invalid file reader result'));
-                        return;
-                    }
-                    const content = base64.split(',')[1] ?? '';
-                    const data = await SecureAPIClient.fetchSecure(
-                        `${SERVER_URL}/ai-legal-brain`,
-                        {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                Authorization: `Bearer ${publicAnonKey}`,
-                            },
-                            body: JSON.stringify({
-                                type: 'image',
-                                content,
-                            }),
-                        }
-                    );
-                    resolve(data);
-                } catch (e) {
-                    reject(e);
-                }
-            };
-        });
-    },
-
-    async draftPetition(context: string) {
-        return await SecureAPIClient.fetchSecure(
-            `${SERVER_URL}/ai-legal-brain`,
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${publicAnonKey}`,
-                },
-                body: JSON.stringify({
-                    type: 'draft_request',
-                    content: context,
-                }),
-            }
-        );
-    }
 };

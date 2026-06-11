@@ -13,9 +13,21 @@ import {
     stringifyCreditorPartyDeathPayload,
     type CreditorPartyDeathStoredAction,
 } from '@/app/utils/creditorPartyDeathPersistence';
-import { executionDecisionsStorageKey } from '@/app/utils/executionStorageKeys';
+import {
+    isExecutorDecisionsStorageKey,
+    readExecutorDecisionsFromActiveNamespace,
+    writeExecutorDecisionsArray,
+} from '@/app/utils/executionDecisionsNamespace';
+import {
+    dispatchDomainIsolationBlocked,
+    gateExecutorRequestPersist,
+} from '@/app/utils/executionDomainIsolation';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import SecureStoreService from '@/app/services/SecureStoreService';
+import {
+    isCassationAffirmResult,
+    isExecutorRequestAppealCycleSupersededFromRecord,
+} from '@/app/components/lawyer/DecisionsAndAppealsEngine/utils';
 
 export const DECISIONS_RELOAD_EVENT = 'hami-decisions-reload';
 
@@ -47,6 +59,14 @@ export function dispatchDecisionsReload(): void {
     }
 }
 
+function persistExecutorDecisionsArray(
+    executionId: string | undefined,
+    arr: Record<string, unknown>[]
+): void {
+    writeExecutorDecisionsArray(executionId, arr);
+    dispatchDecisionsReload();
+}
+
 /** حقول افتراضية لصفوف مركز القرارات (فرز التبويبات + مرحلة الطعن) */
 export function executorDecisionRowHubDefaults(): { status: 'pending'; appealPhase: null } {
     return { status: 'pending', appealPhase: null };
@@ -58,8 +78,26 @@ export type PersonalCoerciveSubtype =
     /** مفاتحة ضمن مسار تكليف الحضور (موظف/كاسب) — منفصل عن طلب المفاتحة العام في محضر المتابعة */
     | 'employee_assignment_investigation'
     | 'travel_ban'
+    /** @deprecated — استخدم executive_dossier_presentation؛ يُبقى للطلبات القديمة */
     | 'executive_detention'
+    /** طلب عرض الإضبارة على قاضي البداءة — قرار المنفذ فقط */
+    | 'executive_dossier_presentation'
+    /** قرار قاضي البداءة بالحبس — منفصل عن طلب عرض الإضبارة لدى المنفذ */
+    | 'executive_detention_judge'
     | 'release_debtor';
+
+export const EXECUTIVE_DOSSIER_PRESENTATION_SUBTYPES: readonly PersonalCoerciveSubtype[] = [
+    'executive_dossier_presentation',
+    'executive_detention',
+] as const;
+
+export function isExecutiveDossierPresentationSubtype(
+    subtype: string | null | undefined
+): subtype is PersonalCoerciveSubtype {
+    return EXECUTIVE_DOSSIER_PRESENTATION_SUBTYPES.includes(
+        String(subtype || '').trim() as PersonalCoerciveSubtype
+    );
+}
 
 export type SeizureRequestSubtype =
     | 'movable'
@@ -68,6 +106,27 @@ export type SeizureRequestSubtype =
     | 'salary'
     | 'notice'
     | 'third_party';
+
+export type SeizureRequestTarget = 'debtor' | 'guarantor';
+
+export function readSeizureRequestTarget(row: Record<string, unknown> | null | undefined): SeizureRequestTarget {
+    if (!row) return 'debtor';
+    const direct = String((row as { seizureTarget?: string }).seizureTarget || '').trim();
+    if (direct === 'guarantor' || direct === 'debtor') return direct;
+    const rawJson = String((row as { seizurePayloadJson?: string }).seizurePayloadJson || '').trim();
+    if (rawJson) {
+        try {
+            const v = JSON.parse(rawJson) as { seizureTarget?: string };
+            if (v?.seizureTarget === 'guarantor') return 'guarantor';
+            if (v?.seizureTarget === 'debtor') return 'debtor';
+        } catch {
+            /* ignore */
+        }
+    }
+    const text = `${String((row as { title?: string }).title || '')}\n${String((row as { body?: string }).body || '')}`;
+    if (/الكفيل|كفيل|الضامن/i.test(text) && /حجز/i.test(text)) return 'guarantor';
+    return 'debtor';
+}
 
 export function getExecutorDecisionRowById(
     executionId: string | undefined,
@@ -78,6 +137,40 @@ export function getExecutorDecisionRowById(
     const rows = readExecutorDecisionsArray(executionId);
     const found = rows.find((r) => String(r.id) === id);
     return found ?? null;
+}
+
+/** يبحث عن صف القرار في المفتاح المفضّل ثم بقية مفاتيح execution_*_decisions */
+export function resolveExecutorDecisionRowContext(
+    executionId: string | undefined,
+    decisionId: string
+): { row: Record<string, unknown>; storageExecutionId: string } | null {
+    const id = String(decisionId || '').trim();
+    if (!id) return null;
+    const preferred = String(executionId ?? '').trim();
+    if (preferred) {
+        const row = getExecutorDecisionRowById(preferred, id);
+        if (row) return { row, storageExecutionId: preferred };
+    }
+    try {
+        const keys = SecureStoreService.listKeysSync();
+        for (const k of keys) {
+            const key = String(k || '').trim();
+            if (!isExecutorDecisionsStorageKey(key)) continue;
+            let storageExecutionId = '';
+            if (key.includes('_decisions_ns_')) {
+                const base = key.slice('execution_'.length);
+                storageExecutionId = base.split('_decisions_ns_')[0] || '';
+            } else if (key.endsWith('_decisions')) {
+                storageExecutionId = key.slice('execution_'.length, -'_decisions'.length);
+            }
+            if (!storageExecutionId || storageExecutionId === preferred) continue;
+            const row = getExecutorDecisionRowById(storageExecutionId, id);
+            if (row) return { row, storageExecutionId };
+        }
+    } catch {
+        /* ignore */
+    }
+    return null;
 }
 
 export function getLatestSeizureDecisionBySubtype(
@@ -99,6 +192,19 @@ export function getLatestSeizureDecisionBySubtype(
 }
 
 /** طلب خاص من تبويب «الطلبات الخاصة» في محضر المتابعة — بانتظار موافقة أو رفض الطلب من المنفذ */
+function assertDomainGate(
+    executionId: string | undefined,
+    requestKind: string,
+    meta?: { personalCoerciveSubtype?: string }
+): boolean {
+    const gate = gateExecutorRequestPersist(executionId, requestKind, meta);
+    if (!gate.allowed) {
+        dispatchDomainIsolationBlocked(gate.reasonAr || 'الطلب غير مسموح في هذا المسار', requestKind);
+        return false;
+    }
+    return true;
+}
+
 export function appendSpecialFollowupRequest(input: {
     executionId: string | undefined;
     requestDate: string;
@@ -110,13 +216,14 @@ export function appendSpecialFollowupRequest(input: {
     /** حمولة منظمة لطلبات خاصة (مثل التوحيد) */
     payloadJson?: string;
 }): string | null {
-    const key = executionDecisionsStorageKey(input.executionId);
+    if (!assertDomainGate(input.executionId, 'special_followup')) {
+        return null;
+    }
     const trimmed = input.content.trim();
     const body = `بتاريخ ${input.requestDate}:\n\n${trimmed}`;
     const rowId = newExecutorDecisionId('special_followup');
     try {
-        const raw = SecureStoreService.getItemSync(key);
-        const arr = parseStoredDecisionsArray(raw) as Record<string, unknown>[];
+        const arr = readExecutorDecisionsArray(input.executionId);
         const titleTrim = String(input.decisionTitle ?? '').trim();
         const resolvedTitle = titleTrim || 'طلب تنفيذي خاص';
         const dupPending = arr.some((r) => {
@@ -145,8 +252,7 @@ export function appendSpecialFollowupRequest(input: {
             ...executorDecisionRowHubDefaults(),
         };
         arr.unshift(row);
-        SecureStoreService.setItemSync(key, JSON.stringify(arr));
-        dispatchDecisionsReload();
+        persistExecutorDecisionsArray(input.executionId, arr);
         return rowId;
     } catch {
         return null;
@@ -159,10 +265,11 @@ export function appendGuarantorFollowupRequest(input: {
     /** @deprecated يُتجاهل في النص المعروض؛ يُحفَظ التوافق مع الاستدعاءات القديمة */
     debtorName?: string;
 }): { ok: boolean; decisionId?: string } {
-    const key = executionDecisionsStorageKey(input.executionId);
+    if (!assertDomainGate(input.executionId, 'guarantor_request')) {
+        return { ok: false };
+    }
     try {
-        const raw = SecureStoreService.getItemSync(key);
-        const arr = parseStoredDecisionsArray(raw) as Record<string, unknown>[];
+        const arr = readExecutorDecisionsArray(input.executionId);
         const isPending = (x: Record<string, unknown>) =>
             x.executorOutcome === 'pending' || x.executorOutcome === undefined;
         const dup = arr.some((x) => isPending(x) && isGuarantorRequestDecisionRow(x));
@@ -184,8 +291,7 @@ export function appendGuarantorFollowupRequest(input: {
             ...executorDecisionRowHubDefaults(),
         };
         arr.unshift(row);
-        SecureStoreService.setItemSync(key, JSON.stringify(arr));
-        dispatchDecisionsReload();
+        persistExecutorDecisionsArray(input.executionId, arr);
         return { ok: true, decisionId };
     } catch {
         return { ok: false };
@@ -196,10 +302,11 @@ export function appendGuarantorFollowupRequest(input: {
 export function appendTrustDisburseRequest(input: {
     executionId: string | undefined;
 }): { ok: boolean; decisionId?: string } {
-    const key = executionDecisionsStorageKey(input.executionId);
+    if (!assertDomainGate(input.executionId, 'trust_disburse')) {
+        return { ok: false };
+    }
     try {
-        const raw = SecureStoreService.getItemSync(key);
-        const arr = parseStoredDecisionsArray(raw) as Record<string, unknown>[];
+        const arr = readExecutorDecisionsArray(input.executionId);
         const isPending = (x: Record<string, unknown>) =>
             x.executorOutcome === 'pending' || x.executorOutcome === undefined;
         const dup = arr.some((x) => isPending(x) && x.requestKind === 'trust_disburse');
@@ -220,8 +327,7 @@ export function appendTrustDisburseRequest(input: {
             ...executorDecisionRowHubDefaults(),
         };
         arr.unshift(row);
-        SecureStoreService.setItemSync(key, JSON.stringify(arr));
-        dispatchDecisionsReload();
+        persistExecutorDecisionsArray(input.executionId, arr);
         return { ok: true, decisionId };
     } catch {
         return { ok: false };
@@ -234,14 +340,15 @@ export function appendThirdPartyFundsReceivedDecision(input: {
     thirdPartyName: string;
     transferredAmountIqd: number;
 }): { ok: boolean; decisionId?: string } {
-    const key = executionDecisionsStorageKey(input.executionId);
     const seizureId = String(input.thirdPartySeizureId || '').trim();
     if (!seizureId) return { ok: false };
     const amt = Math.max(0, Math.trunc(Number(input.transferredAmountIqd || 0)));
     if (!Number.isFinite(amt) || amt <= 0) return { ok: false };
+    if (!assertDomainGate(input.executionId, 'third_party_funds_received')) {
+        return { ok: false };
+    }
     try {
-        const raw = SecureStoreService.getItemSync(key);
-        const arr = parseStoredDecisionsArray(raw) as Record<string, unknown>[];
+        const arr = readExecutorDecisionsArray(input.executionId);
         const isPending = (x: Record<string, unknown>) =>
             x.executorOutcome === 'pending' || x.executorOutcome === undefined;
         const dup = arr.some((x) => {
@@ -281,8 +388,7 @@ export function appendThirdPartyFundsReceivedDecision(input: {
             ...executorDecisionRowHubDefaults(),
         };
         arr.unshift(row);
-        SecureStoreService.setItemSync(key, JSON.stringify(arr));
-        dispatchDecisionsReload();
+        persistExecutorDecisionsArray(input.executionId, arr);
         return { ok: true, decisionId };
     } catch {
         return { ok: false };
@@ -300,6 +406,13 @@ export function appendPersonalCoerciveExecutorRequest(input: {
     primaryDebtorKey?: string;
     encryptedPayloadJson?: string;
 }): { ok: boolean; decisionId?: string } {
+    if (
+        !assertDomainGate(input.executionId, 'personal_coercive', {
+            personalCoerciveSubtype: input.subtype,
+        })
+    ) {
+        return { ok: false };
+    }
     const normalizeDebtorKey = (v: unknown): string =>
         String(v ?? '').trim();
     const targetDebtorKey = normalizeDebtorKey(input.debtorKey);
@@ -312,10 +425,28 @@ export function appendPersonalCoerciveExecutorRequest(input: {
         if (rowDebtorKey) return rowDebtorKey === targetDebtorKey;
         return Boolean(primaryDebtorKey) && targetDebtorKey === primaryDebtorKey;
     };
-    const key = executionDecisionsStorageKey(input.executionId);
     try {
-        const raw = SecureStoreService.getItemSync(key);
-        const arr = parseStoredDecisionsArray(raw) as Record<string, unknown>[];
+        let arr = readExecutorDecisionsArray(input.executionId);
+        const matchesPersonalCoerciveScope = (x: Record<string, unknown>) => {
+            if (String(x.requestKind || '') !== 'personal_coercive') return false;
+            if (!rowMatchesDebtorScope(x)) return false;
+            const sub = String(x.personalCoerciveSubtype || '');
+            if (sub === input.subtype) return true;
+            if (
+                (input.subtype === 'executive_detention' ||
+                    input.subtype === 'executive_dossier_presentation') &&
+                (sub === 'executive_detention_judge' ||
+                    sub === 'executive_detention' ||
+                    sub === 'executive_dossier_presentation')
+            ) {
+                return (
+                    sub === 'executive_detention_judge' ||
+                    isExecutiveDossierPresentationSubtype(sub)
+                );
+            }
+            return false;
+        };
+        arr = supersedePriorExecutorHubRows(arr, matchesPersonalCoerciveScope);
         const isPending = (x: Record<string, unknown>) =>
             x.executorOutcome === 'pending' || x.executorOutcome === undefined;
         const dup = arr.some(
@@ -350,6 +481,7 @@ export function appendPersonalCoerciveExecutorRequest(input: {
             appealStatus: 'pending' as const,
             executorOutcome: 'pending' as const,
             requestKind: 'personal_coercive' as const,
+            appealRequestOrigin: 'creditor_side' as const,
             personalCoerciveSubtype: input.subtype,
             ...(targetDebtorKey ? { personalCoerciveDebtorKey: targetDebtorKey } : {}),
             ...(String(input.encryptedPayloadJson || '').trim()
@@ -358,11 +490,112 @@ export function appendPersonalCoerciveExecutorRequest(input: {
             ...executorDecisionRowHubDefaults(),
         };
         arr.unshift(row);
-        SecureStoreService.setItemSync(key, JSON.stringify(arr));
-        dispatchDecisionsReload();
+        persistExecutorDecisionsArray(input.executionId, arr);
         return { ok: true, decisionId };
     } catch {
         return { ok: false };
+    }
+}
+
+/** تسجيل قرار قاضي البداءة بالحبس — صف مستقل عن موافقة المنفذ على عرض الإضبارة */
+export function appendExecutiveDetentionJudgeDecision(input: {
+    executionId: string | undefined;
+    parentExecutorDecisionId: string;
+    outcome: 'approved' | 'rejected';
+    rejectionReason?: string;
+    debtorKey?: string;
+}): { ok: boolean; decisionId?: string } {
+    const executionId = input.executionId;
+    const parentId = String(input.parentExecutorDecisionId || '').trim();
+    if (!executionId || !parentId) return { ok: false };
+
+    const normalizeDebtorKey = (v: unknown): string => String(v ?? '').trim();
+    const targetDebtorKey = normalizeDebtorKey(input.debtorKey);
+
+    try {
+        let arr = readExecutorDecisionsArray(executionId);
+        const now = new Date().toISOString();
+        arr = arr.map((row) => {
+            if (String(row.personalCoerciveSubtype || '') !== 'executive_detention_judge') {
+                return row;
+            }
+            if (
+                String((row as { parentExecutorDecisionId?: string }).parentExecutorDecisionId || '') !==
+                parentId
+            ) {
+                return row;
+            }
+            if (isExecutorHubRowSuperseded(row)) return row;
+            return {
+                ...row,
+                requestCycleSuperseded: true,
+                requestCycleSupersededAt: now,
+                isArchived: true,
+            };
+        });
+
+        const existing = arr.find(
+            (row) =>
+                String(row.personalCoerciveSubtype || '') === 'executive_detention_judge' &&
+                String((row as { parentExecutorDecisionId?: string }).parentExecutorDecisionId || '') ===
+                    parentId &&
+                !isExecutorHubRowSuperseded(row)
+        ) as { id?: string } | undefined;
+        if (existing) {
+            dispatchDecisionsReload();
+            return { ok: true, decisionId: String(existing.id || '').trim() || undefined };
+        }
+
+        const today = getLocalTodayYmd();
+        const decisionId = newExecutorDecisionId('personal_coercive');
+        const outcome = input.outcome;
+        const reason = String(input.rejectionReason || '').trim();
+        const row = {
+            id: decisionId,
+            title:
+                outcome === 'approved'
+                    ? 'قرار قاضي البداءة — الموافقة على حبس المدين'
+                    : 'قرار قاضي البداءة — رفض حبس المدين',
+            body:
+                outcome === 'rejected' && reason
+                    ? `سبب الرفض: ${reason}`
+                    : outcome === 'approved'
+                      ? 'وافق قاضي البداءة على حبس المدين التنفيذي بعد عرض الإضبارة.'
+                      : 'رفض قاضي البداءة طلب حبس المدين التنفيذي.',
+            date: today,
+            resolvedAt: now,
+            appealStatus: 'pending' as const,
+            executorOutcome: outcome,
+            status: outcome === 'approved' ? 'accepted' : 'rejected',
+            requestKind: 'personal_coercive' as const,
+            personalCoerciveSubtype: 'executive_detention_judge' as const,
+            parentExecutorDecisionId: parentId,
+            appealRequestOrigin: 'creditor_side' as const,
+            appealBaseBranch: outcome === 'approved' ? 'after_approval' : 'after_rejection',
+            cassationOnlyAppeal: true,
+            executiveDetentionJudgeOutcome: outcome,
+            appealPhase: null,
+            grievanceRejectedAwaitingTamyeez: false,
+            grievanceAcceptedAwaitingDebtorTamyeez: false,
+            noAppealChosen: false,
+            ...(targetDebtorKey ? { personalCoerciveDebtorKey: targetDebtorKey } : {}),
+        };
+        arr.unshift(row);
+        persistExecutorDecisionsArray(input.executionId, arr);
+        return { ok: true, decisionId };
+    } catch {
+        return { ok: false };
+    }
+}
+
+function parseSeizedMovableIdFromPayloadJson(raw: string | undefined): string {
+    const rawJson = String(raw || '').trim();
+    if (!rawJson) return '';
+    try {
+        const v = JSON.parse(rawJson) as { seizedMovableId?: string };
+        return String(v?.seizedMovableId ?? '').trim();
+    } catch {
+        return '';
     }
 }
 
@@ -371,25 +604,53 @@ export function appendPendingExecutorSeizureDecision(input: {
     requestTitle: string;
     requestBody: string;
     seizureSubtype?: SeizureRequestSubtype;
+    seizureTarget?: SeizureRequestTarget;
     seizurePayloadJson?: string;
 }): string | null {
-    const key = executionDecisionsStorageKey(input.executionId);
+    if (!assertDomainGate(input.executionId, 'seizure')) {
+        return null;
+    }
     const decisionId = newExecutorDecisionId('seizure_req');
     try {
-        const raw = SecureStoreService.getItemSync(key);
-        const arr: unknown[] = parseStoredDecisionsArray(raw);
+        const targetB = String(input.seizureTarget || 'debtor').trim() as SeizureRequestTarget;
+        const subtypeB = String(input.seizureSubtype || '').trim();
+        let arr = readExecutorDecisionsArray(input.executionId);
+        arr = supersedeRejectedFinalExecutorHubRows(arr, (r) => {
+            if (String(r.requestKind || '') !== 'seizure') return false;
+            if (readSeizureRequestTarget(r) !== targetB) return false;
+            const a = String(r.seizureSubtype || '').trim();
+            if (subtypeB && a && a !== subtypeB) return false;
+            if (subtypeB && !a) return false;
+            const t1 = String(r.title || '').trim();
+            const t2 = String(input.requestTitle || '').trim();
+            if (subtypeB) return true;
+            if (!t1 || !t2) return false;
+            return t1 === t2;
+        });
 
-        const dup = (arr as Array<Record<string, unknown>>).find((r) => {
+        const inputMovableId = parseSeizedMovableIdFromPayloadJson(input.seizurePayloadJson);
+        const dup = arr.find((r) => {
+            if (isExecutorHubRowInactiveForGoverning(r, arr)) return false;
             if (String(r.requestKind || '') !== 'seizure') return false;
             const out = String((r as any).executorOutcome ?? 'pending');
             if (out !== 'pending') return false;
+            if (readSeizureRequestTarget(r) !== targetB) return false;
             const a = String((r as any).seizureSubtype || '').trim();
             const b = String(input.seizureSubtype || '').trim();
             if (b && a && a !== b) return false;
             if (b && !a) return false;
+            const rowMovableId = parseSeizedMovableIdFromPayloadJson(
+                String((r as any).seizurePayloadJson || '')
+            );
+            if (inputMovableId && rowMovableId && inputMovableId !== rowMovableId) return false;
             const t1 = String(r.title || '').trim();
             const t2 = String(input.requestTitle || '').trim();
-            if (b) return true;
+            if (b) {
+                if (inputMovableId || rowMovableId) {
+                    return Boolean(inputMovableId) && inputMovableId === rowMovableId;
+                }
+                return true;
+            }
             if (!t1 || !t2) return false;
             return t1 === t2;
         });
@@ -408,12 +669,13 @@ export function appendPendingExecutorSeizureDecision(input: {
             appealStatus: 'pending' as const,
             executorOutcome: 'pending' as const,
             requestKind: 'seizure' as const,
+            appealRequestOrigin: 'creditor_side' as const,
             ...(input.seizureSubtype ? { seizureSubtype: input.seizureSubtype } : {}),
+            ...(input.seizureTarget ? { seizureTarget: input.seizureTarget } : {}),
             ...executorDecisionRowHubDefaults(),
         };
         arr.unshift(row);
-        SecureStoreService.setItemSync(key, JSON.stringify(arr));
-        dispatchDecisionsReload();
+        persistExecutorDecisionsArray(input.executionId, arr);
         return decisionId;
     } catch {
         return null;
@@ -430,19 +692,44 @@ export function patchExecutorDecisionRow(
     executionId: string | undefined,
     decisionId: string,
     patch: Record<string, unknown>
-): void {
-    const key = executionDecisionsStorageKey(executionId);
+): boolean {
+    const did = String(decisionId || '').trim();
+    if (!did) return false;
     try {
-        const raw = SecureStoreService.getItemSync(key);
-        const arr = parseStoredDecisionsArray(raw) as Record<string, unknown>[];
-        const next = arr.map((row) =>
-            String(row.id) === decisionId ? { ...row, ...patch } : row
-        );
-        SecureStoreService.setItemSync(key, JSON.stringify(next));
-        dispatchDecisionsReload();
+        const arr = readExecutorDecisionsArray(executionId);
+        let found = false;
+        const next = arr.map((row) => {
+            if (String((row as { id?: string }).id ?? '') !== did) return row;
+            found = true;
+            return { ...row, ...patch };
+        });
+        if (!found) return false;
+        persistExecutorDecisionsArray(executionId, next);
+        return true;
     } catch {
-        /* ignore */
+        return false;
     }
+}
+
+/** يحدّث الصف في المفتاح المفضّل أو يبحث في كل مفاتيح execution_*_decisions */
+export function patchExecutorDecisionRowReliable(
+    executionId: string | undefined,
+    decisionId: string,
+    patch: Record<string, unknown>
+): { ok: boolean; storageExecutionId: string } {
+    const preferred = String(executionId ?? '').trim();
+    if (preferred && patchExecutorDecisionRow(preferred, decisionId, patch)) {
+        return { ok: true, storageExecutionId: preferred };
+    }
+    const everywhere = patchExecutorDecisionRowEverywhere(decisionId, patch);
+    if (everywhere.ok) {
+        const ctx = resolveExecutorDecisionRowContext(preferred, decisionId);
+        return {
+            ok: true,
+            storageExecutionId: String(ctx?.storageExecutionId || preferred).trim() || preferred,
+        };
+    }
+    return { ok: false, storageExecutionId: preferred };
 }
 
 export function patchExecutorDecisionRowEverywhere(
@@ -456,9 +743,7 @@ export function patchExecutorDecisionRowEverywhere(
         let touched = 0;
         for (const k of keys) {
             const key = String(k || '').trim();
-            if (!key) continue;
-            if (!key.endsWith('_decisions')) continue;
-            if (!key.startsWith('execution_')) continue;
+            if (!key || !isExecutorDecisionsStorageKey(key)) continue;
             const raw = SecureStoreService.getItemSync(key);
             const arr = parseStoredDecisionsArray(raw) as Record<string, unknown>[];
             if (!arr.length) continue;
@@ -483,10 +768,8 @@ export function findLatestHeirSubstitutionDecisionNeedingEntry(
     executionId: string | undefined,
     party: 'creditor' | 'debtor'
 ): string | null {
-    const key = executionDecisionsStorageKey(executionId);
     try {
-        const raw = SecureStoreService.getItemSync(key);
-        const arr = parseStoredDecisionsArray(raw) as Record<string, unknown>[];
+        const arr = readExecutorDecisionsArray(executionId);
         const list = arr.filter((row) => {
             const kind = String(row.requestKind || '');
             if (party === 'creditor') {
@@ -500,6 +783,7 @@ export function findLatestHeirSubstitutionDecisionNeedingEntry(
                 return Boolean(p && p.action === 'heir_substitution');
             }
             if (kind !== 'debtor_party_death') return false;
+            if (!isDebtorHeirSubstitutionDecisionRow(row)) return false;
             const out = String(row.executorOutcome || '');
             if (out !== 'approved' && out !== 'alternative') return false;
             const completed = String((row as any).heirSubstitutionCompletedAt || '').trim();
@@ -659,11 +943,9 @@ export function appendCreditorPartyDeathRequest(input: {
         dispatchDecisionsReload();
         return { ok: false };
     }
-    const key = executionDecisionsStorageKey(input.executionId);
     const decisionId = newExecutorDecisionId('creditor_death_req');
     try {
-        const raw = SecureStoreService.getItemSync(key);
-        const arr = parseStoredDecisionsArray(raw) as Record<string, unknown>[];
+        const arr = readExecutorDecisionsArray(input.executionId);
         const storedPayload = {
             action: input.action,
             creditorNameSnapshot: input.creditorNameSnapshot,
@@ -682,8 +964,7 @@ export function appendCreditorPartyDeathRequest(input: {
             ...executorDecisionRowHubDefaults(),
         };
         arr.unshift(row);
-        SecureStoreService.setItemSync(key, JSON.stringify(arr));
-        dispatchDecisionsReload();
+        persistExecutorDecisionsArray(input.executionId, arr);
         return { ok: true, decisionId };
     } catch {
         return { ok: false };
@@ -697,6 +978,39 @@ export type DebtorHeirSubstitutionRequestStatus =
     | 'rejected'
     | 'alternative';
 
+function parseDebtorPartyDeathPayload(raw: string): {
+    action?: string;
+    debtorNameSnapshot?: string;
+    heir_names?: string[];
+} | null {
+    const t = String(raw || '').trim();
+    if (!t) return null;
+    try {
+        const p = JSON.parse(t) as { action?: string; debtorNameSnapshot?: string; heir_names?: string[] };
+        return p && typeof p === 'object' ? p : null;
+    } catch {
+        return null;
+    }
+}
+
+function stringifyDebtorPartyDeathPayload(payload: {
+    action: 'heir_substitution';
+    debtorNameSnapshot: string;
+    heir_names: string[];
+}): string {
+    return JSON.stringify(payload);
+}
+
+/** صف طلب إحلال ورثة المدين (يُميَّز عن صفوف أخرى بنفس requestKind إن وُجدت لاحقاً) */
+export function isDebtorHeirSubstitutionDecisionRow(row: Record<string, unknown>): boolean {
+    const kind = String(row.requestKind || '');
+    if (kind !== 'debtor_party_death') return false;
+    const payloadRaw = String((row as { debtorPartyDeathPayloadJson?: string }).debtorPartyDeathPayloadJson || '').trim();
+    const p = parseDebtorPartyDeathPayload(payloadRaw);
+    if (p?.action === 'heir_substitution') return true;
+    return String(row.title || '').includes('إحلال');
+}
+
 /** طلب «إحلال ورثة المدين» إلى المنفذ (لا أثر على ملف التنفيذ قبل البت). */
 export function appendDebtorHeirSubstitutionRequest(input: {
     executionId: string | undefined;
@@ -707,15 +1021,19 @@ export function appendDebtorHeirSubstitutionRequest(input: {
         dispatchDecisionsReload();
         return { ok: false };
     }
-    const key = executionDecisionsStorageKey(input.executionId);
     const decisionId = newExecutorDecisionId('debtor_heir_req');
+    const payloadJson = stringifyDebtorPartyDeathPayload({
+        action: 'heir_substitution',
+        debtorNameSnapshot: input.debtorNameSnapshot,
+        heir_names: [],
+    });
     try {
-        const raw = SecureStoreService.getItemSync(key);
-        const arr = parseStoredDecisionsArray(raw) as Record<string, unknown>[];
+        const arr = readExecutorDecisionsArray(input.executionId);
         const row = {
             id: decisionId,
             title: 'طلب — إحلال الورثة محل المدين المتوفى',
             body: `المدين: ${input.debtorNameSnapshot || 'المدين'}.`,
+            debtorPartyDeathPayloadJson: payloadJson,
             date: getLocalTodayYmd(),
             appealStatus: 'pending' as const,
             executorOutcome: 'pending' as const,
@@ -723,8 +1041,7 @@ export function appendDebtorHeirSubstitutionRequest(input: {
             ...executorDecisionRowHubDefaults(),
         };
         arr.unshift(row);
-        SecureStoreService.setItemSync(key, JSON.stringify(arr));
-        dispatchDecisionsReload();
+        persistExecutorDecisionsArray(input.executionId, arr);
         return { ok: true, decisionId };
     } catch {
         return { ok: false };
@@ -736,9 +1053,7 @@ export function getDebtorHeirSubstitutionRequestStatus(
     executionId: string | undefined
 ): DebtorHeirSubstitutionRequestStatus {
     const rows = readExecutorDecisionsArray(executionId);
-    const matches = rows.filter(
-        (x) => String((x as { requestKind?: string }).requestKind || '') === 'debtor_party_death'
-    );
+    const matches = rows.filter((x) => isDebtorHeirSubstitutionDecisionRow(x as Record<string, unknown>));
     if (matches.length === 0) return 'none';
     const last = latestExecutorDecisionRow(matches);
     if (!last) return 'none';
@@ -751,10 +1066,8 @@ export function getDebtorHeirSubstitutionRequestStatus(
 }
 
 export function readExecutorDecisionsArray(executionId: string | undefined): Record<string, unknown>[] {
-    const key = executionDecisionsStorageKey(executionId);
     try {
-        const raw = SecureStoreService.getItemSync(key);
-        return parseStoredDecisionsArray(raw) as Record<string, unknown>[];
+        return readExecutorDecisionsFromActiveNamespace(executionId);
     } catch {
         return [];
     }
@@ -776,7 +1089,6 @@ export function mergeExecutorDecisionsInto(input: {
         return { merged: false, countBefore: existing.length, countAfter: existing.length };
     }
 
-    const key = executionDecisionsStorageKey(targetId);
     const countBefore = readExecutorDecisionsArray(targetId).length;
 
     const pickBest = (a: Record<string, unknown>, b: Record<string, unknown>) => {
@@ -791,8 +1103,7 @@ export function mergeExecutorDecisionsInto(input: {
     };
 
     try {
-        const targetRaw = SecureStoreService.getItemSync(key);
-        const targetArr = parseStoredDecisionsArray(targetRaw) as Record<string, unknown>[];
+        const targetArr = readExecutorDecisionsArray(targetId);
         const byId = new Map<string, Record<string, unknown>>();
         for (const r of targetArr) {
             const id = String((r as any)?.id ?? '').trim();
@@ -831,8 +1142,7 @@ export function mergeExecutorDecisionsInto(input: {
             const bd = String((b as any).resolvedAt ?? (b as any).date ?? '');
             return bd.localeCompare(ad, undefined, { numeric: true });
         });
-        SecureStoreService.setItemSync(key, JSON.stringify(mergedArr));
-        dispatchDecisionsReload();
+        persistExecutorDecisionsArray(targetId, mergedArr);
         return { merged: true, countBefore, countAfter: mergedArr.length };
     } catch {
         return { merged: false, countBefore, countAfter: countBefore };
@@ -929,10 +1239,18 @@ export function isExecutorRowAppealOverturned(row: Record<string, unknown>): boo
     return String((row as { appealStatus?: string }).appealStatus || '') === 'overturned';
 }
 
-/** نتيجة طعن/تمييز نقضت رفض الطلب (بما في ذلك مسار التمييز الذي يُخزّن appealResult = «نقض القرار») */
+/** نتيجة طعن/تمييز نقضت رفض الطلب فعلياً (الطلب صار مقبولاً وليس مجرد حقل appealResult عالقاً) */
 function executorRowAppealOverturnsRejection(row: Record<string, unknown>): boolean {
     if (isExecutorRowAppealOverturned(row)) return true;
-    return String((row as { appealResult?: string }).appealResult || '').trim() === 'نقض القرار';
+    const result = String((row as { appealResult?: string }).appealResult || '').trim();
+    if (result !== 'نقض القرار') return false;
+    const outcome = String((row as { executorOutcome?: string }).executorOutcome || '');
+    if (outcome === 'approved' || outcome === 'alternative') return true;
+    const ws = String((row as { appealWorkflowState?: string }).appealWorkflowState || '').trim();
+    if (ws === 'FINAL_ACCEPTED' || ws === 'REVOKED_BY_APPEAL') return true;
+    const appealStatus = String((row as { appealStatus?: string }).appealStatus || '').trim();
+    /** نقض نهائي لرفض سابق — يُعاد القبول عملياً حتى قبل مزامنة executorOutcome */
+    return appealStatus === 'final' && outcome === 'rejected';
 }
 
 /** موافقة فعلية: موافقة المنفذ أو بديله، أو رفض أُلغي بنقض */
@@ -950,14 +1268,122 @@ export function isExecutorRowRejectedAndFinal(row: Record<string, unknown>): boo
     return !executorRowAppealOverturnsRejection(row);
 }
 
-/** حالة آخر طلب تنفيذ جبري شخصي من نفس النوع (للشارات والواجهة) */
-export function getPersonalCoerciveSubtypeOutcome(
-    executionId: string | undefined,
+/** طلب مُغلق نهائياً بعد تقديم طلب جديد لنفس الإجراء */
+export function isExecutorHubRowSuperseded(row: Record<string, unknown> | null | undefined): boolean {
+    if (!row || typeof row !== 'object') return false;
+    return (row as { requestCycleSuperseded?: boolean }).requestCycleSuperseded === true;
+}
+
+/** صف لا يحكم الواجهة ولا يحجز طلباً جديداً (مؤرشف / مُستبدَل / منسحب / دورة طعن مُغلقة) */
+export function isExecutorHubRowInactiveForGoverning(
+    row: Record<string, unknown> | null | undefined,
+    allDecisions?: Record<string, unknown>[]
+): boolean {
+    if (!row || typeof row !== 'object') return true;
+    if (isExecutorHubRowSuperseded(row)) return true;
+    if ((row as { domainIsolationSuppressed?: boolean }).domainIsolationSuppressed === true) {
+        return true;
+    }
+    if ((row as { isArchived?: boolean }).isArchived === true) return true;
+    if ((row as { lawyerWithdrawn?: boolean }).lawyerWithdrawn === true) return true;
+    const out = String((row as { executorOutcome?: string }).executorOutcome || '');
+    if (out === 'withdrawn') return true;
+    /** عرض الإضبارة/الحبس — يبقى حاكماً لمحضر المتابعة حتى أرشفة صريحة أو طلب جديد */
+    const pcSubtype = String((row as { personalCoerciveSubtype?: string }).personalCoerciveSubtype || '');
+    if (
+        (pcSubtype === 'executive_dossier_presentation' || pcSubtype === 'executive_detention') &&
+        isExecutorRowEffectivelyApproved(row)
+    ) {
+        return false;
+    }
+    const all = allDecisions ?? [];
+    if (all.length > 0 && isExecutorRequestAppealCycleSupersededFromRecord(row, all)) {
+        return true;
+    }
+    return false;
+}
+
+function buildPersonalCoerciveSubtypeMatcher(input: {
+    subtype: PersonalCoerciveSubtype;
+    debtorKey?: string;
+    primaryDebtorKey?: string;
+}): (row: Record<string, unknown>) => boolean {
+    const normalizeDebtorKey = (v: unknown): string => String(v ?? '').trim();
+    const targetDebtorKey = normalizeDebtorKey(input.debtorKey);
+    const primaryDebtorKey = normalizeDebtorKey(input.primaryDebtorKey);
+    const rowMatchesDebtorScope = (row: Record<string, unknown>): boolean => {
+        if (!targetDebtorKey) return true;
+        const rowDebtorKey = normalizeDebtorKey(
+            (row as { personalCoerciveDebtorKey?: string }).personalCoerciveDebtorKey
+        );
+        if (rowDebtorKey) return rowDebtorKey === targetDebtorKey;
+        return Boolean(primaryDebtorKey) && targetDebtorKey === primaryDebtorKey;
+    };
+    return (row: Record<string, unknown>) =>
+        String(row.requestKind || '') === 'personal_coercive' &&
+        String(row.personalCoerciveSubtype || '') === input.subtype &&
+        rowMatchesDebtorScope(row);
+}
+
+function supersedeRejectedFinalExecutorHubRows(
+    arr: Record<string, unknown>[],
+    matches: (row: Record<string, unknown>) => boolean
+): Record<string, unknown>[] {
+    const now = new Date().toISOString();
+    return arr.map((row) => {
+        if (!matches(row)) return row;
+        if (isExecutorHubRowSuperseded(row)) return row;
+        if (!isExecutorRowRejectedAndFinal(row)) return row;
+        return {
+            ...row,
+            requestCycleSuperseded: true,
+            requestCycleSupersededAt: now,
+            isArchived: true,
+        };
+    });
+}
+
+/** إغلاق كل صفوف hub السابقة (موافق/مرفوض) عند تقديم طلب جديد لنفس الإجراء */
+function supersedePriorExecutorHubRows(
+    arr: Record<string, unknown>[],
+    matches: (row: Record<string, unknown>) => boolean
+): Record<string, unknown>[] {
+    const now = new Date().toISOString();
+    return arr.map((row) => {
+        if (!matches(row)) return row;
+        if (isExecutorHubRowSuperseded(row)) return row;
+        const pending =
+            row.executorOutcome === 'pending' ||
+            row.executorOutcome === undefined ||
+            row.executorOutcome === '';
+        if (pending) return row;
+        return {
+            ...row,
+            requestCycleSuperseded: true,
+            requestCycleSupersededAt: now,
+            isArchived: true,
+        };
+    });
+}
+
+function personalCoerciveRowSortKey(row: Record<string, unknown>): string {
+    return String((row as { resolvedAt?: string; date?: string }).resolvedAt ?? (row as { date?: string }).date ?? '');
+}
+
+function sortPersonalCoerciveRowsNewestFirst(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+    return [...rows].sort((a, b) =>
+        personalCoerciveRowSortKey(b).localeCompare(personalCoerciveRowSortKey(a), undefined, {
+            numeric: true,
+        })
+    );
+}
+
+function filterPersonalCoerciveSubtypeRowsFromList(
+    rows: Record<string, unknown>[],
     subtype: PersonalCoerciveSubtype,
     opts?: { debtorKey?: string; primaryDebtorKey?: string }
-): { pending: boolean; approved: boolean; rejected: boolean; alternative: boolean } {
-    const normalizeDebtorKey = (v: unknown): string =>
-        String(v ?? '').trim();
+): Record<string, unknown>[] {
+    const normalizeDebtorKey = (v: unknown): string => String(v ?? '').trim();
     const targetDebtorKey = normalizeDebtorKey(opts?.debtorKey);
     const primaryDebtorKey = normalizeDebtorKey(opts?.primaryDebtorKey);
     const rowMatchesDebtorScope = (row: Record<string, unknown>): boolean => {
@@ -968,18 +1394,105 @@ export function getPersonalCoerciveSubtypeOutcome(
         if (rowDebtorKey) return rowDebtorKey === targetDebtorKey;
         return Boolean(primaryDebtorKey) && targetDebtorKey === primaryDebtorKey;
     };
-    const rows = readExecutorDecisionsArray(executionId);
-    const matches = rows.filter(
+    return rows.filter(
         (r) =>
             String((r as { requestKind?: string }).requestKind || '') === 'personal_coercive' &&
             String((r as { personalCoerciveSubtype?: string }).personalCoerciveSubtype || '') === subtype &&
             rowMatchesDebtorScope(r as Record<string, unknown>)
+    ) as Record<string, unknown>[];
+}
+
+function filterPersonalCoerciveSubtypeRows(
+    executionId: string | undefined,
+    subtype: PersonalCoerciveSubtype,
+    opts?: { debtorKey?: string; primaryDebtorKey?: string }
+): Record<string, unknown>[] {
+    return filterPersonalCoerciveSubtypeRowsFromList(
+        readExecutorDecisionsArray(executionId),
+        subtype,
+        opts
     );
-    const last = matches[0] as Record<string, unknown> | undefined;
+}
+
+/** البطاقة الحاكمة من مصفوفة قرارات مُمرَّرة (مزامنة المحضر مع مركز القرارات) */
+export function getGoverningPersonalCoerciveSubtypeRowFromDecisions(
+    allDecisions: Record<string, unknown>[],
+    subtype: PersonalCoerciveSubtype,
+    opts?: { debtorKey?: string; primaryDebtorKey?: string }
+): Record<string, unknown> | null {
+    const sorted = sortPersonalCoerciveRowsNewestFirst(
+        filterPersonalCoerciveSubtypeRowsFromList(allDecisions, subtype, opts).filter(
+            (row) => !isExecutorHubRowInactiveForGoverning(row, allDecisions)
+        )
+    );
+    const pending = sorted.find((row) => isPersonalCoerciveSubtypeRowPending(row));
+    if (pending) return pending;
+    return sorted[0] ?? null;
+}
+
+/** بطاقة عرض الإضبارة الحاكمة من مصفوفة قرارات مُمرَّرة */
+export function getGoverningDossierPresentationRowFromDecisions(
+    allDecisions: Record<string, unknown>[],
+    opts?: { debtorKey?: string; primaryDebtorKey?: string }
+): Record<string, unknown> | null {
+    const merged = EXECUTIVE_DOSSIER_PRESENTATION_SUBTYPES.flatMap((subtype) =>
+        filterPersonalCoerciveSubtypeRowsFromList(allDecisions, subtype, opts).filter(
+            (row) => !isExecutorHubRowInactiveForGoverning(row, allDecisions)
+        )
+    );
+    const sorted = sortPersonalCoerciveRowsNewestFirst(merged);
+    const pending = sorted.find((row) => isPersonalCoerciveSubtypeRowPending(row));
+    if (pending) return pending;
+    return sorted[0] ?? null;
+}
+
+/** أحدث صف طلب تنفيذ جبري شخصي من نفس النوع (ترتيب زمني خام) */
+export function getNewestPersonalCoerciveSubtypeRow(
+    executionId: string | undefined,
+    subtype: PersonalCoerciveSubtype,
+    opts?: { debtorKey?: string; primaryDebtorKey?: string }
+): Record<string, unknown> | null {
+    const matches = filterPersonalCoerciveSubtypeRows(executionId, subtype, opts);
+    return sortPersonalCoerciveRowsNewestFirst(matches)[0] ?? null;
+}
+
+function isPersonalCoerciveSubtypeRowPending(row: Record<string, unknown>): boolean {
+    const out = String((row as { executorOutcome?: string }).executorOutcome ?? 'pending');
+    return out === 'pending' || out === '';
+}
+
+/** صف يحكم طلب عرض الإضبارة (الجديد + القديم executive_detention) */
+export function getGoverningDossierPresentationRow(
+    executionId: string | undefined,
+    opts?: { debtorKey?: string; primaryDebtorKey?: string }
+): Record<string, unknown> | null {
+    const all = readExecutorDecisionsArray(executionId);
+    const merged = EXECUTIVE_DOSSIER_PRESENTATION_SUBTYPES.flatMap((subtype) =>
+        filterPersonalCoerciveSubtypeRows(executionId, subtype, opts).filter(
+            (row) => !isExecutorHubRowInactiveForGoverning(row, all)
+        )
+    );
+    const sorted = sortPersonalCoerciveRowsNewestFirst(merged);
+    const pending = sorted.find((row) => isPersonalCoerciveSubtypeRowPending(row));
+    if (pending) return pending;
+    return sorted[0] ?? null;
+}
+
+export function getDossierPresentationOutcome(
+    executionId: string | undefined,
+    opts?: { debtorKey?: string; primaryDebtorKey?: string }
+): { pending: boolean; approved: boolean; rejected: boolean; alternative: boolean } {
+    const last = getGoverningDossierPresentationRow(executionId, opts);
     if (!last) {
         return { pending: false, approved: false, rejected: false, alternative: false };
     }
+    if ((last as { lawyerWithdrawn?: boolean }).lawyerWithdrawn === true) {
+        return { pending: false, approved: false, rejected: false, alternative: false };
+    }
     const out = String((last as { executorOutcome?: string }).executorOutcome || 'pending');
+    if (out === 'withdrawn') {
+        return { pending: false, approved: false, rejected: false, alternative: false };
+    }
     if (out === 'pending') {
         return { pending: true, approved: false, rejected: false, alternative: false };
     }
@@ -993,6 +1506,230 @@ export function getPersonalCoerciveSubtypeOutcome(
         return { pending: false, approved: false, rejected: true, alternative: false };
     }
     return { pending: false, approved: false, rejected: false, alternative: false };
+}
+
+/** أرشفة صفوف دورة عرض الإضبارة + قرار القاضي عند إغلاق الدورة */
+export function archiveExecutiveDetentionCycleDecisions(input: {
+    executionId: string | undefined;
+    debtorKey?: string;
+    primaryDebtorKey?: string;
+}): void {
+    const executionId = input.executionId;
+    if (!executionId) return;
+    const normalizeDebtorKey = (v: unknown): string => String(v ?? '').trim();
+    const targetDebtorKey = normalizeDebtorKey(input.debtorKey);
+    const primaryDebtorKey = normalizeDebtorKey(input.primaryDebtorKey);
+    const rowMatchesDebtorScope = (row: Record<string, unknown>): boolean => {
+        if (!targetDebtorKey) return true;
+        const rowDebtorKey = normalizeDebtorKey(
+            (row as { personalCoerciveDebtorKey?: string }).personalCoerciveDebtorKey
+        );
+        if (rowDebtorKey) return rowDebtorKey === targetDebtorKey;
+        return Boolean(primaryDebtorKey) && targetDebtorKey === primaryDebtorKey;
+    };
+    try {
+        const arr = readExecutorDecisionsArray(executionId);
+        const now = new Date().toISOString();
+        const next = arr.map((row) => {
+            if (String(row.requestKind || '') !== 'personal_coercive') return row;
+            if (!rowMatchesDebtorScope(row)) return row;
+            const sub = String(row.personalCoerciveSubtype || '');
+            if (
+                !isExecutiveDossierPresentationSubtype(sub) &&
+                sub !== 'executive_detention_judge'
+            ) {
+                return row;
+            }
+            if (isExecutorHubRowSuperseded(row)) return row;
+            return {
+                ...row,
+                requestCycleSuperseded: true,
+                requestCycleSupersededAt: now,
+                isArchived: true,
+            };
+        });
+        persistExecutorDecisionsArray(executionId, next);
+    } catch {
+        /* ignore */
+    }
+}
+
+/** صف يحكم واجهة النوع: معلّق أولاً حتى لا يُستبدل بطلب موافق عليه أقدم بتاريخ أحدث */
+export function getGoverningPersonalCoerciveSubtypeRow(
+    executionId: string | undefined,
+    subtype: PersonalCoerciveSubtype,
+    opts?: { debtorKey?: string; primaryDebtorKey?: string }
+): Record<string, unknown> | null {
+    return getGoverningPersonalCoerciveSubtypeRowFromDecisions(
+        readExecutorDecisionsArray(executionId),
+        subtype,
+        opts
+    );
+}
+
+/** بطاقة/قرار غير منتهٍ في مركز القرارات (لتنبيه الاستبدال عند إعادة الإرسال) */
+export function hasActivePersonalCoerciveSubtypeCard(
+    executionId: string | undefined,
+    subtype: PersonalCoerciveSubtype,
+    opts?: { debtorKey?: string; primaryDebtorKey?: string }
+): boolean {
+    const row = getGoverningPersonalCoerciveSubtypeRow(executionId, subtype, opts);
+    if (!row) return false;
+    if ((row as { lawyerWithdrawn?: boolean }).lawyerWithdrawn === true) return false;
+    const out = String((row as { executorOutcome?: string }).executorOutcome || '');
+    if (out === 'withdrawn') return false;
+    return true;
+}
+
+/** تبويب القرارات المناسب للبطاقة الحاكمة */
+export function resolvePersonalCoerciveDecisionsNav(
+    executionId: string | undefined,
+    subtype: PersonalCoerciveSubtype,
+    opts?: { debtorKey?: string; primaryDebtorKey?: string }
+): { decisionsTab: 'current' | 'previous'; decisionId?: string } {
+    const row = getGoverningPersonalCoerciveSubtypeRow(executionId, subtype, opts);
+    const decisionId = row ? String((row as { id?: string }).id || '').trim() : '';
+    if (!row || !decisionId) return { decisionsTab: 'current' };
+    if (isPersonalCoerciveSubtypeRowPending(row)) {
+        return { decisionsTab: 'current', decisionId };
+    }
+    return { decisionsTab: 'previous', decisionId };
+}
+
+/** إغلاق دورة طلب تنفيذ جبري شخصي في مركز القرارات (أرشفة + استبدال) */
+export function closePersonalCoerciveSubtypeDecisionCycle(input: {
+    executionId: string | undefined;
+    subtype: PersonalCoerciveSubtype;
+    debtorKey?: string;
+    primaryDebtorKey?: string;
+}): void {
+    const executionId = input.executionId;
+    if (!executionId) return;
+    const matches = buildPersonalCoerciveSubtypeMatcher(input);
+    try {
+        let arr = readExecutorDecisionsArray(executionId);
+        arr = supersedePriorExecutorHubRows(arr, matches);
+        persistExecutorDecisionsArray(input.executionId, arr);
+    } catch {
+        /* ignore */
+    }
+}
+
+/** تفعيل مسار جبري بقرار المنفذ مسبقاً — دون انتظار طلب الدائن */
+export function appendPersonalCoerciveByExecutorOrder(input: {
+    executionId: string | undefined;
+    subtype: PersonalCoerciveSubtype;
+    title: string;
+    body: string;
+    debtorKey?: string;
+    primaryDebtorKey?: string;
+}): { ok: boolean; decisionId?: string } {
+    if (
+        !assertDomainGate(input.executionId, 'personal_coercive', {
+            personalCoerciveSubtype: input.subtype,
+        })
+    ) {
+        return { ok: false };
+    }
+    const governing = getGoverningPersonalCoerciveSubtypeRow(input.executionId, input.subtype, {
+        debtorKey: input.debtorKey,
+        primaryDebtorKey: input.primaryDebtorKey,
+    });
+    if (governing && isPersonalCoerciveSubtypeRowPending(governing)) {
+        dispatchDecisionsReload();
+        return { ok: false };
+    }
+
+    const normalizeDebtorKey = (v: unknown): string => String(v ?? '').trim();
+    const targetDebtorKey = normalizeDebtorKey(input.debtorKey);
+    const matches = buildPersonalCoerciveSubtypeMatcher(input);
+    try {
+        let arr = readExecutorDecisionsArray(input.executionId);
+        arr = supersedePriorExecutorHubRows(arr, matches);
+        arr = supersedeRejectedFinalExecutorHubRows(arr, matches);
+        const nowIso = new Date().toISOString();
+        const today = getLocalTodayYmd();
+        const decisionId = newExecutorDecisionId('personal_coercive');
+        const row = {
+            id: decisionId,
+            title: input.title,
+            body: input.body,
+            date: today,
+            resolvedAt: nowIso,
+            appealStatus: 'pending' as const,
+            executorOutcome: 'approved' as const,
+            status: 'accepted' as const,
+            appealBaseBranch: 'after_approval' as const,
+            appealRequestOrigin: 'executor_side' as const,
+            activatedByExecutorOrder: true,
+            requestKind: 'personal_coercive' as const,
+            personalCoerciveSubtype: input.subtype,
+            appealPhase: null,
+            ...(targetDebtorKey ? { personalCoerciveDebtorKey: targetDebtorKey } : {}),
+        };
+        arr.unshift(row);
+        persistExecutorDecisionsArray(input.executionId, arr);
+        return { ok: true, decisionId };
+    } catch {
+        return { ok: false };
+    }
+}
+
+/** حالة آخر طلب تنفيذ جبري شخصي من نفس النوع (للشارات والواجهة) */
+export function getPersonalCoerciveSubtypeOutcome(
+    executionId: string | undefined,
+    subtype: PersonalCoerciveSubtype,
+    opts?: { debtorKey?: string; primaryDebtorKey?: string }
+): { pending: boolean; approved: boolean; rejected: boolean; alternative: boolean } {
+    const last = getGoverningPersonalCoerciveSubtypeRow(executionId, subtype, opts);
+    if (!last) {
+        return { pending: false, approved: false, rejected: false, alternative: false };
+    }
+    if ((last as { lawyerWithdrawn?: boolean }).lawyerWithdrawn === true) {
+        return { pending: false, approved: false, rejected: false, alternative: false };
+    }
+    const out = String((last as { executorOutcome?: string }).executorOutcome || 'pending');
+    if (out === 'withdrawn') {
+        return { pending: false, approved: false, rejected: false, alternative: false };
+    }
+    if (out === 'pending') {
+        return { pending: true, approved: false, rejected: false, alternative: false };
+    }
+    if (out === 'alternative') {
+        return { pending: false, approved: false, rejected: false, alternative: true };
+    }
+    if (isExecutorRowEffectivelyApproved(last)) {
+        return { pending: false, approved: true, rejected: false, alternative: false };
+    }
+    if (isExecutorRowRejectedAndFinal(last)) {
+        return { pending: false, approved: false, rejected: true, alternative: false };
+    }
+    return { pending: false, approved: false, rejected: false, alternative: false };
+}
+
+/** إغلاق صفوف طلب الكفيل عند استبدال/فك الكفالة — يفتح دورة طلب جديدة في المحضر */
+export function supersedeGuarantorRequestDecisionsForExecution(executionId: string | undefined): number {
+    try {
+        const arr = readExecutorDecisionsArray(executionId);
+        const now = new Date().toISOString();
+        let count = 0;
+        const next = arr.map((row) => {
+            if (!isGuarantorRequestDecisionRow(row)) return row;
+            if (isExecutorHubRowSuperseded(row)) return row;
+            count += 1;
+            return {
+                ...row,
+                requestCycleSuperseded: true,
+                requestCycleSupersededAt: now,
+                isArchived: true,
+            };
+        });
+        if (count === 0) return 0;
+        persistExecutorDecisionsArray(executionId, next);
+        return count;
+    } catch {
+        return 0;
+    }
 }
 
 /** حالة آخر طلب كفيل ضامن (محضر المتابعة) */
@@ -1062,6 +1799,358 @@ export function getLatestUnifiedCollectionDecisionState(
     return 'pending';
 }
 
+/** إزالة بادئة الرموز التعبيرية/الزخرفية قبل مطابقة عنوان الطلب */
+export function normalizeEvictionProcedureTitle(title: string): string {
+    return String(title || '')
+        .trim()
+        .replace(/^[\s\p{Emoji_Presentation}\p{Extended_Pictographic}\uFE0F]+/u, '')
+        .trim();
+}
+
+function evictionProcedureTitlesMatch(a: string, b: string): boolean {
+    const na = normalizeEvictionProcedureTitle(a);
+    const nb = normalizeEvictionProcedureTitle(b);
+    if (!na || !nb) return false;
+    if (na === nb) return true;
+    return na.includes(nb) || nb.includes(na);
+}
+
+export function evictionProcedureRowsMatch(
+    row: Record<string, unknown>,
+    input: { evictionWorkflowKey?: string; encroachmentWorkflowKey?: string; title?: string }
+): boolean {
+    const encWf = String(input.encroachmentWorkflowKey || '').trim();
+    if (encWf) {
+        const rowEncWf = String(
+            (row as { encroachmentWorkflowKey?: string }).encroachmentWorkflowKey || ''
+        ).trim();
+        if (rowEncWf === encWf) return true;
+    }
+    const wf = String(input.evictionWorkflowKey || '').trim();
+    const title = String(input.title || '').trim();
+    const rowWf = String((row as { evictionWorkflowKey?: string }).evictionWorkflowKey || '').trim();
+    if (wf && rowWf && rowWf === wf) return true;
+    const rowTitle = String((row as { title?: string }).title || '').trim();
+    return evictionProcedureTitlesMatch(title, rowTitle);
+}
+
+function evictionProcedureRowSortKey(row: Record<string, unknown>): string {
+    return String((row as { resolvedAt?: string; date?: string }).resolvedAt ?? (row as { date?: string }).date ?? '');
+}
+
+function sortEvictionProcedureRowsNewestFirst(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+    return [...rows].sort((a, b) =>
+        evictionProcedureRowSortKey(b).localeCompare(evictionProcedureRowSortKey(a), undefined, {
+            numeric: true,
+        })
+    );
+}
+
+/** صف الطلب الأصلي — لا نسخة مسار الطعن المشتقة */
+export function isEvictionProcedureHubRow(row: Record<string, unknown> | null | undefined): boolean {
+    if (!row || typeof row !== 'object') return false;
+    return !String((row as { appealSourceDecisionId?: string }).appealSourceDecisionId || '').trim();
+}
+
+export function isEvictionProcedureRowPending(row: Record<string, unknown> | null | undefined): boolean {
+    if (!row || typeof row !== 'object') return false;
+    const outcome = String((row as { executorOutcome?: string }).executorOutcome ?? 'pending');
+    return outcome === 'pending' || outcome === '';
+}
+
+export function getNewestEvictionProcedureRowForMatch(
+    all: Record<string, unknown>[],
+    input: { evictionWorkflowKey?: string; title?: string }
+): Record<string, unknown> | null {
+    const matching = all.filter(
+        (row) =>
+            String((row as { requestKind?: string }).requestKind || '') === 'eviction_procedure' &&
+            isEvictionProcedureHubRow(row) &&
+            evictionProcedureRowsMatch(row, input)
+    );
+    return sortEvictionProcedureRowsNewestFirst(matching)[0] ?? null;
+}
+
+function hubDecisionRowSortKey(row: Record<string, unknown>): string {
+    return String((row as { resolvedAt?: string; date?: string }).resolvedAt ?? (row as { date?: string }).date ?? '');
+}
+
+function sortHubDecisionRowsNewestFirst(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+    return [...rows].sort((a, b) =>
+        hubDecisionRowSortKey(b).localeCompare(hubDecisionRowSortKey(a), undefined, {
+            numeric: true,
+        })
+    );
+}
+
+/** كل صفوف hub لنوع حجز — نشطة ومؤرشفة — الأحدث أولاً */
+export function listSeizureHubRows(
+    all: Record<string, unknown>[],
+    subtype: string
+): Record<string, unknown>[] {
+    const st = String(subtype || '').trim();
+    return sortHubDecisionRowsNewestFirst(
+        all.filter(
+            (row) =>
+                String((row as { requestKind?: string }).requestKind || '') === 'seizure' &&
+                isEvictionProcedureHubRow(row) &&
+                String((row as { seizureSubtype?: string }).seizureSubtype || '').trim() === st
+        )
+    );
+}
+
+/** كل صفوف hub لطلب الكفيل — الأحدث أولاً */
+export function listGuarantorHubRows(all: Record<string, unknown>[]): Record<string, unknown>[] {
+    return sortHubDecisionRowsNewestFirst(
+        all.filter(
+            (row) =>
+                String((row as { requestKind?: string }).requestKind || '') === 'guarantor_request' &&
+                isEvictionProcedureHubRow(row)
+        )
+    );
+}
+
+function evictionProcedureHubRowsForBranch(
+    all: Record<string, unknown>[],
+    branch: string
+): Record<string, unknown>[] {
+    return all.filter((row) => {
+        if (String((row as { requestKind?: string }).requestKind || '') !== 'eviction_procedure') {
+            return false;
+        }
+        if (!isEvictionProcedureHubRow(row)) return false;
+        const rowBranch = inferExecutorApprovalDecisionType({
+            title: String((row as { title?: string }).title || ''),
+            requestKind: 'eviction_procedure',
+            evictionWorkflowKey: (row as { evictionWorkflowKey?: EvictionExecutorWorkflowKey })
+                .evictionWorkflowKey,
+        });
+        return rowBranch === branch;
+    });
+}
+
+/** كل صفوف hub لفرع إجراء (نشطة ومؤرشفة) — الأحدث أولاً */
+export function listEvictionProcedureHubRowsForBranch(
+    all: Record<string, unknown>[],
+    branch: string
+): Record<string, unknown>[] {
+    return sortEvictionProcedureRowsNewestFirst(evictionProcedureHubRowsForBranch(all, branch));
+}
+
+/** كل صفوف hub المطابقة لمفتاح/عنوان — الأحدث أولاً */
+export function listEvictionProcedureHubRowsForMatch(
+    all: Record<string, unknown>[],
+    input: { evictionWorkflowKey?: string; encroachmentWorkflowKey?: string; title?: string }
+): Record<string, unknown>[] {
+    const matching = all.filter(
+        (row) =>
+            String((row as { requestKind?: string }).requestKind || '') === 'eviction_procedure' &&
+            isEvictionProcedureHubRow(row) &&
+            evictionProcedureRowsMatch(row, input)
+    );
+    return sortEvictionProcedureRowsNewestFirst(matching);
+}
+
+export function getNewestEvictionProcedureRowForBranch(
+    all: Record<string, unknown>[],
+    branch: string
+): Record<string, unknown> | null {
+    const matching = evictionProcedureHubRowsForBranch(all, branch);
+    return sortEvictionProcedureRowsNewestFirst(matching)[0] ?? null;
+}
+
+/** صف يحكم واجهة الفرع: نشط أولاً، وإلا أحدث صف hub للعرض (مثل الرفض النهائي). */
+export function getGoverningEvictionProcedureRowForBranch(
+    all: Record<string, unknown>[],
+    branch: string
+): Record<string, unknown> | null {
+    const sorted = sortEvictionProcedureRowsNewestFirst(
+        evictionProcedureHubRowsForBranch(all, branch).filter(
+            (row) => !isExecutorHubRowSuperseded(row)
+        )
+    );
+    const active = sorted.find((row) => isEvictionProcedureRowActive(row, all));
+    if (active) return active;
+    return sorted[0] ?? null;
+}
+
+export function getGoverningEvictionProcedureRowForMatch(
+    all: Record<string, unknown>[],
+    input: { evictionWorkflowKey?: string; encroachmentWorkflowKey?: string; title?: string }
+): Record<string, unknown> | null {
+    const matching = all.filter(
+        (row) =>
+            String((row as { requestKind?: string }).requestKind || '') === 'eviction_procedure' &&
+            isEvictionProcedureHubRow(row) &&
+            evictionProcedureRowsMatch(row, input)
+    );
+    const sorted = sortEvictionProcedureRowsNewestFirst(matching);
+    const active = sorted.find((row) => isEvictionProcedureRowActive(row, all));
+    if (active) return active;
+    return sorted[0] ?? null;
+}
+
+/** صف hub الحاكم لطلبات إزالة التجاوز (انتداب مساح / إذن آليات) */
+export function getGoverningEncroachmentProcedureRowForMatch(
+    all: Record<string, unknown>[],
+    encroachmentWorkflowKey: string
+): Record<string, unknown> | null {
+    const key = String(encroachmentWorkflowKey || '').trim();
+    if (!key) return null;
+    return getGoverningEvictionProcedureRowForMatch(all, { encroachmentWorkflowKey: key });
+}
+
+/** أرشفة صفوف hub المرفوضة نهائياً قبل إرسال طلب إزالة تجاوز جديد لنفس الفرع */
+export function supersedeEncroachmentRejectedHubRowsBeforeNewRequest(
+    arr: Record<string, unknown>[],
+    encroachmentWorkflowKey: string
+): Record<string, unknown>[] {
+    const key = String(encroachmentWorkflowKey || '').trim();
+    if (!key) return arr;
+    const matchInput = { encroachmentWorkflowKey: key };
+    return supersedeRejectedFinalExecutorHubRows(arr, (row) => {
+        if (String((row as { requestKind?: string }).requestKind || '') !== 'eviction_procedure') {
+            return false;
+        }
+        if (!isEvictionProcedureHubRow(row)) return false;
+        return evictionProcedureRowsMatch(row, matchInput);
+    });
+}
+
+/** هل يُحجز فرع التخلية عن طلب جديد؟ يُقيَّم أحدث صف hub فقط — الرفض النهائي أو إعادة الدورة لا تحجز. */
+export function isEvictionBranchBlockingNewRequest(
+    all: Record<string, unknown>[],
+    input: { evictionWorkflowKey?: string; title?: string; branch?: string }
+): boolean {
+    const newest =
+        input.branch != null && String(input.branch).trim()
+            ? getNewestEvictionProcedureRowForBranch(all, String(input.branch).trim())
+            : getNewestEvictionProcedureRowForMatch(all, input);
+    if (!newest) return false;
+    return isEvictionProcedureRowActive(newest, all);
+}
+
+/** صف حاكم لطلب إخلاء جديد — يفضّل الفرع المستنتج من مفتاح المسار ثم المطابقة النصية. */
+export function getGoverningEvictionProcedureRowForNewRequest(
+    all: Record<string, unknown>[],
+    input: { evictionWorkflowKey?: string; title?: string }
+): Record<string, unknown> | null {
+    const wf = String(input.evictionWorkflowKey || '').trim();
+    if (wf) {
+        const branch = inferExecutorApprovalDecisionType({
+            title: String(input.title || ''),
+            requestKind: 'eviction_procedure',
+            evictionWorkflowKey: wf as EvictionExecutorWorkflowKey,
+        });
+        if (branch && branch !== 'other') {
+            const byBranch = getGoverningEvictionProcedureRowForBranch(all, branch);
+            if (byBranch?.id) return byBranch;
+        }
+    }
+    return getGoverningEvictionProcedureRowForMatch(all, input);
+}
+
+/** هل يوجد طلب hub سابق يمنع إعادة الإرسال (بما فيه المكتمل)؟ — يُسمح فقط بعد الرفض النهائي. */
+export function isEvictionBranchResendBlocked(
+    all: Record<string, unknown>[],
+    input: { evictionWorkflowKey?: string; encroachmentWorkflowKey?: string; title?: string; branch?: string }
+): boolean {
+    const governing =
+        input.branch != null && String(input.branch).trim()
+            ? getGoverningEvictionProcedureRowForBranch(all, String(input.branch).trim())
+            : getGoverningEvictionProcedureRowForMatch(all, input);
+    if (!governing?.id) return false;
+    return !isExecutorRowRejectedAndFinal(governing);
+}
+
+/** طلب تخلية ما زال قائماً (معلّق لدى المنفذ أو موافق عليه بانتظار إكمال المحضر). */
+export function isEvictionProcedureRowActive(
+    row: Record<string, unknown>,
+    allDecisions?: Record<string, unknown>[]
+): boolean {
+    const all = allDecisions ?? [];
+    if (all.length && isExecutorRequestAppealCycleSupersededFromRecord(row, all)) {
+        return false;
+    }
+    const outcome = String((row as { executorOutcome?: string }).executorOutcome || '');
+    const appealStatus = String((row as { appealStatus?: string }).appealStatus || '').trim();
+    const appealResult = String((row as { appealResult?: string }).appealResult || '').trim();
+    if (outcome === 'rejected') {
+        if (appealStatus === 'final') {
+            if (isCassationAffirmResult(appealResult) || appealResult === 'رد التظلم') {
+                return false;
+            }
+            if (appealResult === 'نقض القرار') {
+                return (
+                    isExecutorRowEffectivelyApproved(row) &&
+                    !isEvictionProcedureRowWorkflowComplete(row)
+                );
+            }
+            return false;
+        }
+        if ((row as { noAppealChosen?: boolean }).noAppealChosen === true) {
+            return false;
+        }
+    }
+    if (isExecutorRowRejectedAndFinal(row)) return false;
+    const pending =
+        row.executorOutcome === 'pending' || row.executorOutcome === undefined || row.executorOutcome === '';
+    if (pending) return true;
+    if (isExecutorRowEffectivelyApproved(row)) {
+        return !isEvictionProcedureRowWorkflowComplete(row);
+    }
+    return false;
+}
+
+/** اكتمال مسار الطلب داخل محضر المتابعة (بعد موافقة المنفذ وإدخال البيانات المطلوبة). */
+export function isEvictionProcedureRowWorkflowComplete(row: Record<string, unknown>): boolean {
+    if (isExecutorRowRejectedAndFinal(row)) return true;
+    if (!isExecutorRowEffectivelyApproved(row)) return false;
+    const encKey = String(
+        (row as { encroachmentWorkflowKey?: string }).encroachmentWorkflowKey || ''
+    ).trim();
+    if (encKey) {
+        return Boolean(
+            String((row as { encroachmentRequestSavedAt?: string }).encroachmentRequestSavedAt || '').trim()
+        );
+    }
+    const branch = inferExecutorApprovalDecisionType({
+        title: String(row.title || ''),
+        requestKind: 'eviction_procedure',
+        evictionWorkflowKey: (row as { evictionWorkflowKey?: string }).evictionWorkflowKey,
+    });
+    if (branch === 'Field Visit Date') {
+        return Boolean(String((row as { executorScheduleLabel?: string }).executorScheduleLabel || '').trim());
+    }
+    if (branch === 'Police Assistance Request') {
+        return Boolean(String((row as { policeAssistanceSavedAt?: string }).policeAssistanceSavedAt || '').trim());
+    }
+    if (branch === 'Lock Breaking & Inventory') {
+        return Boolean(
+            String((row as { breakInventoryFurnitureFinalizedAt?: string }).breakInventoryFurnitureFinalizedAt || '').trim()
+        );
+    }
+    if (branch === 'Marital Furniture Delivery') {
+        const scheduled = Boolean(
+            String((row as { executorScheduleLabel?: string }).executorScheduleLabel || '').trim()
+        );
+        const finalized = Boolean(
+            String((row as { breakInventoryFurnitureFinalizedAt?: string }).breakInventoryFurnitureFinalizedAt || '').trim()
+        );
+        return scheduled && finalized;
+    }
+    if (branch === 'Judicial Custodian') {
+        return Boolean(String((row as { judicialCustodianDetailsSavedAt?: string }).judicialCustodianDetailsSavedAt || '').trim());
+    }
+    if (branch === 'Grace Period') {
+        return Boolean(String((row as { evictionGraceSavedAt?: string }).evictionGraceSavedAt || '').trim());
+    }
+    if (branch === 'Eviction') {
+        return true;
+    }
+    return false;
+}
+
 /** طلبات تخلية / صرف أتعاب — تظهر في «القرارات والطعون» مع قبول/رفض الطلب. يُرجَع true عند إدراج صف جديد. */
 export function appendEvictionExecutorRequest(input: {
     executionId: string | undefined;
@@ -1070,11 +2159,14 @@ export function appendEvictionExecutorRequest(input: {
     requestKind: EvictionRequestKind;
     /** يُملأ لطلبات التخلية الميدانية لتمكين المسار الآلي بعد قبول المنفذ */
     evictionWorkflowKey?: EvictionExecutorWorkflowKey;
+    /** بعد اكتمال مسار سابق — أرشفة الصف الحاكم وتقديم طلب hub جديد */
+    supersedeCompletedHub?: boolean;
 }): boolean {
-    const key = executionDecisionsStorageKey(input.executionId);
+    if (!assertDomainGate(input.executionId, input.requestKind)) {
+        return false;
+    }
     try {
-        const raw = SecureStoreService.getItemSync(key);
-        const arr: unknown[] = parseStoredDecisionsArray(raw);
+        let arr: Record<string, unknown>[] = readExecutorDecisionsArray(input.executionId);
 
         const isPending = (x: Record<string, unknown>) =>
             x.executorOutcome === 'pending' || x.executorOutcome === undefined;
@@ -1115,19 +2207,50 @@ export function appendEvictionExecutorRequest(input: {
         if (input.requestKind === 'eviction_procedure') {
             const wf = String(input.evictionWorkflowKey || '').trim();
             const title = String(input.title || '').trim();
-            const dupPending = arr.some((x) => {
-                const row = x as Record<string, unknown>;
-                if (!isPending(row)) return false;
-                if (String((row as any).requestKind || '') !== 'eviction_procedure') return false;
-                const rowWf = String((row as any).evictionWorkflowKey || '').trim();
-                if (wf && rowWf && rowWf === wf) return true;
-                const rowTitle = String((row as any).title || '').trim();
-                return Boolean(title && rowTitle && rowTitle === title);
-            });
-            if (dupPending) {
+            const matchInput = { evictionWorkflowKey: wf, title };
+
+            arr = supersedeRejectedFinalExecutorHubRows(arr as Record<string, unknown>[], (row) => {
+                if (String((row as { requestKind?: string }).requestKind || '') !== 'eviction_procedure') {
+                    return false;
+                }
+                return evictionProcedureRowsMatch(row, matchInput) && isEvictionProcedureHubRow(row);
+            }) as unknown[];
+
+            const evictionRows = arr.filter(
+                (x) => String((x as { requestKind?: string }).requestKind || '') === 'eviction_procedure'
+            ) as Record<string, unknown>[];
+
+            const hubMatches = (row: Record<string, unknown>) =>
+                String((row as { requestKind?: string }).requestKind || '') === 'eviction_procedure' &&
+                evictionProcedureRowsMatch(row, matchInput) &&
+                isEvictionProcedureHubRow(row);
+
+            const allRows = arr as Record<string, unknown>[];
+            const governing = getGoverningEvictionProcedureRowForNewRequest(allRows, matchInput);
+            const governingPending =
+                governing?.id &&
+                isEvictionProcedureRowPending(governing) &&
+                isEvictionProcedureRowActive(governing, allRows);
+            if (governingPending) {
                 dispatchDecisionsReload();
                 return false;
             }
+
+            if (input.supersedeCompletedHub) {
+                arr = supersedePriorExecutorHubRows(arr as Record<string, unknown>[], hubMatches) as unknown[];
+            } else if (governing?.id && !isExecutorRowRejectedAndFinal(governing)) {
+                dispatchDecisionsReload();
+                return false;
+            }
+
+            arr = arr.filter((x) => {
+                const row = x as Record<string, unknown>;
+                if (!isPending(row)) return true;
+                if (String((row as { requestKind?: string }).requestKind || '') !== 'eviction_procedure') {
+                    return true;
+                }
+                return !evictionProcedureRowsMatch(row, matchInput);
+            });
         }
 
         const row = {
@@ -1138,14 +2261,14 @@ export function appendEvictionExecutorRequest(input: {
             appealStatus: 'pending' as const,
             executorOutcome: 'pending' as const,
             requestKind: input.requestKind,
+            appealRequestOrigin: 'creditor_side' as const,
             ...(input.evictionWorkflowKey
                 ? { evictionWorkflowKey: input.evictionWorkflowKey }
                 : {}),
             ...executorDecisionRowHubDefaults(),
         };
         arr.unshift(row);
-        SecureStoreService.setItemSync(key, JSON.stringify(arr));
-        dispatchDecisionsReload();
+        persistExecutorDecisionsArray(input.executionId, arr);
         return true;
     } catch {
         return false;

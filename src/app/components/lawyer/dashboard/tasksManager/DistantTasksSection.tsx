@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Hourglass } from 'lucide-react';
 import type { LegalTask } from '@/app/types/TaskEngine';
 
@@ -69,9 +69,6 @@ function DistantTasksBody(props: DistantTasksSectionProps) {
                 >
                     + إضافة مهمة مؤجلة
                 </button>
-                <p className="text-[11px] text-slate-500 text-right max-w-md leading-relaxed">
-                    ⏳ ذكرني بعد: أسبوع، أسبوعين، شهر، أو تاريخ مخصص — يظهر تنبيه عند حلول الموعد.
-                </p>
             </div>
 
             {snoozePanelOpen ? (

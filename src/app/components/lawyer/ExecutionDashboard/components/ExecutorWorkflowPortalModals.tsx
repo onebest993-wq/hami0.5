@@ -51,7 +51,7 @@ export interface ExecutorWorkflowPortalModalsProps {
     setPoliceAssistanceAgencyDraft: Dispatch<SetStateAction<string>>;
     policeAssistanceRequestTitle: string;
     policeAssistanceAgencyDraft: string;
-    savePoliceAssistanceFromModal: (agencyName: string) => void;
+    savePoliceAssistanceFromModal: (agencyName: string, options?: { linkToTasks?: boolean }) => void;
 
     breakInventoryFurnitureModalOpen: boolean;
     setBreakInventoryFurnitureModalOpen: Dispatch<SetStateAction<boolean>>;
@@ -130,22 +130,20 @@ export const ExecutorWorkflowPortalModals: React.FC<ExecutorWorkflowPortalModals
             {typeof document !== 'undefined' &&
                 policeAssistanceModalOpen &&
                 createPortal(
-                    <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
-                        <PoliceAssistanceDetailsModal
-                            open
-                            requestTitle={policeAssistanceRequestTitle || 'القوة الجبرية'}
-                            initialAgencyName={policeAssistanceAgencyDraft}
-                            onClose={() => {
-                                setPoliceAssistanceModalOpen(false);
-                                setPoliceAssistanceDecisionId(null);
-                                setPoliceAssistanceRequestTitle('');
-                                setPoliceAssistanceAgencyDraft('');
-                            }}
-                            onConfirm={({ agencyName }) => {
-                                savePoliceAssistanceFromModal(agencyName);
-                            }}
-                        />
-                    </Suspense>,
+                    <PoliceAssistanceDetailsModal
+                        open
+                        requestTitle={policeAssistanceRequestTitle || 'القوة الجبرية'}
+                        initialAgencyName={policeAssistanceAgencyDraft}
+                        onClose={() => {
+                            setPoliceAssistanceModalOpen(false);
+                            setPoliceAssistanceDecisionId(null);
+                            setPoliceAssistanceRequestTitle('');
+                            setPoliceAssistanceAgencyDraft('');
+                        }}
+                        onConfirm={({ agencyName, linkToTasks }) => {
+                            savePoliceAssistanceFromModal(agencyName, { linkToTasks });
+                        }}
+                    />,
                     document.body
                 )}
 

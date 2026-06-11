@@ -12,6 +12,7 @@ import {
     timelineCardTitleClassName,
     timelineSourceForDisplay,
 } from '@/app/utils/timelineSmartDisplay';
+import { dedupeTimelineEventsForDisplay } from '@/app/utils/timelineDedup';
 
 function formatDeadlineLineAr(daysLeft: number, deadlineRaw: string | undefined): string {
     const d = parseTimelineDeadlineDate(deadlineRaw);
@@ -40,8 +41,6 @@ export interface SmartTimelineRadarProps {
     previewLimit?: number;
     /** وضع المعاينة التاريخية — تعطيل التثبيت */
     isHistoricalMode?: boolean;
-    /** معاينة لقطة الإضبارة المرتبطة بالحدث */
-    onRequestHistoricalPreview?: (event: TimelineEvent) => void;
 }
 
 export const SmartTimelineRadar: React.FC<SmartTimelineRadarProps> = ({
@@ -50,10 +49,9 @@ export const SmartTimelineRadar: React.FC<SmartTimelineRadarProps> = ({
     onOpenFull,
     previewLimit = 5,
     isHistoricalMode = false,
-    onRequestHistoricalPreview,
 }) => {
     const prepared = useMemo(() => {
-        return mergeLegacyEvictionResidentialGracePairs(events);
+        return mergeLegacyEvictionResidentialGracePairs(dedupeTimelineEventsForDisplay(events));
     }, [events]);
 
     const topRows = useMemo(
@@ -180,18 +178,6 @@ export const SmartTimelineRadar: React.FC<SmartTimelineRadarProps> = ({
                                                     >
                                                         {formatDeadlineLineAr(dl, event.deadlineDate)}
                                                     </p>
-                                                ) : null}
-                                                {onRequestHistoricalPreview ? (
-                                                    <button
-                                                        type="button"
-                                                        className="mt-2 w-full rounded-md border border-slate-600/50 bg-slate-800/40 px-2 py-1.5 text-[10px] font-semibold text-slate-300 transition hover:bg-slate-800/70"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            onRequestHistoricalPreview(event);
-                                                        }}
-                                                    >
-                                                        👁️ عرض حالة الإضبارة وقت الحدث
-                                                    </button>
                                                 ) : null}
                                             </div>
                                         ) : (

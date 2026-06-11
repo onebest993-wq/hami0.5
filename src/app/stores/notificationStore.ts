@@ -1,14 +1,31 @@
 import { create } from 'zustand';
-import { NotificationModel, NotificationRepository } from '../infrastructure/NotificationRepository';
+import {
+    NotificationModel,
+    NotificationRepository,
+    isActivityLogNotification,
+} from '../infrastructure/NotificationRepository';
+import { sanitizeNotificationDisplayMessage, isNavigationNoiseNotification } from '@/app/services/notificationMessageFormat';
+
+function normalizeNotification(notification: NotificationModel): NotificationModel | null {
+    if (isActivityLogNotification(notification)) return null;
+    if (isNavigationNoiseNotification(notification)) return null;
+    const message = sanitizeNotificationDisplayMessage(notification);
+    if (!message.trim()) return null;
+    if (message === notification.message) return notification;
+    return { ...notification, message };
+}
+
+function stripActivityNotifications(list: NotificationModel[]): NotificationModel[] {
+    return list
+        .filter((n) => !isActivityLogNotification(n) && !isNavigationNoiseNotification(n))
+        .map((n) => normalizeNotification(n))
+        .filter((n): n is NotificationModel => n != null);
+}
 
 interface NotificationState {
     notifications: NotificationModel[];
     unreadCount: number;
     isLoading: boolean;
-    /**
-     * userId الحالي — يُسجَّل عند أول fetch ويُستخدم لاحقاً للحفاظ على persistence
-     * في addNotification (سواء جاء من AuditLog أو من مصدر آخر).
-     */
     currentUserId: string | null;
 
     fetchNotifications: (userId: string) => Promise<void>;
@@ -31,25 +48,29 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
     fetchNotifications: async (userId: string) => {
         set({ isLoading: true, currentUserId: userId });
-        const list = await NotificationRepository.fetchNotifications(userId);
+        const raw = await NotificationRepository.fetchNotifications(userId);
+        const list = stripActivityNotifications(raw);
 
-        // دمج بدلاً من الاستبدال: حافظ على الإشعارات في الذاكرة (المضافة لتوّها عبر AuditLog)
-        // التي قد تكون أحدث من ما في storage.
+        if (list.length !== raw.length) {
+            void NotificationRepository.replaceAllNotifications(userId, list);
+        }
+
         const current = get().notifications;
         const byId = new Map<string, NotificationModel>();
-        // ابدأ بـ remote (مصدر الحقيقة)
         for (const n of list) byId.set(n.id, n);
-        // ثم أضف الإشعارات في الذاكرة التي لم تصل إلى storage بعد
         for (const n of current) {
-            if (!byId.has(n.id)) byId.set(n.id, n);
+            if (!byId.has(n.id)) {
+                const normalized = normalizeNotification(n);
+                if (normalized) byId.set(n.id, normalized);
+            }
         }
-        const merged = Array.from(byId.values()).sort((a, b) => {
+        const merged = stripActivityNotifications(Array.from(byId.values())).sort((a, b) => {
             const ta = new Date(a.createdAt).getTime();
             const tb = new Date(b.createdAt).getTime();
             return tb - ta;
         });
         const capped = merged.length > 400 ? merged.slice(0, 400) : merged;
-        const unread = capped.filter(n => !n.isRead).length;
+        const unread = capped.filter((n) => !n.isRead).length;
 
         set({ notifications: capped, unreadCount: unread, isLoading: false });
     },
@@ -57,10 +78,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     markAsRead: async (userId: string, notificationId: string) => {
         const { notifications } = get();
 
-        const updatedList = notifications.map(n =>
-            n.id === notificationId ? { ...n, isRead: true } : n
+        const updatedList = notifications.map((n) =>
+            n.id === notificationId ? { ...n, isRead: true } : n,
         );
-        const unread = updatedList.filter(n => !n.isRead).length;
+        const unread = updatedList.filter((n) => !n.isRead).length;
 
         set({ notifications: updatedList, unreadCount: unread });
 
@@ -70,7 +91,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     markAllAsRead: async (userId: string) => {
         const { notifications } = get();
 
-        const updatedList = notifications.map(n => ({ ...n, isRead: true }));
+        const updatedList = notifications.map((n) => ({ ...n, isRead: true }));
 
         set({ notifications: updatedList, unreadCount: 0 });
 
@@ -78,19 +99,20 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     },
 
     addNotification: (notification: NotificationModel) => {
+        if (isActivityLogNotification(notification)) return;
+        const normalized = normalizeNotification(notification);
+        if (!normalized) return;
         const { notifications, currentUserId } = get();
-        // Dedupe على الـ id داخل الذاكرة (لا تكرار)
-        if (notifications.some(n => n.id === notification.id)) return;
-        const updated = [notification, ...notifications];
+        if (notifications.some((n) => n.id === normalized.id)) return;
+        const updated = [normalized, ...notifications];
         const capped = updated.length > 200 ? updated.slice(0, 200) : updated;
         set({
             notifications: capped,
-            unreadCount: capped.filter(n => !n.isRead).length
+            unreadCount: capped.filter((n) => !n.isRead).length,
         });
 
-        // 🔑 Persistence: احفظ في local storage فوراً حتى لا يضيع عند fetchNotifications التالي
         if (currentUserId) {
-            void NotificationRepository.addNotification(currentUserId, notification);
+            void NotificationRepository.addNotification(currentUserId, normalized);
         }
-    }
+    },
 }));

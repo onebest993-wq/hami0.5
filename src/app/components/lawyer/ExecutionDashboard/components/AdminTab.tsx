@@ -1,11 +1,9 @@
 import React from 'react';
-import { FolderGit2, MoveRight, RefreshCw, PencilLine, Users, Scale, Gavel, ArrowRightLeft } from 'lucide-react';
+import { RefreshCw, PencilLine, Users, Scale, Gavel, ArrowRightLeft } from 'lucide-react';
 import { InlineActionGate } from './InlineActionGate';
 import type { InlineActionGateKey } from '../types';
 
 const ADMIN_OPTIONS = [
-    { label: 'طلب توحيد الأضابير', icon: FolderGit2 },
-    { label: 'طلب نقل الإضبارة', icon: MoveRight },
     { label: 'طلب تجديد الإضبارة', icon: RefreshCw },
     { label: 'طلب تصحيح خطأ مادي', icon: PencilLine },
     { label: 'طلب انتداب خبير/خبراء', icon: Users },

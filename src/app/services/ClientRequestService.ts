@@ -1,7 +1,6 @@
 import { CryptoService } from './CryptoService';
 import { SecureAPIClient } from './SecureAPIClient';
-import { RequestStatus, type LegalRequest } from '../types/admin-types';
-import { AILegalAssistant } from './AILegalAssistant';
+import { RequestStatus, type LegalRequest, type LegalRequestAIMetadata } from '../types/admin-types';
 
 const DEV_REQUESTS_SESSION_KEY = 'hami:dev:requests:v1';
 
@@ -41,6 +40,32 @@ function saveDevRequestsToSession(requests: LegalRequest[]): void {
   } catch {
     return;
   }
+}
+
+function buildRequestMetadata(plainDetails: string): LegalRequestAIMetadata {
+  const normalized = plainDetails.trim();
+  const hay = normalized.toLowerCase();
+  const isCritical =
+    hay.includes('عاجل') ||
+    hay.includes('غدا') ||
+    hay.includes('غداً') ||
+    hay.includes('طرد') ||
+    hay.includes('سجن') ||
+    hay.includes('محكمة');
+
+  if (isCritical) {
+    return {
+      summary: 'طلب عالي الحساسية يتطلب إجراء فوري لتفادي ضرر قانوني.',
+      urgency: 'CRITICAL',
+      suggested_action: 'قبول فوري + تواصل سريع مع الموكل',
+    };
+  }
+
+  return {
+    summary: 'استشارة قانونية عادية قابلة للمتابعة ضمن الجدول.',
+    urgency: 'NORMAL',
+    suggested_action: 'مراجعة أولية ثم تحديد الخطوة التالية',
+  };
 }
 
 function buildSmartSummary(title: string, plainDetails: string): string {
@@ -111,7 +136,7 @@ export class ClientRequestService {
   ): Promise<boolean> {
     try {
       await CryptoService.initialize();
-      const ai_metadata = await AILegalAssistant.analyzeRequest(plainDetails);
+      const ai_metadata = buildRequestMetadata(plainDetails);
       const encrypted_details = await CryptoService.encryptData(plainDetails);
       const data_signature = await CryptoService.generateDataSignature(encrypted_details);
       const smart_summary = buildSmartSummary(title, plainDetails);

@@ -2,19 +2,39 @@ import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { X } from 'lucide-react';
-import type {
-    StandaloneExecutionMark,
-    StandaloneExecutionMarkTargetEntity,
-    StandaloneExecutionMarkType,
-} from '@/app/types/execution';
+import type { StandaloneExecutionMark, StandaloneExecutionMarkType } from '@/app/types/execution';
 import { EXEC_MODAL_BACKDROP_STRONG, EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
 
+const PRESET_MARK_TYPES: StandaloneExecutionMarkType[] = [
+    'تثبيت حجز احتياطي',
+    'مفاتحة عامة',
+    'تعميم منع تصرف',
+    'يدوي',
+];
+
 type Draft = {
-    markType: StandaloneExecutionMarkType | '';
-    targetEntity: StandaloneExecutionMarkTargetEntity | '';
+    markTypeChoice: StandaloneExecutionMarkType | '';
+    markTypeManual: string;
+    targetEntity: string;
     markDetails: string;
     letterDetails: string;
 };
+
+function resolveInitialDraft(initial?: StandaloneExecutionMark | null): Draft {
+    const storedType = String(initial?.markType || '').trim();
+    const isPreset = PRESET_MARK_TYPES.includes(storedType as StandaloneExecutionMarkType) && storedType !== 'يدوي';
+    return {
+        markTypeChoice: isPreset
+            ? (storedType as StandaloneExecutionMarkType)
+            : storedType
+              ? 'يدوي'
+              : '',
+        markTypeManual: isPreset || !storedType ? '' : storedType,
+        targetEntity: String(initial?.targetEntity || ''),
+        markDetails: initial?.markDetails || '',
+        letterDetails: initial?.letterDetails || '',
+    };
+}
 
 export function StandaloneExecutionMarkInitModal(props: {
     open: boolean;
@@ -23,21 +43,13 @@ export function StandaloneExecutionMarkInitModal(props: {
     initial?: StandaloneExecutionMark | null;
     disabled?: boolean;
     onSave: (draft: {
-        markType: StandaloneExecutionMarkType;
-        targetEntity: StandaloneExecutionMarkTargetEntity;
+        markType: string;
+        targetEntity: string;
         markDetails: string;
         letterDetails: string;
     }) => void;
 }) {
-    const initialDraft: Draft = useMemo(
-        () => ({
-            markType: props.initial?.markType || '',
-            targetEntity: props.initial?.targetEntity || '',
-            markDetails: props.initial?.markDetails || '',
-            letterDetails: props.initial?.letterDetails || '',
-        }),
-        [props.initial]
-    );
+    const initialDraft: Draft = useMemo(() => resolveInitialDraft(props.initial), [props.initial]);
 
     const [draft, setDraft] = useState<Draft>(initialDraft);
 
@@ -46,9 +58,13 @@ export function StandaloneExecutionMarkInitModal(props: {
         setDraft(initialDraft);
     }, [props.open, initialDraft]);
 
+    const markTypeChoice = String(draft.markTypeChoice || '').trim();
+    const resolvedMarkType =
+        markTypeChoice === 'يدوي' ? String(draft.markTypeManual || '').trim() : markTypeChoice;
+
     const canSave =
         !props.disabled &&
-        Boolean(String(draft.markType || '').trim()) &&
+        Boolean(resolvedMarkType) &&
         Boolean(String(draft.targetEntity || '').trim()) &&
         Boolean(draft.markDetails.trim());
 
@@ -91,51 +107,73 @@ export function StandaloneExecutionMarkInitModal(props: {
 
                     <div className="p-5">
                         <div className="grid grid-cols-1 gap-3">
-                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <div>
+                                <label className="mb-1 block text-[11px] font-bold text-slate-300">
+                                    نوع الشارة
+                                </label>
+                                <select
+                                    value={draft.markTypeChoice}
+                                    onChange={(e) =>
+                                        setDraft((p) => ({
+                                            ...p,
+                                            markTypeChoice: e.target.value as StandaloneExecutionMarkType | '',
+                                            markTypeManual:
+                                                e.target.value === 'يدوي' ? p.markTypeManual : '',
+                                        }))
+                                    }
+                                    className="w-full cursor-pointer appearance-none rounded-xl border border-white/10 bg-[#0A0F1C] px-3 py-2 text-[12px] text-slate-100 text-right focus:border-amber-500/40 focus:outline-none [color-scheme:dark]"
+                                    disabled={props.disabled}
+                                >
+                                    <option value="" className="bg-[#0A0F1C] text-slate-400">
+                                        اختر نوع الشارة
+                                    </option>
+                                    <option value="تثبيت حجز احتياطي" className="bg-[#0A0F1C] text-white">
+                                        تثبيت حجز احتياطي
+                                    </option>
+                                    <option value="مفاتحة عامة" className="bg-[#0A0F1C] text-white">
+                                        مفاتحة عامة
+                                    </option>
+                                    <option value="تعميم منع تصرف" className="bg-[#0A0F1C] text-white">
+                                        تعميم منع تصرف
+                                    </option>
+                                    <option value="يدوي" className="bg-[#0A0F1C] text-white">
+                                        يدوي (إدخال حر)
+                                    </option>
+                                </select>
+                            </div>
+
+                            {markTypeChoice === 'يدوي' ? (
                                 <div>
                                     <label className="mb-1 block text-[11px] font-bold text-slate-300">
-                                        نوع الشارة
+                                        نوع الشارة (يدوي)
                                     </label>
-                                    <select
-                                        value={draft.markType}
+                                    <input
+                                        type="text"
+                                        value={draft.markTypeManual}
                                         onChange={(e) =>
-                                            setDraft((p) => ({
-                                                ...p,
-                                                markType: e.target.value as StandaloneExecutionMarkType | '',
-                                            }))
+                                            setDraft((p) => ({ ...p, markTypeManual: e.target.value }))
                                         }
                                         className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-slate-100"
+                                        placeholder="اكتب نوع الشارة يدوياً..."
                                         disabled={props.disabled}
-                                    >
-                                        <option value="">اختر</option>
-                                        <option value="تثبيت حجز احتياطي">تثبيت حجز احتياطي</option>
-                                        <option value="مفاتحة عامة (مسجل الشركات)">مفاتحة عامة (مسجل الشركات)</option>
-                                        <option value="تعميم منع تصرف">تعميم منع تصرف</option>
-                                    </select>
+                                    />
                                 </div>
-                                <div>
-                                    <label className="mb-1 block text-[11px] font-bold text-slate-300">
-                                        الجهة المستهدفة
-                                    </label>
-                                    <select
-                                        value={draft.targetEntity}
-                                        onChange={(e) =>
-                                            setDraft((p) => ({
-                                                ...p,
-                                                targetEntity:
-                                                    e.target.value as StandaloneExecutionMarkTargetEntity | '',
-                                            }))
-                                        }
-                                        className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-slate-100"
-                                        disabled={props.disabled}
-                                    >
-                                        <option value="">اختر</option>
-                                        <option value="التسجيل العقاري">التسجيل العقاري</option>
-                                        <option value="المرور">المرور</option>
-                                        <option value="مسجل الشركات">مسجل الشركات</option>
-                                        <option value="أخرى">أخرى</option>
-                                    </select>
-                                </div>
+                            ) : null}
+
+                            <div>
+                                <label className="mb-1 block text-[11px] font-bold text-slate-300">
+                                    الجهة المستهدفة
+                                </label>
+                                <input
+                                    type="text"
+                                    value={draft.targetEntity}
+                                    onChange={(e) =>
+                                        setDraft((p) => ({ ...p, targetEntity: e.target.value }))
+                                    }
+                                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-slate-100"
+                                    placeholder="مثال: دائرة التسجيل العقاري / مديرية المرور..."
+                                    disabled={props.disabled}
+                                />
                             </div>
 
                             <div>
@@ -184,8 +222,8 @@ export function StandaloneExecutionMarkInitModal(props: {
                                 className="rounded-xl bg-gradient-to-l from-amber-500 to-orange-700 px-5 py-2 text-[12px] font-black text-white shadow-md shadow-black/20 disabled:opacity-40"
                                 onClick={() => {
                                     props.onSave({
-                                        markType: draft.markType as StandaloneExecutionMarkType,
-                                        targetEntity: draft.targetEntity as StandaloneExecutionMarkTargetEntity,
+                                        markType: resolvedMarkType,
+                                        targetEntity: String(draft.targetEntity || '').trim(),
                                         markDetails: draft.markDetails.trim(),
                                         letterDetails: String(draft.letterDetails || '').trim(),
                                     });
@@ -201,5 +239,3 @@ export function StandaloneExecutionMarkInitModal(props: {
         document.body
     );
 }
-
-

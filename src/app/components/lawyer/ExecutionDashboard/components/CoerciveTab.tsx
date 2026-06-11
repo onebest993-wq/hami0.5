@@ -5,6 +5,8 @@ import { CoerciveToolsGrid } from './CoerciveToolsGrid';
 import type { CoerciveToolsGridProps } from './CoerciveToolsGrid';
 import type { EvictionProceduresSectionProps } from './EvictionProceduresSection';
 import type { EvictionTimelineActionId } from '@/app/utils/executionModuleStrategies';
+import { EncroachmentRemovalRequestCards } from './EncroachmentRemovalRequestCards';
+import type { EncroachmentCaseExpenseRow } from '@/app/utils/encroachmentRemovalRequests';
 
 export interface CoerciveTabProps {
     coerciveUiLocked: boolean;
@@ -24,8 +26,12 @@ export interface CoerciveTabProps {
     activeTimelineEvents: any[];
     evictionPremisesUseResolved: string;
     showResidentialEvictionGraceControl: boolean;
-    openEvictionResidentialGraceModal: () => void;
+    residentialGracePeriodSaved?: boolean;
+    openEvictionResidentialGraceModal: (opts?: { edit?: boolean }) => void;
     showResidentialGraceEarlyEndRequest: boolean;
+    showBreakInventoryRequest?: boolean;
+    /** الخروج الميداني والقوة الجبرية — بعد انتهاء/إنهاء المهلة السكنية */
+    showEvictionFieldworkRequests?: boolean;
     evictionHeirsNotificationDateYmd: string;
     handleEvictionHeirsNotificationDateChange: (ymd: string) => void;
     handleIssueHeirsExecutionNoticeMemo: () => void;
@@ -37,8 +43,43 @@ export interface CoerciveTabProps {
     tryOpenPendingBreakInventoryLedger: () => boolean;
     tryOpenPendingCustodianDetails: () => boolean;
     openPoliceAssistanceDetails?: (input: { decisionId: string; requestTitle: string }) => void;
+    savePoliceAssistance?: (input: {
+        decisionId: string;
+        agencyName: string;
+        linkToTasks: boolean;
+    }) => void;
+    saveBreakInventoryLedger?: EvictionProceduresSectionProps['saveBreakInventoryLedger'];
+    finalizeBreakInventoryRequest?: EvictionProceduresSectionProps['finalizeBreakInventoryRequest'];
+    isMaritalFurnitureClaim?: boolean;
+    maritalFurnitureItems?: EvictionProceduresSectionProps['maritalFurnitureItems'];
+    saveMaritalFurnitureDeliveryInventory?: EvictionProceduresSectionProps['saveMaritalFurnitureDeliveryInventory'];
+    expandProcedureKey?: EvictionProceduresSectionProps['expandProcedureKey'];
+    onExpandProcedureConsumed?: EvictionProceduresSectionProps['onExpandProcedureConsumed'];
     followupEmployeeFinancialSalaryOnlyCoercive: boolean;
     followupMonetaryCoerciveLimitedOnly: boolean;
+    hideCoerciveGraceNoticeBanner?: boolean;
+    hideCoerciveFinancialBanners?: boolean;
+    hideCoerciveSeizureSalaryAndProperty?: boolean;
+    hideEncroachmentEvictionProcedureItems?: boolean;
+    showEncroachmentRemovalRequestCards?: boolean;
+    showSpecificDeliverySurveyorCard?: boolean;
+    showSpecificDeliveryConversionCard?: boolean;
+    showSpecificDeliveryBreakInventoryCard?: boolean;
+    showSpecificDeliveryFieldProcedures?: boolean;
+    showGenericFieldProcedureCards?: boolean;
+    isSpecificDeliveryModule?: boolean;
+    hideEvictionCustodianProcedure?: boolean;
+    specificDeliveryFinancialized?: boolean;
+    specificDeliveryItemName?: string;
+    specificDeliveryItemNature?: string | null;
+    debtAmount?: number | null;
+    totalAmount?: number | null;
+    specificDeliveryConvertedAmount?: number | null;
+    onSpecificDeliveryFinancialized?: (amount: number) => void;
+    onEncroachmentExpenseRecorded?: (row: EncroachmentCaseExpenseRow) => void;
+    onSpecificDeliveryExpenseRecorded?: (
+        row: import('@/app/utils/specificDeliveryPropertyExpertRequest').SpecificDeliveryCaseExpenseRow
+    ) => void;
     executionCoerciveButtonDisabled: boolean;
     inlineActionGateKey: CoerciveToolsGridProps['inlineActionGateKey'];
     setInlineActionGateKey: CoerciveToolsGridProps['setInlineActionGateKey'];
@@ -52,6 +93,7 @@ export interface CoerciveTabProps {
     activeCoerciveActions: CoerciveToolsGridProps['activeCoerciveActions'];
     followupSalarySeizureLabel: CoerciveToolsGridProps['followupSalarySeizureLabel'];
     followupGarnishmentAmountPreview: CoerciveToolsGridProps['followupGarnishmentAmountPreview'];
+    hideFollowupCoerciveTab?: boolean;
 }
 
 export const CoerciveTab: React.FC<CoerciveTabProps> = ({
@@ -72,8 +114,11 @@ export const CoerciveTab: React.FC<CoerciveTabProps> = ({
     activeTimelineEvents,
     evictionPremisesUseResolved,
     showResidentialEvictionGraceControl,
+    residentialGracePeriodSaved = false,
     openEvictionResidentialGraceModal,
     showResidentialGraceEarlyEndRequest,
+    showBreakInventoryRequest = true,
+    showEvictionFieldworkRequests = true,
     evictionHeirsNotificationDateYmd,
     handleEvictionHeirsNotificationDateChange,
     handleIssueHeirsExecutionNoticeMemo,
@@ -81,8 +126,37 @@ export const CoerciveTab: React.FC<CoerciveTabProps> = ({
     tryOpenPendingBreakInventoryLedger,
     tryOpenPendingCustodianDetails,
     openPoliceAssistanceDetails,
+    savePoliceAssistance,
+    saveBreakInventoryLedger,
+    finalizeBreakInventoryRequest,
+    isMaritalFurnitureClaim = false,
+    maritalFurnitureItems = [],
+    saveMaritalFurnitureDeliveryInventory,
+    expandProcedureKey,
+    onExpandProcedureConsumed,
     followupEmployeeFinancialSalaryOnlyCoercive,
     followupMonetaryCoerciveLimitedOnly,
+    hideCoerciveGraceNoticeBanner = false,
+    hideCoerciveFinancialBanners = false,
+    hideCoerciveSeizureSalaryAndProperty = false,
+    hideEncroachmentEvictionProcedureItems = false,
+    showEncroachmentRemovalRequestCards = false,
+    showSpecificDeliverySurveyorCard = false,
+    showSpecificDeliveryConversionCard = false,
+    showSpecificDeliveryBreakInventoryCard = false,
+    showSpecificDeliveryFieldProcedures = false,
+    showGenericFieldProcedureCards = false,
+    isSpecificDeliveryModule = false,
+    hideEvictionCustodianProcedure = false,
+    specificDeliveryFinancialized = false,
+    specificDeliveryItemName = '',
+    specificDeliveryItemNature = null,
+    debtAmount = 0,
+    totalAmount = 0,
+    specificDeliveryConvertedAmount = 0,
+    onSpecificDeliveryFinancialized,
+    onEncroachmentExpenseRecorded,
+    onSpecificDeliveryExpenseRecorded,
     executionCoerciveButtonDisabled,
     inlineActionGateKey,
     setInlineActionGateKey,
@@ -96,6 +170,7 @@ export const CoerciveTab: React.FC<CoerciveTabProps> = ({
     activeCoerciveActions,
     followupSalarySeizureLabel,
     followupGarnishmentAmountPreview,
+    hideFollowupCoerciveTab = false,
 }) => (
     <>
         {coerciveUiLocked && isEvictionExecutionModule && (
@@ -116,7 +191,7 @@ export const CoerciveTab: React.FC<CoerciveTabProps> = ({
             </div>
         )}
 
-        {!gracePeriodEnded && !coerciveUiLocked && !isEvictionExecutionModule && (
+        {!gracePeriodEnded && !coerciveUiLocked && !isEvictionExecutionModule && !hideCoerciveGraceNoticeBanner && (
             <div className="backdrop-blur-xl bg-slate-800/40 border border-amber-500/20 rounded-2xl p-4">
                 <div className="flex items-start gap-3">
                     <AlertCircle size={18} className="text-amber-400 flex-shrink-0 mt-0.5" />
@@ -177,12 +252,11 @@ export const CoerciveTab: React.FC<CoerciveTabProps> = ({
                         showResidentialEvictionGraceButton={
                             showResidentialEvictionGraceControl
                         }
-                        onResidentialEvictionGraceClick={
-                            openEvictionResidentialGraceModal
-                        }
-                        showResidentialGraceEarlyEndRequest={
-                            showResidentialGraceEarlyEndRequest
-                        }
+                        residentialGracePeriodSaved={residentialGracePeriodSaved}
+                        onResidentialEvictionGraceClick={openEvictionResidentialGraceModal}
+                        showResidentialGraceEarlyEndRequest={showResidentialGraceEarlyEndRequest}
+                        showBreakInventoryRequest={showBreakInventoryRequest}
+                        showEvictionFieldworkRequests={showEvictionFieldworkRequests}
                         showDebtorHeirsEvictionTools={false}
                         heirsNotificationDateYmd={evictionHeirsNotificationDateYmd}
                         onHeirsNotificationDateYmdChange={
@@ -199,12 +273,18 @@ export const CoerciveTab: React.FC<CoerciveTabProps> = ({
                             tryOpenPendingCustodianDetails
                         }
                         openPoliceAssistanceDetails={openPoliceAssistanceDetails}
+                        savePoliceAssistance={savePoliceAssistance}
+                        saveBreakInventoryLedger={saveBreakInventoryLedger}
+                        finalizeBreakInventoryRequest={finalizeBreakInventoryRequest}
+                        isMaritalFurnitureClaim={isMaritalFurnitureClaim}
+                        maritalFurnitureItems={maritalFurnitureItems}
+                        saveMaritalFurnitureDeliveryInventory={saveMaritalFurnitureDeliveryInventory}
                     />
                 </Suspense>
             </>
         )}
 
-        {!isEvictionExecutionModule && followupEmployeeFinancialSalaryOnlyCoercive && (
+        {!isEvictionExecutionModule && followupEmployeeFinancialSalaryOnlyCoercive && !hideCoerciveFinancialBanners && (
             <div className="backdrop-blur-xl bg-emerald-950/30 border border-emerald-500/35 rounded-2xl p-3 text-right">
                 <p className="text-emerald-200/95 text-[11px] leading-relaxed">
                     تنفيذ مالي ومدين موظف: طلب حجز راتب (١/٥) أو عقار أو مال منقول يُعرَض على منفذ العدل. مسار الحجز المالي هنا؛ الإجراءات الشخصية وطلب الكفيل و«تحركات الطرف الآخر» من محضر المتابعة عند الحاجة.
@@ -212,7 +292,7 @@ export const CoerciveTab: React.FC<CoerciveTabProps> = ({
             </div>
         )}
 
-        {!isEvictionExecutionModule && followupMonetaryCoerciveLimitedOnly && (
+        {!isEvictionExecutionModule && followupMonetaryCoerciveLimitedOnly && !hideCoerciveFinancialBanners && (
             <div className="backdrop-blur-xl bg-sky-950/30 border border-sky-500/35 rounded-2xl p-3 text-right">
                 <p className="text-sky-200/95 text-[11px] leading-relaxed">
                     تنفيذ مالي: طلبات حجز الراتب أو العقار أو المال المنقول تُعرَض على منفذ العدل. الإحضار الجبري والمفاتحة وطلب الكفيل من تبويب «التنفيذ الجبري الشخصي» في محضر المتابعة.
@@ -220,7 +300,33 @@ export const CoerciveTab: React.FC<CoerciveTabProps> = ({
             </div>
         )}
 
+        {!isEvictionExecutionModule &&
+            isSpecificDeliveryModule &&
+            !showSpecificDeliveryFieldProcedures &&
+            !specificDeliveryFinancialized && (
+                <div
+                    className="rounded-2xl border border-amber-500/30 bg-amber-950/20 px-3 py-3 text-right"
+                    dir="rtl"
+                >
+                    <p className="text-[11px] font-bold text-amber-200">
+                        حدّد طبيعة الشيء (منقول / غير منقول) من معلومات الإضبارة قبل الإجراءات
+                        الميدانية.
+                    </p>
+                </div>
+            )}
+
         {!isEvictionExecutionModule && (
+            <div className="space-y-2.5">
+                {showEncroachmentRemovalRequestCards && decisionsStorageExecutionId && (
+                    <EncroachmentRemovalRequestCards
+                        decisionsStorageExecutionId={decisionsStorageExecutionId}
+                        inlineActionGateKey={inlineActionGateKey}
+                        setInlineActionGateKey={setInlineActionGateKey}
+                        showToast={showToast}
+                        onExpenseRecorded={onEncroachmentExpenseRecorded}
+                    />
+                )}
+            {(showSpecificDeliveryFieldProcedures || isMaritalFurnitureClaim) ? (
             <EvictionProceduresSection
                 executionCoerciveButtonDisabled={executionCoerciveButtonDisabled}
                 inlineActionGateKey={inlineActionGateKey}
@@ -232,7 +338,32 @@ export const CoerciveTab: React.FC<CoerciveTabProps> = ({
                 decisionsStorageExecutionId={decisionsStorageExecutionId}
                 showToast={showToast}
                 EVICTION_TIMELINE_ACTION_IDS={EVICTION_TIMELINE_ACTION_IDS}
+                hideEncroachmentEvictionProcedureItems={hideEncroachmentEvictionProcedureItems}
+                hideEvictionCustodianProcedure={hideEvictionCustodianProcedure}
+                showGenericFieldProcedureCards={showGenericFieldProcedureCards}
+                showSpecificDeliveryBreakInventoryCard={showSpecificDeliveryBreakInventoryCard}
+                showSpecificDeliverySurveyorCard={showSpecificDeliverySurveyorCard}
+                showSpecificDeliveryConversionCard={showSpecificDeliveryConversionCard}
+                specificDeliveryItemName={specificDeliveryItemName}
+                specificDeliveryItemNature={specificDeliveryItemNature}
+                debtAmount={debtAmount}
+                totalAmount={totalAmount}
+                specificDeliveryConvertedAmount={specificDeliveryConvertedAmount}
+                specificDeliveryFinancialized={specificDeliveryFinancialized}
+                onSpecificDeliveryFinancialized={onSpecificDeliveryFinancialized}
+                onSpecificDeliveryExpenseRecorded={onSpecificDeliveryExpenseRecorded}
+                openPoliceAssistanceDetails={openPoliceAssistanceDetails}
+                savePoliceAssistance={savePoliceAssistance}
+                saveBreakInventoryLedger={saveBreakInventoryLedger}
+                finalizeBreakInventoryRequest={finalizeBreakInventoryRequest}
+                isMaritalFurnitureClaim={isMaritalFurnitureClaim}
+                maritalFurnitureItems={maritalFurnitureItems}
+                saveMaritalFurnitureDeliveryInventory={saveMaritalFurnitureDeliveryInventory}
+                expandProcedureKey={expandProcedureKey}
+                onExpandProcedureConsumed={onExpandProcedureConsumed}
             />
+            ) : null}
+            </div>
         )}
 
         <CoerciveToolsGrid
@@ -245,6 +376,9 @@ export const CoerciveTab: React.FC<CoerciveTabProps> = ({
             followupGarnishmentAmountPreview={followupGarnishmentAmountPreview}
             followupEmployeeFinancialSalaryOnlyCoercive={followupEmployeeFinancialSalaryOnlyCoercive}
             followupMonetaryCoerciveLimitedOnly={followupMonetaryCoerciveLimitedOnly}
+            hideCoerciveSeizureSalaryAndProperty={
+                hideCoerciveSeizureSalaryAndProperty || hideFollowupCoerciveTab
+            }
             setInlineActionGateKey={setInlineActionGateKey}
             handleCoerciveAction={handleCoerciveAction}
         />

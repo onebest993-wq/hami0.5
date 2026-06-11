@@ -151,6 +151,7 @@ import {
     isDefendantIdentityUnknown,
     normalizeCaseDefendantsForUnknown,
 } from './criminalUnknownDefendant';
+import { resolveEffectiveComplainantsForDisplay } from './publicProsecutionGovernance';
 import {
     isInvestigationExpirationJudicialTemplate,
     isInvestigationImmediatePurgeTemplate,
@@ -561,6 +562,10 @@ export const CriminalDashboard = ({
         : criminalCase.basics.legalArticle.trim();
     const isUnknownPerpetrator = Boolean(criminalCase.unknownDefendant);
     const complainants = Array.isArray(criminalCase.complainants) ? criminalCase.complainants : [];
+    const displayComplainants = useMemo(
+        () => resolveEffectiveComplainantsForDisplay(criminalCase),
+        [criminalCase],
+    );
     const defendants = useMemo(
         () => normalizeCaseDefendantsForUnknown(criminalCase),
         [criminalCase],
@@ -4483,7 +4488,7 @@ export const CriminalDashboard = ({
 
                 <CriminalPartiesGrid
                     caseId={id}
-                    complainants={complainants}
+                    complainants={displayComplainants}
                     defendants={visibleDefendants}
                     crimeType={crimeType}
                     stage={stage}

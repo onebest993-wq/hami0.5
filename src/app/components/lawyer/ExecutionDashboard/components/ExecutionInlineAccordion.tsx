@@ -1,7 +1,9 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { CheckCircle, ChevronDown, XCircle } from 'lucide-react';
-import { patchExecutorDecisionRow } from '@/app/utils/executorSeizureDecisionQueue';
+import { syncExecutorDecisionResolution } from '@/app/utils/syncExecutorDecisionResolution';
+import { resolveExecutorDecisionRowContext } from '@/app/utils/executorSeizureDecisionQueue';
+import { FollowupFlowBackButton } from './FollowupFlowBackButton';
 
 export type ExecutionInlineStepTone = 'neutral' | 'success' | 'danger';
 
@@ -14,11 +16,30 @@ export type ExecutionInlineStep = {
     status: ExecutionInlineStepStatus;
     tone?: ExecutionInlineStepTone;
     content?: React.ReactNode;
+    /** زر تراجع داخل حاوية الخطوة النشطة — لا يُستخدم لحاويات القرار المتداخلة */
+    showBack?: boolean;
+    onBack?: () => void;
+    backLabel?: string;
 };
+
+function stepContentProvided(content: React.ReactNode | undefined): boolean {
+    return content != null && content !== false;
+}
+
+function ExpandableStepContent({ children, open }: { children: React.ReactNode; open: boolean }) {
+    if (!open) return null;
+    return (
+        <div className="relative z-[1] mt-3 border-t border-white/10 pt-3 pointer-events-auto">
+            {children}
+        </div>
+    );
+}
 
 export function ExecutionInlineAccordion(props: {
     steps: ExecutionInlineStep[];
     className?: string;
+    /** تنقل للخطوة السابقة — يطوي الحالية ويفتح الهدف */
+    stepNavRequest?: { targetStepId: string; collapseStepId?: string; seq: number } | null;
 }) {
     const steps = Array.isArray(props.steps) ? props.steps : [];
     const firstActiveIdx = steps.findIndex((s) => s.status === 'active');
@@ -26,14 +47,33 @@ export function ExecutionInlineAccordion(props: {
     const visible = activeIdx >= 0 ? steps.slice(0, activeIdx + 1) : steps;
     const activeId = activeIdx >= 0 ? steps[activeIdx]?.id : null;
     const [openById, setOpenById] = React.useState<Record<string, boolean>>({});
+    const stepRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
 
     React.useEffect(() => {
         if (!activeId) {
             setOpenById({});
             return;
         }
-        setOpenById((prev) => (activeId in prev ? prev : { ...prev, [activeId]: true }));
+        setOpenById((prev) => ({ ...prev, [activeId]: true }));
     }, [activeId]);
+
+    React.useEffect(() => {
+        const targetStepId = String(props.stepNavRequest?.targetStepId || '').trim();
+        if (!targetStepId || !props.stepNavRequest?.seq) return;
+        const collapseStepId = String(props.stepNavRequest.collapseStepId || '').trim();
+        setOpenById((prev) => {
+            const next = { ...prev, [targetStepId]: true };
+            if (collapseStepId) next[collapseStepId] = false;
+            return next;
+        });
+        queueMicrotask(() => {
+            stepRefs.current[targetStepId]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+    }, [
+        props.stepNavRequest?.seq,
+        props.stepNavRequest?.targetStepId,
+        props.stepNavRequest?.collapseStepId,
+    ]);
 
     React.useEffect(() => {
         const allowed = new Set(visible.map((s) => s.id));
@@ -72,13 +112,31 @@ export function ExecutionInlineAccordion(props: {
                         const icon = (() => {
                             if (tone === 'danger') return <XCircle size={14} className="text-current" />;
                             if (isDone) return <CheckCircle size={14} className="text-current" />;
+                            if (isActive) {
+                                return (
+                                    <span
+                                        className="block size-2 rounded-full bg-current opacity-90"
+                                        aria-hidden
+                                    />
+                                );
+                            }
                             return <ChevronDown size={14} className="text-current" />;
                         })();
-                        const hasContent = Boolean(s.content);
-                        const open = hasContent ? (openById[s.id] ?? isActive) : false;
+                        const hasContent = stepContentProvided(s.content);
+                        const open = hasContent
+                            ? isActive
+                                ? openById[s.id] !== false
+                                : Boolean(openById[s.id])
+                            : false;
 
                         return (
-                            <div key={s.id} className="relative pr-8">
+                            <div
+                                key={s.id}
+                                ref={(el) => {
+                                    stepRefs.current[s.id] = el;
+                                }}
+                                className="relative pr-8"
+                            >
                                 <div
                                     className={`absolute right-0 top-1.5 grid size-6 place-items-center rounded-full border ${nodeCls}`}
                                     aria-hidden
@@ -88,58 +146,51 @@ export function ExecutionInlineAccordion(props: {
 
                                 {isActive ? (
                                     <div
-                                        className={`rounded-2xl border p-3 ${
+                                        className={`relative rounded-2xl border p-3 ${
                                             tone === 'danger'
                                                 ? 'border-rose-500/35 bg-rose-950/25'
                                                 : 'border-amber-500/25 bg-[#05060D]/55'
                                         }`}
                                     >
-                                        <div className="flex items-start justify-between gap-2">
-                                            <p
-                                                className={`min-w-0 flex-1 text-[11px] font-black text-right ${
-                                                    tone === 'danger' ? 'text-rose-200' : 'text-slate-100'
-                                                }`}
-                                            >
-                                                {s.title}
-                                            </p>
-                                            {hasContent ? (
-                                                <button
-                                                    type="button"
-                                                    aria-label={open ? 'طي المحتوى' : 'توسيع المحتوى'}
-                                                    aria-expanded={open}
-                                                    onClick={() =>
-                                                        setOpenById((prev) => ({
-                                                            ...prev,
-                                                            [s.id]: !(prev[s.id] ?? true),
-                                                        }))
-                                                    }
-                                                    className="shrink-0 rounded-md p-0.5 text-gray-400 transition hover:bg-white/5 hover:text-gray-200"
-                                                >
-                                                    <ChevronDown
-                                                        size={14}
-                                                        className={open ? 'rotate-180 transition-transform' : 'transition-transform'}
-                                                    />
-                                                </button>
+                                        <div className="flex flex-row items-start gap-2">
+                                            {s.showBack && s.onBack ? (
+                                                <FollowupFlowBackButton
+                                                    onClick={s.onBack}
+                                                    label={s.backLabel || 'رجوع'}
+                                                    variant="inline"
+                                                />
                                             ) : null}
-                                        </div>
-                                        {s.subtitle ? (
-                                            <p className="mt-1 text-[10px] text-slate-400 text-right">
-                                                {s.subtitle}
-                                            </p>
-                                        ) : null}
-                                        <AnimatePresence initial={false}>
-                                            {s.content && open ? (
-                                                <motion.div
-                                                    initial={{ height: 0, opacity: 0 }}
-                                                    animate={{ height: 'auto', opacity: 1 }}
-                                                    exit={{ height: 0, opacity: 0 }}
-                                                    transition={{ duration: 0.22 }}
-                                                    className="overflow-hidden"
+                                            <button
+                                                type="button"
+                                                aria-label={open ? 'طي المحتوى' : 'عرض المحتوى'}
+                                                aria-expanded={open}
+                                                onClick={() =>
+                                                    setOpenById((prev) => ({
+                                                        ...prev,
+                                                        [s.id]: open ? false : true,
+                                                    }))
+                                                }
+                                                className="min-w-0 flex-1 rounded-lg text-right transition hover:bg-white/[0.03]"
+                                            >
+                                                <p
+                                                    className={`text-[11px] font-black leading-snug ${
+                                                        tone === 'danger' ? 'text-rose-200' : 'text-slate-100'
+                                                    }`}
                                                 >
-                                                    <div className="mt-3 border-t border-white/10 pt-3">
-                                                        {s.content}
-                                                    </div>
-                                                </motion.div>
+                                                    {s.title}
+                                                </p>
+                                                {s.subtitle ? (
+                                                    <p className="mt-1 text-[10px] text-slate-400">
+                                                        {s.subtitle}
+                                                    </p>
+                                                ) : null}
+                                            </button>
+                                        </div>
+                                        <AnimatePresence initial={false}>
+                                            {hasContent && open ? (
+                                                <ExpandableStepContent open={open}>
+                                                    {s.content}
+                                                </ExpandableStepContent>
                                             ) : null}
                                         </AnimatePresence>
                                     </div>
@@ -147,7 +198,18 @@ export function ExecutionInlineAccordion(props: {
                                     hasContent ? (
                                         <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
                                             <div className="flex items-start justify-between gap-2">
-                                                <div className="min-w-0 flex-1 text-right">
+                                                <button
+                                                    type="button"
+                                                    aria-label={open ? 'طي التفاصيل' : 'عرض التفاصيل'}
+                                                    aria-expanded={open}
+                                                    onClick={() =>
+                                                        setOpenById((prev) => ({
+                                                            ...prev,
+                                                            [s.id]: !(prev[s.id] ?? false),
+                                                        }))
+                                                    }
+                                                    className="min-w-0 flex-1 cursor-pointer rounded-lg text-right transition hover:bg-white/[0.03]"
+                                                >
                                                     <p
                                                         className={`text-[11px] font-bold leading-tight ${
                                                             tone === 'danger'
@@ -164,10 +226,10 @@ export function ExecutionInlineAccordion(props: {
                                                             {s.subtitle}
                                                         </p>
                                                     ) : null}
-                                                </div>
+                                                </button>
                                                 <button
                                                     type="button"
-                                                    aria-label={open ? 'طي المحتوى' : 'توسيع المحتوى'}
+                                                    aria-label={open ? 'طي التفاصيل' : 'عرض التفاصيل'}
                                                     aria-expanded={open}
                                                     onClick={() =>
                                                         setOpenById((prev) => ({
@@ -184,18 +246,10 @@ export function ExecutionInlineAccordion(props: {
                                                 </button>
                                             </div>
                                             <AnimatePresence initial={false}>
-                                                {open ? (
-                                                    <motion.div
-                                                        initial={{ height: 0, opacity: 0 }}
-                                                        animate={{ height: 'auto', opacity: 1 }}
-                                                        exit={{ height: 0, opacity: 0 }}
-                                                        transition={{ duration: 0.22 }}
-                                                        className="overflow-hidden"
-                                                    >
-                                                        <div className="mt-3 border-t border-white/10 pt-3">
-                                                            {s.content}
-                                                        </div>
-                                                    </motion.div>
+                                                {hasContent && open ? (
+                                                    <ExpandableStepContent open={open}>
+                                                        {s.content}
+                                                    </ExpandableStepContent>
                                                 ) : null}
                                             </AnimatePresence>
                                         </div>
@@ -236,10 +290,20 @@ export function ExecutionInlineAccordion(props: {
 export function ExecutionInlineExecutorDecisionActions(props: {
     executionId: string | undefined;
     decisionId: string;
+    /** صف القرار الحاكم — يضمن بتّ المنفذ حتى مع اختلاف مفتاح التخزين */
+    decisionRow?: Record<string, unknown> | null;
     requestKind?: string;
     personalCoerciveSubtype?: string;
     disabled?: boolean;
     onOpenAppealCenter?: () => void;
+    onResolved?: (result: {
+        ok: boolean;
+        outcome?: 'approved' | 'rejected';
+        personalCoerciveSubtype?: string;
+        storageExecutionId?: string;
+    }) => void;
+    /** داخل محضر المتابعة — لا إشعار اختصار للقرارات */
+    suppressNavigatorToast?: boolean;
 }) {
     const disabled = Boolean(props.disabled) || !props.executionId || !props.decisionId;
     const [busy, setBusy] = React.useState(false);
@@ -250,39 +314,49 @@ export function ExecutionInlineExecutorDecisionActions(props: {
             const executionId = String(props.executionId || '').trim();
             const decisionId = String(props.decisionId || '').trim();
             if (!executionId || !decisionId) return;
-            const nowIso = new Date().toISOString();
             setBusy(true);
+            let syncResult: {
+                ok: boolean;
+                outcome?: 'approved' | 'rejected';
+                personalCoerciveSubtype?: string;
+                storageExecutionId?: string;
+            } = { ok: false, outcome };
             try {
-                patchExecutorDecisionRow(executionId, decisionId, {
-                    executorOutcome: outcome,
-                    status: outcome === 'rejected' ? 'rejected' : 'accepted',
-                    appealStatus: 'pending',
-                    appealPhase: null,
-                    appealBaseBranch: outcome === 'rejected' ? 'after_rejection' : 'after_approval',
-                    resolvedAt: nowIso,
-                } as any);
+                const rowCtx = resolveExecutorDecisionRowContext(executionId, decisionId);
+                const storageExecutionId = String(
+                    rowCtx?.storageExecutionId || executionId
+                ).trim();
+                const result = syncExecutorDecisionResolution({
+                    executionId: storageExecutionId || executionId,
+                    decisionId,
+                    resolution: outcome,
+                    row: props.decisionRow ?? rowCtx?.row ?? undefined,
+                    suppressNavigatorToast: props.suppressNavigatorToast,
+                });
+                syncResult = {
+                    ok: result.ok,
+                    outcome,
+                    personalCoerciveSubtype:
+                        result.personalCoerciveSubtype ||
+                        String(props.personalCoerciveSubtype || '').trim() ||
+                        undefined,
+                    storageExecutionId: result.storageExecutionId,
+                };
             } catch {
-                setBusy(false);
-                return;
+                syncResult = { ok: false, outcome };
             }
-            try {
-                window.dispatchEvent(
-                    new CustomEvent('hami-execution-decision-outcome', {
-                        detail: {
-                            executionId,
-                            requestKind: props.requestKind,
-                            outcome,
-                            decisionId,
-                            personalCoerciveSubtype: props.personalCoerciveSubtype,
-                        },
-                    })
-                );
-            } catch {
-                /* ignore */
-            }
-            setBusy(false);
+            props.onResolved?.(syncResult);
+            queueMicrotask(() => setBusy(false));
         },
-        [busy, disabled, props.decisionId, props.executionId, props.requestKind]
+        [
+            busy,
+            disabled,
+            props.decisionId,
+            props.decisionRow,
+            props.executionId,
+            props.onResolved,
+            props.suppressNavigatorToast,
+        ]
     );
 
     return (
@@ -299,7 +373,10 @@ export function ExecutionInlineExecutorDecisionActions(props: {
                 <button
                     type="button"
                     disabled={disabled || busy}
-                    onClick={() => resolve('rejected')}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        resolve('rejected');
+                    }}
                     className="rounded-xl border border-rose-500/35 bg-rose-500/10 px-3 py-2 text-[11px] font-extrabold text-rose-200 hover:bg-rose-500/15 disabled:opacity-40"
                 >
                     رفض
@@ -307,7 +384,10 @@ export function ExecutionInlineExecutorDecisionActions(props: {
                 <button
                     type="button"
                     disabled={disabled || busy}
-                    onClick={() => resolve('approved')}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        resolve('approved');
+                    }}
                     className="rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-3 py-2 text-[11px] font-extrabold text-emerald-200 hover:bg-emerald-500/15 disabled:opacity-40"
                 >
                     موافقة

@@ -1,15 +1,8 @@
 /**
- * NotificationPanel — Audit Log
+ * NotificationPanel — إشعارات المنتدى والنظام
  *
- * فلسفة المنتج: "ما حدث ويستحق علمي" (Past/Event-oriented).
- * مستقلة تماماً عن SecretaryAlerts (تلك مسؤولية البطاقة العامة).
- *
- * المعمارية:
- *  - 3 تبويبات معزولة: سجل النشاطات | المنتدى | النظام
- *  - Filter chips داخل سجل النشاطات (الكل/المدني/الجزائي/التنفيذ/المهام)
- *  - تجميع زمني: اليوم | أمس | أقدم
- *  - بطاقات compact مع أيقونات لونية حسب القسم
- *  - مصدر واحد فقط: useNotificationStore (Zustand)
+ * سجل النشاطات (audit_log) أُزيل من المنتج.
+ * التبويبات: المنتدى | النظام
  */
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -21,13 +14,8 @@ import {
     FileText,
     Camera,
     MessageCircle,
-    Clock,
     Inbox,
     CheckCheck,
-    Scale,
-    Hammer,
-    Gavel,
-    ListChecks,
     AtSign,
     BadgeCheck,
     Settings as SettingsIcon,
@@ -43,6 +31,7 @@ import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRunti
 import { TIMING } from '@/app/utils/constants';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
+import { formatNotificationForCard } from '@/app/services/notificationMessageFormat';
 
 interface NotificationPanelProps {
     isOpen: boolean;
@@ -51,8 +40,7 @@ interface NotificationPanelProps {
     onNavigate: (path: string, payload: Record<string, unknown>) => void;
 }
 
-type TabType = 'activity' | 'forum' | 'system';
-type ActivityFilter = 'all' | 'civil' | 'criminal' | 'execution' | 'task';
+type TabType = 'forum' | 'system';
 
 // ============================================================
 // Theming (per-category color + icon)
@@ -68,27 +56,7 @@ type CategoryTheme = {
     };
 };
 
-const CATEGORY_THEMES: Record<NotificationCategory, CategoryTheme> = {
-    civil: {
-        label: 'مدني',
-        icon: <Scale size={18} />,
-        tone: { text: 'text-sky-300', bg: 'bg-sky-500/10', ring: 'ring-sky-500/30' },
-    },
-    criminal: {
-        label: 'جزائي',
-        icon: <Gavel size={18} />,
-        tone: { text: 'text-rose-300', bg: 'bg-rose-500/10', ring: 'ring-rose-500/30' },
-    },
-    execution: {
-        label: 'تنفيذ',
-        icon: <Hammer size={18} />,
-        tone: { text: 'text-[#E6C673]', bg: 'bg-[#E6C673]/10', ring: 'ring-[#E6C673]/30' },
-    },
-    task: {
-        label: 'مهام',
-        icon: <ListChecks size={18} />,
-        tone: { text: 'text-emerald-300', bg: 'bg-emerald-500/10', ring: 'ring-emerald-500/30' },
-    },
+const CATEGORY_THEMES: Record<'forum' | 'system' | 'document' | 'ai', CategoryTheme> = {
     forum: {
         label: 'المنتدى',
         icon: <MessageCircle size={18} />,
@@ -143,19 +111,15 @@ function isForumNotification(n: NotificationModel): boolean {
 
 function isSystemNotification(n: NotificationModel): boolean {
     const cat = deriveNotificationCategory(n);
-    // ندمج: النظام + ذكاء + مستندات (إشعارات تطبيق-عامة وليست نشاطات أقسام)
     return cat === 'system' || cat === 'ai' || cat === 'document';
 }
 
-function isActivityNotification(n: NotificationModel, filter: ActivityFilter): boolean {
+function resolveNotificationTheme(n: NotificationModel): CategoryTheme {
     const cat = deriveNotificationCategory(n);
-    if (cat === 'forum' || cat === 'system') return false;
-    if (filter === 'all') return cat !== 'ai' && cat !== 'document'; // ai/document يذهبان لتبويب النظام
-    if (filter === 'civil') return cat === 'civil';
-    if (filter === 'criminal') return cat === 'criminal';
-    if (filter === 'execution') return cat === 'execution';
-    if (filter === 'task') return cat === 'task';
-    return false;
+    if (cat === 'forum') return CATEGORY_THEMES.forum;
+    if (cat === 'document') return CATEGORY_THEMES.document;
+    if (cat === 'ai') return CATEGORY_THEMES.ai;
+    return CATEGORY_THEMES.system;
 }
 
 export const NotificationPanel = ({
@@ -170,8 +134,7 @@ export const NotificationPanel = ({
     const markAsRead = useNotificationStore((s) => s.markAsRead);
     const markAllAsRead = useNotificationStore((s) => s.markAllAsRead);
 
-    const [activeTab, setActiveTab] = useState<TabType>('activity');
-    const [activityFilter, setActivityFilter] = useState<ActivityFilter>('all');
+    const [activeTab, setActiveTab] = useState<TabType>('forum');
     const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
     const [settingsVersion, setSettingsVersion] = useState(0);
     const settingsSnapshot = useMemo(
@@ -250,13 +213,11 @@ export const NotificationPanel = ({
         }
         let base: NotificationModel[];
         if (activeTab === 'forum') base = notifications.filter(isForumNotification);
-        else if (activeTab === 'system') base = notifications.filter(isSystemNotification);
-        else base = notifications.filter((n) => isActivityNotification(n, activityFilter));
+        else base = notifications.filter(isSystemNotification);
         return base;
     }, [
         notifications,
         activeTab,
-        activityFilter,
         settingsSnapshot.notifications.master,
         settingsSnapshot.security.decoyMode,
     ]);
@@ -276,12 +237,9 @@ export const NotificationPanel = ({
 
     // عدّادات التبويبات (غير المقروء فقط — لا نُربك المستخدم بأعداد كبيرة)
     const tabCounts = useMemo(() => {
-        const activity = notifications.filter(
-            (n) => !n.isRead && isActivityNotification(n, 'all'),
-        ).length;
         const forum = notifications.filter((n) => !n.isRead && isForumNotification(n)).length;
         const system = notifications.filter((n) => !n.isRead && isSystemNotification(n)).length;
-        return { activity, forum, system };
+        return { forum, system };
     }, [notifications]);
 
     const handleTap = async (notification: NotificationModel) => {
@@ -290,12 +248,6 @@ export const NotificationPanel = ({
         const cat = deriveNotificationCategory(notification);
         const payload = notification.actionPayload ?? {};
         switch (cat) {
-            case 'civil':
-            case 'criminal':
-            case 'execution':
-            case 'task':
-                onNavigate('case_details', payload);
-                break;
             case 'forum':
                 onNavigate('community', payload);
                 break;
@@ -306,7 +258,6 @@ export const NotificationPanel = ({
                 onNavigate('ai_drafter', payload);
                 break;
             default:
-                // system_alert: لا توجد وجهة افتراضية
                 break;
         }
     };
@@ -385,7 +336,7 @@ export const NotificationPanel = ({
                                     سجل الإشعارات
                                 </h2>
                                 <p className="text-white/40 text-sm mt-1">
-                                    أحداث ومستجدات تستحق علمك — بعيداً عن الراداري
+                                    المنتدى وإشعارات النظام — بعيداً عن الرادار
                                 </p>
                             </div>
                             <div className="flex items-center gap-2">
@@ -423,13 +374,6 @@ export const NotificationPanel = ({
                         {/* Tabs */}
                         <div className="px-6 py-3 flex gap-3 overflow-x-auto no-scrollbar border-b border-white/5">
                             <TabButton
-                                active={activeTab === 'activity'}
-                                onClick={() => setActiveTab('activity')}
-                                icon={<Clock size={16} />}
-                                label="سجل النشاطات"
-                                count={tabCounts.activity}
-                            />
-                            <TabButton
                                 active={activeTab === 'forum'}
                                 onClick={() => setActiveTab('forum')}
                                 icon={<MessageCircle size={16} />}
@@ -444,41 +388,6 @@ export const NotificationPanel = ({
                                 count={tabCounts.system}
                             />
                         </div>
-
-                        {/* Filter chips — تظهر فقط داخل سجل النشاطات */}
-                        {activeTab === 'activity' && (
-                            <div className="px-6 py-3 flex gap-2 overflow-x-auto no-scrollbar border-b border-white/5">
-                                <FilterChip
-                                    active={activityFilter === 'all'}
-                                    onClick={() => setActivityFilter('all')}
-                                    label="الكل"
-                                />
-                                <FilterChip
-                                    active={activityFilter === 'civil'}
-                                    onClick={() => setActivityFilter('civil')}
-                                    label="المدني"
-                                    tone={CATEGORY_THEMES.civil.tone.text}
-                                />
-                                <FilterChip
-                                    active={activityFilter === 'criminal'}
-                                    onClick={() => setActivityFilter('criminal')}
-                                    label="الجزائي"
-                                    tone={CATEGORY_THEMES.criminal.tone.text}
-                                />
-                                <FilterChip
-                                    active={activityFilter === 'execution'}
-                                    onClick={() => setActivityFilter('execution')}
-                                    label="التنفيذ"
-                                    tone={CATEGORY_THEMES.execution.tone.text}
-                                />
-                                <FilterChip
-                                    active={activityFilter === 'task'}
-                                    onClick={() => setActivityFilter('task')}
-                                    label="المهام"
-                                    tone={CATEGORY_THEMES.task.tone.text}
-                                />
-                            </div>
-                        )}
 
                         {/* Body */}
                         <div className="flex-1 overflow-y-auto px-6 py-4 custom-scrollbar bg-[#0B1021]/50">
@@ -526,11 +435,7 @@ export const NotificationPanel = ({
 // ============================================================
 const EmptyState = ({ tab }: { tab: TabType }) => {
     const message =
-        tab === 'forum'
-            ? 'لا توجد أحداث منتدى جديدة'
-            : tab === 'system'
-              ? 'لا توجد إشعارات نظام'
-              : 'لا توجد نشاطات بعد';
+        tab === 'forum' ? 'لا توجد أحداث منتدى جديدة' : 'لا توجد إشعارات نظام';
     return (
         <div className="flex flex-col items-center justify-center h-full text-white/20 min-h-[300px]">
             <Bell size={64} className="mb-6 opacity-20" />
@@ -551,7 +456,8 @@ const NotificationCard = ({
     onClientRequest: (e: React.MouseEvent, n: NotificationModel) => void;
 }) => {
     const category = deriveNotificationCategory(notification);
-    const theme = CATEGORY_THEMES[category];
+    const theme = resolveNotificationTheme(notification);
+    const cardLines = formatNotificationForCard(notification);
     const isMissingDoc =
         notification.type === 'new_document' || notification.title.includes('ناقص');
     const unread = !notification.isRead;
@@ -585,17 +491,23 @@ const NotificationCard = ({
                     <h4
                         className={`text-sm font-semibold leading-snug truncate ${unread ? 'text-white' : 'text-white/70'}`}
                     >
-                        {notification.title}
+                        {cardLines.eventTitle}
                     </h4>
                     <span className="text-[10px] text-white/30 font-mono shrink-0 tabular-nums">
                         {formatTimeShort(notification.createdAt)}
                     </span>
                 </div>
 
+                {cardLines.caseRef ? (
+                    <p className="text-[11px] font-semibold text-[#E6C673]/85 mt-1 truncate">
+                        {cardLines.caseRef}
+                    </p>
+                ) : null}
+
                 <p
                     className={`text-xs leading-relaxed mt-1 line-clamp-2 ${unread ? 'text-white/70' : 'text-white/45'}`}
                 >
-                    {notification.message}
+                    {cardLines.detailLine}
                 </p>
 
                 <div className="mt-1.5 flex items-center gap-2 text-[10px] text-white/40">

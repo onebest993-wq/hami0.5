@@ -164,6 +164,19 @@ export function buildDebtorNoticePatchForKey(
     return patch;
 }
 
+/** المدين مُبلَّغ — شرط مسبق للإحضار الجبري والحبس التنفيذي */
+export function isDebtorNotifiedForCoerciveActions(
+    file: ExecutionFile | null | undefined,
+    debtorKey: string,
+    primaryDebtorKey: string,
+): boolean {
+    const notice = getDebtorNoticeStateForKey(file, debtorKey, primaryDebtorKey);
+    if (notice.notificationDate || notice.memoAnchorDate) return true;
+    if (getDebtorSummonsMarkerForKey(file, debtorKey, primaryDebtorKey)) return true;
+    if (getDebtorNotificationCountForKey(file, debtorKey, primaryDebtorKey) > 0) return true;
+    return false;
+}
+
 export function getDebtorNotificationCountForKey(
     file: ExecutionFile | null | undefined,
     debtorKey: string,

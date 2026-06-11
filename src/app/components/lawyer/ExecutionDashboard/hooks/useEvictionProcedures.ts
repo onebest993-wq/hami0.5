@@ -6,6 +6,7 @@ interface AppendEvictionProcedureInput {
     actionId: EvictionTimelineActionId;
     title: string;
     description: string;
+    supersedeCompletedHub?: boolean;
 }
 
 export function useEvictionProcedures(
@@ -18,6 +19,7 @@ export function useEvictionProcedures(
         body: string;
         requestKind: 'eviction_procedure';
         evictionWorkflowKey?: EvictionExecutorWorkflowKey;
+        supersedeCompletedHub?: boolean;
     }) => boolean,
     showToast: (
         message: string,
@@ -42,12 +44,18 @@ export function useEvictionProcedures(
                 body: input.description,
                 requestKind: 'eviction_procedure',
                 evictionWorkflowKey: EVICTION_WORKFLOW_BY_ACTION_ID[input.actionId],
+                supersedeCompletedHub: input.supersedeCompletedHub,
             });
             if (!ok) {
                 showToast('يوجد طلب مماثل بانتظار بتّ المنفذ.', 'warning');
                 return;
             }
-            showToast('تم إنشاء الطلب — قرار المنفذ يظهر داخل نفس البطاقة.', 'info');
+            showToast(
+                input.supersedeCompletedHub
+                    ? 'تم تقديم طلب جديد — يظهر داخل البطاقة.'
+                    : 'تم إنشاء الطلب — قرار المنفذ يظهر داخل نفس البطاقة.',
+                'info'
+            );
         },
         [
             evictionProcedureLocked,

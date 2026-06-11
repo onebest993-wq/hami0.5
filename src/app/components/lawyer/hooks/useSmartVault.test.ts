@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { matchesFilter, formatFileSize, inferTags } from './useSmartVault';
+import { matchesFilter, formatFileSize, inferTags, inferDocType } from './useSmartVault';
 import type { SmartVaultDoc } from '@/app/services/lawyer-cloud';
 
 const baseDoc = (overrides: Partial<SmartVaultDoc> = {}): SmartVaultDoc => ({
@@ -22,16 +22,16 @@ const baseDoc = (overrides: Partial<SmartVaultDoc> = {}): SmartVaultDoc => ({
 
 describe('matchesFilter', () => {
     it('returns all docs for الكل', () => {
-        expect(matchesFilter(baseDoc({ tags: ['عقود'] }), 'الكل')).toBe(true);
+        expect(matchesFilter(baseDoc({ customCategory: 'موكل' }), 'الكل')).toBe(true);
     });
 
-    it('filters contracts', () => {
-        expect(matchesFilter(baseDoc({ tags: ['عقد إيجار'] }), 'عقود')).toBe(true);
-        expect(matchesFilter(baseDoc({ tags: ['أخرى'] }), 'عقود')).toBe(false);
+    it('filters by custom category', () => {
+        expect(matchesFilter(baseDoc({ customCategory: 'موكل أحمد' }), 'موكل أحمد')).toBe(true);
+        expect(matchesFilter(baseDoc({ customCategory: 'موكل أحمد' }), 'جلسات')).toBe(false);
     });
 
-    it('filters empty tags as أخرى', () => {
-        expect(matchesFilter(baseDoc({ tags: [] }), 'أخرى')).toBe(true);
+    it('ignores legacy auto tags without customCategory', () => {
+        expect(matchesFilter(baseDoc({ tags: ['عقود'] }), 'عقود')).toBe(false);
     });
 });
 
@@ -44,5 +44,11 @@ describe('formatFileSize', () => {
 describe('inferTags', () => {
     it('detects contract titles', () => {
         expect(inferTags('عقد إيجار شقة')).toContain('عقود');
+    });
+});
+
+describe('inferDocType', () => {
+    it('detects images from extension when mime is empty', () => {
+        expect(inferDocType('', 'photo.jpg')).toBe('image');
     });
 });

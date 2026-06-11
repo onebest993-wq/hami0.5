@@ -30,12 +30,19 @@ export {
     isMovablePropertySeizureRow
 } from './seizureUtils';
 
+export {
+    buildSeizureRegistryDraftPatch,
+    upsertSeizedMovableFromDetails,
+    upsertSeizedPropertyFromDetails,
+} from './seizureRegistryBridge';
+
 // Export from heirUtils
 export { 
     makeHeirRowId,
     heirsDetailsIncludeClient,
     heirRowCompletenessScore,
     dedupeHeirDetailRowsByName,
+    collectPartyHeirDetailRows,
     heirRowHasAnyText,
     type HeirDetailRow
 } from './heirUtils';
