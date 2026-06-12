@@ -244,9 +244,6 @@ export const LazyLawyerHomeHubCard = lazyWithRetry(() =>
     import('@/app/components/lawyer/LawyerHomeHubCard').then((m) => ({ default: m.LawyerHomeHubCard as unknown as LazyComponent }))
 );
 
-/** @deprecated استخدم LazyLawyerHomeHubCard */
-export const LazyNeuralAlertsCard = LazyLawyerHomeHubCard;
-
 /** LawyerDashboard shell: defer until home / auth / notifications */
 export const LazyUnifiedCommandHub = lazyWithRetry(() =>
     import('@/app/components/lawyer/dashboard/UnifiedCommandHub').then((m) => ({ default: m.UnifiedCommandHub as unknown as LazyComponent }))
@@ -262,16 +259,6 @@ export const LazyLawyerAuth = lazyWithRetry(() =>
 );
 export const LazyNotificationPanel = lazyWithRetry(() =>
     import('@/app/components/lawyer/NotificationPanel').then((m) => ({ default: m.NotificationPanel as unknown as LazyComponent }))
-);
-export const LazyScannerModal = lazyWithRetry(() =>
-    import('@/app/components/lawyer/ActionModals/ScannerModal').then((m) => ({
-        default: m.ScannerModal as unknown as LazyComponent,
-    })),
-);
-export const LazyVoiceRecorderModal = lazyWithRetry(() =>
-    import('@/app/components/lawyer/ActionModals/VoiceRecorderModal').then((m) => ({
-        default: m.VoiceRecorderModal as unknown as LazyComponent,
-    })),
 );
 // ═══════════════════════════════════════════════════════════════════════════
 // LOADING FALLBACKS

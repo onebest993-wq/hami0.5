@@ -8,9 +8,8 @@
  */
 
 // === PRIMARY SERVICES ===
-export { dataService } from './DataService';
-export type { ExecutionFileDTO_DataService as ExecutionFileDTO, LawsuitFile } from './DataService';
 export { SupabaseService } from './SupabaseService';
+export type { ExecutionFileDTO_Supabase as ExecutionFileDTO, LawsuitFile } from './SupabaseService';
 export { RealtimeService } from './RealtimeService';
 export { PushNotificationService } from './PushNotificationService';
 
