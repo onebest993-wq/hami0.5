@@ -246,6 +246,8 @@ export interface OtherPartyActionLogEntry {
     outcome: OtherPartyActionOutcome;
     decisionNote?: string;
     savedAt?: string;
+    /** ربط بصف قرار المنفذ عند الإرسال من السجل اليدوي */
+    decisionRowId?: string;
     /** ربط بخيار كatalog — للسجلات الناتجة عن تتبع يدوي */
     linkedOptionId?: string;
 }
@@ -606,6 +608,8 @@ export interface ThirdPartySeizure {
     replyStatus: ThirdPartySeizureReplyStatus;
     transferredAmountIqd: number | null;
     status: ThirdPartySeizureStatus;
+    /** اختار المحامي «التسليم لاحقاً» — يبقى المسار مفتوحاً حتى «تم التسليم» */
+    funds_delivery_deferred?: boolean;
 }
 
 /** خيارات جاهزة لنوع الشارة — يُسمح أيضاً بنص يدوي عند اختيار «يدوي» */
@@ -972,6 +976,8 @@ export interface ExecutionFile {
     executive_detention_released_or_closed_at?: string | null;
     /** تراجع المحامي عن طلب منع السفر — إعادة الدورة */
     travel_ban_withdrawn_at?: string | null;
+    /** تراجع عن دورة الطلب مع إبقاء إشارة المنع حتى سداد الدين */
+    travel_ban_request_cycle_withdrawn_at?: string | null;
     /** تذكير قبل انتهاء الحبس بيومين */
     executive_detention_reminder_sent?: boolean;
     /** تأكيد يدوي: المدين حاضر أمام المنفذ (شرط طلب الحبس التنفيذي) */

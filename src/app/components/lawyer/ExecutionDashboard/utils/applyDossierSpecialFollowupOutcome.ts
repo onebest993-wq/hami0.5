@@ -9,6 +9,10 @@ import { loadExecutionFilesRaw, saveExecutionFilesRaw, EXECUTION_FILES_STORAGE_K
 import { storageCache } from '@/app/utils/storageCache';
 import { updateInabaLogEntryByDecisionId } from '@/app/components/lawyer/ExecutionDashboard/utils/inabaCorrespondenceLog';
 import { newEventId } from '@/app/components/lawyer/DecisionsAndAppealsEngine/utils';
+import {
+    dispatchDecisionsReload,
+    patchExecutorDecisionRowReliable,
+} from '@/app/utils/executorSeizureDecisionQueue';
 
 function normalizeBaseDossierIdFromDecisionsKey(rawKey: string | undefined): string {
     const key = String(rawKey || '').trim();
@@ -20,6 +24,15 @@ function normalizeBaseDossierIdFromDecisionsKey(rawKey: string | undefined): str
     const base = (idx >= 0 ? key.slice(0, idx) : key).trim();
     if (!base || base === 'default' || base === 'undefined' || base === 'null') return '';
     return base;
+}
+
+function markDossierSpecialFollowupApplied(executionId: string, decisionRowId: string): void {
+    const exId = String(executionId || '').trim();
+    const did = String(decisionRowId || '').trim();
+    if (!exId || !did) return;
+    const ts = new Date().toISOString();
+    patchExecutorDecisionRowReliable(exId, did, { specialFollowupAppliedAt: ts });
+    dispatchDecisionsReload();
 }
 
 function dispatchToast(msg: string, type: 'success' | 'warning' | 'info' = 'success') {
@@ -118,6 +131,7 @@ export function applyDossierSpecialFollowupOutcome(input: {
                         }
                     });
                     dispatchToast('تم تفعيل الإنابة التنفيذية. يمكنك التبديل إلى الإضبارة الفرعية.', 'success');
+                    markDossierSpecialFollowupApplied(executionId, id);
                 } catch {
                     /* ignore */
                 }
@@ -224,6 +238,7 @@ export function applyDossierSpecialFollowupOutcome(input: {
                     /* ignore */
                 }
                 dispatchToast('تم توحيد الإضبارة تلقائياً بعد موافقة المنفذ.', 'success');
+                markDossierSpecialFollowupApplied(executionId, id);
             } else {
                 dispatchToast('تعذر تنفيذ التوحيد: نوع الربط غير معروف.', 'warning');
             }
@@ -317,6 +332,7 @@ export function applyDossierSpecialFollowupOutcome(input: {
                 },
             } as any);
             dispatchToast('تم تسجيل المخاطبة في الإضبارة الأم والإنابة.', 'success');
+            markDossierSpecialFollowupApplied(executionId, id);
         } catch {
             dispatchToast('تعذر قراءة بيانات طلب المخاطبة. يرجى إعادة إرسال الطلب.', 'warning');
         }
@@ -393,6 +409,7 @@ export function applyDossierSpecialFollowupOutcome(input: {
             'تم نقل الإضبارة وتحديث المديرية. يمكنك تغيير رقم الإضبارة من الخيار الظاهر فوق الرقم.',
             'success'
         );
+        markDossierSpecialFollowupApplied(executionId, id);
         return;
     }
 
@@ -445,5 +462,6 @@ export function applyDossierSpecialFollowupOutcome(input: {
             }
         }
         dispatchToast('تم تجديد الإضبارة وإرجاع حالتها إلى نشطة.', 'success');
+        markDossierSpecialFollowupApplied(executionId, id);
     }
 }

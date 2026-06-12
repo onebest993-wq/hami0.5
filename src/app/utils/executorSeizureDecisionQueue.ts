@@ -27,6 +27,7 @@ import SecureStoreService from '@/app/services/SecureStoreService';
 import {
     isCassationAffirmResult,
     isExecutorRequestAppealCycleSupersededFromRecord,
+    isExecutorRequestFollowupBlockedFromRecord,
 } from '@/app/components/lawyer/DecisionsAndAppealsEngine/utils';
 
 export const DECISIONS_RELOAD_EVENT = 'hami-decisions-reload';
@@ -189,6 +190,59 @@ export function getLatestSeizureDecisionBySubtype(
         const b = String((cur as any).resolvedAt ?? (cur as any).date ?? '');
         return b.localeCompare(a, undefined, { numeric: true }) > 0 ? cur : acc;
     }, first);
+}
+
+function buildSeizureSubtypeMatcher(subtype: SeizureRequestSubtype): (row: Record<string, unknown>) => boolean {
+    const st = String(subtype || '').trim();
+    return (row) =>
+        String((row as { requestKind?: string }).requestKind || '') === 'seizure' &&
+        String((row as { seizureSubtype?: string }).seizureSubtype || '').trim() === st;
+}
+
+/** صف حجز يحكم واجهة الطلب — يستثني المؤرشف والمُستبدَل */
+export function getGoverningSeizureDecisionBySubtypeFromDecisions(
+    allDecisions: Record<string, unknown>[],
+    subtype: SeizureRequestSubtype
+): Record<string, unknown> | null {
+    const active = allDecisions.filter(
+        (row) =>
+            buildSeizureSubtypeMatcher(subtype)(row) &&
+            !isExecutorHubRowInactiveForGoverning(row, allDecisions)
+    );
+    if (active.length === 0) return null;
+    const sorted = sortHubDecisionRowsNewestFirst(active);
+    const pending = sorted.find((row) => {
+        const out = String((row as { executorOutcome?: string }).executorOutcome || 'pending');
+        return !out || out === 'pending';
+    });
+    if (pending) return pending;
+    return sorted[0] ?? null;
+}
+
+export function getGoverningSeizureDecisionBySubtype(
+    executionId: string | undefined,
+    subtype: SeizureRequestSubtype,
+    allDecisions?: Record<string, unknown>[]
+): Record<string, unknown> | null {
+    const rows = allDecisions ?? readExecutorDecisionsArray(executionId);
+    return getGoverningSeizureDecisionBySubtypeFromDecisions(rows, subtype);
+}
+
+/** إغلاق دورة طلب حجز في مركز القرارات — يعيد إمكانية تقديم طلب جديد */
+export function closeSeizureSubtypeDecisionCycle(input: {
+    executionId: string | undefined;
+    subtype: SeizureRequestSubtype;
+}): void {
+    const executionId = input.executionId;
+    if (!executionId) return;
+    const matches = buildSeizureSubtypeMatcher(input.subtype);
+    try {
+        let arr = readExecutorDecisionsArray(executionId);
+        arr = supersedePriorExecutorHubRows(arr, matches);
+        persistExecutorDecisionsArray(executionId, arr);
+    } catch {
+        /* ignore */
+    }
 }
 
 /** طلب خاص من تبويب «الطلبات الخاصة» في محضر المتابعة — بانتظار موافقة أو رفض الطلب من المنفذ */
@@ -1288,12 +1342,22 @@ export function isExecutorHubRowInactiveForGoverning(
     if ((row as { lawyerWithdrawn?: boolean }).lawyerWithdrawn === true) return true;
     const out = String((row as { executorOutcome?: string }).executorOutcome || '');
     if (out === 'withdrawn') return true;
-    /** عرض الإضبارة/الحبس — يبقى حاكماً لمحضر المتابعة حتى أرشفة صريحة أو طلب جديد */
     const pcSubtype = String((row as { personalCoerciveSubtype?: string }).personalCoerciveSubtype || '');
-    if (
-        (pcSubtype === 'executive_dossier_presentation' || pcSubtype === 'executive_detention') &&
-        isExecutorRowEffectivelyApproved(row)
-    ) {
+    /** عرض الإضبارة — بعد موافقة المنفذ تُغلق دورة الطلب؛ مسار القاضي من البطاقة المستقلة */
+    if (pcSubtype === 'executive_dossier_presentation') {
+        if ((row as { dossierPresentationClosed?: boolean }).dossierPresentationClosed === true) {
+            return true;
+        }
+        if (isExecutorRowEffectivelyApproved(row)) {
+            return true;
+        }
+    }
+    /** منع السفر — بعد الموافقة يُدار النفاذ من ملف التنفيذ لا من بطاقة طلب عالقة */
+    if (pcSubtype === 'travel_ban' && isExecutorRowEffectivelyApproved(row)) {
+        return true;
+    }
+    /** الحبس القديم (executive_detention) — يبقى حاكماً حتى أرشفة صريحة */
+    if (pcSubtype === 'executive_detention' && isExecutorRowEffectivelyApproved(row)) {
         return false;
     }
     const all = allDecisions ?? [];
@@ -1412,6 +1476,26 @@ function filterPersonalCoerciveSubtypeRows(
         subtype,
         opts
     );
+}
+
+/** صف الطعن/المتابعة — يشمل الموافقات المغلقة واجهياً (مثل منع السفر بعد النفاذ) */
+export function getPersonalCoerciveSubtypeAppealRowFromDecisions(
+    allDecisions: Record<string, unknown>[],
+    subtype: PersonalCoerciveSubtype,
+    opts?: { debtorKey?: string; primaryDebtorKey?: string }
+): Record<string, unknown> | null {
+    const sorted = sortPersonalCoerciveRowsNewestFirst(
+        filterPersonalCoerciveSubtypeRowsFromList(allDecisions, subtype, opts).filter((row) => {
+            if (isExecutorHubRowSuperseded(row)) return false;
+            if ((row as { lawyerWithdrawn?: boolean }).lawyerWithdrawn === true) return false;
+            const out = String((row as { executorOutcome?: string }).executorOutcome || '');
+            if (out === 'withdrawn') return false;
+            return true;
+        })
+    );
+    const pending = sorted.find((row) => isPersonalCoerciveSubtypeRowPending(row));
+    if (pending) return pending;
+    return sorted[0] ?? null;
 }
 
 /** البطاقة الحاكمة من مصفوفة قرارات مُمرَّرة (مزامنة المحضر مع مركز القرارات) */
@@ -1578,7 +1662,13 @@ export function hasActivePersonalCoerciveSubtypeCard(
     if ((row as { lawyerWithdrawn?: boolean }).lawyerWithdrawn === true) return false;
     const out = String((row as { executorOutcome?: string }).executorOutcome || '');
     if (out === 'withdrawn') return false;
-    return true;
+    const all = readExecutorDecisionsArray(executionId);
+    if (isExecutorHubRowInactiveForGoverning(row, all)) return false;
+    if (isPersonalCoerciveSubtypeRowPending(row)) return true;
+    if (isExecutorRowRejectedAndFinal(row)) return true;
+    if (isExecutorRequestAppealCycleSupersededFromRecord(row, all)) return false;
+    if (isExecutorRequestFollowupBlockedFromRecord(row, all)) return true;
+    return false;
 }
 
 /** تبويب القرارات المناسب للبطاقة الحاكمة */
@@ -2017,6 +2107,26 @@ export function supersedeEncroachmentRejectedHubRowsBeforeNewRequest(
     });
 }
 
+function evictionBranchGateInput(input: {
+    evictionWorkflowKey?: string;
+    title?: string;
+}): { evictionWorkflowKey?: string; title?: string; branch?: string } {
+    const wf = String(input.evictionWorkflowKey || '').trim();
+    const title = String(input.title || '').trim();
+    const branch = wf
+        ? inferExecutorApprovalDecisionType({
+              title,
+              requestKind: 'eviction_procedure',
+              evictionWorkflowKey: wf as EvictionExecutorWorkflowKey,
+          })
+        : undefined;
+    return {
+        ...(wf ? { evictionWorkflowKey: wf } : {}),
+        ...(title ? { title } : {}),
+        ...(branch && branch !== 'other' ? { branch } : {}),
+    };
+}
+
 /** هل يُحجز فرع التخلية عن طلب جديد؟ يُقيَّم أحدث صف hub فقط — الرفض النهائي أو إعادة الدورة لا تحجز. */
 export function isEvictionBranchBlockingNewRequest(
     all: Record<string, unknown>[],
@@ -2050,7 +2160,7 @@ export function getGoverningEvictionProcedureRowForNewRequest(
     return getGoverningEvictionProcedureRowForMatch(all, input);
 }
 
-/** هل يوجد طلب hub سابق يمنع إعادة الإرسال (بما فيه المكتمل)؟ — يُسمح فقط بعد الرفض النهائي. */
+/** هل يوجد طلب hub قائم يمنع إرسالاً جديداً؟ — بعد اكتمال الإجراء تُعاد دورة الحياة. */
 export function isEvictionBranchResendBlocked(
     all: Record<string, unknown>[],
     input: { evictionWorkflowKey?: string; encroachmentWorkflowKey?: string; title?: string; branch?: string }
@@ -2060,7 +2170,8 @@ export function isEvictionBranchResendBlocked(
             ? getGoverningEvictionProcedureRowForBranch(all, String(input.branch).trim())
             : getGoverningEvictionProcedureRowForMatch(all, input);
     if (!governing?.id) return false;
-    return !isExecutorRowRejectedAndFinal(governing);
+    if (isExecutorRequestAppealCycleSupersededFromRecord(governing, all)) return false;
+    return isEvictionProcedureRowActive(governing, all);
 }
 
 /** طلب تخلية ما زال قائماً (معلّق لدى المنفذ أو موافق عليه بانتظار إكمال المحضر). */
@@ -2216,16 +2327,13 @@ export function appendEvictionExecutorRequest(input: {
                 return evictionProcedureRowsMatch(row, matchInput) && isEvictionProcedureHubRow(row);
             }) as unknown[];
 
-            const evictionRows = arr.filter(
-                (x) => String((x as { requestKind?: string }).requestKind || '') === 'eviction_procedure'
-            ) as Record<string, unknown>[];
-
             const hubMatches = (row: Record<string, unknown>) =>
                 String((row as { requestKind?: string }).requestKind || '') === 'eviction_procedure' &&
                 evictionProcedureRowsMatch(row, matchInput) &&
                 isEvictionProcedureHubRow(row);
 
             const allRows = arr as Record<string, unknown>[];
+            const gateInput = evictionBranchGateInput(matchInput);
             const governing = getGoverningEvictionProcedureRowForNewRequest(allRows, matchInput);
             const governingPending =
                 governing?.id &&
@@ -2238,9 +2346,21 @@ export function appendEvictionExecutorRequest(input: {
 
             if (input.supersedeCompletedHub) {
                 arr = supersedePriorExecutorHubRows(arr as Record<string, unknown>[], hubMatches) as unknown[];
-            } else if (governing?.id && !isExecutorRowRejectedAndFinal(governing)) {
-                dispatchDecisionsReload();
-                return false;
+            } else if (governing?.id) {
+                if (isEvictionBranchBlockingNewRequest(allRows, gateInput)) {
+                    dispatchDecisionsReload();
+                    return false;
+                }
+                if (isEvictionBranchResendBlocked(allRows, gateInput)) {
+                    dispatchDecisionsReload();
+                    return false;
+                }
+                if (!isEvictionProcedureRowActive(governing, allRows)) {
+                    arr = supersedePriorExecutorHubRows(
+                        arr as Record<string, unknown>[],
+                        hubMatches
+                    ) as unknown[];
+                }
             }
 
             arr = arr.filter((x) => {

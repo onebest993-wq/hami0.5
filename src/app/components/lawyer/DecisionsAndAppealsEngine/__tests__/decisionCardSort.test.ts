@@ -2,11 +2,18 @@ import { describe, expect, it } from 'vitest';
 import type { Decision } from '../types';
 import {
     compareDecisionsNewestFirst,
+    compareDecisionsAppealActivityNewestFirst,
     resolveCreditorDecisionEnforcementState,
     resolveHarmedPartyAppealActor,
     resolveRequestFilerFromDebtorAgentView,
     sortDecisionsNewestFirst,
+    sortDecisionsAppealActivityNewestFirst,
     resolveAppealWorkflowPhaseLabel,
+    resolveAppealHubProponentCategory,
+    resolveAppealsHubFilterOptions,
+    resolveManualExecutorLedgerEnforcementState,
+    purgeManualExecutorAppealArtifacts,
+    canArchiveExecutorDecisionCard,
 } from '../utils';
 
 function base(overrides: Partial<Decision> = {}): Decision {
@@ -49,6 +56,84 @@ describe('decisionCardSort', () => {
         });
         expect(compareDecisionsNewestFirst(a, b)).toBeGreaterThan(0);
     });
+
+    it('sorts appeal registry by latest appeal activity not original date only', () => {
+        const olderDecisionDate = base({
+            id: 'appeal_copy_1781257000000_x',
+            date: '2026-06-01',
+            appealSourceDecisionId: 'hub_old',
+            appealTimelineLogs: [
+                { id: '1', at: '2026-06-10T12:00:00.000Z', message: 'تمييز', tone: 'amber' },
+            ],
+        });
+        const newerDecisionDate = base({
+            id: 'appeal_copy_1781256000000_y',
+            date: '2026-06-20',
+            appealSourceDecisionId: 'hub_new',
+            appealTimelineLogs: [
+                { id: '2', at: '2026-06-05T08:00:00.000Z', message: 'تظلم', tone: 'amber' },
+            ],
+        });
+        expect(
+            sortDecisionsAppealActivityNewestFirst([newerDecisionDate, olderDecisionDate]).map(
+                (d) => d.id
+            )
+        ).toEqual(['appeal_copy_1781257000000_x', 'appeal_copy_1781256000000_y']);
+        expect(compareDecisionsAppealActivityNewestFirst(olderDecisionDate, newerDecisionDate)).toBeLessThan(
+            0
+        );
+    });
+});
+
+describe('appeals hub proponent filters', () => {
+    it('hides filters when only one proponent category exists', () => {
+        const cards = [
+            base({ id: 'a1', appealSourceDecisionId: 'h1' }),
+            base({ id: 'a2', appealSourceDecisionId: 'h2' }),
+        ];
+        const all = [
+            base({ id: 'h1', appealRequestOrigin: 'creditor_side', requestKind: 'seizure' }),
+            base({ id: 'h2', appealRequestOrigin: 'creditor_side', requestKind: 'eviction_procedure' }),
+        ];
+        expect(resolveAppealsHubFilterOptions(cards, all)).toEqual([]);
+    });
+
+    it('shows creditor and debtor filters without executor when no manual cards', () => {
+        const cards = [
+            base({ id: 'a1', appealSourceDecisionId: 'h1' }),
+            base({ id: 'a2', appealSourceDecisionId: 'h2' }),
+        ];
+        const all = [
+            base({ id: 'h1', appealRequestOrigin: 'creditor_side', requestKind: 'seizure' }),
+            base({ id: 'h2', appealRequestOrigin: 'debtor_side', requestKind: 'guarantor_request' }),
+        ];
+        expect(resolveAppealsHubFilterOptions(cards, all)).toEqual([
+            'all',
+            'creditor',
+            'debtor',
+        ]);
+    });
+
+    it('includes executor filter only when manual ledger hub exists', () => {
+        const cards = [
+            base({ id: 'a1', appealSourceDecisionId: 'manual_hub' }),
+            base({ id: 'a2', appealSourceDecisionId: 'cred_hub' }),
+        ];
+        const all = [
+            base({
+                id: 'manual_hub',
+                manualExecutorLedgerEntry: true,
+                appealRequestOrigin: 'executor_side',
+            }),
+            base({ id: 'cred_hub', appealRequestOrigin: 'creditor_side', requestKind: 'seizure' }),
+        ];
+        expect(resolveAppealHubProponentCategory(cards[0]!, all)).toBe('executor');
+        expect(resolveAppealsHubFilterOptions(cards, all)).toEqual([
+            'all',
+            'creditor',
+            'executor',
+        ]);
+    });
 });
 
 describe('resolveAppealWorkflowPhaseLabel', () => {
@@ -59,6 +144,60 @@ describe('resolveAppealWorkflowPhaseLabel', () => {
             awaitingCassationEntryBy: 'lawyer',
         });
         expect(resolveAppealWorkflowPhaseLabel(row, 'debtor_agent')).toBe('بانتظار تمييز الدائن');
+    });
+});
+
+describe('manual executor ledger (إضافة قرار)', () => {
+    it('shows نافذ / غير نافذ only', () => {
+        const notEnforced = resolveManualExecutorLedgerEnforcementState(
+            base({ manualExecutorLedgerEntry: true, manualExecutorEnforced: false })
+        );
+        expect(notEnforced.pillLabel).toBe('غير نافذ');
+        expect(notEnforced.enforced).toBe(false);
+
+        const enforced = resolveManualExecutorLedgerEnforcementState(
+            base({ manualExecutorLedgerEntry: true, manualExecutorEnforced: true })
+        );
+        expect(enforced.pillLabel).toBe('القرار نافذ');
+        expect(enforced.enforced).toBe(true);
+    });
+
+    it('allows archive in previous tab without appeal path', () => {
+        const hub = base({
+            manualExecutorLedgerEntry: true,
+            manualExecutorEnforced: true,
+            appealStatus: 'tadhallum_filed',
+            activeAppealCopyId: 'appeal_copy_old',
+        });
+        expect(
+            canArchiveExecutorDecisionCard(hub, hub, {
+                hubTab: 'previous',
+                settled: true,
+                appealLegallyFinal: false,
+            })
+        ).toBe(true);
+    });
+
+    it('purges appeal copies linked to manual hubs', () => {
+        const hub = base({
+            id: 'manual_hub',
+            manualExecutorLedgerEntry: true,
+            activeAppealCopyId: 'appeal_copy_1',
+            appealActor: 'lawyer',
+            appealMethod: 'tadhallum',
+            appealStatus: 'tadhallum_filed',
+        });
+        const copy = base({
+            id: 'appeal_copy_1',
+            appealSourceDecisionId: 'manual_hub',
+            appealStatus: 'tadhallum_filed',
+        });
+        const { rows, mutated } = purgeManualExecutorAppealArtifacts([hub, copy]);
+        expect(mutated).toBe(true);
+        expect(rows).toHaveLength(1);
+        expect(rows[0]!.id).toBe('manual_hub');
+        expect(rows[0]!.activeAppealCopyId).toBeNull();
+        expect(rows[0]!.appealStatus).toBe('pending');
     });
 });
 

@@ -25,10 +25,10 @@ import {
 } from '@/app/components/lawyer/ExecutionDashboard/components/ExecutionInlineAccordion';
 import {
     DECISIONS_RELOAD_EVENT,
-    isExecutorRowEffectivelyApproved,
-    isExecutorRowRejectedAndFinal,
     readExecutorDecisionsArray,
+    isExecutorRowRejectedAndFinal,
 } from '@/app/utils/executorSeizureDecisionQueue';
+import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 import type { ExecutionDomainContext } from '@/app/utils/executionDomainIsolation';
 
 const GUARANTOR_ICONS: Record<
@@ -94,6 +94,10 @@ export const HiddenGuarantorRequestOptions: React.FC<HiddenGuarantorRequestOptio
     showToast,
 }) => {
     const exId = String(executionId || '').trim();
+    const allDecisions = React.useMemo(
+        () => (exId ? (readExecutorDecisionsArray(exId) as Record<string, unknown>[]) : []),
+        [exId]
+    );
     const catalog = React.useMemo(
         () => listHiddenGuarantorCatalog(flags, guarantorCtx, domainContext),
         [flags, guarantorCtx, domainContext]
@@ -237,7 +241,7 @@ export const HiddenGuarantorRequestOptions: React.FC<HiddenGuarantorRequestOptio
         const pending =
             String(row.executorOutcome ?? 'pending') === 'pending' ||
             String(row.executorOutcome ?? '') === '';
-        const approved = isExecutorRowEffectivelyApproved(row) && !rejected;
+        const approved = isExecutorRowApprovedWorkflowActive(row, allDecisions) && !rejected;
         return [
             {
                 id: `hidden-gu-request:sent`,
@@ -290,7 +294,7 @@ export const HiddenGuarantorRequestOptions: React.FC<HiddenGuarantorRequestOptio
         const pending =
             String(row.executorOutcome ?? 'pending') === 'pending' ||
             String(row.executorOutcome ?? '') === '';
-        const approved = isExecutorRowEffectivelyApproved(row) && !rejected;
+        const approved = isExecutorRowApprovedWorkflowActive(row, allDecisions) && !rejected;
         return [
             {
                 id: `hidden-gu-seizure:${selectedCatalog.key}:sent`,

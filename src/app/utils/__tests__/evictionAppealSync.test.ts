@@ -47,4 +47,46 @@ describe('resolveEvictionAppealSync', () => {
         expect(sync.blocksFieldwork).toBe(false);
         expect(sync.blocksSubmit).toBe(false);
     });
+
+    it('resumes field visit fieldwork after creditor tamyeez naqd on approved hub', () => {
+        const hub = fieldVisitHub({
+            appealStatus: 'final',
+            appealResult: 'نقض القرار',
+            appealActor: 'lawyer',
+            appealMethod: 'tamyeez',
+            appealWorkflowState: 'FINAL_ACCEPTED',
+            awaitingCassationEntryBy: null,
+            appealPhase: null,
+            executorOutcome: 'approved',
+        });
+        const sync = resolveEvictionAppealSync({
+            executionId: 'ex-ev-3',
+            branch: 'Field Visit Date',
+            allDecisions: [hub],
+        });
+        expect(sync.gate.kind).toBe('continue');
+        expect(sync.blocked).toBe(false);
+        expect(sync.blocksFieldwork).toBe(false);
+        expect(sync.cycleSuperseded).toBe(false);
+        expect(sync.enforced).toBe(true);
+    });
+
+    it('does not trap lifecycle_reset branches behind resend block', () => {
+        const hub = fieldVisitHub({
+            noAppealChosen: true,
+            appealStatus: 'final',
+            appealResult: 'نقض القرار',
+            appealActor: 'debtor',
+            appealMethod: 'tamyeez',
+            executorOutcome: 'rejected',
+            appealWorkflowState: 'REVOKED_BY_APPEAL',
+        });
+        const sync = resolveEvictionAppealSync({
+            executionId: 'ex-ev-4',
+            branch: 'Field Visit Date',
+            allDecisions: [hub],
+        });
+        expect(sync.cycleSuperseded).toBe(true);
+        expect(sync.blocksSubmit).toBe(false);
+    });
 });

@@ -3,15 +3,10 @@
  */
 import type { Decision } from '@/app/components/lawyer/DecisionsAndAppealsEngine/types';
 import {
-    appealPipelineRowForCard,
-    hubWithInferredAppealOrigin,
-    isExecutorRequestAppealCycleSupersededFromRecord,
-    resolveCreditorDecisionEnforcementState,
-    resolveExecutorRequestFollowupBlockFromRecord,
-    resolveExecutorRequestFollowupGate,
     type CreditorRequestAppealGate,
     type ExecutorRequestFollowupBlock,
 } from '@/app/components/lawyer/DecisionsAndAppealsEngine/utils';
+import { resolveExecutorRequestAppealSyncFromRow } from '@/app/utils/executorRequestAppealSync';
 import {
     getGoverningEvictionProcedureRowForBranch,
     isEvictionProcedureRowPending,
@@ -104,33 +99,17 @@ export function resolveEvictionAppealSync(input: EvictionAppealSyncInput): Evict
         };
     }
 
-    const gate = resolveExecutorRequestFollowupGate(
-        governingRow as unknown as Decision,
-        input.allDecisions as unknown as Decision[]
-    );
-    const hub = hubWithInferredAppealOrigin(governingRow as unknown as Decision);
-    const pipe = appealPipelineRowForCard(hub, input.allDecisions as unknown as Decision[]);
-    const appealFinal =
-        pipe.appealStatus === 'final' ||
-        hub.appealStatus === 'final' ||
-        String(pipe.appealWorkflowState ?? hub.appealWorkflowState ?? '').trim() === 'FINAL_ACCEPTED' ||
-        String(pipe.appealWorkflowState ?? hub.appealWorkflowState ?? '').trim() === 'FINAL_REJECTED' ||
-        String(pipe.appealWorkflowState ?? hub.appealWorkflowState ?? '').trim() === 'REVOKED_BY_APPEAL';
-    const enforcement = resolveCreditorDecisionEnforcementState(hub, pipe, {
-        hubTab: 'previous',
-        appealLegallyFinal: appealFinal,
-        needsExecutor: String(governingRow.executorOutcome ?? 'pending') === 'pending',
-    });
-    const cycleSuperseded = isExecutorRequestAppealCycleSupersededFromRecord(
-        governingRow,
-        input.allDecisions
-    );
-    const followupBlockResolved = cycleSuperseded
-        ? null
-        : resolveExecutorRequestFollowupBlockFromRecord(governingRow, input.allDecisions);
-    const blocked = !cycleSuperseded && gate.kind === 'paused';
-    const blocksFieldwork = blocked;
-    const blocksSubmit = blocked;
+    const core = resolveExecutorRequestAppealSyncFromRow(governingRow, input.allDecisions);
+    const {
+        gate,
+        followupBlock: followupBlockResolved,
+        blocked,
+        blocksFieldwork,
+        blocksSubmit,
+        cycleSuperseded,
+        enforced,
+        pillLabel,
+    } = core;
 
     return {
         branch,
@@ -142,8 +121,8 @@ export function resolveEvictionAppealSync(input: EvictionAppealSyncInput): Evict
         blocksFieldwork,
         blocksSubmit,
         cycleSuperseded,
-        enforced: enforcement.enforced,
-        pillLabel: enforcement.pillLabel,
+        enforced,
+        pillLabel,
         workflowComplete: isEvictionProcedureRowWorkflowComplete(governingRow),
         decisionsNav: resolveEvictionDecisionsNav(governingRow),
     };

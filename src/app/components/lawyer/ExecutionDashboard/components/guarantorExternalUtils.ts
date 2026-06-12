@@ -2,11 +2,11 @@ import type { ExecutionFile } from '@/app/types/execution';
 import { parseAmount } from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
 import {
     isExecutorHubRowSuperseded,
-    isExecutorRowEffectivelyApproved,
     isExecutorRowRejectedAndFinal,
     isGuarantorRequestDecisionRow,
     readSeizureRequestTarget,
 } from '@/app/utils/executorSeizureDecisionQueue';
+import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 
 export function hasActiveFinancialGuarantorFollowup(executionData: ExecutionFile | null | undefined): boolean {
     const gf = executionData?.guarantor_followup;
@@ -78,7 +78,8 @@ export function findOpenGuarantorRequestDecisionRow(
         const outcome = String((raw as { executorOutcome?: string }).executorOutcome ?? 'pending').trim();
         const pending = outcome === 'pending' || outcome === '';
         const alternative = outcome === 'alternative';
-        const approved = !rejected && (alternative || isExecutorRowEffectivelyApproved(raw));
+        const approved =
+            !rejected && (alternative || isExecutorRowApprovedWorkflowActive(raw, decisions));
         const detailsSaved = Boolean(
             String((raw as { guarantorDetailsSavedAt?: string }).guarantorDetailsSavedAt || '').trim()
         );

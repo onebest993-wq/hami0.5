@@ -2,10 +2,10 @@ import React, { useMemo, useState } from 'react';
 import { Send, CheckCircle, Clock, Plus } from 'lucide-react';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import {
-    isExecutorRowEffectivelyApproved,
     isExecutorRowRejectedAndFinal,
     patchExecutorDecisionRow,
 } from '@/app/utils/executorSeizureDecisionQueue';
+import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 import {
     ExecutionInlineAccordion,
     ExecutionInlineExecutorDecisionActions,
@@ -71,6 +71,10 @@ export const CommunicationsTab: React.FC<CommunicationsTabProps> = ({
     >({});
 
     const { executionId: exId, decisions } = useExecutorDecisions(decisionsStorageExecutionId);
+    const decisionRows = useMemo(
+        () => (Array.isArray(decisions) ? (decisions as Record<string, unknown>[]) : []),
+        [decisions]
+    );
 
     const commDecisions = useMemo(() => {
         const list = Array.isArray(decisions) ? decisions : [];
@@ -169,7 +173,7 @@ export const CommunicationsTab: React.FC<CommunicationsTabProps> = ({
         const title = String(decision?.title || '').trim() || COMMUNICATION_KEYWORD;
         const directorate = extractDirectorate(title);
         const rejected = isExecutorRowRejectedAndFinal(decision);
-        const approved = isExecutorRowEffectivelyApproved(decision);
+        const approved = isExecutorRowApprovedWorkflowActive(decision, decisionRows);
         const pending = String(decision?.executorOutcome ?? 'pending') === 'pending' || String(decision?.executorOutcome ?? '') === '';
         const hasRes = hasResult(decision);
         const statusLabel = rejected
@@ -213,7 +217,7 @@ export const CommunicationsTab: React.FC<CommunicationsTabProps> = ({
         const title = String(decision?.title || '').trim() || COMMUNICATION_KEYWORD;
         const directorate = extractDirectorate(title);
         const rejected = isExecutorRowRejectedAndFinal(decision);
-        const approved = isExecutorRowEffectivelyApproved(decision);
+        const approved = isExecutorRowApprovedWorkflowActive(decision, decisionRows);
         const pending = String(decision?.executorOutcome ?? 'pending') === 'pending' || String(decision?.executorOutcome ?? '') === '';
         const hasRes = hasResult(decision);
         const draft =

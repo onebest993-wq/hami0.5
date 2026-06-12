@@ -45,6 +45,8 @@ import { storageCache } from '@/app/utils/storageCache';
 import GlowingDot from './DecisionsAndAppealsEngine/components/GlowingDot';
 import DecisionHintTooltip from './DecisionsAndAppealsEngine/components/DecisionHintTooltip';
 import DecisionCard from './DecisionsAndAppealsEngine/components/DecisionCard';
+import { ExecutorSideAppealEntryPanel } from './DecisionsAndAppealsEngine/components/ExecutorSideAppealEntryPanel';
+import type { ManualAppealAppellantActor } from './DecisionsAndAppealsEngine/utils';
 import AppealWorkflowCard from './DecisionsAndAppealsEngine/components/AppealWorkflowCard';
 import type { Decision } from './DecisionsAndAppealsEngine/types';
 import {
@@ -79,24 +81,37 @@ import {
     resolveCreditorDecisionEnforcementState,
     EXECUTOR_QUEUE_REQUEST_KINDS,
     decisionAppealPipelineActive,
+    hubHasActiveAppealLedgerEntry,
     sortDecisionsNewestFirst,
+    sortDecisionsAppealActivityNewestFirst,
+    resolveAppealHubProponentCategory,
+    resolveAppealsHubFilterOptions,
+    appealsHubProponentFilterLabel,
+    type AppealsHubProponentFilter,
     isExecutorDecisionAppealFinal,
     canWaiveCassationAfterDebtorGrievance,
     canWaiveLawyerAwaitingCassation,
     resolveCassationFilerActor,
     resolveEffectiveAwaitingCassationParty,
+    resolveUnderlyingDecisionHub,
+    isLawyerCassationNaqdResume,
     hubWithInferredAppealOrigin,
+    buildExecutorSideAppealCommitPatch,
+    executorSideAppealTimelineMessage,
+    purgeManualExecutorAppealArtifacts,
+    creditorAgentDebtorIsSoleAppellant,
     isCreditorInitiatedExecutorRequest,
     renderDecisionHubStatusPill,
     type AppealDeadlineWindows,
     type DecisionsAppealsAppealSlot,
 } from './DecisionsAndAppealsEngine/utils';
+import { scrollToDomIdWhenReady } from '@/app/utils/decisionsModalScroll';
+import { applyLawyerCassationEntryForExecution } from '@/app/utils/lawyerCassationEntry';
 import {
     appealCassationEntryLabels,
     appealDirectCassationButtonLabel,
     appealInitialCassationEntryButtonLabel,
     appealInitialGrievanceEntryButtonLabel,
-    appealExecutorSideDebtorPathLabel,
     appealInitialCassationTimeline,
     appealInitialGrievanceTimeline,
     appealLawyerCassationAutoEntryDescription,
@@ -304,7 +319,9 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                     row.requestKind = 'debtor_party_death';
                 }
             }
-            if (row.requestKind && !row.executorOutcome) row.executorOutcome = 'pending';
+            if (row.requestKind && !row.executorOutcome && !row.manualExecutorLedgerEntry) {
+                row.executorOutcome = 'pending';
+            }
             if (row.appealPhase === undefined) row.appealPhase = null;
             if (row.grievanceRejectedAwaitingTamyeez === undefined) {
                 row.grievanceRejectedAwaitingTamyeez = false;
@@ -313,7 +330,7 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                 row.grievanceAcceptedAwaitingDebtorTamyeez = false;
             }
             if (row.awaitingCassationEntryBy === undefined) row.awaitingCassationEntryBy = null;
-            if (!row.awaitingCassationEntryBy) {
+            if (!row.awaitingCassationEntryBy && !row.manualExecutorLedgerEntry) {
                 if (row.grievanceAcceptedAwaitingDebtorTamyeez) {
                     row.awaitingCassationEntryBy =
                         row.executorOutcome === 'approved' || row.executorOutcome === 'alternative'
@@ -538,6 +555,15 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
             }
             return row;
         });
+        const purgedManual = purgeManualExecutorAppealArtifacts(normalized);
+        normalized = purgedManual.rows;
+        if (purgedManual.mutated) {
+            try {
+                persistDecisionsToStorage(normalized);
+            } catch {
+                /* ignore */
+            }
+        }
         if (executionDataForSync) {
             let backfillMutated = false;
             normalized = normalized.map((row) => {
@@ -617,6 +643,10 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
     /** تبويب القائمة: طلبات حالية | قرارات سابقة | سجل الطعون */
     const [decisionsHubTab, setDecisionsHubTab] = useState<'current' | 'previous' | 'appeals' | 'archive'>('current');
     const [previousFilter, setPreviousFilter] = useState<'all' | 'approved' | 'rejected'>('all');
+    const [previousProponentFilter, setPreviousProponentFilter] =
+        useState<AppealsHubProponentFilter>('all');
+    const [appealsProponentFilter, setAppealsProponentFilter] =
+        useState<AppealsHubProponentFilter>('all');
     const [decisionsScrollTargetId, setDecisionsScrollTargetId] = useState<string | null>(null);
     const [appealsScrollTargetId, setAppealsScrollTargetId] = useState<string | null>(null);
     const [appealDetailDecision, setAppealDetailDecision] = useState<Decision | null>(null);
@@ -635,32 +665,27 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
     useLayoutEffect(() => {
         if ((decisionsHubTab !== 'current' && decisionsHubTab !== 'previous') || !decisionsScrollTargetId)
             return;
-        const t = window.setTimeout(() => {
-            document.getElementById(`hami-decision-card-${decisionsScrollTargetId}`)?.scrollIntoView({
-                behavior: 'smooth',
-                block: 'nearest',
-            });
-            setDecisionsScrollTargetId(null);
-        }, 100);
-        return () => window.clearTimeout(t);
-    }, [decisionsHubTab, decisionsScrollTargetId]);
+        return scrollToDomIdWhenReady(`hami-decision-card-${decisionsScrollTargetId}`, () =>
+            setDecisionsScrollTargetId(null)
+        );
+    }, [decisionsHubTab, decisionsScrollTargetId, domainVisibleDecisions.length]);
 
     useLayoutEffect(() => {
         if (decisionsHubTab !== 'appeals' || !appealsScrollTargetId) return;
-        const t = window.setTimeout(() => {
-            document.getElementById(`hami-appeal-card-${appealsScrollTargetId}`)?.scrollIntoView({
-                behavior: 'smooth',
-                block: 'nearest',
-            });
-            setAppealsScrollTargetId(null);
-        }, 100);
-        return () => window.clearTimeout(t);
-    }, [decisionsHubTab, appealsScrollTargetId]);
+        return scrollToDomIdWhenReady(`hami-appeal-card-${appealsScrollTargetId}`, () =>
+            setAppealsScrollTargetId(null)
+        );
+    }, [decisionsHubTab, appealsScrollTargetId, domainVisibleDecisions.length]);
 
     // Form state
     const [newTitle, setNewTitle] = useState('');
     const [newBody, setNewBody] = useState('');
     const [newDate, setNewDate] = useState('');
+    const resetAddDecisionForm = React.useCallback(() => {
+        setNewTitle('');
+        setNewBody('');
+        setNewDate('');
+    }, []);
 
     const requestNeedsExecutorOutcome = React.useCallback(
         (d: Decision) => {
@@ -685,7 +710,7 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
             ) {
                 return false;
             }
-            if (d.manualExecutorLedgerEntry) return true;
+            if (d.manualExecutorLedgerEntry) return false;
             if (d.appealRequestOrigin === 'executor_side') return true;
             if (!d.requestKind || !EXECUTOR_QUEUE_REQUEST_KINDS.includes(d.requestKind)) return true;
             if (requestNeedsExecutorOutcome(d)) return false;
@@ -761,48 +786,6 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
     );
 
 
-    /** بعد «قرار منفذ يدوي»: أول نقرة تثبت مسار طعن الدائن أو طعن المدين وتفتح اختيار التظلم/التمييز */
-    const commitExecutorSideAppealPath = React.useCallback(
-        (decision: Decision, branch: 'creditor' | 'debtor') => {
-            const nowIso = new Date().toISOString();
-            const when = new Date(nowIso).toLocaleString('ar-IQ', {
-                dateStyle: 'medium',
-                timeStyle: 'short',
-            });
-            const patch: Partial<Decision> =
-                branch === 'creditor'
-                    ? {
-                          appealRequestOrigin: 'creditor_side',
-                          executorOutcome: 'rejected',
-                          appealBaseBranch: 'after_rejection',
-                          status: 'rejected',
-                      }
-                    : {
-                          appealRequestOrigin: 'debtor_side',
-                          executorOutcome: 'rejected',
-                          appealBaseBranch: 'after_rejection',
-                          status: 'rejected',
-                      };
-            patchDecisionRow(decision.id, patch);
-            onTimelineUpdate({
-                id: newEventId(),
-                date: nowIso.slice(0, 10),
-                timestamp: nowIso,
-                title:
-                    branch === 'creditor'
-                        ? 'بدء مسار الطعن: الدائن يطعن على قرار المنفذ'
-                        : 'بدء مسار الطعن: المدين بادر بالطعن',
-                description:
-                    branch === 'creditor'
-                        ? `تم اختيار «الطعن بالقرار» لقرار: ${decision.title}\nالتوقيت: ${when}`
-                        : `تم اختيار «قام المدين بالطعن» لقرار: ${decision.title}\nالتوقيت: ${when}`,
-                type: 'appeal',
-                source: 'القرارات والطعون',
-            });
-        },
-        [onTimelineUpdate, patchDecisionRow]
-    );
-
     const applyCassationCourtDecision = React.useCallback(
         (decision: Decision, choice: 'rad_laheeza' | 'naqd') => {
             const petitionGranted = petitionGrantedAfterCassation(decision, choice);
@@ -862,29 +845,39 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                 noAppealChosen: false,
             };
 
-            /** عند نقض القرار: نقلب حالة الطلب الأصلي (force flip) */
+            /** عند نقض القرار: نقلب حالة الطلب الأصلي — إلا عند استئناف نفاذ طلب الدائن بعد تمييز المحامي */
             const isNaqd = choice === 'naqd';
             const srcId = decision.appealSourceDecisionId;
-            const parentDecision = typeof srcId === 'string' && srcId.trim()
-                ? decisions.find((d) => d.id === srcId)
-                : decision;
+            const parentDecision =
+                typeof srcId === 'string' && srcId.trim()
+                    ? decisions.find((d) => d.id === srcId)
+                    : decision;
+            const hubParent = hubWithInferredAppealOrigin(parentDecision ?? decision);
             const targetExecutorOutcome = parentDecision?.executorOutcome ?? decision.executorOutcome;
+            const previewPipe: Decision = { ...decision, ...resolvedAppealPatch };
+            const lawyerNaqdResume =
+                isNaqd && petitionGranted && isLawyerCassationNaqdResume(previewPipe, hubParent);
             const forceFlipParentRequestPatch: Partial<Decision> | null = isNaqd
-                ? (() => {
-                      if (targetExecutorOutcome === 'approved' || targetExecutorOutcome === 'alternative') {
-                          return {
-                              executorOutcome: 'rejected' as const,
-                              status: 'rejected' as const,
-                          };
-                      }
-                      if (targetExecutorOutcome === 'rejected') {
-                          return {
-                              executorOutcome: 'approved' as const,
-                              status: 'accepted' as const,
-                          };
-                      }
-                      return null;
-                  })()
+                ? lawyerNaqdResume
+                    ? null
+                    : (() => {
+                          if (
+                              targetExecutorOutcome === 'approved' ||
+                              targetExecutorOutcome === 'alternative'
+                          ) {
+                              return {
+                                  executorOutcome: 'rejected' as const,
+                                  status: 'rejected' as const,
+                              };
+                          }
+                          if (targetExecutorOutcome === 'rejected') {
+                              return {
+                                  executorOutcome: 'approved' as const,
+                                  status: 'accepted' as const,
+                              };
+                          }
+                          return null;
+                      })()
                 : null;
 
             let next: Decision[];
@@ -949,7 +942,11 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
 
     const applyGrievanceCourtOutcome = React.useCallback(
         (decision: Decision, grievanceAccepted: boolean) => {
-            const resolvedAppealPatch = buildGrievanceResolutionPatch(decision, grievanceAccepted);
+            const resolvedAppealPatch = buildGrievanceResolutionPatch(
+                decision,
+                grievanceAccepted,
+                decisions
+            );
             const granted = grievancePetitionGranted(decision, grievanceAccepted);
             const now = new Date().toISOString();
             const when = new Date(now).toLocaleString('ar-IQ', {
@@ -1206,36 +1203,6 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                 delete n[id];
                 return n;
             });
-            const today = getLocalTodayYmd();
-            const ts = new Date().toISOString();
-            setDecisions((prev) =>
-                prev.map((d) => {
-                    if (d.id !== id) return d;
-                    if (resolution === 'approved') {
-                        return {
-                            ...d,
-                            executorOutcome: 'approved' as const,
-                            appealStatus: 'pending' as const,
-                            status: 'accepted' as const,
-                            appealPhase: null,
-                            appealBaseBranch: 'after_approval' as const,
-                            resolvedAt: ts,
-                            executorNote: hubNoteById[id],
-                        };
-                    }
-                    return {
-                        ...d,
-                        executorOutcome: 'rejected' as const,
-                        appealStatus: 'pending' as const,
-                        date: today,
-                        status: 'rejected' as const,
-                        appealPhase: null,
-                        appealBaseBranch: 'after_rejection' as const,
-                        resolvedAt: ts,
-                        executorNote: hubNoteById[id],
-                    };
-                })
-            );
             if (resolution === 'approved') {
                 queueMicrotask(() => setDecisionsHubTab('previous'));
             }
@@ -1325,7 +1292,7 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                 });
             }
         },
-        [decisions, executionId, hubNoteById, resolveDecision, persistDecisionsToStorage]
+        [decisions, executionId, hubNoteById, resolveDecision, reloadFromStorage]
     );
 
     const handleDeleteDecision = React.useCallback((id: string) => {
@@ -1376,7 +1343,6 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
             SmartToast.error('يرجى تعبئة العنوان والتاريخ على الأقل');
             return;
         }
-        
         const newDecision: Decision = {
             id: (globalThis as any).crypto?.randomUUID?.() ? (globalThis as any).crypto.randomUUID() : `${Date.now()}_${Math.random().toString(16).slice(2)}`,
             title: newTitle,
@@ -1387,6 +1353,7 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
             status: 'accepted',
             appealPhase: null,
             manualExecutorLedgerEntry: true,
+            manualExecutorEnforced: false,
         };
         
         const updated = [newDecision, ...decisions];
@@ -1407,17 +1374,19 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
             ...(milestoneSnap !== undefined ? { snapshot: milestoneSnap } : {}),
         });
         
-        // Reset form
-        setNewTitle('');
-        setNewBody('');
-        setNewDate('');
+        resetAddDecisionForm();
         setShowAddModal(false);
         setDecisionsHubTab('previous');
     };
     
     /** قرارات أصلية فقط (ليس نسخ طعن) — طابور المنفذ ثم الباقي زمنياً */
     const archiveHubDecisions = useMemo(() => {
-        const originals = domainVisibleDecisions.filter((d) => !d.appealSourceDecisionId && !d.isArchived);
+        const originals = domainVisibleDecisions.filter(
+            (d) =>
+                !d.appealSourceDecisionId &&
+                !d.isArchived &&
+                !hubHasActiveAppealLedgerEntry(d)
+        );
         const pending = originals.filter((d) => requestNeedsExecutorOutcome(d));
         const rest = originals.filter((d) => !requestNeedsExecutorOutcome(d));
         
@@ -1448,14 +1417,111 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
     /** سجل الطعون: نسخ مسار الطعن + (للبيانات القديمة) صف واحد يضم مساراً مفتوحاً */
     const appealsHubDecisions = useMemo(
         () =>
-            sortDecisionsNewestFirst(
+            sortDecisionsAppealActivityNewestFirst(
                 domainVisibleDecisions.filter((d) => {
-                    if (d.appealSourceDecisionId) return true;
+                    if (d.manualExecutorLedgerEntry === true) return false;
+                    if (d.appealSourceDecisionId) {
+                        const src = domainVisibleDecisions.find(
+                            (x) => String(x.id) === String(d.appealSourceDecisionId)
+                        );
+                        if (src?.manualExecutorLedgerEntry === true) return false;
+                        return true;
+                    }
                     return decisionAppealPipelineActive(d, null);
                 })
             ),
         [domainVisibleDecisions]
     );
+
+    const previousHubFilterOptions = useMemo(
+        () =>
+            resolveAppealsHubFilterOptions(
+                archiveSettledDecisions,
+                domainVisibleDecisions,
+                appealPerspective
+            ),
+        [appealPerspective, archiveSettledDecisions, domainVisibleDecisions]
+    );
+
+    const appealsHubFilterOptions = useMemo(
+        () =>
+            resolveAppealsHubFilterOptions(
+                appealsHubDecisions,
+                domainVisibleDecisions,
+                appealPerspective
+            ),
+        [appealPerspective, appealsHubDecisions, domainVisibleDecisions]
+    );
+
+    const filteredPreviousSettledDecisions = useMemo(() => {
+        return archiveSettledDecisions.filter((d) => {
+            if (previousFilter === 'approved') {
+                if (
+                    d.executorOutcome !== 'approved' &&
+                    d.executorOutcome !== 'alternative'
+                ) {
+                    return false;
+                }
+            } else if (previousFilter === 'rejected') {
+                if (d.executorOutcome !== 'rejected') return false;
+            }
+            if (previousProponentFilter !== 'all') {
+                if (
+                    resolveAppealHubProponentCategory(
+                        d,
+                        domainVisibleDecisions,
+                        appealPerspective
+                    ) !== previousProponentFilter
+                ) {
+                    return false;
+                }
+            }
+            return true;
+        });
+    }, [
+        appealPerspective,
+        archiveSettledDecisions,
+        domainVisibleDecisions,
+        previousFilter,
+        previousProponentFilter,
+    ]);
+
+    const filteredAppealsHubDecisions = useMemo(() => {
+        if (appealsProponentFilter === 'all') return appealsHubDecisions;
+        return appealsHubDecisions.filter(
+            (d) =>
+                resolveAppealHubProponentCategory(
+                    d,
+                    domainVisibleDecisions,
+                    appealPerspective
+                ) === appealsProponentFilter
+        );
+    }, [
+        appealPerspective,
+        appealsHubDecisions,
+        appealsProponentFilter,
+        domainVisibleDecisions,
+    ]);
+
+    useEffect(() => {
+        if (
+            previousProponentFilter !== 'all' &&
+            previousHubFilterOptions.length > 0 &&
+            !previousHubFilterOptions.includes(previousProponentFilter)
+        ) {
+            setPreviousProponentFilter('all');
+        }
+    }, [previousHubFilterOptions, previousProponentFilter]);
+
+    useEffect(() => {
+        if (
+            appealsProponentFilter !== 'all' &&
+            appealsHubFilterOptions.length > 0 &&
+            !appealsHubFilterOptions.includes(appealsProponentFilter)
+        ) {
+            setAppealsProponentFilter('all');
+        }
+    }, [appealsHubFilterOptions, appealsProponentFilter]);
 
     const transitionAppealWorkflow = React.useCallback(
         (
@@ -1474,6 +1540,13 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
             };
             const target = decisions.find((d) => d.id === decision.id);
             if (!target) return;
+            const appealHub = resolveUnderlyingDecisionHub(target, decisions);
+            if (
+                target.manualExecutorLedgerEntry === true ||
+                appealHub.manualExecutorLedgerEntry === true
+            ) {
+                return;
+            }
             const hasMeaningfulChange = Object.entries(patch).some(([k, v]) => {
                 const prevVal = (target as any)[k];
                 if (Array.isArray(prevVal) || Array.isArray(v)) {
@@ -1552,6 +1625,8 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                     awaitingCassationEntryBy: null,
                     grievanceRejectedAwaitingTamyeez: false,
                     grievanceAcceptedAwaitingDebtorTamyeez: false,
+                    manualGrievanceAppellants: undefined,
+                    manualCassationAppellants: undefined,
                     activeAppealCopyId: copyId,
                     appealTimelineLogs: baseLogs,
                 };
@@ -1609,35 +1684,70 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
         [decisions, goToAppealsWithScroll, getMilestoneTimelineSnapshot, onTimelineUpdate, persistDecisionsToStorage]
     );
 
-    const applyLawyerCassationEntry = React.useCallback(
-        (decision: Decision) => {
-            const pipeline = appealPipelineRowForCard(decision, decisions);
+    /** تسجيل طعن على قرار منفذ من البطاقة — مرحلة + طاعن (أو أكثر) */
+    const commitExecutorSideAppealEntry = React.useCallback(
+        (
+            decision: Decision,
+            stage: 'grievance' | 'cassation',
+            appellants: ManualAppealAppellantActor[]
+        ) => {
+            if (appellants.length === 0) {
+                SmartToast.error('اختر طرفاً واحداً على الأقل');
+                return;
+            }
+            const appealHub = resolveUnderlyingDecisionHub(decision, decisions);
             if (
-                pipeline.awaitingCassationEntryBy !== 'lawyer' ||
-                pipeline.appealStatus === 'tamyeez_filed'
+                decision.manualExecutorLedgerEntry === true ||
+                appealHub.manualExecutorLedgerEntry === true
             ) {
                 return;
             }
-            transitionAppealWorkflow(
-                pipeline,
-                {
-                    noAppealChosen: false,
-                    appealActor: 'lawyer',
-                    appealMethod: 'tamyeez',
-                    appealWorkflowState: 'PENDING_APPEAL_LAWYER',
-                    appealStatus: 'tamyeez_filed',
-                    appealPhase: 'cassation',
-                    grievanceRejectedAwaitingTamyeez: false,
-                    grievanceAcceptedAwaitingDebtorTamyeez: false,
-                    awaitingCassationEntryBy: null,
-                },
-                appealPerspective === 'debtor_agent' ? 'تمييز قرار المنفذ' : 'تمييز القرار',
-                appealLawyerCassationAutoEntryDescription(appealPerspective),
-                'amber'
+            const patch = buildExecutorSideAppealCommitPatch(stage, appellants);
+            const timelineTitle = stage === 'grievance' ? 'تسجيل تظلم' : 'تسجيل تمييز';
+            const timelineDescription = executorSideAppealTimelineMessage(
+                stage,
+                appellants,
+                appealPerspective
             );
-            queueMicrotask(() => goToAppealsWithScroll(pipeline.id));
+            transitionAppealWorkflow(decision, patch, timelineTitle, timelineDescription, 'amber');
         },
-        [appealPerspective, decisions, goToAppealsWithScroll, transitionAppealWorkflow]
+        [appealPerspective, decisions, transitionAppealWorkflow]
+    );
+
+    const applyLawyerCassationEntry = React.useCallback(
+        (decision: Decision) => {
+            const result = applyLawyerCassationEntryForExecution({
+                executionId,
+                decisionId: decision.id,
+                appealPerspective,
+                appendTimeline: false,
+            });
+            if (!result.ok) return;
+            reloadFromStorage();
+            const nowIso = new Date().toISOString();
+            const appealOpenSnap = getMilestoneTimelineSnapshot?.();
+            onTimelineUpdate({
+                id: newEventId(),
+                date: nowIso.slice(0, 10),
+                timestamp: nowIso,
+                title: result.timelineTitle ?? 'تمييز القرار',
+                description: result.timelineDescription ?? '',
+                type: 'appeal',
+                source: 'القرارات والطعون',
+                ...(appealOpenSnap !== undefined ? { snapshot: appealOpenSnap } : {}),
+            });
+            queueMicrotask(() =>
+                goToAppealsWithScroll(result.scrollDecisionId ?? decision.id)
+            );
+        },
+        [
+            appealPerspective,
+            executionId,
+            getMilestoneTimelineSnapshot,
+            goToAppealsWithScroll,
+            onTimelineUpdate,
+            reloadFromStorage,
+        ]
     );
 
     useEffect(() => {
@@ -1679,26 +1789,49 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
     ) => {
         const pathLocked = Boolean(opts?.pathLockedOnOriginal);
         const locked = Boolean(opts?.lockedBecauseActiveCopy);
+        const debtorOnlyForCreditorAgent = creditorAgentDebtorIsSoleAppellant(
+            decision,
+            appealPerspective
+        );
+
+        const appealHub = resolveUnderlyingDecisionHub(decision, decisions);
+        if (
+            decision.manualExecutorLedgerEntry === true ||
+            appealHub.manualExecutorLedgerEntry === true
+        ) {
+            return null;
+        }
 
         if (decision.appealRequestOrigin === 'executor_side') {
+            const grievanceOpen =
+                (decision.appealStatus === 'tadhallum_filed' ||
+                    decision.appealPhase === 'grievance') &&
+                !String(decision.appealResult ?? '').trim();
+            if (grievanceOpen) {
+                return null;
+            }
+            const showWaiveExecutorAppeal = canWaiveInitialAppeal(
+                decision,
+                decisions,
+                appealPerspective
+            );
             return (
-                <div className="flex flex-col gap-2">
-                    <button
-                        type="button"
-                        disabled={locked}
-                        onClick={() => commitExecutorSideAppealPath(decision, 'creditor')}
-                        className={DECISION_BTN_APPEAL_CHALLENGE}
-                    >
-                        الطعن بالقرار
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => commitExecutorSideAppealPath(decision, 'debtor')}
-                        className={DECISION_BTN_DEBTOR_APPEAL_NOTICE}
-                    >
-                        {appealExecutorSideDebtorPathLabel(appealPerspective)}
-                    </button>
-                </div>
+                <ExecutorSideAppealEntryPanel
+                    windows={windows}
+                    locked={locked}
+                    debtorOnly={debtorOnlyForCreditorAgent}
+                    cassationOnly={decision.cassationOnlyAppeal === true}
+                    appealPerspective={appealPerspective}
+                    challengeBtnClass={DECISION_BTN_APPEAL_CHALLENGE}
+                    primaryBtnClass={DECISION_BTN_PRIMARY_WFULL}
+                    secondaryBtnClass={DECISION_BTN_SECONDARY_WFULL}
+                    ignoreDeadlineWindows
+                    showWaive={showWaiveExecutorAppeal}
+                    onWaive={() => applyWaiveInitialAppeal(decision)}
+                    onCommit={(stage, appellants) =>
+                        commitExecutorSideAppealEntry(decision, stage, appellants)
+                    }
+                />
             );
         }
 
@@ -1852,12 +1985,25 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
             variant === 'appealsTab'
                 ? DECISION_BTN_PRIMARY_WFULL
                 : `mb-3 ${DECISION_BTN_PRIMARY_WFULL}`;
-        const awaitingParty = resolveEffectiveAwaitingCassationParty(decision);
+        const awaitingParty = resolveEffectiveAwaitingCassationParty(decision, undefined, decisions);
         if (!awaitingParty) return null;
+        const appealHub = resolveUnderlyingDecisionHub(decision, decisions);
+        const isManualLedger =
+            decision.manualExecutorLedgerEntry === true ||
+            appealHub.manualExecutorLedgerEntry === true;
+        const ignoreAppealDeadline =
+            isManualLedger || appealHub.appealRequestOrigin === 'executor_side';
+        const cassationWindowOpen = !appealWindowClosed || ignoreAppealDeadline;
+        const manualCassationExtra = isManualLedger
+            ? { manualCassationAppellants: ['debtor'] as const }
+            : {};
+        const manualCassationLawyerExtra = isManualLedger
+            ? { manualCassationAppellants: ['lawyer'] as const }
+            : {};
         return (
             <>
                 {awaitingParty === 'debtor' &&
-                    !appealWindowClosed && (() => {
+                    cassationWindowOpen && (() => {
                         const labels = appealCassationEntryLabels(appealPerspective, 'debtor');
                         return (
                         <button
@@ -1875,6 +2021,7 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                                         grievanceRejectedAwaitingTamyeez: false,
                                         grievanceAcceptedAwaitingDebtorTamyeez: false,
                                         awaitingCassationEntryBy: null,
+                                        ...manualCassationExtra,
                                     },
                                     labels.timelineTitle,
                                     labels.timelineDescription,
@@ -1892,7 +2039,7 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                         );
                     })()}
                 {awaitingParty === 'lawyer' &&
-                    !appealWindowClosed &&
+                    cassationWindowOpen &&
                     (() => {
                         const labels = appealCassationEntryLabels(appealPerspective, 'lawyer');
                         return (
@@ -1912,6 +2059,7 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                                             grievanceRejectedAwaitingTamyeez: false,
                                             grievanceAcceptedAwaitingDebtorTamyeez: false,
                                             awaitingCassationEntryBy: null,
+                                            ...manualCassationLawyerExtra,
                                         },
                                         labels.timelineTitle,
                                         labels.timelineDescription,
@@ -2269,28 +2417,40 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                                         </button>
                                     ))}
                                 </div>
+                                {previousHubFilterOptions.length > 1 ? (
+                                    <div className="flex flex-wrap gap-2">
+                                        {previousHubFilterOptions.map((f) => (
+                                            <button
+                                                key={f}
+                                                type="button"
+                                                onClick={() => setPreviousProponentFilter(f)}
+                                                className={`px-3 py-1 rounded-full text-[10px] font-bold transition-colors ${
+                                                    previousProponentFilter === f
+                                                        ? 'bg-amber-600/90 text-white shadow-sm'
+                                                        : 'bg-slate-800/60 text-slate-400 hover:text-slate-200 border border-white/5'
+                                                }`}
+                                            >
+                                                {appealsHubProponentFilterLabel(f)}
+                                            </button>
+                                        ))}
+                                    </div>
+                                ) : null}
                                 {archiveSettledDecisions.length > 0 ? (
                                     <div className="space-y-2">
                                         <p className="border-b border-white/10 pb-2 text-right text-[11px] font-bold text-gray-400">
                                             القرارات المحسومة
                                         </p>
+                                        {filteredPreviousSettledDecisions.length > 0 ? (
                                         <div className="grid w-full grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-                                            {archiveSettledDecisions.filter((d) => {
-                                                if (previousFilter === 'all') return true;
-                                                if (previousFilter === 'approved') {
-                                                    return (
-                                                        d.executorOutcome === 'approved' ||
-                                                        d.executorOutcome === 'alternative'
-                                                    );
-                                                }
-                                                if (previousFilter === 'rejected') {
-                                                    return d.executorOutcome === 'rejected';
-                                                }
-                                                return true;
-                                            }).map((d) => (
+                                            {filteredPreviousSettledDecisions.map((d) => (
                                                 <DecisionCard key={d.id} decision={d} {...decisionCardProps} />
                                             ))}
                                         </div>
+                                        ) : (
+                                            <p className="text-center text-slate-500 text-xs py-4">
+                                                لا توجد قرارات في هذا التصنيف
+                                            </p>
+                                        )}
                                     </div>
                                 ) : (
                                     <p className="text-center text-slate-500 text-xs py-4">
@@ -2321,18 +2481,40 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                         )}
                         {decisionsHubTab === 'appeals' && (
                             <div className="space-y-2">
-                                {appealsHubDecisions.length > 0 ? (
+                                {appealsHubFilterOptions.length > 1 ? (
+                                    <div className="flex flex-wrap gap-2">
+                                        {appealsHubFilterOptions.map((f) => (
+                                            <button
+                                                key={f}
+                                                type="button"
+                                                onClick={() => setAppealsProponentFilter(f)}
+                                                className={`px-3 py-1 rounded-full text-[10px] font-bold transition-colors ${
+                                                    appealsProponentFilter === f
+                                                        ? 'bg-amber-600/90 text-white shadow-sm'
+                                                        : 'bg-slate-800/60 text-slate-400 hover:text-slate-200 border border-white/5'
+                                                }`}
+                                            >
+                                                {appealsHubProponentFilterLabel(f)}
+                                            </button>
+                                        ))}
+                                    </div>
+                                ) : null}
+                                {filteredAppealsHubDecisions.length > 0 ? (
                                     <div className="grid w-full grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-                                        {appealsHubDecisions.map((d, index) => (
+                                        {filteredAppealsHubDecisions.map((d, index) => (
                                             <AppealWorkflowCard
                                                 key={d.id}
                                                 decision={d}
                                                 appealCardRank={index}
-                                                appealCardsTotal={appealsHubDecisions.length}
+                                                appealCardsTotal={filteredAppealsHubDecisions.length}
                                                 {...appealWorkflowCardProps}
                                             />
                                         ))}
                                     </div>
+                                ) : appealsHubDecisions.length > 0 ? (
+                                    <p className="text-center text-slate-500 text-xs py-4">
+                                        لا توجد بطاقات في هذا التصنيف
+                                    </p>
                                 ) : (
                                     <p className="text-center text-slate-500 text-xs py-4">
                                         لا يظهر هنا شيء حتى تبدأ إجراء تظلم أو تمييز على أحد القرارات
@@ -2359,7 +2541,10 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                                 style={{ zIndex: EXEC_MODAL_Z.nestedOverDecisions }}
                                 role="presentation"
                                 onClick={(e) => {
-                                    if (e.target === e.currentTarget) setShowAddModal(false);
+                                    if (e.target === e.currentTarget) {
+                                        resetAddDecisionForm();
+                                        setShowAddModal(false);
+                                    }
                                 }}
                             >
                                 <motion.div
@@ -2375,6 +2560,7 @@ export const DecisionsAndAppealsEngine: React.FC<DecisionsAndAppealsEngineProps>
                                             type="button"
                                             onClick={(e) => {
                                                 e.stopPropagation();
+                                                resetAddDecisionForm();
                                                 setShowAddModal(false);
                                             }}
                                             className="rounded-lg p-2 text-slate-300 transition hover:bg-white/5"

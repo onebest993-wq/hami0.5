@@ -6,6 +6,7 @@ import {
     patchExecutorDecisionRow,
 } from '@/app/utils/executorSeizureDecisionQueue';
 import type { SeizedProperty, SeizedPropertyStatus } from '@/app/types/execution';
+import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 
 export function normalizePropertySeizureStatus(raw: string): SeizedPropertyStatus | string {
     if (raw === 'estimated') return 'valued';
@@ -118,8 +119,9 @@ export function findApprovedUnsavedPropertyDecision(
     seizedPropertyId: string
 ): Record<string, unknown> | null {
     const row = findSeizureDecisionForProperty(decisions, subtype, seizedPropertyId);
-    if (!row || !isDecisionResolvedApproved(row)) return null;
+    if (!row || !isDecisionResolvedApproved(row, decisions)) return null;
     if (String(row.seizureRequestSavedAt || '').trim()) return null;
+    if (!isExecutorRowApprovedWorkflowActive(row, decisions)) return null;
     return row;
 }
 
@@ -450,7 +452,14 @@ export function isDecisionPending(row: Record<string, unknown> | null): boolean 
     );
 }
 
-export function isDecisionResolvedApproved(row: Record<string, unknown> | null): boolean {
+export function isDecisionResolvedApproved(
+    row: Record<string, unknown> | null,
+    allDecisions?: Record<string, unknown>[]
+): boolean {
     if (!row) return false;
-    return !isExecutorRowRejectedAndFinal(row as any) && isExecutorRowEffectivelyApproved(row as any);
+    if (isExecutorRowRejectedAndFinal(row as any)) return false;
+    if (Array.isArray(allDecisions) && allDecisions.length > 0) {
+        return isExecutorRowApprovedWorkflowActive(row, allDecisions);
+    }
+    return isExecutorRowEffectivelyApproved(row as any);
 }

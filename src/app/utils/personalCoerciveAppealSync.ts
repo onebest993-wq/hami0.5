@@ -4,15 +4,11 @@
  */
 import type { Decision } from '@/app/components/lawyer/DecisionsAndAppealsEngine/types';
 import {
-    appealPipelineRowForCard,
-    hubWithInferredAppealOrigin,
     isExecutorRequestAppealCycleSupersededFromRecord,
-    resolveCreditorDecisionEnforcementState,
-    resolveExecutorRequestFollowupBlockFromRecord,
-    resolveExecutorRequestFollowupGate,
     type CreditorRequestAppealGate,
     type ExecutorRequestFollowupBlock,
 } from '@/app/components/lawyer/DecisionsAndAppealsEngine/utils';
+import { resolveExecutorRequestAppealSyncFromRow } from '@/app/utils/executorRequestAppealSync';
 import {
     buildPersonalCoerciveExecutionMerge,
 } from '@/app/components/lawyer/ExecutionDashboard/utils/applyPersonalCoerciveExecutorOutcome';
@@ -22,6 +18,7 @@ import {
 } from '@/app/components/lawyer/execution/coerciveStackUtils';
 import {
     getGoverningDossierPresentationRowFromDecisions,
+    getPersonalCoerciveSubtypeAppealRowFromDecisions,
     getGoverningPersonalCoerciveSubtypeRowFromDecisions,
     isExecutorHubRowInactiveForGoverning,
     isExecutorHubRowSuperseded,
@@ -78,6 +75,19 @@ function rowId(row: Record<string, unknown> | null | undefined): string | null {
     return id || null;
 }
 
+/** بعد «لا حاجة للطعن» أو إغلاق الدورة — لا تُعرض متابعة الرفض في المحضر */
+export function isExecutorRejectedAppealFollowupDismissed(
+    decisionId: string | null | undefined,
+    allDecisions: Record<string, unknown>[]
+): boolean {
+    const did = String(decisionId ?? '').trim();
+    if (!did) return false;
+    const row = allDecisions.find((r) => String((r as { id?: string }).id ?? '').trim() === did);
+    if (!row || typeof row !== 'object') return false;
+    if (isExecutorHubRowSuperseded(row)) return true;
+    return isExecutorRequestAppealCycleSupersededFromRecord(row, allDecisions);
+}
+
 /** البطاقة الحاكمة لنوع الطلب — بما فيها قرار القاضي المستقل */
 export function getGoverningPersonalCoerciveAppealRow(
     input: PersonalCoerciveAppealSyncInput
@@ -89,6 +99,14 @@ export function getGoverningPersonalCoerciveAppealRow(
 
     if (input.subtype === 'executive_dossier_presentation') {
         return getGoverningDossierPresentationRowFromDecisions(input.allDecisions, scope);
+    }
+
+    if (input.subtype === 'travel_ban') {
+        return getPersonalCoerciveSubtypeAppealRowFromDecisions(
+            input.allDecisions,
+            'travel_ban',
+            scope
+        );
     }
 
     if (input.subtype === 'executive_detention_judge') {
@@ -143,6 +161,33 @@ export function resolvePersonalCoerciveAppealSync(
     const scope = { debtorKey: input.debtorKey, primaryDebtorKey: input.primaryDebtorKey };
 
     if (!governingRow) {
+        if (input.subtype === 'executive_detention_judge') {
+            const byId = String(input.executionData?.executive_detention_judge_decision_id ?? '').trim();
+            if (byId) {
+                const sealed = input.allDecisions.find(
+                    (r) => String((r as { id?: string }).id ?? '').trim() === byId
+                );
+                if (
+                    sealed &&
+                    isExecutorRejectedAppealFollowupDismissed(byId, input.allDecisions)
+                ) {
+                    return {
+                        subtype,
+                        governingRow: sealed,
+                        decisionId: byId,
+                        gate: EMPTY_CONTINUE,
+                        followupBlock: null,
+                        blocked: false,
+                        blocksFieldwork: false,
+                        blocksSubmit: false,
+                        cycleSuperseded: true,
+                        enforced: false,
+                        pillLabel: '',
+                        decisionsNav: { decisionsTab: 'previous', decisionId: byId },
+                    };
+                }
+            }
+        }
         return {
             subtype,
             governingRow: null,
@@ -159,33 +204,17 @@ export function resolvePersonalCoerciveAppealSync(
         };
     }
 
-    const gate = resolveExecutorRequestFollowupGate(
-        governingRow as unknown as Decision,
-        input.allDecisions as unknown as Decision[]
-    );
-    const hub = hubWithInferredAppealOrigin(governingRow as unknown as Decision);
-    const pipe = appealPipelineRowForCard(hub, input.allDecisions as unknown as Decision[]);
-    const appealFinal =
-        pipe.appealStatus === 'final' ||
-        hub.appealStatus === 'final' ||
-        String(pipe.appealWorkflowState ?? hub.appealWorkflowState ?? '').trim() === 'FINAL_ACCEPTED' ||
-        String(pipe.appealWorkflowState ?? hub.appealWorkflowState ?? '').trim() === 'FINAL_REJECTED' ||
-        String(pipe.appealWorkflowState ?? hub.appealWorkflowState ?? '').trim() === 'REVOKED_BY_APPEAL';
-    const enforcement = resolveCreditorDecisionEnforcementState(hub, pipe, {
-        hubTab: 'previous',
-        appealLegallyFinal: appealFinal,
-        needsExecutor: String(governingRow.executorOutcome ?? 'pending') === 'pending',
-    });
-    const cycleSuperseded = isExecutorRequestAppealCycleSupersededFromRecord(
-        governingRow,
-        input.allDecisions
-    );
-    const followupBlock = cycleSuperseded
-        ? null
-        : resolveExecutorRequestFollowupBlockFromRecord(governingRow, input.allDecisions);
-    const blocked = !cycleSuperseded && gate.kind === 'paused';
-    const blocksFieldwork = blocked;
-    const blocksSubmit = blocked;
+    const core = resolveExecutorRequestAppealSyncFromRow(governingRow, input.allDecisions);
+    const {
+        gate,
+        followupBlock,
+        blocked,
+        blocksFieldwork,
+        blocksSubmit,
+        cycleSuperseded,
+        enforced,
+        pillLabel,
+    } = core;
     const decisionsNav = exId
         ? resolvePersonalCoerciveDecisionsNav(
               exId,
@@ -206,8 +235,8 @@ export function resolvePersonalCoerciveAppealSync(
         blocksFieldwork,
         blocksSubmit,
         cycleSuperseded,
-        enforced: enforcement.enforced,
-        pillLabel: enforcement.pillLabel,
+        enforced,
+        pillLabel,
         decisionsNav,
     };
 }
@@ -298,7 +327,14 @@ export function buildPersonalCoerciveAppealExecutionSyncPatch(input: {
             storedOutcome: stored,
             judgeRow,
         });
-        if (effective && effective !== stored) {
+        const dossierPhase = String(ed?.executive_dossier_phase ?? '').trim();
+        const judgeLaneOpen =
+            dossierPhase === 'handed_to_judge' ||
+            dossierPhase === 'judge_decided' ||
+            dossierPhase === 'detention_active' ||
+            stored != null ||
+            Boolean(String(ed?.executive_detention_judge_decision_id ?? '').trim());
+        if (effective && effective !== stored && judgeLaneOpen) {
             patch = {
                 ...patch,
                 executive_detention_judge_outcome: effective,

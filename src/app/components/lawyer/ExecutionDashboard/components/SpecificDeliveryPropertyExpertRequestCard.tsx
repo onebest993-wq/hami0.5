@@ -9,10 +9,10 @@ import {
 } from '@/app/components/lawyer/ExecutionDashboard/components/ExecutionInlineAccordion';
 import {
     isExecutorHubRowSuperseded,
-    isExecutorRowEffectivelyApproved,
     isExecutorRowRejectedAndFinal,
     listEvictionProcedureHubRowsForMatch,
 } from '@/app/utils/executorSeizureDecisionQueue';
+import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 import { summarizeExecutorHubRequestLifecycle } from '@/app/utils/executorRequestLifecycle';
 import {
     finalizeSpecificDeliveryPropertyExpertRequest,
@@ -129,7 +129,7 @@ export const SpecificDeliveryPropertyExpertRequestCard: React.FC<
             showToast('أدخل أجور الخبير بعد تحديدها من المنفذ', 'warning');
             return;
         }
-        if (!isExecutorRowEffectivelyApproved(latestRow)) {
+        if (!isExecutorRowApprovedWorkflowActive(latestRow, decisionRows)) {
             showToast('بانتظار موافقة المنفذ على الطلب', 'warning');
             return;
         }
@@ -162,7 +162,7 @@ export const SpecificDeliveryPropertyExpertRequestCard: React.FC<
         if (!row?.id) return null;
         const decisionId = String(row.id || '').trim();
         const rejected = isExecutorRowRejectedAndFinal(row);
-        const approved = isExecutorRowEffectivelyApproved(row);
+        const approved = isExecutorRowApprovedWorkflowActive(row, decisionRows);
         const pending =
             String(row.executorOutcome ?? 'pending') === 'pending' ||
             String(row.executorOutcome ?? '') === '';

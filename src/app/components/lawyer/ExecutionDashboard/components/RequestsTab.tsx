@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, EyeOff, Send } from 'lucide-react';
+import { ChevronDown, Eye, EyeOff, Send } from 'lucide-react';
 import { InlineActionGate } from './InlineActionGate';
 import type { InlineActionGateKey } from '../types';
 import { shouldAlwaysShowHiddenRequestsToggle, hasAnyHiddenFollowupContent } from './hiddenFollowupRequestsUtils';
@@ -22,15 +22,21 @@ import {
 } from '@/app/components/lawyer/DecisionsAndAppealsEngine/utils';
 import type { Decision } from '@/app/components/lawyer/DecisionsAndAppealsEngine/types';
 import {
+    resolveSpecialFollowupStatusLabel,
+    shouldShowSpecialFollowupExecutorStrip,
+} from '@/app/components/lawyer/ExecutionDashboard/utils/dossierControlDecisions';
+import {
     HiddenFollowupRequestOptions,
     type HiddenFollowupRequestOptionsProps,
 } from './HiddenFollowupRequestOptions';
 
-/** توحيد/نقل/إنابة — من تبويب «التحكم في الإضبارة» فقط */
+/** طلبات التحكم بالإضبارة — تُعرض في تبويبها المستقل فقط */
 const DOSSIER_CONTROLS_ONLY = new Set([
     'طلب توحيد الأضابير',
     'طلب نقل الإضبارة',
     'طلب الإنابة التنفيذية',
+    'طلب مخاطبة مديرية الانابة',
+    'طلب تجديد الإضبارة',
 ]);
 
 const LEGACY_ADMIN_TEMPLATES = [
@@ -231,6 +237,25 @@ export const RequestsTab: React.FC<RequestsTabProps> = ({
         ];
     }, [appealPerspective, exId, latestAdminDecision, openAppeals]);
 
+    const [latestRequestExpanded, setLatestRequestExpanded] = React.useState(false);
+
+    const latestAdminExecutorStripVisible = React.useMemo(
+        () =>
+            Boolean(
+                latestAdminDecision &&
+                    shouldShowSpecialFollowupExecutorStrip(latestAdminDecision, {
+                        allDecisions: decisions,
+                        appealPerspective,
+                    })
+            ),
+        [appealPerspective, decisions, latestAdminDecision]
+    );
+
+    const latestAdminStatusLabel = React.useMemo(
+        () => resolveSpecialFollowupStatusLabel(latestAdminDecision, appealPerspective),
+        [appealPerspective, latestAdminDecision]
+    );
+
     const showHiddenRequestsButton =
         !activeDebtorIsLegalEntity &&
         !hideHiddenFollowupRequests &&
@@ -344,9 +369,47 @@ export const RequestsTab: React.FC<RequestsTabProps> = ({
             </div>
 
             {latestAdminDecision?.id && steps.length > 0 ? (
-                <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/10 p-3">
-                    <p className="mb-2 text-[10px] font-bold text-emerald-200/90">آخر طلب مُرسل — قرار المنفذ</p>
-                    <ExecutionInlineAccordion steps={steps} />
+                <div className="overflow-hidden rounded-2xl border border-emerald-500/15 bg-emerald-950/10 text-right">
+                    <button
+                        type="button"
+                        aria-expanded={latestRequestExpanded}
+                        onClick={() => setLatestRequestExpanded((v) => !v)}
+                        className="flex w-full cursor-pointer flex-row-reverse items-center justify-between gap-2 px-4 py-3 text-right transition-colors hover:bg-white/[0.03]"
+                    >
+                        <span className="min-w-0 flex-1 text-right">
+                            <p className="truncate text-[12px] font-bold text-emerald-100">
+                                {String(latestAdminDecision.title || 'طلب إداري').trim()}
+                            </p>
+                            <p className="text-[10px] text-emerald-200/70">{latestAdminStatusLabel}</p>
+                        </span>
+                        {!latestAdminExecutorStripVisible ? (
+                            <ChevronDown
+                                size={18}
+                                className={`shrink-0 text-emerald-300/70 transition-transform duration-200 ${latestRequestExpanded ? 'rotate-180' : ''}`}
+                                aria-hidden
+                            />
+                        ) : null}
+                    </button>
+                    {latestAdminExecutorStripVisible ? (
+                        <div className="border-t border-white/10 px-3 pb-2 pt-2">
+                            <ExecutorDecisionFollowupMirror
+                                executionId={exId}
+                                row={latestAdminDecision as Record<string, unknown>}
+                                requestKind="special_followup"
+                                appealPerspective={appealPerspective}
+                            />
+                        </div>
+                    ) : null}
+                    {latestRequestExpanded ? (
+                        <div className="space-y-2 border-t border-white/10 px-3 pb-3 pt-2">
+                            {String(latestAdminDecision.body || '').trim() ? (
+                                <p className="whitespace-pre-wrap text-[10px] leading-relaxed text-slate-300">
+                                    {String(latestAdminDecision.body || '').trim()}
+                                </p>
+                            ) : null}
+                            <ExecutionInlineAccordion steps={steps} />
+                        </div>
+                    ) : null}
                 </div>
             ) : null}
         </div>

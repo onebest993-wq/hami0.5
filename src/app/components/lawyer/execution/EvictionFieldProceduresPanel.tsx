@@ -34,6 +34,7 @@ import {
     isExecutorRowRejectedAndFinal,
     patchExecutorDecisionRow,
 } from '@/app/utils/executorSeizureDecisionQueue';
+import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 import { useExecutorDecisions } from '@/app/components/lawyer/ExecutionDashboard/hooks/useExecutorDecisions';
 import type { Decision } from '@/app/components/lawyer/DecisionsAndAppealsEngine/types';
 import { isExecutorRequestAppealCycleSupersededFromRecord } from '@/app/components/lawyer/DecisionsAndAppealsEngine/utils';
@@ -55,7 +56,6 @@ import { BreakInventoryFurnitureInlineForm } from '@/app/components/lawyer/execu
 import { MaritalFurnitureDeliveryInventoryForm } from '@/app/components/lawyer/execution/MaritalFurnitureDeliveryInventoryForm';
 import type { MaritalFurnitureItem } from '@/app/types/maritalFurniture';
 import type { BreakInventoryFurnitureSavePayload } from '@/app/utils/executorApprovalWorkflow';
-import { RejectedExecutorResubmitStrip } from '@/app/components/lawyer/execution/RejectedExecutorResubmitStrip';
 import type { InlineActionGateKey } from '@/app/components/lawyer/ExecutionDashboard/types';
 
 export interface EvictionFieldProceduresPanelProps {
@@ -333,6 +333,11 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
         [decisions]
     );
 
+    const isBranchWorkflowComplete = React.useCallback(
+        (branch: string) => Boolean(syncForBranch(branch).workflowComplete),
+        [syncForBranch]
+    );
+
     const isBranchNeedsCompletion = React.useCallback(
         (branch: string) => {
             const sync = syncForBranch(branch);
@@ -360,7 +365,6 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
                     decisionId={sync.decisionId}
                     onOpenAppeals={openAppeals}
                     onWaiveCassation={handleWaiveCassationFromPanel}
-                    onStartCassation={(id) => openAppeals(id)}
                 />
             );
         },
@@ -409,7 +413,7 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
     );
 
     const renderRejectedBranchNotice = React.useCallback(
-        (branch: string, onResubmit: () => void) => {
+        (branch: string, _onResubmit: () => void) => {
             const list = Array.isArray(decisions) ? (decisions as Record<string, unknown>[]) : [];
             const row = getNewestEvictionProcedureRowForBranch(list, branch);
             if (!row?.id || !isExecutorRowRejectedAndFinal(row)) return null;
@@ -445,15 +449,6 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
                                 setInlineExpandedByBranch({});
                             }}
                         />
-                        <RejectedExecutorResubmitStrip
-                            disabled={locked}
-                            linkLabel="أو: إرسال طلب للقرارات"
-                            confirmLabel="تقديم طلب جديد"
-                            onConfirmSubmit={() => {
-                                if (locked) return;
-                                onResubmit();
-                            }}
-                        />
                     </div>
                 </div>
             );
@@ -473,37 +468,72 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
         [branchFollowupBlocked, decisions]
     );
 
-    const branchHasFollowupPanel = React.useCallback(
-        (branch: string) =>
-            branchFollowupBlocked(branch) ||
-            branchHasExistingHubRequest(branch) ||
-            isBranchNeedsCompletion(branch) ||
-            branchShowsRejectedClosure(branch),
-        [branchFollowupBlocked, branchHasExistingHubRequest, branchShowsRejectedClosure, isBranchNeedsCompletion]
+    const isBranchInProgress = React.useCallback(
+        (branch: string) => {
+            if (branchFollowupBlocked(branch) && !branchAppealCycleSuperseded(branch)) return true;
+            if (isBranchNeedsCompletion(branch)) return true;
+            if (branchShowsRejectedClosure(branch)) return true;
+            return branchHasExistingHubRequest(branch);
+        },
+        [
+            branchAppealCycleSuperseded,
+            branchFollowupBlocked,
+            branchHasExistingHubRequest,
+            branchShowsRejectedClosure,
+            isBranchNeedsCompletion,
+        ]
+    );
+
+    /** يُفعَّل الزر عند وجود طلب قائم أو بعد اكتمال دورة سابقة لإعادة الإرسال */
+    const isBranchActionable = React.useCallback(
+        (branch: string) => isBranchInProgress(branch) || isBranchWorkflowComplete(branch),
+        [isBranchInProgress, isBranchWorkflowComplete]
     );
 
     const toggleBranchPanel = React.useCallback((branch: string) => {
         setInlineExpandedByBranch((prev) => ({ ...prev, [branch]: !prev[branch] }));
     }, []);
 
+    const collapseBranchPanel = React.useCallback((branch: string) => {
+        setInlineExpandedByBranch((prev) => {
+            if (!prev[branch]) return prev;
+            const next = { ...prev };
+            delete next[branch];
+            return next;
+        });
+        setInlineActionGateKey(null);
+    }, []);
+
+    const handleBranchPrimaryClick = React.useCallback(
+        (branch: string, openNewRequestGate: () => void) => {
+            if (isBranchInProgress(branch)) {
+                toggleBranchPanel(branch);
+                return;
+            }
+            if (locked && !isBranchWorkflowComplete(branch)) return;
+            openNewRequestGate();
+        },
+        [isBranchInProgress, isBranchWorkflowComplete, locked, toggleBranchPanel]
+    );
+
     React.useEffect(() => {
         setInlineExpandedByBranch((prev) => {
             let changed = false;
             const next = { ...prev };
             for (const b of EVICTION_BRANCH_KEYS) {
-                const shouldOpen = branchHasFollowupPanel(b);
-                if (shouldOpen && !next[b]) {
-                    next[b] = true;
-                    changed = true;
-                }
-                if (!shouldOpen && next[b]) {
+                if (isBranchInProgress(b)) {
+                    if (!next[b]) {
+                        next[b] = true;
+                        changed = true;
+                    }
+                } else if (next[b]) {
                     delete next[b];
                     changed = true;
                 }
             }
             return changed ? next : prev;
         });
-    }, [decisions, branchHasFollowupPanel, EVICTION_BRANCH_KEYS]);
+    }, [decisions, isBranchInProgress, EVICTION_BRANCH_KEYS]);
 
     const submitEvictionRequest = React.useCallback(
         (input: {
@@ -512,6 +542,7 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
             timelineTitle: string;
             timelineDescription: string;
             requestTitle: string;
+            supersedeCompletedHub?: boolean;
         }) => {
             if (locked) return;
             const execId = String(decisionsStorageExecutionId || '').trim();
@@ -535,7 +566,9 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
                 return;
             }
 
-            if (branchHasExistingHubRequest(input.branch)) {
+            const resubmit =
+                input.supersedeCompletedHub === true || isBranchWorkflowComplete(input.branch);
+            if (!resubmit && branchHasExistingHubRequest(input.branch)) {
                 toast('يوجد طلب سابق لنفس الإجراء — لا يمكن إرسال طلب مماثل.', 'warning');
                 return;
             }
@@ -553,9 +586,12 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
                 body: input.timelineDescription,
                 requestKind: 'eviction_procedure',
                 evictionWorkflowKey: workflowKey,
+                supersedeCompletedHub: resubmit,
             });
 
             if (ok) {
+                dispatchDecisionsReload();
+                setInlineActionGateKey(null);
                 setInlineExpandedByBranch((prev) => ({ ...prev, [input.branch]: true }));
             }
             toast(
@@ -567,6 +603,7 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
             decisionsStorageExecutionId,
             fire,
             branchHasExistingHubRequest,
+            isBranchWorkflowComplete,
             locked,
             setInlineExpandedByBranch,
             syncForBranch,
@@ -621,8 +658,9 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
         const rowBlock = renderRowFollowupBlock(row);
         if (rowBlock) return rowBlock;
         const decisionId = String(row.id || '').trim();
+        const list = Array.isArray(decisions) ? (decisions as Record<string, unknown>[]) : [];
         const rejected = isExecutorRowRejectedAndFinal(row);
-        const approved = isExecutorRowEffectivelyApproved(row);
+        const approved = isExecutorRowApprovedWorkflowActive(row, list);
         const pending =
             String(row.executorOutcome ?? 'pending') === 'pending' || String(row.executorOutcome ?? '') === '';
         const scheduleLabel = String(row.executorScheduleLabel || '').trim();
@@ -739,6 +777,7 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
                                         const updated = getExecutorDecisionRowById(decisionsExecId, decisionId) as any;
                                         const ok = String(updated?.executorScheduleLabel || '').trim() !== '';
                                         if (!ok) return;
+                                        collapseBranchPanel('Field Visit Date');
                                         try {
                                             window.dispatchEvent(
                                                 new CustomEvent('hami-eviction-field-visit-scheduled', {
@@ -783,7 +822,7 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
             const newest = getGoverningEvictionProcedureRowForBranch(list, branch);
             if (!newest) return null;
             if (
-                isExecutorRowEffectivelyApproved(newest) &&
+                isExecutorRowApprovedWorkflowActive(newest, list) &&
                 !isExecutorRowRejectedAndFinal(newest) &&
                 isEvictionProcedureRowActive(newest, list)
             ) {
@@ -820,7 +859,8 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
             return renderFieldVisitInline(row);
         }
         const decisionId = String(row.id || '').trim();
-        const approved = isExecutorRowEffectivelyApproved(row);
+        const list = Array.isArray(decisions) ? (decisions as Record<string, unknown>[]) : [];
+        const approved = isExecutorRowApprovedWorkflowActive(row, list);
         if (!approved) return null;
         let effectiveAfterApprove: React.ReactNode = afterApprove ?? null;
         if (!effectiveAfterApprove && branch === 'Police Assistance Request') {
@@ -845,6 +885,7 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
                                 return;
                             }
                             savePoliceAssistance({ decisionId, agencyName, linkToTasks });
+                            queueMicrotask(() => collapseBranchPanel('Police Assistance Request'));
                         }}
                     />
                 ) : (
@@ -905,6 +946,9 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
                             onFinalize={() => {
                                 if (locked) return;
                                 finalizeBreakInventoryRequest({ decisionId });
+                                queueMicrotask(() =>
+                                    collapseBranchPanel('Lock Breaking & Inventory')
+                                );
                             }}
                         />
                     );
@@ -924,6 +968,9 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
                             onFinalize={() => {
                                 if (locked) return;
                                 finalizeBreakInventoryRequest({ decisionId });
+                                queueMicrotask(() =>
+                                    collapseBranchPanel('Lock Breaking & Inventory')
+                                );
                             }}
                         />
                     );
@@ -968,40 +1015,13 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
         );
     };
 
-    const renderCompletedBranchStrip = React.useCallback(
-        (branch: string) => {
-            const list = Array.isArray(decisions) ? (decisions as Record<string, unknown>[]) : [];
-            const row = getGoverningEvictionProcedureRowForBranch(list, branch);
-            if (!row?.id || !isEvictionProcedureRowWorkflowComplete(row)) return null;
-            const scheduleLabel = String((row as { executorScheduleLabel?: string }).executorScheduleLabel || '').trim();
-            if (branch === 'Field Visit Date' && scheduleLabel) {
-                return (
-                    <div className="border-t border-white/10 px-3 pb-3 pt-2">
-                        <div className="rounded-2xl border border-emerald-500/25 bg-emerald-950/20 p-3 text-right">
-                            <p className="text-[11px] font-black text-emerald-100">تم تحديد الموعد</p>
-                            <p className="mt-1 text-[10px] leading-relaxed text-emerald-200/90">{scheduleLabel}</p>
-                        </div>
-                    </div>
-                );
-            }
-            return (
-                <div className="border-t border-white/10 px-3 pb-3 pt-2">
-                    <div className="rounded-2xl border border-emerald-500/25 bg-emerald-950/20 p-3 text-right">
-                        <p className="text-[11px] font-black text-emerald-100">تمت الموافقة — اكتمل الإجراء</p>
-                    </div>
-                </div>
-            );
-        },
-        [decisions]
-    );
-
     const renderEvictionBranchPanelBody = (
         branch: string,
         label: string,
         afterApprove?: React.ReactNode,
         onRejectedResubmit?: () => void
     ) => {
-        if (!inlineExpandedByBranch[branch]) return null;
+        if (!inlineExpandedByBranch[branch] || !isBranchInProgress(branch)) return null;
         const followupStrip = branchFollowupBlocked(branch) ? renderFollowupBlockStrip(branch) : null;
         const pendingStrip = renderPendingDecisionStrip(branch);
         const rejectedNotice =
@@ -1012,10 +1032,8 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
             branchFollowupBlocked(branch) && followupStrip
                 ? null
                 : renderInlineDecision(branch, label, afterApprove);
-        const completedStrip = renderCompletedBranchStrip(branch);
-        const body = followupStrip || pendingStrip || inlinePanel || rejectedNotice || completedStrip;
+        const body = followupStrip || pendingStrip || inlinePanel || rejectedNotice;
         if (body) return <>{body}</>;
-        if (!branchHasFollowupPanel(branch)) return null;
         return (
             <div className="border-t border-white/10 px-3 py-3 text-[10px] leading-relaxed text-slate-400 text-right">
                 لا تتوفر خطوة تالية هنا — افتح «القرارات والطعون» لمتابعة الطلب.
@@ -1024,7 +1042,7 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
     };
 
     const renderBranchChevron = (branch: string) => {
-        if (!branchHasFollowupPanel(branch)) return null;
+        if (!isBranchInProgress(branch)) return null;
         const open = Boolean(inlineExpandedByBranch[branch]);
         return (
             <ChevronDown
@@ -1127,32 +1145,25 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
                 {showEvictionFieldworkRequests ? (
                 <div
                     className={`relative rounded-2xl border border-white/10 bg-black/10 ${
-                        inlineExpandedByBranch['Field Visit Date'] || branchHasFollowupPanel('Field Visit Date')
+                        inlineExpandedByBranch['Field Visit Date'] && isBranchInProgress('Field Visit Date')
                             ? 'overflow-visible'
                             : 'overflow-hidden'
                     }`}
                 >
                     <motion.button
                         type="button"
-                        disabled={locked && !branchHasFollowupPanel('Field Visit Date')}
-                        aria-expanded={Boolean(inlineExpandedByBranch['Field Visit Date'])}
-                        className={`${BTN_BASE} ${TONE_FIELD_VISIT} ${locked && !branchHasFollowupPanel('Field Visit Date') ? BTN_DISABLED : ''} rounded-none border-0`}
+                        disabled={locked && !isBranchActionable('Field Visit Date')}
+                        aria-expanded={Boolean(
+                            inlineExpandedByBranch['Field Visit Date'] &&
+                                isBranchInProgress('Field Visit Date')
+                        )}
+                        className={`${BTN_BASE} ${TONE_FIELD_VISIT} ${locked && !isBranchActionable('Field Visit Date') ? BTN_DISABLED : ''} rounded-none border-0`}
                         onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            if (
-                                branchFollowupBlocked('Field Visit Date') &&
-                                !branchAppealCycleSuperseded('Field Visit Date')
-                            ) {
-                                toggleBranchPanel('Field Visit Date');
-                                return;
-                            }
-                            if (branchHasFollowupPanel('Field Visit Date')) {
-                                toggleBranchPanel('Field Visit Date');
-                                return;
-                            }
-                            if (locked) return;
-                            setInlineActionGateKey('eviction_field_visit');
+                            handleBranchPrimaryClick('Field Visit Date', () =>
+                                setInlineActionGateKey('eviction_field_visit')
+                            );
                         }}
                         variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
                     >
@@ -1166,10 +1177,15 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
                             {renderBranchChevron('Field Visit Date')}
                         </div>
                     </motion.button>
-                    {!branchHasExistingHubRequest('Field Visit Date') ? (
+                    {!isBranchInProgress('Field Visit Date') ? (
                         <InlineActionGate
                             gateKey="eviction_field_visit"
                             activeKey={inlineActionGateKey}
+                            mode={
+                                isBranchWorkflowComplete('Field Visit Date')
+                                    ? 'resubmit_warning'
+                                    : 'initial'
+                            }
                             onConfirm={() =>
                                 submitEvictionRequest({
                                     actionId: EVICTION_TIMELINE_ACTION_IDS.FIELD_VISIT,
@@ -1178,6 +1194,7 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
                                     timelineDescription:
                                         'تم جدولة / تحديد موعد الخروج الميداني مع منفذ العدل (باشر).',
                                     requestTitle: 'طلب تحديد موعد الخروج الميداني',
+                                    supersedeCompletedHub: isBranchWorkflowComplete('Field Visit Date'),
                                 })
                             }
                             onCancel={() => setInlineActionGateKey(null)}
@@ -1200,26 +1217,19 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
                 >
                     <motion.button
                         type="button"
-                        disabled={locked && !branchHasFollowupPanel('Police Assistance Request')}
-                        aria-expanded={Boolean(inlineExpandedByBranch['Police Assistance Request'])}
-                        className={`${BTN_BASE} ${TONE_POLICE} ${locked && !branchHasFollowupPanel('Police Assistance Request') ? BTN_DISABLED : ''} rounded-none border-0`}
+                        disabled={locked && !isBranchActionable('Police Assistance Request')}
+                        aria-expanded={Boolean(
+                            inlineExpandedByBranch['Police Assistance Request'] &&
+                                isBranchInProgress('Police Assistance Request')
+                        )}
+                        className={`${BTN_BASE} ${TONE_POLICE} ${locked && !isBranchActionable('Police Assistance Request') ? BTN_DISABLED : ''} rounded-none border-0`}
                         ref={policeBtnRef}
                         onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            if (
-                                branchFollowupBlocked('Police Assistance Request') &&
-                                !branchAppealCycleSuperseded('Police Assistance Request')
-                            ) {
-                                toggleBranchPanel('Police Assistance Request');
-                                return;
-                            }
-                            if (branchHasFollowupPanel('Police Assistance Request')) {
-                                toggleBranchPanel('Police Assistance Request');
-                                return;
-                            }
-                            if (locked) return;
-                            setInlineActionGateKey('eviction_police_force');
+                            handleBranchPrimaryClick('Police Assistance Request', () =>
+                                setInlineActionGateKey('eviction_police_force')
+                            );
                         }}
                         variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
                     >
@@ -1233,10 +1243,15 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
                             {renderBranchChevron('Police Assistance Request')}
                         </div>
                     </motion.button>
-                    {!branchHasExistingHubRequest('Police Assistance Request') ? (
+                    {!isBranchInProgress('Police Assistance Request') ? (
                         <InlineActionGate
                             gateKey="eviction_police_force"
                             activeKey={inlineActionGateKey}
+                            mode={
+                                isBranchWorkflowComplete('Police Assistance Request')
+                                    ? 'resubmit_warning'
+                                    : 'initial'
+                            }
                             onConfirm={() =>
                                 submitEvictionRequest({
                                     actionId: EVICTION_TIMELINE_ACTION_IDS.POLICE_FORCE,
@@ -1245,6 +1260,9 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
                                     timelineDescription:
                                         'طلب قوة جبرية مساندة للتنفيذ الميداني (قرار منفذ). عند الموافقة: احفظ الجهة المرافقة من بطاقة القرار.',
                                     requestTitle: 'مفاتحة الشرطة للقوة الإجرائية',
+                                    supersedeCompletedHub: isBranchWorkflowComplete(
+                                        'Police Assistance Request'
+                                    ),
                                 })
                             }
                             onCancel={() => setInlineActionGateKey(null)}
@@ -1267,25 +1285,18 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
                     >
                         <motion.button
                             type="button"
-                            disabled={locked && !branchHasFollowupPanel('Residential Grace Early End')}
-                            aria-expanded={Boolean(inlineExpandedByBranch['Residential Grace Early End'])}
-                            className={`${BTN_BASE} ${TONE_EARLY_END} ${locked && !branchHasFollowupPanel('Residential Grace Early End') ? BTN_DISABLED : ''} rounded-none border-0`}
+                            disabled={locked && !isBranchActionable('Residential Grace Early End')}
+                            aria-expanded={Boolean(
+                                inlineExpandedByBranch['Residential Grace Early End'] &&
+                                    isBranchInProgress('Residential Grace Early End')
+                            )}
+                            className={`${BTN_BASE} ${TONE_EARLY_END} ${locked && !isBranchActionable('Residential Grace Early End') ? BTN_DISABLED : ''} rounded-none border-0`}
                             onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                if (
-                                    branchFollowupBlocked('Residential Grace Early End') &&
-                                    !branchAppealCycleSuperseded('Residential Grace Early End')
-                                ) {
-                                    toggleBranchPanel('Residential Grace Early End');
-                                    return;
-                                }
-                                if (branchHasFollowupPanel('Residential Grace Early End')) {
-                                    toggleBranchPanel('Residential Grace Early End');
-                                    return;
-                                }
-                                if (locked) return;
-                                setConfirmGate('early_end');
+                                handleBranchPrimaryClick('Residential Grace Early End', () =>
+                                    setConfirmGate('early_end')
+                                );
                             }}
                             variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
                         >
@@ -1322,6 +1333,9 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
                                             timelineDescription:
                                                 'طلب عرض على منفذ العدل لإنهاء مهلة التخلية السكنية قبل انتهاء المدة وإعادة دورة المهلة في الإضبارة عند الموافقة.',
                                             requestTitle: 'طلب إنهاء مهلة التخلية السكنية (موافقة المنفذ)',
+                                            supersedeCompletedHub: isBranchWorkflowComplete(
+                                                'Residential Grace Early End'
+                                            ),
                                         });
                                     } finally {
                                         setConfirmBusy(false);
@@ -1363,25 +1377,18 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
                 >
                     <motion.button
                         type="button"
-                        disabled={locked && !branchHasFollowupPanel('Lock Breaking & Inventory')}
-                        aria-expanded={Boolean(inlineExpandedByBranch['Lock Breaking & Inventory'])}
-                        className={`${BTN_BASE} ${TONE_BREAK} ${locked && !branchHasFollowupPanel('Lock Breaking & Inventory') ? BTN_DISABLED : ''} rounded-none border-0`}
+                        disabled={locked && !isBranchActionable('Lock Breaking & Inventory')}
+                        aria-expanded={Boolean(
+                            inlineExpandedByBranch['Lock Breaking & Inventory'] &&
+                                isBranchInProgress('Lock Breaking & Inventory')
+                        )}
+                        className={`${BTN_BASE} ${TONE_BREAK} ${locked && !isBranchActionable('Lock Breaking & Inventory') ? BTN_DISABLED : ''} rounded-none border-0`}
                         onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            if (
-                                branchFollowupBlocked('Lock Breaking & Inventory') &&
-                                !branchAppealCycleSuperseded('Lock Breaking & Inventory')
-                            ) {
-                                toggleBranchPanel('Lock Breaking & Inventory');
-                                return;
-                            }
-                            if (branchHasFollowupPanel('Lock Breaking & Inventory')) {
-                                toggleBranchPanel('Lock Breaking & Inventory');
-                                return;
-                            }
-                            if (locked) return;
-                            setInlineActionGateKey('eviction_break_inventory');
+                            handleBranchPrimaryClick('Lock Breaking & Inventory', () =>
+                                setInlineActionGateKey('eviction_break_inventory')
+                            );
                         }}
                         variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
                     >
@@ -1395,10 +1402,15 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
                             {renderBranchChevron('Lock Breaking & Inventory')}
                         </div>
                     </motion.button>
-                    {!branchHasExistingHubRequest('Lock Breaking & Inventory') ? (
+                    {!isBranchInProgress('Lock Breaking & Inventory') ? (
                         <InlineActionGate
                             gateKey="eviction_break_inventory"
                             activeKey={inlineActionGateKey}
+                            mode={
+                                isBranchWorkflowComplete('Lock Breaking & Inventory')
+                                    ? 'resubmit_warning'
+                                    : 'initial'
+                            }
                             onConfirm={() =>
                                 submitEvictionRequest({
                                     actionId: EVICTION_TIMELINE_ACTION_IDS.BREAK_INVENTORY,
@@ -1407,6 +1419,9 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
                                     timelineDescription:
                                         'طلب عرض على منفذ العدل بشأن كسر الأقفال وجرد محتويات المنقولات في العين المؤجرة.',
                                     requestTitle: 'طلب كسر الأقفال وجرد الأثاث',
+                                    supersedeCompletedHub: isBranchWorkflowComplete(
+                                        'Lock Breaking & Inventory'
+                                    ),
                                 })
                             }
                             onCancel={() => setInlineActionGateKey(null)}
@@ -1429,25 +1444,18 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
                     >
                         <motion.button
                             type="button"
-                            disabled={locked && !branchHasFollowupPanel('Judicial Custodian')}
-                            aria-expanded={Boolean(inlineExpandedByBranch['Judicial Custodian'])}
-                            className={`${BTN_BASE} ${TONE_CUSTODIAN} ${locked && !branchHasFollowupPanel('Judicial Custodian') ? BTN_DISABLED : ''} rounded-none border-0`}
+                            disabled={locked && !isBranchActionable('Judicial Custodian')}
+                            aria-expanded={Boolean(
+                                inlineExpandedByBranch['Judicial Custodian'] &&
+                                    isBranchInProgress('Judicial Custodian')
+                            )}
+                            className={`${BTN_BASE} ${TONE_CUSTODIAN} ${locked && !isBranchActionable('Judicial Custodian') ? BTN_DISABLED : ''} rounded-none border-0`}
                             onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                if (
-                                    branchFollowupBlocked('Judicial Custodian') &&
-                                    !branchAppealCycleSuperseded('Judicial Custodian')
-                                ) {
-                                    toggleBranchPanel('Judicial Custodian');
-                                    return;
-                                }
-                                if (branchHasFollowupPanel('Judicial Custodian')) {
-                                    toggleBranchPanel('Judicial Custodian');
-                                    return;
-                                }
-                                if (locked) return;
-                                setConfirmGate('custodian');
+                                handleBranchPrimaryClick('Judicial Custodian', () =>
+                                    setConfirmGate('custodian')
+                                );
                             }}
                             variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
                         >
@@ -1485,6 +1493,9 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
                                             timelineTitle: '👤 طلب تنصيب حارس قضائي',
                                             timelineDescription: 'طلب عرض على منفذ العدل لتنصيب حارس قضائي على العين.',
                                             requestTitle: 'طلب تنصيب حارس قضائي',
+                                            supersedeCompletedHub: isBranchWorkflowComplete(
+                                                'Judicial Custodian'
+                                            ),
                                         });
                                     } finally {
                                         setConfirmBusy(false);

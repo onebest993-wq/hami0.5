@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { X } from 'lucide-react';
 import type { DecisionsHubProps } from '@/app/components/lawyer/DecisionsHub';
@@ -18,6 +18,20 @@ export const ExecutionDecisionsModalContainer: React.FC<
     LazyDecisionsAndAppealsEngine,
     ...hubProps
 }) => {
+    useEffect(() => {
+        if (!showDecisionsModal) return;
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onCloseDecisionsModal();
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => {
+            document.body.style.overflow = prevOverflow;
+            window.removeEventListener('keydown', onKeyDown);
+        };
+    }, [showDecisionsModal, onCloseDecisionsModal]);
+
     if (!showDecisionsModal) return null;
 
     return (

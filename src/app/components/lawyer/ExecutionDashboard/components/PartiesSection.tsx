@@ -28,8 +28,7 @@ type PartiesSectionProps = {
     effectiveCreditors: any[];
     heirsDetailsIncludeClient: (heirsDetails: any) => boolean;
     executionAppealBanner: { show: boolean; label: string };
-    setDecisionsModalBootHubTab: React.Dispatch<React.SetStateAction<'appeals'>>;
-    setShowDecisionsModal: (show: boolean) => void;
+    onOpenDecisionsAppealsTab: () => void;
     partyBadgesExecutionId: string;
     viewExecutionData: any;
     activeCoerciveActions: any[];
@@ -90,8 +89,7 @@ export const PartiesSection = memo(function PartiesSection({
     effectiveCreditors,
     heirsDetailsIncludeClient,
     executionAppealBanner,
-    setDecisionsModalBootHubTab,
-    setShowDecisionsModal,
+    onOpenDecisionsAppealsTab,
     partyBadgesExecutionId,
     viewExecutionData,
     activeCoerciveActions,
@@ -309,8 +307,7 @@ export const PartiesSection = memo(function PartiesSection({
                                                     type="button"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        setDecisionsModalBootHubTab('appeals');
-                                                        setShowDecisionsModal(true);
+                                                        onOpenDecisionsAppealsTab();
                                                     }}
                                                     className="max-w-[10rem] shrink-0 truncate inline-flex items-center rounded-md border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-[10px] font-normal text-red-500 transition-colors hover:bg-red-500/15"
                                                     title={`طعن ساري: ${executionAppealBanner.label} — افتح مركز الطعون`}
@@ -352,8 +349,7 @@ export const PartiesSection = memo(function PartiesSection({
                                                     type="button"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        setDecisionsModalBootHubTab('appeals');
-                                                        setShowDecisionsModal(true);
+                                                        onOpenDecisionsAppealsTab();
                                                     }}
                                                     className="max-w-[10rem] shrink-0 truncate inline-flex items-center rounded-md border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-[10px] font-normal text-red-500 transition-colors hover:bg-red-500/15"
                                                     title={`طعن ساري: ${executionAppealBanner.label} — افتح مركز الطعون`}

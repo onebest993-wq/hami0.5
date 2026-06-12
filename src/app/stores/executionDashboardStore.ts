@@ -73,12 +73,15 @@ export function timelineEventBelongsToInabaDossier(
 /** حدث يخص الإضبارة الأم — يستبعد كل ما يُوسَم لإضبارة الإنابة */
 export function timelineEventBelongsToParentDossier(
     event: TimelineEvent | null | undefined,
-    _parentId: string
+    parentId: string
 ): boolean {
     if (!event || (event as { trashedAt?: string }).trashedAt) return false;
     const meta = ((event as { metadata?: Record<string, unknown> }).metadata || {}) as Record<string, unknown>;
     if (String(meta.dossierScope || '') === DOSSIER_SCOPE_INABA) return false;
     if (String(meta.inabaSubFileId || '').trim()) return false;
+    const pid = String(parentId || '').trim();
+    const taggedParent = String(meta.parentExecutionId || '').trim();
+    if (taggedParent && pid && taggedParent !== pid) return false;
     return true;
 }
 
@@ -154,6 +157,19 @@ export function stampInabaTimelineEventMetadata(
         dossierScope: DOSSIER_SCOPE_INABA,
         inabaSubFileId: subFileId,
         parentExecutionId: parentId,
+    };
+    return { ...event, metadata: meta } as TimelineEvent;
+}
+
+export function stampParentTimelineEventMetadata(
+    event: TimelineEvent,
+    parentId: string
+): TimelineEvent {
+    const pid = String(parentId || '').trim();
+    const meta = {
+        ...(((event as { metadata?: Record<string, unknown> }).metadata || {}) as Record<string, unknown>),
+        dossierScope: DOSSIER_SCOPE_PARENT,
+        ...(pid ? { parentExecutionId: pid } : {}),
     };
     return { ...event, metadata: meta } as TimelineEvent;
 }

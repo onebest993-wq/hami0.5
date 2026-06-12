@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { computeSmartTimelineRadarTop } from '@/app/utils/timelineSmartDisplay';
+import {
+    computeSmartTimelineRadarTop,
+    prepareTimelineRadarEvents,
+    timelineDescriptionForDisplay,
+    timelineRadarRowKey,
+} from '@/app/utils/timelineSmartDisplay';
 import type { TimelineEvent } from '@/app/types/execution';
 
 function addDaysYmd(offsetDays: number): string {
@@ -71,5 +76,55 @@ describe('computeSmartTimelineRadarTop', () => {
             })
         );
         expect(computeSmartTimelineRadarTop(many, { limit: 5 })).toHaveLength(5);
+    });
+});
+
+describe('timelineDescriptionForDisplay', () => {
+    it('strips title prefix and keeps the substantive tail', () => {
+        const event = ev({
+            id: 'trust',
+            title: 'صرف من الأمانات',
+            date: '2026-06-01',
+            type: 'financial',
+            description: 'صرف من الأمانات تم صرف ٦٠٠٬٠٠٠ د.ع من رصيد الأمانات',
+        });
+        expect(timelineDescriptionForDisplay(event)).toBe('تم صرف ٦٠٠٬٠٠٠ د.ع من رصيد الأمانات');
+    });
+
+    it('strips title from first line and keeps detail lines', () => {
+        const event = ev({
+            id: 'third',
+            title: 'استلام أموال محجوزة لدى الغير',
+            date: '2026-06-01',
+            type: 'financial',
+            description:
+                'استلام أموال محجوزة لدى الغير\nالجهة: الالب\nالمبلغ المُسلَّم: ٧٧٨٬٨٨٨ د.ع',
+        });
+        expect(timelineDescriptionForDisplay(event)).toBe(
+            'الجهة: الالب\nالمبلغ المُسلَّم: ٧٧٨٬٨٨٨ د.ع'
+        );
+    });
+
+    it('dedupes identical lines in multi-line description', () => {
+        const event = ev({
+            id: 'dup',
+            title: 'حدث',
+            date: '2026-06-01',
+            type: 'other',
+            description: 'سطر واحد\nسطر واحد\nسطر ثانٍ',
+        });
+        expect(timelineDescriptionForDisplay(event)).toBe('سطر واحد\nسطر ثانٍ');
+    });
+});
+
+describe('prepareTimelineRadarEvents', () => {
+    it('assigns unique ids for duplicate raw ids', () => {
+        const events: TimelineEvent[] = [
+            ev({ id: 'same', title: 'أ', date: '2026-06-01', type: 'other', timestamp: '2026-06-01T10:00:00Z' }),
+            ev({ id: 'same', title: 'ب', date: '2026-06-02', type: 'other', timestamp: '2026-06-02T10:00:00Z' }),
+        ];
+        const prepared = prepareTimelineRadarEvents(events);
+        expect(prepared.map((e) => e.id)).toEqual(['same', 'same__2']);
+        expect(timelineRadarRowKey(prepared[0])).not.toBe(timelineRadarRowKey(prepared[1]));
     });
 });

@@ -1,7 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { motion } from 'motion/react';
 import {
-    AppealResultChip,
     ArchiveDecisionButton,
     DECISION_NOTICE_GLASS,
     DECISION_META_CHIP,
@@ -41,13 +40,11 @@ import {
     isCreditorPartyRequest,
     resolveDebtorAgentRequestFateLine,
     shouldHideDebtorAgentFateLine,
-    shouldShowAppealResultChipSeparate,
-    resolveAppealResultActorForClient,
-    resolveEffectiveAppealActor,
     resolveEffectiveAwaitingCassationParty,
-    COMPACT_APPEAL_PROCEEDINGS_MAX,
     decisionCardSurfaceClasses,
     isExecutorDecisionAppealFinal,
+    canArchiveExecutorDecisionCard,
+    isExecutorSideAwaitingAppealEntry,
 } from '../utils';
 import { AppealProceedingsSummary } from './AppealProceedingsSummary';
 import type { AppealDeadlineWindows, DecisionsAppealsAppealSlot } from '../utils';
@@ -172,6 +169,7 @@ function DecisionCard({
         const cleaned = idx > 10 ? withoutDate.slice(0, idx).trim() : withoutDate;
         return cleaned.replace(/^بتاريخ\s+\d{4}[\/-]\d{2}[\/-]\d{2}:\s*/, '');
     })();
+    const isManualLedgerCard = decision.manualExecutorLedgerEntry === true;
     const hubStatus = deriveDecisionHubStatus(decision, requestNeedsExecutorOutcome);
     const showExecutorPendingFooter = hubStatus === 'pending';
     const workflowState = decision.appealWorkflowState ?? 'NONE';
@@ -204,13 +202,7 @@ function DecisionCard({
     const { statusPillEl } = buildDecisionCardStatus(decision, appealWindowClosed, decisions);
     const pipelineRow = appealPipelineRowForCard(decision, decisions);
     const appealProceedings = buildAppealProceedingsForDecision(pipelineRow, appealPerspective);
-    const showRegisteredAppealPathLine = appealProceedings.length > 0;
-    const compactAppealProceedings =
-        showRegisteredAppealPathLine &&
-        appealProceedings.length <= COMPACT_APPEAL_PROCEEDINGS_MAX;
-    const expandableAppealProceedings =
-        showRegisteredAppealPathLine &&
-        appealProceedings.length > COMPACT_APPEAL_PROCEEDINGS_MAX;
+    const showRegisteredAppealPathLine = appealProceedings.length > 0 && !appealBusyOnCopy;
     const requestAppealGate = resolveCreditorRequestAppealGate(
         decision,
         pipelineRow,
@@ -227,7 +219,8 @@ function DecisionCard({
         appealPerspective
     );
     /** عند إيقاف/إعادة دورة الطلب تُعرض الإجراءات في لوحة البوابة أعلاه — لا تكرار المسار القديم */
-    const legacyAppealActionsVisible = requestAppealGate.kind === 'continue';
+    const legacyAppealActionsVisible =
+        requestAppealGate.kind === 'continue' && !appealBusyOnCopy;
     const awaitingCreditorCassationEntry =
         appealPerspective === 'debtor_agent' &&
         requestAppealGate.kind === 'paused' &&
@@ -508,12 +501,12 @@ function DecisionCard({
         enforcementState.pillLabel,
         requestAppealGate
     );
-    const showAppealResultChip =
-        Boolean(pipelineRow.appealResult) &&
-        shouldShowAppealResultChipSeparate(enforcementState.pillLabel, appealPerspective);
-    const appealResultActor =
-        resolveAppealResultActorForClient(pipelineRow, decision, appealPerspective) ??
-        resolveEffectiveAppealActor(pipelineRow, decision, appealPerspective);
+    const canArchive = canArchiveExecutorDecisionCard(decision, pipelineRow, {
+        hubTab: decisionsHubTab,
+        settled,
+        appealLegallyFinal,
+    });
+    const executorAppealEntryOpen = isExecutorSideAwaitingAppealEntry(decision, pipelineRow);
 
     return (
         <motion.div
@@ -539,7 +532,9 @@ function DecisionCard({
                                     : undefined
                             }
                         />
-                        <h4 className="break-words text-sm font-bold text-slate-100">{titleClean}</h4>
+                        <h4 className="break-words text-sm font-bold text-slate-100">
+                            الطلب: {titleClean}
+                        </h4>
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
                         {decisionsHubTab === 'current' && requestNeedsExecutorOutcome(decision) ? (
@@ -554,7 +549,7 @@ function DecisionCard({
                                 </svg>
                             </button>
                         ) : null}
-                        {decisionsHubTab === 'previous' && settled && !decision.isArchived ? (
+                        {canArchive ? (
                             <ArchiveDecisionButton onClick={() => onArchiveDecision(decision.id)} />
                         ) : null}
                         {statusPillEl}
@@ -588,21 +583,15 @@ function DecisionCard({
                     ) : null}
                 </div>
 
-                {(debtorsCount > 1 && debtorName) || showRegisteredAppealPathLine ? (
+                {(debtorsCount > 1 && debtorName) ||
+                (showRegisteredAppealPathLine && !isManualLedgerCard) ? (
                     <div className="mt-1 border-t border-white/5 pt-2 space-y-1">
                         {debtorsCount > 1 && debtorName ? (
                             <p className="text-sm text-gray-300">
                                 {debtorName}
                             </p>
                         ) : null}
-                        {compactAppealProceedings ? (
-                            <div className="rounded-lg border border-white/5 bg-white/[0.03] p-2.5">
-                                <AppealProceedingsSummary
-                                    row={pipelineRow}
-                                    perspective={appealPerspective}
-                                />
-                            </div>
-                        ) : expandableAppealProceedings ? (
+                        {showRegisteredAppealPathLine && !isManualLedgerCard ? (
                             <>
                                 <div className="flex items-center gap-2 text-[11px] text-gray-400">
                                     <button
@@ -631,7 +620,8 @@ function DecisionCard({
             </div>
 
             <div className="mt-2 flex min-w-0 flex-col gap-1.5 text-right">
-                {requestAppealGate.kind !== 'continue' &&
+                {!isManualLedgerCard &&
+                requestAppealGate.kind !== 'continue' &&
                 !decision.isArchived &&
                 !appealCycleSealed ? (
                     <div className="space-y-2">
@@ -765,27 +755,59 @@ function DecisionCard({
                     </div>
                 ) : null}
 
-                {canManageAppealHere && (
+                {isManualLedgerCard &&
+                decisionsHubTab === 'previous' &&
+                !decision.isArchived ? (
+                    <div className="flex flex-row-reverse gap-2">
+                        <button
+                            type="button"
+                            onClick={() =>
+                                patchDecisionRow(decision.id, { manualExecutorEnforced: true })
+                            }
+                            className={
+                                decision.manualExecutorEnforced === true
+                                    ? btnPrimaryFlex
+                                    : btnSecondaryFlex
+                            }
+                        >
+                            القرار نافذ
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() =>
+                                patchDecisionRow(decision.id, { manualExecutorEnforced: false })
+                            }
+                            className={
+                                decision.manualExecutorEnforced !== true
+                                    ? btnPrimaryFlex
+                                    : btnSecondaryFlex
+                            }
+                        >
+                            غير نافذ
+                        </button>
+                    </div>
+                ) : null}
+                {!isManualLedgerCard && appealBusyOnCopy && decision.activeAppealCopyId ? (
+                    <button
+                        type="button"
+                        onClick={() => goToAppealsWithScroll(decision.activeAppealCopyId!)}
+                        className={btnPrimaryWFull}
+                    >
+                        متابعة الطعن في سجل الطعون
+                    </button>
+                ) : null}
+                {!isManualLedgerCard && canManageAppealHere && !appealBusyOnCopy ? (
                     <div className="flex w-full min-w-0 flex-col gap-2">
-                        {!appealWindowClosed &&
-                            !hasActiveAppeal &&
-                            canShowAppealInitialForDecision(decision) &&
+                        {(executorAppealEntryOpen ||
+                            (!appealWindowClosed &&
+                                !hasActiveAppeal &&
+                                canShowAppealInitialForDecision(decision))) &&
                             renderAppealEntryButtons(decision, windows, {
                                 pathLockedOnOriginal: appealBusyOnCopy,
                                 lockedBecauseActiveCopy: appealBusyOnCopy,
                             })}
-                        {showAppealResultChip && pipelineRow.appealResult ? (
-                            <div className="flex justify-end">
-                                <AppealResultChip
-                                    result={pipelineRow.appealResult}
-                                    flowGateKind={requestAppealGate.kind}
-                                    perspective={appealPerspective}
-                                    appealActor={appealResultActor}
-                                />
-                            </div>
-                        ) : null}
                     </div>
-                )}
+                ) : null}
 
                 {requestNeedsExecutorOutcome(decision) && dispatcherHub && (
                     <div className="space-y-2">

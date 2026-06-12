@@ -5,6 +5,7 @@ import type { EvictionTimelineActionId } from '@/app/utils/executionModuleStrate
 import { EVICTION_TIMELINE_ACTION_IDS } from '@/app/utils/executionModuleStrategies';
 import type { EvictionRequestKind } from '@/app/utils/executorSeizureDecisionQueue';
 import type { EvictionExecutorWorkflowKey } from '@/app/utils/executorApprovalWorkflow';
+import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 import {
     dispatchDecisionsReload,
     getGoverningEvictionProcedureRowForBranch,
@@ -347,7 +348,7 @@ export const EvictionProceduresSection: React.FC<EvictionProceduresSectionProps>
         row: Record<string, unknown>,
         branch: string
     ): React.ReactNode => {
-        if (!isExecutorRowEffectivelyApproved(row)) return null;
+        if (!isExecutorRowApprovedWorkflowActive(row, decisionRows)) return null;
         if (isEvictionProcedureRowWorkflowComplete(row)) return null;
         const decisionId = String(row.id || '').trim();
         if (!decisionId) return null;
@@ -433,7 +434,7 @@ export const EvictionProceduresSection: React.FC<EvictionProceduresSectionProps>
         if (!row?.id) return null;
         const decisionId = String(row.id || '').trim();
         const rejected = isExecutorRowRejectedAndFinal(row);
-        const approved = isExecutorRowEffectivelyApproved(row);
+        const approved = isExecutorRowApprovedWorkflowActive(row, decisionRows);
         const pending =
             String(row.executorOutcome ?? 'pending') === 'pending' ||
             String(row.executorOutcome ?? '') === '';

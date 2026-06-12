@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, memo } from 'react';
 import { motion, LayoutGroup, AnimatePresence } from 'motion/react';
 import { ChevronDown, History, Pin } from 'lucide-react';
 import type { TimelineEvent } from '@/app/types/execution';
@@ -6,13 +6,14 @@ import {
     cleanTimelineCardTitle,
     computeSmartTimelineRadarTop,
     formatTimelineWhenAr,
-    mergeLegacyEvictionResidentialGracePairs,
     parseTimelineDeadlineDate,
+    prepareTimelineRadarEvents,
     stripEmojisFromText,
     timelineCardTitleClassName,
+    timelineDescriptionForDisplay,
+    timelineRadarRowKey,
     timelineSourceForDisplay,
 } from '@/app/utils/timelineSmartDisplay';
-import { dedupeTimelineEventsForDisplay } from '@/app/utils/timelineDedup';
 
 function formatDeadlineLineAr(daysLeft: number, deadlineRaw: string | undefined): string {
     const d = parseTimelineDeadlineDate(deadlineRaw);
@@ -43,16 +44,14 @@ export interface SmartTimelineRadarProps {
     isHistoricalMode?: boolean;
 }
 
-export const SmartTimelineRadar: React.FC<SmartTimelineRadarProps> = ({
+export const SmartTimelineRadar = memo(function SmartTimelineRadar({
     events,
     onTogglePin,
     onOpenFull,
     previewLimit = 5,
     isHistoricalMode = false,
-}) => {
-    const prepared = useMemo(() => {
-        return mergeLegacyEvictionResidentialGracePairs(dedupeTimelineEventsForDisplay(events));
-    }, [events]);
+}: SmartTimelineRadarProps) {
+    const prepared = useMemo(() => prepareTimelineRadarEvents(events), [events]);
 
     const topRows = useMemo(
         () => computeSmartTimelineRadarTop(prepared, { limit: previewLimit }),
@@ -71,15 +70,7 @@ export const SmartTimelineRadar: React.FC<SmartTimelineRadarProps> = ({
     }, [prepared]);
 
     useEffect(() => {
-        const allowed = new Set(
-            topRows.map((e) => {
-                const baseTime =
-                    e.timestamp && String(e.timestamp).trim() !== '' ? e.timestamp : e.date;
-                const id = String(e.id ?? '').trim();
-                const t = String(baseTime ?? '').trim();
-                return `${id || 'tl'}__${t || 't'}`;
-            })
-        );
+        const allowed = new Set(topRows.map((e) => timelineRadarRowKey(e)));
         setExpandedById((prev) => {
             let changed = false;
             const next: Record<string, boolean> = {};
@@ -116,8 +107,9 @@ export const SmartTimelineRadar: React.FC<SmartTimelineRadarProps> = ({
                                 event.timestamp && String(event.timestamp).trim() !== ''
                                     ? event.timestamp
                                     : event.date;
-                            const rowKey = `${String(event.id ?? '').trim() || 'tl'}__${String(headerTime).trim() || 't'}`;
+                            const rowKey = timelineRadarRowKey(event);
                             const radarOpen = Boolean(expandedById[rowKey]);
+                            const descriptionTrim = timelineDescriptionForDisplay(event);
                             const metaLine = `${srcRadar ? `${srcRadar} • ` : ''}${formatTimelineWhenAr(headerTime)}`;
 
                             return (
@@ -150,9 +142,9 @@ export const SmartTimelineRadar: React.FC<SmartTimelineRadarProps> = ({
                                                 <p className={`text-sm font-bold leading-tight ${titleClass}`}>
                                                     {cleanTimelineCardTitle(event)}
                                                 </p>
-                                                {!radarOpen && event.description?.trim() ? (
-                                                    <p className="mt-1 text-xs leading-relaxed text-gray-400 line-clamp-1">
-                                                        {stripEmojisFromText(event.description.trim())}
+                                                {!radarOpen && descriptionTrim ? (
+                                                    <p className="mt-1 text-xs leading-relaxed text-gray-400 line-clamp-2 whitespace-pre-line">
+                                                        {stripEmojisFromText(descriptionTrim)}
                                                     </p>
                                                 ) : null}
                                             </div>
@@ -165,9 +157,9 @@ export const SmartTimelineRadar: React.FC<SmartTimelineRadarProps> = ({
                                         {radarOpen ? (
                                             <div className="mt-2 space-y-1">
                                                 <p className="text-xs text-gray-500">{metaLine}</p>
-                                                {event.description?.trim() ? (
+                                                {descriptionTrim ? (
                                                     <p className="text-xs leading-relaxed text-gray-400 whitespace-pre-wrap">
-                                                        {stripEmojisFromText(event.description.trim())}
+                                                        {stripEmojisFromText(descriptionTrim)}
                                                     </p>
                                                 ) : null}
                                                 {showDeadlineHint && dl !== null ? (
@@ -229,4 +221,4 @@ export const SmartTimelineRadar: React.FC<SmartTimelineRadarProps> = ({
             </button>
         </div>
     );
-};
+});

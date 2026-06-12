@@ -4,10 +4,11 @@ import type { EvictionTimelineActionId } from '@/app/utils/executionModuleStrate
 import type { MaritalFurnitureItem } from '@/app/types/maritalFurniture';
 import {
     dispatchDecisionsReload,
-    isExecutorRowEffectivelyApproved,
     isExecutorRowRejectedAndFinal,
     patchExecutorDecisionRow,
+    readExecutorDecisionsArray,
 } from '@/app/utils/executorSeizureDecisionQueue';
+import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 import {
     buildArabicScheduleLabel,
     isMaritalDeliveryInventoryStepComplete,
@@ -62,8 +63,15 @@ export interface MaritalFurnitureDeliveryProcedureCardProps {
     openAppeals: (decisionId: string) => void;
 }
 
-function rowApproved(row: Record<string, unknown> | null | undefined): boolean {
-    return Boolean(row?.id && isExecutorRowEffectivelyApproved(row) && !isExecutorRowRejectedAndFinal(row));
+function rowApproved(
+    row: Record<string, unknown> | null | undefined,
+    allDecisions: Record<string, unknown>[]
+): boolean {
+    return Boolean(
+        row?.id &&
+            isExecutorRowApprovedWorkflowActive(row, allDecisions) &&
+            !isExecutorRowRejectedAndFinal(row)
+    );
 }
 
 function rowPending(row: Record<string, unknown> | null | undefined): boolean {
@@ -79,16 +87,19 @@ function rowRejected(row: Record<string, unknown> | null | undefined): boolean {
 function MaritalFurnitureUnifiedExecutorActions({
     executionId,
     rows,
+    allDecisions,
     openAppeals,
 }: {
     executionId: string | undefined;
     rows: Array<Record<string, unknown> | null | undefined>;
+    allDecisions: Record<string, unknown>[];
     openAppeals: (decisionId: string) => void;
 }) {
     const activeRows = rows.filter((r) => r?.id) as Record<string, unknown>[];
     const pendingRows = activeRows.filter((r) => rowPending(r));
     const rejectedRows = activeRows.filter((r) => rowRejected(r));
-    const allApproved = activeRows.length > 0 && activeRows.every((r) => rowApproved(r));
+    const allApproved =
+        activeRows.length > 0 && activeRows.every((r) => rowApproved(r, allDecisions));
     const anyRejected = rejectedRows.length > 0;
     const anyPending = pendingRows.length > 0;
     const [busy, setBusy] = React.useState(false);
@@ -241,8 +252,15 @@ export const MaritalFurnitureDeliveryProcedureCard: React.FC<
         ? lifecycleUnified
         : mergeMaritalDeliveryLifecycleSummaries(lifecycleFieldVisit, lifecycleBreakInventory);
 
+    const allDecisions = React.useMemo(
+        () =>
+            (readExecutorDecisionsArray(decisionsStorageExecutionId) as Record<string, unknown>[]) ||
+            [],
+        [decisionsStorageExecutionId, unifiedRow, fieldVisitRow, breakInventoryRow]
+    );
+
     const inventoryDecisionId = String(inventoryRow?.id || '').trim();
-    const inventoryApproved = rowApproved(inventoryRow);
+    const inventoryApproved = rowApproved(inventoryRow, allDecisions);
     const ledgerSaved = Boolean(
         String(
             (inventoryRow as { breakInventoryFurnitureLedgerAt?: string } | null)
@@ -255,13 +273,15 @@ export const MaritalFurnitureDeliveryProcedureCard: React.FC<
 
     const executorRowsActive = executorRows.filter((r) => r?.id) as Record<string, unknown>[];
     const executorAllApproved =
-        executorRowsActive.length > 0 && executorRowsActive.every((r) => rowApproved(r));
+        executorRowsActive.length > 0 &&
+        executorRowsActive.every((r) => rowApproved(r, allDecisions));
     const executorAnyPending = executorRowsActive.some((r) => rowPending(r));
     const executorAnyRejected = executorRowsActive.some((r) => rowRejected(r));
     const executorStepDone = executorAllApproved && !executorAnyPending;
     const executorStepActive = executorAnyPending || executorAnyRejected;
 
-    const scheduleStepActive = executorStepDone && rowApproved(scheduleRow) && !scheduleComplete;
+    const scheduleStepActive =
+        executorStepDone && rowApproved(scheduleRow, allDecisions) && !scheduleComplete;
     const inventoryStepActive =
         executorStepDone && scheduleComplete && inventoryApproved && !inventoryComplete;
 
@@ -308,12 +328,13 @@ export const MaritalFurnitureDeliveryProcedureCard: React.FC<
             <MaritalFurnitureUnifiedExecutorActions
                 executionId={executionId}
                 rows={executorRows}
+                allDecisions={allDecisions}
                 openAppeals={openAppeals}
             />
         );
 
     const scheduleContent =
-        rowApproved(scheduleRow) && !scheduleComplete ? (
+        rowApproved(scheduleRow, allDecisions) && !scheduleComplete ? (
             <div className="space-y-2">
                 <input
                     type="date"

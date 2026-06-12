@@ -118,19 +118,19 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
         executionEntityId,
     );
 
-    const radarEventsRaw = debtorBrowserTabsMode
-        ? activeTimelineEventsDebtorScoped
-        : activeTimelineEvents;
-
     const radarEvents = useMemo(() => {
-        if (!executionEntityId || entityCal.length === 0) return radarEventsRaw;
+        if (!executionEntityId || entityCal.length === 0) return dedupedAllEvents;
         return mergeTimelineEventsWithCalendar(
-            radarEventsRaw,
+            dedupedAllEvents,
             entityCal,
             'execution',
             executionEntityId,
         );
-    }, [radarEventsRaw, entityCal, executionEntityId]);
+    }, [dedupedAllEvents, entityCal, executionEntityId]);
+
+    useEffect(() => {
+        void import('@/app/components/lawyer/SmartTimelineRadar');
+    }, []);
 
     const appointmentsSplit = useMemo(() => {
         if (activeTimelineFilter !== 'مواعيد') return null;

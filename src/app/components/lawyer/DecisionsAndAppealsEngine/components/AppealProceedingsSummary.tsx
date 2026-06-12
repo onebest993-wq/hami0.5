@@ -57,13 +57,17 @@ export function AppealProceedingsSummary({
                     className="flex flex-wrap items-center justify-end gap-x-2 gap-y-0.5 text-[11px] text-right"
                 >
                     <span className="font-bold text-slate-300">المرحلة: {step.stage}</span>
-                    <span className="text-gray-600">|</span>
-                    <span className="text-gray-400">
-                        الطاعن:{' '}
-                        <span className="font-semibold text-slate-200">
-                            {appealAppellantDisplayLabel(step.appellant, perspective)}
-                        </span>
-                    </span>
+                    {step.appellant && step.appellant !== '—' ? (
+                        <>
+                            <span className="text-gray-600">|</span>
+                            <span className="text-gray-400">
+                                الطاعن:{' '}
+                                <span className="font-semibold text-slate-200">
+                                    {appealAppellantDisplayLabel(step.appellant, perspective)}
+                                </span>
+                            </span>
+                        </>
+                    ) : null}
                     <span className="text-gray-600">|</span>
                     <span className="text-gray-400">
                         النتيجة:{' '}

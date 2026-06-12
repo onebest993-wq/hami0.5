@@ -11,16 +11,26 @@ export const LazyExecutionDashboardModularHost = lazy(() =>
     }))
 );
 
-export const LazyPersonalCoerciveFollowupPanel = lazy(() =>
+const personalCoerciveFollowupPanelImport = () =>
     import('../execution/PersonalCoerciveFollowupPanel').then((m) => ({
         default: m.PersonalCoerciveFollowupPanel,
-    }))
-);
-export const LazyEmployeeAssignmentCoerciveFollowupBlock = lazy(() =>
+    }));
+
+export const LazyPersonalCoerciveFollowupPanel = lazy(personalCoerciveFollowupPanelImport);
+
+const employeeAssignmentCoerciveImport = () =>
     import('../execution/EmployeeAssignmentCoerciveFollowupBlock').then((m) => ({
         default: m.EmployeeAssignmentCoerciveFollowupBlock,
-    }))
-);
+    }));
+
+export const LazyEmployeeAssignmentCoerciveFollowupBlock = lazy(employeeAssignmentCoerciveImport);
+
+/** تحميل مسبق لمحضر المتابعة — يقلّل انتظار أول فتح */
+export function prefetchFollowupMemoPanels(): void {
+    void personalCoerciveFollowupPanelImport().catch(() => {});
+    void employeeAssignmentCoerciveImport().catch(() => {});
+}
+
 export const LazyJudicialCustodianCardMenu = lazy(() =>
     import('../execution/JudicialCustodianCardMenu').then((m) => ({
         default: m.JudicialCustodianCardMenu,
@@ -40,16 +50,28 @@ export const LazyOtherPartyActionsLog = lazy(() =>
 export const LazyDocumentVault = lazy(() =>
     import('../DocumentVault').then((m) => ({ default: m.DocumentVault }))
 );
-export const LazyDecisionsAndAppealsEngine = lazy(() =>
-    import('../DecisionsHub').then((m) => ({ default: m.DecisionsHub }))
-);
+const decisionsHubImport = () =>
+    import('../DecisionsHub').then((m) => ({ default: m.DecisionsHub }));
+
+export const LazyDecisionsAndAppealsEngine = lazy(decisionsHubImport);
 export const LazyDecisionsHub = LazyDecisionsAndAppealsEngine;
+
+/** تحميل مسبق عند ظهور شبكة الأدوات — يقلّل انتظار أول فتح للقرارات والطعون */
+export function prefetchDecisionsAndAppealsEngine(): void {
+    void decisionsHubImport().catch(() => {});
+}
 export const LazyModalSeizedAssetsManager = lazy(() =>
     import('../Modal_Seized_Assets_Manager').then((m) => ({ default: m.ModalSeizedAssetsManager }))
 );
-export const LazyFinancialOperationsCenter = lazy(() =>
-    import('../FinancialOperationsCenter').then((m) => ({ default: m.FinancialOperationsCenter }))
-);
+const financialOperationsCenterImport = () =>
+    import('../FinancialOperationsCenter').then((m) => ({ default: m.FinancialOperationsCenter }));
+
+export const LazyFinancialOperationsCenter = lazy(financialOperationsCenterImport);
+
+/** تحميل مسبق عند ظهور شبكة الأدوات — يقلّل انتظار أول فتح للمركز المالي */
+export function prefetchFinancialOperationsCenter(): void {
+    void financialOperationsCenterImport().catch(() => {});
+}
 export const LazyUnifiedSummonsHub = lazy(() =>
     import('../Modal_Unified_Summons_Hub').then((m) => ({ default: m.UnifiedSummonsHub }))
 );

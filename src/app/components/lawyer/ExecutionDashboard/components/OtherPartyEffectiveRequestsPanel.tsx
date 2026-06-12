@@ -81,6 +81,8 @@ export interface OtherPartyEffectiveRequestsPanelProps {
         entries: OtherPartyActionLogEntry[];
         onPersist: (next: OtherPartyActionLogEntry[]) => void;
         onSubmitToDecisions: (input: { date: string; content: string }) => { ok: boolean; decisionId?: string };
+        executionId?: string;
+        appealPerspective?: import('@/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels').AppealUiPerspective;
     };
 }
 
@@ -120,7 +122,7 @@ function CollapsibleTracksSection({
     title,
     subtitle,
     children,
-    defaultExpanded = true,
+    defaultExpanded = false,
 }: {
     title: string;
     subtitle?: string;
@@ -622,6 +624,8 @@ export const OtherPartyEffectiveRequestsPanel: React.FC<OtherPartyEffectiveReque
             onPersist={manualLog.onPersist}
             onSubmitToDecisions={manualLog.onSubmitToDecisions}
             hideSavedEntries={debtorAgentManualTrack}
+            executionId={manualLog.executionId || executionId}
+            appealPerspective={manualLog.appealPerspective}
         />
     ) : null;
 

@@ -8,8 +8,10 @@ import {
     appendPersonalCoerciveByExecutorOrder,
     appendPersonalCoerciveExecutorRequest,
     closePersonalCoerciveSubtypeDecisionCycle,
+    closeSeizureSubtypeDecisionCycle,
     getGoverningDossierPresentationRow,
     getGoverningPersonalCoerciveSubtypeRow,
+    getGoverningSeizureDecisionBySubtype,
     getPersonalCoerciveSubtypeOutcome,
     hasActivePersonalCoerciveSubtypeCard,
     isExecutorHubRowInactiveForGoverning,
@@ -105,7 +107,35 @@ describe('personal coercive decision cycle sync', () => {
         expect(hasActivePersonalCoerciveSubtypeCard(EXEC_ID, 'travel_ban')).toBe(false);
     });
 
-    it('keeps approved dossier presentation row governing for followup panel', () => {
+    it('closes travel_ban request cycle from governing UI after executor approval', () => {
+        const row = {
+            id: 'personal_coercive_travel_1',
+            title: 'منع سفر',
+            body: 'طلب',
+            date: '2026-06-04',
+            resolvedAt: '2026-06-04T10:00:00.000Z',
+            appealStatus: 'final',
+            noAppealChosen: true,
+            executorOutcome: 'approved',
+            status: 'accepted',
+            appealRequestOrigin: 'creditor_side',
+            requestKind: 'personal_coercive',
+            personalCoerciveSubtype: 'travel_ban',
+            appealPhase: null,
+        };
+        writeExecutorDecisionsArray(EXEC_ID, [row], FINANCIAL_EXEC_DATA);
+        expect(isExecutorHubRowInactiveForGoverning(row, [row])).toBe(true);
+        expect(getGoverningPersonalCoerciveSubtypeRow(EXEC_ID, 'travel_ban')).toBeNull();
+        expect(hasActivePersonalCoerciveSubtypeCard(EXEC_ID, 'travel_ban')).toBe(false);
+        expect(getPersonalCoerciveSubtypeOutcome(EXEC_ID, 'travel_ban')).toEqual({
+            pending: false,
+            approved: false,
+            rejected: false,
+            alternative: false,
+        });
+    });
+
+    it('closes dossier presentation request cycle after executor approval', () => {
         const row = {
             id: 'personal_coercive_dossier_1',
             title: 'عرض الإضبارة',
@@ -119,11 +149,15 @@ describe('personal coercive decision cycle sync', () => {
             appealRequestOrigin: 'creditor_side',
             requestKind: 'personal_coercive',
             personalCoerciveSubtype: 'executive_dossier_presentation',
+            dossierPresentationClosed: true,
             appealPhase: null,
         };
         writeExecutorDecisionsArray(EXEC_ID, [row], FINANCIAL_EXEC_DATA);
-        expect(isExecutorHubRowInactiveForGoverning(row, [row])).toBe(false);
-        expect(getGoverningDossierPresentationRow(EXEC_ID)).not.toBeNull();
+        expect(isExecutorHubRowInactiveForGoverning(row, [row])).toBe(true);
+        expect(getGoverningDossierPresentationRow(EXEC_ID)).toBeNull();
+        expect(hasActivePersonalCoerciveSubtypeCard(EXEC_ID, 'executive_dossier_presentation')).toBe(
+            false
+        );
     });
 
     it('syncExecutorDecisionResolution approves pending forced_bring_in from followup panel', () => {
@@ -221,5 +255,37 @@ describe('personal coercive decision cycle sync', () => {
             body: 'دورة جديدة',
         });
         expect(next.ok).toBe(true);
+    });
+
+    it('closeSeizureSubtypeDecisionCycle supersedes registered third_party row', () => {
+        const decisionId = 'seizure_req_third_party_1';
+        const row = {
+            id: decisionId,
+            title: 'حجز مال المدين لدى الغير',
+            body: 'طلب مسجّل',
+            date: '2026-06-04',
+            resolvedAt: '2026-06-04T10:00:00.000Z',
+            appealStatus: 'final',
+            executorOutcome: 'approved',
+            requestKind: 'seizure',
+            seizureSubtype: 'third_party',
+            seizureRequestSavedAt: '2026-06-04T11:00:00.000Z',
+        };
+        writeExecutorDecisionsArray(EXEC_ID, [row], FINANCIAL_EXEC_DATA);
+
+        expect(getGoverningSeizureDecisionBySubtype(EXEC_ID, 'third_party')?.id).toBe(decisionId);
+
+        closeSeizureSubtypeDecisionCycle({
+            executionId: EXEC_ID,
+            subtype: 'third_party',
+        });
+
+        expect(getGoverningSeizureDecisionBySubtype(EXEC_ID, 'third_party')).toBeNull();
+        const stored = readExecutorDecisionsArray(EXEC_ID)[0] as {
+            requestCycleSuperseded?: boolean;
+            isArchived?: boolean;
+        };
+        expect(stored.requestCycleSuperseded).toBe(true);
+        expect(stored.isArchived).toBe(true);
     });
 });

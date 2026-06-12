@@ -19,6 +19,7 @@ import type {
     RealEstateSeizureAsset,
     SeizedAsset,
     StandaloneExecutionMark,
+    ThirdPartySeizure,
     ThirdPartySeizureAsset,
     TimelineEvent,
 } from '@/app/types/execution';
@@ -266,11 +267,10 @@ type DebtorsSectionProps = {
     saveSummonsMarkerPurposeEdit: () => void;
     seizedAssets: SeizedAsset[];
     setDebtorSummonsMarkerLocal: Dispatch<SetStateAction<SummonsMarker | null>>;
-    setDecisionsModalBootHubTab: Dispatch<SetStateAction<'appeals'>>;
+    onOpenDecisionsAppealsTab: () => void;
     setEvictionGraceDecisionId: Dispatch<SetStateAction<string | null>>;
     setExecutionDebtorTabIndex: Dispatch<SetStateAction<number>>;
     setExecutionMemoBadgePopoverOpen: Dispatch<SetStateAction<boolean>>;
-    setShowDecisionsModal: (show: boolean) => void;
     setShowExtraDebtors: Dispatch<SetStateAction<boolean>>;
     setShowUnifiedSummonsModal: (show: boolean) => void;
     setSummonsContextDebtorKey: (debtorKey: string | null) => void;
@@ -290,6 +290,7 @@ type DebtorsSectionProps = {
     summonsMarkerPopoverOpen: boolean;
     summonsPurposeDraft: string;
     thirdPartySeizureAssets: ThirdPartySeizureAsset[];
+    thirdPartySeizures?: ThirdPartySeizure[];
     timelineDebtorMetadata: (debtorKey: string) => Record<string, unknown>;
     toggleEvictionGracePinned: () => void;
     viewExecutionData: ExecutionFile | null;
@@ -410,11 +411,10 @@ export const DebtorsSection = forwardRef<DebtorsSectionHandle, DebtorsSectionPro
         saveSummonsMarkerPurposeEdit,
         seizedAssets,
         setDebtorSummonsMarkerLocal,
-        setDecisionsModalBootHubTab,
+        onOpenDecisionsAppealsTab,
         setEvictionGraceDecisionId,
         setExecutionDebtorTabIndex,
         setExecutionMemoBadgePopoverOpen,
-        setShowDecisionsModal,
         setShowExtraDebtors,
         setShowUnifiedSummonsModal,
         setSummonsContextDebtorKey,
@@ -432,6 +432,7 @@ export const DebtorsSection = forwardRef<DebtorsSectionHandle, DebtorsSectionPro
         summonsMarkerPopoverOpen,
         summonsPurposeDraft,
         thirdPartySeizureAssets,
+        thirdPartySeizures,
         timelineDebtorMetadata,
         toggleEvictionGracePinned,
         viewExecutionData,
@@ -917,8 +918,7 @@ export const DebtorsSection = forwardRef<DebtorsSectionHandle, DebtorsSectionPro
                                                                             type="button"
                                                                             onClick={(e) => {
                                                                                 e.stopPropagation();
-                                                                                setDecisionsModalBootHubTab('appeals');
-                                                                                setShowDecisionsModal(true);
+                                                                                onOpenDecisionsAppealsTab();
                                                                             }}
                                                                             className="shrink-0 whitespace-nowrap inline-flex items-center rounded-md border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-[10px] font-normal text-red-500 transition-colors hover:bg-red-500/15"
                                                                             title={`طعن ساري: ${executionAppealBanner.label} — افتح مركز الطعون`}
@@ -950,6 +950,7 @@ export const DebtorsSection = forwardRef<DebtorsSectionHandle, DebtorsSectionPro
                                                                         (seizedAssets?.length || 0) > 0 ||
                                                                         (realEstateSeizureAssets?.length || 0) > 0 ||
                                                                         (thirdPartySeizureAssets?.length || 0) > 0 ||
+                                                                        (thirdPartySeizures?.length || 0) > 0 ||
                                                                         (standaloneExecutionMarks?.length || 0) > 0;
                                                                     const showInteractive = Boolean(isPrimary || debtorBrowserTabsMode);
                                                                     if (!hasSeizureBadges && !showInteractive) return null;
@@ -1253,9 +1254,12 @@ export const DebtorsSection = forwardRef<DebtorsSectionHandle, DebtorsSectionPro
                                                                             {hasSeizureBadges ? (
                                                                                 <DebtorSeizureCategoryBadges
                                                                                     embeddedInRow
+                                                                                    executionId={partyBadgesExecutionId}
+                                                                                    decisionsExecutionId={partyBadgesExecutionId}
                                                                                     seizedAssets={seizedAssets}
                                                                                     realEstateSeizureAssets={realEstateSeizureAssets}
                                                                                     thirdPartySeizureAssets={thirdPartySeizureAssets}
+                                                                                    thirdPartySeizures={thirdPartySeizures}
                                                                                     standaloneExecutionMarks={standaloneExecutionMarks}
                                                                                 />
                                                                             ) : null}

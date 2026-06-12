@@ -78,6 +78,14 @@ export interface Decision {
     appealSourceDecisionId?: string | null;
     activeAppealCopyId?: string | null;
     manualExecutorLedgerEntry?: boolean;
+    /** قرار «إضافة قرار» — نافذ أم لا (دون مسار طعن) */
+    manualExecutorEnforced?: boolean;
+    /** لمن يصبّ قرار المنفذ المُدخل يدوياً */
+    manualExecutorBeneficiary?: 'creditor' | 'debtor' | 'neutral';
+    /** أطراف الطاعنين المسجّلين يدوياً لقرار المنفذ — مرحلة التظلم */
+    manualGrievanceAppellants?: Array<'lawyer' | 'debtor'>;
+    /** أطراف الطاعنين المسجّلين يدوياً لقرار المنفذ — مرحلة التمييز */
+    manualCassationAppellants?: Array<'lawyer' | 'debtor'>;
     /** مُفعَّل بقرار المنفذ دون طلب دائن مسبق */
     activatedByExecutorOrder?: boolean;
     /** قرار قاضي البداءة بالحبس التنفيذي — تمييز فقط دون تظلم */

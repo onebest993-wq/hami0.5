@@ -28,6 +28,7 @@ import {
 } from '@/app/utils/executorSeizureDecisionQueue';
 import { timelineDebtorMetadata } from '@/app/utils/timelineDebtorScope';
 import { ExecutionInlineExecutorDecisionActions } from '@/app/components/lawyer/ExecutionDashboard/components/ExecutionInlineAccordion';
+import { InlineActionGate } from '@/app/components/lawyer/ExecutionDashboard/components/InlineActionGate';
 import {
     EXEC_MODAL_BACKDROP_STRONG,
     EXEC_MODAL_Z,
@@ -43,6 +44,7 @@ import {
     isPersonalCoerciveCycleClosed,
     appendImplicitForcedBringBroughtPatch,
     isTravelBanLaneSettled,
+    isTravelBanRequestCycleWithdrawn,
     isTravelBanRequestWithdrawn,
     resolveExecutiveDetentionJudgeUiOutcome,
     shouldShowInvestigationCourtBlock,
@@ -54,6 +56,7 @@ import {
 import { resolveExecutorRequestFollowupBlockFromRecord } from '@/app/components/lawyer/DecisionsAndAppealsEngine/utils';
 import {
     buildPersonalCoerciveAppealExecutionSyncPatch,
+    isExecutorRejectedAppealFollowupDismissed,
     resolveAllPersonalCoerciveAppealSync,
     type PersonalCoerciveAppealSyncSubtype,
     type PersonalCoerciveAppealSyncView,
@@ -252,6 +255,7 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
         | 'forced_bring_in'
         | 'arrest_warrant_investigation'
         | 'travel_ban'
+        | 'travel_ban_withdraw'
         | 'executive_dossier_presentation'
         | 'release_debtor';
     const [confirmingKey, setConfirmingKey] = useState<ActionGateKey | null>(null);
@@ -265,21 +269,16 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
     const [releaseConfirmBusy, setReleaseConfirmBusy] = useState(false);
     const [forcedBringWithdrawConfirmOpen, setForcedBringWithdrawConfirmOpen] = useState(false);
     const [forcedBringWithdrawBusy, setForcedBringWithdrawBusy] = useState(false);
-    const [dossierDetailsOpen, setDossierDetailsOpen] = useState(false);
     const [judgeDetailsOpen, setJudgeDetailsOpen] = useState(false);
-    const [travelDetailsOpen, setTravelDetailsOpen] = useState(false);
+    const [travelPanelOpen, setTravelPanelOpen] = useState(false);
     React.useEffect(() => {
         if (!embeddedHiddenPath) return;
-        if (embeddedHiddenPath === 'travel_ban') setTravelDetailsOpen(true);
-        if (embeddedHiddenPath === 'executive_dossier_presentation') setDossierDetailsOpen(true);
         if (embeddedHiddenPath === 'executive_detention_judge') setJudgeDetailsOpen(true);
     }, [embeddedHiddenPath]);
     /** انتقال فوري بعد موافقة/رفض المنفذ من المحضر — قبل إعادة قراءة التخزين */
     const [forcedInlineResolved, setForcedInlineResolved] = useState<'approved' | 'rejected' | null>(
         null
     );
-    const detentionDetailsRef = React.useRef<HTMLDetailsElement>(null);
-
     /** مفتاح تخزين القرارات — يفضّل executionId المُمرَّر (الإضبارة الأصلية) على id الملف المعروض */
     const exId = String(executionId ?? executionData?.id ?? '').trim();
     const exKey = exId || undefined;
@@ -413,14 +412,16 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
         forcedPending: forcedEffective.pending,
         outcome,
         appealBlocksFieldwork: forcedSync.blocksFieldwork,
+        requestEffectivelyEnforced: forcedSync.enforced,
+        appealCycleSuperseded: forcedSync.cycleSuperseded,
     });
 
 
     const arrestStage = executionData?.personal_arrest_warrant_stage ?? 'none';
     const travelBanWithdrawn = isTravelBanRequestWithdrawn(executionData);
+    const travelBanRequestCycleWithdrawn = isTravelBanRequestCycleWithdrawn(executionData);
     const travelCycleActive = hasOpenCardForSubtype('travel_ban');
     const travelLaneSettled = isTravelBanLaneSettled(executionData, { travelCycleActive });
-    const travelUiApproved = travel.approved && !travelLaneSettled;
     const judgeDetentionStored =
         (executionData?.executive_detention_judge_outcome as 'approved' | 'rejected' | null) ?? null;
     const detentionJudgeEligibleDecisionId =
@@ -445,7 +446,6 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
     const travelBanEnforced =
         !travelBanWithdrawn && executionData?.debtor_travel_ban_active === true;
     const travelLiftReady =
-        travelUiApproved &&
         travelBanEnforced &&
         debtRemainingIqd <= 0 &&
         !isHistoricalMode &&
@@ -455,11 +455,9 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
     const travelShowInitialSubmit =
         !travel.alternative &&
         !travel.pending &&
-        !travelUiApproved &&
-        !travelBanEnforced &&
+        (!travelLaneSettled || travelBanRequestCycleWithdrawn) &&
+        (!travelBanEnforced || travelBanRequestCycleWithdrawn) &&
         !(travel.rejected && travelCycleActive);
-    const travelShowEnforcedAwaitingDebt =
-        travelUiApproved && travelBanEnforced && debtRemainingIqd > 0 && !travelBanWithdrawn;
     const travelActive = travelBanEnforced && travelCycleActive;
     const wanted = executionData?.debtor_wanted_arrest_warrant === true;
     const detentionActive = isExecutiveDetentionPeriodActive(executionData);
@@ -546,7 +544,10 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
     const investigationPostApprovalActive =
         arrest.approved &&
         !warrantCustodyRecorded &&
-        (executionData?.investigationCourtRequested === true || investigationSessionOpen);
+        (executionData?.investigationCourtRequested === true || investigationSessionOpen) &&
+        arrestSync.enforced &&
+        !arrestSync.cycleSuperseded &&
+        !arrestSync.blocksFieldwork;
 
     const derivedInvestigationInnerStep = useMemo(() => {
         if (arrest.pending) return 'executor_pending' as const;
@@ -622,9 +623,21 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
                 setForcedOutcomePick('');
                 showToast('تمت موافقة المنفذ — سجّل نتيجة الإحضار الجبري أدناه.', 'success');
             }
+            if (subtype === 'executive_dossier_presentation' && outcome === 'approved') {
+                setJudgeDetailsOpen(true);
+                showToast('انتهى دور المنفذ — سجّل قرار القاضي في البطاقة أدناه.', 'success');
+            }
+            if (subtype === 'travel_ban' && outcome === 'approved' && exId) {
+                closePersonalCoerciveSubtypeDecisionCycle({
+                    executionId: exId,
+                    subtype: 'travel_ban',
+                    debtorKey: activeDebtorKey,
+                    primaryDebtorKey,
+                });
+            }
             dispatchDecisionsReload();
         },
-        [persistExecutionMerge, showToast]
+        [activeDebtorKey, exId, persistExecutionMerge, primaryDebtorKey, showToast]
     );
 
     useEffect(() => {
@@ -746,8 +759,9 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
             primaryDebtorKey,
         });
         const id = hit ? String((hit as { id?: string }).id || '').trim() : '';
-        return id || null;
-    }, [activeDebtorKey, exKey, primaryDebtorKey]);
+        const eligible = String(detentionJudgeEligibleDecisionId ?? '').trim();
+        return id || eligible || null;
+    }, [activeDebtorKey, detentionJudgeEligibleDecisionId, exKey, primaryDebtorKey]);
 
     const findLatestGuarantorDecisionId = useCallback((): string | null => {
         if (!exId) return null;
@@ -788,15 +802,50 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
                 decisionsTab: 'archive',
                 decisionId: result.mergedRowId ?? decisionId,
             });
+            const freshDecisions = readExecutorDecisionsArray(exId);
+            const waivedRow = freshDecisions.find(
+                (r) => String((r as { id?: string }).id ?? '').trim() === String(decisionId).trim()
+            ) as Record<string, unknown> | undefined;
+            const subtype = String(waivedRow?.personalCoerciveSubtype ?? '').trim() as PersonalCoerciveSubtype;
+            if (subtype) {
+                const subtypeMerge = buildPersonalCoerciveExecutionMerge({
+                    subtype,
+                    resolution: 'rejected',
+                });
+                if (Object.keys(subtypeMerge).length > 0) {
+                    persistExecutionMerge(subtypeMerge);
+                }
+            }
+            const syncPatch = buildPersonalCoerciveAppealExecutionSyncPatch({
+                executionId: exId,
+                executionData: executionData as Record<string, unknown> | null,
+                allDecisions: freshDecisions,
+                debtorKey: activeDebtorKey,
+                primaryDebtorKey,
+            });
+            if (syncPatch && Object.keys(syncPatch).length > 0) {
+                persistExecutionMerge(syncPatch);
+            }
             setLocalDecisionsTick((n) => n + 1);
         },
-        [nextTimelineId, pushTimelineEvent, showToast, debtorTimelineMeta]
+        [
+            activeDebtorKey,
+            exId,
+            executionData,
+            nextTimelineId,
+            persistExecutionMerge,
+            primaryDebtorKey,
+            pushTimelineEvent,
+            showToast,
+            debtorTimelineMeta,
+        ]
     );
 
     const renderWaiveInitialAppeal = useCallback(
         (decisionId: string | null | undefined) => {
             const did = String(decisionId ?? '').trim();
             if (!did || !exId || isHistoricalMode) return null;
+            if (isExecutorRejectedAppealFollowupDismissed(did, allDecisionRows)) return null;
             return (
                 <WaiveInitialAppealButton
                     executionId={exId}
@@ -814,6 +863,45 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
             handleWaiveInitialAppealApplied,
             isHistoricalMode,
         ]
+    );
+
+    const renderRejectedExecutorAppealSection = useCallback(
+        (opts: {
+            decisionId: string | null | undefined;
+            title?: string;
+            titleClassName?: string;
+            requestKind?: string;
+            personalCoerciveSubtype?: PersonalCoerciveSubtype;
+        }) => {
+            const did = String(opts.decisionId ?? '').trim();
+            if (!did || isExecutorRejectedAppealFollowupDismissed(did, allDecisionRows)) {
+                return null;
+            }
+            return (
+                <CoerciveSubsectionFold
+                    flat
+                    title={opts.title ?? 'تم رفض الطلب من قبل المنفذ'}
+                    titleClassName={opts.titleClassName}
+                >
+                    <ExecutionInlineExecutorDecisionActions
+                        executionId={exId}
+                        decisionId={did}
+                        requestKind={opts.requestKind ?? 'personal_coercive'}
+                        personalCoerciveSubtype={opts.personalCoerciveSubtype}
+                        suppressNavigatorToast
+                        disabled
+                        onOpenAppealCenter={() =>
+                            onOpenDecisions({
+                                tab: 'previous',
+                                decisionId: did,
+                            })
+                        }
+                    />
+                    {renderWaiveInitialAppeal(did)}
+                </CoerciveSubsectionFold>
+            );
+        },
+        [allDecisionRows, exId, onOpenDecisions, renderWaiveInitialAppeal]
     );
 
     const handleWaiveCassationFromPanel = useCallback(
@@ -866,9 +954,6 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
                         decisionId={sync.decisionId}
                         onOpenAppeals={(id) => onOpenDecisions({ tab: 'previous', decisionId: id })}
                         onWaiveCassation={handleWaiveCassationFromPanel}
-                        onStartCassation={(id) =>
-                            onOpenDecisions({ tab: 'appeals', decisionId: id })
-                        }
                     />
                 </div>
             );
@@ -914,7 +999,10 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
         investigationPostApprovalActive && !arrestSync.followupBlock;
 
     const investigationHasExpandablePanel =
-        arrest.pending || investigationPostApprovalActive || Boolean(arrestSync.followupBlock);
+        arrest.pending ||
+        investigationPostApprovalActive ||
+        Boolean(arrestSync.followupBlock) ||
+        arrestSync.blocksFieldwork;
 
     const investigationFlowStep = useMemo(() => {
         if (arrestSync.followupBlock) return 'followup_blocked' as const;
@@ -1030,6 +1118,7 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
             if (subtype === 'travel_ban') {
                 persistExecutionMerge({
                     travel_ban_withdrawn_at: null,
+                    travel_ban_request_cycle_withdrawn_at: null,
                 });
             }
             if (subtype === 'executive_dossier_presentation') {
@@ -1297,9 +1386,7 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
         setForcedOutcomePick('');
         setDetentionRejectionOpen(false);
         setDetentionRejectionReason('');
-        setDossierDetailsOpen(false);
         setJudgeDetailsOpen(false);
-        setTravelDetailsOpen(false);
     }, []);
 
     /** إخلاء سبيل — يُنهي مسار الحبس التنفيذي فقط دون المساس بباقي الإجراءات الجبرية */
@@ -1441,12 +1528,22 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
             },
             { mergePatch: patch }
         );
+        if (exId) {
+            closePersonalCoerciveSubtypeDecisionCycle({
+                executionId: exId,
+                subtype: 'executive_detention_judge',
+                debtorKey: activeDebtorKey,
+                primaryDebtorKey,
+            });
+            setLocalDecisionsTick((n) => n + 1);
+        }
+        setJudgeDetailsOpen(false);
         showToast('تم تفعيل العداد لمدة 4 أشهر.', 'success');
     };
 
     const liftTravelBanEnforcement = () => {
-        if (!travelUiApproved) {
-            showToast('رفع المنع متاح فقط بعد موافقة المنفذ واعتبار القرار نافذاً.', 'warning');
+        if (!travelBanEnforced) {
+            showToast('منع السفر غير مفعّل حالياً.', 'warning');
             return;
         }
         if (debtRemainingIqd > 0) {
@@ -1458,6 +1555,7 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
         persistExecutionMerge({
             debtor_travel_ban_active: false,
             travel_ban_withdrawn_at: now,
+            travel_ban_request_cycle_withdrawn_at: null,
         });
         if (exId) {
             closePersonalCoerciveSubtypeDecisionCycle({
@@ -1480,6 +1578,61 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
         });
         showToast('تم رفع منع السفر.', 'success');
     };
+
+    const withdrawTravelBanRequestCycle = useCallback(() => {
+        if (isHistoricalMode || coerciveUiLocked) return;
+        if (!travelBanEnforced || travelBanWithdrawn) {
+            showToast('لا يوجد طلب منع سفر نافذ للتراجع عنه.', 'warning');
+            return;
+        }
+        const now = new Date().toISOString();
+        const decisionId = findLatestDecisionIdForSubtype('travel_ban');
+        if (decisionId && exId) {
+            syncPersonalCoerciveWithdrawn({
+                executionId: exId,
+                decisionId,
+                subtype: 'travel_ban',
+                extraMerge: {
+                    debtor_travel_ban_active: true,
+                    travel_ban_request_cycle_withdrawn_at: now,
+                    travel_ban_withdrawn_at: null,
+                },
+            });
+            closePersonalCoerciveSubtypeDecisionCycle({
+                executionId: exId,
+                subtype: 'travel_ban',
+                debtorKey: activeDebtorKey,
+                primaryDebtorKey,
+            });
+        } else {
+            persistExecutionMerge({
+                travel_ban_request_cycle_withdrawn_at: now,
+                debtor_travel_ban_active: true,
+                travel_ban_withdrawn_at: null,
+            });
+        }
+        setTravelPanelOpen(false);
+        setConfirmingKey(null);
+        setLocalDecisionsTick((n) => n + 1);
+        showToast(
+            'تم التراجع عن الطلب — يبقى المنع مفعّلاً حتى سداد الدين.',
+            'success'
+        );
+    }, [
+        activeDebtorKey,
+        coerciveUiLocked,
+        debtorTimelineMeta,
+        exId,
+        findLatestDecisionIdForSubtype,
+        isHistoricalMode,
+        nextTimelineId,
+        persistExecutionMerge,
+        primaryDebtorKey,
+        pushTimelineEvent,
+        showToast,
+        travelBanEnforced,
+        travelBanWithdrawn,
+    ]);
 
     const withdrawInvestigationCourtPath = useCallback(() => {
         if (forcedBringWithdrawBusy) return;
@@ -1604,14 +1757,6 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
                 : outcome === 'absconded'
                   ? 'الإحضار الجبري — متخفي'
                   : 'الإحضار الجبري';
-    const forcedShowResubmitStrip =
-        !isHistoricalMode &&
-        !coerciveUiLocked &&
-        forcedEffective.rejected &&
-        !forcedEffective.pending &&
-        !forcedSync.followupBlock &&
-        !forcedEffective.alternative;
-
     const forcedShowStartStrip =
         !hideExecutorForcedBringActivation &&
         !isHistoricalMode &&
@@ -1738,8 +1883,12 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
         )
             .then(() => {
                 setSendingKey(null);
+                setConfirmingKey(null);
             })
-            .catch(() => setSendingKey(null));
+            .catch(() => {
+                setSendingKey(null);
+                setConfirmingKey(null);
+            });
     }, [
         coerciveUiLocked,
         debtorPresentEffective,
@@ -1778,116 +1927,134 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
           ? 'منع سفر — قرار بديل'
           : travelShowLiftAction
             ? 'رفع منع السفر'
-            : travelBanEnforced && travelUiApproved
+            : travelBanEnforced && !travelBanWithdrawn
               ? 'منع سفر — مفعّل'
               : travel.rejected && travelCycleActive
                 ? 'منع سفر — مرفوض'
                 : 'تقديم طلب منع سفر';
     const travelSubmitButtonDisabled =
         isHistoricalMode || coerciveUiLocked || travel.alternative || !canSubmitTravelBan;
-
-    const travelShowResubmitStrip =
-        !isHistoricalMode &&
-        !coerciveUiLocked &&
-        travelCycleActive &&
+    const travelRejectedAppealOpen =
         travel.rejected &&
-        !travel.pending &&
-        !travelSync.followupBlock &&
-        !travel.alternative;
+        travelCycleActive &&
+        !isExecutorRejectedAppealFollowupDismissed(
+            findLatestDecisionIdForSubtype('travel_ban'),
+            allDecisionRows
+        );
+    const travelAppealFollowupVisible =
+        Boolean(travelSync.followupBlock) &&
+        Boolean(travelSync.decisionId) &&
+        !travelSync.cycleSuperseded;
+    const travelEnforcedSettled =
+        travelBanEnforced &&
+        !travelBanWithdrawn &&
+        !travelBanRequestCycleWithdrawn &&
+        travelLaneSettled;
+    const showTravelBanSection = showEmbeddedSection('travel_ban');
 
-    const travelPanelHasBody =
-        travelShowLiftAction ||
-        travelShowEnforcedAwaitingDebt ||
-        travelShowInitialSubmit ||
-        confirmingKey === 'travel_ban' ||
-        sendingKey === 'travel_ban' ||
-        (travelUiApproved && Boolean(travelSync.followupBlock)) ||
-        (!travelBanWithdrawn && travelCycleActive && (travel.pending || travel.rejected));
+    const dossierLaneAnchored =
+        dossier.approved ||
+        Boolean(String(detentionJudgeEligibleDecisionId ?? '').trim()) ||
+        Boolean(String(executionData?.executive_detention_judge_decision_id ?? '').trim()) ||
+        judgeDetentionStored === 'approved' ||
+        judgeDetentionStored === 'rejected' ||
+        detentionActive;
 
-    const dossierShowResubmitStrip =
-        !isHistoricalMode &&
-        !coerciveUiLocked &&
-        dossierCycleActive &&
-        dossier.rejected &&
-        !dossier.pending &&
-        !dossierSync.followupBlock &&
-        !dossier.alternative;
-
-    const dossierAwaitingJudge =
-        dossierCycleActive &&
+    const dossierExecutorPhaseComplete =
         !detentionLaneEnded &&
-        dossierPhase === 'handed_to_judge' &&
-        !dossier.pending &&
-        !dossier.rejected &&
-        !dossierSync.followupBlock &&
-        !detentionActive &&
-        judgeDetention === null;
-
-    const dossierIdle =
-        detentionLaneEnded ||
-        !dossierCycleActive ||
-        (!dossier.pending &&
-            !dossier.rejected &&
-            !dossier.approved &&
-            !dossier.alternative &&
-            !detentionActive &&
-            judgeDetention === null &&
-            (dossierPhase === null || dossierPhase === undefined));
-
-    const dossierShowStartPeriod =
-        !detentionLaneEnded &&
-        judgeDetention === 'approved' &&
-        (dossierPhase === 'judge_decided' || dossierPhase === 'detention_active') &&
-        !detentionActive;
-
-    const dossierExecutorApproved =
-        dossierCycleActive &&
-        !detentionLaneEnded &&
-        dossier.approved &&
-        !dossier.pending &&
-        !dossier.rejected &&
+        dossierLaneAnchored &&
         dossierPhase !== null &&
         dossierPhase !== undefined &&
         (dossierPhase === 'handed_to_judge' ||
             dossierPhase === 'judge_decided' ||
             dossierPhase === 'detention_active');
 
+    const dossierAwaitingJudge =
+        dossierExecutorPhaseComplete &&
+        dossierPhase === 'handed_to_judge' &&
+        !dossierSync.followupBlock &&
+        !dossierSync.blocksFieldwork &&
+        dossierSync.enforced &&
+        !detentionActive &&
+        judgeDetention === null;
+
+    const dossierIdle =
+        !dossierExecutorPhaseComplete &&
+        (detentionLaneEnded ||
+            !dossierCycleActive ||
+            (!dossier.pending &&
+                !dossier.rejected &&
+                !dossier.approved &&
+                !dossier.alternative &&
+                !detentionActive &&
+                judgeDetention === null &&
+                (dossierPhase === null || dossierPhase === undefined)));
+
+    const dossierShowStartPeriod =
+        !detentionLaneEnded &&
+        judgeDetention === 'approved' &&
+        (dossierPhase === 'judge_decided' || dossierPhase === 'detention_active') &&
+        !detentionActive &&
+        judgeSync.enforced &&
+        !judgeSync.blocksFieldwork &&
+        !judgeSync.cycleSuperseded;
+
     const showDossierPresentationCard =
         !hideDossierJudgePresentation &&
         !activeDebtorIsEmployee &&
+        !dossierExecutorPhaseComplete &&
         (dossier.pending ||
             dossier.rejected ||
             dossier.alternative ||
             dossierIdle ||
-            dossierExecutorApproved ||
             (dossier.approved && Boolean(dossierSync.followupBlock)));
+
+    const dossierHasExpandablePanel =
+        dossier.pending ||
+        dossier.rejected ||
+        dossier.alternative ||
+        Boolean(dossier.approved && dossierSync.followupBlock);
+
+    const dossierButtonDisabled =
+        !canSubmitExecutiveDetention || sendingKey === 'executive_dossier_presentation';
+
+    const judgeDecisionIdStored = String(
+        executionData?.executive_detention_judge_decision_id ?? ''
+    ).trim();
+    const judgeRejectedResubmitVisible =
+        judgeDetention === 'rejected' &&
+        dossierPhase === 'judge_decided' &&
+        Boolean(judgeDecisionIdStored) &&
+        !judgeSync.cycleSuperseded &&
+        !isExecutorRejectedAppealFollowupDismissed(judgeDecisionIdStored, allDecisionRows);
+    const judgeCassationOverturnVisible =
+        !detentionActive &&
+        judgeDetention === 'approved' &&
+        judgeDetentionStored === 'rejected' &&
+        dossierPhase === 'judge_decided';
+    const dossierHandedToJudgeStalled =
+        dossierPhase === 'handed_to_judge' &&
+        (Boolean(dossierSync.followupBlock) || dossierSync.blocksFieldwork) &&
+        !detentionActive;
+    const judgeHasActionablePanel =
+        dossierAwaitingJudge ||
+        dossierShowStartPeriod ||
+        dossierHandedToJudgeStalled ||
+        Boolean(judgeSync.followupBlock) ||
+        judgeRejectedResubmitVisible ||
+        judgeCassationOverturnVisible;
 
     const showJudgeDetentionCard =
         !hideDossierJudgePresentation &&
         !activeDebtorIsEmployee &&
-        dossierCycleActive &&
         !detentionLaneEnded &&
-        dossier.approved &&
-        !dossier.pending &&
-        !dossier.rejected &&
-        dossierPhase !== null &&
-        dossierPhase !== undefined &&
-        (dossierPhase === 'handed_to_judge' ||
-            dossierPhase === 'judge_decided' ||
-            dossierPhase === 'detention_active' ||
-            detentionActive);
-
-    const arrestShowResubmitStrip =
-        !isHistoricalMode &&
-        !coerciveUiLocked &&
-        arrest.rejected &&
-        !arrest.pending &&
-        !arrestSync.followupBlock &&
-        !arrest.alternative;
+        dossierExecutorPhaseComplete &&
+        judgeHasActionablePanel;
 
     useEffect(() => {
-        if (detentionLaneEnded || !exId || !dossierCycleActive) return;
+        if (detentionLaneEnded || !exId) return;
         if (judgeDetention === 'approved' || judgeDetention === 'rejected') {
+            if (!judgeHasActionablePanel) return;
             if (dossierPhase !== 'judge_decided' && dossierPhase !== 'detention_active') {
                 persistExecutionMerge({ executive_dossier_phase: 'judge_decided' });
             }
@@ -1915,34 +2082,56 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
         dossier.approved,
         dossier.pending,
         dossier.rejected,
-        dossierCycleActive,
         dossierPhase,
         exId,
         findGoverningDossierDecisionId,
         judgeDetention,
+        judgeHasActionablePanel,
         persistExecutionMerge,
     ]);
 
     useEffect(() => {
-        if (travelLaneSettled && travelDetailsOpen && !travelPanelHasBody) {
-            setTravelDetailsOpen(false);
-        }
-    }, [travelDetailsOpen, travelLaneSettled, travelPanelHasBody]);
+        if (showJudgeDetentionCard) return;
+        if (judgeDetailsOpen) setJudgeDetailsOpen(false);
+    }, [judgeDetailsOpen, showJudgeDetentionCard]);
 
     useEffect(() => {
-        if (confirmingKey === 'travel_ban' || sendingKey === 'travel_ban') {
-            setTravelDetailsOpen(true);
-        }
-        if (
-            confirmingKey === 'executive_dossier_presentation' ||
-            sendingKey === 'executive_dossier_presentation'
-        ) {
-            setDossierDetailsOpen(true);
-        }
-    }, [confirmingKey, sendingKey]);
+        if (!exId || isHistoricalMode || detentionLaneEnded) return;
+        if (!dossierExecutorPhaseComplete || judgeHasActionablePanel) return;
+        const resetPatch: Record<string, unknown> = {
+            executive_dossier_phase: null,
+            executive_detention_judge_outcome: null,
+            executive_detention_judge_decision_id: null,
+            executive_detention_judge_eligible_decision_id: null,
+            executive_detention_judge_rejection_reason: null,
+        };
+        if (!executionPatchDiffers(resetPatch)) return;
+        persistExecutionMerge(resetPatch);
+        closePersonalCoerciveSubtypeDecisionCycle({
+            executionId: exId,
+            subtype: 'executive_detention_judge',
+            debtorKey: activeDebtorKey,
+            primaryDebtorKey,
+        });
+        setJudgeDetailsOpen(false);
+        setLocalDecisionsTick((n) => n + 1);
+    }, [
+        activeDebtorKey,
+        detentionLaneEnded,
+        dossierExecutorPhaseComplete,
+        exId,
+        executionPatchDiffers,
+        isHistoricalMode,
+        judgeHasActionablePanel,
+        persistExecutionMerge,
+        primaryDebtorKey,
+    ]);
 
     const renderJudgeRejectedResubmitBlock = () => {
-        const judgeDecisionId = String(executionData?.executive_detention_judge_decision_id ?? '').trim();
+        const judgeDecisionId = judgeDecisionIdStored;
+        if (!judgeRejectedResubmitVisible) {
+            return null;
+        }
         return (
             <CoerciveSubsectionFold flat title="رُفض قاضي البداءة حبس المدين" titleClassName="text-rose-200">
                 {String(executionData?.executive_detention_judge_rejection_reason ?? '').trim() ? (
@@ -1954,20 +2143,18 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
                     قرار القاضي مستقل عن المنفذ — يمكنك التمييز من مركز القرارات أو تسجيل «لا حاجة للطعن».
                 </p>
                 {renderWaiveInitialAppeal(judgeDecisionId)}
-                {judgeDecisionId ? (
-                    <button
-                        type="button"
-                        className="w-full rounded-xl border border-amber-500/35 bg-amber-500/10 py-2 text-[10px] font-bold text-amber-100 hover:bg-amber-500/15"
-                        onClick={() =>
-                            onOpenDecisions({
-                                tab: 'previous',
-                                decisionId: judgeDecisionId,
-                            })
-                        }
-                    >
-                        مركز القرارات — قرار القاضي والتمييز
-                    </button>
-                ) : null}
+                <button
+                    type="button"
+                    className="w-full rounded-xl border border-amber-500/35 bg-amber-500/10 py-2 text-[10px] font-bold text-amber-100 hover:bg-amber-500/15"
+                    onClick={() =>
+                        onOpenDecisions({
+                            tab: 'previous',
+                            decisionId: judgeDecisionId,
+                        })
+                    }
+                >
+                    مركز القرارات — قرار القاضي والتمييز
+                </button>
             </CoerciveSubsectionFold>
         );
     };
@@ -2181,52 +2368,16 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
 
                     {renderAppealSyncFollowup(forcedSync)}
 
-                    {forcedEffective.rejected ? (
+                    {forcedEffective.rejected &&
+                    !isExecutorRejectedAppealFollowupDismissed(
+                        findLatestDecisionIdForSubtype('forced_bring_in'),
+                        allDecisionRows
+                    ) ? (
                         <div className="border-t border-white/10 px-3 pb-3 pt-2">
-                            <CoerciveSubsectionFold flat title="تم رفض الطلب من قبل المنفذ">
-                                <ExecutionInlineExecutorDecisionActions
-                                    executionId={exId}
-                                    decisionId={findLatestDecisionIdForSubtype('forced_bring_in') || ''}
-                                    requestKind="personal_coercive"
-                                    personalCoerciveSubtype="forced_bring_in"
-                                    suppressNavigatorToast
-                                    disabled
-                                    onOpenAppealCenter={() =>
-                                        onOpenDecisions({
-                                            tab: 'previous',
-                                            decisionId: findLatestDecisionIdForSubtype('forced_bring_in'),
-                                        })
-                                    }
-                                />
-                                {renderWaiveInitialAppeal(findLatestDecisionIdForSubtype('forced_bring_in'))}
-                                {forcedShowResubmitStrip ? (
-                                    <div className="border-t border-white/10 pt-2">
-                                        <RejectedExecutorResubmitStrip
-                                            showReplaceHint={hasOpenCardForSubtype('forced_bring_in')}
-                                            submitting={sendingKey === 'forced_bring_in'}
-                                            disabled={sendingKey === 'forced_bring_in'}
-                                            onConfirmSubmit={() => {
-                                                if (!relaxedPersonal && !guardSummonsGate()) return;
-                                                if (!relaxedPersonal && !forcedSummonAllowed) {
-                                                    showToast(
-                                                        forcedSummonLockReason ||
-                                                            'غير مسموح بالإحضار الجبري وفقاً للوضع القانوني الحالي.',
-                                                        'warning',
-                                                        {
-                                                            action: {
-                                                                label: 'مركز التبليغات',
-                                                                onClick: () => onOpenSummonsCenter(),
-                                                            },
-                                                        }
-                                                    );
-                                                    return;
-                                                }
-                                                runForcedBringSubmit(false);
-                                            }}
-                                        />
-                                    </div>
-                                ) : null}
-                            </CoerciveSubsectionFold>
+                            {renderRejectedExecutorAppealSection({
+                                decisionId: findLatestDecisionIdForSubtype('forced_bring_in'),
+                                personalCoerciveSubtype: 'forced_bring_in',
+                            })}
                         </div>
                     ) : null}
 
@@ -2429,42 +2580,16 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
                             });
                         })}
 
-                        {arrest.rejected ? (
+                        {arrest.rejected &&
+                        !isExecutorRejectedAppealFollowupDismissed(
+                            findLatestDecisionIdForSubtype('arrest_warrant_investigation'),
+                            allDecisionRows
+                        ) ? (
                             <div className="border-t border-white/10 px-3 pb-3 pt-2">
-                                <CoerciveSubsectionFold flat title="تم رفض الطلب من قبل المنفذ">
-                                    <ExecutionInlineExecutorDecisionActions
-                                        executionId={exId}
-                                        decisionId={
-                                            findLatestDecisionIdForSubtype('arrest_warrant_investigation') || ''
-                                        }
-                                        requestKind="personal_coercive"
-                                        personalCoerciveSubtype="arrest_warrant_investigation"
-                                        suppressNavigatorToast
-                                        disabled
-                                        onOpenAppealCenter={() =>
-                                            onOpenDecisions({
-                                                tab: 'previous',
-                                                decisionId: findLatestDecisionIdForSubtype(
-                                                    'arrest_warrant_investigation'
-                                                ),
-                                            })
-                                        }
-                                    />
-                                    {renderWaiveInitialAppeal(
-                                        findLatestDecisionIdForSubtype('arrest_warrant_investigation')
-                                    )}
-                                    {arrestShowResubmitStrip ? (
-                                        <div className="border-t border-white/10 pt-2">
-                                            <RejectedExecutorResubmitStrip
-                                                showReplaceHint={hasOpenCardForSubtype(
-                                                    'arrest_warrant_investigation'
-                                                )}
-                                                submitting={sendingKey === 'arrest_warrant_investigation'}
-                                                onConfirmSubmit={() => runArrestInvestigationSubmit()}
-                                            />
-                                        </div>
-                                    ) : null}
-                                </CoerciveSubsectionFold>
+                                {renderRejectedExecutorAppealSection({
+                                    decisionId: findLatestDecisionIdForSubtype('arrest_warrant_investigation'),
+                                    personalCoerciveSubtype: 'arrest_warrant_investigation',
+                                })}
                             </div>
                         ) : null}
 
@@ -2520,105 +2645,126 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
             ) : null}
 
             {/* 3 — منع سفر */}
-            {showEmbeddedSection('travel_ban') ? (
-            <details
-                className={COERCIVE_SECTION_DETAILS_CLASS}
-                open={travelDetailsOpen}
-                onToggle={(e) => setTravelDetailsOpen((e.target as HTMLDetailsElement).open)}
-            >
-                <summary className="flex cursor-pointer list-none flex-row-reverse items-center justify-between gap-2 px-3 py-3 transition-colors duration-300 hover:bg-white/[0.04] [&::-webkit-details-marker]:hidden">
-                    <span className="flex flex-row-reverse items-center gap-2">
-                        <span className="flex size-12 items-center justify-center rounded-2xl bg-white/5">
-                            <Plane className="size-6 text-white/70" />
-                        </span>
-                        <span className="text-xs font-bold text-sky-100">{travelButtonLabel}</span>
-                    </span>
-                    <ChevronDown
-                        size={18}
-                        className="shrink-0 text-slate-400 transition-transform duration-300 group-open:rotate-180"
-                        aria-hidden
-                    />
-                </summary>
-                {travelPanelHasBody ? (
-                <div className="relative space-y-2 border-t border-white/10 px-3 pb-3 pt-2">
-                    {travelShowLiftAction ? (
-                        <button
-                            type="button"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                liftTravelBanEnforcement();
-                            }}
-                            className="w-full rounded-xl border border-sky-500/25 bg-gradient-to-l from-sky-500/12 to-transparent px-3 py-2.5 text-[11px] font-bold text-sky-100 transition-all hover:from-sky-500/18"
-                        >
-                            رفع منع السفر
-                        </button>
-                    ) : null}
-                    {travelShowEnforcedAwaitingDebt ? (
-                        <p className="rounded-xl border border-sky-500/20 bg-sky-950/20 px-3 py-2.5 text-[10px] leading-relaxed text-sky-100/90">
-                            منع السفر مفعّل — يُرفع تلقائياً بعد سداد الدين بالكامل.
-                        </p>
-                    ) : null}
+            {showTravelBanSection ? (
+            <div className="relative space-y-2">
+            <div className="overflow-visible rounded-2xl border border-violet-500/25 bg-violet-950/15 text-right">
+                <div className="relative">
                     {travelShowInitialSubmit ? (
                         <button
                             type="button"
-                            onClick={(e) => {
-                                e.stopPropagation();
+                            disabled={travelSubmitButtonDisabled}
+                            onClick={() => {
                                 if (travelSubmitButtonDisabled) return;
                                 if (!guardSummonsGate()) return;
                                 if (!canSubmitTravelBan) return;
                                 setConfirmingKey('travel_ban');
                             }}
-                            disabled={travelSubmitButtonDisabled}
-                            className="w-full rounded-xl border border-sky-500/25 bg-gradient-to-l from-sky-500/12 to-transparent px-3 py-2.5 text-[11px] font-bold text-sky-100 transition-all hover:from-sky-500/18 disabled:opacity-40"
+                            className={`w-full ${BTN_BASE} bg-gradient-to-l from-sky-500/12 to-transparent hover:from-sky-500/18 ${travelSubmitButtonDisabled ? BTN_DISABLED : ''}`}
                         >
-                            تقديم طلب منع سفر
+                            <div className="flex flex-row-reverse items-center gap-3">
+                                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5">
+                                    <Plane className="h-6 w-6 text-white/70" />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-bold text-sky-100">{travelButtonLabel}</p>
+                                </div>
+                            </div>
                         </button>
-                    ) : null}
-                    {renderInlineGate('travel_ban', () => {
-                        setSendingKey('travel_ban');
-                        if (travel.pending || travel.rejected) {
-                            setSendingKey(null);
-                            setConfirmingKey(null);
-                            return;
-                        }
-                        void submitRequest(
-                            'travel_ban',
-                            'طلب وضع إشارة منع سفر على المدين',
-                            'طلب توجيه كتاب إلى مديرية الجوازات والإقامة لمنع سفر المدين لحين البتّ في التنفيذ.'
-                        ).then(() => {
-                            setSendingKey(null);
-                            setConfirmingKey(null);
-                        });
-                    })}
-                    {travelUiApproved ? renderAppealSyncFollowup(travelSync) : null}
-                    {!travelBanWithdrawn && travelCycleActive && (travel.pending || travel.rejected) ? (
-                            travel.rejected ? (
-                                <CoerciveSubsectionFold flat title="تم رفض الطلب من قبل المنفذ">
-                                    <ExecutionInlineExecutorDecisionActions
-                                        executionId={exId}
-                                        decisionId={findLatestDecisionIdForSubtype('travel_ban') || ''}
-                                        requestKind="personal_coercive"
-                                        personalCoerciveSubtype="travel_ban"
-                                        suppressNavigatorToast
-                                        disabled
-                                        onOpenAppealCenter={() =>
-                                            onOpenDecisions({
-                                                tab: 'previous',
-                                                decisionId: findLatestDecisionIdForSubtype('travel_ban'),
-                                            })
-                                        }
-                                    />
-                                    {renderWaiveInitialAppeal(findLatestDecisionIdForSubtype('travel_ban'))}
-                                    {travelShowResubmitStrip ? (
-                                        <div className="border-t border-white/10 pt-2">
-                                            <RejectedExecutorResubmitStrip
-                                                showReplaceHint={hasOpenCardForSubtype('travel_ban')}
-                                                submitting={sendingKey === 'travel_ban'}
-                                                onConfirmSubmit={() => runTravelBanSubmit()}
-                                            />
-                                        </div>
-                                    ) : null}
-                                </CoerciveSubsectionFold>
+                    ) : travelEnforcedSettled ? (
+                        <details
+                            open={travelPanelOpen}
+                            onToggle={(e) =>
+                                setTravelPanelOpen((e.target as HTMLDetailsElement).open)
+                            }
+                            className="group/travel text-right"
+                        >
+                            <summary className="flex cursor-pointer list-none flex-row-reverse items-center justify-between gap-2 px-4 py-3.5 transition-colors hover:bg-white/[0.03] [&::-webkit-details-marker]:hidden">
+                                <span className="flex flex-row-reverse items-center gap-3 min-w-0">
+                                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/5">
+                                        <Plane className="h-6 w-6 text-white/70" />
+                                    </span>
+                                    <span className="text-sm font-bold text-sky-100">منع سفر — مفعّل</span>
+                                </span>
+                                <ChevronDown
+                                    size={18}
+                                    className="shrink-0 text-slate-400 transition-transform duration-200 group-open/travel:rotate-180"
+                                    aria-hidden
+                                />
+                            </summary>
+                            <div className="space-y-2 border-t border-white/10 px-3 pb-3 pt-2">
+                                <p className="text-[11px] font-bold text-emerald-200">
+                                    تمت الموافقة فعلاً على منع المدين من السفر.
+                                </p>
+                                {travelAppealFollowupVisible ? renderAppealSyncFollowup(travelSync) : null}
+                                {travelShowLiftAction ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => liftTravelBanEnforcement()}
+                                        className="w-full rounded-xl border border-sky-400/35 bg-sky-800/45 py-2.5 text-[11px] font-bold text-sky-50 hover:bg-sky-800/60"
+                                    >
+                                        رفع إشارة منع السفر
+                                    </button>
+                                ) : debtRemainingIqd > 0 ? (
+                                    <p className="text-[10px] text-sky-200/75">
+                                        يُرفع منع السفر تلقائياً بعد سداد الدين بالكامل.
+                                    </p>
+                                ) : null}
+                                <button
+                                    type="button"
+                                    disabled={coerciveUiLocked || isHistoricalMode}
+                                    onClick={() => setConfirmingKey('travel_ban_withdraw')}
+                                    className="w-full rounded-xl border border-amber-500/35 bg-amber-500/10 py-2.5 text-[11px] font-bold text-amber-100 hover:bg-amber-500/15 disabled:opacity-40"
+                                >
+                                    التراجع عن الطلب
+                                </button>
+                            </div>
+                        </details>
+                    ) : travelShowLiftAction ? (
+                        <button
+                            type="button"
+                            onClick={() => liftTravelBanEnforcement()}
+                            className={`w-full ${BTN_BASE} bg-gradient-to-l from-sky-500/12 to-transparent hover:from-sky-500/18`}
+                        >
+                            <div className="flex flex-row-reverse items-center gap-3">
+                                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5">
+                                    <Plane className="h-6 w-6 text-white/70" />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-bold text-sky-100">{travelButtonLabel}</p>
+                                </div>
+                            </div>
+                        </button>
+                    ) : (
+                        <div className={`w-full ${BTN_BASE} bg-gradient-to-l from-sky-500/12 to-transparent`}>
+                            <div className="flex flex-row-reverse items-center gap-3">
+                                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5">
+                                    <Plane className="h-6 w-6 text-white/70" />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-bold text-sky-100">{travelButtonLabel}</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {!travelEnforcedSettled && travelAppealFollowupVisible
+                        ? renderAppealSyncFollowup(travelSync)
+                        : null}
+
+                    {!travelBanWithdrawn &&
+                    travelCycleActive &&
+                    (travel.pending ||
+                        (travel.rejected &&
+                            !isExecutorRejectedAppealFollowupDismissed(
+                                findLatestDecisionIdForSubtype('travel_ban'),
+                                allDecisionRows
+                            ))) ? (
+                        <div className="border-t border-white/10 px-3 pb-3 pt-2">
+                            {travel.rejected ? (
+                                renderRejectedExecutorAppealSection({
+                                    decisionId: findLatestDecisionIdForSubtype('travel_ban'),
+                                    personalCoerciveSubtype: 'travel_ban',
+                                })
                             ) : (
                                 <CoerciveSubsectionFold
                                     flat
@@ -2635,36 +2781,130 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
                                         onResolved={handleExecutorInlineResolved}
                                     />
                                 </CoerciveSubsectionFold>
-                            )
+                            )}
+                        </div>
+                    ) : null}
+
+                    {travel.alternative ? (
+                        <div className="border-t border-white/10 px-3 pb-3 pt-2">
+                            <p className="text-[10px] text-sky-200/90">
+                                🔄 سُجّل قرار بديل للمنفذ — راجع المهام ومحضر المتابعة.
+                            </p>
+                        </div>
                     ) : null}
                 </div>
-                ) : null}
-            </details>
+            </div>
+            {renderInlineGate('travel_ban', () => {
+                setSendingKey('travel_ban');
+                if (travel.pending || travel.rejected) {
+                    setSendingKey(null);
+                    setConfirmingKey(null);
+                    return;
+                }
+                void submitRequest(
+                    'travel_ban',
+                    'طلب وضع إشارة منع سفر على المدين',
+                    'طلب توجيه كتاب إلى مديرية الجوازات والإقامة لمنع سفر المدين لحين البتّ في التنفيذ.'
+                ).then(() => {
+                    setSendingKey(null);
+                    setConfirmingKey(null);
+                });
+            })}
+            {renderInlineGate(
+                'travel_ban_withdraw',
+                () => withdrawTravelBanRequestCycle(),
+                {
+                    confirmLabel: 'تأكيد التراجع',
+                    gateExtra: (
+                        <p className="text-[10px] leading-relaxed text-amber-100/90">
+                            يُغلق طلب منع السفر الحالي وتعود دورة التقديم. تبقى إشارة المنع
+                            مفعّلة حتى سداد الدين بالكامل.
+                        </p>
+                    ),
+                }
+            )}
+            {travelBanRequestCycleWithdrawn && travelBanEnforced && travelShowLiftAction ? (
+                <div className="px-1">
+                    <button
+                        type="button"
+                        onClick={() => liftTravelBanEnforcement()}
+                        className="w-full rounded-xl border border-sky-400/35 bg-sky-800/45 py-2.5 text-[11px] font-bold text-sky-50 hover:bg-sky-800/60"
+                    >
+                        رفع إشارة منع السفر
+                    </button>
+                </div>
+            ) : null}
+            </div>
             ) : null}
 
             {/* 4أ — طلب عرض الإضبارة (قرار المنفذ فقط) */}
             {showEmbeddedSection('executive_dossier_presentation') && showDossierPresentationCard ? (
-                <details
-                    ref={detentionDetailsRef}
-                    open={dossierDetailsOpen}
-                    onToggle={(e) => setDossierDetailsOpen((e.target as HTMLDetailsElement).open)}
-                    className={`${COERCIVE_SECTION_DETAILS_CLASS} ${kasabCoerciveEmphasis ? 'ring-2 ring-[#E6C673]/45 border-[#E6C673]/35' : ''}`}
+                <div className="relative space-y-2">
+                <div
+                    className={`overflow-visible rounded-2xl border border-violet-500/25 bg-violet-950/15 text-right ${kasabCoerciveEmphasis ? 'ring-2 ring-[#E6C673]/45 border-[#E6C673]/35' : ''}`}
                 >
-                    <summary className="flex cursor-pointer list-none flex-row-reverse items-center justify-between gap-2 px-3 py-3 transition-colors duration-300 hover:bg-white/[0.04] [&::-webkit-details-marker]:hidden">
-                        <span className="flex flex-row-reverse items-center gap-2">
-                            <span className="flex size-12 items-center justify-center rounded-2xl bg-white/5">
-                                <Scale className="size-6 text-white/70" />
-                            </span>
-                            <span className="text-xs font-bold text-amber-100">عرض الإضبارة على قاضي البداءة</span>
-                        </span>
-                        <ChevronDown
-                            size={18}
-                            className="shrink-0 text-slate-400 transition-transform duration-300 group-open:rotate-180"
-                            aria-hidden
-                        />
-                    </summary>
-                    <div className="space-y-2 border-t border-white/10 px-3 pb-3 pt-2">
+                    <div className="relative">
+                        {dossierHasExpandablePanel ? (
+                            <div
+                                className={`w-full ${BTN_BASE} bg-gradient-to-l from-orange-500/12 to-transparent`}
+                            >
+                                <div className="flex flex-row-reverse items-center gap-3">
+                                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5">
+                                        <Scale className="h-6 w-6 text-white/70" />
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-bold text-amber-100">
+                                            عرض الإضبارة على قاضي البداءة
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <button
+                                type="button"
+                                disabled={dossierButtonDisabled}
+                                onClick={() => {
+                                    if (dossierButtonDisabled) return;
+                                    if (!relaxedPersonal && !guardSummonsGate()) return;
+                                    if (
+                                        !dossierCanResubmitToExecutor &&
+                                        !detentionInAbsentia &&
+                                        !debtorPresentEffective &&
+                                        !relaxedPersonal
+                                    ) {
+                                        showToast(
+                                            'فعّل مسار الغياب أو أكّد مثول المدين أمام المنفذ.',
+                                            'warning'
+                                        );
+                                        return;
+                                    }
+                                    setConfirmingKey('executive_dossier_presentation');
+                                }}
+                                className={`w-full ${BTN_BASE} bg-gradient-to-l from-orange-500/12 to-transparent hover:from-orange-500/18 ${dossierButtonDisabled ? BTN_DISABLED : ''}`}
+                            >
+                                <div className="flex flex-row-reverse items-center gap-3">
+                                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5">
+                                        <Scale className="h-6 w-6 text-white/70" />
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-bold text-amber-100">
+                                            عرض الإضبارة على قاضي البداءة
+                                        </p>
+                                    </div>
+                                </div>
+                            </button>
+                        )}
+
+                        {dossierIdle && !relaxedPersonal && !debtorNotified ? (
+                            <div className="border-t border-white/10 px-3 py-2">
+                                <p className="text-[10px] leading-relaxed text-amber-200/90 rounded-xl border border-amber-500/20 bg-amber-950/15 px-3 py-2">
+                                    يجب تبليغ المدين أولاً قبل تقديم طلب عرض الإضبارة.
+                                </p>
+                            </div>
+                        ) : null}
+
                         {dossier.pending ? (
+                            <div className="border-t border-white/10 px-3 py-3">
                             <CoerciveSubsectionFold
                                 flat
                                 title="طلب عرض الإضبارة — قيد البت لدى المنفذ"
@@ -2680,83 +2920,45 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
                                     onResolved={handleExecutorInlineResolved}
                                 />
                             </CoerciveSubsectionFold>
-                        ) : dossier.rejected ? (
-                            <CoerciveSubsectionFold flat title="رفض المنفذ طلب عرض الإضبارة">
-                                <ExecutionInlineExecutorDecisionActions
-                                    executionId={exId}
-                                    decisionId={findGoverningDossierDecisionId() || ''}
-                                    requestKind="personal_coercive"
-                                    personalCoerciveSubtype="executive_dossier_presentation"
-                                    suppressNavigatorToast
-                                    disabled
-                                    onOpenAppealCenter={() =>
-                                        onOpenDecisions({
-                                            tab: 'previous',
-                                            decisionId: findGoverningDossierDecisionId(),
-                                        })
-                                    }
-                                />
-                                {renderWaiveInitialAppeal(findGoverningDossierDecisionId())}
-                                {dossierShowResubmitStrip ? (
-                                    <div className="space-y-2 border-t border-white/10 pt-2">
-                                        <RejectedExecutorResubmitStrip
-                                            showReplaceHint={hasOpenCardForSubtype(
-                                                'executive_dossier_presentation'
-                                            )}
-                                            submitting={sendingKey === 'executive_dossier_presentation'}
-                                            disabled={!canSubmitExecutiveDetention}
-                                            onConfirmSubmit={() => runDossierPresentationSubmit()}
-                                            linkLabel="أو: إرسال طلب للقرارات"
-                                            confirmLabel="تأكيد إرسال الطلب للمنفذ"
-                                        />
-                                    </div>
-                                ) : null}
-                            </CoerciveSubsectionFold>
+                            </div>
+                        ) : dossier.rejected &&
+                          !isExecutorRejectedAppealFollowupDismissed(
+                              findGoverningDossierDecisionId(),
+                              allDecisionRows
+                          ) ? (
+                            <div className="border-t border-white/10 px-3 pb-3 pt-2">
+                                {renderRejectedExecutorAppealSection({
+                                    decisionId: findGoverningDossierDecisionId(),
+                                    title: 'رفض المنفذ طلب عرض الإضبارة',
+                                    personalCoerciveSubtype: 'executive_dossier_presentation',
+                                })}
+                            </div>
                         ) : dossier.alternative ? (
+                            <div className="border-t border-white/10 px-3 pb-3 pt-2">
                             <p className="text-[10px] text-amber-200/90">
                                 🔄 سُجّل قرار بديل للمنفذ — راجع المهام ومحضر المتابعة.
                             </p>
-                        ) : dossierExecutorApproved ? (
-                            <div className="rounded-xl border border-emerald-500/25 bg-emerald-950/20 px-3 py-2.5 space-y-1">
-                                <p className="text-[10px] font-bold text-emerald-200">
-                                    ✓ وافق المنفذ على عرض الإضبارة
-                                </p>
-                                <p className="text-[10px] leading-relaxed text-emerald-200/75">
-                                    انتهى دور المنفذ — الطلب يبقى مسجّلاً هنا. قرار القاضي في البطاقة
-                                    المستقلة أدناه.
-                                </p>
                             </div>
                         ) : dossier.approved && dossierSync.followupBlock ? (
-                            renderAppealSyncFollowup(dossierSync)
-                        ) : dossierIdle ? (
-                            <>
-                        {!relaxedPersonal && !debtorNotified ? (
-                            <p className="text-[10px] leading-relaxed text-amber-200/90 rounded-xl border border-amber-500/20 bg-amber-950/15 px-3 py-2">
-                                يجب تبليغ المدين أولاً قبل تقديم طلب عرض الإضبارة.
-                            </p>
+                            <div className="border-t border-white/10 px-3 pb-3 pt-2">
+                                {renderAppealSyncFollowup(dossierSync)}
+                            </div>
                         ) : null}
-                        <button
-                            type="button"
-                            disabled={!canSubmitExecutiveDetention || sendingKey === 'executive_dossier_presentation'}
-                            onClick={() => runDossierPresentationSubmit()}
-                            className="group w-full rounded-xl border border-[#E6C673]/35 bg-gradient-to-l from-orange-500/18 via-violet-600/10 to-violet-950/20 py-3 text-[11px] font-black text-amber-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-all hover:border-[#E6C673]/55 hover:from-orange-500/28 hover:shadow-[0_0_24px_rgba(230,198,115,0.12)] disabled:opacity-50"
-                        >
-                            <span className="flex flex-row-reverse items-center justify-center gap-2">
-                                <Scale
-                                    size={15}
-                                    className="text-[#E6C673]/85 transition-colors group-hover:text-[#E6C673]"
-                                />
-                                عرض الإضبارة على قاضي البداءة
-                            </span>
-                        </button>
-                    </>
-                        ) : (
-                            <p className="text-[10px] text-slate-400">
-                                لا إجراء متاح حالياً — راجع مركز القرارات.
-                            </p>
-                        )}
                     </div>
-                </details>
+                </div>
+                <InlineActionGate
+                    gateKey="hidden_pc_dossier"
+                    activeKey={
+                        confirmingKey === 'executive_dossier_presentation'
+                            ? 'hidden_pc_dossier'
+                            : null
+                    }
+                    onConfirm={() => {
+                        void runDossierPresentationSubmit();
+                    }}
+                    onCancel={() => setConfirmingKey(null)}
+                />
+                </div>
             ) : null}
 
             {/* 4ب — قرار القاضي والحبس التنفيذي (بطاقة مستقلة) */}
@@ -2780,11 +2982,7 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
                         />
                     </summary>
                     <div className="space-y-2 border-t border-white/10 px-3 pb-3 pt-2">
-                        {detentionActive && detentionUntil ? (
-                            <p className="text-[10px] text-orange-200">
-                                🔒 موقوف تنفيذياً — حتى {detentionUntil}
-                            </p>
-                        ) : null}
+                        {dossierHandedToJudgeStalled ? renderAppealSyncFollowup(dossierSync) : null}
                         {!detentionActive && dossierAwaitingJudge ? (
                             <div className="space-y-2">
                                 <p className="text-[11px] font-black text-violet-200">بانتظار قرار قاضي البداءة</p>
@@ -2918,20 +3116,9 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
                         {!detentionActive &&
                         !dossierAwaitingJudge &&
                         !judgeSync.followupBlock &&
-                        !judgeSync.cycleSuperseded &&
-                        judgeDetention === 'rejected' &&
-                        dossierPhase === 'judge_decided' ? (
-                            renderJudgeRejectedResubmitBlock()
-                        ) : null}
-                        {!detentionActive &&
-                        !dossierAwaitingJudge &&
-                        !dossierShowStartPeriod &&
-                        judgeDetention !== 'rejected' &&
-                        dossierPhase === 'judge_decided' ? (
-                            <p className="text-[10px] text-slate-400">
-                                لا إجراء متاح حالياً على قرار القاضي.
-                            </p>
-                        ) : null}
+                        judgeRejectedResubmitVisible
+                            ? renderJudgeRejectedResubmitBlock()
+                            : null}
                     </div>
                 </details>
             ) : null}
@@ -2959,25 +3146,18 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
                             وافق المنفذ — أكمل وحفظ بيانات الكفيل من اسم الكفيل أسفل المدين أو من الزر أدناه.
                         </p>
                     ) : null}
-                    {guarantorDec.pending || guarantorDec.rejected ? (
+                    {guarantorDec.pending ||
+                    (guarantorDec.rejected &&
+                        !isExecutorRejectedAppealFollowupDismissed(
+                            findLatestGuarantorDecisionId(),
+                            allDecisionRows
+                        )) ? (
                         <div className="mt-2">
                             {guarantorDec.rejected ? (
-                                <>
-                                    <ExecutionInlineExecutorDecisionActions
-                                        executionId={exId}
-                                        decisionId={findLatestGuarantorDecisionId() || ''}
-                                        requestKind="guarantor_request"
-                                        suppressNavigatorToast
-                                        disabled
-                                        onOpenAppealCenter={() =>
-                                            onOpenDecisions({
-                                                tab: 'previous',
-                                                decisionId: findLatestGuarantorDecisionId(),
-                                            })
-                                        }
-                                    />
-                                    {renderWaiveInitialAppeal(findLatestGuarantorDecisionId())}
-                                </>
+                                renderRejectedExecutorAppealSection({
+                                    decisionId: findLatestGuarantorDecisionId(),
+                                    requestKind: 'guarantor_request',
+                                })
                             ) : (
                                 <ExecutionInlineExecutorDecisionActions
                                     executionId={exId}

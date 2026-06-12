@@ -48,8 +48,12 @@ import {
     isExecutiveDetentionPathEnforceable,
     isExecutiveDetentionPeriodActive,
     isTravelBanEnforceable,
+    resolveExecutiveDetentionEffectiveJudgeOutcome,
     resolvePrimaryDebtorCoerciveStack,
 } from './coerciveStackUtils';
+import { isSeizureAssetEnforceableForBadge } from '@/app/components/lawyer/ExecutionDashboard/helpers/seizureUtils';
+import { readExecutorDecisionsArray } from '@/app/utils/executorSeizureDecisionQueue';
+import { getGoverningPersonalCoerciveAppealRow } from '@/app/utils/personalCoerciveAppealSync';
 
 export type PartyBadgeParty = 'creditor' | 'debtor';
 
@@ -230,12 +234,8 @@ function garnishmentOfficeAr(target: ExecutionFile['garnishment_target']): strin
     return '—';
 }
 
-function isSeizedAssetActiveForBadge(a: SeizedAsset): boolean {
-    if (a.seizure_record_locked) return false;
-    const st = String(a.status || '');
-    if (st === 'pending') return false;
-    if (st === 'released' || st === 'sold') return false;
-    return true;
+function isSeizedAssetActiveForBadge(a: SeizedAsset, decisionsExecutionId?: string): boolean {
+    return isSeizureAssetEnforceableForBadge(a, decisionsExecutionId);
 }
 
 /** تفاصيل محجوز للشارة: تسميات عربية + تواريخ مقروءة */
@@ -290,7 +290,9 @@ export function buildPartyBadgeDefinitions(args: {
     void args.decisionsReloadEpoch;
     const ed = args.executionData;
     const out: PartyInteractiveBadge[] = [];
-    const activeSeized = args.seizedAssets.filter(isSeizedAssetActiveForBadge);
+    const activeSeized = args.seizedAssets.filter((a) =>
+        isSeizedAssetActiveForBadge(a, args.decisionsExecutionId)
+    );
     const pcDecisions = args.personalCoerciveDecisionBadges !== false;
     const decId = args.decisionsExecutionId;
     const debtorPrimary = args.party === 'debtor' && args.isPrimaryDebtor;
@@ -309,7 +311,47 @@ export function buildPartyBadgeDefinitions(args: {
         coerciveStack?.detentionAbsentia ?? ed?.executive_detention_request_in_absentia
     );
     const detentionBadgeSuppressed = isExecutiveDetentionBadgeSuppressed(ed);
-    const travelBanEnforceable = isTravelBanEnforceable(ed);
+    const allDecisions = decId
+        ? (readExecutorDecisionsArray(decId) as Record<string, unknown>[])
+        : [];
+    const appealScope = {
+        debtorKey: args.activeDebtorKey,
+        primaryDebtorKey: args.primaryDebtorKey,
+    };
+    const travelDecisionRow = decId
+        ? getGoverningPersonalCoerciveAppealRow({
+              executionId: decId,
+              subtype: 'travel_ban',
+              allDecisions,
+              executionData: ed ?? undefined,
+              ...appealScope,
+          })
+        : null;
+    const judgeDecisionRow = decId
+        ? getGoverningPersonalCoerciveAppealRow({
+              executionId: decId,
+              subtype: 'executive_detention_judge',
+              allDecisions,
+              executionData: ed ?? undefined,
+              ...appealScope,
+          })
+        : null;
+    const effectiveJudgeOutcome = decId
+        ? resolveExecutiveDetentionEffectiveJudgeOutcome({
+              executionData: ed,
+              decisionsExecutionId: decId,
+          })
+        : ((ed?.executive_detention_judge_outcome as 'approved' | 'rejected' | null) ?? null);
+    const detentionPathEnforceable = isExecutiveDetentionPathEnforceable(
+        ed,
+        detentionBadgeSuppressed,
+        effectiveJudgeOutcome,
+        { judgeDecisionRow, allDecisions }
+    );
+    const travelBanEnforceable = isTravelBanEnforceable(ed, {
+        travelDecisionRow,
+        allDecisions,
+    });
 
     const stay = ed?.stay_of_execution;
     if (stay?.active) {
@@ -343,12 +385,10 @@ export function buildPartyBadgeDefinitions(args: {
 
     const sched = ed?.salary_garnishment_installment_schedule;
     const debtorIsEmployee = args.debtorIsEmployee === true;
-    const salaryAction =
-        debtorIsEmployee &&
-        (args.activeCoerciveActions.includes('salary') || Boolean(sched));
     const salarySeizedAsset = debtorIsEmployee
         ? activeSeized.find((a) => /راتب|salary|خُمس|خمس/i.test(String(a.type)))
         : undefined;
+    const salaryAction = debtorIsEmployee && Boolean(salarySeizedAsset || sched?.startDate);
     if (salaryAction && args.party === 'debtor' && args.isPrimaryDebtor) {
         let salarySub = salarySeizedAsset ? linesForSeizedAssetPopover(salarySeizedAsset) : [];
         const hasSeizDate = salarySub.some((l) => l.k === 'تاريخ الحجز');
@@ -387,7 +427,7 @@ export function buildPartyBadgeDefinitions(args: {
             ],
         });
     } else if (
-        isExecutiveDetentionPathEnforceable(ed, detentionBadgeSuppressed) &&
+        detentionPathEnforceable &&
         !isExecutiveDetentionPeriodActive(ed) &&
         args.party === 'debtor' &&
         args.isPrimaryDebtor

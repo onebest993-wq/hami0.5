@@ -2,7 +2,10 @@ import { createElement, type ReactNode } from 'react';
 import { stripEmojisFromText } from '@/app/utils/timelineSmartDisplay';
 import type { ExecutionDecisionAppealPhase, ExecutionDecisionHubStatus } from '@/app/types/execution';
 import type { Decision } from './types';
-import { decisionCardGlassClasses } from './decisionCardPresentation';
+import {
+    decisionCardGlassClasses,
+    type DecisionCardEnforcementVisual,
+} from './decisionCardGlassShell';
 import {
     appealCreditorRequestPauseGateMessage,
     appealCreditorRequestRevokedGateMessage,
@@ -99,6 +102,144 @@ export type AppealProceedingRow = {
     result: string;
 };
 
+export type ManualAppealAppellantActor = 'lawyer' | 'debtor';
+
+export function formatManualAppealAppellantsLabel(
+    actors: ManualAppealAppellantActor[] | undefined,
+    perspective: AppealUiPerspective
+): string {
+    const list = Array.isArray(actors) ? actors.filter((a) => a === 'lawyer' || a === 'debtor') : [];
+    if (list.length === 0) return '—';
+    const labels = list.map((actor) => {
+        if (actor === 'lawyer') return 'الدائن';
+        return perspective === 'debtor_agent' ? 'موكّلنا' : 'المدين';
+    });
+    return labels.join('، ');
+}
+
+export function hasManualExecutorAppealAppellants(row: Decision): boolean {
+    return (
+        (Array.isArray(row.manualGrievanceAppellants) && row.manualGrievanceAppellants.length > 0) ||
+        (Array.isArray(row.manualCassationAppellants) && row.manualCassationAppellants.length > 0)
+    );
+}
+
+function resolveManualGrievanceProceedingResult(row: Decision): string {
+    const r = String(row.appealResult ?? '').trim();
+    if (r === 'قبول التظلم' || r === 'رد التظلم') return r;
+    if (row.appealStatus === 'tadhallum_filed' || row.appealPhase === 'grievance') return 'قيد النظر';
+    return '—';
+}
+
+function resolveManualCassationProceedingResult(row: Decision): string {
+    const r = String(row.appealResult ?? '').trim();
+    if (r === 'نقض القرار') return 'نقض القرار';
+    if (isCassationAffirmResult(r)) return 'تصديق القرار';
+    if (row.appealStatus === 'tamyeez_filed' || row.appealPhase === 'cassation') return 'قيد النظر';
+    return '—';
+}
+
+/** مسار طعن من اختيار الطاعنين اليدوي عند إضافة قرار المنفذ */
+/** يبني حزمة التحديث عند تسجيل طعن على قرار منفذ من البطاقة */
+export function buildExecutorSideAppealCommitPatch(
+    stage: 'grievance' | 'cassation',
+    appellants: ManualAppealAppellantActor[]
+): Partial<Decision> {
+    const filtered = appellants.filter((a) => a === 'lawyer' || a === 'debtor');
+    const hasLawyer = filtered.includes('lawyer');
+    const hasDebtor = filtered.includes('debtor');
+    const isGrievance = stage === 'grievance';
+    const primaryActor = filtered.length === 1 ? filtered[0] : null;
+
+    return {
+        executorOutcome: 'rejected',
+        appealBaseBranch: 'after_rejection',
+        status: 'rejected',
+        appealRequestOrigin:
+            hasLawyer && !hasDebtor
+                ? 'creditor_side'
+                : hasDebtor && !hasLawyer
+                  ? 'debtor_side'
+                  : 'executor_side',
+        noAppealChosen: false,
+        appealActor: primaryActor,
+        appealMethod: isGrievance ? 'tadhallum' : 'tamyeez',
+        appealWorkflowState:
+            primaryActor === 'debtor'
+                ? 'PENDING_APPEAL_DEBTOR'
+                : primaryActor === 'lawyer'
+                  ? 'PENDING_APPEAL_LAWYER'
+                  : undefined,
+        appealStatus: isGrievance ? 'tadhallum_filed' : 'tamyeez_filed',
+        appealPhase: isGrievance ? 'grievance' : 'cassation',
+        ...(isGrievance
+            ? { manualGrievanceAppellants: filtered }
+            : { manualCassationAppellants: filtered }),
+    };
+}
+
+export function executorSideAppealTimelineMessage(
+    stage: 'grievance' | 'cassation',
+    appellants: ManualAppealAppellantActor[],
+    perspective: AppealUiPerspective
+): string {
+    const names = appellants.map((actor) => {
+        if (actor === 'lawyer') return 'الدائن';
+        return perspective === 'debtor_agent' ? 'موكّلنا' : 'المدين';
+    });
+    const joined = names.join(' و');
+    if (stage === 'grievance') {
+        return `تم تسجيل تظلم ${joined} على قرار المنفذ.`;
+    }
+    return `سُجِّل تمييز ${joined} على قرار المنفذ.`;
+}
+
+export function buildManualExecutorAppealProceedings(
+    row: Decision,
+    perspective: AppealUiPerspective = 'creditor_agent'
+): AppealProceedingRow[] {
+    const rows: AppealProceedingRow[] = [];
+    const grievanceActors = row.manualGrievanceAppellants ?? [];
+    if (grievanceActors.length > 0) {
+        rows.push({
+            stage: 'تظلم',
+            appellant: formatManualAppealAppellantsLabel(grievanceActors, perspective),
+            result: resolveManualGrievanceProceedingResult(row),
+        });
+    }
+    const grievanceResult = String(row.appealResult ?? '').trim();
+    const cassationActors = row.manualCassationAppellants ?? [];
+    const cassationFiled =
+        row.appealStatus === 'tamyeez_filed' || row.appealPhase === 'cassation';
+    if (cassationActors.length > 0 || cassationFiled || grievanceResult === 'قبول التظلم' || grievanceResult === 'رد التظلم') {
+        let cassAppellant = '';
+        if (cassationFiled || cassationActors.length > 0) {
+            cassAppellant =
+                cassationActors.length > 0
+                    ? formatManualAppealAppellantsLabel(cassationActors, perspective)
+                    : resolveCassationAppellantLabel(row, perspective);
+        } else if (grievanceResult === 'قبول التظلم') {
+            const awaiting = manualExecutorAwaitingCassationParty(row);
+            cassAppellant = awaiting ? cassationAwaitingAppellantLabel(awaiting, perspective) : '';
+        } else if (grievanceResult === 'رد التظلم') {
+            cassAppellant = grievanceAppellantLabel(row, perspective);
+        }
+        const cassResult = cassationFiled
+            ? resolveManualCassationProceedingResult(row)
+            : grievanceResult === 'قبول التظلم' || grievanceResult === 'رد التظلم'
+              ? 'بانتظار التسجيل'
+              : resolveManualCassationProceedingResult(row);
+        if (cassResult !== '—') {
+            rows.push({
+                stage: 'تمييز',
+                appellant: cassAppellant,
+                result: cassResult,
+            });
+        }
+    }
+    return rows.filter((r) => r.result !== '—');
+}
+
 function grievanceAppellantLabel(
     row: Decision,
     perspective: AppealUiPerspective
@@ -147,17 +288,16 @@ function buildAuthoritativeAppealProceedings(
     if (grievanceResult === 'قبول التظلم' && awaiting) {
         rows.push({
             stage: 'تمييز',
-            appellant: cassationAwaitingAppellantLabel(awaiting, perspective),
+            appellant: '',
             result: 'بانتظار التسجيل',
         });
     } else if (
         grievanceResult === 'رد التظلم' &&
         (row.grievanceRejectedAwaitingTamyeez || awaiting)
     ) {
-        const party = awaiting ?? 'debtor';
         rows.push({
             stage: 'تمييز',
-            appellant: cassationAwaitingAppellantLabel(party, perspective),
+            appellant: grievanceAppellantLabel(row, perspective),
             result: 'بانتظار التسجيل',
         });
     }
@@ -165,17 +305,101 @@ function buildAuthoritativeAppealProceedings(
     return rows;
 }
 
+/** مسار طعن نهائي (تمييز) — مرحلة تظلم واحدة + نتيجة التمييز من الحالة الفعلية */
+function buildAuthoritativeAppealProceedingsFromFinal(
+    row: Decision,
+    perspective: AppealUiPerspective
+): AppealProceedingRow[] {
+    const logs = Array.isArray(row.appealTimelineLogs) ? [...row.appealTimelineLogs] : [];
+    logs.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+
+    const rows: AppealProceedingRow[] = [];
+    let openGrievanceAppellant: string | null = null;
+    let lastGrievance: AppealProceedingRow | null = null;
+
+    for (const log of logs) {
+        const m = String(log.message || '').replace(/\s+/g, ' ').trim();
+        if (!m) continue;
+
+        if (/تم تسجيل تظلم|تسجيل تظلم/.test(m)) {
+            openGrievanceAppellant =
+                appellantLabelFromLogMessage(m, perspective) ?? resolveAppealActorLabel(row, perspective);
+            continue;
+        }
+        if (/قبول التظلم|قُبل التظلم/.test(m)) {
+            const fromLog = appellantLabelFromLogMessage(m, perspective);
+            if (!openGrievanceAppellant && !fromLog && lastGrievance) {
+                continue;
+            }
+            const appellant =
+                openGrievanceAppellant ?? fromLog ?? grievanceAppellantLabel(row, perspective);
+            lastGrievance = { stage: 'تظلم', appellant, result: 'قبول التظلم' };
+            openGrievanceAppellant = null;
+            continue;
+        }
+        if (/رد التظلم|رُد التظلم/.test(m)) {
+            const fromLog = appellantLabelFromLogMessage(m, perspective);
+            if (!openGrievanceAppellant && !fromLog && lastGrievance) {
+                continue;
+            }
+            const appellant =
+                openGrievanceAppellant ?? fromLog ?? grievanceAppellantLabel(row, perspective);
+            lastGrievance = { stage: 'تظلم', appellant, result: 'رد التظلم' };
+            openGrievanceAppellant = null;
+        }
+    }
+
+    if (lastGrievance) {
+        if (!lastGrievance.appellant || lastGrievance.appellant === '—') {
+            lastGrievance = {
+                ...lastGrievance,
+                appellant: grievanceAppellantLabel(row, perspective),
+            };
+        }
+        rows.push(lastGrievance);
+    } else if (inferAppealMethodsUsed(row).tadhallum) {
+        rows.push({
+            stage: 'تظلم',
+            appellant: grievanceAppellantLabel(row, perspective),
+            result: '—',
+        });
+    }
+
+    const cassResult = String(row.appealResult ?? '').trim();
+    if (
+        cassResult === 'نقض القرار' ||
+        isCassationAffirmResult(cassResult) ||
+        inferAppealMethodsUsed(row).tamyeez
+    ) {
+        rows.push({
+            stage: 'تمييز',
+            appellant: resolveCassationAppellantLabel(row, perspective),
+            result: isCassationAffirmResult(cassResult) ? 'تصديق القرار' : cassResult || '—',
+        });
+    }
+
+    return rows.filter((r) => r.result !== '—');
+}
+
 function shouldRebuildAppealProceedingsFromState(
     row: Decision,
     parsed: AppealProceedingRow[]
 ): boolean {
+    const grievanceRows = parsed.filter((r) => r.stage === 'تظلم');
+    const cassationRows = parsed.filter((r) => r.stage === 'تمييز');
+    if (grievanceRows.length > 1 || cassationRows.length > 1) return true;
+
     const authoritative = String(row.appealResult ?? '').trim();
+    if (
+        row.appealStatus === 'final' &&
+        (isCassationAffirmResult(authoritative) || authoritative === 'نقض القرار')
+    ) {
+        return true;
+    }
+
     if (authoritative !== 'قبول التظلم' && authoritative !== 'رد التظلم') {
         return false;
     }
-
-    const grievanceRows = parsed.filter((r) => r.stage === 'تظلم');
-    if (grievanceRows.length > 1) return true;
     if (grievanceRows.some((r) => r.result !== authoritative)) return true;
 
     const cassationActive =
@@ -266,16 +490,36 @@ export function resolveEffectiveAppealActor(
 /** يصحّح الطرف المنتظر للتمييز عند تعارض الحقول القديمة مع نتيجة التظلم */
 export function resolveEffectiveAwaitingCassationParty(
     pipe: Decision,
-    hub?: Decision
+    hub?: Decision,
+    all?: Decision[]
 ): 'lawyer' | 'debtor' | null {
     const h = hub ?? pipe;
+    const underlying =
+        all && all.length > 0 ? resolveUnderlyingDecisionHub(pipe, all) : h;
     const status = pipe.appealStatus ?? h.appealStatus;
-    if (status === 'tamyeez_filed' || pipe.appealPhase === 'cassation' || h.appealPhase === 'cassation') {
+    const phase = pipe.appealPhase ?? h.appealPhase;
+    if (status === 'tamyeez_filed' || phase === 'cassation') {
         return null;
     }
     if (status === 'final') return null;
 
     const appealResult = String(pipe.appealResult ?? h.appealResult ?? '').trim();
+    if (
+        (status === 'tadhallum_filed' || phase === 'grievance') &&
+        !appealResult &&
+        !resolveManualExecutorGrievanceResult(pipe) &&
+        !pipe.grievanceRejectedAwaitingTamyeez &&
+        !h.grievanceRejectedAwaitingTamyeez
+    ) {
+        return null;
+    }
+    if (isManualExecutorAppealRow(pipe, all ?? [pipe, h, underlying])) {
+        return (
+            manualExecutorAwaitingCassationParty(pipe) ??
+            manualExecutorAwaitingCassationParty(underlying)
+        );
+    }
+
     if (appealResult === 'قبول التظلم') {
         return (
             cassationEntryPartyAfterGrievanceGrant(pipe) ??
@@ -300,6 +544,58 @@ export function isCassationAffirmResult(result: string | undefined | null): bool
     return r === 'تصديق القرار' || r === 'رد اللائحة';
 }
 
+/** بعد التظلم: إخفاء طاعن التمييز عند القبول، وإظهار مقدّم التظلم عند الرد */
+function finalizeAppealProceedingsRows(
+    rows: AppealProceedingRow[],
+    row: Decision,
+    perspective: AppealUiPerspective
+): AppealProceedingRow[] {
+    const grievanceResult = String(row.appealResult ?? '').trim();
+    let out = rows.filter((r) => r.result !== '—');
+    const hasGrievance = out.some((r) => r.stage === 'تظلم');
+    const hasCassation = out.some((r) => r.stage === 'تمييز');
+    const cassationFiled =
+        row.appealStatus === 'tamyeez_filed' || row.appealPhase === 'cassation';
+
+    const grievanceOutcomeDecided =
+        grievanceResult === 'قبول التظلم' || grievanceResult === 'رد التظلم';
+
+    if (grievanceOutcomeDecided && hasGrievance && !hasCassation && !cassationFiled) {
+        const grievanceRow = out.find((r) => r.stage === 'تظلم');
+        out.push({
+            stage: 'تمييز',
+            appellant:
+                grievanceResult === 'قبول التظلم'
+                    ? ''
+                    : grievanceRow?.appellant || grievanceAppellantLabel(row, perspective),
+            result: 'بانتظار التسجيل',
+        });
+    }
+
+    return out.map((r) => {
+        if (r.stage !== 'تمييز') return r;
+        if (
+            cassationFiled ||
+            r.result === 'قيد النظر' ||
+            r.result === 'نقض القرار' ||
+            isCassationAffirmResult(r.result)
+        ) {
+            return r;
+        }
+        if (grievanceResult === 'قبول التظلم') {
+            return { ...r, appellant: '' };
+        }
+        if (grievanceResult === 'رد التظلم') {
+            const grievanceRow = out.find((x) => x.stage === 'تظلم');
+            return {
+                ...r,
+                appellant: grievanceRow?.appellant || grievanceAppellantLabel(row, perspective),
+            };
+        }
+        return r;
+    });
+}
+
 /** إجراءات الطعن المسجّلة على القرار — مرحلة، طاعن، نتيجة */
 export function buildAppealProceedingsForDecision(
     row: Decision,
@@ -307,6 +603,14 @@ export function buildAppealProceedingsForDecision(
 ): AppealProceedingRow[] {
     const logs = Array.isArray(row.appealTimelineLogs) ? [...row.appealTimelineLogs] : [];
     logs.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+
+    if (
+        logs.length === 0 &&
+        hasManualExecutorAppealAppellants(row) &&
+        (row.manualExecutorLedgerEntry === true || row.appealRequestOrigin === 'executor_side')
+    ) {
+        return buildManualExecutorAppealProceedings(row, perspective);
+    }
 
     const rows: AppealProceedingRow[] = [];
     let openGrievanceAppellant: string | null = null;
@@ -467,10 +771,326 @@ export function buildAppealProceedingsForDecision(
     }
 
     if (shouldRebuildAppealProceedingsFromState(row, rows)) {
-        return buildAuthoritativeAppealProceedings(row, perspective);
+        const authoritative = String(row.appealResult ?? '').trim();
+        if (
+            row.appealStatus === 'final' &&
+            (isCassationAffirmResult(authoritative) || authoritative === 'نقض القرار')
+        ) {
+            return finalizeAppealProceedingsRows(
+                buildAuthoritativeAppealProceedingsFromFinal(row, perspective),
+                row,
+                perspective
+            );
+        }
+        return finalizeAppealProceedingsRows(
+            buildAuthoritativeAppealProceedings(row, perspective),
+            row,
+            perspective
+        );
     }
 
-    return rows.filter((r) => r.result !== '—');
+    const filtered = rows.filter((r) => r.result !== '—');
+    if (
+        filtered.length === 0 &&
+        hasManualExecutorAppealAppellants(row) &&
+        (row.manualExecutorLedgerEntry === true || row.appealRequestOrigin === 'executor_side')
+    ) {
+        return finalizeAppealProceedingsRows(
+            buildManualExecutorAppealProceedings(row, perspective),
+            row,
+            perspective
+        );
+    }
+
+    return finalizeAppealProceedingsRows(filtered, row, perspective);
+}
+
+export function isManualExecutorLedgerDecision(d: Decision): boolean {
+    return d.manualExecutorLedgerEntry === true;
+}
+
+/** قرار «إضافة قرار» — النسخة أو الأصل المرتبط */
+export function isManualExecutorAppealRow(row: Decision, all: Decision[]): boolean {
+    if (isManualExecutorLedgerDecision(row)) return true;
+    if (!row.appealSourceDecisionId) return false;
+    const hub = resolveUnderlyingDecisionHub(row, all);
+    return isManualExecutorLedgerDecision(hub);
+}
+
+function resolveManualExecutorGrievanceResult(row: Decision): string {
+    const direct = String(row.appealResult ?? '').trim();
+    if (direct === 'قبول التظلم' || direct === 'رد التظلم') return direct;
+    const logs = Array.isArray(row.appealTimelineLogs) ? [...row.appealTimelineLogs] : [];
+    for (let i = logs.length - 1; i >= 0; i--) {
+        const m = String(logs[i]?.message ?? '');
+        if (/قبول التظلم|قُبل التظلم/.test(m)) return 'قبول التظلم';
+        if (/رد التظلم|رُد التظلم/.test(m)) return 'رد التظلم';
+    }
+    return '';
+}
+
+/** مُقدّم التظلم على قرار «إضافة قرار» اليدوي */
+export function resolveManualExecutorGrievanceFiler(d: Decision): 'lawyer' | 'debtor' | null {
+    const manual = d.manualGrievanceAppellants ?? [];
+    if (manual.length === 1) return manual[0]!;
+    if (manual.length > 1) {
+        if (d.appealActor === 'lawyer' || d.appealActor === 'debtor') return d.appealActor;
+        return null;
+    }
+    if (d.appealActor === 'lawyer' || d.appealActor === 'debtor') return d.appealActor;
+    if (d.appealRequestOrigin === 'creditor_side') return 'lawyer';
+    if (d.appealRequestOrigin === 'debtor_side') return 'debtor';
+    return null;
+}
+
+/**
+ * الطرف المخوّل بالتمييز بعد نتيجة التظلم — قرار «إضافة قرار» فقط.
+ * قبول التظلم: المتضرر (الطرف الآخر) | رد التظلم: مقدّم التظلم.
+ */
+export function manualExecutorCassationPartyAfterGrievance(
+    d: Decision,
+    grievanceAccepted: boolean
+): 'lawyer' | 'debtor' | null {
+    const filer = resolveManualExecutorGrievanceFiler(d);
+    if (!filer) return null;
+    if (grievanceAccepted) return filer === 'debtor' ? 'lawyer' : 'debtor';
+    return filer;
+}
+
+/** من يحق له تسجيل التمييز الآن على قرار «إضافة قرار» */
+export function manualExecutorAwaitingCassationParty(d: Decision): 'lawyer' | 'debtor' | null {
+    if (d.appealStatus === 'tamyeez_filed' || d.appealPhase === 'cassation') return null;
+    if (d.appealStatus === 'final') return null;
+
+    const result = resolveManualExecutorGrievanceResult(d);
+    if (result === 'قبول التظلم') {
+        return manualExecutorCassationPartyAfterGrievance(d, true);
+    }
+    if (result === 'رد التظلم') {
+        return manualExecutorCassationPartyAfterGrievance(d, false);
+    }
+    if (
+        (d.appealStatus === 'tadhallum_filed' || d.appealPhase === 'grievance') &&
+        !result
+    ) {
+        return null;
+    }
+    return null;
+}
+
+/** يصحّح حقول الانتظار القديمة لقرار «إضافة قرار» بعد نتيجة التظلم */
+export function repairManualExecutorAppealAwaitingFields(
+    row: Decision,
+    all: Decision[]
+): Decision {
+    if (!isManualExecutorAppealRow(row, all)) return row;
+    const party = manualExecutorAwaitingCassationParty(row);
+    const grievanceResult = resolveManualExecutorGrievanceResult(row);
+    if (!party && !grievanceResult) return row;
+    const next: Decision = { ...row };
+    if (grievanceResult === 'قبول التظلم' || grievanceResult === 'رد التظلم') {
+        next.appealResult = grievanceResult as Decision['appealResult'];
+    }
+    if (party) {
+        next.awaitingCassationEntryBy = party;
+        next.appealWorkflowState =
+            party === 'debtor' ? 'PENDING_APPEAL_DEBTOR' : 'PENDING_APPEAL_LAWYER';
+        next.grievanceAcceptedAwaitingDebtorTamyeez = false;
+        next.grievanceRejectedAwaitingTamyeez = grievanceResult === 'رد التظلم';
+    }
+    return next;
+}
+
+export function buildManualExecutorGrievanceResolutionPatch(
+    d: Decision,
+    grievanceAccepted: boolean
+): Partial<Decision> {
+    const appealResult: NonNullable<Decision['appealResult']> = grievanceAccepted
+        ? 'قبول التظلم'
+        : 'رد التظلم';
+    const cassationParty = manualExecutorCassationPartyAfterGrievance(d, grievanceAccepted);
+
+    if (!cassationParty) {
+        return {
+            appealPhase: null,
+            appealStatus: 'final',
+            appealResult,
+            appealWorkflowState: 'FINAL_ACCEPTED',
+            awaitingCassationEntryBy: null,
+            grievanceRejectedAwaitingTamyeez: false,
+            grievanceAcceptedAwaitingDebtorTamyeez: false,
+            appealMethod: 'tadhallum',
+            noAppealChosen: false,
+        };
+    }
+
+    const workflowState =
+        cassationParty === 'debtor' ? ('PENDING_APPEAL_DEBTOR' as const) : ('PENDING_APPEAL_LAWYER' as const);
+
+    if (grievanceAccepted) {
+        return {
+            appealPhase: null,
+            appealStatus: 'pending',
+            appealResult,
+            appealWorkflowState: workflowState,
+            awaitingCassationEntryBy: cassationParty,
+            grievanceRejectedAwaitingTamyeez: false,
+            grievanceAcceptedAwaitingDebtorTamyeez: false,
+            appealMethod: 'tadhallum',
+            noAppealChosen: false,
+        };
+    }
+
+    return {
+        appealPhase: null,
+        appealStatus: 'pending',
+        appealResult,
+        appealWorkflowState: workflowState,
+        awaitingCassationEntryBy: cassationParty,
+        grievanceRejectedAwaitingTamyeez: true,
+        grievanceAcceptedAwaitingDebtorTamyeez: false,
+        appealMethod: null,
+        noAppealChosen: false,
+    };
+}
+
+/** قرار «إضافة قرار» فقط — لا مسار طعن */
+export function isExecutorManualLedgerHub(hub: Decision): boolean {
+    return isManualExecutorLedgerDecision(hub);
+}
+
+export function resolveManualExecutorLedgerEnforcementState(
+    hub: Decision
+): CreditorDecisionEnforcementState {
+    const enforced = hub.manualExecutorEnforced === true;
+    return {
+        visual: enforced ? 'enforced' : 'not_enforced',
+        pillLabel: enforced ? 'القرار نافذ' : 'غير نافذ',
+        pillTone: enforced ? 'emerald' : 'slate',
+        enforced,
+    };
+}
+
+/** يزيل نسخ الطعن والحقول المرتبطة بقرارات «إضافة قرار» */
+export function purgeManualExecutorAppealArtifacts(all: Decision[]): {
+    rows: Decision[];
+    mutated: boolean;
+} {
+    const manualIds = new Set(
+        all.filter((d) => d.manualExecutorLedgerEntry === true).map((d) => String(d.id))
+    );
+    const stripped = (row: Decision): Decision => ({
+        ...row,
+        activeAppealCopyId: null,
+        appealActor: null,
+        appealMethod: null,
+        appealPhase: null,
+        appealStatus: 'pending',
+        appealResult: undefined,
+        appealWorkflowState: 'NONE',
+        awaitingCassationEntryBy: null,
+        grievanceRejectedAwaitingTamyeez: false,
+        grievanceAcceptedAwaitingDebtorTamyeez: false,
+        manualGrievanceAppellants: undefined,
+        manualCassationAppellants: undefined,
+        noAppealChosen: false,
+        manualExecutorEnforced: row.manualExecutorEnforced === true,
+    });
+    const filtered = all.filter(
+        (d) =>
+            !d.appealSourceDecisionId ||
+            !manualIds.has(String(d.appealSourceDecisionId))
+    );
+    let mutated = filtered.length !== all.length;
+    const rows = filtered.map((d) => {
+        if (d.manualExecutorLedgerEntry !== true) return d;
+        const next = stripped(d);
+        if (
+            next.activeAppealCopyId !== d.activeAppealCopyId ||
+            next.appealActor !== d.appealActor ||
+            next.appealMethod !== d.appealMethod ||
+            next.appealPhase !== d.appealPhase ||
+            next.appealStatus !== d.appealStatus ||
+            next.appealResult !== d.appealResult ||
+            next.appealWorkflowState !== d.appealWorkflowState ||
+            next.awaitingCassationEntryBy !== d.awaitingCassationEntryBy ||
+            next.grievanceRejectedAwaitingTamyeez !== d.grievanceRejectedAwaitingTamyeez ||
+            next.grievanceAcceptedAwaitingDebtorTamyeez !==
+                d.grievanceAcceptedAwaitingDebtorTamyeez ||
+            next.manualGrievanceAppellants !== d.manualGrievanceAppellants ||
+            next.manualCassationAppellants !== d.manualCassationAppellants ||
+            next.noAppealChosen !== d.noAppealChosen
+        ) {
+            mutated = true;
+        }
+        return next;
+    });
+    return { rows, mutated };
+}
+
+/** قرار منفذ بلا طعن مسجّل بعد — يُعرض زر الطعن بغضّ النظر عن مهلة التاريخ */
+export function isExecutorSideAwaitingAppealEntry(
+    hub: Decision,
+    pipeline: Decision = hub
+): boolean {
+    if (isManualExecutorLedgerDecision(hub)) return false;
+    if (hub.appealRequestOrigin !== 'executor_side') {
+        return false;
+    }
+    if (hub.noAppealChosen === true || pipeline.noAppealChosen === true) return false;
+    if (hub.isArchived) return false;
+    const st = pipeline.appealStatus ?? hub.appealStatus;
+    if (st === 'final') return false;
+    if (st === 'tadhallum_filed' || st === 'tamyeez_filed') return false;
+    if (pipeline.appealPhase === 'grievance' || pipeline.appealPhase === 'cassation') {
+        return false;
+    }
+    if (hub.activeAppealCopyId) return false;
+    if (
+        hub.appealActor ||
+        pipeline.appealActor ||
+        hub.appealMethod ||
+        pipeline.appealMethod ||
+        hasManualExecutorAppealAppellants(hub) ||
+        hasManualExecutorAppealAppellants(pipeline)
+    ) {
+        return false;
+    }
+    return st === 'pending' || !st;
+}
+
+export function formatManualExecutorBeneficiaryLabel(
+    beneficiary: Decision['manualExecutorBeneficiary'],
+    perspective: AppealUiPerspective = 'creditor_agent'
+): string {
+    if (beneficiary === 'creditor') return 'لصالح الدائن';
+    if (beneficiary === 'debtor') {
+        return perspective === 'debtor_agent' ? 'لصالح موكّلنا' : 'لصالح المدين';
+    }
+    if (beneficiary === 'neutral') return 'غير محدد';
+    return '';
+}
+
+/** أرشفة القرار — بعد اكتمال المنفذ وانتهاء مسار الطعن (أو التنازل عنه) */
+export function canArchiveExecutorDecisionCard(
+    hubRow: Decision,
+    pipeline: Decision,
+    opts: {
+        hubTab: 'current' | 'previous';
+        settled: boolean;
+        appealLegallyFinal: boolean;
+    }
+): boolean {
+    if (opts.hubTab !== 'previous') return false;
+    if (!opts.settled) return false;
+    if (hubRow.isArchived) return false;
+    if (isManualExecutorLedgerDecision(hubRow)) return true;
+    if (isExecutorSideAwaitingAppealEntry(hubRow, pipeline)) return false;
+    return (
+        opts.appealLegallyFinal ||
+        hubRow.noAppealChosen === true ||
+        pipeline.noAppealChosen === true
+    );
 }
 
 export function formatRegisteredAppealPathForDecision(
@@ -581,6 +1201,38 @@ export function appealEntryShowsDebtorFirst(
     return resolveHarmedPartyAppealActor(d, perspective) === 'debtor';
 }
 
+/** وكيل الدائن — إحضار جبري بقرار المنفذ أو طلب دائن مُوافق عليه: الطعن للمدين فقط */
+export function creditorAgentDebtorIsSoleAppellant(
+    d: Decision,
+    perspective: AppealUiPerspective = 'creditor_agent'
+): boolean {
+    if (perspective !== 'creditor_agent') return false;
+    if (d.activatedByExecutorOrder === true) return true;
+    if (
+        d.appealRequestOrigin === 'executor_side' &&
+        d.requestKind === 'personal_coercive'
+    ) {
+        return true;
+    }
+    if (d.appealRequestOrigin === 'executor_side') return false;
+    return resolveHarmedPartyAppealActor(d, perspective) === 'debtor';
+}
+
+/** موافقة منفذ يحق بعدها للمدين التظلم — كل أنواع الطلبات */
+export function isDebtorAppealEligibleApprovedHub(
+    hub: Decision,
+    perspective: AppealUiPerspective = 'creditor_agent'
+): boolean {
+    const phys = hub.executorOutcome;
+    if (phys !== 'approved' && phys !== 'alternative') return false;
+    if (isCreditorExecutorAppealSubject(hub, perspective)) return true;
+    if (creditorAgentDebtorIsSoleAppellant(hub, perspective)) return true;
+    if (perspective === 'creditor_agent' && resolveHarmedPartyAppealActor(hub, perspective) === 'debtor') {
+        return true;
+    }
+    return false;
+}
+
 /** الطرف المتضرر الذي يحق له تقديم التظلم أو التمييز المباشر */
 export function resolveHarmedPartyAppealActor(
     d: Decision,
@@ -610,6 +1262,9 @@ export function resolveGrievanceFilerActor(
     d: Decision,
     perspective: AppealUiPerspective = 'creditor_agent'
 ): 'lawyer' | 'debtor' | null {
+    if (isManualExecutorLedgerDecision(d)) {
+        return resolveManualExecutorGrievanceFiler(d);
+    }
     const hub = hubWithInferredAppealOrigin(d);
     const creditorRow = isCreditorInitiatedExecutorRequest(hub);
     const branch = resolveAppealBaseBranch(hub);
@@ -635,6 +1290,7 @@ export function resolveGrievanceFilerActor(
 /** true = المُطعّن فاز بالتظلم (قبول التظلم) */
 export function grievancePetitionGranted(d: Decision, grievanceAccepted: boolean): boolean {
     if (!grievanceAccepted) return false;
+    if (isManualExecutorLedgerDecision(d)) return true;
 
     const hub = hubWithInferredAppealOrigin(d);
     const filer = resolveGrievanceFilerActor(d);
@@ -654,6 +1310,9 @@ export function grievancePetitionGranted(d: Decision, grievanceAccepted: boolean
 
 /** الطرف المخالف الذي يحق له التمييز بعد قبول تظلم الطرف الآخر */
 export function cassationEntryPartyAfterGrievanceGrant(d: Decision): 'lawyer' | 'debtor' | null {
+    if (isManualExecutorLedgerDecision(d)) {
+        return manualExecutorCassationPartyAfterGrievance(d, true);
+    }
     const branch = resolveAppealBaseBranch(d);
     const filer = resolveGrievanceFilerActor(d);
     const filerIsDebtor = filer === 'debtor';
@@ -668,8 +1327,14 @@ export function cassationEntryPartyAfterGrievanceGrant(d: Decision): 'lawyer' | 
 
 export function buildGrievanceResolutionPatch(
     d: Decision,
-    grievanceAccepted: boolean
+    grievanceAccepted: boolean,
+    all?: Decision[]
 ): Partial<Decision> {
+    const underlying =
+        all && all.length > 0 ? resolveUnderlyingDecisionHub(d, all) : d;
+    if (isManualExecutorLedgerDecision(d) || isManualExecutorLedgerDecision(underlying)) {
+        return buildManualExecutorGrievanceResolutionPatch(d, grievanceAccepted);
+    }
     const hub = hubWithInferredAppealOrigin(d);
     const granted = grievancePetitionGranted(d, grievanceAccepted);
     const branch = resolveAppealBaseBranch(hub);
@@ -828,6 +1493,14 @@ const CASSATION_APPEAL_RESULTS = new Set(['رد اللائحة', 'نقض الق�
 
 /** من قدّم التمييز فعلياً — الطرف المخالف بعد قبول تظلم الطرف الآخر */
 export function resolveCassationFilerActor(d: Decision): 'lawyer' | 'debtor' | null {
+    if (isManualExecutorLedgerDecision(d)) {
+        const manual = d.manualCassationAppellants ?? [];
+        if (manual.length === 1) return manual[0]!;
+        if (d.appealStatus === 'tamyeez_filed' || d.appealPhase === 'cassation') {
+            if (d.appealActor === 'lawyer' || d.appealActor === 'debtor') return d.appealActor;
+        }
+        return manualExecutorAwaitingCassationParty(d);
+    }
     const logs = Array.isArray(d.appealTimelineLogs) ? [...d.appealTimelineLogs] : [];
     logs.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
 
@@ -965,7 +1638,10 @@ export function getActiveAppealCopyForOriginal(original: Decision, all: Decision
 }
 
 export function appealPipelineRowForCard(row: Decision, all: Decision[]): Decision {
-    return getActiveAppealCopyForOriginal(row, all) ?? row;
+    const copy = getActiveAppealCopyForOriginal(row, all);
+    if (copy) return copy;
+    const sameId = all.find((d) => d.id === row.id);
+    return sameId ?? row;
 }
 
 /** انقضاء مهلة الطعن أو صدور نتيجة تمييز/تظلم — القرار لم يعد قابلاً للطعن */
@@ -979,6 +1655,7 @@ export function isExecutorDecisionAppealFinal(
     }
 ): boolean {
     if (opts.appealTrackActive) return false;
+    if (isExecutorSideAwaitingAppealEntry(hubRow, pipeline)) return false;
 
     const ws = String(pipeline.appealWorkflowState ?? hubRow.appealWorkflowState ?? '').trim();
     if (hubRow.appealStatus === 'final' || pipeline.appealStatus === 'final') return true;
@@ -1071,7 +1748,7 @@ export const EXECUTOR_QUEUE_REQUEST_KINDS: NonNullable<Decision['requestKind']>[
     'debtor_party_death',
 ];
 
-function isLawyerCassationNaqdResume(pipe: Decision, hub: Decision): boolean {
+export function isLawyerCassationNaqdResume(pipe: Decision, hub: Decision): boolean {
     if (pipe.appealResult !== 'نقض القرار' || pipe.appealStatus !== 'final') return false;
     const filer = resolveCassationFilerActor(pipe);
     if (filer === 'debtor') return false;
@@ -1621,6 +2298,11 @@ export function resolveCreditorDecisionEnforcementState(
     }
 
     const perspective = opts.appealPerspective ?? 'creditor_agent';
+
+    if (isManualExecutorLedgerDecision(hub)) {
+        return finalize(resolveManualExecutorLedgerEnforcementState(hub));
+    }
+
     const gate = resolveCreditorRequestAppealGate(hub, pipe, perspective);
     if (gate.kind === 'paused') {
         return finalize({
@@ -1793,7 +2475,7 @@ export function resolveExecutorRequestFollowupGate(
     if (!isDecisionLikeRow(hub)) return { kind: 'continue' };
     const hubRow = hubWithInferredAppealOrigin(hub);
     const pipe = appealPipelineRowForCard(hubRow, all);
-    return resolveCreditorRequestAppealGate(hubRow, pipe, perspective);
+    return resolveCreditorRequestAppealGate(hubRow, pipe, perspective, all);
 }
 
 export function resolveExecutorRequestFollowupBlock(
@@ -1805,7 +2487,7 @@ export function resolveExecutorRequestFollowupBlock(
     const hubRow = hubWithInferredAppealOrigin(hub);
     if (isExecutorRequestAppealCycleSuperseded(hubRow, all, perspective)) return null;
     const gate = resolveExecutorRequestFollowupGate(hubRow, all, perspective);
-    if (gate.kind === 'paused' || gate.kind === 'lifecycle_reset') {
+    if (gate.kind === 'paused' || gate.kind === 'lifecycle_reset' || gate.kind === 'revoked') {
         return gate;
     }
     return null;
@@ -1819,7 +2501,7 @@ export function isExecutorRequestFollowupBlocked(
     if (!isDecisionLikeRow(hub)) return false;
     if (isExecutorRequestAppealCycleSuperseded(hub, all, perspective)) return false;
     const kind = resolveExecutorRequestFollowupGate(hub, all, perspective).kind;
-    return kind === 'paused' || kind === 'lifecycle_reset';
+    return kind === 'paused' || kind === 'lifecycle_reset' || kind === 'revoked';
 }
 
 /**
@@ -1894,7 +2576,7 @@ export function isExecutorRequestAppealCycleSuperseded(
             hubTab: 'previous',
             appealLegallyFinal: true,
             needsExecutor: false,
-            appealPerspective: 'debtor_agent',
+            appealPerspective: perspective,
         });
         if (!state.enforced && state.visual !== 'paused') {
             return true;
@@ -1941,8 +2623,7 @@ export function resolveCreditorAppealPauseGate(
     perspective: AppealUiPerspective = 'creditor_agent'
 ): Extract<CreditorRequestAppealGate, { kind: 'paused' }> | null {
     const hubRow = hubWithInferredAppealOrigin(hub);
-    if (!isCreditorExecutorAppealSubject(hubRow, perspective)) return null;
-    if (hubRow.executorOutcome !== 'approved' && hubRow.executorOutcome !== 'alternative') return null;
+    if (!isDebtorAppealEligibleApprovedHub(hubRow, perspective)) return null;
     const gate = resolveExecutorRequestFollowupGate(hubRow, all, perspective);
     return gate.kind === 'paused' ? gate : null;
 }
@@ -1950,16 +2631,24 @@ export function resolveCreditorAppealPauseGate(
 export function resolveCreditorRequestAppealGate(
     hub: Decision,
     pipe: Decision,
-    perspective: AppealUiPerspective = 'creditor_agent'
+    perspective: AppealUiPerspective = 'creditor_agent',
+    all?: Decision[]
 ): CreditorRequestAppealGate {
     const hubRow = hubWithInferredAppealOrigin(hub);
     const phys = hubRow.executorOutcome;
-    const creditorPartyRequest = isCreditorExecutorAppealSubject(hubRow, perspective);
     const debtorAgentView = perspective === 'debtor_agent';
+
+    const debtorAppealEligibleApprovedHub = isDebtorAppealEligibleApprovedHub(
+        hubRow,
+        perspective
+    );
+    const appealSubjectHub =
+        debtorAppealEligibleApprovedHub ||
+        isCreditorExecutorAppealSubject(hubRow, perspective);
 
     const grievanceFinalResult = String(pipe.appealResult ?? hubRow.appealResult ?? '').trim();
     if (
-        creditorPartyRequest &&
+        appealSubjectHub &&
         grievanceFinalResult === 'قبول التظلم' &&
         (pipe.appealStatus === 'final' || hubRow.appealStatus === 'final')
     ) {
@@ -1971,25 +2660,30 @@ export function resolveCreditorRequestAppealGate(
         };
     }
 
-    const creditorApprovedHub =
-        creditorPartyRequest && (phys === 'approved' || phys === 'alternative');
-
-    if (!creditorApprovedHub) {
+    if (!debtorAppealEligibleApprovedHub) {
         return { kind: 'continue' };
     }
 
     if (isDebtorGrievancePauseState(hubRow, pipe)) {
         const cassationFiled =
             pipe.appealStatus === 'tamyeez_filed' || pipe.appealPhase === 'cassation';
-        const awaitingLawyerCassation =
-            resolveEffectiveAwaitingCassationParty(pipe, hubRow) === 'lawyer' &&
-            pipe.appealStatus !== 'final' &&
-            !cassationFiled;
+        const gateDecisions: Decision[] = (() => {
+            if (Array.isArray(all) && all.length > 0) return all;
+            if (pipe.id !== hubRow.id) {
+                const linked: Decision = {
+                    ...pipe,
+                    appealSourceDecisionId: pipe.appealSourceDecisionId ?? hubRow.id,
+                };
+                return [hubRow, linked];
+            }
+            return [{ ...hubRow, ...pipe, id: hubRow.id }];
+        })();
         return {
             kind: 'paused',
             message: appealCreditorRequestPauseGateMessage(perspective, { cassationFiled }),
             showAppealsShortcut: false,
-            showWaiveCassation: !debtorAgentView && awaitingLawyerCassation,
+            showWaiveCassation:
+                !debtorAgentView && canWaiveLawyerAwaitingCassation(hubRow, gateDecisions),
         };
     }
 
@@ -2051,7 +2745,7 @@ export function canWaiveCassationAfterDebtorGrievance(hub: Decision, all: Decisi
     if (!awaiting) return false;
     const result = String(pipe.appealResult ?? hubRow.appealResult ?? '').trim();
     if (result !== 'قبول التظلم') return false;
-    if (!isCreditorInitiatedExecutorRequest(hubRow)) return false;
+    if (!isDebtorAppealEligibleApprovedHub(hubRow, 'creditor_agent')) return false;
     const phys = hubRow.executorOutcome;
     return phys === 'approved' || phys === 'alternative';
 }
@@ -2082,6 +2776,44 @@ export function canWaiveLawyerAwaitingCassation(hub: Decision, all: Decision[]):
     );
 }
 
+/** سبب رفض «لا حاجة للتمييز» — رسالة واضحة بدل العبارة العامة */
+export function resolveWaiveCassationBlockedReason(hub: Decision, all: Decision[]): string {
+    const hubRow = hubWithInferredAppealOrigin(hub);
+    const pipe = appealPipelineRowForCard(hubRow, all);
+
+    if (pipe.appealStatus === 'tamyeez_filed' || pipe.appealPhase === 'cassation') {
+        return 'سُجّل تمييز على القرار — لا يمكن الاستغناء بعد تقديم اللائحة.';
+    }
+    if (pipe.appealStatus === 'final' || hubRow.appealStatus === 'final') {
+        return 'مسار الطعن مُختوم — لا إجراء إضافي مطلوب.';
+    }
+
+    const result = String(pipe.appealResult ?? hubRow.appealResult ?? '').trim();
+    if (result !== 'قبول التظلم' && result !== 'رد التظلم') {
+        return 'بانتظار نتيجة التظلم — لا يمكن الاستغناء قبل صدورها من المحكمة.';
+    }
+
+    if (result === 'قبول التظلم') {
+        if (!isDebtorAppealEligibleApprovedHub(hubRow, 'creditor_agent')) {
+            return 'هذا الطلب لا يدخل مسار استغناء الدائن عن التمييز.';
+        }
+        const awaiting =
+            pipe.awaitingCassationEntryBy === 'lawyer' || hubRow.awaitingCassationEntryBy === 'lawyer';
+        if (!awaiting) {
+            return 'التمييز بانتظار الطرف الآخر — لا يحقّ لوكيل الدائن الاستغناء الآن.';
+        }
+        return 'لا يمكن إتمام الاستغناء عن التمييز في هذه الحالة.';
+    }
+
+    if (!(pipe.grievanceRejectedAwaitingTamyeez || hubRow.grievanceRejectedAwaitingTamyeez)) {
+        return 'لم يُفتح مهلة تمييز بعد رد التظلم بعد.';
+    }
+    if ((pipe.appealActor ?? hubRow.appealActor) !== 'lawyer') {
+        return 'الاستغناء متاح فقط بعد تظلم وكيل الدائن على الرفض.';
+    }
+    return 'لا يمكن إتمام الاستغناء عن التمييز في هذه الحالة.';
+}
+
 export function buildWaiveLawyerCassationAfterGrievanceRejectedPatch(d: Decision): Partial<Decision> {
     const branch = resolveAppealBaseBranch(d);
     return {
@@ -2103,6 +2835,14 @@ export function decisionAppealPipelineActive(
     actorDraft: 'lawyer' | 'debtor' | null | undefined
 ): boolean {
     return executionDecisionAppealPipelineActive(d, actorDraft ?? null);
+}
+
+/** الأصل يُعرض في سجل الطعون فقط — لا في القرارات السابقة */
+export function hubHasActiveAppealLedgerEntry(hub: Decision): boolean {
+    if (hub.manualExecutorLedgerEntry === true) return false;
+    if (hub.appealSourceDecisionId) return false;
+    if (hub.activeAppealCopyId) return true;
+    return decisionAppealPipelineActive(hub, null);
 }
 
 function decisionSortTimestamp(d: Decision): number {
@@ -2136,6 +2876,85 @@ export function sortDecisionsNewestFirst(list: Decision[]): Decision[] {
     return [...list].sort(compareDecisionsNewestFirst);
 }
 
+export type AppealsHubProponentFilter = 'all' | 'creditor' | 'debtor' | 'executor';
+
+/** تصنيف بطاقة سجل الطعون — يعتمد على القرار الأصلي لا نسخة المسار */
+export function resolveAppealHubProponentCategory(
+    appealRow: Decision,
+    all: Decision[],
+    perspective: AppealUiPerspective = 'creditor_agent'
+): 'creditor' | 'debtor' | 'executor' {
+    const hub = resolveUnderlyingDecisionHub(appealRow, all);
+    if (hub.manualExecutorLedgerEntry === true) return 'executor';
+    if (isCreditorInitiatedExecutorRequest(hub)) return 'creditor';
+    const origin = hub.appealRequestOrigin ?? inferDecisionAppealRequestOrigin(hub);
+    if (origin === 'debtor_side') return 'debtor';
+    if (resolveRequestProponent(hub, perspective) === 'debtor') return 'debtor';
+    return 'creditor';
+}
+
+/** خيارات التصنيف — تُخفى إن كان نوع واحد فقط؛ «من المنفذ» يظهر عند وجود قرار يدوي */
+export function resolveAppealsHubFilterOptions(
+    cards: Decision[],
+    all: Decision[],
+    perspective: AppealUiPerspective = 'creditor_agent'
+): AppealsHubProponentFilter[] {
+    const categories = new Set<'creditor' | 'debtor' | 'executor'>();
+    for (const d of cards) {
+        categories.add(resolveAppealHubProponentCategory(d, all, perspective));
+    }
+    if (categories.size <= 1) return [];
+    const opts: AppealsHubProponentFilter[] = ['all'];
+    if (categories.has('creditor')) opts.push('creditor');
+    if (categories.has('debtor')) opts.push('debtor');
+    if (categories.has('executor')) opts.push('executor');
+    return opts;
+}
+
+export function appealsHubProponentFilterLabel(filter: AppealsHubProponentFilter): string {
+    if (filter === 'all') return 'الكل';
+    if (filter === 'creditor') return 'من قبلنا';
+    if (filter === 'debtor') return 'من الطرف الآخر';
+    return 'من المنفذ';
+}
+
+/** آخر نشاط طعن — للترتيب في سجل الطعون (لا يُعادل تاريخ القرار الأصلي بنشاط الطعن) */
+export function decisionAppealActivityTimestamp(d: Decision): number {
+    let best = 0;
+    const bump = (raw: string | undefined | null) => {
+        const t = Date.parse(String(raw ?? '').trim());
+        if (!Number.isNaN(t) && t > best) best = t;
+    };
+    if (Array.isArray(d.appealTimelineLogs)) {
+        for (const log of d.appealTimelineLogs) bump(log.at);
+    }
+    const copyTs = String(d.id || '').match(/appeal_copy_(\d{13})/);
+    if (copyTs) {
+        const t = Number(copyTs[1]);
+        if (!Number.isNaN(t) && t > best) best = t;
+    }
+    if (best > 0) return best;
+    bump(d.resolvedAt);
+    bump(d.date);
+    const idTs = String(d.id || '').match(/(\d{13})/);
+    if (idTs) {
+        const t = Number(idTs[1]);
+        if (!Number.isNaN(t) && t > best) best = t;
+    }
+    return best;
+}
+
+export function compareDecisionsAppealActivityNewestFirst(a: Decision, b: Decision): number {
+    const ta = decisionAppealActivityTimestamp(a);
+    const tb = decisionAppealActivityTimestamp(b);
+    if (tb !== ta) return tb - ta;
+    return String(b.id).localeCompare(String(a.id), undefined, { numeric: true });
+}
+
+export function sortDecisionsAppealActivityNewestFirst(list: Decision[]): Decision[] {
+    return [...list].sort(compareDecisionsAppealActivityNewestFirst);
+}
+
 /** وسم مرحلة بطاقة سجل الطعون — لتمييز البطاقة للمستخدم */
 export function resolveAppealWorkflowPhaseLabel(
     row: Decision,
@@ -2164,14 +2983,7 @@ export function resolveAppealWorkflowPhaseLabel(
     return 'مسار طعن';
 }
 
-export type DecisionCardEnforcementVisual =
-    | 'enforced'
-    | 'paused'
-    | 'not_enforced'
-    | 'lifecycle_reset'
-    | 'pending'
-    | 'withdrawn'
-    | 'neutral';
+export type { DecisionCardEnforcementVisual } from './decisionCardGlassShell';
 
 export const DECISION_CARD_LAYOUT =
     'flex h-full flex-col justify-between rounded-xl p-2.5 text-right shadow-lg backdrop-blur-xl transition-all duration-300';

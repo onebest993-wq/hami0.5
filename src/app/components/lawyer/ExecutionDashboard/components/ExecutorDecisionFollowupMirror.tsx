@@ -10,6 +10,8 @@ import {
     isCreditorInitiatedExecutorRequest,
     resolveExecutorRequestFollowupBlockFromRecord,
 } from '@/app/components/lawyer/DecisionsAndAppealsEngine/utils';
+import { isExecutorRejectedAppealFollowupDismissed } from '@/app/utils/personalCoerciveAppealSync';
+import { isExecutorDecisionRowEffectivelyEnforced } from '@/app/utils/executorRequestAppealSync';
 import type { Decision } from '@/app/components/lawyer/DecisionsAndAppealsEngine/types';
 import {
     ExecutorRequestFollowupBlockPanel,
@@ -17,8 +19,6 @@ import {
 } from '@/app/components/lawyer/DecisionsAndAppealsEngine/decisionCardPresentation';
 import type { AppealUiPerspective } from '@/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels';
 import { ExecutionInlineExecutorDecisionActions } from './ExecutionInlineAccordion';
-import { RejectedExecutorResubmitStrip } from '@/app/components/lawyer/execution/RejectedExecutorResubmitStrip';
-
 export type ExecutorDecisionFollowupMirrorProps = {
     executionId: string | undefined;
     row: Record<string, unknown> | null;
@@ -37,6 +37,8 @@ export type ExecutorDecisionFollowupMirrorProps = {
         message?: string;
     }) => void;
     appealPerspective?: AppealUiPerspective;
+    /** إضبارة الأم — لاكتشاف اكتمال طلبات التحكم بالإضبارة من السجل الزمني */
+    parentExecutionId?: string;
 };
 
 /** مرآة قرار المنفذ في المحضر — نفس صف التخزين الذي تُعرض عليه بطاقة القرارات */
@@ -47,11 +49,10 @@ export const ExecutorDecisionFollowupMirror: React.FC<ExecutorDecisionFollowupMi
     personalCoerciveSubtype,
     className = '',
     compact = false,
-    onResubmitRequest,
-    resubmitSubmitting = false,
     disabled: mirrorDisabled = false,
     onWaiveInitialAppealApplied,
     appealPerspective = 'creditor_agent',
+    parentExecutionId,
 }) => {
     const exId = String(executionId || '').trim();
     const decisionId = row ? String((row as { id?: string }).id || '').trim() : '';
@@ -168,6 +169,17 @@ export const ExecutorDecisionFollowupMirror: React.FC<ExecutorDecisionFollowupMi
                 </div>
             );
         }
+        if (rk === 'special_followup') {
+            return null;
+        }
+        const effectivelyEnforced = isExecutorDecisionRowEffectivelyEnforced(
+            row,
+            allDecisions as Record<string, unknown>[],
+            appealPerspective
+        );
+        if (!effectivelyEnforced) {
+            return null;
+        }
         if (creditorPartyApproved) {
             if (compact) {
                 return (
@@ -222,18 +234,11 @@ export const ExecutorDecisionFollowupMirror: React.FC<ExecutorDecisionFollowupMi
         );
     }
 
-    const rejectedResubmitStrip =
-        onResubmitRequest && !isExecutorHubRowSuperseded(row) ? (
-            <div className="mt-2 border-t border-white/10 pt-2">
-                <RejectedExecutorResubmitStrip
-                    submitting={resubmitSubmitting}
-                    onConfirmSubmit={onResubmitRequest}
-                />
-            </div>
-        ) : null;
-
     if (rejected) {
-        if (isExecutorHubRowSuperseded(row)) {
+        if (
+            isExecutorHubRowSuperseded(row) ||
+            isExecutorRejectedAppealFollowupDismissed(decisionId, allDecisions as Record<string, unknown>[])
+        ) {
             return null;
         }
         if (compact) {
@@ -248,7 +253,6 @@ export const ExecutorDecisionFollowupMirror: React.FC<ExecutorDecisionFollowupMi
                         onOpenAppealCenter={() => openDecisions('previous')}
                     />
                     {waiveInitialAppealButton}
-                    {rejectedResubmitStrip}
                 </div>
             );
         }
@@ -269,7 +273,6 @@ export const ExecutorDecisionFollowupMirror: React.FC<ExecutorDecisionFollowupMi
                     />
                     {waiveInitialAppealButton}
                 </div>
-                {rejectedResubmitStrip}
             </div>
         );
     }

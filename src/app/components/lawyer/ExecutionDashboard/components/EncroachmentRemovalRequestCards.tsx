@@ -11,9 +11,9 @@ import {
 } from '@/app/components/lawyer/ExecutionDashboard/components/ExecutionInlineAccordion';
 import {
     getGoverningEncroachmentProcedureRowForMatch,
-    isExecutorRowEffectivelyApproved,
     isExecutorRowRejectedAndFinal,
 } from '@/app/utils/executorSeizureDecisionQueue';
+import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 import {
     ENCROACHMENT_DEFAULT_SURVEYOR_ENTITY,
     ENCROACHMENT_INITIAL_MACHINERY_BODY,
@@ -101,6 +101,10 @@ export const EncroachmentRemovalRequestCards: React.FC<EncroachmentRemovalReques
     onExpenseRecorded,
 }) => {
     const { executionId, decisions } = useExecutorDecisions(decisionsStorageExecutionId);
+    const decisionRows = React.useMemo(
+        () => (Array.isArray(decisions) ? (decisions as Record<string, unknown>[]) : []),
+        [decisions]
+    );
 
     const triggerCoerciveAction = React.useCallback(
         (gateKey: InlineActionGateKey) => {
@@ -145,7 +149,7 @@ export const EncroachmentRemovalRequestCards: React.FC<EncroachmentRemovalReques
 
             const decisionId = String(row.id || '').trim();
             const rejected = isExecutorRowRejectedAndFinal(row);
-            const approved = isExecutorRowEffectivelyApproved(row);
+            const approved = isExecutorRowApprovedWorkflowActive(row, decisionRows);
             const pending =
                 String(row.executorOutcome ?? 'pending') === 'pending' ||
                 String(row.executorOutcome ?? '') === '';
@@ -194,7 +198,7 @@ export const EncroachmentRemovalRequestCards: React.FC<EncroachmentRemovalReques
                 </div>
             );
         },
-        [executionId, openAppeals]
+        [decisionRows, executionId, openAppeals]
     );
 
     const sendInitial = (workflowKey: EncroachmentRemovalWorkflowKey, title: string, body: string) => {
@@ -314,7 +318,7 @@ export const EncroachmentRemovalRequestCards: React.FC<EncroachmentRemovalReques
 
                 {renderDecisionAccordion(ENCROACHMENT_SURVEYOR_REQUEST_TITLE, surveyorRow)}
 
-                {surveyorRow?.id && isExecutorRowEffectivelyApproved(surveyorRow) && (
+                {surveyorRow?.id && isExecutorRowApprovedWorkflowActive(surveyorRow, decisionRows) && (
                     <EncroachmentApprovedDetailsCollapsible
                         title="بيانات انتداب الخبير — بعد موافقة المنفذ"
                         row={surveyorRow}
@@ -398,7 +402,7 @@ export const EncroachmentRemovalRequestCards: React.FC<EncroachmentRemovalReques
 
                 {renderDecisionAccordion(ENCROACHMENT_MACHINERY_REQUEST_TITLE, machineryRow)}
 
-                {machineryRow?.id && isExecutorRowEffectivelyApproved(machineryRow) && (
+                {machineryRow?.id && isExecutorRowApprovedWorkflowActive(machineryRow, decisionRows) && (
                     <EncroachmentApprovedDetailsCollapsible
                         title="بيانات إذن الآليات — بعد موافقة المنفذ"
                         row={machineryRow}

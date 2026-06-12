@@ -12,7 +12,26 @@ export function AppealOriginBadge({
     perspective?: AppealUiPerspective;
 }) {
     if (decision.manualExecutorLedgerEntry) {
-        return null;
+        return (
+            <DecisionHintTooltip label="قرار منفذ العدل أُدخل يدوياً عبر «إضافة قرار»">
+                <span className="inline-block max-w-[100%] shrink-0 cursor-default rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium leading-tight text-amber-200">
+                    قرار المنفذ
+                </span>
+            </DecisionHintTooltip>
+        );
+    }
+    const executorOrderBlob = `${String(decision.title || '')} ${String(decision.body || '')}`;
+    const isExecutorOrderDecision =
+        decision.activatedByExecutorOrder === true ||
+        /بقرار\s*المنفذ\s*العدل|قرار\s*المنفذ\s*العدل|بقرار\s*منفذ\s*العدل/i.test(executorOrderBlob);
+    if (isExecutorOrderDecision) {
+        return (
+            <DecisionHintTooltip label="إجراء مُفعَّل بقرار منفذ العدل — دون طلب مسبق من الدائن">
+                <span className="inline-block max-w-[100%] shrink-0 cursor-default rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium leading-tight text-amber-200">
+                    قرار المنفذ العدل
+                </span>
+            </DecisionHintTooltip>
+        );
     }
     if (decision.appealRequestOrigin === 'executor_side') {
         return (

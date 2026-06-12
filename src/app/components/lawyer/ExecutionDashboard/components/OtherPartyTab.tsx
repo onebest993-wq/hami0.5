@@ -2,13 +2,16 @@ import React, { Suspense, useCallback, useMemo } from 'react';
 import { OtherPartyEffectiveRequestsPanel } from './OtherPartyEffectiveRequestsPanel';
 import type { OtherPartyEffectiveRequestsPanelProps, CreditorTrackDecisionHandlers } from './OtherPartyEffectiveRequestsPanel';
 import type { OtherPartyActionLogEntry, OtherPartyRequestTrackEntry } from '@/app/types/execution';
+import type { AppealUiPerspective } from '@/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels';
 
 export interface OtherPartyTabProps {
     executionData: Record<string, any> | null | undefined;
+    decisionsStorageExecutionId?: string;
     persistExecutionMerge: (patch: Record<string, unknown>) => void;
     handleOtherPartyActionSubmitToDecisions: (input: { date: string; content: string }) => { ok: boolean; decisionId?: string };
     EXEC_OVERLAY_LAZY_FALLBACK: React.ReactNode;
     LazyOtherPartyActionsLog: React.LazyExoticComponent<React.ComponentType<any>>;
+    appealPerspective?: AppealUiPerspective;
     showCreditorRequestsMirror?: boolean;
     creditorRequestsMirror?: Omit<
         OtherPartyEffectiveRequestsPanelProps,
@@ -22,6 +25,7 @@ const EMPTY_OTHER_PARTY_LOG: OtherPartyActionLogEntry[] = [];
 
 export const OtherPartyTab: React.FC<OtherPartyTabProps> = ({
     executionData,
+    decisionsStorageExecutionId,
     persistExecutionMerge,
     handleOtherPartyActionSubmitToDecisions,
     EXEC_OVERLAY_LAZY_FALLBACK,
@@ -30,7 +34,11 @@ export const OtherPartyTab: React.FC<OtherPartyTabProps> = ({
     creditorRequestsMirror,
     onOpenAppeals,
     creditorTrackHandlers,
+    appealPerspective = 'creditor_agent',
 }) => {
+    const decisionsExecutionId = String(
+        decisionsStorageExecutionId || executionData?.id || ''
+    ).trim();
     const manualEntries = (executionData?.other_party_actions_log ??
         EMPTY_OTHER_PARTY_LOG) as OtherPartyActionLogEntry[];
 
@@ -53,8 +61,16 @@ export const OtherPartyTab: React.FC<OtherPartyTabProps> = ({
             entries: manualEntries,
             onPersist: persistManualLog,
             onSubmitToDecisions: handleOtherPartyActionSubmitToDecisions,
+            executionId: decisionsExecutionId,
+            appealPerspective,
         }),
-        [manualEntries, persistManualLog, handleOtherPartyActionSubmitToDecisions]
+        [
+            appealPerspective,
+            decisionsExecutionId,
+            manualEntries,
+            persistManualLog,
+            handleOtherPartyActionSubmitToDecisions,
+        ]
     );
 
     if (showCreditorRequestsMirror && creditorRequestsMirror) {
@@ -79,6 +95,8 @@ export const OtherPartyTab: React.FC<OtherPartyTabProps> = ({
                     entries={manualEntries}
                     onPersist={persistManualLog}
                     onSubmitToDecisions={handleOtherPartyActionSubmitToDecisions}
+                    executionId={decisionsExecutionId}
+                    appealPerspective={appealPerspective}
                 />
             </Suspense>
         </div>

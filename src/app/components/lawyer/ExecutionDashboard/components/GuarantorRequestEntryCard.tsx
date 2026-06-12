@@ -5,10 +5,10 @@ import { InlineActionGate } from './InlineActionGate';
 import type { InlineActionGateKey } from '../types';
 import {
     DECISIONS_RELOAD_EVENT,
-    isExecutorRowEffectivelyApproved,
     isExecutorRowRejectedAndFinal,
     readExecutorDecisionsArray,
 } from '@/app/utils/executorSeizureDecisionQueue';
+import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 import {
     shouldShowGuarantorRequestEntryCard,
     type HiddenFollowupVisibilityInput,
@@ -129,11 +129,12 @@ export const GuarantorRequestEntryCard: React.FC<GuarantorRequestEntryCardProps>
         const rejected = Boolean(did) && row && isExecutorRowRejectedAndFinal(row);
         const outcome = String(row?.executorOutcome ?? 'pending').trim();
         const alternative = outcome === 'alternative';
+        const allDecisions = exId ? (readExecutorDecisionsArray(exId) as Record<string, unknown>[]) : [];
         const approved =
             Boolean(did) &&
             row &&
             !rejected &&
-            (alternative || isExecutorRowEffectivelyApproved(row));
+            (alternative || isExecutorRowApprovedWorkflowActive(row, allDecisions));
         const detailsSaved = Boolean(String(row?.guarantorDetailsSavedAt || '').trim());
         const needsCompletion = approved && !detailsSaved;
         if (needsCompletion) {

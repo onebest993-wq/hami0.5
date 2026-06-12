@@ -65,6 +65,26 @@ describe('waiveCassationAfterDebtorGrievance', () => {
         expect(merged?.isArchived).toBe(true);
     });
 
+    it('allows waive on executor-order forced bring after grievance accepted', () => {
+        const row = baseDecision({
+            id: 'forced_bring_1',
+            title: 'طلب إحضار جبري',
+            personalCoerciveSubtype: 'forced_bring_in',
+            appealRequestOrigin: 'executor_side',
+            activatedByExecutorOrder: true,
+            appealResult: 'قبول التظلم',
+            appealStatus: 'pending',
+            awaitingCassationEntryBy: 'lawyer',
+        });
+        expect(canWaiveCassationAfterDebtorGrievance(row, [row])).toBe(true);
+        writeExecutorDecisionsArray(executionId, [row as unknown as Record<string, unknown>], financialData);
+        const result = applyWaiveCassationAfterDebtorGrievanceForExecution({
+            executionId,
+            decisionId: row.id,
+        });
+        expect(result.ok).toBe(true);
+    });
+
     it('allows waive after grievance rejected awaiting lawyer cassation', () => {
         const row = baseDecision({
             executorOutcome: 'rejected',

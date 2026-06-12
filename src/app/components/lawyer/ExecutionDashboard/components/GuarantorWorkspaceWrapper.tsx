@@ -1,10 +1,11 @@
 import React from 'react';
 import type { ExecutionFile } from '@/app/types/execution';
 import {
-    isExecutorRowEffectivelyApproved,
     isExecutorRowRejectedAndFinal,
     patchExecutorDecisionRowEverywhere,
+    readExecutorDecisionsArray,
 } from '@/app/utils/executorSeizureDecisionQueue';
+import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 import {
     ExecutionInlineAccordion,
     ExecutionInlineExecutorDecisionActions,
@@ -39,12 +40,18 @@ export const GuarantorWorkspaceWrapper: React.FC<GuarantorWorkspaceWrapperProps>
     onOpenDecisions,
     requestTitle = 'طلب كفيل ضامن',
 }) => {
+    const allDecisions = React.useMemo(
+        () => readExecutorDecisionsArray(executionId) as Record<string, unknown>[],
+        [executionId, row]
+    );
     const decisionId = String(row?.id || '').trim();
     const rejected = Boolean(decisionId) && isExecutorRowRejectedAndFinal(row);
     const outcome = String(row?.executorOutcome ?? 'pending').trim();
     const alternative = outcome === 'alternative';
     const approved =
-        Boolean(decisionId) && !rejected && (alternative || isExecutorRowEffectivelyApproved(row));
+        Boolean(decisionId) &&
+        !rejected &&
+        (alternative || isExecutorRowApprovedWorkflowActive(row, allDecisions));
     const detailsSaved = Boolean(String(row?.guarantorDetailsSavedAt || '').trim());
     const needsCompletion = approved && !detailsSaved;
     const vanish = approved && detailsSaved;

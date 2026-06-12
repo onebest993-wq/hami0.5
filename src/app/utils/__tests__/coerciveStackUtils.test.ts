@@ -3,9 +3,11 @@ import {
     appendImplicitForcedBringBroughtPatch,
     buildPersonalCoerciveStaleExecutionPatch,
     isArrestWarrantEnforceable,
+    isExecutiveDetentionPathEnforceable,
     isInvestigationCoerciveLaneSettled,
     isTravelBanEnforceable,
     isTravelBanLaneSettled,
+    isTravelBanRequestCycleWithdrawn,
     isTravelBanRequestWithdrawn,
     resolveExecutiveDetentionJudgeUiOutcome,
     resolveForcedBringNeedsOutcomeUi,
@@ -50,6 +52,41 @@ describe('badge enforceability', () => {
     it('does not show travel ban badge before debtor_travel_ban_active', () => {
         expect(isTravelBanEnforceable({ debtor_travel_ban_active: false })).toBe(false);
         expect(isTravelBanEnforceable({ debtor_travel_ban_active: true })).toBe(true);
+    });
+
+    it('does not treat dossier handoff alone as enforceable detention badge', () => {
+        expect(
+            isExecutiveDetentionPathEnforceable(
+                { executive_dossier_phase: 'handed_to_judge' },
+                false
+            )
+        ).toBe(false);
+    });
+
+    it('shows detention badge path only after judge approval or active period', () => {
+        expect(
+            isExecutiveDetentionPathEnforceable(
+                { executive_dossier_phase: 'judge_decided' },
+                false,
+                'approved'
+            )
+        ).toBe(true);
+        expect(
+            isExecutiveDetentionPathEnforceable(
+                {
+                    debtor_executive_detention_active: true,
+                    executive_detention_until: '2099-12-31',
+                },
+                false
+            )
+        ).toBe(true);
+        expect(
+            isExecutiveDetentionPathEnforceable(
+                { executive_dossier_phase: 'judge_decided' },
+                false,
+                'rejected'
+            )
+        ).toBe(false);
     });
 
     it('hides arrest warrant party badge while request is only pending', () => {
@@ -120,6 +157,17 @@ describe('resolveForcedBringNeedsOutcomeUi', () => {
             })
         ).toBe(false);
     });
+
+    it('hides outcome UI when request is not effectively enforced', () => {
+        expect(
+            resolveForcedBringNeedsOutcomeUi({
+                forcedApproved: true,
+                forcedPending: false,
+                outcome: null,
+                requestEffectivelyEnforced: false,
+            })
+        ).toBe(false);
+    });
 });
 
 describe('resolveExecutiveDetentionJudgeUiOutcome', () => {
@@ -186,6 +234,26 @@ describe('isTravelBanLaneSettled', () => {
                 { travelCycleActive: true }
             )
         ).toBe(false);
+    });
+
+    it('returns true when decision cycle closed even if ban flag remains', () => {
+        expect(
+            isTravelBanLaneSettled(
+                { debtor_travel_ban_active: true },
+                { travelCycleActive: false }
+            )
+        ).toBe(true);
+    });
+});
+
+describe('isTravelBanRequestCycleWithdrawn', () => {
+    it('detects procedural withdraw while ban may remain active', () => {
+        expect(
+            isTravelBanRequestCycleWithdrawn({
+                travel_ban_request_cycle_withdrawn_at: '2026-06-04T12:00:00.000Z',
+                debtor_travel_ban_active: true,
+            })
+        ).toBe(true);
     });
 });
 
@@ -265,7 +333,7 @@ describe('appendImplicitForcedBringBroughtPatch', () => {
 });
 
 describe('buildPersonalCoerciveStaleExecutionPatch', () => {
-    it('does not clear handed_to_judge phase when governing row is temporarily absent', () => {
+    it('clears orphan dossier phase when eligible decision row is missing', () => {
         const patch = buildPersonalCoerciveStaleExecutionPatch({
             executionId: 'exec-no-dossier-row',
             executionData: {
@@ -273,6 +341,7 @@ describe('buildPersonalCoerciveStaleExecutionPatch', () => {
                 executive_detention_judge_eligible_decision_id: 'personal_coercive_dossier_1',
             },
         });
-        expect(patch).toBeNull();
+        expect(patch?.executive_dossier_phase).toBeNull();
+        expect(patch?.executive_detention_judge_eligible_decision_id).toBeNull();
     });
 });

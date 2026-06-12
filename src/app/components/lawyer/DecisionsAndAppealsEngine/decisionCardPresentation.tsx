@@ -1,45 +1,23 @@
 import React from 'react';
 import { Scale, ShieldCheck, ShieldX, Clock, RotateCcw, Ban, Archive } from 'lucide-react';
-import type {
-    DecisionCardEnforcementVisual,
-    DecisionHubStatusPillTone,
-    ExecutorRequestFollowupBlock,
-} from './utils';
+import type { DecisionCardEnforcementVisual } from './decisionCardGlassShell';
+import type { DecisionHubStatusPillTone, ExecutorRequestFollowupBlock } from './utils';
 import type { Decision } from './types';
 import {
     applyWaiveInitialAppealForExecution,
     canWaiveInitialAppeal,
 } from '@/app/utils/waiveInitialAppeal';
 import {
+    applyLawyerCassationEntryForExecution,
+    openDecisionsAppealsAfterCassation,
+} from '@/app/utils/lawyerCassationEntry';
+import {
     appealCassationEntryLabels,
     isAppealResultFavorableToDebtorClient,
     type AppealUiPerspective,
 } from './appealUiLabels';
 
-/** زجاج سائل هادئ — أساس البطاقة */
-export const DECISION_CARD_GLASS_SHELL =
-    'relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-slate-900/45 via-slate-900/35 to-slate-950/50 p-3 text-right shadow-[0_10px_40px_rgba(0,0,0,0.22)] backdrop-blur-2xl transition-all duration-300 hover:border-white/[0.12] hover:shadow-[0_12px_44px_rgba(0,0,0,0.28)]';
-
-const CARD_ACCENT: Record<DecisionCardEnforcementVisual, string> = {
-    enforced:
-        "before:absolute before:inset-y-2 before:right-0 before:w-[3px] before:rounded-full before:bg-gradient-to-b before:from-emerald-200/70 before:to-emerald-500/30 before:content-['']",
-    paused:
-        "before:absolute before:inset-y-2 before:right-0 before:w-[3px] before:rounded-full before:bg-gradient-to-b before:from-amber-200/70 before:to-amber-500/30 before:content-['']",
-    lifecycle_reset:
-        "before:absolute before:inset-y-2 before:right-0 before:w-[3px] before:rounded-full before:bg-gradient-to-b before:from-violet-200/70 before:to-violet-500/30 before:content-['']",
-    not_enforced:
-        "before:absolute before:inset-y-2 before:right-0 before:w-[3px] before:rounded-full before:bg-gradient-to-b before:from-rose-200/60 before:to-rose-500/25 before:content-['']",
-    pending:
-        "before:absolute before:inset-y-2 before:right-0 before:w-[3px] before:rounded-full before:bg-gradient-to-b before:from-yellow-200/60 before:to-yellow-500/25 before:content-['']",
-    withdrawn:
-        "before:absolute before:inset-y-2 before:right-0 before:w-[3px] before:rounded-full before:bg-gradient-to-b before:from-slate-300/40 before:to-slate-500/20 before:content-['']",
-    neutral:
-        "before:absolute before:inset-y-2 before:right-0 before:w-[3px] before:rounded-full before:bg-gradient-to-b before:from-white/12 before:to-white/[0.04] before:content-['']",
-};
-
-export function decisionCardGlassClasses(visual: DecisionCardEnforcementVisual): string {
-    return `flex h-full min-h-0 flex-col justify-between gap-2 ${DECISION_CARD_GLASS_SHELL} ${CARD_ACCENT[visual]}`;
-}
+export { DECISION_CARD_GLASS_SHELL, decisionCardGlassClasses } from './decisionCardGlassShell';
 
 export const DECISION_CARD_LAYOUT = 'flex h-full min-h-0 flex-col justify-between gap-2';
 
@@ -163,6 +141,12 @@ export function AppealResultChip({
                 ? 'border-emerald-400/18 bg-emerald-500/[0.07] text-emerald-100/85'
                 : 'border-rose-400/18 bg-rose-500/[0.07] text-rose-100/85';
         }
+        if (
+            result === 'قبول التظلم' &&
+            (flowGateKind === 'paused' || flowGateKind === 'revoked' || appealActor === 'debtor')
+        ) {
+            return 'border-rose-400/18 bg-rose-500/[0.07] text-rose-100/85';
+        }
         if (result === 'تصديق القرار' || result === 'رد اللائحة' || result === 'قبول التظلم') {
             return 'border-emerald-400/18 bg-emerald-500/[0.07] text-emerald-100/85';
         }
@@ -256,23 +240,23 @@ export function ExecutorRequestFollowupBlockPanel({
                                     onStartCassation(decisionId);
                                     return;
                                 }
-                                try {
-                                    window.dispatchEvent(
-                                        new CustomEvent('hami-start-cassation-for-decision', {
-                                            detail: { executionId, decisionId },
-                                        })
-                                    );
-                                    window.dispatchEvent(
-                                        new CustomEvent('hami-open-decisions-modal', {
-                                            detail: {
-                                                executionId,
-                                                tab: 'appeals',
-                                                decisionId,
-                                            },
-                                        })
-                                    );
-                                } catch {
-                                    /* ignore */
+                                const result = applyLawyerCassationEntryForExecution({
+                                    executionId,
+                                    decisionId,
+                                    appealPerspective,
+                                });
+                                if (result.ok) {
+                                    openDecisionsAppealsAfterCassation({
+                                        executionId,
+                                        scrollDecisionId: result.scrollDecisionId ?? decisionId,
+                                    });
+                                    return;
+                                }
+                                if (result.scrollDecisionId) {
+                                    openDecisionsAppealsAfterCassation({
+                                        executionId,
+                                        scrollDecisionId: result.scrollDecisionId,
+                                    });
                                 }
                             }}
                             className={DECISION_ACTION_BTN_PRIMARY}

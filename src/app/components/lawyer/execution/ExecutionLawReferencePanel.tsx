@@ -1,18 +1,25 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Search } from 'lucide-react';
 import { useExecutionDashboardStore } from '@/app/stores/executionDashboardStore';
 import {
     EXECUTION_LAW_HIERARCHY,
     filterExecutionLawsByHierarchy,
     searchExecutionLawsGlobal,
-    normalizeLawSearchText,
     TAKHLYA_PARENT_ID,
     TAKHLYA_DEFAULT_LEAF_ID,
     type ExecutionLawArticle,
     type ExecutionLawLeafFilter,
     type ExecutionLawParentId,
 } from '@/data/executionLaws';
-import { loadExecutionLawArticlesRemote } from '@/app/utils/executionLawRemoteCache';
+import {
+    EXECUTION_LAW_CACHE_INVALIDATED_EVENT,
+    hasExecutionLawArticlesCached,
+    loadExecutionLawArticlesRemote,
+} from '@/app/utils/executionLawRemoteCache';
+import {
+    isArabicLooseHighlightMatch,
+    splitTextByArabicLooseHighlight,
+} from '@/app/utils/executionLawArticleUtils';
 
 /** شرائح التصنيف العام — زجاج سائل */
 const PARENT_CHIP_BASE =
@@ -29,72 +36,51 @@ const LEAF_CHIP_ACTIVE = 'border-purple-500/35 bg-purple-900/40 text-purple-300'
 const LEAF_CHIP_IDLE =
     'border-white/10 bg-transparent text-slate-400 hover:border-white/20 hover:text-slate-200';
 
-function escapeRegExp(s: string): string {
-    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function buildArabicLooseSearchPattern(rawHighlight: string): string {
-    const norm = normalizeLawSearchText(rawHighlight);
-    const cleaned = norm.replace(/\s+/g, ' ').trim();
-    if (!cleaned) return '';
-    const tokenToPattern = (token: string): string => {
-        const letters = [...token].filter((ch) => ch.trim().length > 0);
-        if (!letters.length) return '';
-        const charToPattern = (ch: string): string => {
-            if (ch === 'ا') return '[اأإآٱ]';
-            if (ch === 'ه') return '[هة]';
-            if (ch === 'ي') return '[يى]';
-            return escapeRegExp(ch);
-        };
-        return letters.map(charToPattern).join('[\\u064B-\\u0652]*');
-    };
-    const tokens = cleaned.split(' ').map(tokenToPattern).filter(Boolean);
-    return tokens.join('\\s+');
-}
-
 function getHighlightedText(text: string, highlight: string): React.ReactNode {
-    const raw = String(text ?? '');
-    const pat = buildArabicLooseSearchPattern(highlight);
-    if (!pat) return raw;
-    const splitRe = new RegExp(`(${pat})`, 'gi');
-    const testRe = new RegExp(pat, 'i');
-    return raw.split(splitRe).map((part, index) =>
-        part && testRe.test(part) ? (
+    const parts = splitTextByArabicLooseHighlight(text, highlight);
+    if (parts.length === 1) return parts[0];
+    return parts.map((part, index) =>
+        part && isArabicLooseHighlightMatch(part, highlight) ? (
             <mark key={index} className="bg-yellow-500/40 text-yellow-100 font-bold px-1 rounded-sm">
                 {part}
             </mark>
         ) : (
-            part
+            <React.Fragment key={index}>{part}</React.Fragment>
         )
     );
 }
 
-const ExecutionLawArticleCard: React.FC<{
+const ExecutionLawArticleCard = memo(function ExecutionLawArticleCard({
+    art,
+    searchQuery,
+}: {
     art: ExecutionLawArticle;
     searchQuery: string;
-}> = ({ art, searchQuery }) => (
-    <li className="rounded-2xl border border-slate-700/40 bg-slate-900/35 p-4 text-right backdrop-blur-sm">
-        <h3 className="text-lg font-black leading-snug text-slate-100">
-            <span className="text-[#E6C673]/90">المادة ({art.number})</span>
-            {art.title.trim() ? (
-                <>
-                    {' '}
-                    — <span>{getHighlightedText(art.title, searchQuery)}</span>
-                </>
-            ) : null}
-        </h3>
+}) {
+    return (
+        <li className="rounded-2xl border border-slate-700/40 bg-slate-900/35 p-4 text-right backdrop-blur-sm">
+            <h3 className="text-lg font-black leading-snug text-slate-100">
+                <span className="text-[#E6C673]/90">المادة ({art.number})</span>
+                {art.title.trim() ? (
+                    <>
+                        {' '}
+                        — <span>{getHighlightedText(art.title, searchQuery)}</span>
+                    </>
+                ) : null}
+            </h3>
 
-        {art.content.trim() ? (
-            <p className="mt-3 text-sm leading-relaxed text-slate-300 whitespace-pre-line">
-                {getHighlightedText(art.content, searchQuery)}
-            </p>
-        ) : (
-            <p className="mt-3 text-sm leading-relaxed text-slate-400 whitespace-pre-line">
-                نص المادة غير متوفر حالياً.
-            </p>
-        )}
-    </li>
-);
+            {art.content.trim() ? (
+                <p className="mt-3 text-sm leading-relaxed text-slate-300 whitespace-pre-line">
+                    {getHighlightedText(art.content, searchQuery)}
+                </p>
+            ) : (
+                <p className="mt-3 text-sm leading-relaxed text-slate-400 whitespace-pre-line">
+                    نص المادة غير متوفر حالياً.
+                </p>
+            )}
+        </li>
+    );
+});
 
 function isTakhlyaExecutionContext(executionTypeRaw: string): boolean {
     const t = executionTypeRaw.trim();
@@ -115,18 +101,17 @@ export const ExecutionLawReferencePanel: React.FC<{ executionType?: string }> = 
     const parentChipsRef = useRef<HTMLDivElement | null>(null);
     const childChipsRef = useRef<HTMLDivElement | null>(null);
     const [parentId, setParentId] = useState<ExecutionLawParentId>(
-        isTakhlyaExecutionContext(resolvedExecutionType) ? TAKHLYA_PARENT_ID : EXECUTION_LAW_HIERARCHY[0].id
+        isTakhlyaCtx ? TAKHLYA_PARENT_ID : EXECUTION_LAW_HIERARCHY[0].id
     );
     const [leafFilter, setLeafFilter] = useState<ExecutionLawLeafFilter>(
-        isTakhlyaExecutionContext(resolvedExecutionType) ? TAKHLYA_DEFAULT_LEAF_ID : 'all_in_parent'
+        isTakhlyaCtx ? TAKHLYA_DEFAULT_LEAF_ID : 'all_in_parent'
     );
     const [searchQuery, setSearchQuery] = useState('');
     const [articles, setArticles] = useState<ExecutionLawArticle[]>([]);
-    const [articlesLoading, setArticlesLoading] = useState(true);
+    const [articlesLoading, setArticlesLoading] = useState(() => !hasExecutionLawArticlesCached());
     const [articlesLoadError, setArticlesLoadError] = useState<string | null>(null);
-    const [remoteCatalogEmpty, setRemoteCatalogEmpty] = useState(false);
 
-    useEffect(() => {
+    const loadArticles = useCallback(() => {
         let cancelled = false;
         setArticlesLoading(true);
         setArticlesLoadError(null);
@@ -134,12 +119,10 @@ export const ExecutionLawReferencePanel: React.FC<{ executionType?: string }> = 
             .then((rows) => {
                 if (cancelled) return;
                 setArticles(rows);
-                setRemoteCatalogEmpty(rows.length === 0);
             })
             .catch((e) => {
                 if (cancelled) return;
                 setArticles([]);
-                setRemoteCatalogEmpty(false);
                 setArticlesLoadError(
                     e instanceof Error ? e.message : 'تعذر تحميل مواد قانون التنفيذ من قاعدة البيانات.'
                 );
@@ -150,7 +133,18 @@ export const ExecutionLawReferencePanel: React.FC<{ executionType?: string }> = 
         return () => {
             cancelled = true;
         };
-    }, [lawGuideFileId]);
+    }, []);
+
+    useEffect(() => loadArticles(), [loadArticles]);
+
+    useEffect(() => {
+        const onCacheInvalidated = () => {
+            loadArticles();
+        };
+        window.addEventListener(EXECUTION_LAW_CACHE_INVALIDATED_EVENT, onCacheInvalidated);
+        return () =>
+            window.removeEventListener(EXECUTION_LAW_CACHE_INVALIDATED_EVENT, onCacheInvalidated);
+    }, [loadArticles]);
 
     const activeParent = useMemo(
         () => EXECUTION_LAW_HIERARCHY.find((p) => p.id === parentId) ?? EXECUTION_LAW_HIERARCHY[0],
@@ -246,12 +240,6 @@ export const ExecutionLawReferencePanel: React.FC<{ executionType?: string }> = 
                         })}
                     </div>
 
-                    {activeParent.taskHint ? (
-                        <p className="px-3 text-center text-[10px] leading-relaxed text-slate-500">
-                            {activeParent.taskHint}
-                        </p>
-                    ) : null}
-
                     <div
                         ref={childChipsRef}
                         role="tablist"
@@ -296,12 +284,6 @@ export const ExecutionLawReferencePanel: React.FC<{ executionType?: string }> = 
                     <p className="py-8 text-center text-sm text-slate-500">جاري تحميل مواد القانون…</p>
                 ) : articlesLoadError ? (
                     <p className="py-8 text-center text-sm text-rose-300/90">{articlesLoadError}</p>
-                ) : remoteCatalogEmpty ? (
-                    <p className="py-8 text-center text-sm leading-relaxed text-slate-400">
-                        لا توجد مواد محقونة لقانون التنفيذ في قاعدة البيانات.
-                        <br />
-                        ارفع المتون الجديدة من لوحة الإدارة (قسم التنفيذ).
-                    </p>
                 ) : filtered.length === 0 ? (
                     <p className="py-8 text-center text-sm text-slate-500">
                         لا نتائج مطابقة للبحث أو التصنيف.

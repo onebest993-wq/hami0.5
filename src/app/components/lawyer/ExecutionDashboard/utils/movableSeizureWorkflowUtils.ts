@@ -4,6 +4,7 @@ import {
     isExecutorHubRowInactiveForGoverning,
     patchExecutorDecisionRow,
 } from '@/app/utils/executorSeizureDecisionQueue';
+import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 import { isDecisionResolvedApproved, normalizePropertySeizureStatus, stepStatusForIndex } from './propertySeizureWorkflowUtils';
 
 export { normalizePropertySeizureStatus as normalizeMovableSeizureStatus, stepStatusForIndex };
@@ -123,8 +124,9 @@ export function findApprovedUnsavedMovableDecision(
     seizedMovableId: string
 ): Record<string, unknown> | null {
     const row = findSeizureDecisionForMovable(decisions, subtype, seizedMovableId);
-    if (!row || !isDecisionResolvedApproved(row)) return null;
+    if (!row || !isDecisionResolvedApproved(row, decisions)) return null;
     if (String(row.seizureRequestSavedAt || '').trim()) return null;
+    if (!isExecutorRowApprovedWorkflowActive(row, decisions)) return null;
     return row;
 }
 

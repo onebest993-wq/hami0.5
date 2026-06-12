@@ -9,6 +9,7 @@ import { storageCache } from '@/app/utils/storageCache';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import { stripPendingLabelsFromExecutorSubject } from '@/app/utils/executorDecisionTitles';
 import {
+    closePersonalCoerciveSubtypeDecisionCycle,
     getExecutorDecisionRowById,
     patchExecutorDecisionRowReliable,
     resolveExecutorDecisionRowContext,
@@ -328,6 +329,18 @@ export function finalizePersonalCoerciveExecutorDecision(input: {
         event,
         mergePatch,
     });
+
+    if (subtype === 'travel_ban' && outcome === 'approved') {
+        const row = getExecutorDecisionRowById(storageExecutionId, decisionId) as
+            | { personalCoerciveDebtorKey?: string }
+            | null;
+        const debtorKey = String(row?.personalCoerciveDebtorKey || '').trim();
+        closePersonalCoerciveSubtypeDecisionCycle({
+            executionId: storageExecutionId,
+            subtype: 'travel_ban',
+            debtorKey: debtorKey || undefined,
+        });
+    }
 
     dispatchPersonalCoerciveOutcomeEvent({
         executionId: storageExecutionId,

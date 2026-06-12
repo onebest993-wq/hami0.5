@@ -1,4 +1,4 @@
-﻿// ✅ PERFORMANCE OPTIMIZED - v11.1 - Zustand modals + useCallback + optimized useEffect
+// ✅ PERFORMANCE OPTIMIZED - v11.1 - Zustand modals + useCallback + optimized useEffect
 import React, {
     useState,
     useMemo,
@@ -136,8 +136,26 @@ import {
     useStableExecutionFileForStore,
     useSeizureRegistryAssets,
     isSalarySeizureAsset,
+    useUnifiedSeizureLog,
+    useThirdPartySeizuresUi,
+    useSeizureLogEntityData,
+    useThirdPartyFundsReceivedOutcome,
+    useSeizureDecisionOutcome,
+    useSeizureApprovalToast,
+    useUnifiedCollectionOutcome,
+    useGuarantorRequestOutcome,
+    useOpenSeizureCompletion,
+    useTrustDisbursedOutcome,
+    useOpenFinancialHubLedger,
+    useEvictionLawyerFeeOutcome,
     useCaseTasksAndNotes,
 } from './ExecutionDashboard/hooks';
+import {
+    readFollowupModalPersist,
+    resolveFollowupTabOnOpen,
+    writeFollowupModalPersist,
+    type FollowupModalTabId,
+} from './ExecutionDashboard/utils/followupModalPersistUtils';
 import { PartyEditModal, CoerciveToolsGrid, DossierMetaEditSection, EvictionProceduresSection, FinancialTab, OtherPartyTab, SeizureRequestsTab, CommunicationsTab, RequestsTab, PersonalTab, CoerciveTab, ExecutionFinancialHubPortal, PermanentDeleteConfirmDialog, LawReferencePanel, DossierLifecyclePanel, VisitationCalendarModal } from './ExecutionDashboard/components';
 import { SPECIAL_REQUEST_MANUAL_MODE } from './ExecutionDashboard/components/RequestsTab';
 import { ExecutionHeirsQuickViewModal } from './ExecutionDashboard/components/ExecutionHeirsQuickViewModal';
@@ -175,11 +193,6 @@ const RealEstateSeizurePostApprovalModal = lazy(() =>
 const GuarantorDetailsPostApprovalModal = lazy(() =>
     import('@/app/components/lawyer/execution/GuarantorDetailsPostApprovalModal').then((m) => ({
         default: m.GuarantorDetailsPostApprovalModal,
-    }))
-);
-const ExecutionLawReferencePanel = lazy(() =>
-    import('@/app/components/lawyer/execution/ExecutionLawReferencePanel').then((m) => ({
-        default: m.ExecutionLawReferencePanel,
     }))
 );
 const LazyActionGridSection = lazy(() =>
@@ -221,15 +234,10 @@ import {
 import {
     creditMovableProceedsForExecution,
     creditMovableSaleProceedsToTrustLedger,
-    resolveMovableSaleProceedsIqd,
     syncSoldMovableProceedsToTrustLedger,
 } from '@/app/components/lawyer/ExecutionDashboard/utils/movableSeizureFinancialUtils';
-import {
-    creditPropertyProceedsForExecution,
-    creditPropertySaleProceedsToTrustLedger,
-    resolvePropertySaleProceedsIqd,
-    syncSoldPropertyProceedsToTrustLedger,
-} from '@/app/components/lawyer/ExecutionDashboard/utils/propertySeizureFinancialUtils';
+import { syncSoldPropertyProceedsToTrustLedger } from '@/app/components/lawyer/ExecutionDashboard/utils/propertySeizureFinancialUtils';
+import { creditThirdPartySeizureFunds } from '@/app/components/lawyer/ExecutionDashboard/utils/thirdPartyFundsReceivedOutcomeUtils';
 import {
     clearSalarySeizureFromStore,
     clearSettlementFromStore,
@@ -245,6 +253,7 @@ import { hasActiveFinancialGuarantorFollowup } from './ExecutionDashboard/compon
 import {
     formatNumberInput,
     formatStoredAmountForInput,
+    parseAmount,
 } from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
 import { loadExecutionFilesRaw } from '@/app/utils/executionFilesStorage';
 import { normalizeExecutionFileRecord } from '@/app/components/lawyer/LawyerDashboardParts/utils';
@@ -296,7 +305,6 @@ import {
     appendCreditorPartyDeathRequest,
     appendPersonalCoerciveExecutorRequest,
     appendPendingExecutorSeizureDecision,
-    appendThirdPartyFundsReceivedDecision,
     appendSpecialFollowupRequest,
     appendDebtorHeirSubstitutionRequest,
     computeGuarantorApprovalMergePatch,
@@ -335,6 +343,7 @@ import {
     resolveExecutionDomainContext,
 } from '@/app/utils/executionDomainIsolation';
 import { ensureDecisionsNamespaceMigrated } from '@/app/utils/executionDecisionsNamespace';
+import { resolveDecisionsModalBootState } from '@/app/utils/decisionsModalBoot';
 import { reconcileDomainViolatingDecisions } from '@/app/utils/executionDomainReconcile';
 import {
     resolveCreditorOtherPartyTrackDecision,
@@ -383,12 +392,10 @@ import {
     ExecutionInlineAccordion,
     ExecutionInlineExecutorDecisionActions,
 } from '@/app/components/lawyer/ExecutionDashboard/components/ExecutionInlineAccordion';
-import { SeizedPropertyWorkflowPanel } from '@/app/components/lawyer/ExecutionDashboard/components/SeizedPropertyWorkflowPanel';
 import {
-    SalarySeizureLogDetailCard,
     type SalarySeizureDetailsPatch,
 } from '@/app/components/lawyer/ExecutionDashboard/components/SalarySeizureLogDetailCard';
-import { SeizedMovableWorkflowPanel } from '@/app/components/lawyer/ExecutionDashboard/components/SeizedMovableWorkflowPanel';
+import { UnifiedSeizureLogHost } from '@/app/components/lawyer/ExecutionDashboard/components/UnifiedSeizureLogHost';
 import type { MovableInlineSaveContext } from '@/app/components/lawyer/ExecutionDashboard/utils/movableSeizureInlinePersistence';
 import type { PropertyInlineSaveContext } from '@/app/components/lawyer/ExecutionDashboard/utils/propertySeizureInlinePersistence';
 import {
@@ -521,6 +528,7 @@ import {
     filterTimelineEventsForInabaDossier,
     filterTimelineEventsForParentDossier,
     stampInabaTimelineEventMetadata,
+    stampParentTimelineEventMetadata,
     ensureSubDossierOpenedTimelineEvent,
     isDebtorRowEmployee,
     debtorEmploymentToggleMenuLabel,
@@ -925,6 +933,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     const followupModalDebtorTabsRef = useRef<HTMLDivElement>(null);
     const followupModalSectionTabsRef = useRef<HTMLDivElement>(null);
     const followupModalBodyScrollRef = useRef<HTMLDivElement>(null);
+    const followupModalOpenGenerationRef = useRef(0);
     const debtorWorkspaceChipStripRef = useRef<HTMLDivElement>(null);
     const [partyDeathModalParty, setPartyDeathModalParty] = useState<'creditor' | 'debtor' | null>(null);
     const [partyDeathModalDecisionId, setPartyDeathModalDecisionId] = useState<string | null>(null);
@@ -1394,28 +1403,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         [timelineEvents]
     );
 
-    const isFinancialSeizureLogEvent = useCallback((e: any) => {
-        const src = String(e?.source || '');
-        if (src.includes('الحجز المالي')) return true;
-        const meta = e?.metadata;
-        const threadKey = String(meta?.timelineThreadKey || '');
-        if (meta?.seizureAssetId || threadKey.startsWith('seizure_') || threadKey.startsWith('seizure:')) {
-            return true;
-        }
-        if (String(e?.type || '') !== 'coercive') return false;
-        const title = String(e?.title || '');
-        const desc = String(e?.description || '');
-        return title.includes('حجز') || desc.includes('محجوز') || desc.includes('الحجز');
-    }, []);
-    const financialSeizureLogEvents = useMemo(
-        () => activeTimelineEvents.filter(isFinancialSeizureLogEvent),
-        [activeTimelineEvents, isFinancialSeizureLogEvent]
-    );
-    const financialSeizureLogPreview = useMemo(
-        () => financialSeizureLogEvents.slice(0, 60),
-        [financialSeizureLogEvents]
-    );
-
     /** دمج أحداث الإضبارة الفرعية مع الإضبارة الأم — مع إضافة source badge */
     const [showOnlyActiveFileTimeline, setShowOnlyActiveFileTimeline] = useState(false);
     /** عند التبديل إلى الإضبارة الفرعية، أظهر سجلها الزمني المستقل فقط */
@@ -1720,6 +1707,26 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     >(null);
     const [decisionsModalScrollToDecisionId, setDecisionsModalScrollToDecisionId] = useState<string | null>(null);
     const [appealsModalScrollToDecisionId, setAppealsModalScrollToDecisionId] = useState<string | null>(null);
+
+    const clearDecisionsModalBootState = useCallback(() => {
+        setDecisionsModalBootHubTab(null);
+        setDecisionsModalBootListTab(null);
+        setDecisionsModalScrollToDecisionId(null);
+        setAppealsModalScrollToDecisionId(null);
+    }, []);
+
+    const openDecisionsModalWithBoot = useCallback(
+        (opts?: { tab?: 'current' | 'previous' | 'appeals'; decisionId?: string | null }) => {
+            const boot = resolveDecisionsModalBootState(opts);
+            setDecisionsModalBootHubTab(boot.hubTab);
+            setDecisionsModalBootListTab(boot.listTab);
+            setDecisionsModalScrollToDecisionId(boot.scrollDecisionId);
+            setAppealsModalScrollToDecisionId(boot.scrollAppealId);
+            setShowDecisionsModal(true);
+        },
+        [setShowDecisionsModal]
+    );
+
     const [showGuarantorDetailsModal, setShowGuarantorDetailsModal] = useState(false);
     const [guarantorDetailsDecisionId, setGuarantorDetailsDecisionId] = useState<string | null>(null);
     const [guarantorNameDraft, setGuarantorNameDraft] = useState('');
@@ -1742,876 +1749,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
 
     useEffect(() => {
         if (showDecisionsModal) return;
-        setDecisionsModalBootHubTab(null);
-        setDecisionsModalBootListTab(null);
-        setDecisionsModalScrollToDecisionId(null);
-    }, [showDecisionsModal]);
-
-    useEffect(() => {
-        const handler = (e: Event) => {
-            const ce = e as CustomEvent<{ executionId?: string; decisionId?: string }>;
-            const myId = String(executionData?.id ?? executionId ?? '');
-            if (!myId || String(ce.detail?.executionId ?? '') !== myId) return;
-            const decisionId = String(ce.detail?.decisionId ?? '').trim();
-            if (!decisionId) return;
-
-            const decisionRow = getExecutorDecisionRowById(myId, decisionId) as any;
-            const subtype = String(decisionRow?.seizureSubtype || '').trim();
-
-            if (subtype === 'property') {
-                focusSeizurePropertyInlineRef.current(
-                    decisionId,
-                    String(decisionRow?.title || '').trim()
-                );
-                return;
-            }
-
-            if (subtype === 'movable_auction') {
-                const rawJson = String(decisionRow?.seizurePayloadJson || '').trim();
-                let desc = '';
-                let loc = '';
-                let cust = '';
-                if (rawJson) {
-                    try {
-                        const v = JSON.parse(rawJson) as any;
-                        desc = String(v?.movableDescription ?? '').trim();
-                        loc = String(v?.movableLocation ?? '').trim();
-                        cust = String(v?.judicialCustodianName ?? '').trim();
-                    } catch {
-                        desc = '';
-                        loc = '';
-                        cust = '';
-                    }
-                }
-                if (!desc || !loc || !cust) {
-                    focusSeizureMovableInlineRef.current(
-                        decisionId,
-                        String(decisionRow?.title || '').trim()
-                    );
-                    return;
-                }
-                const nowIso = new Date().toISOString();
-                const prev = (executionDataRef.current?.seizedMovables || []) as SeizedMovable[];
-                const existingIdx = prev.findIndex((x) => String(x.decisionRowId || '') === decisionId);
-                const next: SeizedMovable[] = [...prev];
-                const entityId = existingIdx >= 0 ? String(next[existingIdx].id) : `sm_${decisionId}`;
-                const nextRow: SeizedMovable = {
-                    id: entityId,
-                    decisionRowId: decisionId,
-                    movableDescription: desc,
-                    movableLocation: loc,
-                    judicialCustodianName: cust,
-                    status: 'seized',
-                    seizedAtIso: nowIso,
-                    subject: String(decisionRow?.title || '').trim() || undefined,
-                };
-                if (existingIdx >= 0) next[existingIdx] = { ...next[existingIdx], ...nextRow };
-                else next.unshift(nextRow);
-                persistExecutionMergeRef.current?.({ seizedMovables: next });
-                const updatedPayloadJson = (() => {
-                    try {
-                        const prevJson = rawJson ? (JSON.parse(rawJson) as any) : {};
-                        return JSON.stringify({ ...prevJson, seizedMovableId: entityId, movableDescription: desc, movableLocation: loc, judicialCustodianName: cust });
-                    } catch {
-                        return JSON.stringify({ seizedMovableId: entityId, movableDescription: desc, movableLocation: loc, judicialCustodianName: cust });
-                    }
-                })();
-                patchExecutorDecisionRow(myId, decisionId, {
-                    seizureRequestSavedAt: nowIso,
-                    seizureRequestDetails: [
-                        `وصف المال المنقول: ${desc}`,
-                        `المكان: ${loc}`,
-                        cust ? `الحارس القضائي: ${cust}` : null,
-                    ]
-                        .filter(Boolean)
-                        .join('\n'),
-                    seizurePayloadJson: updatedPayloadJson,
-                });
-                pushTimelineEventRef.current?.({
-                    id: nextTimelineId(),
-                    date: nowIso.slice(0, 10),
-                    timestamp: nowIso,
-                    title: '📦 تثبيت حجز مال منقول (إنشاء بطاقة)',
-                    description: [
-                        `وصف المال المنقول: ${desc}`,
-                        `المكان: ${loc}`,
-                        cust ? `الحارس القضائي: ${cust}` : null,
-                    ]
-                        .filter(Boolean)
-                        .join('\n'),
-                    type: 'decision',
-                    source: 'محضر المتابعة — الأموال المحجوزة',
-                    metadata: { seizedMovableId: entityId, decisionRowId: decisionId },
-                });
-                return;
-            }
-
-            if (subtype === 'third_party') {
-                focusSeizureThirdPartyInlineRef.current(
-                    decisionId,
-                    String(decisionRow?.title || '').trim()
-                );
-                return;
-            }
-
-            if (subtype === 'notice') {
-                focusSeizureNoticeInlineRef.current(
-                    decisionId,
-                    String(decisionRow?.title || '').trim()
-                );
-                return;
-            }
-
-            const assets = seizedAssetsSnapshotRef.current;
-            let hit = assets.find(
-                (a) =>
-                    String((a.details as Record<string, unknown> | undefined)?.decisionRowId) === decisionId &&
-                    String(a.status) !== 'released'
-            );
-
-            if (!hit) {
-                const subtype = String(decisionRow?.seizureSubtype || '').trim();
-                const today = getLocalTodayYmd();
-                const now = new Date().toISOString();
-                let kind: 'salary' | 'property' | 'vehicle' = 'property';
-                if (subtype === 'movable' || subtype === 'movable_auction') kind = 'vehicle';
-                else if (subtype === 'salary') kind = 'salary';
-                else kind = 'property';
-
-                const baseTypeLabel =
-                    kind === 'vehicle'
-                        ? 'طلب حجز مال منقول'
-                        : kind === 'salary'
-                          ? 'طلب حجز راتب'
-                          : subtype === 'notice'
-                            ? 'طلب وضع إشارة الحجز التنفيذي'
-                            : subtype === 'third_party'
-                              ? 'حجز مال المدين لدى الغير'
-                              : 'طلب حجز عقار';
-
-                const placeholder: SeizedAsset = {
-                    id: `inv_${decisionId}_${Date.now()}`,
-                    type: `${baseTypeLabel} — موافقة المنفذ`,
-                    status: 'seized',
-                    seizureDate: today,
-                    description: '',
-                    notes: '',
-                    details: {
-                        seizureUiKind: kind,
-                        decisionRowId: decisionId,
-                        employerName: '',
-                        salaryAmount: '',
-                        propertyAddress: '',
-                        propertyLocation: '',
-                        vehicleDescription: '',
-                        vehiclePlate: '',
-                        movableAssetType: '',
-                        movableDescription: '',
-                        movableLocation: '',
-                        judicialCustodianName: '',
-                        createdFrom: 'fallback_open_seizure_completion',
-                        createdAt: now,
-                    },
-                };
-
-                setSeizedAssets((prev) => {
-                    const next = [...prev, placeholder];
-                    queueMicrotask(() => persistExecutionMerge({ seizedAssets: next }));
-                    return next;
-                });
-                hit = placeholder;
-            }
-            const d = (hit.details || {}) as Record<string, unknown>;
-            let kind: 'salary' | 'property' | 'vehicle' = 'property';
-            const raw = d.seizureUiKind;
-            if (raw === 'salary' || raw === 'property' || raw === 'vehicle') {
-                kind = raw;
-            } else {
-                const t = String(hit.type);
-                if (/مال منقول|مركبة|منقول/i.test(t)) kind = 'vehicle';
-                else if (/عقار/i.test(t)) kind = 'property';
-                else if (/راتب|مكافآت|حوافز|خُمس|خمس|استحقاق/i.test(t)) kind = 'salary';
-            }
-            setSeizureDetailCompletion({
-                decisionRowId: decisionId,
-                assetId: hit.id,
-                actionType: kind,
-            });
-        };
-        window.addEventListener('hami-open-seizure-completion', handler as EventListener);
-        return () =>
-            window.removeEventListener('hami-open-seizure-completion', handler as EventListener);
-    }, [executionData?.id, executionId]);
-
-    useEffect(() => {
-        const handler = (e: Event) => {
-            const ce = e as CustomEvent<{
-                executionId?: string;
-                decisionId?: string;
-                requestKind?: string;
-                outcome?: 'approved' | 'rejected';
-            }>;
-            const myId = String(executionData?.id ?? executionId ?? '').trim();
-            const storageId = String(decisionsStorageExecutionId ?? '').trim();
-            const evId = String(ce.detail?.executionId ?? '').trim();
-            const allowedIds = new Set(
-                [myId, storageId, String(executionId ?? '').trim()].filter(
-                    (x) => x && x !== 'undefined' && x !== 'null'
-                )
-            );
-            if (!evId || !allowedIds.has(evId)) return;
-            if (String(ce.detail?.outcome || '') !== 'approved') return;
-            const decisionId = String(ce.detail?.decisionId ?? '').trim();
-            if (!decisionId) return;
-
-            let decisionRow: Record<string, unknown> | null = null;
-            for (const lookupId of [storageId, myId, evId]) {
-                if (!lookupId) continue;
-                const hit = getExecutorDecisionRowById(lookupId, decisionId) as Record<string, unknown> | null;
-                if (hit) {
-                    decisionRow = hit;
-                    break;
-                }
-            }
-            if (!decisionRow) return;
-            let subtype = String(decisionRow?.seizureSubtype || '').trim();
-            const decisionText = `${String(decisionRow?.title || '')}\n${String(decisionRow?.body || '')}`;
-            if (!subtype && /عقار/i.test(decisionText)) {
-                subtype = 'property';
-            }
-            if (!subtype && /إشارة/i.test(decisionText)) {
-                subtype = 'notice';
-            }
-            if (!subtype && /الغير|طرف ثالث/i.test(decisionText)) {
-                subtype = 'third_party';
-            }
-
-            const rawJson = String(decisionRow?.seizurePayloadJson || '').trim();
-            let seizedPropertyId = '';
-            let seizedMovableId = '';
-            let movableDescription = '';
-            let movableLocation = '';
-            let judicialCustodianName = '';
-            if (rawJson) {
-                try {
-                    const v = JSON.parse(rawJson) as any;
-                    seizedPropertyId = String(v?.seizedPropertyId ?? '').trim();
-                    seizedMovableId = String(v?.seizedMovableId ?? '').trim();
-                    movableDescription = String(v?.movableDescription ?? '').trim();
-                    movableLocation = String(v?.movableLocation ?? '').trim();
-                    judicialCustodianName = String(v?.judicialCustodianName ?? '').trim();
-                } catch {
-                    seizedPropertyId = '';
-                    seizedMovableId = '';
-                    movableDescription = '';
-                    movableLocation = '';
-                    judicialCustodianName = '';
-                }
-            }
-
-            const requestKind = String(ce.detail?.requestKind ?? decisionRow?.requestKind ?? '').trim();
-            const savedAtEarly = String(decisionRow?.seizureRequestSavedAt || '').trim();
-            const seizureTarget = readSeizureRequestTarget(decisionRow);
-            if (seizureTarget === 'guarantor' && requestKind === 'seizure' && !savedAtEarly) {
-                const draftPatch = buildSeizureRegistryDraftPatch(
-                    executionDataRef.current as Record<string, unknown> | null | undefined,
-                    decisionId,
-                    subtype,
-                    decisionRow as Record<string, unknown>
-                );
-                if (draftPatch) {
-                    persistExecutionMergeRef.current?.(draftPatch);
-                }
-                setShowCoerciveActionForm(null);
-                setSeizureDetailCompletion(null);
-                setShowUnifiedExecutionModal(true);
-                openSeizureRequestsTabRef.current();
-                const focusKind: 'salary' | 'movable' | 'property' =
-                    subtype === 'property'
-                        ? 'property'
-                        : subtype === 'salary'
-                          ? 'salary'
-                          : 'movable';
-                try {
-                    const exId = String(storageId || myId || evId).trim();
-                    window.dispatchEvent(
-                        new CustomEvent('hami-focus-guarantor-seizure-inline', {
-                            detail: { executionId: exId, decisionId, kind: focusKind },
-                        })
-                    );
-                } catch {
-                    /* ignore */
-                }
-                return;
-            }
-            const isBasicSeizureSubtype =
-                subtype === 'property' ||
-                subtype === 'movable' ||
-                subtype === 'movable_auction' ||
-                subtype === 'third_party';
-            if ((requestKind === 'seizure' || isBasicSeizureSubtype) && !savedAtEarly && isBasicSeizureSubtype) {
-                const draftPatch = buildSeizureRegistryDraftPatch(
-                    executionDataRef.current as Record<string, unknown> | null | undefined,
-                    decisionId,
-                    subtype,
-                    decisionRow as Record<string, unknown>
-                );
-                if (draftPatch) {
-                    persistExecutionMergeRef.current?.(draftPatch);
-                    if (Array.isArray(draftPatch.thirdPartySeizures)) {
-                        setThirdPartySeizuresUi(draftPatch.thirdPartySeizures as ThirdPartySeizure[]);
-                    }
-                }
-                if (subtype === 'property') {
-                    focusSeizurePropertyInlineRef.current(
-                        decisionId,
-                        String(decisionRow?.title || '').trim()
-                    );
-                    return;
-                }
-                if (subtype === 'third_party') {
-                    focusSeizureThirdPartyInlineRef.current(
-                        decisionId,
-                        String(decisionRow?.title || '').trim()
-                    );
-                    return;
-                }
-                if (subtype === 'movable_auction' || subtype === 'movable') {
-                    focusSeizureMovableInlineRef.current(
-                        decisionId,
-                        String(decisionRow?.title || '').trim()
-                    );
-                    return;
-                }
-            }
-
-            if (
-                requestKind === 'seizure' &&
-                subtype === 'notice' &&
-                !savedAtEarly
-            ) {
-                focusSeizureNoticeInlineRef.current(
-                    decisionId,
-                    String(decisionRow?.title || '').trim()
-                );
-                return;
-            }
-
-            if (subtype === 'movable_auction' && !seizedMovableId) {
-                const desc = movableDescription;
-                const loc = movableLocation;
-                const cust = judicialCustodianName;
-                if (!desc || !loc) return;
-                const nowIso = new Date().toISOString();
-                const prev = (executionDataRef.current?.seizedMovables || []) as SeizedMovable[];
-                const existingIdx = prev.findIndex((x) => String(x.decisionRowId || '') === decisionId);
-                const next: SeizedMovable[] = [...prev];
-                const entityId = existingIdx >= 0 ? String(next[existingIdx].id) : `sm_${decisionId}`;
-                const nextRow: SeizedMovable = {
-                    id: entityId,
-                    decisionRowId: decisionId,
-                    movableDescription: desc,
-                    movableLocation: loc,
-                    judicialCustodianName: cust,
-                    status: 'seized',
-                    seizedAtIso: nowIso,
-                    subject: String(decisionRow?.title || '').trim() || undefined,
-                };
-                if (existingIdx >= 0) next[existingIdx] = { ...next[existingIdx], ...nextRow };
-                else next.unshift(nextRow);
-                persistExecutionMergeRef.current?.({ seizedMovables: next });
-                const updatedPayloadJson = (() => {
-                    try {
-                        const prevJson = rawJson ? (JSON.parse(rawJson) as any) : {};
-                        return JSON.stringify({ ...prevJson, seizedMovableId: entityId, movableDescription: desc, movableLocation: loc, judicialCustodianName: cust });
-                    } catch {
-                        return JSON.stringify({ seizedMovableId: entityId, movableDescription: desc, movableLocation: loc, judicialCustodianName: cust });
-                    }
-                })();
-                patchExecutorDecisionRow(myId, decisionId, {
-                    seizureRequestSavedAt: nowIso,
-                    seizureRequestDetails: [
-                        `وصف المال المنقول: ${desc}`,
-                        `المكان: ${loc}`,
-                        cust ? `الحارس القضائي: ${cust}` : null,
-                    ]
-                        .filter(Boolean)
-                        .join('\n'),
-                    seizurePayloadJson: updatedPayloadJson,
-                });
-                pushTimelineEventRef.current?.({
-                    id: nextTimelineId(),
-                    date: nowIso.slice(0, 10),
-                    timestamp: nowIso,
-                    title: '📦 قبول حجز مال منقول — إنشاء بطاقة',
-                    description: [
-                        `وصف المال المنقول: ${desc}`,
-                        `المكان: ${loc}`,
-                        cust ? `الحارس القضائي: ${cust}` : null,
-                    ]
-                        .filter(Boolean)
-                        .join('\n'),
-                    type: 'decision',
-                    source: 'محضر المتابعة — الأموال المحجوزة',
-                    metadata: { seizedMovableId: entityId, decisionRowId: decisionId, seizureSubtype: subtype },
-                });
-                return;
-            }
-            if (!seizedPropertyId && !seizedMovableId) return;
-
-            const nowIso = new Date().toISOString();
-            if (seizedPropertyId) {
-                if (
-                    subtype === 'property_expert' ||
-                    subtype === 'property_expert_committee' ||
-                    subtype === 'property_auction' ||
-                    subtype === 'property_reauction_default'
-                ) {
-                    if (String(decisionRow?.seizureRequestSavedAt || '').trim()) return;
-                    const step =
-                        subtype === 'property_expert' || subtype === 'property_expert_committee'
-                            ? 'experts'
-                            : subtype === 'property_auction'
-                              ? 'auction'
-                              : 'reauction_default';
-                    const dispatchId = myId || storageId || evId;
-                    try {
-                        window.dispatchEvent(
-                            new CustomEvent('hami-property-inline-focus', {
-                                detail: {
-                                    executionId: dispatchId,
-                                    propertyId: seizedPropertyId,
-                                    step,
-                                    decisionId,
-                                },
-                            })
-                        );
-                    } catch {
-                        /* ignore */
-                    }
-                    return;
-                }
-
-                const prev = (executionDataRef.current?.seizedProperties || []) as SeizedProperty[];
-                const idx = prev.findIndex((x) => String(x.id) === seizedPropertyId);
-                if (idx < 0) return;
-                const cur = prev[idx];
-
-                if (subtype === 'property_expert_objection') {
-                    const rawJson = String(decisionRow?.seizurePayloadJson || '').trim();
-                    const objectionKind = parseExpertObjectionKindFromPayload(rawJson);
-                    const objectionPatch = buildExpertObjectionEntityPatch(cur, objectionKind);
-                    const next = [...prev];
-                    next[idx] = { ...cur, ...objectionPatch } as SeizedProperty;
-                    persistExecutionMergeRef.current?.({ seizedProperties: next });
-                    const kindLabel =
-                        objectionKind === 'experts'
-                            ? 'اعتراض على الخبراء (استبدال)'
-                            : 'اعتراض على التقرير (زيادة اللجنة)';
-                    const newSize = readExpertCommitteeSize(next[idx]);
-                    patchExecutorDecisionRow(myId, decisionId, {
-                        seizureRequestSavedAt: nowIso,
-                        seizureRequestDetails: `${kindLabel} — تم قبول المنفذ.\nرقم العقار: ${String(cur.propertyNumber || '').trim()}\nالجنس: ${String(cur.propertyGender || '').trim()}\nعدد الخبراء المطلوب: ${newSize}`,
-                    });
-                    pushTimelineEventRef.current?.({
-                        id: nextTimelineId(),
-                        date: nowIso.slice(0, 10),
-                        timestamp: nowIso,
-                        title: '🛡️ قبول الاعتراض على تقدير الخبراء — حجز عقار',
-                        description: `رقم العقار: ${String(cur.propertyNumber || '').trim()}\n${kindLabel}\nعدد الخبراء المطلوب: ${newSize}`,
-                        type: 'decision',
-                        source: 'محضر المتابعة — الأموال المحجوزة',
-                        metadata: { seizedPropertyId, decisionRowId: decisionId, seizureSubtype: subtype },
-                    });
-                    return;
-                }
-
-                if (subtype === 'property_final_award') {
-                    const buyerName = String(
-                        cur.initialAwardBuyerName || cur.lastBidderOrBuyerName || cur.award?.buyerName || ''
-                    ).trim();
-                    const amt =
-                        cur.initialAwardAmountIqd != null && Number.isFinite(Number(cur.initialAwardAmountIqd))
-                            ? Number(cur.initialAwardAmountIqd)
-                            : cur.finalAwardAmountIqd != null && Number.isFinite(Number(cur.finalAwardAmountIqd))
-                              ? Number(cur.finalAwardAmountIqd)
-                              : cur.award?.awardAmountIqd != null && Number.isFinite(Number(cur.award.awardAmountIqd))
-                                ? Number(cur.award.awardAmountIqd)
-                                : null;
-                    const next = [...prev];
-                    next[idx] = {
-                        ...cur,
-                        status: 'sold',
-                        lastBidderOrBuyerName: buyerName || cur.lastBidderOrBuyerName,
-                        finalAwardAmountIqd: amt ?? cur.finalAwardAmountIqd ?? null,
-                        award:
-                            buyerName && amt != null
-                                ? { buyerName, awardAmountIqd: amt, recordedAtIso: nowIso }
-                                : cur.award,
-                    } as SeizedProperty;
-                    persistExecutionMergeRef.current?.({ seizedProperties: next });
-                    const soldProperty = next[idx];
-                    const ledgerParams = seizureMatrixLedgerParamsRef.current;
-                    const trustCredit = ledgerParams
-                        ? creditPropertyProceedsForExecution(myId, soldProperty, ledgerParams, nowIso)
-                        : creditPropertySaleProceedsToTrustLedger({
-                              executionId: myId,
-                              property: soldProperty,
-                              at: nowIso,
-                          });
-                    patchExecutorDecisionRow(myId, decisionId, {
-                        seizureRequestSavedAt: nowIso,
-                        seizureRequestDetails: `إحالة قطعية — حجز عقار (تم قبول المنفذ).\nالمشتري: ${buyerName || '—'}${
-                            amt != null ? `\nمبلغ الإحالة: ${Number(amt).toLocaleString('ar-IQ')} د.ع` : ''
-                        }${
-                            trustCredit.created
-                                ? `\n\n💰 تم إيداع ${trustCredit.amount.toLocaleString('ar-IQ')} د.ع في الأمانات — المتبقي يُحدَّث تلقائياً.`
-                                : trustCredit.updated
-                                  ? `\n\n💰 تم تصحيح حصيلة البيع في الأمانات إلى ${trustCredit.amount.toLocaleString('ar-IQ')} د.ع.`
-                                  : trustCredit.ok
-                                    ? '\n\n💰 حصيلة البيع مزامنة مع الأمانات.'
-                                    : ''
-                        }`,
-                    });
-                    pushTimelineEventRef.current?.({
-                        id: nextTimelineId(),
-                        date: nowIso.slice(0, 10),
-                        timestamp: nowIso,
-                        title: '✅ إحالة قطعية — حجز عقار',
-                        description: `رقم العقار: ${String(cur.propertyNumber || '').trim()}\nالجنس: ${String(cur.propertyGender || '').trim()}\nالمشتري: ${buyerName || '—'}${
-                            amt != null ? `\nمبلغ الإحالة: ${Number(amt).toLocaleString('ar-IQ')} د.ع` : ''
-                        }${
-                            trustCredit.created
-                                ? `\n\nتم إيداع الحصيلة في الأمانات: ${trustCredit.amount.toLocaleString('ar-IQ')} د.ع`
-                                : ''
-                        }`,
-                        type: 'decision',
-                        source: 'محضر المتابعة — الأموال المحجوزة',
-                        metadata: { seizedPropertyId, decisionRowId: decisionId, seizureSubtype: subtype },
-                    });
-                    if (trustCredit.created || trustCredit.updated) {
-                        setUnifiedLedgerRevision((v) => v + 1);
-                    }
-                    return;
-                }
-
-                if (
-                    subtype === 'property_title_transfer' ||
-                    subtype === 'property_buyer_delivery' ||
-                    subtype === 'property_proceeds_disburse'
-                ) {
-                    const next = [...prev];
-                    next[idx] = {
-                        ...cur,
-                        ...(subtype === 'property_title_transfer' ? { titleTransferCompletedAtIso: nowIso } : {}),
-                        ...(subtype === 'property_buyer_delivery' ? { buyerDeliveryCompletedAtIso: nowIso } : {}),
-                        ...(subtype === 'property_proceeds_disburse'
-                            ? { proceedsDisburseCompletedAtIso: nowIso }
-                            : {}),
-                    } as SeizedProperty;
-                    persistExecutionMergeRef.current?.({ seizedProperties: next });
-                    const label =
-                        subtype === 'property_title_transfer'
-                            ? '🏛️ مخاطبة التسجيل العقاري لنقل الملكية'
-                            : subtype === 'property_buyer_delivery'
-                              ? '🏠 التخلية وتسليم العقار للمشتري'
-                              : '💰 صرف حصيلة البيع للدائن';
-                    patchExecutorDecisionRow(myId, decisionId, {
-                        seizureRequestSavedAt: nowIso,
-                        seizureRequestDetails: `${label} — تم قبول المنفذ.`,
-                    });
-                    pushTimelineEventRef.current?.({
-                        id: nextTimelineId(),
-                        date: nowIso.slice(0, 10),
-                        timestamp: nowIso,
-                        title: label,
-                        description: `رقم العقار: ${String(cur.propertyNumber || '').trim()}\nالجنس: ${String(cur.propertyGender || '').trim()}`,
-                        type: 'decision',
-                        source: 'محضر المتابعة — الأموال المحجوزة',
-                        metadata: { seizedPropertyId, decisionRowId: decisionId, seizureSubtype: subtype },
-                    });
-                    return;
-                }
-                return;
-            }
-
-            if (seizedMovableId) {
-                if (
-                    subtype === 'movable_expert' ||
-                    subtype === 'movable_expert_committee' ||
-                    subtype === 'movable_auction_date' ||
-                    subtype === 'movable_reauction_default'
-                ) {
-                    if (String(decisionRow?.seizureRequestSavedAt || '').trim()) return;
-                    const step =
-                        subtype === 'movable_expert' || subtype === 'movable_expert_committee'
-                            ? 'experts'
-                            : subtype === 'movable_auction_date'
-                              ? 'auction'
-                              : 'reauction_default';
-                    const dispatchId = myId || storageId || evId;
-                    try {
-                        window.dispatchEvent(
-                            new CustomEvent('hami-movable-inline-focus', {
-                                detail: {
-                                    executionId: dispatchId,
-                                    movableId: seizedMovableId,
-                                    step,
-                                    decisionId,
-                                },
-                            })
-                        );
-                    } catch {
-                        /* ignore */
-                    }
-                    return;
-                }
-
-                const prev = (executionDataRef.current?.seizedMovables || []) as SeizedMovable[];
-                const idx = prev.findIndex((x) => String(x.id) === seizedMovableId);
-                if (idx < 0) return;
-                const cur = prev[idx];
-
-                if (subtype === 'movable_expert_objection') {
-                    const rawJson = String(decisionRow?.seizurePayloadJson || '').trim();
-                    const objectionKind = parseExpertObjectionKindFromPayload(rawJson);
-                    const objectionPatch = buildExpertObjectionEntityPatch(cur as any, objectionKind);
-                    const next = [...prev];
-                    next[idx] = { ...cur, ...objectionPatch } as SeizedMovable;
-                    persistExecutionMergeRef.current?.({ seizedMovables: next });
-                    const kindLabel =
-                        objectionKind === 'experts'
-                            ? 'اعتراض على الخبراء (استبدال)'
-                            : 'اعتراض على التقرير (زيادة اللجنة)';
-                    const newSize = readExpertCommitteeSize(next[idx]);
-                    patchExecutorDecisionRow(myId, decisionId, {
-                        seizureRequestSavedAt: nowIso,
-                        seizureRequestDetails: `${kindLabel} — مال منقول (تم قبول المنفذ).\nوصف المال: ${String(cur.movableDescription || '').trim()}\nالمكان: ${String(cur.movableLocation || '').trim()}\nعدد الخبراء المطلوب: ${newSize}`,
-                    });
-                    pushTimelineEventRef.current?.({
-                        id: nextTimelineId(),
-                        date: nowIso.slice(0, 10),
-                        timestamp: nowIso,
-                        title: '🛡️ قبول الاعتراض على تقدير الخبراء — مال منقول',
-                        description: `وصف المال: ${String(cur.movableDescription || '').trim()}\n${kindLabel}\nعدد الخبراء المطلوب: ${newSize}`,
-                        type: 'decision',
-                        source: 'محضر المتابعة — الأموال المحجوزة',
-                        metadata: { seizedMovableId, decisionRowId: decisionId, seizureSubtype: subtype },
-                    });
-                    return;
-                }
-
-                if (subtype === 'movable_final_award') {
-                    const buyerName = String(
-                        cur.initialAwardBuyerName || cur.lastBidderOrBuyerName || cur.award?.buyerName || ''
-                    ).trim();
-                    const amt =
-                        cur.initialAwardAmountIqd != null && Number.isFinite(Number(cur.initialAwardAmountIqd))
-                            ? Number(cur.initialAwardAmountIqd)
-                            : cur.finalAwardAmountIqd != null && Number.isFinite(Number(cur.finalAwardAmountIqd))
-                              ? Number(cur.finalAwardAmountIqd)
-                              : cur.award?.awardAmountIqd != null && Number.isFinite(Number(cur.award.awardAmountIqd))
-                                ? Number(cur.award.awardAmountIqd)
-                                : null;
-                    const next = [...prev];
-                    next[idx] = {
-                        ...cur,
-                        status: 'sold',
-                        lastBidderOrBuyerName: buyerName || cur.lastBidderOrBuyerName,
-                        finalAwardAmountIqd: amt ?? cur.finalAwardAmountIqd ?? null,
-                        award:
-                            buyerName && amt != null
-                                ? { buyerName, awardAmountIqd: amt, recordedAtIso: nowIso }
-                                : cur.award,
-                    } as SeizedMovable;
-                    persistExecutionMergeRef.current?.({ seizedMovables: next });
-                    const soldMovable = next[idx];
-                    const ledgerParams = seizureMatrixLedgerParamsRef.current;
-                    const trustCredit = ledgerParams
-                        ? creditMovableProceedsForExecution(myId, soldMovable, ledgerParams, nowIso)
-                        : creditMovableSaleProceedsToTrustLedger({
-                              executionId: myId,
-                              movable: soldMovable,
-                              at: nowIso,
-                          });
-                    patchExecutorDecisionRow(myId, decisionId, {
-                        seizureRequestSavedAt: nowIso,
-                        seizureRequestDetails: `إحالة قطعية — مال منقول (تم قبول المنفذ).\nالمشتري: ${buyerName || '—'}${
-                            amt != null ? `\nمبلغ الإحالة: ${Number(amt).toLocaleString('ar-IQ')} د.ع` : ''
-                        }${
-                            trustCredit.created
-                                ? `\n\n💰 تم إيداع ${trustCredit.amount.toLocaleString('ar-IQ')} د.ع في الأمانات — المتبقي يُحدَّث تلقائياً.`
-                                : trustCredit.updated
-                                  ? `\n\n💰 تم تصحيح حصيلة البيع في الأمانات إلى ${trustCredit.amount.toLocaleString('ar-IQ')} د.ع.`
-                                  : trustCredit.ok
-                                    ? '\n\n💰 حصيلة البيع مزامنة مع الأمانات.'
-                                    : ''
-                        }`,
-                    });
-                    pushTimelineEventRef.current?.({
-                        id: nextTimelineId(),
-                        date: nowIso.slice(0, 10),
-                        timestamp: nowIso,
-                        title: '✅ إحالة قطعية — مال منقول',
-                        description: `وصف المال: ${String(cur.movableDescription || '').trim()}\nالمكان: ${String(cur.movableLocation || '').trim()}\nالمشتري: ${buyerName || '—'}${
-                            amt != null ? `\nمبلغ الإحالة: ${Number(amt).toLocaleString('ar-IQ')} د.ع` : ''
-                        }${
-                            trustCredit.created
-                                ? `\n\nتم إيداع الحصيلة في الأمانات: ${trustCredit.amount.toLocaleString('ar-IQ')} د.ع`
-                                : ''
-                        }`,
-                        type: 'decision',
-                        source: 'محضر المتابعة — الأموال المحجوزة',
-                        metadata: {
-                            seizedMovableId,
-                            decisionRowId: decisionId,
-                            seizureSubtype: subtype,
-                            trustPaymentId: trustCredit.paymentId,
-                        },
-                    });
-                    if (trustCredit.created || trustCredit.updated) {
-                        setUnifiedLedgerRevision((v) => v + 1);
-                        showToast(
-                            trustCredit.updated
-                                ? `تم تصحيح حصيلة البيع في الأمانات: ${trustCredit.amount.toLocaleString('ar-IQ')} د.ع`
-                                : `تم إيداع ${trustCredit.amount.toLocaleString('ar-IQ')} د.ع (حصيلة البيع) في الأمانات — ويُخصم من المتبقي.`,
-                            'success'
-                        );
-                    } else if (!trustCredit.ok && amt != null) {
-                        showToast(
-                            'تمت الإحالة لكن تعذّر إيداع الحصيلة في الأمانات — تحقق من مبلغ البيع.',
-                            'warning'
-                        );
-                    }
-                    return;
-                }
-
-                if (subtype === 'movable_buyer_delivery' || subtype === 'movable_proceeds_disburse') {
-                    const next = [...prev];
-                    next[idx] = {
-                        ...cur,
-                        ...(subtype === 'movable_buyer_delivery' ? { buyerDeliveryCompletedAtIso: nowIso } : {}),
-                        ...(subtype === 'movable_proceeds_disburse' ? { proceedsDisburseCompletedAtIso: nowIso } : {}),
-                    } as SeizedMovable;
-                    persistExecutionMergeRef.current?.({ seizedMovables: next });
-                    const label =
-                        subtype === 'movable_buyer_delivery'
-                            ? '📦 تسليم المال المنقول للمشتري'
-                            : '💰 صرف حصيلة البيع للدائن (مال منقول)';
-                    patchExecutorDecisionRow(myId, decisionId, {
-                        seizureRequestSavedAt: nowIso,
-                        seizureRequestDetails: `${label} — تم قبول المنفذ.`,
-                    });
-                    pushTimelineEventRef.current?.({
-                        id: nextTimelineId(),
-                        date: nowIso.slice(0, 10),
-                        timestamp: nowIso,
-                        title: label,
-                        description: `وصف المال: ${String(cur.movableDescription || '').trim()}\nالمكان: ${String(cur.movableLocation || '').trim()}`,
-                        type: 'decision',
-                        source: 'محضر المتابعة — الأموال المحجوزة',
-                        metadata: { seizedMovableId, decisionRowId: decisionId, seizureSubtype: subtype },
-                    });
-                    return;
-                }
-            }
-        };
-        window.addEventListener('hami-execution-decision-outcome', handler as EventListener);
-        return () => window.removeEventListener('hami-execution-decision-outcome', handler as EventListener);
-    }, [decisionsStorageExecutionId, executionData?.id, executionId, nextTimelineId]);
-
-    useEffect(() => {
-        const handler = (e: Event) => {
-            const ce = e as CustomEvent<{
-                executionId?: string;
-                seizedMovableId?: string;
-                seizedPropertyId?: string;
-            }>;
-            const myId = String(executionData?.id ?? executionId ?? '');
-            if (!myId || String(ce.detail?.executionId ?? '') !== myId) return;
-            const seizedMovableId = String(ce.detail?.seizedMovableId ?? '').trim();
-            const seizedPropertyId = String(ce.detail?.seizedPropertyId ?? '').trim();
-            const nowIso = new Date().toISOString();
-            if (seizedMovableId) {
-                const movables = (executionDataRef.current?.seizedMovables || []) as SeizedMovable[];
-                const hit = movables.find((row) => String(row.id || '').trim() === seizedMovableId);
-                if (!hit) return;
-                const sold = String(hit.status || '') === 'sold';
-                const delivered = Boolean(String(hit.buyerDeliveryCompletedAtIso || '').trim());
-                const proceedsDone = Boolean(String(hit.proceedsDisburseCompletedAtIso || '').trim());
-                if (!sold || !delivered || proceedsDone) return;
-                const nextMovables = movables.map((row) =>
-                    String(row.id || '').trim() === seizedMovableId
-                        ? ({ ...row, proceedsDisburseCompletedAtIso: nowIso } as SeizedMovable)
-                        : row
-                );
-                persistExecutionMergeRef.current?.({ seizedMovables: nextMovables });
-                return;
-            }
-            if (seizedPropertyId) {
-                const properties = (executionDataRef.current?.seizedProperties || []) as SeizedProperty[];
-                const hit = properties.find((row) => String(row.id || '').trim() === seizedPropertyId);
-                if (!hit) return;
-                const sold = String(hit.status || '') === 'sold';
-                const delivered = Boolean(String(hit.buyerDeliveryCompletedAtIso || '').trim());
-                const titleDone = Boolean(String(hit.titleTransferCompletedAtIso || '').trim());
-                const proceedsDone = Boolean(String(hit.proceedsDisburseCompletedAtIso || '').trim());
-                if (!sold || !titleDone || !delivered || proceedsDone) return;
-                const nextProperties = properties.map((row) =>
-                    String(row.id || '').trim() === seizedPropertyId
-                        ? ({ ...row, proceedsDisburseCompletedAtIso: nowIso } as SeizedProperty)
-                        : row
-                );
-                persistExecutionMergeRef.current?.({ seizedProperties: nextProperties });
-            }
-        };
-        window.addEventListener('hami-trust-disbursed', handler as EventListener);
-        return () => window.removeEventListener('hami-trust-disbursed', handler as EventListener);
-    }, [executionData?.id, executionId]);
-
-    useEffect(() => {
-        const handler = (e: Event) => {
-            const ce = e as CustomEvent<{ executionId?: string; decisionId?: string; tab?: string }>;
-            const myId = String(executionData?.id ?? executionId ?? '');
-            if (!myId || String(ce.detail?.executionId ?? '') !== myId) return;
-            setShowExecutionFinancialHub(false);
-            setShowUnifiedExecutionModal(false);
-            setShowUnifiedSummonsModal(false);
-            setShowNotesModal(false);
-            setShowDocumentsModal(false);
-            setShowAppointmentModal(false);
-            setShowTimelineModal(false);
-            setShowNotificationModal(false);
-            const tab = String(ce.detail?.tab || '').trim();
-            if (tab === 'current' || tab === 'previous' || tab === 'appeals') {
-                setDecisionsModalBootListTab(tab);
-                setDecisionsModalBootHubTab(tab === 'appeals' ? 'appeals' : null);
-            }
-            const did = String(ce.detail?.decisionId || '').trim();
-            if (did) {
-                if (tab === 'appeals') {
-                    setAppealsModalScrollToDecisionId(did);
-                    setDecisionsModalScrollToDecisionId(null);
-                } else {
-                    setDecisionsModalScrollToDecisionId(did);
-                    setAppealsModalScrollToDecisionId(null);
-                }
-            }
-            setShowDecisionsModal(true);
-        };
-        window.addEventListener('hami-open-decisions-modal', handler as EventListener);
-        return () => window.removeEventListener('hami-open-decisions-modal', handler as EventListener);
-    }, [
-        executionData?.id,
-        executionId,
-        setShowUnifiedExecutionModal,
-        setShowUnifiedSummonsModal,
-        setShowNotesModal,
-        setShowDocumentsModal,
-        setShowAppointmentModal,
-        setShowTimelineModal,
-        setShowNotificationModal,
-    ]);
+        clearDecisionsModalBootState();
+    }, [showDecisionsModal, clearDecisionsModalBootState]);
 
     /** تعبئة مسبقة لحقول النافذة عند وضع إكمال ما بعد الموافقة */
     useLayoutEffect(() => {
@@ -2875,116 +2014,63 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     const [financialHubAutoOpenMode, setFinancialHubAutoOpenMode] = useState<'disburse' | null>(null);
     const [financialHubSeizedMovableId, setFinancialHubSeizedMovableId] = useState<string | null>(null);
     const [financialHubSeizedPropertyId, setFinancialHubSeizedPropertyId] = useState<string | null>(null);
-    const [showSeizureLogModal, setShowSeizureLogModal] = useState(false);
-    const [showUnifiedSeizureLogModal, setShowUnifiedSeizureLogModal] = useState(false);
-    const [unifiedSeizureLogTab, setUnifiedSeizureLogTab] = useState<
-        'all' | 'property' | 'salary' | 'movable' | 'third_party' | 'marks'
-    >('all');
-    const [thirdPartySeizuresUi, setThirdPartySeizuresUi] = useState<ThirdPartySeizure[]>(() =>
-        Array.isArray((executionData as any)?.thirdPartySeizures) ? ((executionData as any).thirdPartySeizures as ThirdPartySeizure[]) : []
-    );
-    const [thirdPartySeizureCardOpenById, setThirdPartySeizureCardOpenById] = useState<Record<string, boolean>>({});
-    const [thirdPartyFundsDraftById, setThirdPartyFundsDraftById] = useState<Record<string, string>>({});
-    const [showLegacyRealEstateSeizureLog, setShowLegacyRealEstateSeizureLog] = useState(false);
+    const openFinancialHubLedger = useCallback(() => {
+        setShowUnifiedExecutionModal(false);
+        setIsFinancialCenterExpanded(true);
+        setShowExecutionFinancialHub(true);
+    }, []);
 
     useEffect(() => {
-        const list = (executionData as any)?.thirdPartySeizures;
-        setThirdPartySeizuresUi(Array.isArray(list) ? (list as ThirdPartySeizure[]) : []);
-    }, [(executionData as any)?.thirdPartySeizures]);
-
-    useEffect(() => {
-        if (showUnifiedSeizureLogModal) return;
-        setThirdPartySeizureCardOpenById({});
-        setThirdPartyFundsDraftById({});
-    }, [showUnifiedSeizureLogModal]);
-
-    useEffect(() => {
-        const aliveIds = new Set(thirdPartySeizuresUi.map((s) => String(s?.id || '').trim()).filter(Boolean));
-        const terminalIds = new Set(
-            thirdPartySeizuresUi
-                .filter((s) => {
-                    const status = String((s as any)?.status || '').trim();
-                    const replyStatus = String((s as any)?.replyStatus || '').trim();
-                    if (status === 'funds_received') return true;
-                    if (status === 'replied' && replyStatus === 'denied') return true;
-                    return false;
-                })
-                .map((s) => String((s as any)?.id || '').trim())
-                .filter(Boolean)
-        );
-
-        setThirdPartySeizureCardOpenById((prev) => {
-            let changed = false;
-            const next: Record<string, boolean> = {};
-            for (const [k, v] of Object.entries(prev)) {
-                if (!aliveIds.has(k)) {
-                    changed = true;
-                    continue;
-                }
-                if (terminalIds.has(k) && v) {
-                    next[k] = false;
-                    changed = true;
-                    continue;
-                }
-                next[k] = v;
-            }
-            return changed ? next : prev;
-        });
-
-        setThirdPartyFundsDraftById((prev) => {
-            let changed = false;
-            const next: Record<string, string> = {};
-            for (const [k, v] of Object.entries(prev)) {
-                if (!aliveIds.has(k) || terminalIds.has(k)) {
-                    changed = true;
-                    continue;
-                }
-                next[k] = v;
-            }
-            return changed ? next : prev;
-        });
-    }, [thirdPartySeizuresUi]);
-
-    useEffect(() => {
-        const myId = String(executionData?.id ?? executionId ?? '');
-        if (!myId) return;
-
-        const onOutcome = (e: Event) => {
-            const ce = e as CustomEvent<{
-                executionId?: string;
-                requestKind?: string;
-                outcome?: string;
-                decisionId?: string;
-            }>;
-            if (String(ce.detail?.executionId ?? '') !== myId) return;
-            if (String(ce.detail?.requestKind ?? '') !== 'seizure') return;
-            const outcome = String(ce.detail?.outcome ?? '');
-            if (outcome !== 'approved' && outcome !== 'alternative') return;
-            const decisionId = String(ce.detail?.decisionId ?? '').trim();
-            if (!decisionId) return;
-            const row = getExecutorDecisionRowById(myId, decisionId) as any;
-            const subtype = String(row?.seizureSubtype || '').trim();
-            const savedAt = String(row?.seizureRequestSavedAt || '').trim();
-            if (!subtype || savedAt) return;
-            if (subtype.startsWith('property_')) return;
-            if (
-                subtype !== 'property' &&
-                subtype !== 'movable' &&
-                subtype !== 'movable_auction' &&
-                subtype !== 'salary' &&
-                subtype !== 'notice' &&
-                subtype !== 'third_party'
-            ) {
-                return;
-            }
-            showToastRef.current('تمت موافقة المنفذ على طلب الحجز.', 'success');
+        const handler = (e: Event) => {
+            const ce = e as CustomEvent<{ executionId?: string; decisionId?: string; tab?: string }>;
+            const myId = String(executionData?.id ?? executionId ?? '');
+            if (!myId || String(ce.detail?.executionId ?? '') !== myId) return;
+            setShowExecutionFinancialHub(false);
+            setShowUnifiedExecutionModal(false);
+            setShowUnifiedSummonsModal(false);
+            setShowNotesModal(false);
+            setShowDocumentsModal(false);
+            setShowAppointmentModal(false);
+            setShowTimelineModal(false);
+            setShowNotificationModal(false);
+            const tabRaw = String(ce.detail?.tab || '').trim();
+            const tab =
+                tabRaw === 'current' || tabRaw === 'previous' || tabRaw === 'appeals'
+                    ? tabRaw
+                    : undefined;
+            const did = String(ce.detail?.decisionId || '').trim() || null;
+            const boot = resolveDecisionsModalBootState(
+                tab || did ? { tab: tab ?? null, decisionId: did } : undefined
+            );
+            setDecisionsModalBootHubTab(boot.hubTab);
+            setDecisionsModalBootListTab(boot.listTab);
+            setDecisionsModalScrollToDecisionId(boot.scrollDecisionId);
+            setAppealsModalScrollToDecisionId(boot.scrollAppealId);
+            setShowDecisionsModal(true);
         };
+        window.addEventListener('hami-open-decisions-modal', handler as EventListener);
+        return () => window.removeEventListener('hami-open-decisions-modal', handler as EventListener);
+    }, [
+        executionData?.id,
+        executionId,
+        setShowDecisionsModal,
+        setShowUnifiedExecutionModal,
+        setShowUnifiedSummonsModal,
+        setShowNotesModal,
+        setShowDocumentsModal,
+        setShowAppointmentModal,
+        setShowTimelineModal,
+        setShowNotificationModal,
+    ]);
 
-        window.addEventListener('hami-execution-decision-outcome', onOutcome as EventListener);
-        return () => {
-            window.removeEventListener('hami-execution-decision-outcome', onOutcome as EventListener);
-        };
-    }, [executionData?.id, executionId]);
+    const { thirdPartySeizuresUi, setThirdPartySeizuresUi, applyThirdPartySeizuresFromPatch } =
+        useThirdPartySeizuresUi(executionData);
+
+    useSeizureApprovalToast({
+        executionDataId: executionData?.id,
+        executionId,
+        showToast,
+    });
     const [heirsQuickView, setHeirsQuickView] = useState<{
         title: string;
         rows: Array<{ name: string; phone: string; address: string; isClient?: boolean }>;
@@ -3300,509 +2386,39 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         effectiveDebtors,
     );
 
-    const seizedPropertiesForSeizureLog = useMemo(() => {
-        const list = Array.isArray((viewExecutionData as any)?.seizedProperties)
-            ? (((viewExecutionData as any).seizedProperties as SeizedProperty[]) || [])
-            : [];
-        return list;
-    }, [viewExecutionData]);
-
-    /** موافقة منفذ على حجز عقار دون بطاقة في seizedProperties بعد */
-    const seizureLogExecutorDecisions = useMemo(
-        () => readExecutorDecisionsArray(decisionsStorageExecutionId) as Array<Record<string, unknown>>,
-        [decisionsStorageExecutionId, decisionsReloadEpoch]
-    );
-
-    const pendingPropertySeizureDecisions = useMemo(() => {
-        const linked = new Set(
-            seizedPropertiesForSeizureLog
-                .map((p) => String(p.decisionRowId || '').trim())
-                .filter(Boolean)
-        );
-        const exId = String(decisionsStorageExecutionId || viewExecutionData?.id || '').trim();
-        if (!exId || exId === 'default' || exId === 'undefined') return [] as Array<Record<string, unknown>>;
-        const rows = readExecutorDecisionsArray(exId) as Array<Record<string, unknown>>;
-        return rows.filter((row) => {
-            const did = String(row?.id || '').trim();
-            if (!did || linked.has(did)) return false;
-            if (String(row?.requestKind || '').trim() !== 'seizure') return false;
-            let subtype = String(row?.seizureSubtype || '').trim();
-            if (!subtype && /عقار/i.test(`${String(row?.title || '')}\n${String(row?.body || '')}`)) {
-                subtype = 'property';
-            }
-            if (subtype !== 'property') return false;
-            if (isExecutorRowRejectedAndFinal(row as any)) return false;
-            return isExecutorRowEffectivelyApproved(row as any);
+    const { seizedPropertiesForSeizureLog, seizedMovablesForSeizureLog, seizureLogExecutorDecisions } =
+        useSeizureLogEntityData({
+            viewExecutionData,
+            decisionsStorageExecutionId,
+            decisionsReloadEpoch,
         });
-    }, [
-        decisionsReloadEpoch,
-        decisionsStorageExecutionId,
-        seizedPropertiesForSeizureLog,
-        viewExecutionData?.id,
-    ]);
 
-    const seizedMovablesForSeizureLog = useMemo(() => {
-        const list = Array.isArray((viewExecutionData as any)?.seizedMovables)
-            ? (((viewExecutionData as any).seizedMovables as SeizedMovable[]) || [])
-            : [];
-        return list;
-    }, [viewExecutionData]);
-
-    const unifiedSeizureLogEntries = useMemo(() => {
-        type Entry = {
-            id: string;
-            kind: 'property' | 'salary' | 'movable' | 'third_party' | 'marks';
-            dateYmd: string;
-            title: string;
-            statusLabel: string;
-            statusCode: string;
-            description: string;
-            entityId?: string;
-        };
-        const entries: Entry[] = [];
-
-        const props = Array.isArray((viewExecutionData as any)?.seizedProperties)
-            ? (((viewExecutionData as any).seizedProperties as SeizedProperty[]) || [])
-            : [];
-        for (const p of props) {
-            const ymd = String(p.seizedAtIso || '').slice(0, 10) || '';
-            const rawStatus = String(p.status || '');
-            const status =
-                rawStatus === 'estimated'
-                    ? 'valued'
-                    : rawStatus === 'auction_scheduled'
-                      ? 'published'
-                      : rawStatus;
-            const statusLabel =
-                status === 'sold'
-                    ? 'مباع'
-                    : status === 'initial_award'
-                      ? 'إحالة أولية'
-                      : status === 'estimation_objected'
-                        ? 'تم الاعتراض'
-                      : status === 'no_bidders'
-                        ? 'لا راغب'
-                        : status === 'published'
-                          ? 'قيد النشر والمزايدة'
-                          : status === 'valued'
-                            ? 'تم التقدير'
-                            : 'محجوز';
-            const descParts: string[] = [];
-            descParts.push(`رقم العقار: ${String(p.propertyNumber || '').trim()}`);
-            descParts.push(`الجنس: ${String(p.propertyGender || '').trim()}`);
-            if (p.estimatedPriceIqd != null && Number.isFinite(Number(p.estimatedPriceIqd))) {
-                descParts.push(`قيمة التقدير: ${Number(p.estimatedPriceIqd).toLocaleString('ar-IQ')} د.ع`);
-            }
-            if (String(p.deedNotes || '').trim()) {
-                descParts.push(`تفاصيل السند:\n${String(p.deedNotes || '').trim()}`);
-            }
-            if (
-                (p.expertEstimatedAmountIqd != null && Number.isFinite(Number(p.expertEstimatedAmountIqd))) ||
-                (Array.isArray(p.expertNames) && p.expertNames.length > 0) ||
-                String(p.expertReportDateYmd || '').trim()
-            ) {
-                const est =
-                    p.expertEstimatedAmountIqd != null && Number.isFinite(Number(p.expertEstimatedAmountIqd))
-                        ? Number(p.expertEstimatedAmountIqd).toLocaleString('ar-IQ') + ' د.ع'
-                        : '';
-                const names = Array.isArray(p.expertNames) && p.expertNames.length > 0 ? p.expertNames.join('، ') : '';
-                const d = String(p.expertReportDateYmd || '').trim();
-                descParts.push(
-                    `تقرير الخبراء:${est ? ` ${est}` : ''}${d ? ` — تاريخ: ${d}` : ''}${names ? ` — الخبراء: ${names}` : ''}`.trim()
-                );
-            } else if (p.experts?.expertName) {
-                descParts.push(
-                    `تقرير الخبراء: ${String(p.experts.expertName)}${
-                        p.experts.estimatedPriceIqd != null && Number.isFinite(Number(p.experts.estimatedPriceIqd))
-                            ? ` — ${Number(p.experts.estimatedPriceIqd).toLocaleString('ar-IQ')} د.ع`
-                            : ''
-                    }`
-                );
-            }
-            const auctionDate = String(p.auctionDateYmd || p.auction?.auctionDateYmd || '').trim();
-            if (auctionDate) descParts.push(`موعد المزايدة: ${auctionDate}`);
-            if (p.auctionDepositAmountIqd != null && Number.isFinite(Number(p.auctionDepositAmountIqd))) {
-                descParts.push(`التأمينات القانونية (10%): ${Number(p.auctionDepositAmountIqd).toLocaleString('ar-IQ')} د.ع`);
-            }
-            if (status === 'initial_award') {
-                const b = String(p.initialAwardBuyerName || '').trim();
-                const a =
-                    p.initialAwardAmountIqd != null && Number.isFinite(Number(p.initialAwardAmountIqd))
-                        ? Number(p.initialAwardAmountIqd)
-                        : null;
-                if (b) {
-                    descParts.push(
-                        `رسو المزاد (إحالة أولية): ${b}${
-                            a != null ? ` — ${Number(a).toLocaleString('ar-IQ')} د.ع` : ''
-                        }`
-                    );
-                }
-            } else {
-                const buyer = String(p.lastBidderOrBuyerName || p.award?.buyerName || '').trim();
-                const awardAmt =
-                    p.finalAwardAmountIqd != null && Number.isFinite(Number(p.finalAwardAmountIqd))
-                        ? Number(p.finalAwardAmountIqd)
-                        : p.award?.awardAmountIqd != null && Number.isFinite(Number(p.award.awardAmountIqd))
-                          ? Number(p.award.awardAmountIqd)
-                          : null;
-                if (buyer) {
-                    descParts.push(
-                        `الإحالة: ${buyer}${
-                            awardAmt != null ? ` — ${Number(awardAmt).toLocaleString('ar-IQ')} د.ع` : ''
-                        }`
-                    );
-                }
-            }
-            if (String(p.reauctionDefault?.notes || '').trim())
-                descParts.push(`نكول/إعادة مزايدة: ${String(p.reauctionDefault?.notes || '').trim()}`);
-
-            entries.push({
-                id: `property:${String(p.id)}`,
-                kind: 'property',
-                dateYmd: ymd,
-                title: `عقار — رقم ${String(p.propertyNumber || '').trim()}`,
-                statusLabel,
-                statusCode: String(p.status || ''),
-                description: descParts.filter(Boolean).join('\n'),
-                entityId: String(p.id),
-            });
-        }
-
-        const linkedPropertyDecisionIds = new Set(
-            props.map((p) => String(p.decisionRowId || '').trim()).filter(Boolean)
-        );
-
-        for (const asset of realEstateSeizureRegistryAssets as any[]) {
-            const did = String(asset?.decisionRowId || '').trim();
-            if (did && linkedPropertyDecisionIds.has(did)) continue;
-            if (did) linkedPropertyDecisionIds.add(did);
-            const label = String(asset?.propertyNoAndDistrict || asset?.propertyGender || '').trim() || 'عقار';
-            entries.push({
-                id: `real_estate:${String(asset?.id || did || label)}`,
-                kind: 'property',
-                dateYmd: '',
-                title: `عقار — ${label}`,
-                statusLabel: String(asset?.status || '') === 'sold' ? 'مباع' : 'محجوز',
-                statusCode: String(asset?.status || 'seized'),
-                description: [
-                    label ? `رقم العقار والمقاطعة: ${label}` : null,
-                    asset?.propertyGender ? `الجنس: ${String(asset.propertyGender)}` : null,
-                    String(asset?.deedNotes || '').trim()
-                        ? `تفاصيل السند:\n${String(asset.deedNotes).trim()}`
-                        : null,
-                ]
-                    .filter(Boolean)
-                    .join('\n'),
-                entityId: String(asset?.id || did || ''),
-            });
-        }
-
-        const decisionsExId = String(decisionsStorageExecutionId || viewExecutionData?.id || '').trim();
-        if (decisionsExId && decisionsExId !== 'default' && decisionsExId !== 'undefined') {
-            const rows = readExecutorDecisionsArray(decisionsExId) as Array<Record<string, unknown>>;
-            for (const row of rows) {
-                const did = String(row?.id || '').trim();
-                if (!did || linkedPropertyDecisionIds.has(did)) continue;
-                if (String(row?.requestKind || '').trim() !== 'seizure') continue;
-                let rowSubtype = String(row?.seizureSubtype || '').trim();
-                if (!rowSubtype && /عقار/i.test(`${String(row?.title || '')}\n${String(row?.body || '')}`)) {
-                    rowSubtype = 'property';
-                }
-                if (rowSubtype !== 'property') continue;
-                const rejected = isExecutorRowRejectedAndFinal(row as any);
-                if (rejected) continue;
-                if (!isExecutorRowEffectivelyApproved(row as any)) continue;
-                linkedPropertyDecisionIds.add(did);
-                const ymd = String(row?.resolvedAt || row?.date || '').slice(0, 10) || '';
-                entries.push({
-                    id: `property_decision:${did}`,
-                    kind: 'property',
-                    dateYmd: ymd,
-                    title: String(row?.title || '').trim() || 'طلب حجز عقار',
-                    statusLabel: String(row?.seizureRequestSavedAt || '').trim()
-                        ? 'مسجّل في السجل'
-                        : 'موافقة المنفذ — أكمل البيانات',
-                    statusCode: 'seized',
-                    description:
-                        String(row?.seizureRequestDetails || row?.body || '').trim() ||
-                        'طلب حجز عقار — بانتظار إكمال بيانات السجل',
-                    entityId: did,
-                });
-            }
-        }
-
-        for (const asset of salarySeizureRegistryAssets as any[]) {
-            const det =
-                typeof asset?.details === 'object' && asset.details && !Array.isArray(asset.details)
-                    ? (asset.details as Record<string, unknown>)
-                    : null;
-            const office = String(det?.employerName || '').trim();
-            const salary = String(det?.salaryAmount || '').trim();
-            const deductionRaw = det?.monthlyDeductionIqd ?? det?.monthlyDeduction ?? null;
-            const deductionNum =
-                typeof deductionRaw === 'number' && Number.isFinite(deductionRaw) && deductionRaw > 0
-                    ? Math.trunc(deductionRaw)
-                    : 0;
-            const statusLabel =
-                asset.status === 'seized'
-                    ? 'تم الحجز'
-                    : asset.status === 'released'
-                      ? 'فُك الحجز'
-                      : String(asset.status || '—');
-            const subject = resolveSalarySeizureSubject(
-                asset as Record<string, unknown>,
-                viewExecutionData ?? null,
-                String(decisionsStorageExecutionId ?? executionId ?? '').trim() || undefined
-            );
-            const desc = buildSalarySeizureDescriptionText({
-                employerName: office,
-                salaryAmount: salary,
-                monthlyDeductionIqd: deductionNum > 0 ? deductionNum : undefined,
-                activeDebtorIsDeceased,
-                subject,
-            });
-            entries.push({
-                id: `salary:${String(asset.id)}`,
-                kind: 'salary',
-                dateYmd: String(asset.seizureDate || ''),
-                title: activeDebtorIsDeceased ? 'حجز مخصصات/مكافأة' : 'حجز راتب',
-                statusLabel,
-                statusCode: String(asset.status || ''),
-                description: desc,
-                entityId: String(asset.id),
-            });
-        }
-
-        const seenMovableDecisionIds = new Set<string>();
-        for (const asset of movableSeizureRegistryAssets as any[]) {
-            const det =
-                typeof asset?.details === 'object' && asset.details && !Array.isArray(asset.details)
-                    ? (asset.details as Record<string, unknown>)
-                    : null;
-            const linkedDid = String(det?.decisionRowId || asset?.id || '').trim();
-            if (linkedDid) seenMovableDecisionIds.add(linkedDid);
-            const t = String(det?.movableAssetType || det?.vehicleDescription || '').trim();
-            const est = String(det?.movableEstimatedValueIqd || '').trim();
-            const notes = String(det?.movableNotes || '').trim();
-            const statusLabel =
-                asset.status === 'seized'
-                    ? 'تم الحجز'
-                    : asset.status === 'released'
-                      ? 'فُك الحجز'
-                      : String(asset.status || '—');
-            const desc = [
-                t ? `المال المنقول: ${t}` : null,
-                est ? `قيمة تقديرية: ${est}` : null,
-                notes ? `ملاحظات:\n${notes}` : null,
-            ]
-                .filter(Boolean)
-                .join('\n');
-            entries.push({
-                id: `movable:${String(asset.id)}`,
-                kind: 'movable',
-                dateYmd: String(asset.seizureDate || ''),
-                title: 'حجز مال منقول',
-                statusLabel,
-                statusCode: String(asset.status || ''),
-                description: desc,
-                entityId: String(asset.id),
-            });
-        }
-
-        for (const m of seizedMovablesForSeizureLog) {
-            const did = String(m.decisionRowId || m.id || '').trim();
-            if (did && seenMovableDecisionIds.has(did)) continue;
-            if (did) seenMovableDecisionIds.add(did);
-            const ymd = String(m.seizedAtIso || '').slice(0, 10) || '';
-            const statusLabel =
-                m.status === 'seized'
-                    ? 'تم الحجز'
-                    : m.status === 'released'
-                      ? 'فُك الحجز'
-                      : String(m.status || '—');
-            const desc = [
-                String(m.movableDescription || '').trim()
-                    ? `وصف المال المنقول: ${String(m.movableDescription || '').trim()}`
-                    : null,
-                String(m.movableLocation || '').trim()
-                    ? `المكان: ${String(m.movableLocation || '').trim()}`
-                    : null,
-                String(m.judicialCustodianName || '').trim()
-                    ? `الحارس القضائي: ${String(m.judicialCustodianName || '').trim()}`
-                    : null,
-            ]
-                .filter(Boolean)
-                .join('\n');
-            entries.push({
-                id: `movable_entity:${String(m.id)}`,
-                kind: 'movable',
-                dateYmd: ymd,
-                title: 'حجز مال منقول',
-                statusLabel,
-                statusCode: String(m.status || ''),
-                description: desc,
-                entityId: String(m.id),
-            });
-        }
-
-        for (const a of thirdPartySeizureRegistryAssets as any[]) {
-            const statusLabel =
-                a.status === 'waiting'
-                    ? 'بانتظار الاستلام'
-                    : a.status === 'received'
-                      ? 'تم الاستلام'
-                      : a.status === 'archived'
-                        ? 'مؤرشف'
-                        : String(a.status || '—');
-            const desc = [
-                `الطرف: ${String(a.thirdPartyName || '').trim()}`,
-                a.expectedAmountIqd != null
-                    ? `المبلغ المتوقع: ${Number(a.expectedAmountIqd).toLocaleString('ar-IQ')} د.ع`
-                    : null,
-                String(a.letterDetails || '').trim() ? `تفاصيل الكتاب:\n${String(a.letterDetails || '').trim()}` : null,
-            ]
-                .filter(Boolean)
-                .join('\n');
-            entries.push({
-                id: `third_party:${String(a.id)}`,
-                kind: 'third_party',
-                dateYmd: String(a.received_at_iso || '').slice(0, 10) || String(a.archived_at_ymd || '') || '',
-                title: 'حجز مال المدين لدى الغير',
-                statusLabel,
-                statusCode: String(a.status || ''),
-                description: desc,
-                entityId: String(a.id),
-            });
-        }
-
-        for (const m of (standaloneExecutionMarks || []) as any[]) {
-            const statusLabel =
-                m.status === 'archived' ? 'مؤرشف' : m.status === 'active' ? 'فعال' : String(m.status || '—');
-            const desc = [
-                `النوع: ${String(m.markType || '').trim()}`,
-                `الجهة: ${String(m.targetEntity || '').trim()}`,
-                String(m.markDetails || '').trim() ? `التفاصيل:\n${String(m.markDetails || '').trim()}` : null,
-            ]
-                .filter(Boolean)
-                .join('\n');
-            entries.push({
-                id: `marks:${String(m.id)}`,
-                kind: 'marks',
-                dateYmd: String(m.archived_at_ymd || '') || '',
-                title: 'إشارة/تعميم',
-                statusLabel,
-                statusCode: String(m.status || ''),
-                description: desc,
-                entityId: String(m.id),
-            });
-        }
-
-        return entries
-            .slice()
-            .sort((a, b) => {
-                const aa = a.dateYmd || '';
-                const bb = b.dateYmd || '';
-                return bb.localeCompare(aa, undefined, { numeric: true });
-            });
-    }, [
-        activeDebtorIsDeceased,
-        decisionsReloadEpoch,
-        decisionsStorageExecutionId,
-        movableSeizureRegistryAssets,
-        realEstateSeizureRegistryAssets,
-        salarySeizureRegistryAssets,
-        seizedMovablesForSeizureLog,
-        standaloneExecutionMarks,
-        thirdPartySeizureRegistryAssets,
-        viewExecutionData,
-    ]);
-
-    const unifiedSeizureCounts = useMemo(() => {
-        const base = { all: 0, property: 0, salary: 0, movable: 0, third_party: 0, marks: 0 };
-        for (const e of unifiedSeizureLogEntries) {
-            base.all += 1;
-            (base as any)[e.kind] += 1;
-        }
-        base.property = Math.max(
-            base.property,
-            seizedPropertiesForSeizureLog.length,
-            realEstateSeizureRegistryAssets.length,
-            pendingPropertySeizureDecisions.length
-        );
-        base.movable = Math.max(
-            base.movable,
-            seizedMovablesForSeizureLog.length,
-            movableSeizureRegistryAssets.length
-        );
-        base.third_party = Math.max(
-            base.third_party,
-            thirdPartySeizureRegistryAssets.length,
-            thirdPartySeizuresUi.length
-        );
-        base.salary = Math.max(base.salary, salarySeizureTabRows.length);
-        base.all = Math.max(
-            base.all,
-            base.property + base.salary + base.movable + base.third_party + base.marks
-        );
-        return base;
-    }, [
+    const {
+        showUnifiedSeizureLogModal,
+        closeUnifiedSeizureLog,
+        unifiedSeizureLogTab,
+        setUnifiedSeizureLogTab,
         unifiedSeizureLogEntries,
-        seizedPropertiesForSeizureLog.length,
-        realEstateSeizureRegistryAssets.length,
-        pendingPropertySeizureDecisions.length,
-        seizedMovablesForSeizureLog.length,
-        movableSeizureRegistryAssets.length,
-        thirdPartySeizureRegistryAssets.length,
-        thirdPartySeizuresUi.length,
-        salarySeizureTabRows.length,
-        standaloneExecutionMarks.length,
-    ]);
-
-    const hasUnifiedSeizureLogContent = useMemo(() => {
-        if (unifiedSeizureCounts.all > 0) return true;
-        return (
-            seizedPropertiesForSeizureLog.length > 0 ||
-            seizedMovablesForSeizureLog.length > 0 ||
-            realEstateSeizureRegistryAssets.length > 0 ||
-            movableSeizureRegistryAssets.length > 0 ||
-            salarySeizureTabRows.length > 0 ||
-            thirdPartySeizureRegistryAssets.length > 0 ||
-            thirdPartySeizuresUi.length > 0 ||
-            standaloneExecutionMarks.length > 0
-        );
-    }, [
-        unifiedSeizureCounts.all,
-        seizedPropertiesForSeizureLog,
-        seizedMovablesForSeizureLog,
+        unifiedSeizureTabCounts,
+        hasUnifiedSeizureLogContent,
+        openUnifiedSeizureLog,
+        thirdPartyFundsDraftById,
+        setThirdPartyFundsDraftById,
+        clearThirdPartyFundsDraft,
+    } = useUnifiedSeizureLog({
+        viewExecutionData,
+        decisionsStorageExecutionId,
+        executionId,
+        activeDebtorIsDeceased,
         realEstateSeizureRegistryAssets,
-        movableSeizureRegistryAssets,
         salarySeizureRegistryAssets,
+        movableSeizureRegistryAssets,
+        seizedMovablesForSeizureLog,
         thirdPartySeizureRegistryAssets,
         thirdPartySeizuresUi,
-        standaloneExecutionMarks,
-    ]);
-
-    useEffect(() => {
-        const handler = (e: Event) => {
-            if (!hasUnifiedSeizureLogContent) return;
-            const ce = e as CustomEvent<{ tab?: string }>;
-            const tab = String(ce.detail?.tab || 'all').trim();
-            if (
-                tab === 'property' ||
-                tab === 'salary' ||
-                tab === 'movable' ||
-                tab === 'third_party' ||
-                tab === 'marks'
-            ) {
-                setUnifiedSeizureLogTab(tab);
-            } else {
-                setUnifiedSeizureLogTab('all');
-            }
-            setShowUnifiedSeizureLogModal(true);
-        };
-        window.addEventListener('hami-open-unified-seizure-log', handler as EventListener);
-        return () => window.removeEventListener('hami-open-unified-seizure-log', handler as EventListener);
-    }, [hasUnifiedSeizureLogContent]);
+        decisionsReloadEpoch,
+        showToast,
+    });
 
     useEffect(() => {
         const handler = (e: Event) => {
@@ -4091,74 +2707,46 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
 
     const followupModalPersistStorageKey = `hami-followup-modal:${dossierFileKey}`;
 
-    const readFollowupModalPersist = useCallback((): { tab?: string; scroll?: number } => {
-        try {
-            const raw = sessionStorage.getItem(followupModalPersistStorageKey);
-            if (!raw) return {};
-            return JSON.parse(raw) as { tab?: string; scroll?: number };
-        } catch {
-            return {};
-        }
-    }, [followupModalPersistStorageKey]);
+    const readFollowupModalPersistForDossier = useCallback(
+        () => readFollowupModalPersist(followupModalPersistStorageKey),
+        [followupModalPersistStorageKey]
+    );
 
-    const writeFollowupModalPersist = useCallback(
-        (patch: { tab?: string; scroll?: number }) => {
-            try {
-                const prev = readFollowupModalPersist();
-                sessionStorage.setItem(
-                    followupModalPersistStorageKey,
-                    JSON.stringify({ ...prev, ...patch })
-                );
-            } catch {
-                /* ignore */
-            }
-        },
-        [followupModalPersistStorageKey, readFollowupModalPersist]
+    const writeFollowupModalPersistForDossier = useCallback(
+        (patch: { tab?: string; scroll?: number }) =>
+            writeFollowupModalPersist(followupModalPersistStorageKey, patch),
+        [followupModalPersistStorageKey]
     );
 
     const persistFollowupModalViewport = useCallback(() => {
         const body = followupModalBodyScrollRef.current;
-        writeFollowupModalPersist({
+        writeFollowupModalPersistForDossier({
             tab: unifiedModalTab,
-            scroll: body?.scrollTop ?? readFollowupModalPersist().scroll ?? 0,
+            scroll: body?.scrollTop ?? readFollowupModalPersistForDossier().scroll ?? 0,
         });
-    }, [readFollowupModalPersist, unifiedModalTab, writeFollowupModalPersist]);
+    }, [readFollowupModalPersistForDossier, unifiedModalTab, writeFollowupModalPersistForDossier]);
 
     const openFollowupModalPersisted = useCallback(
-        (opts?: {
-            tab?:
-                | 'personal'
-                | 'coercive'
-                | 'financial'
-                | 'seizure_requests'
-                | 'other_party'
-                | 'correspondences'
-                | 'admin'
-                | 'special'
-                | 'dossier_controls';
-        }) => {
+        (opts?: { tab?: FollowupModalTabId }) => {
+            followupModalOpenGenerationRef.current += 1;
             setShowUnifiedExecutionModal(true);
-            if (opts?.tab === 'seizure_requests') {
-                openSeizureRequestsTabRef.current();
-                return;
-            }
-            if (opts?.tab) {
-                setUnifiedModalTab(opts.tab);
-                return;
-            }
-            const savedTab = readFollowupModalPersist().tab;
             const order = (followupSectionTabOrder as readonly string[]).filter(
                 (tabId) => tabId !== 'seizure_requests' || !seizureMatrixRef.current.hideSeizureTab
             );
-            if (savedTab === 'seizure_requests') {
+            const resolved = resolveFollowupTabOnOpen({
+                explicitTab: opts?.tab,
+                savedTab: readFollowupModalPersistForDossier().tab,
+                allowedTabOrder: order,
+            });
+            if (resolved.routeSeizureRequests) {
                 openSeizureRequestsTabRef.current();
                 return;
             }
-            if (savedTab && order.includes(savedTab)) {
-                setUnifiedModalTab(savedTab as typeof unifiedModalTab);
+            if (resolved.tab) {
+                setUnifiedModalTab(resolved.tab);
             }
         },
-        [followupSectionTabOrder, readFollowupModalPersist, setShowUnifiedExecutionModal]
+        [followupSectionTabOrder, readFollowupModalPersistForDossier, setShowUnifiedExecutionModal]
     );
 
     const closeFollowupModalPersisted = useCallback(() => {
@@ -4166,26 +2754,35 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         setShowUnifiedExecutionModal(false);
     }, [persistFollowupModalViewport, setShowUnifiedExecutionModal]);
 
+    const followupModalScrollRestoredForGenRef = useRef(0);
+
     useLayoutEffect(() => {
-        if (!showUnifiedExecutionModal) return;
-        const saved = readFollowupModalPersist();
+        if (!showUnifiedExecutionModal) {
+            followupModalScrollRestoredForGenRef.current = 0;
+            return;
+        }
+        const saved = readFollowupModalPersistForDossier();
+        const openGen = followupModalOpenGenerationRef.current;
+        const restoreBodyScroll = followupModalScrollRestoredForGenRef.current !== openGen;
         queueMicrotask(() => {
             const host = followupModalSectionTabsRef.current;
             const chip = host?.querySelector(
                 `[data-followup-tab="${String(unifiedModalTab)}"]`
             ) as HTMLElement | null;
             chip?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+            if (!restoreBodyScroll) return;
             const body = followupModalBodyScrollRef.current;
             if (body && typeof saved.scroll === 'number') {
                 body.scrollTop = saved.scroll;
             }
+            followupModalScrollRestoredForGenRef.current = openGen;
         });
-    }, [readFollowupModalPersist, showUnifiedExecutionModal, unifiedModalTab]);
+    }, [readFollowupModalPersistForDossier, showUnifiedExecutionModal, unifiedModalTab]);
 
     useEffect(() => {
         if (!showUnifiedExecutionModal) return;
-        writeFollowupModalPersist({ tab: unifiedModalTab });
-    }, [showUnifiedExecutionModal, unifiedModalTab, writeFollowupModalPersist]);
+        writeFollowupModalPersistForDossier({ tab: unifiedModalTab });
+    }, [showUnifiedExecutionModal, unifiedModalTab, writeFollowupModalPersistForDossier]);
 
     useEffect(() => {
         if (!showUnifiedExecutionModal) return;
@@ -4546,6 +3143,95 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
 
     const seizureMatrixLedgerParamsRef = useRef<UnifiedLedgerTotalParams | null>(null);
     seizureMatrixLedgerParamsRef.current = seizureMatrixLedgerParams;
+
+    useThirdPartyFundsReceivedOutcome({
+        executionDataRef,
+        executionDataId: executionData?.id,
+        executionId,
+        decisionsStorageExecutionId,
+        setThirdPartySeizuresUi,
+        clearThirdPartyFundsDraft,
+        getLedgerParams: () => seizureMatrixLedgerParamsRef.current,
+        setTimelineEvents,
+        nextTimelineId,
+        persistExecutionMergeRef,
+        onLedgerRevision: () => setUnifiedLedgerRevision((v) => v + 1),
+        showToast,
+    });
+
+    useSeizureDecisionOutcome({
+        executionDataId: executionData?.id,
+        executionId,
+        decisionsStorageExecutionId,
+        nextTimelineId,
+        applyThirdPartySeizuresFromPatch,
+        executionDataRef,
+        persistExecutionMergeRef,
+        pushTimelineEventRef,
+        seizureMatrixLedgerParamsRef,
+        focusSeizurePropertyInlineRef,
+        focusSeizureMovableInlineRef,
+        focusSeizureThirdPartyInlineRef,
+        focusSeizureNoticeInlineRef,
+        openSeizureRequestsTabRef,
+        setShowCoerciveActionForm,
+        setSeizureDetailCompletion,
+        setShowUnifiedExecutionModal,
+        setUnifiedLedgerRevision,
+        showToast,
+    });
+
+    useUnifiedCollectionOutcome({
+        executionDataId: executionData?.id,
+        executionId,
+        setEvictionAssetsTabUnlocked,
+        persistExecutionMergeRef,
+        showToast,
+    });
+
+    useGuarantorRequestOutcome({
+        executionDataId: executionData?.id,
+        executionId,
+        showToast,
+    });
+
+    useOpenSeizureCompletion({
+        executionDataId: executionData?.id,
+        executionId,
+        executionDataRef,
+        persistExecutionMergeRef,
+        pushTimelineEventRef,
+        nextTimelineId,
+        focusSeizurePropertyInlineRef,
+        focusSeizureMovableInlineRef,
+        focusSeizureThirdPartyInlineRef,
+        focusSeizureNoticeInlineRef,
+        seizedAssetsSnapshotRef,
+        setSeizedAssets,
+        setSeizureDetailCompletion,
+    });
+
+    useTrustDisbursedOutcome({
+        executionDataId: executionData?.id,
+        executionId,
+        executionDataRef,
+        persistExecutionMergeRef,
+    });
+
+    useOpenFinancialHubLedger({
+        executionDataId: executionData?.id,
+        executionId,
+        executionDataRef,
+        seizureMatrixLedgerParamsRef,
+        pushTimelineEventRef,
+        nextTimelineId,
+        setUnifiedLedgerRevision,
+        showToast,
+        setFinancialHubAutoOpenMode,
+        setFinancialHubSeizedMovableId,
+        setFinancialHubSeizedPropertyId,
+        openFinancialHubLedger,
+    });
 
     useEffect(() => {
         const myId = String(executionData?.id ?? executionId ?? '').trim();
@@ -5054,41 +3740,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         setPoliceAssistanceModalOpen(true);
     }, []);
     
-    // Auto-add 3% execution fee when first debtor reaches READY_FOR_COERCIVE
-    useEffect(() => {
-        if (isEvictionExecutionModule && !executionData?.eviction_lawyer_fee_requested) {
-            return;
-        }
-        if (masterState.canAddExecutionFee && !executionFeeAdded) {
-            debug.log('🔥 [State Machine] Auto-adding 3% execution fee');
-            setExecutionFeeAdded(true);
-            
-            // Keep storage writes namespaced + cache-coherent
-            const persistKey = executionData?.id || executionId;
-            if (persistKey) {
-                storageCache.set(executionStorageKey(String(persistKey)), {
-                    ...executionData,
-                    executionFeeAdded: true,
-                });
-            }
-            
-            // Add timeline event
-            const feeEvent = {
-                id: `fee_${Date.now()}`,
-                type: 'system',
-                title: '🔥 إضافة رسوم التحصيل 3%',
-                description: 'تم إضافة رسوم التحصيل تلقائياً بعد انتهاء المهلة القانونية',
-                date: new Date().toISOString(),
-                timestamp: new Date().toISOString(),
-            };
-            setTimelineEvents(prev => [feeEvent, ...prev]);
-        }
-    }, [
-        masterState.canAddExecutionFee,
-        executionFeeAdded,
-        isEvictionExecutionModule,
-        executionData?.eviction_lawyer_fee_requested,
-    ]);
     
     // 🆕 V15: AUTO-SYNC gracePeriodEnded WITH STATE MACHINE
     // Instead of manual button click, automatically sync with calculated status
@@ -5219,51 +3870,22 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         remaining,
     );
 
-    // ===========================
-    // AUTO-INJECT 3% EXECUTION FEE ON DEADLINE EXPIRY
-    // ===========================
-    // ✅ V10.8: executionFeeInjected moved to top with other useState (line 187)
-    
-    // ✅ OPTIMIZED: Removed executionFee from dependencies to prevent re-render loop
     React.useEffect(() => {
-        // Only inject fee if:
-        // 1. Notification date exists
-        // 2. Deadline expired (> 7 days)
-        // 3. Not a non-financial or alimony claim
-        // 4. Fee not already injected
-        // 5. Debt not fully paid
-        if (debtorNotificationDate && 
-            daysSinceNoticeCalculated > 7 && 
-            !isNonFinancialClaim && 
-            !executionFeeInjected && 
-            remaining > 0) {
-            
-            // Fee is already calculated in executionFee variable
-            // Just mark it as injected
-            setExecutionFeeInjected(true);
-            
-            // Log event to timeline
-            const newEvent = {
-                id: Date.now().toString(),
-                date: getLocalTodayYmd(),
-                title: '⚠️ إضافة رسم التحصيل 3%',
-                description: `تم احتساب رسم التحصيل البالغ ${calculatedExecutionFee.toLocaleString('ar-IQ')} دينار (3% من أصل الدين والرسوم) بسبب انتهاء المهلة القانونية وعدم السداد`,
-                type: 'payment'
-            };
-            setTimelineEvents(prev => [newEvent, ...prev]);
-            
-            showToast('⚠️ تمت إضافة رسم التحصيل 3% بسبب انتهاء المهلة القانونية', 'warning');
-        }
-        
-        // Check for full payment during grace period to waive fee
-        if (debtorNotificationDate && 
-            daysSinceNoticeCalculated <= 7 && 
-            remaining <= 0 && 
-            !executionFeeInjected) {
-            
+        if (
+            debtorNotificationDate &&
+            daysSinceNoticeCalculated <= 7 &&
+            remaining <= 0 &&
+            !executionFeeInjected
+        ) {
             showToast('✅ تم دفع كامل الدين خلال المهلة - إعفاء من رسم التحصيل', 'success');
         }
-    }, [daysSinceNoticeCalculated, remaining, debtorNotificationDate, isNonFinancialClaim, isAlimonyClaim, executionFeeInjected, calculatedExecutionFee]);
+    }, [
+        daysSinceNoticeCalculated,
+        remaining,
+        debtorNotificationDate,
+        executionFeeInjected,
+        showToast,
+    ]);
     
     // ===========================
     // STATUTE OF LIMITATIONS WARNING
@@ -6087,7 +4709,9 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             const eventToApply =
                 subId && isInabaSubFileId(subId) && parentForStamp
                     ? stampInabaTimelineEventMetadata(event, subId, parentForStamp)
-                    : event;
+                    : parentForStamp
+                      ? stampParentTimelineEventMetadata(event, parentForStamp)
+                      : event;
             setTimelineEvents((prev) => {
                 const threadKey =
                     event.metadata &&
@@ -7741,14 +6365,12 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
 
     const handleCreditorTrackOpenDecision = useCallback(
         (decisionId: string) => {
-            const did = String(decisionId || '').trim();
-            setDecisionsModalBootHubTab(null);
-            setDecisionsModalBootListTab('current');
-            setDecisionsModalScrollToDecisionId(did || null);
-            setAppealsModalScrollToDecisionId(null);
-            setShowDecisionsModal(true);
+            openDecisionsModalWithBoot({
+                tab: 'current',
+                decisionId: String(decisionId || '').trim() || null,
+            });
         },
-        []
+        [openDecisionsModalWithBoot]
     );
 
     const creditorOtherPartyTrackHandlers = useMemo(
@@ -7811,14 +6433,15 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         showToast,
     ]);
 
-    const openOtherPartyAppealsModal = useCallback((decisionId?: string) => {
-        const did = String(decisionId || '').trim();
-        setDecisionsModalBootHubTab(null);
-        setDecisionsModalBootListTab('previous');
-        setDecisionsModalScrollToDecisionId(did || null);
-        setAppealsModalScrollToDecisionId(null);
-        setShowDecisionsModal(true);
-    }, []);
+    const openOtherPartyAppealsModal = useCallback(
+        (decisionId?: string) => {
+            openDecisionsModalWithBoot({
+                tab: 'previous',
+                decisionId: String(decisionId || '').trim() || null,
+            });
+        },
+        [openDecisionsModalWithBoot]
+    );
 
     /** تبديل موظف ↔ كاسب — `useExecutionDashboardStore.toggleDebtorEmploymentStatus` + دمج الملف */
     const handleDebtorEmploymentToggle = useCallback(
@@ -10009,7 +8632,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     }, [persistExecutionMerge]);
 
     const handleMemoFollowupClick = useCallback(() => {
-        setShowUnifiedSeizureLogModal(false);
+        closeUnifiedSeizureLog();
         const warningAlreadyAcknowledged = Boolean(
             (executionData as { memo_followup_warning_acknowledged?: boolean })?.memo_followup_warning_acknowledged
         );
@@ -10022,7 +8645,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         shouldWarnOnMemoClick,
         executionData,
         openFollowupModalPersisted,
-        setShowUnifiedSeizureLogModal,
+        closeUnifiedSeizureLog,
     ]);
 
     // ✅ OPTIMIZED: useCallback
@@ -11573,38 +10196,34 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         forcedDate.setDate(forcedDate.getDate() - 8); // Make it 8+ days ago
         setDebtorNotificationDate(formatDateToLocalYmd(forcedDate));
         
-        // 3. Financial Impact - Auto-inject 3% fee after grace period
-        if (!executionFeeInjected) {
-            // Use the pre-calculated executionFee variable
-            const calculatedFee = calculatedExecutionFee;
-            
-            if (calculatedFee > 0) {
-                // Inject the fee
-                setExecutionFeeInjected(true);
-                
-                // Log to timeline
-                const feeEvent = {
-                    id: Date.now().toString(),
-                    date: getLocalTodayYmd(),
-                    timestamp: new Date().toISOString(),
-                    title: '💰 تطبيق رسم التحصيل 3%',
-                    description: `تم احتساب وإضافة رسم التحصيل البالغ ${calculatedFee.toLocaleString('ar-IQ')} دينار عراقي (3% من أصل الدين والرسوم القضائية) بسبب انتهاء المهلة القانونية`,
-                    type: 'payment'
-                };
-                setTimelineEvents(prev => [feeEvent, ...prev]);
-            }
-        }
-        
-        // 4. Log the main action
-        const endEvent = {
-            id: (Date.now() + 1).toString(),
-            date: getLocalTodayYmd(),
-            timestamp: new Date().toISOString(),
-            title: '🚨 إعلان انتهاء المهلة القانونية',
-            description: `تم إعلان انتهاء المهلة القانونية البالغة 7 أيام وتفعيل الإجراءات الجبرية. جميع أدوات التنفيذ الجبري (حجز الراتب، الحجز العقاري، طلب الحبس) أصبحت متاحة الآن.`,
-            type: 'coercive'
+        const mergePatch: Record<string, unknown> = {
+            gracePeriodEnded: true,
+            gracePeriodActive: false,
         };
-        setTimelineEvents(prev => [endEvent, ...prev]);
+        if (!executionFeeInjected && calculatedExecutionFee > 0) {
+            setExecutionFeeInjected(true);
+            mergePatch.executionFeeInjected = true;
+            pushTimelineEvent({
+                id: `fee_end_grace_${Date.now()}`,
+                date: getLocalTodayYmd(),
+                timestamp: new Date().toISOString(),
+                title: '💰 تطبيق رسم التحصيل 3%',
+                description: `تم احتساب وإضافة رسم التحصيل البالغ ${calculatedExecutionFee.toLocaleString('ar-IQ')} دينار عراقي (3% من أصل الدين والرسوم القضائية) بسبب إعلان انتهاء المهلة القانونية`,
+                type: 'payment',
+            });
+        }
+        pushTimelineEvent(
+            {
+                id: `grace_end_${Date.now()}`,
+                date: getLocalTodayYmd(),
+                timestamp: new Date().toISOString(),
+                title: '🚨 إعلان انتهاء المهلة القانونية',
+                description:
+                    'تم إعلان انتهاء المهلة القانونية البالغة 7 أيام وتفعيل الإجراءات الجبرية. جميع أدوات التنفيذ الجبري (حجز الراتب، الحجز العقاري، طلب الحبس) أصبحت متاحة الآن.',
+                type: 'coercive',
+            },
+            { mergePatch }
+        );
         
         // 5. UI Feedback
         showToast('⚠️ تم تفعيل التنفيذ الجبري وإضافة الرسوم المطلوبة', 'warning');
@@ -12352,132 +10971,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         showToast('تم إتمام طلب القوة الجبرية', 'success');
     }, [evictionProcedureLocked, nextTimelineId, persistExecutionMerge, showToast]);
 
-    const openFinancialHubLedger = useCallback(() => {
-        setShowUnifiedExecutionModal(false);
-        setIsFinancialCenterExpanded(true);
-        setShowExecutionFinancialHub(true);
-    }, []);
-
-    useEffect(() => {
-        const myId = String(executionData?.id ?? executionId ?? '');
-        if (!myId) return;
-        const handler = (e: Event) => {
-            const ce = e as CustomEvent<{
-                executionId?: string;
-                mode?: string;
-                seizedMovableId?: string;
-                seizedPropertyId?: string;
-            }>;
-            if (String(ce.detail?.executionId ?? '') !== myId) return;
-            const mode = String(ce.detail?.mode ?? '').trim();
-            const seizedMovableId = String(ce.detail?.seizedMovableId ?? '').trim();
-            const seizedPropertyId = String(ce.detail?.seizedPropertyId ?? '').trim();
-
-            if (mode === 'disburse' && seizedMovableId) {
-                const movables = (executionDataRef.current?.seizedMovables || []) as SeizedMovable[];
-                const hit = movables.find((row) => String(row.id || '').trim() === seizedMovableId);
-                if (!hit) {
-                    showToast('تعذر العثور على المال المنقول.', 'warning');
-                    return;
-                }
-                const amount = resolveMovableSaleProceedsIqd(hit);
-                if (amount <= 0) {
-                    showToast(
-                        'تعذر الصرف: لم يُسجَّل مبلغ الإحالة/البيع في بيانات المنقول.',
-                        'warning'
-                    );
-                    return;
-                }
-                const ledgerParams = seizureMatrixLedgerParamsRef.current;
-                const trustCredit = ledgerParams
-                    ? creditMovableProceedsForExecution(myId, hit, ledgerParams)
-                    : creditMovableSaleProceedsToTrustLedger({
-                          executionId: myId,
-                          movable: hit,
-                      });
-                if (trustCredit.created || trustCredit.updated) {
-                    const nowIso = new Date().toISOString();
-                    pushTimelineEventRef.current?.({
-                        id: nextTimelineId(),
-                        date: nowIso.slice(0, 10),
-                        timestamp: nowIso,
-                        title: '💰 إيداع حصيلة البيع في الأمانات — مال منقول',
-                        description: `وصف المال: ${String(hit.movableDescription || '').trim() || '—'}\nالمبلغ: ${amount.toLocaleString('ar-IQ')} د.ع`,
-                        type: 'payment',
-                        source: 'محضر المتابعة — الأموال المحجوزة',
-                        metadata: {
-                            seizedMovableId,
-                            trustPaymentId: trustCredit.paymentId,
-                        },
-                    });
-                    setUnifiedLedgerRevision((v) => v + 1);
-                    showToast(
-                        `تم إيداع ${amount.toLocaleString('ar-IQ')} د.ع في رصيد الأمانات — يمكنك الصرف الآن.`,
-                        'success'
-                    );
-                }
-            }
-
-            if (mode === 'disburse' && seizedPropertyId) {
-                const properties = (executionDataRef.current?.seizedProperties || []) as SeizedProperty[];
-                const hit = properties.find((row) => String(row.id || '').trim() === seizedPropertyId);
-                if (!hit) {
-                    showToast('تعذر العثور على العقار.', 'warning');
-                    return;
-                }
-                const amount = resolvePropertySaleProceedsIqd(hit);
-                if (amount <= 0) {
-                    showToast(
-                        'تعذر الصرف: لم يُسجَّل مبلغ الإحالة/البيع في بيانات العقار.',
-                        'warning'
-                    );
-                    return;
-                }
-                const ledgerParams = seizureMatrixLedgerParamsRef.current;
-                const trustCredit = ledgerParams
-                    ? creditPropertyProceedsForExecution(myId, hit, ledgerParams)
-                    : creditPropertySaleProceedsToTrustLedger({
-                          executionId: myId,
-                          property: hit,
-                      });
-                if (trustCredit.created || trustCredit.updated) {
-                    const nowIso = new Date().toISOString();
-                    pushTimelineEventRef.current?.({
-                        id: nextTimelineId(),
-                        date: nowIso.slice(0, 10),
-                        timestamp: nowIso,
-                        title: '💰 إيداع حصيلة البيع في الأمانات — عقار',
-                        description: `رقم العقار: ${String(hit.propertyNumber || '').trim() || '—'}\nالمبلغ: ${amount.toLocaleString('ar-IQ')} د.ع`,
-                        type: 'payment',
-                        source: 'محضر المتابعة — الأموال المحجوزة',
-                        metadata: {
-                            seizedPropertyId,
-                            trustPaymentId: trustCredit.paymentId,
-                        },
-                    });
-                    setUnifiedLedgerRevision((v) => v + 1);
-                    showToast(
-                        `تم إيداع ${amount.toLocaleString('ar-IQ')} د.ع في رصيد الأمانات — يمكنك الصرف الآن.`,
-                        'success'
-                    );
-                }
-            }
-
-            if (mode === 'disburse') {
-                setFinancialHubAutoOpenMode('disburse');
-                setFinancialHubSeizedMovableId(seizedMovableId || null);
-                setFinancialHubSeizedPropertyId(seizedPropertyId || null);
-            } else {
-                setFinancialHubAutoOpenMode(null);
-                setFinancialHubSeizedMovableId(null);
-                setFinancialHubSeizedPropertyId(null);
-            }
-            queueMicrotask(() => openFinancialHubLedger());
-        };
-        window.addEventListener('hami-open-financial-hub-ledger', handler as EventListener);
-        return () => window.removeEventListener('hami-open-financial-hub-ledger', handler as EventListener);
-    }, [executionData?.id, executionId, openFinancialHubLedger, showToast, nextTimelineId, setUnifiedLedgerRevision]);
-
     const requestFollowupSeizureDecision = useCallback(
         (subtype: 'third_party' | 'notice', title: string, body: string) => {
             const exId = decisionsStorageExecutionId;
@@ -12960,308 +11453,18 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         [executionData, nextTimelineId, persistExecutionMerge, timelineEvents]
     );
 
-    useEffect(() => {
-        const handler = (e: Event) => {
-            const ce = e as CustomEvent<{
-                executionId?: string;
-                decisionId?: string;
-                requestKind?: string;
-                outcome?: string;
-            }>;
-            const evId = String(ce.detail?.executionId ?? '');
-            const myId = String(executionData?.id ?? executionId ?? '');
-            if (evId !== myId && evId !== String(decisionsStorageExecutionId ?? '')) return;
-            if (ce.detail?.outcome !== 'approved') return;
-            const rk = ce.detail?.requestKind;
-            if (rk !== 'lawyer_fee_payout' && rk !== 'case_expense') return;
-
-            setEvictionAssetsTabUnlocked(true);
-
-            if (rk === 'lawyer_fee_payout' && parsedLawyerFees > 0) {
-                setSeizedAssets((prev) => {
-                    if (prev.some((a) => String(a.id).startsWith('claimed_lawyer_fee_'))) return prev;
-                    const next: SeizedAsset[] = [
-                        {
-                            id: `claimed_lawyer_fee_${Date.now()}`,
-                            type: 'مطالبة أتعاب محكومة',
-                            status: 'pending',
-                            details: {
-                                المبلغ: `${parsedLawyerFees.toLocaleString('ar-IQ')} د.ع`,
-                                المصدر: 'موافقة المنفذ',
-                            },
-                        },
-                        ...prev,
-                    ];
-                    queueMicrotask(() =>
-                        persistExecutionMerge({
-                            seizedAssets: next,
-                            eviction_assets_tab_unlocked: true,
-                        })
-                    );
-                    return next;
-                });
-            }
-            if (rk === 'case_expense') {
-                const sum = evictionCaseExpenses.reduce((s, x) => s + (Number(x.amount) || 0), 0);
-                if (sum <= 0) {
-                    queueMicrotask(() => persistExecutionMerge({ eviction_assets_tab_unlocked: true }));
-                    showToast('تم قبول المصاريف — تبويب الأموال', 'success');
-                    return;
-                }
-                setSeizedAssets((prev) => {
-                    if (prev.some((a) => String(a.id).startsWith('claimed_case_expense_'))) return prev;
-                    const next: SeizedAsset[] = [
-                        {
-                            id: `claimed_case_expense_${Date.now()}`,
-                            type: 'مصاريف إضبارة (مطالبة)',
-                            status: 'pending',
-                            details: {
-                                الإجمالي: `${sum.toLocaleString('ar-IQ')} د.ع`,
-                                المصدر: 'موافقة المنفذ',
-                            },
-                        },
-                        ...prev,
-                    ];
-                    queueMicrotask(() =>
-                        persistExecutionMerge({
-                            seizedAssets: next,
-                            eviction_assets_tab_unlocked: true,
-                        })
-                    );
-                    return next;
-                });
-            }
-            showToast('تم تفعيل المسار بقرار المنفذ', 'success');
-        };
-        window.addEventListener('hami-execution-decision-outcome', handler as EventListener);
-        return () => window.removeEventListener('hami-execution-decision-outcome', handler as EventListener);
-    }, [
-        executionData?.id,
+    useEvictionLawyerFeeOutcome({
+        executionDataId: executionData?.id,
         executionId,
+        decisionsStorageExecutionId,
         parsedLawyerFees,
         evictionCaseExpenses,
+        setEvictionAssetsTabUnlocked,
+        setSeizedAssets,
         persistExecutionMerge,
         showToast,
-    ]);
+    });
 
-    /** ربط عكسي: من مركز القرارات إلى المركز المالي عند صدور قرار طلب الاستحصال */
-    useEffect(() => {
-        const handler = (e: Event) => {
-            const ce = e as CustomEvent<{
-                executionId?: string;
-                requestKind?: string;
-                outcome?: string;
-                decisionId?: string;
-            }>;
-            if (String(ce.detail?.executionId ?? '') !== String(executionData?.id ?? executionId ?? '')) return;
-            if (ce.detail?.requestKind !== 'unified_collection') return;
-            const decisionId = String(ce.detail?.decisionId || '').trim();
-            const outcome = String(ce.detail?.outcome ?? '');
-            if (outcome === 'approved') {
-                setEvictionAssetsTabUnlocked(true);
-                queueMicrotask(() => persistExecutionMerge({ eviction_assets_tab_unlocked: true }));
-                showToast('وافق المنفذ على طلب الاستحصال.', 'success', {
-                    decisionsLink: true,
-                    decisionId,
-                    decisionsTab: 'previous',
-                });
-                return;
-            }
-            if (outcome === 'rejected') {
-                showToast('رُفض طلب الاستحصال — راجع الأسباب.', 'info', {
-                    decisionsLink: true,
-                    decisionId,
-                    decisionsTab: 'previous',
-                });
-                return;
-            }
-            if (outcome === 'alternative') {
-                showToast('صدر قرار بديل بخصوص طلب الاستحصال — راجع التفاصيل.', 'info', {
-                    decisionsLink: true,
-                    decisionId,
-                    decisionsTab: 'previous',
-                });
-            }
-        };
-        window.addEventListener('hami-execution-decision-outcome', handler as EventListener);
-        return () => window.removeEventListener('hami-execution-decision-outcome', handler as EventListener);
-    }, [
-        executionData?.id,
-        executionId,
-        setExecutionModal,
-        setShowExecutionFinancialHub,
-        setShowDecisionsModal,
-        showToast,
-    ]);
-
-    useEffect(() => {
-        const handler = (e: Event) => {
-            const ce = e as CustomEvent<{
-                executionId?: string;
-                requestKind?: string;
-                outcome?: string;
-                decisionId?: string;
-            }>;
-            const evId = String(ce.detail?.executionId ?? '');
-            const myId = String(executionData?.id ?? executionId ?? '');
-            if (evId !== myId && evId !== String(decisionsStorageExecutionId ?? '')) return;
-            if (String(ce.detail?.requestKind || '') !== 'third_party_funds_received') return;
-            if (String(ce.detail?.outcome || '') !== 'approved') return;
-            const decisionId = String(ce.detail?.decisionId || '').trim();
-            if (!decisionId) return;
-            const row = getExecutorDecisionRowById(decisionsStorageExecutionId, decisionId) as any;
-            const rawJson = String(row?.payloadJson || '').trim();
-            if (!rawJson) return;
-            let seizureId = '';
-            let thirdPartyName = '';
-            let amount = 0;
-            try {
-                const v = JSON.parse(rawJson) as any;
-                seizureId = String(v?.thirdPartySeizureId || '').trim();
-                thirdPartyName = String(v?.thirdPartyName || '').trim();
-                amount = Math.max(0, Math.trunc(Number(v?.transferredAmountIqd || 0)));
-            } catch {
-                seizureId = '';
-                thirdPartyName = '';
-                amount = 0;
-            }
-            if (!seizureId || !Number.isFinite(amount) || amount <= 0) return;
-
-            const prev = (executionDataRef.current?.thirdPartySeizures || []) as ThirdPartySeizure[];
-            const hit = prev.find((s) => String(s.id || '').trim() === seizureId) || null;
-            if (!hit) return;
-            const nextSeizures: ThirdPartySeizure[] = prev.map((s) => {
-                if (String(s.id || '').trim() !== seizureId) return s;
-                const safeReply =
-                    String(s.replyStatus || '').trim() === 'pending' ? ('acknowledged' as const) : s.replyStatus;
-                return {
-                    ...s,
-                    status: 'funds_received',
-                    replyStatus: safeReply,
-                    transferredAmountIqd: amount,
-                };
-            });
-            setThirdPartySeizuresUi(nextSeizures);
-            setThirdPartySeizureCardOpenById((prevOpen) => ({ ...prevOpen, [seizureId]: false }));
-            setThirdPartyFundsDraftById((prevDrafts) => {
-                if (!(seizureId in prevDrafts)) return prevDrafts;
-                const next = { ...prevDrafts };
-                delete next[seizureId];
-                return next;
-            });
-
-            const exId = String(decisionsStorageExecutionId ?? executionData?.id ?? executionId ?? '').trim();
-            if (exId) {
-                const key = storageKey(exId);
-                const stored = storageCache.get(key);
-                let parsed: any = null;
-                try {
-                    parsed = typeof stored === 'string' ? (stored ? JSON.parse(stored) : null) : stored;
-                } catch {
-                    parsed = null;
-                }
-                const base = emptyStore();
-                const current = parsed && typeof parsed === 'object' ? { ...base, ...parsed } : base;
-                const currentPayments = Array.isArray(current.payments) ? current.payments : [];
-                const trustNow = computeTrustBalanceFromPayments(currentPayments);
-                const trustAfter = Math.max(0, trustNow + amount);
-                const paymentRow = {
-                    id: `pay-thirdparty-${Date.now()}`,
-                    amount,
-                    at: new Date().toISOString(),
-                    kind: 'partial' as const,
-                    entryType: 'collect' as const,
-                    balanceAfter: 0,
-                    trustBalanceAfter: trustAfter,
-                };
-                const nextStore = { ...current, payments: [paymentRow, ...currentPayments] };
-                storageCache.set(key, nextStore);
-                try {
-                    window.dispatchEvent(
-                        new CustomEvent('hami-unified-ledger-external-collect', {
-                            detail: { executionId: exId, payment: paymentRow },
-                        })
-                    );
-                } catch {
-                    /* ignore */
-                }
-            }
-
-            const nowIso = new Date().toISOString();
-            const title = '💰 استلام أموال محجوزة لدى الغير';
-            const desc = `الجهة: ${thirdPartyName || hit.thirdPartyName || '—'}\nالمبلغ الفعلي المحول: ${amount.toLocaleString(
-                'ar-IQ'
-            )} د.ع.`;
-            setTimelineEvents((prevTl) => {
-                const ev: TimelineEvent = {
-                    id: nextTimelineId(),
-                    date: nowIso.slice(0, 10),
-                    timestamp: nowIso,
-                    title,
-                    description: desc,
-                    type: 'payment',
-                    source: 'المركز المالي — حجز لدى الغير',
-                    metadata: {
-                        decisionRowId: decisionId,
-                        thirdPartySeizureId: seizureId,
-                        timelineThreadKey: `executor_decision:${decisionId}`,
-                    },
-                };
-                const nextTl = [ev, ...prevTl];
-                queueMicrotask(() =>
-                    persistExecutionMerge({
-                        thirdPartySeizures: nextSeizures,
-                        timelineEvents: nextTl,
-                    } as any)
-                );
-                return nextTl;
-            });
-            showToast('تم اعتماد استلام الأموال وإضافتها إلى رصيد الأمانات.', 'success');
-        };
-        window.addEventListener('hami-execution-decision-outcome', handler as EventListener);
-        return () => window.removeEventListener('hami-execution-decision-outcome', handler as EventListener);
-    }, [decisionsStorageExecutionId, executionData?.id, executionId, nextTimelineId, persistExecutionMerge, showToast]);
-
-    /** إشعارات طلب الكفيل + توجيه مباشر لمسار التنفيذ الجبري الشخصي */
-    useEffect(() => {
-        const handler = (e: Event) => {
-            const ce = e as CustomEvent<{
-                executionId?: string;
-                requestKind?: string;
-                outcome?: string;
-                decisionId?: string;
-            }>;
-            if (String(ce.detail?.executionId ?? '') !== String(executionData?.id ?? executionId ?? '')) return;
-            if (ce.detail?.requestKind !== 'guarantor_request') return;
-            const decisionId = String(ce.detail?.decisionId || '').trim();
-            const o = String(ce.detail?.outcome ?? '');
-            if (o === 'approved') {
-                showToast('وافق المنفذ على طلب إدخال الكفيل الضامن.', 'success');
-            } else if (o === 'rejected') {
-                showToast('رُفض طلب إدخال الكفيل الضامن.', 'info', {
-                    decisionsLink: true,
-                    decisionId,
-                    decisionsTab: 'previous',
-                });
-            } else if (o === 'alternative') {
-                showToast('سُجِّل قرار بديل بشأن طلب الكفيل الضامن.', 'info', {
-                    decisionsLink: true,
-                    decisionId,
-                    decisionsTab: 'previous',
-                });
-            }
-        };
-        window.addEventListener('hami-execution-decision-outcome', handler as EventListener);
-        return () => window.removeEventListener('hami-execution-decision-outcome', handler as EventListener);
-    }, [
-        executionData?.id,
-        executionId,
-        primaryDebtorWorkspaceKey,
-        setExecutionModal,
-        setShowDecisionsModal,
-        showToast,
-    ]);
-    
     // 🆕 V7: COERCIVE ACTION HANDLERS — تعدّد الخصوم + تضامن (توجيه الإجراء)
     const handleCoerciveAction = (actionType: string) => {
         if (coerciveUiLocked) {
@@ -14708,40 +12911,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         }
     };
 
-    const openSalarySeizureWorkflowFromLog = useCallback(
-        (asset?: SeizedAsset | null) => {
-            if (
-                isPersonalStatusCourtDecisionsDossier(
-                    docType || executionData?.docType,
-                    classification || executionData?.classification,
-                    (executionData as { category?: string } | undefined)?.category,
-                )
-            ) {
-                showToast('الإجراءات الجبرية غير متاحة لإضابير أحوال شخصية.', 'info');
-                return;
-            }
-            setShowUnifiedSeizureLogModal(false);
-            setShowCoerciveModal(true);
-            if (asset) {
-                const det =
-                    typeof asset.details === 'object' && asset.details && !Array.isArray(asset.details)
-                        ? (asset.details as Record<string, unknown>)
-                        : {};
-                const decisionRowId = String(det?.decisionRowId || '').trim();
-                if (decisionRowId) {
-                    setSeizureDetailCompletion({
-                        decisionRowId,
-                        assetId: String(asset.id),
-                        actionType: 'salary',
-                    });
-                }
-            }
-            setShowCoerciveActionForm('salary');
-            showToast('انتقل إلى محضر المتابعة — قسم حجز الراتب.', 'info');
-        },
-        [classification, docType, executionData, setShowCoerciveModal, showToast]
-    );
-
     const releaseSeizureAssetRow = (asset: SeizedAsset) => {
         if (asset.seizure_record_locked) {
             showToast('السجل مقفول — استخدم «تراجع» إن كان الحجز قد فُك.', 'warning');
@@ -15198,7 +13367,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     };
 
     const updateThirdPartyReceiveDraft = (assetId: string, v: string) => {
-        const cleaned = String(v || '').replace(/[^\d]/g, '');
+        const cleaned = formatNumberInput(String(v || ''));
         const nextAssets = thirdPartySeizureSnapshotRef.current.map((a) =>
             a.id === assetId ? { ...a, receive_amount_draft: cleaned } : a
         );
@@ -15222,7 +13391,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             showToast('أدخل المبلغ الفعلي المستلم', 'warning');
             return;
         }
-        const parsed = Number(amtRaw.replace(/,/g, '').trim());
+        const parsed = parseAmount(amtRaw);
         if (!Number.isFinite(parsed) || parsed <= 0) {
             showToast('أدخل مبلغاً صحيحاً', 'warning');
             return;
@@ -15244,29 +13413,48 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 : a
         );
         setThirdPartySeizureAssets(nextAssets);
+        const exId = String(decisionsStorageExecutionId ?? executionData?.id ?? executionId ?? '').trim();
+        const trustCredit = creditThirdPartySeizureFunds(
+            exId,
+            {
+                amountIqd: parsed,
+                thirdPartySeizureId: String(row.id),
+                thirdPartyName: row.thirdPartyName,
+                at: now,
+            },
+            seizureMatrixLedgerParamsRef.current
+        );
         pushTimelineEvent(
             {
                 id: nextTimelineId(),
                 date: today,
                 timestamp: now,
                 title: '💰 استلام أموال محجوزة لدى الغير',
-                description: `الجهة: ${row.thirdPartyName}\nالمبلغ المستلم: ${parsed.toLocaleString('ar-IQ')} د.ع`,
+                description: `الجهة: ${row.thirdPartyName}\nالمبلغ المستلم: ${parsed.toLocaleString('ar-IQ')} د.ع${
+                    trustCredit.ok
+                        ? `\n\nتم إيداع ${parsed.toLocaleString('ar-IQ')} د.ع في الأمانات — ويُخصم من المتبقي.`
+                        : ''
+                }`,
                 type: 'payment',
-                source: 'محضر المتابعة — حجز لدى الغير',
+                source: 'المركز المالي — حجز لدى الغير',
                 metadata: {
                     timelineThreadKey: `third_party_received:${row.id}`,
                     thirdPartyAssetId: row.id,
                     actualReceivedAmountIqd: String(parsed),
+                    ...(trustCredit.paymentId ? { trustPaymentId: trustCredit.paymentId } : {}),
                 },
             },
             { mergePatch: { thirdPartySeizureAssets: nextAssets } }
         );
-        handleFundsLedgerPayment({
-            amount: parsed,
-            kind: 'partial',
-            description: 'استلام أموال محجوزة لدى الغير',
-        });
-        showToast('تم تسجيل الاستلام وتحديث سجل الدفعات', 'success');
+        if (trustCredit.ok) {
+            setUnifiedLedgerRevision((v) => v + 1);
+            showToast(
+                `تم تسجيل الاستلام وإيداع ${parsed.toLocaleString('ar-IQ')} د.ع في الأمانات — يُخصم من المتبقي.`,
+                'success'
+            );
+        } else {
+            showToast('تم تسجيل الاستلام لكن تعذّر ربط المبلغ بالمركز المالي.', 'warning');
+        }
     };
 
     const patchStandaloneExecutionMark = (
@@ -15720,9 +13908,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 showDecisionsModal={showDecisionsModal}
                 onCloseDecisionsModal={() => {
                     setShowDecisionsModal(false);
-                    setDecisionsModalBootHubTab(null);
-                    setDecisionsModalBootListTab(null);
-                    setDecisionsModalScrollToDecisionId(null);
+                    clearDecisionsModalBootState();
                 }}
                 LazyDecisionsAndAppealsEngine={LazyDecisionsAndAppealsEngine}
                 executionId={decisionsStorageExecutionId}
@@ -16129,8 +14315,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         effectiveCreditors={effectiveCreditors}
                         heirsDetailsIncludeClient={heirsDetailsIncludeClient}
                         executionAppealBanner={executionAppealBanner}
-                        setDecisionsModalBootHubTab={setDecisionsModalBootHubTab}
-                        setShowDecisionsModal={setShowDecisionsModal}
+                        onOpenDecisionsAppealsTab={() => openDecisionsModalWithBoot({ tab: 'appeals' })}
                         partyBadgesExecutionId={partyBadgesExecutionId}
                         viewExecutionData={viewExecutionData}
                         activeCoerciveActions={activeCoerciveActions}
@@ -16234,11 +14419,10 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         saveSummonsMarkerPurposeEdit,
                         seizedAssets,
                         setDebtorSummonsMarkerLocal,
-                        setDecisionsModalBootHubTab,
+                        onOpenDecisionsAppealsTab: () => openDecisionsModalWithBoot({ tab: 'appeals' }),
                         setEvictionGraceDecisionId,
                         setExecutionDebtorTabIndex,
                         setExecutionMemoBadgePopoverOpen,
-                        setShowDecisionsModal,
                         setShowExtraDebtors,
                         setShowUnifiedSummonsModal,
                         setSummonsContextDebtorKey,
@@ -16256,6 +14440,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         summonsMarkerPopoverOpen,
                         summonsPurposeDraft,
                         thirdPartySeizureAssets,
+                        thirdPartySeizures: thirdPartySeizuresUi,
                         timelineDebtorMetadata,
                         toggleEvictionGracePinned,
                         viewExecutionData,
@@ -16505,15 +14690,12 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         setShowExecutionFinancialHub={setShowExecutionFinancialHub}
                         setIsLawReferenceOpen={setIsLawReferenceOpen}
                         onMemoFollowupClick={handleMemoFollowupClick}
-                        showSeizureLogButton={hasUnifiedSeizureLogContent && !isRepresentingDebtor}
-                        onOpenSeizureLog={() => {
-                            if (!hasUnifiedSeizureLogContent) {
-                                showToast('لا يوجد سجل حجز في هذه الإضبارة بعد.', 'info');
-                                return;
-                            }
-                            setUnifiedSeizureLogTab('all');
-                            setShowUnifiedSeizureLogModal(true);
-                        }}
+                        showSeizureLogButton={
+                            hasUnifiedSeizureLogContent &&
+                            !isRepresentingDebtor &&
+                            !followupSpecialization.hideDossierFinancialTools
+                        }
+                        onOpenSeizureLog={() => openUnifiedSeizureLog()}
                         pinnedNotes={dockPinnedNotes}
                         pinnedTasks={dockPinnedTasks}
                         onToggleNotePin={toggleCaseNotePin}
@@ -16585,8 +14767,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     isLawReferenceOpen={isLawReferenceOpen}
                     setIsLawReferenceOpen={setIsLawReferenceOpen}
                     EXEC_MODAL_Z={EXEC_MODAL_Z}
-                    EXEC_OVERLAY_LAZY_FALLBACK={EXEC_OVERLAY_LAZY_FALLBACK}
-                    ExecutionLawReferencePanel={ExecutionLawReferencePanel}
                     isEvictionExecutionModule={isEvictionExecutionModule}
                     executionData={viewExecutionData}
                 />
@@ -16594,16 +14774,13 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 <ExecutionFinancialHubPortal
                     showExecutionFinancialHub={showExecutionFinancialHub}
                     setShowExecutionFinancialHub={setShowExecutionFinancialHub}
-                    showSeizureLogModal={showSeizureLogModal}
-                    setShowSeizureLogModal={setShowSeizureLogModal}
+                    onOpenUnifiedSeizureLog={() => openUnifiedSeizureLog()}
                     financialHubAutoOpenMode={financialHubAutoOpenMode}
                     setFinancialHubAutoOpenMode={setFinancialHubAutoOpenMode}
                     financialHubSeizedMovableId={financialHubSeizedMovableId}
                     setFinancialHubSeizedMovableId={setFinancialHubSeizedMovableId}
                     financialHubSeizedPropertyId={financialHubSeizedPropertyId}
                     setFinancialHubSeizedPropertyId={setFinancialHubSeizedPropertyId}
-                    financialSeizureLogPreview={financialSeizureLogPreview}
-                    financialSeizureLogEvents={financialSeizureLogEvents}
                     EXEC_MODAL_BACKDROP_STRONG={EXEC_MODAL_BACKDROP_STRONG}
                     EXEC_MODAL_Z={EXEC_MODAL_Z}
                     LazyFinancialOperationsCenter={LazyFinancialOperationsCenter}
@@ -16677,1881 +14854,55 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     evictionAssetsTabUnlocked={evictionAssetsTabUnlocked}
                     getLocalTodayYmd={getLocalTodayYmd}
                     setCaseTasksPending={setCaseTasksPending}
-                    patchRealEstateMarkConfirmation={patchRealEstateMarkConfirmation}
-                    realEstateAuctionDateDraftById={realEstateAuctionDateDraftById}
-                    setRealEstateAuctionDateDraftById={setRealEstateAuctionDateDraftById}
-                    saveRealEstateAuctionDate={saveRealEstateAuctionDate}
-                    beginRealEstateSalePriceStep={beginRealEstateSalePriceStep}
-                    cancelRealEstateSalePriceStep={cancelRealEstateSalePriceStep}
-                    confirmRealEstateSaleWithPrice={confirmRealEstateSaleWithPrice}
-                    updateRealEstateSaleDraft={updateRealEstateSaleDraft}
-                    archiveRealEstateSeizureRow={archiveRealEstateSeizureRow}
-                    undoArchiveRealEstateSeizureRow={undoArchiveRealEstateSeizureRow}
-                    releaseSeizureAssetRow={releaseSeizureAssetRow}
-                    undoReleaseSeizureAssetRow={undoReleaseSeizureAssetRow}
-                    saveSeizureAuctionDate={saveSeizureAuctionDate}
-                    seizureAuctionDateDraftById={seizureAuctionDateDraftById}
-                    setSeizureAuctionDateDraftById={setSeizureAuctionDateDraftById}
-                    patchSeizureMarkConfirmation={patchSeizureMarkConfirmation}
-                    beginSeizureSalePriceStep={beginSeizureSalePriceStep}
-                    confirmSeizureSaleWithPrice={confirmSeizureSaleWithPrice}
-                    cancelSeizureSalePriceStep={cancelSeizureSalePriceStep}
-                    updateSeizureSaleDraft={updateSeizureSaleDraft}
-                    salarySeizureReleaseSeizureAssetRow={releaseSeizureAssetRow}
-                    salarySeizureUndoReleaseSeizureAssetRow={undoReleaseSeizureAssetRow}
-                    beginThirdPartyReceiveStep={beginThirdPartyReceiveStep}
-                    updateThirdPartyReceiveDraft={updateThirdPartyReceiveDraft}
-                    cancelThirdPartyReceiveStep={cancelThirdPartyReceiveStep}
-                    confirmThirdPartyReceive={confirmThirdPartyReceive}
-                    toggleStandaloneExecutionMarkConfirmed={toggleStandaloneExecutionMarkConfirmed}
-                    archiveStandaloneExecutionMark={archiveStandaloneExecutionMark}
-                    undoArchiveStandaloneExecutionMark={undoArchiveStandaloneExecutionMark}
                     onClearSalarySeizurePath={clearActiveSalarySeizurePath}
                     isRepresentingDebtor={isRepresentingDebtor}
                 />
 
-                {showUnifiedSeizureLogModal && hasUnifiedSeizureLogContent && !isRepresentingDebtor && typeof document !== 'undefined'
-                    ? createPortal(
-                          <div
-                              className={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG}`}
-                              style={{ zIndex: EXEC_MODAL_Z.nestedOverFollowUpPortal }}
-                              role="presentation"
-                              onClick={(e) => {
-                                  if (e.target === e.currentTarget) setShowUnifiedSeizureLogModal(false);
-                              }}
-                          >
-                              <div
-                                  className="w-full max-w-2xl rounded-3xl border-2 border-[#E6C673]/35 bg-[#0B1120] shadow-2xl shadow-black/50"
-                                  onClick={(e) => e.stopPropagation()}
-                                  dir="rtl"
-                              >
-                                  <div className="flex items-center justify-between border-b border-[#E6C673]/25 p-4">
-                                      <button
-                                          type="button"
-                                          onClick={() => setShowUnifiedSeizureLogModal(false)}
-                                          className="rounded-lg p-2 text-slate-400 hover:bg-white/5 hover:text-white"
-                                          aria-label="إغلاق"
-                                      >
-                                          <X size={18} />
-                                      </button>
-                                      <div className="text-right">
-                                          <p className="text-[12px] font-black text-[#E6C673]">سجل الحجز</p>
-                                          <p className="mt-0.5 text-[10px] text-slate-400">
-                                              كل ما تم حجزه داخل الإضبارة (عقار/راتب/منقول/لدى الغير/إشارات)
-                                          </p>
-                                      </div>
-                                      <span className="w-8" aria-hidden />
-                                  </div>
-                                  <div className="p-4">
-                                      <div className="mb-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
-                                          <button
-                                              type="button"
-                                              onClick={() => setUnifiedSeizureLogTab('all')}
-                                              className={`rounded-2xl border px-2 py-2 text-[10px] font-black ${
-                                                  unifiedSeizureLogTab === 'all'
-                                                      ? 'border-[#E6C673]/40 bg-[#E6C673]/10 text-[#E6C673]'
-                                                      : 'border-white/10 bg-slate-900/35 text-slate-300 hover:bg-slate-900/45'
-                                              }`}
-                                          >
-                                              الكل ({unifiedSeizureCounts.all})
-                                          </button>
-                                          <button
-                                              type="button"
-                                              onClick={() => setUnifiedSeizureLogTab('property')}
-                                              className={`rounded-2xl border px-2 py-2 text-[10px] font-black ${
-                                                  unifiedSeizureLogTab === 'property'
-                                                      ? 'border-emerald-400/35 bg-emerald-500/10 text-emerald-200'
-                                                      : 'border-white/10 bg-slate-900/35 text-slate-300 hover:bg-slate-900/45'
-                                              }`}
-                                          >
-                                              عقار ({unifiedSeizureCounts.property})
-                                          </button>
-                                          <button
-                                              type="button"
-                                              onClick={() => setUnifiedSeizureLogTab('salary')}
-                                              className={`rounded-2xl border px-2 py-2 text-[10px] font-black ${
-                                                  unifiedSeizureLogTab === 'salary'
-                                                      ? 'border-amber-400/35 bg-amber-500/10 text-amber-200'
-                                                      : 'border-white/10 bg-slate-900/35 text-slate-300 hover:bg-slate-900/45'
-                                              }`}
-                                          >
-                                              راتب ({unifiedSeizureCounts.salary})
-                                          </button>
-                                          <button
-                                              type="button"
-                                              onClick={() => setUnifiedSeizureLogTab('movable')}
-                                              className={`rounded-2xl border px-2 py-2 text-[10px] font-black ${
-                                                  unifiedSeizureLogTab === 'movable'
-                                                      ? 'border-sky-400/35 bg-sky-500/10 text-sky-200'
-                                                      : 'border-white/10 bg-slate-900/35 text-slate-300 hover:bg-slate-900/45'
-                                              }`}
-                                          >
-                                              منقول ({unifiedSeizureCounts.movable})
-                                          </button>
-                                          <button
-                                              type="button"
-                                              onClick={() => setUnifiedSeizureLogTab('third_party')}
-                                              className={`rounded-2xl border px-2 py-2 text-[10px] font-black ${
-                                                  unifiedSeizureLogTab === 'third_party'
-                                                      ? 'border-violet-400/35 bg-violet-500/10 text-violet-200'
-                                                      : 'border-white/10 bg-slate-900/35 text-slate-300 hover:bg-slate-900/45'
-                                              }`}
-                                          >
-                                              لدى الغير ({unifiedSeizureCounts.third_party})
-                                          </button>
-                                          <button
-                                              type="button"
-                                              onClick={() => setUnifiedSeizureLogTab('marks')}
-                                              className={`rounded-2xl border px-2 py-2 text-[10px] font-black ${
-                                                  unifiedSeizureLogTab === 'marks'
-                                                      ? 'border-rose-400/35 bg-rose-500/10 text-rose-200'
-                                                      : 'border-white/10 bg-slate-900/35 text-slate-300 hover:bg-slate-900/45'
-                                              }`}
-                                          >
-                                              إشارات ({unifiedSeizureCounts.marks})
-                                          </button>
-                                      </div>
+                <UnifiedSeizureLogHost
+                    isRepresentingDebtor={isRepresentingDebtor}
+                    showModal={showUnifiedSeizureLogModal}
+                    hasContent={hasUnifiedSeizureLogContent}
+                    activeTab={unifiedSeizureLogTab}
+                    onTabChange={setUnifiedSeizureLogTab}
+                    counts={unifiedSeizureTabCounts}
+                    entries={unifiedSeizureLogEntries}
+                    onClose={closeUnifiedSeizureLog}
+                    footer={{
+                        seizedPropertiesForSeizureLog,
+                        seizedMovablesForSeizureLog,
+                        realEstateSeizureRegistryAssets,
+                        movableSeizureRegistryAssets,
+                        salarySeizureTabRows,
+                        thirdPartySeizureRegistryAssets,
+                        thirdPartySeizuresUi,
+                        thirdPartyFundsDraftById,
+                        setThirdPartyFundsDraftById,
+                        setThirdPartySeizuresUi,
+                        decisionsStorageExecutionId,
+                        executionId,
+                        executionData: executionData ?? null,
+                        seizureLogExecutorDecisions,
+                        propertyInlineSaveCtx,
+                        decisionsReloadEpoch,
+                        appealPerspective,
+                        showToast,
+                        focusSeizurePropertyInlineCompletion,
+                        focusSeizureMovableInlineCompletion,
+                        followupSalarySeizureLabel,
+                        patchSalarySeizureAssetDetails,
+                        releaseSeizureAssetRow,
+                        persistExecutionMerge,
+                        setTimelineEvents,
+                        nextTimelineId,
+                        getLedgerParams: () => seizureMatrixLedgerParamsRef.current,
+                        onLedgerRevision: () => setUnifiedLedgerRevision((v) => v + 1),
+                        beginThirdPartyReceiveStep,
+                        updateThirdPartyReceiveDraft,
+                        cancelThirdPartyReceiveStep,
+                        confirmThirdPartyReceive,
+                    }}
+                />
 
-                                      <div className="max-h-[60vh] overflow-y-auto space-y-2">
-                                          {unifiedSeizureLogTab === 'all' || unifiedSeizureLogTab === 'property' ? (
-                                              <>
-                                                  {seizedPropertiesForSeizureLog.length > 0 ? (
-                                                      <div className="rounded-3xl border border-amber-400/20 bg-slate-950/35 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-                                                          <div className="mb-2 flex items-center justify-between">
-                                                              <div className="text-right">
-                                                                  <p className="text-[11px] font-black text-amber-200">
-                                                                      الأموال المحجوزة
-                                                                  </p>
-                                                                  <p className="text-[10px] text-slate-400">
-                                                                      العقارات المحجوزة (الكيان الجديد)
-                                                                  </p>
-                                                              </div>
-                                                              <div className="rounded-full border border-amber-400/20 bg-amber-500/10 px-2 py-1 text-[10px] font-bold text-amber-200">
-                                                                  {seizedPropertiesForSeizureLog.length}
-                                                              </div>
-                                                          </div>
-                                                          <div className="space-y-2">
-                                                              {seizedPropertiesForSeizureLog.map((p) => {
-                                                                  const rawStatus = String(p?.status || '');
-                                                                  const status =
-                                                                      rawStatus === 'estimated'
-                                                                          ? 'valued'
-                                                                          : rawStatus === 'auction_scheduled'
-                                                                            ? 'published'
-                                                                            : rawStatus;
-                                                                  const statusLabel =
-                                                                      status === 'sold'
-                                                                          ? 'مباع'
-                                                                          : status === 'initial_award'
-                                                                            ? 'إحالة أولية'
-                                                                            : status === 'estimation_objected'
-                                                                              ? 'تم الاعتراض'
-                                                                            : status === 'no_bidders'
-                                                                              ? 'لا راغب'
-                                                                              : status === 'published'
-                                                                                ? 'قيد النشر والمزايدة'
-                                                                                : status === 'valued'
-                                                                                  ? 'تم التقدير'
-                                                                                  : 'محجوز';
-                                                                  const statusClass =
-                                                                      status === 'sold'
-                                                                          ? 'border-slate-400/20 bg-slate-500/10 text-slate-200'
-                                                                          : status === 'initial_award'
-                                                                            ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-200'
-                                                                            : status === 'estimation_objected'
-                                                                              ? 'border-rose-400/20 bg-rose-500/10 text-rose-200'
-                                                                            : status === 'no_bidders'
-                                                                              ? 'border-rose-400/20 bg-rose-500/10 text-rose-200'
-                                                                              : status === 'published'
-                                                                                ? 'border-sky-400/20 bg-sky-500/10 text-sky-200'
-                                                                                : status === 'valued'
-                                                                                  ? 'border-violet-400/20 bg-violet-500/10 text-violet-200'
-                                                                                  : 'border-amber-400/20 bg-amber-500/10 text-amber-200';
-                                                                  return (
-                                                                      <div
-                                                                          key={String(p.id)}
-                                                                          className="rounded-2xl border border-white/10 bg-[#0B1120]/60 p-3"
-                                                                      >
-                                                                          <div className="flex flex-row-reverse items-start justify-between gap-2">
-                                                                              <div className="min-w-0 flex-1 text-right">
-                                                                                  <p className="truncate text-[12px] font-black text-white">
-                                                                                      {String(p.propertyGender || 'عقار')} — رقم{' '}
-                                                                                      {String(p.propertyNumber || '')}
-                                                                                  </p>
-                                                                                  {String(p.district || '').trim() ? (
-                                                                                      <p className="mt-1 truncate text-[10px] text-slate-400">
-                                                                                          المقاطعة: {String(p.district || '').trim()}
-                                                                                      </p>
-                                                                                  ) : null}
-                                                                              </div>
-                                                                              <div
-                                                                                  className={`shrink-0 rounded-xl border px-2 py-1 text-[10px] font-bold ${statusClass}`}
-                                                                              >
-                                                                                  {statusLabel}
-                                                                              </div>
-                                                                          </div>
-
-                                                                          {p.expertEstimatedAmountIqd != null &&
-                                                                          Number.isFinite(Number(p.expertEstimatedAmountIqd)) &&
-                                                                          Number(p.expertEstimatedAmountIqd) > 0 ? (
-                                                                              <p className="mt-2 text-[10px] text-slate-300 text-right">
-                                                                                  التقدير: {Number(p.expertEstimatedAmountIqd).toLocaleString('ar-IQ')} د.ع
-                                                                              </p>
-                                                                          ) : p.estimatedPriceIqd != null &&
-                                                                            Number.isFinite(Number(p.estimatedPriceIqd)) &&
-                                                                            Number(p.estimatedPriceIqd) > 0 ? (
-                                                                              <p className="mt-2 text-[10px] text-slate-300 text-right">
-                                                                                  قيمة التقدير: {Number(p.estimatedPriceIqd).toLocaleString('ar-IQ')} د.ع
-                                                                              </p>
-                                                                          ) : null}
-
-                                                                          {String(p.auctionDateYmd || p.auction?.auctionDateYmd || '').trim() ? (
-                                                                              <p className="mt-1 text-[10px] text-slate-300 text-right">
-                                                                                  موعد المزايدة: {String(p.auctionDateYmd || p.auction?.auctionDateYmd || '')}
-                                                                              </p>
-                                                                          ) : null}
-
-                                                                          {status === 'initial_award' && String(p.initialAwardBuyerName || '').trim() ? (
-                                                                              <p className="mt-1 text-[10px] text-slate-300 text-right">
-                                                                                  رسو المزاد: {String(p.initialAwardBuyerName || '').trim()} —{' '}
-                                                                                  {p.initialAwardAmountIqd != null &&
-                                                                                  Number.isFinite(Number(p.initialAwardAmountIqd)) &&
-                                                                                  Number(p.initialAwardAmountIqd) > 0
-                                                                                      ? `${Number(p.initialAwardAmountIqd).toLocaleString('ar-IQ')} د.ع`
-                                                                                      : '—'}
-                                                                              </p>
-                                                                          ) : null}
-
-                                                                          {p.auctionDepositAmountIqd != null &&
-                                                                          Number.isFinite(Number(p.auctionDepositAmountIqd)) &&
-                                                                          Number(p.auctionDepositAmountIqd) > 0 ? (
-                                                                              <p className="mt-1 text-[10px] font-black text-amber-200 text-right">
-                                                                                  التأمينات القانونية (10%): {Number(p.auctionDepositAmountIqd).toLocaleString('ar-IQ')} د.ع
-                                                                              </p>
-                                                                          ) : null}
-
-                                                                          {status === 'sold' &&
-                                                                          String(p.lastBidderOrBuyerName || p.award?.buyerName || '').trim() ? (
-                                                                              <p className="mt-1 text-[10px] text-slate-300 text-right">
-                                                                                  المشتري: {String(p.lastBidderOrBuyerName || p.award?.buyerName || '')}
-                                                                              </p>
-                                                                          ) : null}
-
-                                                                          <SeizedPropertyWorkflowPanel
-                                                                              property={p}
-                                                                              workflowStatus={status}
-                                                                              decisionsStorageExecutionId={decisionsStorageExecutionId}
-                                                                              executionId={executionId}
-                                                                              executionDataId={executionData?.id}
-                                                                              decisions={seizureLogExecutorDecisions}
-                                                                              properties={seizedPropertiesForSeizureLog}
-                                                                              propertyInlineSaveCtx={propertyInlineSaveCtx}
-                                                                              decisionsReloadEpoch={decisionsReloadEpoch}
-                                                                              appealPerspective={appealPerspective}
-                                                                              showToast={showToast}
-                                                                              onOpenAppeals={(did) => {
-                                                                                  try {
-                                                                                      window.dispatchEvent(
-                                                                                          new CustomEvent('hami-open-decisions-modal', {
-                                                                                              detail: {
-                                                                                                  executionId: decisionsStorageExecutionId,
-                                                                                                  tab: 'previous',
-                                                                                                  decisionId: did,
-                                                                                              },
-                                                                                          })
-                                                                                      );
-                                                                                  } catch {
-                                                                                      /* ignore */
-                                                                                  }
-                                                                              }}
-                                                                          />
-                                                                      </div>
-                                                                  );
-                                                              })}
-                                                          </div>
-                                                      </div>
-                                                  ) : null}
-
-                                                  {pendingPropertySeizureDecisions.length > 0 ? (
-                                                      <div className="rounded-3xl border border-emerald-400/25 bg-emerald-950/20 p-3">
-                                                          <p className="mb-2 text-[11px] font-black text-emerald-200 text-right">
-                                                              طلبات عقار بانتظار إكمال السجل
-                                                          </p>
-                                                          <div className="space-y-2">
-                                                              {pendingPropertySeizureDecisions.map((row) => {
-                                                                  const did = String(row?.id || '').trim();
-                                                                  const title = String(row?.title || '').trim() || 'طلب حجز عقار';
-                                                                  const details = String(
-                                                                      row?.seizureRequestDetails || row?.body || ''
-                                                                  ).trim();
-                                                                  return (
-                                                                      <div
-                                                                          key={did}
-                                                                          className="rounded-2xl border border-white/10 bg-[#0B1120]/60 p-3 text-right"
-                                                                      >
-                                                                          <p className="text-[12px] font-black text-white">
-                                                                              {title}
-                                                                          </p>
-                                                                          <p className="mt-1 text-[10px] text-emerald-200/90">
-                                                                              موافقة المنفذ — أكمل بيانات العقار لبدء الإشارة والخبراء والمزايدة
-                                                                          </p>
-                                                                          {details ? (
-                                                                              <pre className="mt-2 whitespace-pre-wrap text-[10px] leading-relaxed text-slate-400">
-                                                                                  {details}
-                                                                              </pre>
-                                                                          ) : null}
-                                                                          <button
-                                                                              type="button"
-                                                                              onClick={() => {
-                                                                                  focusSeizurePropertyInlineCompletion(did, title);
-                                                                              }}
-                                                                              className="mt-3 w-full rounded-2xl border border-emerald-400/35 bg-emerald-500/15 px-3 py-3 text-[11px] font-black text-emerald-100 hover:bg-emerald-500/22"
-                                                                          >
-                                                                              إكمال بيانات العقار وبدء الإجراءات
-                                                                          </button>
-                                                                      </div>
-                                                                  );
-                                                              })}
-                                                          </div>
-                                                      </div>
-                                                  ) : null}
-
-                                                      {false && realEstateSeizureRegistryAssets.length > 0 ? (
-                                                      <div className="rounded-3xl border border-sky-500/20 bg-[#05060D]/60 p-3">
-                                                          <div className="flex items-center justify-between gap-2">
-                                                              <div className="text-right">
-                                                                  <p className="text-[11px] font-bold text-sky-300">
-                                                                      سجل الحجوزات — عقار (النظام القديم)
-                                                                  </p>
-                                                                  <p className="mt-0.5 text-[10px] text-slate-500">
-                                                                      يظهر فقط عند الحاجة، لتفادي التكرار مع الكيان الجديد.
-                                                                  </p>
-                                                              </div>
-                                                              <button
-                                                                  type="button"
-                                                                  onClick={() => setShowLegacyRealEstateSeizureLog((v) => !v)}
-                                                                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-bold text-slate-100 hover:bg-white/10"
-                                                              >
-                                                                  {showLegacyRealEstateSeizureLog
-                                                                      ? 'إخفاء'
-                                                                      : `إظهار (${realEstateSeizureRegistryAssets.length})`}
-                                                              </button>
-                                                          </div>
-                                                          {showLegacyRealEstateSeizureLog ? (
-                                                              <div className="mt-2 space-y-3">
-                                                                  {realEstateSeizureRegistryAssets.map((asset: any) => {
-                                                                      const locked = Boolean(asset.record_locked);
-                                                                      const archivedLocked = locked && String(asset.status) === 'archived';
-                                                                      const auctionDraft =
-                                                                          realEstateAuctionDateDraftById[asset.id] || asset.auction_date_ymd || '';
-                                                                      const saleDraft = String(asset.sale_price_draft || '');
-                                                                      const markConfirmed = Boolean(asset.isMarkConfirmed);
-                                                                      const markLock = !markConfirmed;
-                                                                      const statusLabel =
-                                                                          asset.status === 'seized'
-                                                                              ? 'تم الحجز'
-                                                                              : asset.status === 'archived'
-                                                                                ? 'ملغى/مؤرشف'
-                                                                                : asset.status === 'sold'
-                                                                                  ? `تم البيع${asset.sale_price_iqd ? ` — ${asset.sale_price_iqd} د.ع` : ''}`
-                                                                                  : String(asset.status || '—');
-                                                                      const est =
-                                                                          typeof asset.estimatedPriceIqd === 'number' &&
-                                                                          Number.isFinite(asset.estimatedPriceIqd) &&
-                                                                          asset.estimatedPriceIqd > 0
-                                                                              ? `${asset.estimatedPriceIqd.toLocaleString('ar-IQ')} د.ع`
-                                                                              : '—';
-                                                                      return (
-                                                                          <div
-                                                                              key={String(asset.id)}
-                                                                              className={`relative overflow-hidden rounded-2xl border p-3 backdrop-blur-xl ${
-                                                                                  locked
-                                                                                      ? 'border-slate-600/40 bg-slate-900/55 opacity-90'
-                                                                                      : 'border-slate-700/40 bg-slate-800/55'
-                                                                              }`}
-                                                                          >
-                                                                              <div className="mb-2 flex flex-col gap-2 sm:flex-row-reverse sm:items-start sm:justify-between">
-                                                                                  <span
-                                                                                      className={`shrink-0 rounded-lg px-2 py-0.5 text-[10px] ${
-                                                                                          asset.status === 'seized'
-                                                                                              ? 'bg-emerald-500/20 text-emerald-200'
-                                                                                              : asset.status === 'sold'
-                                                                                                ? 'bg-violet-500/20 text-violet-200'
-                                                                                                : asset.status === 'archived'
-                                                                                                  ? 'bg-slate-500/25 text-slate-300'
-                                                                                                  : 'bg-blue-500/20 text-blue-200'
-                                                                                      }`}
-                                                                                  >
-                                                                                      {statusLabel}
-                                                                                  </span>
-                                                                                  <div className="min-w-0 text-right">
-                                                                                      <p className="truncate text-[11px] font-bold text-slate-50">
-                                                                                          {asset.propertyNoAndDistrict || '—'}
-                                                                                      </p>
-                                                                                      <p className="mt-0.5 text-[10px] text-slate-300">
-                                                                                          {asset.propertyGender || '—'} · {est}
-                                                                                      </p>
-                                                                                  </div>
-                                                                              </div>
-
-                                                                              {asset.deedNotes ? (
-                                                                                  <p className="text-[10px] leading-relaxed text-slate-300 text-right whitespace-pre-line">
-                                                                                      {asset.deedNotes}
-                                                                                  </p>
-                                                                              ) : null}
-
-                                                                              <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-slate-400">
-                                                                                  <div className="rounded-xl border border-white/10 bg-black/20 px-2 py-1.5 text-right">
-                                                                                      <span className="text-slate-500">تاريخ المزايدة</span>
-                                                                                      <div className="mt-0.5 text-slate-200 tabular-nums">
-                                                                                          {asset.auction_date_ymd || '—'}
-                                                                                      </div>
-                                                                                  </div>
-                                                                                  <div className="rounded-xl border border-white/10 bg-black/20 px-2 py-1.5 text-right">
-                                                                                      <span className="text-slate-500">سعر البيع النهائي</span>
-                                                                                      <div className="mt-0.5 text-slate-200 tabular-nums">
-                                                                                          {asset.sale_price_iqd ? `${asset.sale_price_iqd} د.ع` : '—'}
-                                                                                      </div>
-                                                                                  </div>
-                                                                              </div>
-
-                                                                              <div className="mt-2 rounded-xl border border-white/10 bg-black/20 p-2">
-                                                                                  <button
-                                                                                      type="button"
-                                                                                      onClick={() =>
-                                                                                          patchRealEstateMarkConfirmation(asset.id, {
-                                                                                              isMarkConfirmed: !markConfirmed,
-                                                                                              ...(markConfirmed
-                                                                                                  ? { markConfirmationLetterNo: undefined, markConfirmationLetterDateYmd: null }
-                                                                                                  : {}),
-                                                                                          })
-                                                                                      }
-                                                                                      className={`w-full rounded-lg border px-3 py-2 text-[11px] font-extrabold transition-colors ${
-                                                                                          markConfirmed
-                                                                                              ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/15'
-                                                                                              : 'border-amber-500/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15'
-                                                                                      }`}
-                                                                                  >
-                                                                                      {markConfirmed ? 'تم تأييد وضع الإشارة' : 'بانتظار تأييد وضع الإشارة (من الطابو)'}
-                                                                                  </button>
-                                                                                  {markConfirmed ? (
-                                                                                      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                                                                          <input
-                                                                                              type="text"
-                                                                                              value={String(asset.markConfirmationLetterNo || '')}
-                                                                                              onChange={(e) =>
-                                                                                                  patchRealEstateMarkConfirmation(asset.id, { markConfirmationLetterNo: e.target.value })
-                                                                                              }
-                                                                                              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-slate-100"
-                                                                                              placeholder="رقم كتاب التأييد"
-                                                                                          />
-                                                                                          <input
-                                                                                              type="date"
-                                                                                              value={asset.markConfirmationLetterDateYmd || ''}
-                                                                                              onChange={(e) =>
-                                                                                                  patchRealEstateMarkConfirmation(asset.id, { markConfirmationLetterDateYmd: e.target.value || null })
-                                                                                              }
-                                                                                              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-slate-100"
-                                                                                          />
-                                                                                      </div>
-                                                                                  ) : null}
-                                                                              </div>
-
-                                                                              {locked ? null : (
-                                                                                  <div className="mt-3 flex flex-col gap-2">
-                                                                                      <div className="flex flex-wrap items-center justify-between gap-2">
-                                                                                          <button
-                                                                                              type="button"
-                                                                                              disabled={markLock}
-                                                                                              className="rounded-xl border border-sky-500/30 bg-sky-950/30 px-3 py-2 text-[11px] font-bold text-sky-100 hover:bg-sky-900/30 disabled:opacity-40 disabled:pointer-events-none"
-                                                                                              onClick={() => {
-                                                                                                  const el = document.getElementById(`re_auction_legacy_${asset.id}`) as any;
-                                                                                                  if (el?.showPicker) el.showPicker();
-                                                                                                  else el?.focus?.();
-                                                                                              }}
-                                                                                          >
-                                                                                              تحديد موعد المزايدة
-                                                                                          </button>
-                                                                                          <div className="flex items-center gap-2">
-                                                                                              <input
-                                                                                                  id={`re_auction_legacy_${asset.id}`}
-                                                                                                  type="date"
-                                                                                                  value={auctionDraft}
-                                                                                                  disabled={markLock}
-                                                                                                  onChange={(e) =>
-                                                                                                      setRealEstateAuctionDateDraftById((p) => ({ ...p, [asset.id]: e.target.value }))
-                                                                                                  }
-                                                                                                  className="h-[34px] rounded-xl border border-white/10 bg-white/5 px-2 text-[11px] text-slate-100"
-                                                                                              />
-                                                                                              <button
-                                                                                                  type="button"
-                                                                                                  disabled={markLock}
-                                                                                                  className="h-[34px] rounded-xl bg-white/10 px-3 text-[11px] font-bold text-slate-100 hover:bg-white/15 disabled:opacity-40 disabled:pointer-events-none"
-                                                                                                  onClick={() => saveRealEstateAuctionDate(asset, auctionDraft)}
-                                                                                              >
-                                                                                                  حفظ
-                                                                                              </button>
-                                                                                          </div>
-                                                                                      </div>
-
-                                                                                      {asset.awaiting_sale_price ? (
-                                                                                          <div className="flex flex-col gap-2 rounded-2xl border border-violet-500/25 bg-violet-950/20 p-3">
-                                                                                              <div className="flex items-center justify-between gap-2">
-                                                                                                  <p className="text-[11px] font-bold text-violet-200">أدخل سعر البيع النهائي</p>
-                                                                                                  <button
-                                                                                                      type="button"
-                                                                                                      className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[10px] text-slate-200 hover:bg-white/10"
-                                                                                                      onClick={() => cancelRealEstateSalePriceStep(asset)}
-                                                                                                  >
-                                                                                                      إلغاء
-                                                                                                  </button>
-                                                                                              </div>
-                                                                                              <div className="flex items-center gap-2">
-                                                                                                  <input
-                                                                                                      type="text"
-                                                                                                      inputMode="numeric"
-                                                                                                      value={saleDraft}
-                                                                                                      onChange={(e) => updateRealEstateSaleDraft(asset.id, e.target.value)}
-                                                                                                      className="h-[36px] w-full rounded-xl border border-white/10 bg-white/5 px-3 text-[12px] text-slate-100 text-right"
-                                                                                                      placeholder="مثال: 150000000"
-                                                                                                  />
-                                                                                                  <button
-                                                                                                      type="button"
-                                                                                                      className="h-[36px] shrink-0 rounded-xl bg-gradient-to-l from-violet-500 to-fuchsia-700 px-4 text-[11px] font-black text-white"
-                                                                                                      onClick={() => confirmRealEstateSaleWithPrice(asset)}
-                                                                                                  >
-                                                                                                      تأكيد البيع
-                                                                                                  </button>
-                                                                                              </div>
-                                                                                          </div>
-                                                                                      ) : (
-                                                                                          <button
-                                                                                              type="button"
-                                                                                              disabled={markLock || asset.status !== 'seized'}
-                                                                                              className="w-full rounded-xl border border-violet-500/25 bg-violet-950/20 px-4 py-2 text-[11px] font-black text-violet-100 hover:bg-violet-950/30 disabled:opacity-40 disabled:pointer-events-none"
-                                                                                              onClick={() => beginRealEstateSalePriceStep(asset)}
-                                                                                          >
-                                                                                              تسجيل البيع النهائي
-                                                                                          </button>
-                                                                                      )}
-
-                                                                                      <button
-                                                                                          type="button"
-                                                                                          disabled={locked}
-                                                                                          className="w-full rounded-xl border border-rose-500/30 bg-rose-950/25 px-4 py-2 text-[11px] font-black text-rose-100 hover:bg-rose-900/25 disabled:opacity-40 disabled:pointer-events-none"
-                                                                                          onClick={() => archiveRealEstateSeizureRow(asset)}
-                                                                                      >
-                                                                                          فك الحجز
-                                                                                      </button>
-                                                                                  </div>
-                                                                              )}
-
-                                                                              {archivedLocked ? (
-                                                                                  <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                                                                                      <button
-                                                                                          type="button"
-                                                                                          className="rounded-xl bg-white/10 px-4 py-2 text-[11px] font-black text-white hover:bg-white/15"
-                                                                                          onClick={() => undoArchiveRealEstateSeizureRow(asset)}
-                                                                                      >
-                                                                                          تراجع
-                                                                                      </button>
-                                                                                  </div>
-                                                                              ) : null}
-                                                                          </div>
-                                                                      );
-                                                                  })}
-                                                              </div>
-                                                          ) : null}
-                                                      </div>
-                                                  ) : null}
-                                              </>
-                                          ) : null}
-
-                                          {unifiedSeizureLogTab === 'movable' ? (
-                                              seizedMovablesForSeizureLog.length === 0 &&
-                                              movableSeizureRegistryAssets.length === 0 ? (
-                                                  <p className="py-8 text-center text-[10px] text-slate-500">
-                                                      لا يوجد سجل حجز للمال المنقول بعد.
-                                                  </p>
-                                              ) : (
-                                                  <>
-                                                      {seizedMovablesForSeizureLog.length > 0 ? (
-                                                          <div className="rounded-2xl border border-sky-500/20 bg-[#05060D]/60 p-3">
-                                                              <div className="flex items-center justify-between gap-2">
-                                                                  <p className="text-[11px] font-bold text-sky-200">
-                                                                      الأموال المحجوزة — مال منقول (كيان جديد)
-                                                                  </p>
-                                                                  <span className="text-[10px] text-slate-500 tabular-nums">
-                                                                      {seizedMovablesForSeizureLog.length}
-                                                                  </span>
-                                                              </div>
-                                                              <div className="mt-2 space-y-3">
-                                                                  {seizedMovablesForSeizureLog.map((m) => {
-                                                                      const rawStatus = String((m as any).status || '').trim();
-                                                                      const status =
-                                                                          rawStatus === 'estimated'
-                                                                              ? 'valued'
-                                                                              : rawStatus === 'auction_scheduled'
-                                                                                ? 'published'
-                                                                                : rawStatus;
-                                                                      const statusLabel =
-                                                                          status === 'sold'
-                                                                              ? 'مباع'
-                                                                              : status === 'initial_award'
-                                                                                ? 'إحالة أولية'
-                                                                                : status === 'estimation_objected'
-                                                                                  ? 'تم الاعتراض'
-                                                                                : status === 'no_bidders'
-                                                                                  ? 'لا راغب'
-                                                                                  : status === 'published'
-                                                                                    ? 'قيد النشر والمزايدة'
-                                                                                    : status === 'valued'
-                                                                                      ? 'تم التقدير'
-                                                                                      : 'محجوز';
-                                                                      const statusClass =
-                                                                          status === 'sold'
-                                                                              ? 'border-slate-400/20 bg-slate-500/10 text-slate-200'
-                                                                              : status === 'initial_award'
-                                                                                ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-200'
-                                                                                : status === 'estimation_objected'
-                                                                                  ? 'border-amber-400/20 bg-amber-500/10 text-amber-200'
-                                                                                : status === 'no_bidders'
-                                                                                  ? 'border-rose-400/20 bg-rose-500/10 text-rose-200'
-                                                                                  : status === 'published'
-                                                                                    ? 'border-sky-400/20 bg-sky-500/10 text-sky-200'
-                                                                                    : status === 'valued'
-                                                                                      ? 'border-violet-400/20 bg-violet-500/10 text-violet-200'
-                                                                                      : 'border-amber-400/20 bg-amber-500/10 text-amber-200';
-                                                                      return (
-                                                                          <div
-                                                                              key={String((m as any).id)}
-                                                                              className="rounded-2xl border border-white/10 bg-[#0B1120]/60 p-3"
-                                                                          >
-                                                                              <div className="flex items-start justify-between gap-3">
-                                                                                  <span
-                                                                                      className={`rounded-xl border px-2 py-1 text-[10px] font-black ${statusClass}`}
-                                                                                  >
-                                                                                      {statusLabel}
-                                                                                  </span>
-                                                                                  <div className="min-w-0 text-right">
-                                                                                      <p className="truncate text-[12px] font-black text-white">
-                                                                                          {String((m as any).movableDescription || '').trim() || '—'}
-                                                                                      </p>
-                                                                                      <p className="mt-0.5 text-[10px] text-slate-400">
-                                                                                          المكان: {String((m as any).movableLocation || '').trim() || '—'}
-                                                                                      </p>
-                                                                                  </div>
-                                                                              </div>
-                                                                              {(m as any).expertEstimatedAmountIqd != null &&
-                                                                              Number.isFinite(Number((m as any).expertEstimatedAmountIqd)) &&
-                                                                              Number((m as any).expertEstimatedAmountIqd) > 0 ? (
-                                                                                  <p className="mt-2 text-[10px] text-slate-200 text-right tabular-nums">
-                                                                                      مبلغ التقدير:{' '}
-                                                                                      {Number((m as any).expertEstimatedAmountIqd).toLocaleString('ar-IQ')} د.ع
-                                                                                  </p>
-                                                                              ) : null}
-                                                                              {String((m as any).auctionDateYmd || '').trim() ? (
-                                                                                  <p className="mt-1 text-[10px] text-slate-300 text-right tabular-nums">
-                                                                                      موعد المزايدة: {String((m as any).auctionDateYmd || '').trim()}
-                                                                                  </p>
-                                                                              ) : null}
-                                                                              {(m as any).auctionDepositAmountIqd != null &&
-                                                                              Number.isFinite(Number((m as any).auctionDepositAmountIqd)) &&
-                                                                              Number((m as any).auctionDepositAmountIqd) > 0 ? (
-                                                                                  <p className="mt-1 text-[10px] font-black text-amber-200 text-right tabular-nums">
-                                                                                      التأمينات القانونية (10%):{' '}
-                                                                                      {Number((m as any).auctionDepositAmountIqd).toLocaleString('ar-IQ')} د.ع
-                                                                                  </p>
-                                                                              ) : null}
-                                                                              <SeizedMovableWorkflowPanel
-                                                                                  movable={m as any}
-                                                                                  workflowStatus={status}
-                                                                                  decisionsStorageExecutionId={String(decisionsStorageExecutionId || '')}
-                                                                                  executionId={executionId}
-                                                                                  executionDataId={executionData?.id}
-                                                                                  decisions={seizureLogExecutorDecisions}
-                                                                                  movables={(executionData?.seizedMovables || []) as SeizedMovable[]}
-                                                                                  movableInlineSaveCtx={movableInlineSaveCtx}
-                                                                                  decisionsReloadEpoch={decisionsReloadEpoch}
-                                                                                  appealPerspective={appealPerspective}
-                                                                                  showToast={showToast}
-                                                                                  onOpenAppeals={(did) => {
-                                                                                      try {
-                                                                                          window.dispatchEvent(
-                                                                                              new CustomEvent('hami-open-decisions-modal', {
-                                                                                                  detail: {
-                                                                                                      executionId: decisionsStorageExecutionId,
-                                                                                                      tab: 'previous',
-                                                                                                      decisionId: did,
-                                                                                                  },
-                                                                                              })
-                                                                                          );
-                                                                                      } catch {
-                                                                                          /* ignore */
-                                                                                      }
-                                                                                  }}
-                                                                              />
-                                                                          </div>
-                                                                      );
-                                                                  })}
-                                                              </div>
-                                                          </div>
-                                                      ) : null}
-
-                                                      {false && movableSeizureRegistryAssets.length > 0 ? (
-                                                          <div className="rounded-2xl border border-[#E6C673]/20 bg-[#05060D]/60 p-3 mt-3">
-                                                              <div className="flex items-center justify-between gap-2">
-                                                                  <p className="text-[11px] font-bold text-[#E6C673]">
-                                                                      سجل الحجوزات — مال منقول (النظام القديم)
-                                                                  </p>
-                                                                  <span className="text-[10px] text-slate-500 tabular-nums">
-                                                                      {movableSeizureRegistryAssets.length}
-                                                                  </span>
-                                                              </div>
-                                                              <div className="mt-2 space-y-3">
-                                                                  {movableSeizureRegistryAssets.map((asset: any) => {
-                                                              const locked = Boolean(asset.seizure_record_locked);
-                                                              const releasedLocked =
-                                                                  locked && String(asset.status) === 'released';
-                                                              const statusLabel =
-                                                                  asset.status === 'seized'
-                                                                      ? 'تم الحجز'
-                                                                      : asset.status === 'released'
-                                                                        ? 'فُك الحجز'
-                                                                        : asset.status === 'sold'
-                                                                          ? `تمت المزايدة${
-                                                                                asset.sale_price_iqd
-                                                                                    ? ` — ${asset.sale_price_iqd} د.ع`
-                                                                                    : ''
-                                                                            }`
-                                                                          : String(asset.status || '—');
-                                                              const det =
-                                                                  typeof asset.details === 'object' &&
-                                                                  asset.details &&
-                                                                  !Array.isArray(asset.details)
-                                                                      ? (asset.details as Record<string, unknown>)
-                                                                      : null;
-                                                              const movableType =
-                                                                  String(
-                                                                      det?.movableAssetType ??
-                                                                          asset.description ??
-                                                                          ''
-                                                                  ).trim() || '—';
-                                                              const est =
-                                                                  typeof asset.estimatedValue === 'number' &&
-                                                                  Number.isFinite(asset.estimatedValue) &&
-                                                                  asset.estimatedValue > 0
-                                                                      ? asset.estimatedValue
-                                                                      : null;
-                                                              const notes = String(asset.notes ?? '').trim();
-                                                              const auctionDraft =
-                                                                  seizureAuctionDateDraftById[asset.id] || '';
-                                                              const saleDraft = String(
-                                                                  asset.seizure_sale_price_draft || ''
-                                                              );
-                                                              const uiKind = String(det?.seizureUiKind || '').trim();
-                                                              const requiresMarkConfirmation = uiKind === 'vehicle';
-                                                              const markConfirmed = Boolean(asset.isMarkConfirmed);
-                                                              const markLock =
-                                                                  requiresMarkConfirmation && !markConfirmed;
-
-                                                              return (
-                                                                  <div
-                                                                      key={String(asset.id)}
-                                                                      className={`relative overflow-hidden rounded-2xl border p-3 backdrop-blur-xl ${
-                                                                          locked
-                                                                              ? 'border-slate-600/40 bg-slate-900/55 opacity-90'
-                                                                              : 'border-slate-700/40 bg-slate-800/55'
-                                                                      }`}
-                                                                  >
-                                                                      <div className="mb-2 flex flex-col gap-2 sm:flex-row-reverse sm:items-start sm:justify-between">
-                                                                          <span
-                                                                              className={`shrink-0 rounded-lg px-2 py-0.5 text-[10px] ${
-                                                                                  asset.status === 'seized'
-                                                                                      ? 'bg-emerald-500/20 text-emerald-200'
-                                                                                      : asset.status === 'sold'
-                                                                                        ? 'bg-violet-500/20 text-violet-200'
-                                                                                        : asset.status === 'released'
-                                                                                          ? 'bg-slate-500/25 text-slate-300'
-                                                                                          : 'bg-blue-500/20 text-blue-200'
-                                                                              }`}
-                                                                          >
-                                                                              {statusLabel}
-                                                                          </span>
-                                                                          <div className="min-w-0 text-right">
-                                                                              <p className="truncate text-[11px] font-bold text-slate-50">
-                                                                                  {movableType}
-                                                                              </p>
-                                                                              {est != null ? (
-                                                                                  <p className="mt-0.5 text-[10px] text-slate-300 tabular-nums">
-                                                                                      القيمة التقديرية:{' '}
-                                                                                      {est.toLocaleString('ar-IQ')} د.ع
-                                                                                  </p>
-                                                                              ) : null}
-                                                                          </div>
-                                                                      </div>
-                                                                      {notes ? (
-                                                                          <p className="text-[10px] leading-relaxed text-slate-300 text-right whitespace-pre-line">
-                                                                              {notes}
-                                                                          </p>
-                                                                      ) : null}
-                                                                      <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-slate-400">
-                                                                          <div className="rounded-xl border border-white/10 bg-black/20 px-2 py-1.5 text-right">
-                                                                              <span className="text-slate-500">
-                                                                                  تاريخ المزايدة
-                                                                              </span>
-                                                                              <div className="mt-0.5 text-slate-200 tabular-nums">
-                                                                                  {asset.auction_date_ymd || '—'}
-                                                                              </div>
-                                                                          </div>
-                                                                          <div className="rounded-xl border border-white/10 bg-black/20 px-2 py-1.5 text-right">
-                                                                              <span className="text-slate-500">
-                                                                                  مبلغ البيع
-                                                                              </span>
-                                                                              <div className="mt-0.5 text-slate-200 tabular-nums">
-                                                                                  {asset.sale_price_iqd
-                                                                                      ? `${asset.sale_price_iqd} د.ع`
-                                                                                      : '—'}
-                                                                              </div>
-                                                                          </div>
-                                                                      </div>
-
-                                                                      {requiresMarkConfirmation ? (
-                                                                          <div className="mt-2 rounded-xl border border-white/10 bg-black/20 p-2">
-                                                                              <button
-                                                                                  type="button"
-                                                                                  onClick={() =>
-                                                                                      patchSeizureMarkConfirmation(
-                                                                                          asset.id,
-                                                                                          {
-                                                                                              isMarkConfirmed:
-                                                                                                  !markConfirmed,
-                                                                                              ...(markConfirmed
-                                                                                                  ? {
-                                                                                                        markConfirmationLetterNo:
-                                                                                                            undefined,
-                                                                                                        markConfirmationLetterDateYmd:
-                                                                                                            null,
-                                                                                                    }
-                                                                                                  : {}),
-                                                                                          }
-                                                                                      )
-                                                                                  }
-                                                                                  className={`w-full rounded-lg border px-3 py-2 text-[11px] font-extrabold transition-colors ${
-                                                                                      markConfirmed
-                                                                                          ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/15'
-                                                                                          : 'border-amber-500/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15'
-                                                                                  }`}
-                                                                              >
-                                                                                  {markConfirmed
-                                                                                      ? 'تم تأييد وضع الإشارة'
-                                                                                      : 'بانتظار تأييد وضع الإشارة (من المرور)'}
-                                                                              </button>
-                                                                              {markConfirmed ? (
-                                                                                  <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                                                                      <input
-                                                                                          type="text"
-                                                                                          value={String(
-                                                                                              asset.markConfirmationLetterNo ||
-                                                                                                  ''
-                                                                                          )}
-                                                                                          onChange={(e) =>
-                                                                                              patchSeizureMarkConfirmation(
-                                                                                                  asset.id,
-                                                                                                  {
-                                                                                                      markConfirmationLetterNo:
-                                                                                                          e.target.value,
-                                                                                                  }
-                                                                                              )
-                                                                                          }
-                                                                                          className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-slate-100"
-                                                                                          placeholder="رقم كتاب التأييد"
-                                                                                      />
-                                                                                      <input
-                                                                                          type="date"
-                                                                                          value={asset.markConfirmationLetterDateYmd || ''}
-                                                                                          onChange={(e) =>
-                                                                                              patchSeizureMarkConfirmation(
-                                                                                                  asset.id,
-                                                                                                  {
-                                                                                                      markConfirmationLetterDateYmd:
-                                                                                                          e.target.value ||
-                                                                                                          null,
-                                                                                                  }
-                                                                                              )
-                                                                                          }
-                                                                                          className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-slate-100"
-                                                                                      />
-                                                                                  </div>
-                                                                              ) : null}
-                                                                          </div>
-                                                                      ) : null}
-
-                                                                      {releasedLocked ? (
-                                                                          <div className="absolute inset-0 flex items-center justify-center bg-black/55 p-3">
-                                                                              <button
-                                                                                  type="button"
-                                                                                  onClick={(e) => {
-                                                                                      e.stopPropagation();
-                                                                                      undoReleaseSeizureAssetRow(
-                                                                                          asset
-                                                                                      );
-                                                                                  }}
-                                                                                  className="w-full rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] font-extrabold text-amber-200 hover:bg-amber-500/15"
-                                                                              >
-                                                                                  تراجع
-                                                                              </button>
-                                                                          </div>
-                                                                      ) : null}
-
-                                                                      {!locked ? (
-                                                                          <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
-                                                                              {!asset.auction_date_ymd ? (
-                                                                                  <>
-                                                                                      <button
-                                                                                          type="button"
-                                                                                          disabled={markLock}
-                                                                                          onClick={() => {
-                                                                                              setSeizureAuctionDateDraftById(
-                                                                                                  (p) => ({
-                                                                                                      ...p,
-                                                                                                      [asset.id]:
-                                                                                                          p[
-                                                                                                              asset
-                                                                                                                  .id
-                                                                                                          ] ||
-                                                                                                          getLocalTodayYmd(),
-                                                                                                  })
-                                                                                              );
-                                                                                          }}
-                                                                                          className="w-full rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 text-[11px] font-extrabold text-indigo-200 hover:bg-indigo-500/15 disabled:opacity-40 disabled:pointer-events-none"
-                                                                                      >
-                                                                                          تحديد موعد المزايدة
-                                                                                      </button>
-                                                                                      {auctionDraft ? (
-                                                                                          <div className="rounded-xl border border-white/10 bg-black/20 p-2">
-                                                                                              <input
-                                                                                                  type="date"
-                                                                                                  value={auctionDraft}
-                                                                                                  disabled={markLock}
-                                                                                                  onChange={(e) =>
-                                                                                                      setSeizureAuctionDateDraftById(
-                                                                                                          (p) => ({
-                                                                                                              ...p,
-                                                                                                              [asset.id]:
-                                                                                                                  e
-                                                                                                                      .target
-                                                                                                                      .value,
-                                                                                                          })
-                                                                                                      )
-                                                                                                  }
-                                                                                                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-slate-100"
-                                                                                              />
-                                                                                              <div className="mt-2 grid grid-cols-2 gap-2">
-                                                                                                  <button
-                                                                                                      type="button"
-                                                                                                      disabled={
-                                                                                                          markLock
-                                                                                                      }
-                                                                                                      onClick={() =>
-                                                                                                          saveSeizureAuctionDate(
-                                                                                                              asset,
-                                                                                                              auctionDraft
-                                                                                                          )
-                                                                                                      }
-                                                                                                      className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 py-2 text-[10px] font-bold text-emerald-200 hover:bg-emerald-500/15 disabled:opacity-40 disabled:pointer-events-none"
-                                                                                                  >
-                                                                                                      حفظ
-                                                                                                  </button>
-                                                                                                  <button
-                                                                                                      type="button"
-                                                                                                      onClick={() =>
-                                                                                                          setSeizureAuctionDateDraftById(
-                                                                                                              (p) => {
-                                                                                                                  const n = {
-                                                                                                                      ...p,
-                                                                                                                  };
-                                                                                                                  delete (n as any)[
-                                                                                                                      asset
-                                                                                                                          .id
-                                                                                                                  ];
-                                                                                                                  return n;
-                                                                                                              }
-                                                                                                          )
-                                                                                                      }
-                                                                                                      className="rounded-lg border border-slate-500/30 bg-slate-500/10 py-2 text-[10px] font-bold text-slate-200 hover:bg-slate-500/15"
-                                                                                                  >
-                                                                                                      إلغاء
-                                                                                                  </button>
-                                                                                              </div>
-                                                                                          </div>
-                                                                                      ) : null}
-                                                                                  </>
-                                                                              ) : asset.seizure_awaiting_sale_price ? (
-                                                                                  <div className="rounded-xl border border-white/10 bg-black/20 p-2">
-                                                                                      <label className="mb-1 block text-[10px] text-slate-400 text-right">
-                                                                                          مبلغ البيع
-                                                                                      </label>
-                                                                                      <input
-                                                                                          type="text"
-                                                                                          inputMode="numeric"
-                                                                                          pattern="[0-9]*"
-                                                                                          value={saleDraft}
-                                                                                          onChange={(e) =>
-                                                                                              updateSeizureSaleDraft(
-                                                                                                  asset.id,
-                                                                                                  e.target.value
-                                                                                              )
-                                                                                          }
-                                                                                          className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-slate-100 text-right"
-                                                                                          placeholder="مثال: 1500000"
-                                                                                          dir="rtl"
-                                                                                      />
-                                                                                      <div className="mt-2 grid grid-cols-2 gap-2">
-                                                                                          <button
-                                                                                              type="button"
-                                                                                              onClick={() =>
-                                                                                                  confirmSeizureSaleWithPrice(
-                                                                                                      asset
-                                                                                                  )
-                                                                                              }
-                                                                                              className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 py-2 text-[10px] font-bold text-emerald-200 hover:bg-emerald-500/15"
-                                                                                          >
-                                                                                              حفظ مبلغ البيع
-                                                                                          </button>
-                                                                                          <button
-                                                                                              type="button"
-                                                                                              onClick={() =>
-                                                                                                  cancelSeizureSalePriceStep(
-                                                                                                      asset
-                                                                                                  )
-                                                                                              }
-                                                                                              className="rounded-lg border border-slate-500/30 bg-slate-500/10 py-2 text-[10px] font-bold text-slate-200 hover:bg-slate-500/15"
-                                                                                          >
-                                                                                              إلغاء
-                                                                                          </button>
-                                                                                      </div>
-                                                                                  </div>
-                                                                              ) : asset.auction_date_ymd ? (
-                                                                                  <button
-                                                                                      type="button"
-                                                                                      disabled={markLock}
-                                                                                      onClick={() =>
-                                                                                          beginSeizureSalePriceStep(
-                                                                                              asset
-                                                                                          )
-                                                                                      }
-                                                                                      className="w-full rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-[11px] font-extrabold text-violet-200 hover:bg-violet-500/15 disabled:opacity-40 disabled:pointer-events-none"
-                                                                                  >
-                                                                                      تم بيع المال
-                                                                                  </button>
-                                                                              ) : null}
-
-                                                                              <button
-                                                                                  type="button"
-                                                                                  onClick={() =>
-                                                                                      releaseSeizureAssetRow(asset)
-                                                                                  }
-                                                                                  className="w-full rounded-xl border border-slate-500/30 bg-slate-500/10 px-3 py-2 text-[11px] font-extrabold text-slate-200 hover:bg-slate-500/15"
-                                                                              >
-                                                                                  فك الحجز
-                                                                              </button>
-                                                                          </div>
-                                                                      ) : null}
-                                                                  </div>
-                                                              );
-                                                          })}
-                                                              </div>
-                                                          </div>
-                                                      ) : null}
-                                                  </>
-                                              )
-                                          ) : null}
-
-                                          {unifiedSeizureLogTab === 'salary' ? (
-                                              salarySeizureTabRows.length === 0 ? (
-                                                  <div className="space-y-3 py-4">
-                                                      <p className="text-center text-[10px] text-slate-500">
-                                                          لا يوجد سجل حجز للراتب بعد.
-                                                      </p>
-                                                      {showSalarySeizureInFollowupModal ? (
-                                                          <button
-                                                              type="button"
-                                                              onClick={() => openSalarySeizureWorkflowFromLog(null)}
-                                                              className="mx-auto block w-full max-w-sm rounded-2xl border border-emerald-400/35 bg-emerald-500/10 px-4 py-3 text-[11px] font-black text-emerald-100 hover:bg-emerald-500/15"
-                                                          >
-                                                              {followupSalarySeizureLabel} — من محضر المتابعة
-                                                          </button>
-                                                      ) : (
-                                                          <p className="text-center text-[10px] text-amber-200/80">
-                                                              حجز الراتب متاح للمدين الموظف فقط.
-                                                          </p>
-                                                      )}
-                                                  </div>
-                                              ) : (
-                                                  <div className="rounded-2xl border border-emerald-500/20 bg-[#05060D]/60 p-3">
-                                                      <div className="flex items-center justify-between gap-2">
-                                                          <p className="text-[11px] font-bold text-emerald-300">
-                                                              سجل الحجوزات — الراتب
-                                                          </p>
-                                                          <span className="text-[10px] text-slate-500 tabular-nums">
-                                                              {salarySeizureTabRows.length}
-                                                          </span>
-                                                      </div>
-                                                      <div className="mt-2 space-y-3">
-                                                          {salarySeizureTabRows.map((asset: SeizedAsset) => {
-                                                              const locked = Boolean(asset.seizure_record_locked);
-                                                              const releasedLocked =
-                                                                  locked && String(asset.status) === 'released';
-                                                              const isPending = String(asset.status) === 'pending';
-
-                                                              return (
-                                                                  <SalarySeizureLogDetailCard
-                                                                      key={String(asset.id)}
-                                                                      asset={asset}
-                                                                      executionData={executionData ?? null}
-                                                                      executionId={String(
-                                                                          decisionsStorageExecutionId ??
-                                                                              executionId ??
-                                                                              ''
-                                                                      ).trim() || undefined}
-                                                                      titleLabel={followupSalarySeizureLabel}
-                                                                      locked={locked}
-                                                                      releasedLocked={releasedLocked}
-                                                                      isPending={isPending}
-                                                                      onSaveDetails={patchSalarySeizureAssetDetails}
-                                                                      onRelease={() => releaseSeizureAssetRow(asset)}
-                                                                      showToast={showToast}
-                                                                  />
-                                                              );
-                                                          })}
-                                                      </div>
-                                                  </div>
-                                              )
-                                          ) : null}
-
-                                          {unifiedSeizureLogTab === 'third_party' ? (
-                                              (() => {
-                                                  const resolvedDecisionsExecutionId = String(
-                                                      decisionsStorageExecutionId ??
-                                                          executionData?.id ??
-                                                          executionId ??
-                                                          ''
-                                                  ).trim();
-                                                  const executorDecisions = resolvedDecisionsExecutionId
-                                                      ? (readExecutorDecisionsArray(resolvedDecisionsExecutionId) as any[])
-                                                      : [];
-                                                  const thirdPartySeizures = thirdPartySeizuresUi;
-                                                  const total =
-                                                      thirdPartySeizures.length +
-                                                      thirdPartySeizureRegistryAssets.length;
-
-                                                  if (total === 0) return null;
-
-                                                  const openAppealCenter = (decisionId?: string) => {
-                                                      if (!resolvedDecisionsExecutionId) return;
-                                                      try {
-                                                          window.dispatchEvent(
-                                                              new CustomEvent('hami-open-decisions-modal', {
-                                                                  detail: {
-                                                                      executionId: resolvedDecisionsExecutionId,
-                                                                      tab: 'previous',
-                                                                      decisionId: decisionId || undefined,
-                                                                  },
-                                                              })
-                                                          );
-                                                      } catch {
-                                                          /* ignore */
-                                                      }
-                                                  };
-
-                                                  return (
-                                                      <div className="rounded-2xl border border-cyan-500/20 bg-[#05060D]/60 p-3">
-                                                          <div className="flex items-center justify-between gap-2">
-                                                              <p className="text-[11px] font-bold text-cyan-200">
-                                                                  لدى الغير (البنوك والشركاء)
-                                                              </p>
-                                                              <span className="text-[10px] text-slate-500 tabular-nums">
-                                                                  {total}
-                                                              </span>
-                                                          </div>
-
-                                                          {thirdPartySeizures.length > 0 ? (
-                                                              <div className="mt-3 space-y-3">
-                                                                  {thirdPartySeizures.map((s: any) => {
-                                                                      const id = String(s?.id || '').trim();
-                                                                      if (!id) return null;
-                                                                      const status = String(s?.status || '').trim();
-                                                                      const replyStatus = String(s?.replyStatus || '').trim();
-                                                                      const thirdPartyName =
-                                                                          String(s?.thirdPartyName || '').trim() ||
-                                                                          'جهة غير محددة';
-                                                                      const requested =
-                                                                          typeof s?.requestedAmountIqd === 'number' &&
-                                                                          Number.isFinite(s.requestedAmountIqd) &&
-                                                                          s.requestedAmountIqd > 0
-                                                                              ? `${Math.trunc(
-                                                                                    s.requestedAmountIqd
-                                                                                ).toLocaleString('ar-IQ')} د.ع`
-                                                                              : '—';
-                                                                      const transferred =
-                                                                          typeof s?.transferredAmountIqd === 'number' &&
-                                                                          Number.isFinite(s.transferredAmountIqd) &&
-                                                                          s.transferredAmountIqd > 0
-                                                                              ? `${Math.trunc(
-                                                                                    s.transferredAmountIqd
-                                                                                ).toLocaleString('ar-IQ')} د.ع`
-                                                                              : '—';
-                                                                      const notifiedAt = String(s?.notificationDateIso || '').trim()
-                                                                          ? String(s.notificationDateIso).slice(0, 10)
-                                                                          : '—';
-
-                                                                      const fundsDecisions = executorDecisions
-                                                                          .filter(
-                                                                              (r: any) =>
-                                                                                  String(r?.requestKind || '') ===
-                                                                                  'third_party_funds_received'
-                                                                          )
-                                                                          .filter((r: any) => {
-                                                                              const p = String(r?.payloadJson || '').trim();
-                                                                              if (!p) return false;
-                                                                              try {
-                                                                                  const v = JSON.parse(p) as any;
-                                                                                  return (
-                                                                                      String(v?.thirdPartySeizureId || '')
-                                                                                          .trim() === id
-                                                                                  );
-                                                                              } catch {
-                                                                                  return false;
-                                                                              }
-                                                                          })
-                                                                          .sort((a: any, b: any) => {
-                                                                              const da = String(a?.resolvedAt ?? a?.date ?? '');
-                                                                              const db = String(b?.resolvedAt ?? b?.date ?? '');
-                                                                              return db.localeCompare(da, undefined, { numeric: true });
-                                                                          });
-                                                                      const pendingFundsDecision = fundsDecisions.find(
-                                                                          (r: any) =>
-                                                                              String(r?.executorOutcome ?? 'pending') ===
-                                                                                  'pending' ||
-                                                                              String(r?.executorOutcome ?? '') === ''
-                                                                      );
-                                                                      const latestFundsDecision = fundsDecisions[0] || null;
-                                                                      const latestFundsOutcome = String(
-                                                                          latestFundsDecision?.executorOutcome ?? ''
-                                                                      );
-                                                                      const fundsRejected = latestFundsOutcome === 'rejected';
-                                                                      const fundsApproved =
-                                                                          latestFundsOutcome === 'approved' ||
-                                                                          latestFundsOutcome === 'alternative';
-
-                                                                      const canReply = status === 'notified';
-                                                                      const isDenied = status === 'replied' && replyStatus === 'denied';
-                                                                      const showFundsStep = !isDenied;
-                                                                      const canAskFunds =
-                                                                          status === 'replied' &&
-                                                                          replyStatus === 'acknowledged' &&
-                                                                          !(typeof s?.transferredAmountIqd === 'number' && s.transferredAmountIqd > 0) &&
-                                                                          !fundsApproved &&
-                                                                          !fundsRejected &&
-                                                                          !pendingFundsDecision;
-
-                                                                      const resolvedDraft = String(thirdPartyFundsDraftById[id] ?? '').trim();
-                                                                      const draftParsed = resolvedDraft
-                                                                          ? Number(resolvedDraft.replace(/,/g, '').trim())
-                                                                          : NaN;
-                                                                      const draftAmount =
-                                                                          !resolvedDraft ||
-                                                                          !Number.isFinite(draftParsed) ||
-                                                                          draftParsed <= 0
-                                                                              ? 0
-                                                                              : Math.trunc(draftParsed);
-
-                                                                      const steps: ExecutionInlineStep[] = [
-                                                                          {
-                                                                              id: `${id}:notified`,
-                                                                              title: 'تم تبليغ الجهة الثالثة',
-                                                                              subtitle: `تاريخ التبليغ: ${notifiedAt}`,
-                                                                              status: 'done',
-                                                                              tone: 'success',
-                                                                          },
-                                                                          {
-                                                                              id: `${id}:reply`,
-                                                                              title: 'إجابة الجهة الثالثة',
-                                                                              subtitle:
-                                                                                  status === 'replied'
-                                                                                      ? replyStatus === 'acknowledged'
-                                                                                        ? 'تم الإقرار بوجود رصيد'
-                                                                                        : replyStatus === 'denied'
-                                                                                          ? 'تم النفي'
-                                                                                          : 'تمت الإجابة'
-                                                                                      : 'بانتظار تسجيل الإجابة',
-                                                                              status:
-                                                                                  status === 'notified'
-                                                                                      ? 'active'
-                                                                                      : status === 'replied' || status === 'funds_received'
-                                                                                        ? 'done'
-                                                                                        : 'locked',
-                                                                              tone:
-                                                                                  status === 'replied' && replyStatus === 'denied'
-                                                                                      ? 'danger'
-                                                                                      : status === 'replied'
-                                                                                        ? 'success'
-                                                                                        : 'neutral',
-                                                                              content: canReply ? (
-                                                                                  <div className="grid grid-cols-1 gap-2">
-                                                                                      <button
-                                                                                          type="button"
-                                                                                          className="w-full rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-[11px] font-extrabold text-emerald-200 hover:bg-emerald-500/15"
-                                                                                          onClick={() => {
-                                                                                              const nowIso = new Date().toISOString();
-                                                                                              const nextSeizures = thirdPartySeizuresUi.map((x: any) =>
-                                                                                                  String(x?.id || '').trim() === id
-                                                                                                      ? { ...x, status: 'replied', replyStatus: 'acknowledged' }
-                                                                                                      : x
-                                                                                              ) as any[];
-                                                                                              setThirdPartySeizuresUi(nextSeizures as any);
-                                                                                              setTimelineEvents((prev) => {
-                                                                                                  const ev: TimelineEvent = {
-                                                                                                      id: nextTimelineId(),
-                                                                                                      date: nowIso.slice(0, 10),
-                                                                                                      timestamp: nowIso,
-                                                                                                      title: '📬 إجابة الجهة الثالثة — إقرار بوجود رصيد',
-                                                                                                      description: `الجهة: ${thirdPartyName}`,
-                                                                                                      type: 'coercive',
-                                                                                                      source: 'محضر المتابعة — حجز لدى الغير',
-                                                                                                      metadata: { thirdPartySeizureId: id },
-                                                                                                  };
-                                                                                                  const nextTl = [ev, ...prev];
-                                                                                                  queueMicrotask(() =>
-                                                                                                      persistExecutionMerge({
-                                                                                                          thirdPartySeizures: nextSeizures,
-                                                                                                          timelineEvents: nextTl,
-                                                                                                      } as any)
-                                                                                                  );
-                                                                                                  return nextTl;
-                                                                                              });
-                                                                                              showToast('تم تسجيل الإجابة (إقرار).', 'success');
-                                                                                          }}
-                                                                                      >
-                                                                                          إقرار بوجود رصيد
-                                                                                      </button>
-                                                                                      <button
-                                                                                          type="button"
-                                                                                          className="w-full rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2.5 text-[11px] font-extrabold text-rose-200 hover:bg-rose-500/15"
-                                                                                          onClick={() => {
-                                                                                              const nowIso = new Date().toISOString();
-                                                                                              const nextSeizures = thirdPartySeizuresUi.map((x: any) =>
-                                                                                                  String(x?.id || '').trim() === id
-                                                                                                      ? { ...x, status: 'replied', replyStatus: 'denied' }
-                                                                                                      : x
-                                                                                              ) as any[];
-                                                                                              setThirdPartySeizuresUi(nextSeizures as any);
-                                                                                              setTimelineEvents((prev) => {
-                                                                                                  const ev: TimelineEvent = {
-                                                                                                      id: nextTimelineId(),
-                                                                                                      date: nowIso.slice(0, 10),
-                                                                                                      timestamp: nowIso,
-                                                                                                      title: '📭 إجابة الجهة الثالثة — نفي',
-                                                                                                      description: `الجهة: ${thirdPartyName}`,
-                                                                                                      type: 'coercive',
-                                                                                                      source: 'محضر المتابعة — حجز لدى الغير',
-                                                                                                      metadata: { thirdPartySeizureId: id },
-                                                                                                  };
-                                                                                                  const nextTl = [ev, ...prev];
-                                                                                                  queueMicrotask(() =>
-                                                                                                      persistExecutionMerge({
-                                                                                                          thirdPartySeizures: nextSeizures,
-                                                                                                          timelineEvents: nextTl,
-                                                                                                      } as any)
-                                                                                                  );
-                                                                                                  return nextTl;
-                                                                                              });
-                                                                                              showToast('تم تسجيل الإجابة (نفي).', 'success');
-                                                                                          }}
-                                                                                      >
-                                                                                          نفي وجود رصيد
-                                                                                      </button>
-                                                                                  </div>
-                                                                              ) : null,
-                                                                          },
-                                                                          ...(showFundsStep
-                                                                              ? [
-                                                                                    {
-                                                                                        id: `${id}:funds`,
-                                                                                        title: 'استلام وتحويل الأموال',
-                                                                                        subtitle:
-                                                                                            status === 'funds_received'
-                                                                                                ? `تم الاستلام — المحول فعلاً: ${transferred}`
-                                                                                                : fundsRejected
-                                                                                                  ? 'تم رفض طلب الاستلام من قبل المنفذ'
-                                                                                                  : pendingFundsDecision
-                                                                                                    ? 'طلب الاستلام قيد البت لدى المنفذ'
-                                                                                                    : status === 'replied' && replyStatus === 'acknowledged'
-                                                                                                      ? 'بانتظار تسجيل مبلغ التحويل وإنشاء طلب للمنفذ'
-                                                                                                      : 'مقفول لحين الإقرار',
-                                                                                        status:
-                                                                                            status === 'funds_received' || fundsRejected
-                                                                                                ? 'done'
-                                                                                                : pendingFundsDecision
-                                                                                                  ? 'active'
-                                                                                                  : canAskFunds
-                                                                                                    ? 'active'
-                                                                                                    : 'locked',
-                                                                                        tone:
-                                                                                            fundsRejected
-                                                                                                ? 'danger'
-                                                                                                : status === 'funds_received'
-                                                                                                  ? 'success'
-                                                                                                  : 'neutral',
-                                                                                        content: fundsRejected ? (
-                                                                                            <ExecutionInlineExecutorDecisionActions
-                                                                                                executionId={resolvedDecisionsExecutionId}
-                                                                                                decisionId={String(latestFundsDecision?.id || '').trim()}
-                                                                                                requestKind="third_party_funds_received"
-                                                                                                disabled
-                                                                                                onOpenAppealCenter={() =>
-                                                                                                    openAppealCenter(
-                                                                                                        String(latestFundsDecision?.id || '').trim() || undefined
-                                                                                                    )
-                                                                                                }
-                                                                                            />
-                                                                                        ) : pendingFundsDecision ? (
-                                                                                            <div className="space-y-2">
-                                                                                                <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-right text-[11px] text-slate-200 tabular-nums">
-                                                                                                    المبلغ المطلوب تثبيته:{' '}
-                                                                                                    {(() => {
-                                                                                                        const p = String((pendingFundsDecision as any)?.payloadJson || '').trim();
-                                                                                                        if (!p) return '—';
-                                                                                                        try {
-                                                                                                            const v = JSON.parse(p) as any;
-                                                                                                            const a = Math.max(0, Math.trunc(Number(v?.transferredAmountIqd || 0)));
-                                                                                                            return a ? `${a.toLocaleString('ar-IQ')} د.ع` : '—';
-                                                                                                        } catch {
-                                                                                                            return '—';
-                                                                                                        }
-                                                                                                    })()}
-                                                                                                </div>
-                                                                                                <ExecutionInlineExecutorDecisionActions
-                                                                                                    executionId={resolvedDecisionsExecutionId}
-                                                                                                    decisionId={String((pendingFundsDecision as any)?.id || '').trim()}
-                                                                                                    requestKind="third_party_funds_received"
-                                                                                                />
-                                                                                            </div>
-                                                                                        ) : canAskFunds ? (
-                                                                                            <div className="space-y-2">
-                                                                                                <label className="block text-[11px] font-bold text-slate-300">
-                                                                                                    المبلغ الفعلي المحول (د.ع)
-                                                                                                </label>
-                                                                                                <input
-                                                                                                    type="text"
-                                                                                                    inputMode="numeric"
-                                                                                                    value={resolvedDraft}
-                                                                                                    onChange={(e) =>
-                                                                                                        setThirdPartyFundsDraftById((prev) => ({
-                                                                                                            ...prev,
-                                                                                                            [id]: String(e.target.value || '').replace(/[^\d]/g, ''),
-                                                                                                        }))
-                                                                                                    }
-                                                                                                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-slate-100 text-right"
-                                                                                                    placeholder="مثال: 2500000"
-                                                                                                />
-                                                                                                <button
-                                                                                                    type="button"
-                                                                                                    className="w-full rounded-xl bg-gradient-to-l from-emerald-500 to-emerald-700 px-5 py-2.5 text-[12px] font-black text-white shadow-md shadow-black/20 disabled:opacity-40"
-                                                                                                    disabled={!draftAmount || !resolvedDecisionsExecutionId}
-                                                                                                    onClick={() => {
-                                                                                                        if (!draftAmount || !resolvedDecisionsExecutionId) return;
-                                                                                                        const res = appendThirdPartyFundsReceivedDecision({
-                                                                                                            executionId: resolvedDecisionsExecutionId,
-                                                                                                            thirdPartySeizureId: id,
-                                                                                                            thirdPartyName,
-                                                                                                            transferredAmountIqd: draftAmount,
-                                                                                                        } as any);
-                                                                                                        if (!res.ok) {
-                                                                                                            showToast('يوجد طلب مماثل قيد البت أو تعذر تسجيل الطلب.', 'warning', {
-                                                                                                                decisionsLink: true,
-                                                                                                            });
-                                                                                                            return;
-                                                                                                        }
-                                                                                                        showToast('تم إنشاء طلب الاستلام — اتخذ قرار المنفذ من نفس البطاقة.', 'success', {
-                                                                                                            decisionsLink: true,
-                                                                                                            decisionId: res.decisionId,
-                                                                                                        });
-                                                                                                        setThirdPartyFundsDraftById((prev) => ({ ...prev, [id]: '' }));
-                                                                                                    }}
-                                                                                                >
-                                                                                                    إنشاء طلب للمنفذ
-                                                                                                </button>
-                                                                                            </div>
-                                                                                        ) : null,
-                                                                                    } satisfies ExecutionInlineStep,
-                                                                                ]
-                                                                              : []),
-                                                                      ];
-
-                                                                      const expanded = Boolean(thirdPartySeizureCardOpenById[id]);
-                                                                      const toggleExpanded = () =>
-                                                                          setThirdPartySeizureCardOpenById((prev) => ({
-                                                                              ...prev,
-                                                                              [id]: !Boolean(prev[id]),
-                                                                          }));
-
-                                                                      return (
-                                                                          <div
-                                                                              key={id}
-                                                                              className="relative overflow-hidden rounded-2xl border border-slate-700/40 bg-slate-800/55 p-3 backdrop-blur-xl"
-                                                                          >
-                                                                              <button
-                                                                                  type="button"
-                                                                                  onClick={toggleExpanded}
-                                                                                  aria-label={expanded ? 'طي تفاصيل الطلب' : 'توسيع تفاصيل الطلب'}
-                                                                                  aria-expanded={expanded}
-                                                                                  className="mb-2 flex w-full items-start justify-between gap-2 rounded-xl text-right transition hover:bg-white/5"
-                                                                              >
-                                                                                  <span
-                                                                                      className={`shrink-0 rounded-lg px-2 py-0.5 text-[10px] ${
-                                                                                          fundsRejected
-                                                                                              ? 'bg-rose-500/15 text-rose-200'
-                                                                                              : status === 'funds_received'
-                                                                                                ? 'bg-emerald-500/20 text-emerald-200'
-                                                                                                : status === 'replied' && replyStatus === 'acknowledged'
-                                                                                                  ? 'bg-cyan-500/15 text-cyan-200'
-                                                                                                  : status === 'replied' && replyStatus === 'denied'
-                                                                                                    ? 'bg-rose-500/15 text-rose-200'
-                                                                                                    : 'bg-amber-500/15 text-amber-200'
-                                                                                      }`}
-                                                                                  >
-                                                                                      {fundsRejected
-                                                                                          ? 'تم رفض الاستلام'
-                                                                                          : status === 'funds_received'
-                                                                                            ? 'تم استلام الأموال'
-                                                                                            : status === 'replied' && replyStatus === 'acknowledged'
-                                                                                              ? 'تمت الإجابة — إقرار'
-                                                                                              : status === 'replied' && replyStatus === 'denied'
-                                                                                                ? 'تمت الإجابة — نفي'
-                                                                                                : 'تم التبليغ'}
-                                                                                  </span>
-                                                                                  <div className="min-w-0 flex-1 text-right">
-                                                                                      <p className="truncate text-[11px] font-bold text-slate-50">
-                                                                                          {thirdPartyName}
-                                                                                      </p>
-                                                                                      <p className="mt-0.5 text-[10px] text-slate-300 tabular-nums">
-                                                                                          المطلوب حجزه: {requested}
-                                                                                      </p>
-                                                                                      <p className="mt-0.5 text-[10px] text-slate-400 tabular-nums">
-                                                                                          تاريخ التبليغ: {notifiedAt}
-                                                                                      </p>
-                                                                                      {status === 'funds_received' ? (
-                                                                                          <p className="mt-0.5 text-[10px] text-emerald-200 tabular-nums">
-                                                                                              المحول فعلاً: {transferred}
-                                                                                          </p>
-                                                                                      ) : null}
-                                                                                  </div>
-                                                                                  <ChevronUp
-                                                                                      size={18}
-                                                                                      className={`mt-0.5 shrink-0 text-[#D4AF37]/80 transition-transform ${
-                                                                                          expanded ? '' : 'rotate-180'
-                                                                                      }`}
-                                                                                  />
-                                                                              </button>
-
-                                                                              {expanded ? (
-                                                                                  <ExecutionInlineAccordion className="mt-2" steps={steps} />
-                                                                              ) : null}
-                                                                          </div>
-                                                                      );
-                                                                  })}
-                                                              </div>
-                                                          ) : null}
-
-                                                          {thirdPartySeizureRegistryAssets.length > 0 ? (
-                                                              <div className="mt-3 border-t border-white/10 pt-3">
-                                                                  <div className="flex items-center justify-between gap-2">
-                                                                      <p className="text-[11px] font-bold text-cyan-200">
-                                                                          سجل الاستلام/الأرشفة
-                                                                      </p>
-                                                                      <span className="text-[10px] text-slate-500 tabular-nums">
-                                                                          {thirdPartySeizureRegistryAssets.length}
-                                                                      </span>
-                                                                  </div>
-                                                                  <div className="mt-2 space-y-3">
-                                                                      {thirdPartySeizureRegistryAssets.map((asset: any) => {
-                                                                          const locked = Boolean(asset.record_locked);
-                                                                          const awaiting = Boolean(asset.awaiting_receive);
-                                                                          const statusLabel =
-                                                                              asset.status === 'waiting'
-                                                                                  ? 'بانتظار إجابة الجهة المحجوز لديها'
-                                                                                  : asset.status === 'received'
-                                                                                    ? 'تم الاستلام'
-                                                                                    : 'مؤرشف';
-                                                                          const expected =
-                                                                              typeof asset.expectedAmountIqd === 'number' &&
-                                                                              Number.isFinite(asset.expectedAmountIqd) &&
-                                                                              asset.expectedAmountIqd > 0
-                                                                                  ? `${asset.expectedAmountIqd.toLocaleString('ar-IQ')} د.ع`
-                                                                                  : '—';
-
-                                                                          return (
-                                                                              <div
-                                                                                  key={String(asset.id)}
-                                                                                  className={`relative overflow-hidden rounded-2xl border p-3 backdrop-blur-xl ${
-                                                                                      locked
-                                                                                          ? 'border-slate-600/40 bg-slate-900/55 opacity-90'
-                                                                                          : 'border-slate-700/40 bg-slate-800/55'
-                                                                                  }`}
-                                                                              >
-                                                                                  <div className="mb-2 flex flex-col gap-2 sm:flex-row-reverse sm:items-start sm:justify-between">
-                                                                                      <span className="shrink-0 rounded-lg bg-cyan-500/15 px-2 py-0.5 text-[10px] text-cyan-200">
-                                                                                          {statusLabel}
-                                                                                      </span>
-                                                                                      <div className="min-w-0 text-right">
-                                                                                          <p className="truncate text-[11px] font-bold text-slate-50">
-                                                                                              {asset.thirdPartyName || 'جهة غير محددة'}
-                                                                                          </p>
-                                                                                          <p className="mt-0.5 text-[10px] text-slate-300 tabular-nums">
-                                                                                              المبلغ المتوقع: {expected}
-                                                                                          </p>
-                                                                                          {asset.letterDetails ? (
-                                                                                              <p className="mt-0.5 text-[10px] text-slate-400">
-                                                                                                  الكتاب: {asset.letterDetails}
-                                                                                              </p>
-                                                                                          ) : null}
-                                                                                      </div>
-                                                                                  </div>
-                                                                                  {locked ? null : awaiting ? (
-                                                                                      <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-2">
-                                                                                          <input
-                                                                                              type="text"
-                                                                                              inputMode="numeric"
-                                                                                              value={String(asset.receive_amount_draft || '')}
-                                                                                              onChange={(e) =>
-                                                                                                  updateThirdPartyReceiveDraft(asset.id, e.target.value)
-                                                                                              }
-                                                                                              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-slate-100 text-right"
-                                                                                              placeholder="المبلغ الفعلي المستلم (د.ع)"
-                                                                                          />
-                                                                                          <div className="mt-2 grid grid-cols-2 gap-2">
-                                                                                              <button
-                                                                                                  type="button"
-                                                                                                  onClick={() => confirmThirdPartyReceive(asset)}
-                                                                                                  className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 py-2 text-[10px] font-bold text-emerald-200 hover:bg-emerald-500/15"
-                                                                                              >
-                                                                                                  تثبيت الاستلام
-                                                                                              </button>
-                                                                                              <button
-                                                                                                  type="button"
-                                                                                                  onClick={() => cancelThirdPartyReceiveStep(asset)}
-                                                                                                  className="rounded-lg border border-slate-500/30 bg-slate-500/10 py-2 text-[10px] font-bold text-slate-200 hover:bg-slate-500/15"
-                                                                                              >
-                                                                                                  إلغاء
-                                                                                              </button>
-                                                                                          </div>
-                                                                                      </div>
-                                                                                  ) : (
-                                                                                      <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
-                                                                                          <button
-                                                                                              type="button"
-                                                                                              onClick={() => beginThirdPartyReceiveStep(asset)}
-                                                                                              className="w-full rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-[11px] font-extrabold text-cyan-100 hover:bg-cyan-500/15"
-                                                                                          >
-                                                                                              تم استلام الأموال من الغير
-                                                                                          </button>
-                                                                                      </div>
-                                                                                  )}
-                                                                              </div>
-                                                                          );
-                                                                      })}
-                                                                  </div>
-                                                              </div>
-                                                          ) : null}
-
-                                                          <div className="mt-3 border-t border-white/10 pt-3">
-                                                              <button
-                                                                  type="button"
-                                                                  onClick={() => openAppealCenter()}
-                                                                  className="w-full rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-[11px] font-extrabold text-amber-200 hover:bg-amber-500/15"
-                                                              >
-                                                                  فتح مركز القرارات والطعون
-                                                              </button>
-                                                          </div>
-                                                      </div>
-                                                  );
-                                              })()
-                                          ) : null}
-
-                                          {unifiedSeizureLogTab === 'marks' ? (
-                                              standaloneExecutionMarks.length === 0 ? (
-                                                  <p className="py-8 text-center text-[10px] text-slate-500">
-                                                      لا يوجد سجل للإشارات/التعاميم بعد.
-                                                  </p>
-                                              ) : (
-                                                  <div className="rounded-2xl border border-amber-500/20 bg-[#05060D]/60 p-3">
-                                                      <div className="flex items-center justify-between gap-2">
-                                                          <p className="text-[11px] font-bold text-amber-200">
-                                                              سجل الحجوزات — شارة/تعميم
-                                                          </p>
-                                                          <span className="text-[10px] text-slate-500 tabular-nums">
-                                                              {standaloneExecutionMarks.length}
-                                                          </span>
-                                                      </div>
-                                                      <div className="mt-2 space-y-3">
-                                                          {standaloneExecutionMarks.map((m: any) => {
-                                                              const locked =
-                                                                  Boolean(m.record_locked) ||
-                                                                  m.status === 'archived';
-                                                              const confirmed = Boolean(m.isMarkConfirmed);
-                                                              return (
-                                                                  <div
-                                                                      key={String(m.id)}
-                                                                      className={`relative overflow-hidden rounded-2xl border p-3 backdrop-blur-xl ${
-                                                                          locked
-                                                                              ? 'border-slate-600/40 bg-slate-900/55 opacity-90'
-                                                                              : 'border-slate-700/40 bg-slate-800/55'
-                                                                      }`}
-                                                                  >
-                                                                      <div className="mb-2 flex flex-col gap-2 sm:flex-row-reverse sm:items-start sm:justify-between">
-                                                                          <span
-                                                                              className={`shrink-0 rounded-lg px-2 py-0.5 text-[10px] ${
-                                                                                  confirmed
-                                                                                      ? 'bg-emerald-500/20 text-emerald-200'
-                                                                                      : 'bg-amber-500/15 text-amber-200'
-                                                                              }`}
-                                                                          >
-                                                                              {confirmed
-                                                                                  ? 'تم وضع الشارة رسمياً'
-                                                                                  : 'بانتظار التأييد'}
-                                                                          </span>
-                                                                          <div className="min-w-0 text-right">
-                                                                              <p className="truncate text-[11px] font-bold text-slate-50">
-                                                                                  {m.markType}
-                                                                              </p>
-                                                                              <p className="mt-0.5 text-[10px] text-slate-300">
-                                                                                  الجهة: {m.targetEntity}
-                                                                              </p>
-                                                                              {m.letterDetails ? (
-                                                                                  <p className="mt-0.5 text-[10px] text-slate-400">
-                                                                                      الكتاب: {m.letterDetails}
-                                                                                  </p>
-                                                                              ) : null}
-                                                                          </div>
-                                                                      </div>
-                                                                      {locked ? (
-                                                                          <div className="absolute inset-0 flex items-center justify-center bg-black/55 p-3">
-                                                                              <button
-                                                                                  type="button"
-                                                                                  onClick={(e) => {
-                                                                                      e.stopPropagation();
-                                                                                      undoArchiveStandaloneExecutionMark(
-                                                                                          m
-                                                                                      );
-                                                                                  }}
-                                                                                  className="w-full rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] font-extrabold text-amber-200 hover:bg-amber-500/15"
-                                                                              >
-                                                                                  تراجع
-                                                                              </button>
-                                                                          </div>
-                                                                      ) : (
-                                                                          <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
-                                                                              <button
-                                                                                  type="button"
-                                                                                  onClick={() =>
-                                                                                      toggleStandaloneExecutionMarkConfirmed(
-                                                                                          m
-                                                                                      )
-                                                                                  }
-                                                                                  className={`w-full rounded-xl border px-3 py-2 text-[11px] font-extrabold ${
-                                                                                      confirmed
-                                                                                          ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/15'
-                                                                                          : 'border-amber-500/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15'
-                                                                                  }`}
-                                                                              >
-                                                                                  {confirmed
-                                                                                      ? 'تم تأييد وضع الشارة/التعميم'
-                                                                                      : 'بانتظار تأييد وضع الشارة/التعميم'}
-                                                                              </button>
-                                                                              <button
-                                                                                  type="button"
-                                                                                  onClick={() =>
-                                                                                      archiveStandaloneExecutionMark(m)
-                                                                                  }
-                                                                                  className="w-full rounded-xl border border-slate-500/30 bg-slate-500/10 px-3 py-2 text-[11px] font-extrabold text-slate-200 hover:bg-slate-500/15"
-                                                                              >
-                                                                                  رفع الشارة/التعميم
-                                                                              </button>
-                                                                          </div>
-                                                                      )}
-                                                                  </div>
-                                                              );
-                                                          })}
-                                                      </div>
-                                                  </div>
-                                              )
-                                          ) : null}
-
-                                          {unifiedSeizureLogEntries
-                                              .filter((e) => {
-                                                  if (unifiedSeizureLogTab === 'all') return e.kind !== 'property';
-                                                  return false;
-                                              })
-                                              .map((e) => (
-                                                  <div
-                                                      key={e.id}
-                                                      className="rounded-2xl border border-white/10 bg-slate-950/35 p-3"
-                                                  >
-                                                      <div className="flex items-start justify-between gap-2">
-                                                          <div className="text-right min-w-0 flex-1">
-                                                              <p className="text-[11px] font-black text-slate-100 truncate">
-                                                                  {e.title}
-                                                              </p>
-                                                              {e.dateYmd ? (
-                                                                  <p className="mt-0.5 text-[9px] text-slate-500 tabular-nums">
-                                                                      {e.dateYmd}
-                                                                  </p>
-                                                              ) : null}
-                                                          </div>
-                                                          <div className="shrink-0 rounded-xl border border-white/10 bg-white/5 px-2 py-1 text-[9px] font-bold text-slate-200">
-                                                              {e.statusLabel}
-                                                          </div>
-                                                      </div>
-                                                      {String(e.description || '').trim() ? (
-                                                          <pre className="mt-2 whitespace-pre-wrap text-[10px] leading-relaxed text-slate-300 text-right">
-                                                              {e.description}
-                                                          </pre>
-                                                      ) : null}
-                                                  </div>
-                                              ))}
-                                          {(() => {
-                                              const hasPropertyPanelsContent =
-                                                  seizedPropertiesForSeizureLog.length > 0 ||
-                                                  realEstateSeizureRegistryAssets.length > 0 ||
-                                                  pendingPropertySeizureDecisions.length > 0;
-                                              const listCount = unifiedSeizureLogEntries.filter((e) => {
-                                                  if (unifiedSeizureLogTab === 'all') return e.kind !== 'property';
-                                                  return false;
-                                              }).length;
-                                              if (unifiedSeizureLogTab === 'property') return !hasPropertyPanelsContent;
-                                              if (unifiedSeizureLogTab === 'movable')
-                                                  return (
-                                                      seizedMovablesForSeizureLog.length === 0 &&
-                                                      movableSeizureRegistryAssets.length === 0
-                                                  );
-                                              if (unifiedSeizureLogTab === 'salary') return salarySeizureTabRows.length === 0;
-                                              if (unifiedSeizureLogTab === 'third_party') return thirdPartySeizureRegistryAssets.length === 0;
-                                              if (unifiedSeizureLogTab === 'marks') return standaloneExecutionMarks.length === 0;
-                                              return !hasPropertyPanelsContent && listCount === 0;
-                                          })() ? (
-                                              <p className="py-8 text-center text-[10px] text-slate-500">
-                                                  لا يوجد أي سجل حجز في هذا القسم بعد.
-                                              </p>
-                                          ) : null}
-                                      </div>
-                                  </div>
-                              </div>
-                          </div>,
-                          document.body
-                      )
-                    : null}
 
                 {propertySeizureRequestModalOpen && typeof document !== 'undefined'
                     ? createPortal(
@@ -19444,27 +15795,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                         nextTimelineId={nextTimelineId}
                                         assignmentWorkspaceCtx={assignmentWorkspaceCtx}
                                         primaryDebtorKeyResolved={primaryDebtorKeyResolved}
-                                        onOpenDecisions={(opts) => {
-                                            const tab = opts?.tab ?? null;
-                                            const did = String(opts?.decisionId ?? '').trim();
-                                            if (tab === 'appeals') {
-                                                setDecisionsModalBootHubTab('appeals');
-                                                setDecisionsModalBootListTab('appeals');
-                                                setAppealsModalScrollToDecisionId(did || null);
-                                                setDecisionsModalScrollToDecisionId(null);
-                                            } else if (tab === 'current' || tab === 'previous') {
-                                                setDecisionsModalBootHubTab(null);
-                                                setDecisionsModalBootListTab(tab);
-                                                setDecisionsModalScrollToDecisionId(did || null);
-                                                setAppealsModalScrollToDecisionId(null);
-                                            } else {
-                                                setDecisionsModalBootHubTab(null);
-                                                setDecisionsModalBootListTab(null);
-                                                setDecisionsModalScrollToDecisionId(did || null);
-                                                setAppealsModalScrollToDecisionId(null);
-                                            }
-                                            setShowDecisionsModal(true);
-                                        }}
+                                        onOpenDecisions={openDecisionsModalWithBoot}
                                         onOpenSummonsCenter={() => {
                                             setSummonsContextDebtorKey(
                                                 String(assignmentWorkspaceCtx.activeDebtorKey)
@@ -19625,6 +15956,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                 ) : unifiedModalTab === 'other_party' ? (
                                     <OtherPartyTab
                                         executionData={viewExecutionData}
+                                        decisionsStorageExecutionId={decisionsStorageExecutionId}
                                         persistExecutionMerge={persistExecutionMerge}
                                         handleOtherPartyActionSubmitToDecisions={otherPartyTabSubmitHandler}
                                         EXEC_OVERLAY_LAZY_FALLBACK={EXEC_OVERLAY_LAZY_FALLBACK}
@@ -19633,6 +15965,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                         creditorRequestsMirror={otherPartyCreditorMirrorProps ?? undefined}
                                         onOpenAppeals={openOtherPartyAppealsModal}
                                         creditorTrackHandlers={creditorOtherPartyTrackHandlers}
+                                        appealPerspective={appealPerspective}
                                     />
                                 ) : unifiedModalTab === 'seizure_requests' ? (
                                     <SeizureRequestsTab
@@ -19836,27 +16169,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                                     forcedSummoningAnalysis.lockReasonAr,
                                                 showToast,
                                                 persistExecutionMerge,
-                                                onOpenDecisions: (opts) => {
-                                                    const tab = opts?.tab ?? null;
-                                                    const did = String(opts?.decisionId ?? '').trim();
-                                                    if (tab === 'appeals') {
-                                                        setDecisionsModalBootHubTab('appeals');
-                                                        setDecisionsModalBootListTab('appeals');
-                                                        setAppealsModalScrollToDecisionId(did || null);
-                                                        setDecisionsModalScrollToDecisionId(null);
-                                                    } else if (tab === 'current' || tab === 'previous') {
-                                                        setDecisionsModalBootHubTab(null);
-                                                        setDecisionsModalBootListTab(tab);
-                                                        setDecisionsModalScrollToDecisionId(did || null);
-                                                        setAppealsModalScrollToDecisionId(null);
-                                                    } else {
-                                                        setDecisionsModalBootHubTab(null);
-                                                        setDecisionsModalBootListTab(null);
-                                                        setDecisionsModalScrollToDecisionId(did || null);
-                                                        setAppealsModalScrollToDecisionId(null);
-                                                    }
-                                                    setShowDecisionsModal(true);
-                                                },
+                                                onOpenDecisions: openDecisionsModalWithBoot,
                                             },
                                             guarantor: {
                                                 executionData: viewExecutionData,
@@ -19864,27 +16177,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                                 isHistoricalMode,
                                                 handleGuarantorRequestFromFollowup,
                                                 requestGuarantorSeizure,
-                                                onOpenDecisions: (opts) => {
-                                                    const tab = opts?.tab ?? null;
-                                                    const did = String(opts?.decisionId ?? '').trim();
-                                                    if (tab === 'appeals') {
-                                                        setDecisionsModalBootHubTab('appeals');
-                                                        setDecisionsModalBootListTab('appeals');
-                                                        setAppealsModalScrollToDecisionId(did || null);
-                                                        setDecisionsModalScrollToDecisionId(null);
-                                                    } else if (tab === 'current' || tab === 'previous') {
-                                                        setDecisionsModalBootHubTab(null);
-                                                        setDecisionsModalBootListTab(tab);
-                                                        setDecisionsModalScrollToDecisionId(did || null);
-                                                        setAppealsModalScrollToDecisionId(null);
-                                                    } else {
-                                                        setDecisionsModalBootHubTab(null);
-                                                        setDecisionsModalBootListTab(null);
-                                                        setDecisionsModalScrollToDecisionId(did || null);
-                                                        setAppealsModalScrollToDecisionId(null);
-                                                    }
-                                                    setShowDecisionsModal(true);
-                                                },
+                                                onOpenDecisions: openDecisionsModalWithBoot,
                                                 showToast,
                                             },
                                         }}

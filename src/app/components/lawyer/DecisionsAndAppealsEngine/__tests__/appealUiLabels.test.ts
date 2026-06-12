@@ -7,6 +7,7 @@ import {
     appealDirectCassationButtonLabel,
     appealInitialCassationEntryButtonLabel,
     appealInitialGrievanceEntryButtonLabel,
+    appealCreditorAgentDebtorHarmedNotice,
     appealInitialCassationTimeline,
     appealRelabelTimelineMessage,
     cassationCourtButtonClass,
@@ -34,6 +35,11 @@ describe('appealUiLabels', () => {
     it('keeps third-person label for creditor agent recording debtor cassation', () => {
         const labels = appealCassationEntryLabels('creditor_agent', 'debtor');
         expect(labels.button).toBe('قام المدين بتمييز القرار');
+    });
+
+    it('shows static notice when creditor agent has no appeal path', () => {
+        expect(appealCreditorAgentDebtorHarmedNotice()).toContain('للمدين فقط');
+        expect(appealCreditorAgentDebtorHarmedNotice()).toContain('وكيل الدائن');
     });
 
     it('splits initial appeal entry labels by harmed party for debtor agent', () => {

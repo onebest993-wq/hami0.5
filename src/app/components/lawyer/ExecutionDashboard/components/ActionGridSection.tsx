@@ -1,7 +1,13 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo, useEffect, useMemo } from 'react';
 import type { Dispatch, ElementType, SetStateAction } from 'react';
 import type { ExecutionFile } from '@/app/types/execution';
 import { ExecutionPinnedNotesTray } from './ExecutionPinnedNotesTray';
+import { prefetchExecutionLawArticlesRemote } from '@/app/utils/executionLawRemoteCache';
+import {
+    prefetchDecisionsAndAppealsEngine,
+    prefetchFinancialOperationsCenter,
+    prefetchFollowupMemoPanels,
+} from '@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShell';
 
 type CaseNoteLogRow = NonNullable<ExecutionFile['caseNotesLog']>[number];
 type CaseTaskRow = NonNullable<ExecutionFile['caseTasksPending']>[number];
@@ -81,6 +87,13 @@ export const ActionGridSection = memo(function ActionGridSection({
     onOpenVisitationCalendar,
 }: ActionGridSectionProps) {
     const pinnedCount = pinnedNotes.length + pinnedTasks.length;
+
+    useEffect(() => {
+        prefetchExecutionLawArticlesRemote();
+        prefetchFinancialOperationsCenter();
+        prefetchFollowupMemoPanels();
+        prefetchDecisionsAndAppealsEngine();
+    }, []);
 
     const gridTiles = useMemo(
         () =>
@@ -295,7 +308,10 @@ export const ActionGridSection = memo(function ActionGridSection({
                 ) : null}
                 <button
                     type="button"
-                    onClick={() => setIsLawReferenceOpen(true)}
+                    onClick={() => {
+                        prefetchExecutionLawArticlesRemote();
+                        setIsLawReferenceOpen(true);
+                    }}
                     dir="rtl"
                     className={[
                         'flex min-h-[100px] w-full items-center justify-center gap-3 rounded-xl border border-[#E6C673]/40 bg-gradient-to-br from-[#E6C673]/12 via-amber-500/10 to-[#0A0F1C]/50 px-4 py-4 text-center shadow-[0_0_28px_-8px_rgba(230,198,115,0.35)] backdrop-blur-md transition-all duration-200 hover:border-[#E6C673]/60 hover:shadow-[0_0_32px_-6px_rgba(230,198,115,0.5)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/40',

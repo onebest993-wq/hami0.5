@@ -98,7 +98,7 @@ export function filterExecutionLawsByHierarchy(
         list = list.filter((a) => a.leafId === leafFilter);
     }
     if (qNorm) {
-        list = laws.filter((a) => articleSearchHaystack(a).includes(qNorm));
+        list = list.filter((a) => articleSearchHaystack(a).includes(qNorm));
     }
     return [...list].sort((a, b) => a.number - b.number);
 }

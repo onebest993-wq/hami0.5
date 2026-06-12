@@ -11,8 +11,10 @@ import {
     isExecutorRequestAppealCycleSuperseded,
     resolveCreditorDecisionHubStatusPill,
     resolveCreditorRequestAppealGate,
+    resolveCreditorDecisionEnforcementState,
     resolveCreditorAppealPauseGate,
     resolveHarmedPartyAppealActor,
+    creditorAgentDebtorIsSoleAppellant,
     inferDecisionAppealRequestOrigin,
     isCreditorExecutorAppealSubject,
     isExecutorRequestFollowupBlocked,
@@ -450,7 +452,7 @@ describe('creditorRequestAppealGate', () => {
         expect(isEvictionProcedureRowActive(hub, [hub])).toBe(true);
     });
 
-    it('blocks resend after workflow-complete field visit', () => {
+    it('allows lifecycle resubmit after workflow-complete field visit', () => {
         const hub = {
             id: 'eviction_done',
             title: '📍 طلب تحديد موعد الخروج الميداني',
@@ -463,7 +465,7 @@ describe('creditorRequestAppealGate', () => {
         expect(isEvictionProcedureRowWorkflowComplete(hub)).toBe(true);
         expect(isEvictionProcedureRowActive(hub, [hub])).toBe(false);
         expect(isEvictionBranchBlockingNewRequest([hub], { branch: 'Field Visit Date' })).toBe(false);
-        expect(isEvictionBranchResendBlocked([hub], { branch: 'Field Visit Date' })).toBe(true);
+        expect(isEvictionBranchResendBlocked([hub], { branch: 'Field Visit Date' })).toBe(false);
     });
 
     it('normalizes emoji-prefixed eviction titles for matching', () => {
@@ -550,6 +552,70 @@ describe('creditorRequestAppealGate', () => {
         expect(isExecutorRequestFollowupBlocked(hub, [hub])).toBe(true);
     });
 
+    it('creditor agent sees debtor-only appeal on approved creditor personal coercive', () => {
+        const hub = baseDecision({
+            requestKind: 'personal_coercive',
+            personalCoerciveSubtype: 'forced_bring_in',
+            appealRequestOrigin: 'creditor_side',
+            executorOutcome: 'approved',
+        });
+        expect(resolveHarmedPartyAppealActor(hub, 'creditor_agent')).toBe('debtor');
+        expect(creditorAgentDebtorIsSoleAppellant(hub, 'creditor_agent')).toBe(true);
+        expect(creditorAgentDebtorIsSoleAppellant(hub, 'debtor_agent')).toBe(false);
+    });
+
+    it('creditor agent sees debtor-only appeal on executor-order forced bring-in', () => {
+        const hub = baseDecision({
+            requestKind: 'personal_coercive',
+            personalCoerciveSubtype: 'forced_bring_in',
+            appealRequestOrigin: 'executor_side',
+            activatedByExecutorOrder: true,
+            executorOutcome: 'approved',
+        });
+        expect(creditorAgentDebtorIsSoleAppellant(hub, 'creditor_agent')).toBe(true);
+    });
+
+    it('pauses executor-order forced bring-in when debtor grievance is accepted', () => {
+        const hub = baseDecision({
+            requestKind: 'personal_coercive',
+            personalCoerciveSubtype: 'forced_bring_in',
+            appealRequestOrigin: 'executor_side',
+            activatedByExecutorOrder: true,
+            executorOutcome: 'approved',
+            appealActor: 'debtor',
+            appealResult: 'قبول التظلم',
+            appealStatus: 'pending',
+            awaitingCassationEntryBy: 'lawyer',
+        });
+        expect(resolveCreditorRequestAppealGate(hub, hub).kind).toBe('paused');
+        expect(isExecutorRequestFollowupBlocked(hub, [hub])).toBe(true);
+    });
+
+    it('revokes executor-order forced bring-in when debtor grievance is final', () => {
+        const hub = baseDecision({
+            requestKind: 'personal_coercive',
+            personalCoerciveSubtype: 'forced_bring_in',
+            appealRequestOrigin: 'executor_side',
+            activatedByExecutorOrder: true,
+            executorOutcome: 'approved',
+            appealActor: 'debtor',
+            appealResult: 'قبول التظلم',
+            appealStatus: 'final',
+        });
+        expect(resolveCreditorRequestAppealGate(hub, hub).kind).toBe('revoked');
+        expect(isExecutorRequestAppealCycleSuperseded(hub, [hub])).toBe(true);
+    });
+
+    it('creditor agent keeps appeal buttons when executor rejected creditor request', () => {
+        const hub = baseDecision({
+            requestKind: 'personal_coercive',
+            appealRequestOrigin: 'creditor_side',
+            executorOutcome: 'rejected',
+        });
+        expect(resolveHarmedPartyAppealActor(hub, 'creditor_agent')).toBe('lawyer');
+        expect(creditorAgentDebtorIsSoleAppellant(hub, 'creditor_agent')).toBe(false);
+    });
+
     it('resolveEffectiveAppealActor ignores stale lawyer actor after debtor grievance accepted', () => {
         const hub = {
             id: 'req_1',
@@ -566,5 +632,113 @@ describe('creditorRequestAppealGate', () => {
             appealStatus: 'pending',
         } as Decision;
         expect(resolveEffectiveAppealActor(pipe, hub, 'debtor_agent')).toBe('debtor');
+    });
+
+    describe('cassation enforcement matrix', () => {
+        const enforcementOpts = {
+            hubTab: 'previous' as const,
+            appealLegallyFinal: true,
+            needsExecutor: false,
+        };
+
+        it('scenario 1 — creditor tamyeez naqd: lifts pause, procedure stays enforced', () => {
+            const hub = baseDecision({ executorOutcome: 'approved', appealRequestOrigin: 'creditor_side' });
+            const pausedPipe = baseDecision({
+                id: 'appeal_pause',
+                appealSourceDecisionId: hub.id,
+                appealActor: 'debtor',
+                appealResult: 'قبول التظلم',
+                appealStatus: 'pending',
+                awaitingCassationEntryBy: 'lawyer',
+            });
+            expect(resolveCreditorRequestAppealGate(hub, pausedPipe).kind).toBe('paused');
+            expect(isExecutorRequestFollowupBlocked(hub, [hub, pausedPipe])).toBe(true);
+
+            const naqdPipe = baseDecision({
+                id: 'appeal_naqd',
+                appealSourceDecisionId: hub.id,
+                appealActor: 'lawyer',
+                appealMethod: 'tamyeez',
+                appealStatus: 'final',
+                appealResult: 'نقض القرار',
+                executorOutcome: 'approved',
+            });
+            expect(resolveCreditorRequestAppealGate(hub, naqdPipe).kind).toBe('continue');
+            expect(
+                resolveCreditorDecisionEnforcementState(hub, naqdPipe, enforcementOpts).enforced
+            ).toBe(true);
+            expect(isExecutorRequestFollowupBlocked(hub, [hub, naqdPipe])).toBe(false);
+            expect(isExecutorRequestAppealCycleSuperseded(hub, [hub, naqdPipe])).toBe(false);
+        });
+
+        it('scenario 2 — creditor tamyeez rad/tasdeeq: closes path, procedure terminated', () => {
+            const hub = baseDecision({ executorOutcome: 'approved' });
+            const pipe = baseDecision({
+                id: 'appeal_rad',
+                appealSourceDecisionId: hub.id,
+                appealActor: 'lawyer',
+                appealMethod: 'tamyeez',
+                appealStatus: 'final',
+                appealResult: 'رد اللائحة',
+                executorOutcome: 'rejected',
+            });
+            expect(resolveCreditorRequestAppealGate(hub, pipe).kind).toBe('lifecycle_reset');
+            expect(
+                resolveCreditorDecisionEnforcementState(hub, pipe, enforcementOpts).enforced
+            ).toBe(false);
+            expect(isExecutorRequestAppealCycleSuperseded(hub, [hub, pipe])).toBe(true);
+            expect(isCreditorRequestFlowContinues(hub, pipe)).toBe(false);
+        });
+
+        it('rejected debtor grievance — no stop, procedure stays enforced', () => {
+            const hub = baseDecision({ executorOutcome: 'approved' });
+            const pipe = baseDecision({
+                appealActor: 'debtor',
+                appealResult: 'رد التظلم',
+                appealStatus: 'final',
+            });
+            expect(resolveCreditorRequestAppealGate(hub, pipe).kind).toBe('continue');
+            expect(
+                resolveCreditorDecisionEnforcementState(hub, pipe, enforcementOpts).enforced
+            ).toBe(true);
+            expect(isExecutorRequestFollowupBlocked(hub, [hub, pipe])).toBe(false);
+            expect(effectiveExecutorOutcomeForCreditorHubPill(hub, pipe)).toBe('approved');
+        });
+
+        it('scenario 3 — debtor tamyeez naqd: immediate stop, procedure terminated', () => {
+            const hub = baseDecision({ executorOutcome: 'approved' });
+            const pipe = baseDecision({
+                id: 'appeal_debtor_naqd',
+                appealSourceDecisionId: hub.id,
+                appealActor: 'debtor',
+                appealMethod: 'tamyeez',
+                appealStatus: 'final',
+                appealResult: 'نقض القرار',
+                executorOutcome: 'rejected',
+            });
+            expect(resolveCreditorRequestAppealGate(hub, pipe).kind).toBe('lifecycle_reset');
+            expect(
+                resolveCreditorDecisionEnforcementState(hub, pipe, enforcementOpts).enforced
+            ).toBe(false);
+            expect(isExecutorRequestAppealCycleSuperseded(hub, [hub, pipe])).toBe(true);
+            expect(effectiveExecutorOutcomeForCreditorHubPill(hub, pipe)).toBe('rejected');
+        });
+
+        it('scenario 4 — debtor tamyeez rad/tasdeeq: definitive enforcement', () => {
+            const hub = baseDecision({ executorOutcome: 'approved' });
+            const pipe = baseDecision({
+                appealActor: 'debtor',
+                appealMethod: 'tamyeez',
+                appealStatus: 'final',
+                appealResult: 'تصديق القرار',
+                executorOutcome: 'approved',
+            });
+            expect(resolveCreditorRequestAppealGate(hub, pipe).kind).toBe('continue');
+            expect(
+                resolveCreditorDecisionEnforcementState(hub, pipe, enforcementOpts).enforced
+            ).toBe(true);
+            expect(isExecutorRequestAppealCycleSuperseded(hub, [hub, pipe])).toBe(false);
+            expect(effectiveExecutorOutcomeForCreditorHubPill(hub, pipe)).toBe('approved');
+        });
     });
 });

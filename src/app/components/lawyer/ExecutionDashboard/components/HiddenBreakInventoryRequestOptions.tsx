@@ -9,10 +9,10 @@ import {
 import {
     appendEvictionExecutorRequest,
     dispatchDecisionsReload,
-    isExecutorRowEffectivelyApproved,
     isExecutorRowRejectedAndFinal,
     patchExecutorDecisionRow,
 } from '@/app/utils/executorSeizureDecisionQueue';
+import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 import {
     HIDDEN_BREAK_INVENTORY_REQUEST_BODY,
     HIDDEN_BREAK_INVENTORY_REQUEST_TITLE,
@@ -120,7 +120,7 @@ export const HiddenBreakInventoryRequestOptions: React.FC<HiddenBreakInventoryRe
         const pending =
             String(row.executorOutcome ?? 'pending') === 'pending' ||
             String(row.executorOutcome ?? '') === '';
-        const approved = isExecutorRowEffectivelyApproved(row) && !rejected;
+        const approved = isExecutorRowApprovedWorkflowActive(row, decisions) && !rejected;
         const needsFinalize =
             approved &&
             !resolved.workflowComplete &&

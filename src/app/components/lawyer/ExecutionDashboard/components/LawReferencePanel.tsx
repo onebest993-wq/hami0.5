@@ -1,14 +1,13 @@
-import React, { Suspense, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { X } from 'lucide-react';
+import { ExecutionLawReferencePanel } from '@/app/components/lawyer/execution/ExecutionLawReferencePanel';
 
 export interface LawReferencePanelProps {
     isLawReferenceOpen: boolean;
     setIsLawReferenceOpen: (v: boolean) => void;
     EXEC_MODAL_Z: Record<string, number>;
-    EXEC_OVERLAY_LAZY_FALLBACK: React.ReactNode;
-    ExecutionLawReferencePanel: React.LazyExoticComponent<React.ComponentType<any>>;
     isEvictionExecutionModule: boolean;
     executionData: Record<string, any> | null | undefined;
 }
@@ -16,8 +15,6 @@ export interface LawReferencePanelProps {
 const LawReferenceOverlay: React.FC<Omit<LawReferencePanelProps, 'isLawReferenceOpen'>> = ({
     setIsLawReferenceOpen,
     EXEC_MODAL_Z,
-    EXEC_OVERLAY_LAZY_FALLBACK,
-    ExecutionLawReferencePanel,
     isEvictionExecutionModule,
     executionData,
 }) => {
@@ -54,10 +51,10 @@ const LawReferenceOverlay: React.FC<Omit<LawReferencePanelProps, 'isLawReference
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="law-reference-title"
-                initial={{ x: '100%' }}
-                animate={{ x: 0 }}
-                exit={{ x: '100%' }}
-                transition={{ type: 'tween', duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.12, ease: 'easeOut' }}
                 className="fixed inset-y-0 right-0 flex min-h-0 w-full max-w-2xl flex-col border-l border-slate-700/50 bg-[#0A0F1C] shadow-2xl"
                 style={{ zIndex: EXEC_MODAL_Z.lawReferencePanel + 1 }}
                 dir="rtl"
@@ -81,11 +78,9 @@ const LawReferenceOverlay: React.FC<Omit<LawReferencePanelProps, 'isLawReference
                     <span className="w-10 shrink-0" aria-hidden />
                 </div>
                 <div className="flex min-h-0 flex-1 flex-col">
-                    <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
-                        <ExecutionLawReferencePanel
-                            executionType={isEvictionExecutionModule ? 'تخلية' : executionData?.executionType}
-                        />
-                    </Suspense>
+                    <ExecutionLawReferencePanel
+                        executionType={isEvictionExecutionModule ? 'تخلية' : executionData?.executionType}
+                    />
                 </div>
             </motion.div>
         </>
@@ -96,8 +91,6 @@ export const LawReferencePanel: React.FC<LawReferencePanelProps> = ({
     isLawReferenceOpen,
     setIsLawReferenceOpen,
     EXEC_MODAL_Z,
-    EXEC_OVERLAY_LAZY_FALLBACK,
-    ExecutionLawReferencePanel,
     isEvictionExecutionModule,
     executionData,
 }) => {
@@ -109,8 +102,6 @@ export const LawReferencePanel: React.FC<LawReferencePanelProps> = ({
                 <LawReferenceOverlay
                     setIsLawReferenceOpen={setIsLawReferenceOpen}
                     EXEC_MODAL_Z={EXEC_MODAL_Z}
-                    EXEC_OVERLAY_LAZY_FALLBACK={EXEC_OVERLAY_LAZY_FALLBACK}
-                    ExecutionLawReferencePanel={ExecutionLawReferencePanel}
                     isEvictionExecutionModule={isEvictionExecutionModule}
                     executionData={executionData}
                 />

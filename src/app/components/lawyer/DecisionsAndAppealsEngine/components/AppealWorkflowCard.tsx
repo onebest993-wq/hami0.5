@@ -4,7 +4,6 @@ import { AppealProceedingsSummary } from './AppealProceedingsSummary';
 import GlowingDot from './GlowingDot';
 import type { Decision } from '../types';
 import {
-    AppealResultChip,
     DECISION_META_CHIP,
     DECISION_BTN_DEBTOR_APPEAL_NOTICE,
 } from '../decisionCardPresentation';
@@ -26,11 +25,7 @@ import {
     isExecutorDecisionAppealFinal,
     resolveDebtorAgentRequestFateLine,
     shouldHideDebtorAgentFateLine,
-    shouldShowAppealResultChipSeparate,
-    resolveAppealResultActorForClient,
-    resolveEffectiveAppealActor,
     isCreditorInitiatedExecutorRequest,
-    COMPACT_APPEAL_PROCEEDINGS_MAX,
 } from '../utils';
 import type { AppealDeadlineWindows, DecisionsAppealsAppealSlot } from '../utils';
 import type { AppealUiPerspective } from '../appealUiLabels';
@@ -171,17 +166,7 @@ function AppealWorkflowCard({
         enforcementState.pillLabel,
         requestAppealGate
     );
-    const showAppealResultChip =
-        Boolean(pipelineRow.appealResult) &&
-        shouldShowAppealResultChipSeparate(enforcementState.pillLabel, appealPerspective);
-    const appealResultActor =
-        resolveAppealResultActorForClient(pipelineRow, decision, appealPerspective) ??
-        resolveEffectiveAppealActor(pipelineRow, decision, appealPerspective);
-    const compactAppealProceedings =
-        appealProceedings.length > 0 &&
-        appealProceedings.length <= COMPACT_APPEAL_PROCEEDINGS_MAX;
-    const expandableAppealProceedings =
-        appealProceedings.length > COMPACT_APPEAL_PROCEEDINGS_MAX;
+    const showAppealDetailsToggle = appealProceedings.length > 0;
 
     return (
         <div
@@ -220,7 +205,9 @@ function AppealWorkflowCard({
                                     : undefined
                             }
                         />
-                        <h3 className="break-words text-sm font-bold text-slate-100">{titleClean}</h3>
+                        <h3 className="break-words text-sm font-bold text-slate-100">
+                            الطلب: {titleClean}
+                        </h3>
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">{statusPillEl}</div>
                 </div>
@@ -229,7 +216,7 @@ function AppealWorkflowCard({
                     <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                             <span>{dateStr}</span>
-                            <AppealOriginBadge decision={decision} perspective={appealPerspective} />
+                            <AppealOriginBadge decision={underlyingHub} perspective={appealPerspective} />
                         </div>
                         {decision.tamyeezDecisionNumber?.trim() ? (
                             <span className={DECISION_META_CHIP}>
@@ -263,14 +250,7 @@ function AppealWorkflowCard({
                 (appealWindowClosed && !isFinalLocked) ||
                 showExecutorPendingFooter ? (
                     <div className="mt-1 border-t border-white/5 pt-2 space-y-1">
-                        {compactAppealProceedings ? (
-                            <div className="rounded-lg border border-white/5 bg-white/[0.03] p-2.5">
-                                <AppealProceedingsSummary
-                                    row={pipelineRow}
-                                    perspective={appealPerspective}
-                                />
-                            </div>
-                        ) : expandableAppealProceedings ? (
+                        {showAppealDetailsToggle ? (
                             <>
                                 <div className="flex items-center gap-2 text-[11px] text-gray-400">
                                     <button
@@ -311,23 +291,14 @@ function AppealWorkflowCard({
             </div>
 
             <div className="mt-2 flex min-w-0 flex-col gap-1.5 text-right">
-                {showAppealResultChip && pipelineRow.appealResult ? (
-                    <div className="flex justify-end">
-                        <AppealResultChip
-                            result={pipelineRow.appealResult}
-                            flowGateKind={requestAppealGate.kind}
-                            perspective={appealPerspective}
-                            appealActor={appealResultActor}
-                        />
-                    </div>
-                ) : null}
                 {canShowInitialAppealActions
                     ? renderAppealEntryButtons(decision, windows)
                     : null}
-                {(state === 'PENDING_APPEAL_LAWYER' || state === 'PENDING_APPEAL_DEBTOR') &&
-                    decision.appealStatus === 'tadhallum_filed' &&
+                {(decision.appealStatus === 'tadhallum_filed' ||
+                    decision.appealPhase === 'grievance') &&
+                    !String(decision.appealResult ?? '').trim() &&
                     renderAppealGrievanceDecideButtons(decision, 'appealsTab')}
-                {(state === 'PENDING_APPEAL_LAWYER' || state === 'PENDING_APPEAL_DEBTOR') &&
+                {decision.appealStatus === 'tamyeez_filed' &&
                     decision.appealMethod === 'tamyeez' &&
                     renderAppealTamyeezPhasePanel(decision, 'appealsTab', cassTips, (v) =>
                         transitionAppealWorkflow(

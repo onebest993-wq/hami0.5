@@ -1,6 +1,7 @@
 import type { TimelineEvent, TimelineSmartPriority } from '@/app/types/execution';
 import { stripPendingLabelsFromExecutorSubject } from '@/app/utils/executorDecisionTitles';
 import { mergeResidentialGraceTimelineForDisplay } from '@/app/utils/residentialGraceTimeline';
+import { dedupeTimelineEventsForDisplay } from '@/app/utils/timelineDedup';
 
 const MS_DAY = 86400000;
 
@@ -125,6 +126,22 @@ export function mergeLegacyEvictionResidentialGracePairs(events: TimelineEvent[]
     return mergeResidentialGraceTimelineForDisplay(events);
 }
 
+/** مفتاح صف الرادار — يطابق التوسيع و React key */
+export function timelineRadarRowKey(event: TimelineEvent): string {
+    const headerTime =
+        event.timestamp && String(event.timestamp).trim() !== '' ? event.timestamp : event.date;
+    const id = String(event.id ?? '').trim();
+    const t = String(headerTime ?? '').trim();
+    return `${id || 'tl'}__${t || 't'}`;
+}
+
+/** تحضير أحداث الرادار: dedup + دمج مهلة سكنية + معرّفات فريدة */
+export function prepareTimelineRadarEvents(events: TimelineEvent[]): TimelineEvent[] {
+    return ensureUniqueTimelineRowIds(
+        mergeLegacyEvictionResidentialGracePairs(dedupeTimelineEventsForDisplay(events))
+    );
+}
+
 /** مصدر السجل للعرض (توحيد تسمية المُحلل) */
 export function timelineSourceForDisplay(source: string | undefined): string | undefined {
     if (!source) return undefined;
@@ -177,16 +194,25 @@ function normTimelineText(s: string): string {
     return s.replace(TIMELINE_TITLE_EMOJI_RE, '').replace(/\s+/g, ' ').trim();
 }
 
-/** وصف العرض — يُخفى إن كان مكرراً للعنوان أو فارغاً بعد التنظيف */
+/** وصف العرض — يزيل تكرار العنوان ويُبقي التفاصيل الفعلية */
 export function timelineDescriptionForDisplay(event: TimelineEvent): string {
     const raw = String(event.description ?? event.details ?? '').trim();
     if (!raw) return '';
     const title = normTimelineText(cleanTimelineCardTitle(event));
-    const desc = normTimelineText(raw);
-    if (!desc) return '';
-    if (title && (desc === title || desc.startsWith(title))) return '';
-    const lines = desc.split('\n').map((l) => l.trim()).filter(Boolean);
-    const unique = lines.filter((line, idx) => lines.indexOf(line) === idx);
+
+    let lines = raw.split('\n').map((l) => l.trim()).filter(Boolean);
+    if (title && lines.length > 0) {
+        const firstNorm = normTimelineText(lines[0]);
+        if (firstNorm === title) {
+            lines = lines.slice(1);
+        } else if (firstNorm.startsWith(title)) {
+            const rest = firstNorm.slice(title.length).replace(/^[\s:—\-–،]+/, '').trim();
+            lines = rest ? [rest, ...lines.slice(1)] : lines.slice(1);
+        }
+    }
+
+    const normalizedLines = lines.map((l) => normTimelineText(l)).filter(Boolean);
+    const unique = normalizedLines.filter((line, idx) => normalizedLines.indexOf(line) === idx);
     return unique.join('\n');
 }
 

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { BookOpen, ChevronDown, Forward, Shuffle, FileText, RefreshCw, MessageSquare } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { ChevronDown, Forward, Shuffle, FileText, RefreshCw, MessageSquare } from 'lucide-react';
 import type { DossierActionPayload, DossierActionType } from './DossierActionsModal';
 import type { AppealUiPerspective } from '@/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels';
 import {
@@ -7,8 +7,8 @@ import {
     DossierActionFormFooter,
     useDossierActionForm,
 } from './DossierActionForm';
-import { InabaCorrespondenceLogSection } from './InabaCorrespondenceLogSection';
 import { DossierExecutorDecisionStrip } from './DossierExecutorDecisionStrip';
+import { shouldShowDossierControlExecutorStrip } from '../utils/dossierControlDecisions';
 import type { InabaCorrespondenceLogEntry } from '../utils/inabaCorrespondenceLog';
 import { useExecutorDecisions } from '../hooks/useExecutorDecisions';
 
@@ -95,11 +95,25 @@ function DossierControlAccordionRow(props: {
         appealPerspective = 'creditor_agent',
     } = props;
     const { decisions } = useExecutorDecisions(decisionsStorageExecutionId);
-    const form = useDossierActionForm(item.id, expanded, parentFileId, inabaTargets);
-    const [inabaLogOpen, setInabaLogOpen] = useState(false);
-    const hasInabaLog =
-        item.id === 'inaba_correspondence' && Array.isArray(inabaCorrespondenceLog) && inabaCorrespondenceLog.length > 0;
-
+    const executorStripVisible = useMemo(
+        () =>
+            shouldShowDossierControlExecutorStrip({
+                executionId: decisionsStorageExecutionId,
+                parentExecutionId: parentFileId,
+                actionType: item.id,
+                decisions,
+                appealPerspective,
+            }),
+        [
+            appealPerspective,
+            decisions,
+            decisionsStorageExecutionId,
+            item.id,
+            parentFileId,
+        ]
+    );
+    const showSubmitForm = expanded && !executorStripVisible;
+    const form = useDossierActionForm(item.id, showSubmitForm, parentFileId, inabaTargets);
     const handleConfirm = () => {
         const sent = onSubmit(form.buildPayload());
         if (!sent) return;
@@ -112,52 +126,37 @@ function DossierControlAccordionRow(props: {
 
     return (
         <div className="overflow-hidden rounded-2xl border border-violet-500/25 bg-violet-950/15 text-right" dir="rtl">
-            <div className="relative flex flex-row-reverse items-stretch">
-                <button
-                    type="button"
-                    aria-expanded={expanded}
-                    onClick={handleHeaderClick}
-                    className={`min-w-0 flex-1 ${DOSSIER_BTN_BASE} rounded-none border-0 bg-gradient-to-l ${item.gradient}`}
-                >
-                    <div className="flex flex-row-reverse items-center gap-3">
-                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/5">
-                            {item.icon}
-                        </span>
-                        <p className="min-w-0 flex-1 text-sm font-bold text-white">{item.label}</p>
+            <button
+                type="button"
+                aria-expanded={expanded}
+                onClick={handleHeaderClick}
+                className={`w-full ${DOSSIER_BTN_BASE} bg-gradient-to-l ${item.gradient}`}
+            >
+                <div className="flex flex-row-reverse items-center gap-3">
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/5">
+                        {item.icon}
+                    </span>
+                    <p className="min-w-0 flex-1 text-sm font-bold text-white">{item.label}</p>
+                    {!executorStripVisible ? (
                         <ChevronDown
                             size={18}
                             strokeWidth={2}
                             className={`shrink-0 text-[#D4AF37]/55 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
                         />
-                    </div>
-                </button>
-                {hasInabaLog ? (
-                    <button
-                        type="button"
-                        title="سجل مخاطبات الإنابة"
-                        aria-label="سجل مخاطبات الإنابة"
-                        aria-expanded={inabaLogOpen}
-                        onClick={() => setInabaLogOpen((v) => !v)}
-                        className="flex w-12 shrink-0 items-center justify-center border-r border-white/10 bg-amber-950/35 text-amber-200 transition hover:bg-amber-950/55"
-                    >
-                        <BookOpen size={18} strokeWidth={2} />
-                    </button>
-                ) : null}
-            </div>
+                    ) : null}
+                </div>
+            </button>
 
             <DossierExecutorDecisionStrip
                 executionId={decisionsStorageExecutionId}
+                parentExecutionId={parentFileId}
                 actionType={item.id}
                 decisions={decisions}
                 onOutcomeApplied={onExecutorOutcomeApplied}
                 appealPerspective={appealPerspective}
             />
 
-            {hasInabaLog && inabaLogOpen ? (
-                <InabaCorrespondenceLogSection entries={inabaCorrespondenceLog} embedded />
-            ) : null}
-
-            {expanded ? (
+            {showSubmitForm ? (
                 <div className="relative z-10 border-t border-white/10 bg-[#05060D]/40 px-4 pb-3 pt-3">
                     <DossierActionFormFields
                         actionType={item.id}

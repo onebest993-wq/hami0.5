@@ -6,6 +6,7 @@ import {
     canWaiveCassationAfterDebtorGrievance,
     canWaiveLawyerAwaitingCassation,
     hubWithInferredAppealOrigin,
+    resolveWaiveCassationBlockedReason,
     newEventId,
 } from '@/app/components/lawyer/DecisionsAndAppealsEngine/utils';
 import { applyEvictionAppealClosure } from '@/app/utils/evictionAppealSync';
@@ -125,7 +126,7 @@ export function applyWaiveLawyerAwaitingCassationForExecution(input: {
 
     const hubRow = hubWithInferredAppealOrigin(row);
     if (!canWaiveLawyerAwaitingCassation(hubRow, decisions)) {
-        return { ok: false, message: 'لا يمكن إتمام الاستغناء عن التمييز في هذه الحالة.' };
+        return { ok: false, message: resolveWaiveCassationBlockedReason(hubRow, decisions) };
     }
 
     const pipeline = appealPipelineRowForCard(hubRow, decisions);

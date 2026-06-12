@@ -46,6 +46,7 @@ export {
     filterTimelineEventsForInabaDossier,
     filterTimelineEventsForParentDossier,
     stampInabaTimelineEventMetadata,
+    stampParentTimelineEventMetadata,
     buildSubDossierOpenedTimelineEvent,
     ensureSubDossierOpenedTimelineEvent,
     timelineEventBelongsToInabaDossier,

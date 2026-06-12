@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Briefcase, Car, Home, Pin } from 'lucide-react';
+import { Briefcase, Car, EyeOff, Home, Pin } from 'lucide-react';
+import SecureStoreService from '@/app/services/SecureStoreService';
 import {
     BADGE_POPOVER_Z_INDEX,
     computeFixedPopoverLayout,
@@ -12,8 +13,17 @@ import type {
     RealEstateSeizureAsset,
     SeizedAsset,
     StandaloneExecutionMark,
+    ThirdPartySeizure,
     ThirdPartySeizureAsset,
 } from '@/app/types/execution';
+import {
+    getExecutorDecisionRowById,
+    isExecutorRowEffectivelyApproved,
+} from '@/app/utils/executorSeizureDecisionQueue';
+import {
+    isSeizureAssetEnforceableForBadge,
+    isSeizureDecisionRowFullyRegistered,
+} from '@/app/components/lawyer/ExecutionDashboard/helpers/seizureUtils';
 
 type CategoryKey = 'realEstate' | 'movable' | 'thirdParty' | 'marks';
 
@@ -52,34 +62,99 @@ function buildThirdPartyLabel(a: ThirdPartySeizureAsset): string {
     return amt ? `${name || 'لدى الغير'} — ${amt.toLocaleString('ar-IQ')} د.ع` : name || 'لدى الغير';
 }
 
+function isActiveThirdPartySeizure(s: ThirdPartySeizure): boolean {
+    const status = String(s?.status || '').trim();
+    const reply = String(s?.replyStatus || '').trim();
+    if (status === 'funds_received') return false;
+    if (status === 'replied' && reply === 'denied') return false;
+    return true;
+}
+
+function buildThirdPartySeizureUiLabel(s: ThirdPartySeizure): string {
+    const name = normalizeLine(s.thirdPartyName) || 'لدى الغير';
+    const amt =
+        typeof s.requestedAmountIqd === 'number' &&
+        Number.isFinite(s.requestedAmountIqd) &&
+        s.requestedAmountIqd > 0
+            ? Math.trunc(s.requestedAmountIqd)
+            : null;
+    return amt ? `${name} — ${amt.toLocaleString('ar-IQ')} د.ع` : name;
+}
+
 function buildMarkLabel(a: StandaloneExecutionMark): string {
     const kind = normalizeLine(a.markType);
     const target = normalizeLine(a.targetEntity);
     return target ? `${kind} — ${target}` : kind || 'تعميم';
 }
 
-function isActiveSeizedAsset(a: SeizedAsset): boolean {
-    if (a.status !== 'seized') return false;
-    if (a.seizure_record_locked) return false;
-    return true;
+function isRegistryRowEnforceable(
+    decisionRowId: string | undefined,
+    decisionsExecutionId: string | undefined
+): boolean {
+    const did = String(decisionRowId ?? '').trim();
+    if (!did) return true;
+    const exId = String(decisionsExecutionId ?? '').trim();
+    if (!exId) return false;
+    const row = getExecutorDecisionRowById(exId, did) as Record<string, unknown> | null;
+    if (!row) return false;
+    if (!isExecutorRowEffectivelyApproved(row)) return false;
+    return isSeizureDecisionRowFullyRegistered(row);
 }
 
-function isActiveRealEstate(a: RealEstateSeizureAsset): boolean {
-    if (a.record_locked) return false;
-    if (a.status !== 'seized') return false;
-    return true;
+function isActiveSeizedAsset(a: SeizedAsset, decisionsExecutionId?: string): boolean {
+    return isSeizureAssetEnforceableForBadge(a, decisionsExecutionId);
 }
 
-function isActiveThirdParty(a: ThirdPartySeizureAsset): boolean {
+function isActiveRealEstate(a: RealEstateSeizureAsset, decisionsExecutionId?: string): boolean {
     if (a.record_locked) return false;
-    if (a.status !== 'waiting') return false;
-    return true;
+    if (a.status !== 'seized') return false;
+    if (
+        String(a.propertyNumber ?? '').trim() === '—' &&
+        /بانتظار/i.test(String(a.deedNotes ?? ''))
+    ) {
+        return false;
+    }
+    return isRegistryRowEnforceable(a.decisionRowId, decisionsExecutionId);
+}
+
+function isActiveThirdParty(a: ThirdPartySeizureAsset, decisionsExecutionId?: string): boolean {
+    if (a.record_locked) return false;
+    if (a.status !== 'waiting' && a.status !== 'received') return false;
+    if (/بانتظار\s*الإكمال/i.test(String(a.thirdPartyName ?? ''))) return false;
+    return isRegistryRowEnforceable(a.decisionRowId, decisionsExecutionId);
 }
 
 function isActiveStandaloneMark(a: StandaloneExecutionMark): boolean {
     if (a.record_locked) return false;
     if (a.status !== 'active') return false;
     return true;
+}
+
+function storageKeyHidden(executionId: string) {
+    return `hami_debtor_seizure_cat_hidden_${executionId}`;
+}
+
+function loadHidden(executionId: string): CategoryKey[] {
+    try {
+        const raw = SecureStoreService.getItemSync(storageKeyHidden(executionId));
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed)
+            ? parsed.filter((x): x is CategoryKey =>
+                  x === 'realEstate' || x === 'movable' || x === 'thirdParty' || x === 'marks'
+              )
+            : [];
+    } catch {
+        return [];
+    }
+}
+
+function saveHidden(executionId: string, keys: CategoryKey[]) {
+    try {
+        SecureStoreService.setItemSync(storageKeyHidden(executionId), JSON.stringify(keys));
+    } catch {
+        /* ignore */
+    }
 }
 
 function BadgeButton(props: {
@@ -98,11 +173,11 @@ function BadgeButton(props: {
             ref={props.buttonRef}
             type="button"
             onClick={props.onClick}
-            className={`group inline-flex flex-row-reverse items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-bold transition-all ${props.bgClass} ${props.borderClass} ${props.textClass} hover:brightness-110 hover:shadow-[0_0_16px_rgba(0,0,0,0.25)] cursor-pointer ${
+            className={`inline-flex shrink-0 flex-row-reverse items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold transition-all ${props.bgClass} ${props.borderClass} ${props.textClass} hover:brightness-110 ${
                 props.active ? 'ring-1 ring-white/10' : ''
             }`}
         >
-            <Icon size={14} className="opacity-90" />
+            <Icon size={12} className="opacity-85" />
             <span className="whitespace-nowrap">{props.text}</span>
         </button>
     );
@@ -112,11 +187,21 @@ export function DebtorSeizureCategoryBadges(props: {
     seizedAssets: SeizedAsset[];
     realEstateSeizureAssets: RealEstateSeizureAsset[];
     thirdPartySeizureAssets: ThirdPartySeizureAsset[];
+    /** مسار حجز لدى الغير الجديد (thirdPartySeizures) */
+    thirdPartySeizures?: ThirdPartySeizure[];
     standaloneExecutionMarks: StandaloneExecutionMark[];
+    /** لربط الشارة بموافقة المنفذ + اكتمال التسجيل */
+    decisionsExecutionId?: string;
+    /** لحفظ إخفاء الشارات محلياً لكل إضبارة */
+    executionId?: string;
     /** داخل صف موحّد مع الشارات التفاعلية — بدون غلاف منفصل */
     embeddedInRow?: boolean;
 }) {
+    const executionId = String(props.executionId ?? '').trim();
     const [openKey, setOpenKey] = useState<CategoryKey | null>(null);
+    const [hiddenKeys, setHiddenKeys] = useState<CategoryKey[]>(() =>
+        executionId ? loadHidden(executionId) : []
+    );
     const [popoverLayout, setPopoverLayout] = useState<FixedPopoverLayout | null>(null);
     const popoverRef = useRef<HTMLDivElement | null>(null);
     const anchorRefs = useRef<Record<CategoryKey, HTMLButtonElement | null>>({
@@ -126,13 +211,15 @@ export function DebtorSeizureCategoryBadges(props: {
         marks: null,
     });
 
+    const decId = props.decisionsExecutionId;
+
     const categories: Category[] = useMemo(() => {
         const realEstateItems = props.realEstateSeizureAssets
-            .filter(isActiveRealEstate)
+            .filter((a) => isActiveRealEstate(a, decId))
             .map(buildRealEstateLabel)
             .filter(Boolean);
         const movableItems = props.seizedAssets
-            .filter(isActiveSeizedAsset)
+            .filter((a) => isActiveSeizedAsset(a, decId))
             .filter((a) => {
                 const det = (a.details || {}) as Record<string, unknown>;
                 const kind = normalizeLine(det.seizureUiKind || a.type);
@@ -140,10 +227,28 @@ export function DebtorSeizureCategoryBadges(props: {
             })
             .map(buildMovableLabel)
             .filter(Boolean);
-        const thirdPartyItems = props.thirdPartySeizureAssets
-            .filter(isActiveThirdParty)
-            .map(buildThirdPartyLabel)
-            .filter(Boolean);
+        const seenThirdPartyKeys = new Set<string>();
+        const thirdPartyItems: string[] = [];
+        for (const s of props.thirdPartySeizures ?? []) {
+            if (!isActiveThirdPartySeizure(s)) continue;
+            const id = String(s?.id || '').trim();
+            const did = String(s?.decisionRowId || '').trim();
+            const key = did || id;
+            if (!key || seenThirdPartyKeys.has(key)) continue;
+            seenThirdPartyKeys.add(key);
+            const label = buildThirdPartySeizureUiLabel(s);
+            if (label) thirdPartyItems.push(label);
+        }
+        for (const a of props.thirdPartySeizureAssets) {
+            if (!isActiveThirdParty(a, decId)) continue;
+            const id = String(a?.id || '').trim();
+            const did = String(a?.decisionRowId || '').trim();
+            const key = did || id;
+            if (key && seenThirdPartyKeys.has(key)) continue;
+            if (key) seenThirdPartyKeys.add(key);
+            const label = buildThirdPartyLabel(a);
+            if (label) thirdPartyItems.push(label);
+        }
         const marksItems = props.standaloneExecutionMarks
             .filter(isActiveStandaloneMark)
             .map(buildMarkLabel)
@@ -187,13 +292,35 @@ export function DebtorSeizureCategoryBadges(props: {
             },
         ];
     }, [
+        decId,
         props.realEstateSeizureAssets,
         props.seizedAssets,
         props.standaloneExecutionMarks,
         props.thirdPartySeizureAssets,
+        props.thirdPartySeizures,
     ]);
 
-    const visibleCategories = categories.filter((c) => c.items.length > 0);
+    useEffect(() => {
+        if (!executionId) {
+            setHiddenKeys([]);
+            return;
+        }
+        setHiddenKeys(loadHidden(executionId));
+    }, [executionId]);
+
+    const hideCategory = useCallback(
+        (key: CategoryKey) => {
+            setHiddenKeys((prev) => {
+                const next = prev.includes(key) ? prev : [...prev, key];
+                if (executionId) saveHidden(executionId, next);
+                return next;
+            });
+            setOpenKey((prev) => (prev === key ? null : prev));
+        },
+        [executionId]
+    );
+
+    const visibleCategories = categories.filter((c) => c.items.length > 0 && !hiddenKeys.includes(c.key));
     const openCategory = openKey ? categories.find((c) => c.key === openKey) || null : null;
 
     const syncPopoverLayout = useCallback(() => {
@@ -205,7 +332,7 @@ export function DebtorSeizureCategoryBadges(props: {
         if (!anchor) return;
         const anchorRect = anchor.getBoundingClientRect();
         const itemCount = openCategory?.items.length ?? 0;
-        const estimatedHeight = Math.min(320, 72 + itemCount * 28);
+        const estimatedHeight = Math.min(280, 48 + itemCount * 24);
         const base = computeFixedPopoverLayout(anchorRect, {
             preferredWidth: Math.min(420, window.innerWidth - 24),
             estimatedHeight,
@@ -292,7 +419,7 @@ export function DebtorSeizureCategoryBadges(props: {
                 ? createPortal(
                       <div
                           ref={popoverRef}
-                          className={`fixed rounded-2xl border ${openCategory.borderClass} bg-[#0B1120]/95 p-3 shadow-2xl shadow-black/60 backdrop-blur-xl`}
+                          className="fixed rounded-xl border border-white/10 bg-[#0B1120]/82 p-2 shadow-lg shadow-black/25 backdrop-blur-md"
                           style={{
                               zIndex: BADGE_POPOVER_Z_INDEX,
                               top: popoverLayout.top,
@@ -304,33 +431,45 @@ export function DebtorSeizureCategoryBadges(props: {
                           role="dialog"
                           aria-label={openCategory.label}
                       >
-                          <div className="mb-2 flex items-center justify-between gap-2">
-                              <div className="min-w-0">
-                                  <p className={`truncate text-[11px] font-black ${openCategory.textClass}`}>
-                                      {openCategory.label}
-                                  </p>
+                          <div className="mb-1.5 flex items-center justify-between gap-2 px-0.5">
+                              <p className={`min-w-0 truncate text-[10px] font-bold ${openCategory.textClass}`}>
+                                  {openCategory.label}
+                              </p>
+                              <div className="flex shrink-0 items-center gap-0.5">
+                                  <button
+                                      type="button"
+                                      onClick={() => hideCategory(openCategory.key)}
+                                      className="inline-flex flex-row-reverse items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-300"
+                                      aria-label="إخفاء الشارة من البطاقة"
+                                      title="إخفاء الشارة من البطاقة"
+                                  >
+                                      <EyeOff size={10} strokeWidth={2.25} />
+                                      <span>إخفاء</span>
+                                  </button>
+                                  <button
+                                      type="button"
+                                      onClick={() => setOpenKey(null)}
+                                      className="rounded-md px-1.5 py-0.5 text-[10px] text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-300"
+                                      aria-label="إغلاق"
+                                  >
+                                      ✕
+                                  </button>
                               </div>
-                              <button
-                                  type="button"
-                                  onClick={() => setOpenKey(null)}
-                                  className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-bold text-slate-200 hover:bg-white/10"
-                              >
-                                  إغلاق
-                              </button>
                           </div>
-                          <div
-                              className="overflow-auto rounded-xl border border-white/10 bg-black/20 p-2"
-                              style={{ maxHeight: Math.max(80, popoverLayout.maxHeight - 56) }}
+                          <ul
+                              className="space-y-1 overflow-auto px-0.5 text-right text-[10px] leading-relaxed text-slate-300"
+                              style={{ maxHeight: Math.max(64, popoverLayout.maxHeight - 36) }}
                           >
-                              <ul className="space-y-1 text-right text-[11px] text-slate-100">
-                                  {openCategory.items.map((line, idx) => (
-                                      <li key={`${openCategory.key}_${idx}`} className="flex gap-2">
-                                          <span className="text-slate-500 tabular-nums">{idx + 1}.</span>
-                                          <span className="min-w-0 break-words">{line}</span>
-                                      </li>
-                                  ))}
-                              </ul>
-                          </div>
+                              {openCategory.items.map((line, idx) => (
+                                  <li
+                                      key={`${openCategory.key}_${idx}`}
+                                      className="flex gap-1.5 rounded-md px-1 py-0.5 hover:bg-white/[0.03]"
+                                  >
+                                      <span className="shrink-0 tabular-nums text-slate-500">{idx + 1}.</span>
+                                      <span className="min-w-0 break-words">{line}</span>
+                                  </li>
+                              ))}
+                          </ul>
                       </div>,
                       document.body
                   )

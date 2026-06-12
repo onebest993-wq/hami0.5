@@ -7,21 +7,17 @@ import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import {
     DECISIONS_RELOAD_EVENT,
     appendPendingExecutorSeizureDecision,
-    getLatestSeizureDecisionBySubtype,
+    closeSeizureSubtypeDecisionCycle,
+    dispatchDecisionsReload,
+    getGoverningSeizureDecisionBySubtype,
+    isExecutorHubRowInactiveForGoverning,
     isExecutorRowEffectivelyApproved,
     isExecutorRowRejectedAndFinal,
     isGuarantorRequestDecisionRow,
-    listGuarantorHubRows,
-    listSeizureHubRows,
     patchExecutorDecisionRowEverywhere,
     readExecutorDecisionsArray,
+    type SeizureRequestSubtype,
 } from '@/app/utils/executorSeizureDecisionQueue';
-import { summarizeExecutorHubRequestLifecycle } from '@/app/utils/executorRequestLifecycle';
-import {
-    RequestLifecycleBadgeSlot,
-    RequestLifecyclePanel,
-} from '@/app/components/lawyer/ExecutionDashboard/components/RequestLifecycleBadge';
-import type { ExecutorRequestLifecycleSummary } from '@/app/utils/executorRequestLifecycle';
 import {
     ExecutionInlineAccordion,
     ExecutionInlineExecutorDecisionActions,
@@ -34,16 +30,43 @@ import { GuarantorWorkspaceWrapper } from './GuarantorWorkspaceWrapper';
 import { shouldShowGuarantorRequestInSeizureTab } from './hiddenFollowupRequestsUtils';
 import { isSalarySeizureAsset } from '@/app/components/lawyer/ExecutionDashboard/hooks/useSeizureRegistryAssets';
 import { isSalarySeizureLaneOccupied } from '@/app/components/lawyer/ExecutionDashboard/utils/salarySeizureTabUtils';
+import {
+    formatNumberInput,
+    parseExecutionAmountInt,
+} from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
 import { isFollowupRequestKindAllowed } from '@/app/utils/executionDomainIsolation';
+import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 
-function isSeizureRequestFullyRegistered(row: any): boolean {
+function isSeizureRequestFullyRegistered(
+    row: any,
+    allDecisions: Record<string, unknown>[]
+): boolean {
     if (!row?.id) return false;
     if (isExecutorRowRejectedAndFinal(row)) return false;
-    if (!isExecutorRowEffectivelyApproved(row)) return false;
+    if (isExecutorHubRowInactiveForGoverning(row, allDecisions)) return false;
+    if (!isExecutorRowApprovedWorkflowActive(row, allDecisions)) return false;
+    return Boolean(String(row.seizureRequestSavedAt || '').trim());
+}
+
+/** اكتمال التسجيل — يبقى زر «السجل» ظاهراً حتى أثناء الطعن */
+function isSeizureRegistrationComplete(
+    row: any,
+    allDecisions: Record<string, unknown>[]
+): boolean {
+    if (!row?.id) return false;
+    if (isExecutorRowRejectedAndFinal(row)) return false;
+    if (isExecutorHubRowInactiveForGoverning(row, allDecisions)) return false;
     return Boolean(String(row.seizureRequestSavedAt || '').trim());
 }
 
 type UnifiedSeizureLogTab = 'movable' | 'property' | 'third_party' | 'salary';
+
+const SEIZURE_LOG_TAB_SUBTYPE: Record<UnifiedSeizureLogTab, SeizureRequestSubtype> = {
+    movable: 'movable_auction',
+    third_party: 'third_party',
+    property: 'property',
+    salary: 'salary',
+};
 
 function openUnifiedSeizureLogTab(tab: UnifiedSeizureLogTab): void {
     try {
@@ -55,7 +78,12 @@ function openUnifiedSeizureLogTab(tab: UnifiedSeizureLogTab): void {
     }
 }
 
-function SeizureLogNavigateBadge(props: { tab: UnifiedSeizureLogTab; tone?: 'sky' | 'violet' | 'amber' | 'emerald' }) {
+function SeizureLogNavigateBadge(props: {
+    tab: UnifiedSeizureLogTab;
+    tone?: 'sky' | 'violet' | 'amber' | 'emerald';
+    /** عند التسجيل المكتمل: إغلاق الاختصار وإعادة دورة الطلب ثم فتح السجل */
+    onAcknowledgeCycle?: () => void;
+}) {
     const toneClass =
         props.tone === 'violet'
             ? 'border-violet-300/35 bg-violet-500/10 text-violet-100 hover:bg-violet-500/18'
@@ -65,17 +93,22 @@ function SeizureLogNavigateBadge(props: { tab: UnifiedSeizureLogTab; tone?: 'sky
                 ? 'border-emerald-300/35 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/18'
                 : 'border-sky-300/35 bg-sky-500/10 text-sky-100 hover:bg-sky-500/18';
 
+    const handleClick = props.onAcknowledgeCycle ?? (() => openUnifiedSeizureLogTab(props.tab));
+    const actionLabel = props.onAcknowledgeCycle
+        ? 'إغلاق الاختصار وفتح سجل الحجز'
+        : 'فتح سجل الحجز';
+
     return (
         <button
             type="button"
             onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                openUnifiedSeizureLogTab(props.tab);
+                handleClick();
             }}
             className={`inline-flex shrink-0 flex-row-reverse items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-bold transition-colors ${toneClass}`}
-            title="فتح سجل الحجز"
-            aria-label="فتح سجل الحجز"
+            title={actionLabel}
+            aria-label={actionLabel}
         >
             <ClipboardList size={12} strokeWidth={2.25} className="opacity-90" />
             <span>السجل</span>
@@ -106,12 +139,18 @@ const SeizureWorkspaceWrapper: React.FC<SeizureWorkspaceWrapperProps> = ({
     expandSignal,
     hideExecutorShortcuts = false,
 }) => {
+    const allDecisions = React.useMemo(
+        () => readExecutorDecisionsArray(executionId) as Record<string, unknown>[],
+        [executionId, row]
+    );
     const decisionId = String(row?.id || '').trim();
     const rejected = Boolean(decisionId) && isExecutorRowRejectedAndFinal(row);
     const outcome = String(row?.executorOutcome ?? 'pending').trim();
     const alternative = outcome === 'alternative';
     const approved =
-        Boolean(decisionId) && !rejected && (alternative || isExecutorRowEffectivelyApproved(row));
+        Boolean(decisionId) &&
+        !rejected &&
+        (alternative || isExecutorRowApprovedWorkflowActive(row, allDecisions));
     const savedAt = String(row?.seizureRequestSavedAt || '').trim();
     const needsCompletion = approved && !savedAt;
     const vanish = approved && Boolean(savedAt);
@@ -294,7 +333,6 @@ const SeizureWorkspaceWrapper: React.FC<SeizureWorkspaceWrapperProps> = ({
 };
 
 function SeizureRequestBlock(props: {
-    lifecycle: ExecutorRequestLifecycleSummary | null | undefined;
     onClick: () => void;
     disabled?: boolean;
     className: string;
@@ -302,40 +340,30 @@ function SeizureRequestBlock(props: {
     label: React.ReactNode;
     children?: React.ReactNode;
     afterButton?: React.ReactNode;
-    showLifecycleBadge?: boolean;
     trailingSlot?: React.ReactNode;
 }) {
-    const [lifecycleOpen, setLifecycleOpen] = React.useState(false);
-    const {
-        lifecycle,
-        onClick,
-        disabled,
-        className,
-        icon,
-        label,
-        children,
-        afterButton,
-        showLifecycleBadge = true,
-        trailingSlot,
-    } = props;
+    const { onClick, disabled, className, icon, label, children, afterButton, trailingSlot } = props;
 
     return (
         <div className="relative">
-            <button type="button" onClick={onClick} disabled={disabled} className={className}>
-                <span className="flex flex-row-reverse items-center gap-3 w-full">
-                    {icon}
-                    <span className="flex-1 min-w-0 text-right">{label}</span>
-                    {trailingSlot}
-                    {showLifecycleBadge && lifecycle ? (
-                        <RequestLifecycleBadgeSlot
-                            summary={lifecycle}
-                            expanded={lifecycleOpen}
-                            onToggle={() => setLifecycleOpen((v) => !v)}
-                        />
-                    ) : null}
-                </span>
-            </button>
-            {lifecycleOpen && lifecycle ? <RequestLifecyclePanel summary={lifecycle} /> : null}
+            <div className={`flex flex-row-reverse items-stretch overflow-hidden ${className}`}>
+                <button
+                    type="button"
+                    onClick={onClick}
+                    disabled={disabled}
+                    className="min-w-0 flex-1 border-0 bg-transparent px-4 py-3 text-[12px] font-bold text-slate-100 text-right transition-colors disabled:opacity-40"
+                >
+                    <span className="flex flex-row-reverse items-center gap-3 w-full">
+                        {icon}
+                        <span className="flex-1 min-w-0 text-right">{label}</span>
+                    </span>
+                </button>
+                {trailingSlot ? (
+                    <div className="flex shrink-0 flex-row-reverse items-center gap-1 self-center px-2">
+                        {trailingSlot}
+                    </div>
+                ) : null}
+            </div>
             {afterButton}
             {children}
         </div>
@@ -580,30 +608,8 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
         };
     }, [readAllDecisions]);
 
-    const lifecycleSalary = React.useMemo(
-        () => summarizeExecutorHubRequestLifecycle(listSeizureHubRows(decisions, 'salary')),
-        [decisions]
-    );
-    const lifecycleProperty = React.useMemo(
-        () => summarizeExecutorHubRequestLifecycle(listSeizureHubRows(decisions, 'property')),
-        [decisions]
-    );
-    const lifecycleMovable = React.useMemo(
-        () => summarizeExecutorHubRequestLifecycle(listSeizureHubRows(decisions, 'movable_auction')),
-        [decisions]
-    );
-    const lifecycleThirdParty = React.useMemo(
-        () => summarizeExecutorHubRequestLifecycle(listSeizureHubRows(decisions, 'third_party')),
-        [decisions]
-    );
-    const lifecycleGuarantor = React.useMemo(
-        () => summarizeExecutorHubRequestLifecycle(listGuarantorHubRows(decisions)),
-        [decisions]
-    );
-
     const [thirdPartyNameDraft, setThirdPartyNameDraft] = React.useState('');
     const [thirdPartyAmountDraft, setThirdPartyAmountDraft] = React.useState('');
-    const [thirdPartyNotifyYmdDraft, setThirdPartyNotifyYmdDraft] = React.useState('');
     const [propertyDetailsDraftByDecisionId, setPropertyDetailsDraftByDecisionId] = React.useState<Record<string, { propertyNumber: string; propertyDistrict: string; propertyType: string }>>({});
     const [vehicleDetailsDraftByDecisionId, setVehicleDetailsDraftByDecisionId] = React.useState<
         Record<string, { movableDescription: string; movableLocation: string }>
@@ -669,12 +675,24 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
         return (row as any) || null;
     }, [decisions]);
 
+    const acknowledgeSeizureRequestFromLog = React.useCallback(
+        (tab: UnifiedSeizureLogTab) => {
+            if (!resolvedExecutionId) return;
+            closeSeizureSubtypeDecisionCycle({
+                executionId: resolvedExecutionId,
+                subtype: SEIZURE_LOG_TAB_SUBTYPE[tab],
+            });
+            openUnifiedSeizureLogTab(tab);
+        },
+        [resolvedExecutionId]
+    );
+
     const thirdPartyDecision = React.useMemo(
-        () => getLatestSeizureDecisionBySubtype(resolvedExecutionId, 'third_party'),
+        () => getGoverningSeizureDecisionBySubtype(resolvedExecutionId, 'third_party', decisions),
         [resolvedExecutionId, decisions]
     );
     const salaryDecision = React.useMemo(() => {
-        const bySubtype = getLatestSeizureDecisionBySubtype(resolvedExecutionId, 'salary');
+        const bySubtype = getGoverningSeizureDecisionBySubtype(resolvedExecutionId, 'salary', decisions);
         if (bySubtype) return bySubtype as any;
 
         const isGuarantorRelated = (txt: string) => /الكفيل|كفيل/i.test(String(txt || ''));
@@ -708,11 +726,11 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
         setLastSalaryDecisionId(did);
     }, [salaryDecision]);
     const propertyDecision = React.useMemo(
-        () => getLatestSeizureDecisionBySubtype(resolvedExecutionId, 'property'),
+        () => getGoverningSeizureDecisionBySubtype(resolvedExecutionId, 'property', decisions),
         [resolvedExecutionId, decisions]
     );
     const movableDecision = React.useMemo(
-        () => getLatestSeizureDecisionBySubtype(resolvedExecutionId, 'movable_auction'),
+        () => getGoverningSeizureDecisionBySubtype(resolvedExecutionId, 'movable_auction', decisions),
         [resolvedExecutionId, decisions]
     );
 
@@ -765,17 +783,16 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
 
     const renderThirdPartyInlineCompletionIfAny = (row: any) => {
         if (!row?.id) return null;
-        if (!isExecutorRowEffectivelyApproved(row)) return null;
+        if (!isExecutorRowApprovedWorkflowActive(row, decisions)) return null;
         const savedAt = String(row.seizureRequestSavedAt || '').trim();
         if (savedAt) return null;
 
         const name = String(thirdPartyNameDraft || '').trim();
-        const amtRaw = String(thirdPartyAmountDraft || '').trim();
-        const amt = amtRaw ? Number(normalizeDigitsOnly(amtRaw)) : NaN;
-        const amount = !amtRaw || !Number.isFinite(amt) || amt <= 0 ? 0 : Math.trunc(amt);
-        const iso = parseIsoFromYmd(thirdPartyNotifyYmdDraft);
+        const amount = parseExecutionAmountInt(thirdPartyAmountDraft);
+        const notifyYmd = getLocalTodayYmd();
+        const iso = parseIsoFromYmd(notifyYmd);
 
-        const canSave = Boolean(name) && amount > 0 && Boolean(iso) && Boolean(resolvedExecutionId);
+        const canSave = Boolean(name) && amount > 0 && Boolean(resolvedExecutionId);
 
         return (
             <div className="space-y-2">
@@ -794,15 +811,12 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
                         type="text"
                         inputMode="numeric"
                         value={thirdPartyAmountDraft}
-                        onChange={(e) => setThirdPartyAmountDraft(normalizeDigitsOnly(String(e.target.value || '')))}
-                        className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-slate-100 text-right"
+                        onChange={(e) => {
+                            const digits = normalizeDigitsOnly(String(e.target.value || ''));
+                            setThirdPartyAmountDraft(digits ? formatNumberInput(digits) : '');
+                        }}
+                        className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-slate-100 text-right tabular-nums"
                         placeholder="المبلغ المطلوب حجزه (د.ع)"
-                    />
-                    <input
-                        type="date"
-                        value={thirdPartyNotifyYmdDraft}
-                        onChange={(e) => setThirdPartyNotifyYmdDraft(e.target.value)}
-                        className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-slate-100"
                     />
                 </div>
                 <button
@@ -810,15 +824,16 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
                     disabled={!canSave}
                     className="w-full rounded-xl bg-gradient-to-l from-cyan-500 to-sky-700 px-5 py-2.5 text-[12px] font-black text-white shadow-md shadow-black/20 disabled:opacity-40"
                     onClick={() => {
-                        if (!canSave) return;
+                        if (!canSave || !resolvedExecutionId) return;
                         const decisionId = String(row.id || '').trim();
                         const entityId = `tps_${decisionId}_${Date.now()}`;
+                        const notificationDateIso = iso ?? new Date().toISOString();
                         const nextSeizure = {
                             id: entityId,
                             decisionRowId: decisionId,
                             thirdPartyName: name,
                             requestedAmountIqd: amount,
-                            notificationDateIso: iso,
+                            notificationDateIso,
                             replyStatus: 'pending',
                             transferredAmountIqd: null,
                             status: 'notified',
@@ -832,10 +847,10 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
                         pushTimelineEvent(
                             {
                                 id: nextTimelineId(),
-                                date: getLocalTodayYmd(),
+                                date: notifyYmd,
                                 timestamp: nowIso,
-                                title: '📨 حجز مال المدين لدى الغير — تم التبليغ',
-                                description: `الجهة: ${name}\nالمبلغ المطلوب حجزه: ${amount.toLocaleString('ar-IQ')} د.ع.\nتاريخ التبليغ: ${String(iso).slice(0, 10)}`,
+                                title: '📨 حجز مال المدين لدى الغير — تم التسجيل',
+                                description: `الجهة: ${name}\nالمبلغ المطلوب حجزه: ${amount.toLocaleString('ar-IQ')} د.ع.`,
                                 type: 'coercive',
                                 source: 'التنفيذ والمحجوزات',
                                 metadata: {
@@ -847,33 +862,32 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
                             { mergePatch: { thirdPartySeizures: nextSeizures } }
                         );
 
-                        try {
-                            patchExecutorDecisionRow(resolvedExecutionId, decisionId, {
-                                seizureRequestSavedAt: nowIso,
-                                seizureRequestDetails: [
-                                    `الجهة: ${name}`,
-                                    `المبلغ المطلوب حجزه: ${amount.toLocaleString('ar-IQ')} د.ع`,
-                                    `تاريخ التبليغ: ${String(iso).slice(0, 10)}`,
-                                ].join('\n'),
-                                seizurePayloadJson: JSON.stringify({
-                                    thirdPartySeizureId: entityId,
-                                    thirdPartyName: name,
-                                    requestedAmountIqd: amount,
-                                    notificationDateIso: iso,
-                                }),
-                            } as any);
-                        } catch {
-                            /* ignore */
+                        const patched = patchExecutorDecisionRowEverywhere(decisionId, {
+                            seizureRequestSavedAt: nowIso,
+                            seizureRequestDetails: [
+                                `الجهة: ${name}`,
+                                `المبلغ المطلوب حجزه: ${amount.toLocaleString('ar-IQ')} د.ع`,
+                            ].join('\n'),
+                            seizurePayloadJson: JSON.stringify({
+                                thirdPartySeizureId: entityId,
+                                thirdPartyName: name,
+                                requestedAmountIqd: amount,
+                                notificationDateIso,
+                            }),
+                        });
+                        if (!patched.ok) {
+                            showToast('تعذّر ربط الحفظ ببطاقة القرار — أعد المحاولة.', 'warning');
+                            return;
                         }
+                        dispatchDecisionsReload();
 
                         persistExecutionMerge({ thirdPartySeizures: nextSeizures });
                         setThirdPartyNameDraft('');
                         setThirdPartyAmountDraft('');
-                        setThirdPartyNotifyYmdDraft('');
-                        showToast('تم حفظ بيانات الحجز لدى الغير داخل نفس البطاقة.', 'success');
+                        showToast('تم الحفظ — اكتملت دورة الطلب.', 'success');
                     }}
                 >
-                    حفظ بيانات التبليغ
+                    الحفظ
                 </button>
             </div>
         );
@@ -967,15 +981,26 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
             String(row.executorOutcome ?? 'pending') === 'pending' ||
             String(row.executorOutcome ?? '') === '';
         const approvedNotSaved =
-            isExecutorRowEffectivelyApproved(row) && !String(row.seizureRequestSavedAt || '').trim();
+            isExecutorRowApprovedWorkflowActive(row, decisions) &&
+            !String(row.seizureRequestSavedAt || '').trim();
         return salaryLaneOccupied || pending || approvedNotSaved;
-    }, [salaryLaneOccupied, salaryRowForUi]);
+    }, [decisions, salaryLaneOccupied, salaryRowForUi]);
 
     const salaryRequestSettled = React.useMemo(
         () =>
             hasActiveSalarySeizure ||
-            (salaryRowForUi ? isSeizureRequestFullyRegistered(salaryRowForUi) : false),
-        [hasActiveSalarySeizure, salaryRowForUi]
+            (salaryRowForUi ? isSeizureRequestFullyRegistered(salaryRowForUi, decisions) : false),
+        [decisions, hasActiveSalarySeizure, salaryRowForUi]
+    );
+    const salaryLogReady = React.useMemo(
+        () =>
+            hasActiveSalarySeizure ||
+            (salaryRowForUi ? isSeizureRegistrationComplete(salaryRowForUi, decisions) : false),
+        [decisions, hasActiveSalarySeizure, salaryRowForUi]
+    );
+    const salaryRegistrationAckReady = React.useMemo(
+        () => Boolean(salaryRowForUi && isSeizureRegistrationComplete(salaryRowForUi, decisions)),
+        [decisions, salaryRowForUi]
     );
 
     const openSalarySeizureRequest = React.useCallback(async () => {
@@ -1010,7 +1035,8 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
             const alternative = outcome === 'alternative';
             const rejected = isExecutorRowRejectedAndFinal(salaryRowForUi);
             const approved =
-                !rejected && (alternative || isExecutorRowEffectivelyApproved(salaryRowForUi));
+                !rejected &&
+                (alternative || isExecutorRowApprovedWorkflowActive(salaryRowForUi, decisions));
             const savedAt = String(salaryRowForUi?.seizureRequestSavedAt || '').trim();
             const needsCompletion = approved && !savedAt;
             if (needsCompletion) {
@@ -1041,7 +1067,7 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
         const row = salaryRowForUi;
         if (!row?.id) return;
         if (isExecutorRowRejectedAndFinal(row)) return;
-        if (!isExecutorRowEffectivelyApproved(row)) return;
+        if (!isExecutorRowApprovedWorkflowActive(row, decisions)) return;
         const savedAt = String(row.seizureRequestSavedAt || '').trim();
         if (savedAt) {
             salaryAutoRegisterSigRef.current = '';
@@ -1066,12 +1092,12 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
             salaryAmount: '',
             monthlyDeductionIqd: '',
         });
-    }, [executionData?.seizedAssets, salaryRowForUi, saveCoerciveAction]);
+    }, [decisions, executionData?.seizedAssets, salaryRowForUi, saveCoerciveAction]);
 
     const renderPropertyCompletion = (row: any) => {
         const decisionId = String(row?.id || '').trim();
         if (!decisionId) return null;
-        if (!isExecutorRowEffectivelyApproved(row)) return null;
+        if (!isExecutorRowApprovedWorkflowActive(row, decisions)) return null;
         const savedAt = String(row.seizureRequestSavedAt || '').trim();
         if (savedAt) return null;
         const draft = propertyDetailsDraftByDecisionId[decisionId] || { propertyNumber: '', propertyDistrict: '', propertyType: '' };
@@ -1138,7 +1164,7 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
     const renderVehicleCompletion = (row: any) => {
         const decisionId = String(row?.id || '').trim();
         if (!decisionId) return null;
-        if (!isExecutorRowEffectivelyApproved(row)) return null;
+        if (!isExecutorRowApprovedWorkflowActive(row, decisions)) return null;
         const savedAt = String(row.seizureRequestSavedAt || '').trim();
         if (savedAt) return null;
         const draft = vehicleDetailsDraftByDecisionId[decisionId] || {
@@ -1199,7 +1225,7 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
     const buildRequestSteps = (title: string, row: any, requestKind: string, extra?: React.ReactNode): ExecutionInlineStep[] => {
         const hasRow = Boolean(row?.id);
         const rejected = hasRow ? isExecutorRowRejectedAndFinal(row) : false;
-        const approved = hasRow ? isExecutorRowEffectivelyApproved(row) : false;
+        const approved = hasRow ? isExecutorRowApprovedWorkflowActive(row, decisions) : false;
         const pending = hasRow ? String(row.executorOutcome ?? 'pending') === 'pending' || String(row.executorOutcome ?? '') === '' : false;
         return [
             {
@@ -1233,17 +1259,18 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
     };
 
     const renderMovableSeizureBlock = () => {
-        const movableSettled = movableDecision && isSeizureRequestFullyRegistered(movableDecision);
+        const movableSettled =
+            movableDecision && isSeizureRequestFullyRegistered(movableDecision, decisions);
+        const movableLogReady =
+            movableDecision && isSeizureRegistrationComplete(movableDecision, decisions);
         return (
         <SeizureRequestBlock
-            lifecycle={lifecycleMovable}
-            showLifecycleBadge={!movableSettled}
             disabled={seizureActionsDisabled}
-            className="w-full rounded-2xl border border-sky-300/15 bg-sky-500/[0.06] px-4 py-3 text-[12px] font-bold text-slate-100 hover:bg-sky-500/[0.10] hover:border-sky-200/25 disabled:opacity-40"
+            className="w-full rounded-2xl border border-sky-300/15 bg-sky-500/[0.06] hover:bg-sky-500/[0.10] hover:border-sky-200/25"
             onClick={() => {
                 if (seizureActionsDisabled) return;
                 if (movableSettled) {
-                    openUnifiedSeizureLogTab('movable');
+                    acknowledgeSeizureRequestFromLog('movable');
                     return;
                 }
                 setInlineActionGateKey('seizure_vehicle');
@@ -1263,7 +1290,15 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
                     ) : null}
                 </span>
             }
-            trailingSlot={movableSettled ? <SeizureLogNavigateBadge tab="movable" tone="sky" /> : null}
+            trailingSlot={
+                movableLogReady ? (
+                    <SeizureLogNavigateBadge
+                        tab="movable"
+                        tone="sky"
+                        onAcknowledgeCycle={() => acknowledgeSeizureRequestFromLog('movable')}
+                    />
+                ) : null
+            }
             afterButton={
                 <InlineActionGate
                     gateKey="seizure_vehicle"
@@ -1299,17 +1334,17 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
 
     const renderThirdPartySeizureBlock = () => {
         const thirdPartySettled =
-            thirdPartyDecision && isSeizureRequestFullyRegistered(thirdPartyDecision);
+            thirdPartyDecision && isSeizureRequestFullyRegistered(thirdPartyDecision, decisions);
+        const thirdPartyLogReady =
+            thirdPartyDecision && isSeizureRegistrationComplete(thirdPartyDecision, decisions);
         return (
         <SeizureRequestBlock
-            lifecycle={lifecycleThirdParty}
-            showLifecycleBadge={!thirdPartySettled}
             disabled={seizureActionsDisabled}
-            className="w-full rounded-2xl border border-violet-300/15 bg-violet-500/[0.06] px-4 py-3 text-[12px] font-bold text-slate-100 hover:bg-violet-500/[0.10] hover:border-violet-200/25 disabled:opacity-40"
+            className="w-full rounded-2xl border border-violet-300/15 bg-violet-500/[0.06] hover:bg-violet-500/[0.10] hover:border-violet-200/25"
             onClick={() => {
                 if (seizureActionsDisabled) return;
                 if (thirdPartySettled) {
-                    openUnifiedSeizureLogTab('third_party');
+                    acknowledgeSeizureRequestFromLog('third_party');
                     return;
                 }
                 setInlineActionGateKey('seizure_third_party');
@@ -1330,7 +1365,13 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
                 </span>
             }
             trailingSlot={
-                thirdPartySettled ? <SeizureLogNavigateBadge tab="third_party" tone="violet" /> : null
+                thirdPartyLogReady ? (
+                    <SeizureLogNavigateBadge
+                        tab="third_party"
+                        tone="violet"
+                        onAcknowledgeCycle={() => acknowledgeSeizureRequestFromLog('third_party')}
+                    />
+                ) : null
             }
             afterButton={
                 <InlineActionGate
@@ -1365,17 +1406,18 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
     };
 
     const renderPropertySeizureBlock = () => {
-        const propertySettled = propertyDecision && isSeizureRequestFullyRegistered(propertyDecision);
+        const propertySettled =
+            propertyDecision && isSeizureRequestFullyRegistered(propertyDecision, decisions);
+        const propertyLogReady =
+            propertyDecision && isSeizureRegistrationComplete(propertyDecision, decisions);
         return (
         <SeizureRequestBlock
-            lifecycle={lifecycleProperty}
-            showLifecycleBadge={!propertySettled}
             disabled={seizureActionsDisabled}
-            className="w-full rounded-2xl border border-amber-300/15 bg-amber-500/[0.06] px-4 py-3 text-[12px] font-bold text-slate-100 hover:bg-amber-500/[0.10] hover:border-amber-200/25 disabled:opacity-40"
+            className="w-full rounded-2xl border border-amber-300/15 bg-amber-500/[0.06] hover:bg-amber-500/[0.10] hover:border-amber-200/25"
             onClick={() => {
                 if (seizureActionsDisabled) return;
                 if (propertySettled) {
-                    openUnifiedSeizureLogTab('property');
+                    acknowledgeSeizureRequestFromLog('property');
                     return;
                 }
                 setInlineActionGateKey('seizure_property');
@@ -1395,7 +1437,15 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
                     ) : null}
                 </span>
             }
-            trailingSlot={propertySettled ? <SeizureLogNavigateBadge tab="property" tone="amber" /> : null}
+            trailingSlot={
+                propertyLogReady ? (
+                    <SeizureLogNavigateBadge
+                        tab="property"
+                        tone="amber"
+                        onAcknowledgeCycle={() => acknowledgeSeizureRequestFromLog('property')}
+                    />
+                ) : null
+            }
             afterButton={
                 <InlineActionGate
                     gateKey="seizure_property"
@@ -1433,7 +1483,6 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
         <div className="p-4 space-y-3 text-right">
         {showGuarantorRequestInTab ? (
             <SeizureRequestBlock
-                lifecycle={lifecycleGuarantor}
                 disabled={executionCoerciveButtonDisabled || coerciveUiLocked || isHistoricalMode}
                 className="w-full rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3 text-[12px] font-bold text-slate-100 backdrop-blur-xl transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:-translate-y-0.5 hover:border-amber-400/35 hover:shadow-[0_18px_48px_rgba(0,0,0,0.45),0_0_0_1px_rgba(230,198,115,0.08)] disabled:opacity-40"
                 onClick={() => {
@@ -1446,7 +1495,8 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
                     const approved =
                         Boolean(did) &&
                         !rejected &&
-                        (alternative || isExecutorRowEffectivelyApproved(findLatestGuarantorDecision));
+                        (alternative ||
+                            isExecutorRowApprovedWorkflowActive(findLatestGuarantorDecision, decisions));
                     const detailsSaved = Boolean(
                         String(findLatestGuarantorDecision?.guarantorDetailsSavedAt || '').trim()
                     );
@@ -1533,10 +1583,8 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
         <div className="flex flex-col gap-3">
         {showRecommendedButton('salary') && !salaryRequestOpen ? (
         <SeizureRequestBlock
-            lifecycle={lifecycleSalary}
-            showLifecycleBadge={!salaryRequestSettled}
             disabled={seizureActionsDisabled}
-            className={`w-full rounded-2xl border px-4 py-3 text-[12px] font-bold text-slate-100 disabled:opacity-40 ${
+            className={`w-full rounded-2xl border ${
                 hasActiveSalarySeizure
                     ? 'border-slate-500/30 bg-slate-800/40 text-slate-300 cursor-pointer'
                     : 'border-emerald-300/15 bg-emerald-500/[0.06] hover:bg-emerald-500/[0.10] hover:border-emerald-200/25'
@@ -1544,7 +1592,11 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
             onClick={() => {
                 if (seizureActionsDisabled) return;
                 if (salaryRequestSettled) {
-                    openUnifiedSeizureLogTab('salary');
+                    if (salaryRegistrationAckReady) {
+                        acknowledgeSeizureRequestFromLog('salary');
+                    } else {
+                        openUnifiedSeizureLogTab('salary');
+                    }
                     return;
                 }
                 if (hasActiveSalarySeizure) {
@@ -1577,8 +1629,16 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
                 </span>
             }
             trailingSlot={
-                salaryRequestSettled ? (
-                    <SeizureLogNavigateBadge tab="salary" tone="emerald" />
+                salaryLogReady ? (
+                    <SeizureLogNavigateBadge
+                        tab="salary"
+                        tone="emerald"
+                        onAcknowledgeCycle={
+                            salaryRegistrationAckReady
+                                ? () => acknowledgeSeizureRequestFromLog('salary')
+                                : undefined
+                        }
+                    />
                 ) : null
             }
             afterButton={

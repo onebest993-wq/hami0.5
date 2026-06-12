@@ -10,6 +10,13 @@
  */
 
 import type { SeizedAsset } from '@/app/types/execution';
+import {
+    getExecutorDecisionRowById,
+    isExecutorRowEffectivelyApproved,
+    isExecutorRowRejectedAndFinal,
+    readExecutorDecisionsArray,
+} from '@/app/utils/executorSeizureDecisionQueue';
+import { isExecutorDecisionRowEffectivelyEnforced } from '@/app/components/lawyer/ExecutionDashboard/utils/executorRequestEnforceability';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SEIZURE TYPE UTILITIES
@@ -50,6 +57,44 @@ export function isSalarySeizureRow(a: SeizedAsset): boolean {
 /**
  * التحقق مما إذا كان الصف يمثل حجز مال منقول
  */
+/** صف قرار حجز مكتمل — موافقة منفذ + حفظ التفاصيل */
+export function isSeizureDecisionRowFullyRegistered(
+    row: Record<string, unknown> | null | undefined
+): boolean {
+    if (!row) return true;
+    const id = String((row as { id?: string }).id ?? '').trim();
+    if (!id) return true;
+    if (isExecutorRowRejectedAndFinal(row)) return false;
+    if (!isExecutorRowEffectivelyApproved(row)) return false;
+    return Boolean(String((row as { seizureRequestSavedAt?: string }).seizureRequestSavedAt ?? '').trim());
+}
+
+/** محجوز نشط يستحق شارة — لا يُعرض عند «قيد البت» أو قبل موافقة المنفذ */
+export function isSeizureAssetEnforceableForBadge(
+    asset: SeizedAsset,
+    decisionsExecutionId?: string
+): boolean {
+    if (asset.seizure_record_locked) return false;
+    const st = String(asset.status || '');
+    if (st === 'pending' || st === 'released' || st === 'sold') return false;
+    if (/قيد\s*البت/i.test(String(asset.type || ''))) return false;
+
+    const det =
+        typeof asset.details === 'object' && asset.details && !Array.isArray(asset.details)
+            ? (asset.details as Record<string, unknown>)
+            : {};
+    const decisionRowId = String(det.decisionRowId ?? '').trim();
+    if (!decisionRowId) return st === 'seized' || st === 'auctioned';
+
+    const exId = String(decisionsExecutionId ?? '').trim();
+    if (!exId) return false;
+    const row = getExecutorDecisionRowById(exId, decisionRowId) as Record<string, unknown> | null;
+    if (!row) return false;
+    if (!isSeizureDecisionRowFullyRegistered(row)) return false;
+    const all = readExecutorDecisionsArray(exId) as Record<string, unknown>[];
+    return isExecutorDecisionRowEffectivelyEnforced(row, all);
+}
+
 export function isMovablePropertySeizureRow(a: SeizedAsset): boolean {
     const det =
         typeof a.details === 'object' && a.details && !Array.isArray(a.details)

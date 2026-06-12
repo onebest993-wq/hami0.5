@@ -10,10 +10,10 @@ import {
     getGoverningPersonalCoerciveSubtypeRowFromDecisions,
     isEvictionBranchResendBlocked,
     isEvictionProcedureRowWorkflowComplete,
-    isExecutorRowEffectivelyApproved,
     isExecutorRowRejectedAndFinal,
     type PersonalCoerciveSubtype,
 } from '@/app/utils/executorSeizureDecisionQueue';
+import { resolveExecutorRequestAppealSyncFromRow } from '@/app/utils/executorRequestAppealSync';
 import { resolveAmountGuarantorRequestVisible } from '@/app/components/lawyer/FinancialOperationsCenter/settlementGuarantorGate';
 import { hasActiveFinancialGuarantorFollowup } from './guarantorExternalUtils';
 import type { ExecutionFile } from '@/app/types/execution';
@@ -334,7 +334,7 @@ export function resolveHiddenBreakInventoryRequest(
     resendBlocked: boolean;
 } {
     const row = getGoverningEvictionProcedureRowForBranch(decisions, 'Lock Breaking & Inventory');
-    const { status, statusLabel } = resolveRowStatus(row);
+    const { status, statusLabel } = resolveRowStatus(row, decisions);
     const workflowComplete = Boolean(row && isEvictionProcedureRowWorkflowComplete(row));
     const resendBlocked = isEvictionBranchResendBlocked(decisions, { branch: 'Lock Breaking & Inventory' });
     return { row, status, statusLabel, workflowComplete, resendBlocked };
@@ -352,7 +352,10 @@ export function hasAnyHiddenFollowupContent(
     );
 }
 
-function resolveRowStatus(row: Record<string, unknown> | null): {
+function resolveRowStatus(
+    row: Record<string, unknown> | null,
+    allDecisions: Record<string, unknown>[] = []
+): {
     status: HiddenRequestStatus;
     statusLabel: string;
 } {
@@ -366,8 +369,21 @@ function resolveRowStatus(row: Record<string, unknown> | null): {
     if (rejected) return { status: 'rejected', statusLabel: 'مرفوض لدى المنفذ' };
     if (pending) return { status: 'pending', statusLabel: 'قيد البت لدى المنفذ' };
     if (alternative) return { status: 'alternative', statusLabel: 'قرار بديل' };
-    if (isExecutorRowEffectivelyApproved(row)) {
-        return { status: 'approved', statusLabel: 'موافق عليه' };
+    const sync = resolveExecutorRequestAppealSyncFromRow(row, allDecisions);
+    if (sync.cycleSuperseded || sync.gate.kind === 'lifecycle_reset') {
+        return { status: 'none', statusLabel: 'دورة منتهية — يمكن إعادة الطلب' };
+    }
+    if (sync.gate.kind === 'revoked') {
+        return { status: 'approved', statusLabel: 'غير نافذ — قبول تظلم نهائي' };
+    }
+    if (sync.gate.kind === 'paused') {
+        return { status: 'approved', statusLabel: 'موقوف — قبول تظلم' };
+    }
+    if (sync.enforced) {
+        return { status: 'approved', statusLabel: 'نافذ' };
+    }
+    if (sync.governingRow && sync.blocked) {
+        return { status: 'approved', statusLabel: 'غير نافذ' };
     }
     return { status: 'none', statusLabel: '—' };
 }
@@ -388,7 +404,7 @@ export function resolveHiddenPersonalCoerciveRequests(
             };
         }
         const row = getGoverningPersonalCoerciveSubtypeRowFromDecisions(decisions, item.subtype);
-        const { status, statusLabel } = resolveRowStatus(row);
+        const { status, statusLabel } = resolveRowStatus(row, decisions);
         return {
             key: item.key,
             label: item.label,

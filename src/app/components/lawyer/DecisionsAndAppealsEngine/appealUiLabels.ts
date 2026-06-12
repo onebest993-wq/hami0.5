@@ -119,6 +119,11 @@ export function appealDebtorGrievanceNoticeLabel(perspective: AppealUiPerspectiv
         : 'قام المدين بالطعن بالقرار';
 }
 
+/** وكيل الدائن — قرار منفذ لصالح الدائن: الطعن للمدين فقط */
+export function appealCreditorAgentDebtorHarmedNotice(): string {
+    return 'الطعن متاح للمدين فقط — لا إجراء مطلوب من وكيل الدائن';
+}
+
 export function appealExecutorSideDebtorPathLabel(perspective: AppealUiPerspective): string {
     return perspective === 'debtor_agent'
         ? 'طعن موكّلنا بالقرار'
@@ -189,6 +194,12 @@ export function appealAppellantDisplayLabel(
 ): string {
     const label = String(raw ?? '').trim();
     if (!label || label === '—') return label;
+    if (label.includes('،')) {
+        return label
+            .split('،')
+            .map((part) => appealAppellantDisplayLabel(part.trim(), perspective))
+            .join('، ');
+    }
     if (perspective === 'debtor_agent' && (label === 'المدين' || label === 'موكّل المدين')) {
         return 'موكّلنا';
     }
