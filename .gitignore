@@ -1,2 +1,28 @@
 .vercel
 node_modules
+
+# Build output
+dist/
+.next/
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+
+# Test artifacts
+playwright-report/
+test-results/
+coverage/
+
+# Archived session reports (regenerate not needed)
+docs/archive/
+
+# Flutter mobile stub — not part of the Vite web app
+hami/
+*.dill
+
+# OS & editor
+.DS_Store
+Thumbs.db
+*.log
