@@ -85,7 +85,7 @@ export const ecg = {
     modalShell: 'flex flex-col w-full h-screen bg-[#0A0F1C] overflow-hidden fixed inset-0 z-[220]',
     modalHeader:
         'flex-shrink-0 flex justify-between items-center w-full border-b border-white/8 px-4 py-3 bg-[#0A0F1C]/95 backdrop-blur-xl shadow-sm z-20',
-    modalTitle: 'text-lg md:text-xl font-bold text-[#E6C673] flex items-center gap-3',
+    modalHeaderTitle: 'text-lg md:text-xl font-bold text-[#E6C673] flex items-center gap-3',
     modalClose:
         'text-slate-400 hover:text-rose-300 p-2 rounded-xl transition-colors flex items-center gap-2 bg-white/[0.04] border border-white/8',
     modalBody: 'flex-1 w-full overflow-y-auto scrollbar-none [&::-webkit-scrollbar]:hidden px-2 py-2',
@@ -114,7 +114,7 @@ export const ecg = {
         'rounded-2xl border border-[#E6C673]/30 bg-[#0A0F1C]/95 backdrop-blur-xl p-6 max-w-lg w-full',
     modalPanelDanger:
         'rounded-2xl border border-rose-500/40 bg-[#0A0F1C]/95 backdrop-blur-xl p-6 max-w-md w-full',
-    modalTitle: 'text-xl font-bold text-[#E6C673] mb-2 flex items-center gap-2',
+    modalDialogTitle: 'text-xl font-bold text-[#E6C673] mb-2 flex items-center gap-2',
     modalBtnPrimary:
         'flex-1 rounded-xl border border-[#E6C673]/45 bg-gradient-to-l from-[#E6C673]/22 to-[#E6C673]/8 py-3 text-sm font-bold text-[#F8EED0] hover:from-[#E6C673]/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all',
     modalBtnGhost:
