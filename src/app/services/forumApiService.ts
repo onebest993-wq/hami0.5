@@ -48,10 +48,6 @@ async function getSessionUserId(explicitUserId?: string | null): Promise<string 
     return readPersistedSupabaseAuth().user?.id ?? null;
 }
 
-function isAdminRole(role: string | undefined): boolean {
-    return role === UserRole.SUPER_ADMIN || role === UserRole.MODERATOR;
-}
-
 type PostsListResponse = { ok: boolean; posts: CommunityPost[]; total: number };
 
 function isBannedForumError(err: SecureFetchError): boolean {
@@ -79,31 +75,27 @@ function parseForumApiError(err: unknown): string {
 }
 
 export class ForumApiService {
-    /** قراءة: fallback عند أخطاء الشبكة فقط — 401/403 تُمرَّر كما هي (حظر/مصادقة). */
+    /** قراءة: fallback عند أخطاء الشبكة أو غياب الجلسة — 403 تُمرَّر (حظر/صلاحيات). */
     private static async withFallback<T>(apiCall: () => Promise<T>, fallback: () => Promise<T>): Promise<T> {
         try {
             return await apiCall();
         } catch (err) {
-            if (err instanceof SecureFetchError && (err.status === 401 || err.status === 403)) {
+            if (err instanceof SecureFetchError && err.status === 401) {
+                return await fallback();
+            }
+            if (err instanceof SecureFetchError && err.status === 403) {
                 throw err;
             }
             return await fallback();
         }
     }
 
-    /** كتابة: عند فشل API (403 توقيع/صلاحيات في التطوير) نُكمل محلياً ما أمكن. */
+    /** كتابة: عند فشل API نُكمل محلياً فقط لأخطاء الشبكة — لا نتجاوز 403 WIFE/صلاحيات. */
     private static shouldRethrowMutationError(err: unknown): boolean {
         if (!(err instanceof SecureFetchError)) return false;
         if (err.status === 401) return true;
-        if (err.status === 403) {
-            try {
-                const body = JSON.parse(err.bodyText) as { error?: string };
-                const msg = body.error ?? '';
-                if (msg.includes('محظور')) return true;
-            } catch {
-                /* ignore */
-            }
-        }
+        if (err.status === 403) return true;
+        if (err.status === 429) return true;
         return false;
     }
 
@@ -134,6 +126,7 @@ export class ForumApiService {
     static async listPostsPaginated(
         limit: number,
         offset: number,
+        options?: { groupId?: string },
     ): Promise<{ posts: CommunityPost[]; total: number }> {
         const {
             CommunityDB,
@@ -143,11 +136,22 @@ export class ForumApiService {
             getDeletedCommunityPostIds,
         } = await import('@/app/services/lawyer-cloud');
         const localAll = sortCommunityPosts(await CommunityDB.listPosts());
+        const scopedLocal = options?.groupId
+            ? localAll.filter((p) => p.groupId === options.groupId)
+            : localAll.filter((p) => !p.groupId);
         const deletedIds = await getDeletedCommunityPostIds();
 
+        const { getCurrentAccessToken } = await import('./SecureAPIClient');
+        if (!(await getCurrentAccessToken())) {
+            return this.slicePostsPage(scopedLocal, limit, offset);
+        }
+
+        const groupQuery = options?.groupId
+            ? `&groupId=${encodeURIComponent(options.groupId)}`
+            : '';
         try {
             const res = await SecureAPIClient.fetchSecure<PostsListResponse>(
-                `/api/forum/posts?limit=${limit}&offset=${offset}`,
+                `/api/forum/posts?limit=${limit}&offset=${offset}${groupQuery}`,
                 { method: 'GET' },
             );
             if (!res.ok) throw new Error('تعذّر جلب المنشورات');
@@ -155,15 +159,18 @@ export class ForumApiService {
                 filterDeletedCommunityPosts(mergeCommunityPostsById(localAll, res.posts), deletedIds),
             );
             await CommunityDB.persistPostsBatch(merged);
-            return this.slicePostsPage(merged, limit, offset);
+            const scopedMerged = options?.groupId
+                ? merged.filter((p) => p.groupId === options.groupId)
+                : merged.filter((p) => !p.groupId);
+            return this.slicePostsPage(scopedMerged, limit, offset);
         } catch (err) {
             if (err instanceof SecureFetchError && err.status === 401) {
+                return this.slicePostsPage(scopedLocal, limit, offset);
+            }
+            if (err instanceof SecureFetchError && err.status === 403) {
                 throw err;
             }
-            if (err instanceof SecureFetchError && err.status === 403 && isBannedForumError(err)) {
-                throw err;
-            }
-            return this.slicePostsPage(localAll, limit, offset);
+            return this.slicePostsPage(scopedLocal, limit, offset);
         }
     }
 
@@ -308,7 +315,8 @@ export class ForumApiService {
                     : { ...res.post, content, isEdited: true, updatedAt: localSaved.updatedAt };
             await persistPostLocally(reconciled);
             return reconciled;
-        } catch {
+        } catch (err) {
+            if (this.shouldRethrowMutationError(err)) throw err;
             return localSaved;
         }
     }
@@ -331,7 +339,8 @@ export class ForumApiService {
                 await persistPostLocally(res.post);
                 result = res.post;
             }
-        } catch {
+        } catch (err) {
+            if (this.shouldRethrowMutationError(err)) throw err;
             /* التعليق محفوظ محلياً */
         }
 
@@ -391,6 +400,13 @@ export class ForumApiService {
     }
 
     static async isUserBanned(userId: string): Promise<boolean> {
+        const { getCurrentAccessToken } = await import('./SecureAPIClient');
+        if (!(await getCurrentAccessToken())) {
+            const { BanDB } = await import('@/app/services/lawyer-cloud');
+            const record = await BanDB.isBanned(userId);
+            return Boolean(record);
+        }
+
         return this.withFallback(
             async () => {
                 const res = await SecureAPIClient.fetchSecure<{ ok: boolean; banned: boolean }>(
@@ -415,6 +431,9 @@ export class ForumApiService {
 
         const { ForumBookmarkDB } = await import('@/app/services/lawyer-cloud');
         const localIds = await ForumBookmarkDB.listPostIds(userId);
+
+        const { getCurrentAccessToken } = await import('@/app/services/SecureAPIClient');
+        if (!(await getCurrentAccessToken())) return localIds;
 
         try {
             const res = await SecureAPIClient.fetchSecure<{ ok: boolean; postIds: string[] }>(
@@ -500,15 +519,83 @@ export class ForumApiService {
         return res.result ?? { ok: true };
     }
 
-    static async isCurrentUserAdmin(): Promise<boolean> {
-        const userId = await getSessionUserId();
-        if (!userId) return false;
-        const { data } = await supabase.auth.getUser();
-        const meta = data.user?.app_metadata as Record<string, unknown> | undefined;
-        const userMeta = data.user?.user_metadata as Record<string, unknown> | undefined;
-        const role =
-            (typeof meta?.role === 'string' ? meta.role : undefined) ??
-            (typeof userMeta?.role === 'string' ? userMeta.role : undefined);
-        return isAdminRole(role);
+    static async listGroups(query = ''): Promise<import('@/app/services/forum/forumGroupTypes').ForumGroup[]> {
+        const q = query.trim();
+        const url = q ? `/api/forum/groups?q=${encodeURIComponent(q)}` : '/api/forum/groups';
+        const res = await SecureAPIClient.fetchSecure<{
+            ok: boolean;
+            groups?: import('@/app/services/forum/forumGroupTypes').ForumGroup[];
+            error?: string;
+        }>(url, { method: 'GET' });
+        if (!res.ok || !Array.isArray(res.groups)) {
+            const { ForumGroupLocalStore } = await import('@/app/services/forum/forumGroupLocalStore');
+            const { readPersistedSupabaseAuth } = await import('@/app/utils/authStorage');
+            const viewerId = readPersistedSupabaseAuth().user?.id ?? null;
+            return ForumGroupLocalStore.listGroups(viewerId, q);
+        }
+        return res.groups;
+    }
+
+    static async createGroup(input: {
+        name: string;
+        description: string;
+        coverImage?: string | null;
+        isOfficial?: boolean;
+    }): Promise<import('@/app/services/forum/forumGroupTypes').ForumGroup> {
+        return this.withMutationFallback(
+            async () => {
+                const res = await postJson<
+                    ApiOk<{ group: import('@/app/services/forum/forumGroupTypes').ForumGroup }>
+                >('/api/forum/groups', input);
+                if (!res.group) throw new Error('استجابة غير صالحة');
+                return res.group;
+            },
+            async () => {
+                const { ForumGroupLocalStore } = await import('@/app/services/forum/forumGroupLocalStore');
+                const { readPersistedSupabaseAuth } = await import('@/app/utils/authStorage');
+                const creatorId = readPersistedSupabaseAuth().user?.id;
+                if (!creatorId) throw new Error('يجب تسجيل الدخول');
+                return ForumGroupLocalStore.createGroup(creatorId, input);
+            },
+        );
+    }
+
+    static async joinGroup(
+        groupId: string,
+    ): Promise<import('@/app/services/forum/forumGroupTypes').ForumGroup> {
+        return this.withMutationFallback(
+            async () => {
+                const res = await postJson<
+                    ApiOk<{ group: import('@/app/services/forum/forumGroupTypes').ForumGroup }>
+                >('/api/forum/groups/join', { groupId });
+                if (!res.group) throw new Error('استجابة غير صالحة');
+                return res.group;
+            },
+            async () => {
+                const { ForumGroupLocalStore } = await import('@/app/services/forum/forumGroupLocalStore');
+                const { readPersistedSupabaseAuth } = await import('@/app/utils/authStorage');
+                const lawyerId = readPersistedSupabaseAuth().user?.id;
+                if (!lawyerId) throw new Error('يجب تسجيل الدخول');
+                ForumGroupLocalStore.joinGroup(groupId, lawyerId);
+                const group = ForumGroupLocalStore.getGroup(groupId, lawyerId);
+                if (!group) throw new Error('المجموعة غير موجودة');
+                return group;
+            },
+        );
+    }
+
+    static async leaveGroup(groupId: string): Promise<void> {
+        await this.withMutationFallback(
+            async () => {
+                await postJson<ApiOk<Record<string, never>>>('/api/forum/groups/leave', { groupId });
+            },
+            async () => {
+                const { ForumGroupLocalStore } = await import('@/app/services/forum/forumGroupLocalStore');
+                const { readPersistedSupabaseAuth } = await import('@/app/utils/authStorage');
+                const lawyerId = readPersistedSupabaseAuth().user?.id;
+                if (!lawyerId) throw new Error('يجب تسجيل الدخول');
+                ForumGroupLocalStore.leaveGroup(groupId, lawyerId);
+            },
+        );
     }
 }

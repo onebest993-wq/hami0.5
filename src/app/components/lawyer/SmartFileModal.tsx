@@ -8,8 +8,11 @@ const SmartFileModalContent = lazy(() =>
 
 export type { SmartFileModalProps } from './smart-modal';
 
-export const SmartFileModal = (props: SmartFileModalProps) => (
-    <Suspense fallback={<DossierOpeningFallback />}>
-        <SmartFileModalContent {...props} />
-    </Suspense>
-);
+export const SmartFileModal = (props: SmartFileModalProps) => {
+    const fileId = (props.file as { id?: unknown } | undefined)?.id;
+    return (
+        <Suspense fallback={<DossierOpeningFallback />}>
+            <SmartFileModalContent key={String(fileId ?? 'unknown')} {...props} />
+        </Suspense>
+    );
+};

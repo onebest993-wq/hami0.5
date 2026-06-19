@@ -42,6 +42,11 @@ import {
 } from '@/app/utils/alimonyPaymentEngine';
 import { splitAmountEqually } from '@/app/components/lawyer/ExecutionCreationView/hooks/executionFormUtils';
 import { resolveAlimonyFinancialBreakdown, isPastAlimonyOnlyClaim } from '@/app/utils/alimonyFinancialBreakdown';
+import {
+    resolveOngoingAlimonyMonthlyDisplay,
+    shouldSuppressOngoingAlimonyMonthlyUi,
+    type AlimonyBeneficiaryDeathState,
+} from '@/app/utils/alimonyBeneficiaryDeathUtils';
 import type { PastAlimonyClaimSnapshot } from '@/app/utils/alimonyFinancialBreakdown';
 import type { ExecutionFile } from '@/app/types/execution';
 import { isEvictionClaim } from '@/app/utils/executionModuleStrategies';
@@ -164,6 +169,8 @@ export interface FinancialOperationsCenterProps {
         totalAccumulated?: number;
     } | null;
     pastAlimonyClaim?: PastAlimonyClaimSnapshot | null;
+    alimony_blob?: Record<string, unknown> | null;
+    alimony_beneficiary_death?: AlimonyBeneficiaryDeathState | null;
 
     courtFees: number;
     directorateFees: number;
@@ -293,6 +300,9 @@ export interface FinancialOperationsCenterProps {
     /** وكيل المدين — واجهة مالية مبسّطة */
     isRepresentingDebtor?: boolean;
     debtorAgentSeizedItems?: import('./components/DebtorAgentFinancialHubPanel').DebtorAgentSeizedItem[];
+
+    /** وفاة المدين — يُخفى عرض النفقة المستمرة الشهرية دون إغلاق الإضبارة */
+    activeDebtorIsDeceased?: boolean;
 }
 
 
@@ -323,6 +333,8 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
     children_count,
     alimonyCalculated,
     pastAlimonyClaim,
+    alimony_blob = null,
+    alimony_beneficiary_death = null,
     daysSinceNotice: _daysSinceNotice,
     gracePeriodEnded: _gracePeriodEnded,
     debtorJob,
@@ -365,6 +377,7 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
     onClearSalarySeizurePath,
     isRepresentingDebtor = false,
     debtorAgentSeizedItems = [],
+    activeDebtorIsDeceased = false,
 }) {
     const notify = useCallback(
         (
@@ -994,23 +1007,6 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
         () => store.expenses.reduce((s, r) => s + (Number.isFinite(r.amount) ? r.amount : 0), 0),
         [store.expenses]
     );
-    const ongoingMonthlyAlimonyTotal = useMemo(() => {
-        if (!isAlimonyClaim) return 0;
-        const wifePart =
-            monthly_wife_alimony != null
-                ? monthly_wife_alimony
-                : monthly_children_alimony
-                  ? 0
-                  : monthlyAlimony;
-        return wifePart + (monthly_children_alimony || 0) * (children_count || 1);
-    }, [
-        isAlimonyClaim,
-        monthly_wife_alimony,
-        monthly_children_alimony,
-        monthlyAlimony,
-        children_count,
-    ]);
-
     const alimonyBreakdown = useMemo(() => {
         if (!isAlimonyClaim) return null;
         return resolveAlimonyFinancialBreakdown({
@@ -1031,6 +1027,51 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
         () => isPastAlimonyOnlyClaim(claimType, claimTypes),
         [claimType, claimTypes]
     );
+    const alimonyExecutionSnapshot = useMemo(
+        () => ({
+            claimType,
+            claimTypes,
+            monthlyWifeAlimony: monthly_wife_alimony,
+            monthly_wife_alimony: monthly_wife_alimony,
+            monthlyChildrenAlimony: monthly_children_alimony,
+            monthly_children_alimony: monthly_children_alimony,
+            monthlyAlimony,
+            childrenCount: children_count,
+            children_count,
+            alimony_beneficiary_death: alimony_beneficiary_death ?? undefined,
+            alimony: alimony_blob
+                ? { ...alimony_blob, calculated: alimonyCalculated ?? alimony_blob.calculated }
+                : alimonyCalculated
+                  ? { calculated: alimonyCalculated }
+                  : undefined,
+        }),
+        [
+            claimType,
+            claimTypes,
+            monthly_wife_alimony,
+            monthly_children_alimony,
+            monthlyAlimony,
+            children_count,
+            alimony_beneficiary_death,
+            alimony_blob,
+            alimonyCalculated,
+        ]
+    );
+    const ongoingAlimonyDisplay = useMemo(() => {
+        if (!isAlimonyClaim || isPastAlimonyOnly) {
+            return { total: 0, beneficiaryKind: '' as const, detailLines: [] as string[] };
+        }
+        return resolveOngoingAlimonyMonthlyDisplay(alimonyExecutionSnapshot);
+    }, [alimonyExecutionSnapshot, isAlimonyClaim, isPastAlimonyOnly]);
+    const ongoingMonthlyAlimonyTotal = ongoingAlimonyDisplay.total;
+    const suppressOngoingAlimonyMonthly = shouldSuppressOngoingAlimonyMonthlyUi(
+        activeDebtorIsDeceased
+    );
+    const showOngoingAlimonyMonthlySection =
+        isAlimonyClaim && !isPastAlimonyOnly && !suppressOngoingAlimonyMonthly && ongoingMonthlyAlimonyTotal > 0;
+    const ongoingMonthlyAlimonyEffective = suppressOngoingAlimonyMonthly
+        ? 0
+        : ongoingMonthlyAlimonyTotal;
     const principalBasisAmount = resolvePrincipalBasisFromStore(store, ledgerTotalParams);
     const baseDossierFeesAmount = evictionLawyerFeeWaivedAtIntake ? 0 : courtOrderedFeesSafe;
     const baseDossierAmount = Math.max(0, principalBasisAmount + baseDossierFeesAmount);
@@ -1415,7 +1456,7 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
     const canApplySettlementAny =
         Number.isFinite(settlementAmountParsed) &&
         settlementAmountParsed > 0 &&
-        (isAlimonyClaim && ongoingMonthlyAlimonyTotal > 0
+        (isAlimonyClaim && ongoingMonthlyAlimonyEffective > 0
             ? true
             : settlementAmountParsed <= remainingUnified);
     const repaymentAmountParsed = parseAmount(repaymentInput);
@@ -1922,7 +1963,7 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
             }
             onClearSalarySeizurePath?.();
         }
-        if (amt > remainingUnified && !(isAlimonyClaim && ongoingMonthlyAlimonyTotal > 0)) {
+        if (amt > remainingUnified && !(isAlimonyClaim && ongoingMonthlyAlimonyEffective > 0)) {
             notify(
                 `لا يمكن اعتماد تسوية تتجاوز المبلغ المتبقي. المتبقي الحالي: ${remainingUnified.toLocaleString('ar-IQ')} د.ع`,
                 'warning'
@@ -1934,7 +1975,7 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
             return false;
         }
         const periodStartYmd = addMonthsToYmd(dueDate, -1) || extractYmd(new Date().toISOString());
-        const tracksOngoingAlimony = isAlimonyClaim && ongoingMonthlyAlimonyTotal > 0;
+        const tracksOngoingAlimony = isAlimonyClaim && ongoingMonthlyAlimonyEffective > 0;
         const pending: PendingSettlement = {
             id: `stl-${Date.now()}`,
             amount: amt,
@@ -1976,7 +2017,7 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
         const amt = Math.min(Math.max(0, pending.amount), remainingUnified);
         const tracksOngoing =
             Boolean(pending.tracksOngoingAlimony) ||
-            (isAlimonyClaim && ongoingMonthlyAlimonyTotal > 0);
+            (isAlimonyClaim && ongoingMonthlyAlimonyEffective > 0);
         const settlementPayAmount = tracksOngoing
             ? Math.max(0, pending.amount)
             : amt;
@@ -2068,10 +2109,10 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
         const dueYmd = extractYmd(pending.dueDate);
         const tracksOngoing =
             Boolean(pending.tracksOngoingAlimony) ||
-            (isAlimonyClaim && ongoingMonthlyAlimonyTotal > 0);
+            (isAlimonyClaim && ongoingMonthlyAlimonyEffective > 0);
         const canAccrueOngoing =
             tracksOngoing &&
-            ongoingMonthlyAlimonyTotal > 0 &&
+            ongoingMonthlyAlimonyEffective > 0 &&
             Boolean(dueYmd) &&
             shouldShowSettlementDueActions(dueYmd || pending.dueDate, todayYmd);
 
@@ -2084,7 +2125,7 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
             const accrual = applyOngoingAlimonyBreachAccrual({
                 store: getLatestLedgerStore(),
                 pending,
-                monthlyAmount: ongoingMonthlyAlimonyTotal || pending.amount,
+                monthlyAmount: ongoingMonthlyAlimonyEffective || pending.amount,
                 currentYmd: todayYmd,
                 basePrincipal: principalBasisAmount,
             });
@@ -2109,11 +2150,11 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                 accruedAmount,
                 billableDays,
                 newPrincipalTotal,
-                monthlyRate: ongoingMonthlyAlimonyTotal || pending.amount,
+                monthlyRate: ongoingMonthlyAlimonyEffective || pending.amount,
             });
             recordFinancialTimelineNote(
                 '📈 ترحيل نفقة مستمرة للمتبقي',
-                `أُضيف ${accruedAmount.toLocaleString('ar-IQ')} د.ع إلى المتبقي — ${billableDays} يوماً من النفقة الشهرية (${(ongoingMonthlyAlimonyTotal || pending.amount).toLocaleString('ar-IQ')} د.ع/شهر) بعد إخلال التسوية.`,
+                `أُضيف ${accruedAmount.toLocaleString('ar-IQ')} د.ع إلى المتبقي — ${billableDays} يوماً من النفقة الشهرية (${(ongoingMonthlyAlimonyEffective || pending.amount).toLocaleString('ar-IQ')} د.ع/شهر) بعد إخلال التسوية.`,
                 'settlement'
             );
             notify(
@@ -2176,6 +2217,7 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                 financialCenterTotalIqd: remainingUnified,
                 settlementBreachTriggeredAt: store.settlementBreachTriggeredAt,
                 salarySeizureActive,
+                activeDebtorIsDeceased,
             }),
         [
             settlementUxTier,
@@ -2188,6 +2230,7 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
             pendingSettlementDueYmd,
             currentYmd,
             salarySeizureActive,
+            activeDebtorIsDeceased,
         ]
     );
 
@@ -2311,15 +2354,15 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
         if (!store.pendingSettlement) {
             setShowSettlementEviction(true);
             ensureDefaultSettlementDueDate();
-            if (isAlimonyClaim && ongoingMonthlyAlimonyTotal > 0 && !settlementInput.trim()) {
-                setSettlementInput(formatNumberInput(String(ongoingMonthlyAlimonyTotal)));
+            if (isAlimonyClaim && ongoingMonthlyAlimonyEffective > 0 && !settlementInput.trim()) {
+                setSettlementInput(formatNumberInput(String(ongoingMonthlyAlimonyEffective)));
             }
         }
     }, [
         store.pendingSettlement,
         ensureDefaultSettlementDueDate,
         isAlimonyClaim,
-        ongoingMonthlyAlimonyTotal,
+        ongoingMonthlyAlimonyEffective,
         settlementInput,
         salarySeizureActive,
     ]);
@@ -2341,8 +2384,14 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
         }
     }, [salarySeizureActive, deactivateSettlementPanel]);
 
+    React.useEffect(() => {
+        if (activeDebtorIsDeceased) {
+            deactivateSettlementPanel();
+        }
+    }, [activeDebtorIsDeceased, deactivateSettlementPanel]);
+
     const renderLedgerToolbar = (className = 'mt-2 flex flex-row-reverse items-center justify-end gap-2') =>
-        onShowLedger || (isAlimonyClaim && !isPastAlimonyOnly) ? (
+        onShowLedger || showOngoingAlimonyMonthlySection ? (
             <div className={className}>
                 {onShowLedger ? (
                     <button
@@ -2356,7 +2405,7 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                         السجل المالي العام
                     </button>
                 ) : null}
-                {isAlimonyClaim && !isPastAlimonyOnly ? (
+                {showOngoingAlimonyMonthlySection ? (
                     <button
                         type="button"
                         onClick={() => setAlimonyDetailOpen(true)}
@@ -2371,7 +2420,7 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
         ) : null;
 
     const renderAlimonyDetailModal = () =>
-        isAlimonyClaim && !isPastAlimonyOnly && alimonyDetailOpen ? (
+        showOngoingAlimonyMonthlySection && alimonyDetailOpen ? (
             <FocModalPortal open onBackdropClick={() => setAlimonyDetailOpen(false)} backdropClassName="bg-black/60">
                 <motion.div
                     initial={{ scale: 0.98, opacity: 0, y: 8 }}
@@ -2697,6 +2746,8 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                                     applyDebtRepayment={applyDebtRepayment}
                                     repaymentExceedsRemaining={repaymentExceedsRemaining}
                                     ongoingMonthlyAlimony={ongoingMonthlyAlimonyTotal}
+                                    ongoingAlimonyDetailLines={ongoingAlimonyDisplay.detailLines}
+                                    showOngoingAlimonyMonthly={showOngoingAlimonyMonthlySection}
                                     showSettlementEntry={settlementContext.showSettlementEntry}
                                 />
                                 {settlementContext.showSettlementPanel ? renderUnifiedSettlementPanel() : null}
@@ -3192,7 +3243,7 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                         setRemainingInput={setDebtEditRemainingInput}
                         onSave={applyDebtTotalsEdit}
                         lockReason={debtEditLockReason}
-                        showAlimonyAccrualNote={Boolean(isAlimonyClaim && ongoingMonthlyAlimonyTotal > 0)}
+                        showAlimonyAccrualNote={Boolean(isAlimonyClaim && ongoingMonthlyAlimonyEffective > 0)}
                     />
                 )}
             </AnimatePresence>

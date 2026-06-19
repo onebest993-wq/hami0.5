@@ -1,9 +1,10 @@
-import { supabase } from '@/app/lib/supabase-client';
+import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import { EXECUTION_LAW_CANONICAL_NAME } from '@/app/constants/iraqiLawCatalog';
 import { executionLawData, type ExecutionLawArticle } from '@/data/executionLaws';
 import { resolveExecutionLawLeaf } from '@/data/executionLawHierarchy';
 import { normalizeArabicDigits } from '@/app/components/admin/lawStructure';
 import { mergeLocalTitlesIntoExecutionArticles } from '@/app/utils/executionLawArticleUtils';
+import { getBundledLawRows } from '@/app/utils/bundledIraqiLawLoader';
 
 export const EXECUTION_LAW_CACHE_INVALIDATED_EVENT = 'hami-execution-law-cache-invalidated';
 
@@ -61,16 +62,17 @@ export function mapRemoteRowsToExecutionArticles(rows: LawRow[]): ExecutionLawAr
 }
 
 async function fetchRemoteLawRows(): Promise<LawRow[]> {
-    const { data, error } = await supabase.functions.invoke<{
+    const data = await SecureAPIClient.fetchSecure<{
         ok?: boolean;
         error?: string;
         details?: string;
         items?: LawRow[];
-    }>('list-laws', { body: { law_name: EXECUTION_LAW_CANONICAL_NAME } });
+    }>('/api/laws/list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ law_name: EXECUTION_LAW_CANONICAL_NAME }),
+    });
 
-    if (error) {
-        throw new Error(error.message || 'تعذر تحميل مواد قانون التنفيذ.');
-    }
     if (!data || data.ok === false) {
         throw new Error((data?.error || data?.details || 'تعذر تحميل مواد قانون التنفيذ.').trim());
     }
@@ -94,8 +96,16 @@ export async function loadExecutionLawArticlesRemote(): Promise<ExecutionLawArti
                 return cachedArticles;
             }
         } catch {
-            // fallback to bundled seed below
+            /* try bundled project file */
         }
+
+        const bundledRows = getBundledLawRows(EXECUTION_LAW_CANONICAL_NAME);
+        const bundledMapped = mapRemoteRowsToExecutionArticles(bundledRows);
+        if (bundledMapped.length > 0) {
+            cachedArticles = mergeLocalTitlesIntoExecutionArticles(bundledMapped, executionLawData);
+            return cachedArticles;
+        }
+
         cachedArticles = resolveExecutionLawArticles();
         return cachedArticles;
     })();

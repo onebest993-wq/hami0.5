@@ -19,6 +19,12 @@ import {
 import { WeeklyAgendaSection } from './tasksManager/WeeklyAgendaSection';
 import { CompletedTasksArchiveSection } from './tasksManager/CompletedTasksArchiveSection';
 import { unpinWorkspaceItem } from '@/app/workspace/unpinWorkspaceEntity';
+import {
+    TASKS_PAGE,
+    TASKS_HEADER,
+    TASKS_BODY,
+    TASKS_GLASS_PANEL,
+} from './tasksManager/tasksBoucleTheme';
 
 export type TasksManagerProps = {
     onClose: () => void;
@@ -257,7 +263,11 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
     const weekStartLive = getSaturdayOfWeekContaining(new Date());
 
     return (
-        <div className="fixed inset-0 z-[220] flex flex-col bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 font-['Tajawal','Cairo',sans-serif]">
+        <div className={`${TASKS_PAGE} relative`} role="dialog" aria-modal="true" aria-label="أجندة المهام">
+            <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+                <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-[#1A7059]/8 blur-3xl" />
+                <div className="absolute bottom-1/4 left-0 w-64 h-64 rounded-full bg-[#A67C52]/5 blur-3xl" />
+            </div>
             <TasksManagerModals
                 fatalOpen={fatalOpen}
                 onFatalOpenChange={(open) => {
@@ -321,9 +331,11 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
                 }}
             />
 
-            <header className="shrink-0 border-b border-slate-800/80 px-5 py-5 flex items-center justify-between gap-3 bg-slate-900/80 backdrop-blur-xl">
+            <header className={`${TASKS_HEADER} relative z-[1]`}>
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#A67C52]/30 to-transparent" />
                 <div className="min-w-0 text-right">
-                    <h1 className="text-slate-50 font-extrabold text-xl truncate tracking-tight">أجندة المهام</h1>
+                    <h1 className="text-[#E8F5F0] font-extrabold text-xl truncate tracking-tight">أجندة المهام</h1>
+                    <p className="text-[10px] text-[#6BC4A8]/55 font-bold mt-0.5">الأسبوع الحالي</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                     <button
@@ -331,8 +343,8 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
                         onClick={() => setShowCompletedArchive((v) => !v)}
                         className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-extrabold transition-all ${
                             showCompletedArchive
-                                ? 'border-amber-500/50 bg-amber-500/15 text-amber-100'
-                                : 'border-slate-700 bg-slate-800/50 text-slate-300 hover:bg-slate-800 hover:text-white'
+                                ? 'border-[#A67C52]/45 bg-[#A67C52]/15 text-[#D4B896]'
+                                : `${TASKS_GLASS_PANEL} border-[#A67C52]/20 text-[#E8F5F0]/75 hover:border-[#A67C52]/35 px-3 py-2`
                         }`}
                     >
                         <History size={16} />
@@ -341,7 +353,7 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="w-11 h-11 rounded-xl border border-slate-700 bg-slate-800/50 backdrop-blur-md flex items-center justify-center text-slate-300 hover:bg-slate-800 hover:text-white hover:border-slate-500 transition-all"
+                        className="w-11 h-11 rounded-xl border border-[#A67C52]/22 bg-[#0c0c0e]/45 backdrop-blur-md flex items-center justify-center text-[#E8F5F0]/70 hover:bg-[#0c0c0e]/65 hover:text-[#E8F5F0] hover:border-[#A67C52]/38 transition-all"
                         aria-label="إغلاق"
                     >
                         <X size={22} />
@@ -349,7 +361,7 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
                 </div>
             </header>
 
-            <div className="flex-1 overflow-y-auto px-4 py-6 pb-16 max-w-3xl mx-auto w-full space-y-10">
+            <div className={`${TASKS_BODY} relative z-[1]`}>
                 {showCompletedArchive ? (
                     <CompletedTasksArchiveSection
                         tasks={tasks}

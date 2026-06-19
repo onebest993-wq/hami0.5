@@ -4,16 +4,30 @@ import { SmartToast } from '@/app/components/ui/SmartToast';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import { patchActiveStage } from '../smartFile/stageMutations';
 import { syncLawsuitTimelineAppointment } from '@/app/services/calendarDossierSync';
+import { applyAppealStageTransition } from '../smartFile/appealStageTransition';
+import {
+    ABSENT_JUDGMENT_OBJECTION_DAYS,
+    computeAbsentObjectionDeadline,
+} from '../smartFile/absentJudgmentFlow';
 
-type SaveToCloud = (updatedStages: CaseStage[]) => void;
+type SaveToCloud = (
+    updatedStages: CaseStage[],
+    updatedParent?: unknown,
+    stageIndex?: number,
+) => void;
 
 export function useSmartFileDefaultJudgmentActions(options: {
     stages: CaseStage[];
     setStages: React.Dispatch<React.SetStateAction<CaseStage[]>>;
     activeStageIndex: number;
+    setActiveStageIndex: React.Dispatch<React.SetStateAction<number>>;
+    setViewingStageIndex: React.Dispatch<React.SetStateAction<number>>;
     currentStage: CaseStage;
     saveToCloud: SaveToCloud;
+    setStatus: React.Dispatch<React.SetStateAction<string>>;
     setShowObjectionRegistrationModal: (v: boolean) => void;
+    setShowAbsentJudgmentNotificationModal: (v: boolean) => void;
+    setShowOpponentAbsentObjectionModal: (v: boolean) => void;
     calendarUserId?: string | null;
     lawsuitFileId?: string | number;
     caseNo?: string;
@@ -25,9 +39,14 @@ export function useSmartFileDefaultJudgmentActions(options: {
         stages,
         setStages,
         activeStageIndex,
+        setActiveStageIndex,
+        setViewingStageIndex,
         currentStage,
         saveToCloud,
+        setStatus,
         setShowObjectionRegistrationModal,
+        setShowAbsentJudgmentNotificationModal,
+        setShowOpponentAbsentObjectionModal,
         calendarUserId,
         lawsuitFileId,
         caseNo,
@@ -40,12 +59,13 @@ export function useSmartFileDefaultJudgmentActions(options: {
         stageName?: string;
         timeline?: TimelineEvent[];
         judgmentForm?: string;
+        legalTimers?: CaseStage['legalTimers'];
     };
 
     const commit = useCallback(
-        (updated: CaseStage[]) => {
+        (updated: CaseStage[], stageIndex?: number) => {
             setStages(updated);
-            saveToCloud(updated);
+            saveToCloud(updated, undefined, stageIndex);
         },
         [setStages, saveToCloud],
     );
@@ -53,6 +73,100 @@ export function useSmartFileDefaultJudgmentActions(options: {
     const handleDefaultObjection = useCallback(() => {
         setShowObjectionRegistrationModal(true);
     }, [setShowObjectionRegistrationModal]);
+
+    const handleOpenAbsentJudgmentNotification = useCallback(() => {
+        setShowAbsentJudgmentNotificationModal(true);
+    }, [setShowAbsentJudgmentNotificationModal]);
+
+    const handleOpenOpponentAbsentObjection = useCallback(() => {
+        setShowOpponentAbsentObjectionModal(true);
+    }, [setShowOpponentAbsentObjectionModal]);
+
+    const handleAbsentJudgmentNotification = useCallback(
+        (data: { notificationDate: string }) => {
+            const { notificationDate } = data;
+            const objectionDeadline = computeAbsentObjectionDeadline(notificationDate);
+
+            const timeline: TimelineEvent[] = [
+                {
+                    id: `abs_notif_${Date.now()}`,
+                    type: 'decision',
+                    date: notificationDate,
+                    title: '📬 التبليغ بالحكم الغيابي',
+                    details: `تم تسجيل تبليغ الحكم الغيابي بتاريخ ${notificationDate}.\n⏳ تبدأ مهلة الاعتراض (${ABSENT_JUDGMENT_OBJECTION_DAYS} أيام) وتنتهي في ${objectionDeadline}.`,
+                    isSystemLog: true,
+                    isNew: true,
+                },
+                ...(stageExt.timeline ?? []),
+            ];
+
+            const updated = patchActiveStage(stages, activeStageIndex, {
+                absentJudgmentNotificationDate: notificationDate,
+                awaitingAbsentJudgmentNotification: false,
+                appealDeadline: objectionDeadline,
+                finalDecision: 'حكم غيابي — بانتظار اعتراض المدعى عليه',
+                legalTimers: {
+                    ...(stageExt.legalTimers ?? {}),
+                    defaultObjectionDeadline: objectionDeadline,
+                },
+                timeline,
+            });
+            commit(updated);
+            SmartToast.success('تم تسجيل التبليغ — بدأ احتساب مهلة الاعتراض ⏳');
+        },
+        [stages, activeStageIndex, stageExt.timeline, stageExt.legalTimers, commit],
+    );
+
+    const handleOpponentAbsentObjection = useCallback(
+        (data: { newCaseNumber: string; filingDate: string }) => {
+            const { newCaseNumber, filingDate } = data;
+            const stageName = String(stageExt.stageName ?? '');
+
+            const archiveEvent: TimelineEvent = {
+                id: `opp_abs_obj_${Date.now()}`,
+                type: 'decision',
+                date: filingDate,
+                title: '🛡️ اعتراض المدعى عليه بالحكم الغيابي',
+                details: `قام المدعى عليه بالاعتراض على الحكم الغيابي.\nرقم دعوى الاعتراض: ${newCaseNumber}\nتاريخ التقديم: ${filingDate}`,
+                isNew: true,
+            };
+
+            const { updatedStages, newActiveIndex } = applyAppealStageTransition(
+                stages,
+                activeStageIndex,
+                currentStage,
+                {
+                    appealType: 'اعتراض على الحكم الغيابي',
+                    appellant: 'المدعى عليه',
+                    filingDate,
+                    newCaseNumber,
+                    archiveTimelineEvent: archiveEvent,
+                    archiveFinalDecision: 'حكم غيابي — اعترض المدعى عليه',
+                    archiveDecisionDate: stageExt.decisionDate ?? filingDate,
+                },
+            );
+
+            const newStage = updatedStages[newActiveIndex];
+            setStages(updatedStages);
+            setActiveStageIndex(newActiveIndex);
+            setViewingStageIndex(newActiveIndex);
+            saveToCloud(updatedStages, undefined, newActiveIndex);
+            setStatus(`مرحلة ${newStage?.stageName ?? 'الاعتراض على الحكم الغيابي'}`);
+            SmartToast.success(`تم فتح إضبارة ${newStage?.stageName ?? 'الاعتراض'} — انقلاب المراكز القانونية ✅`);
+        },
+        [
+            stages,
+            activeStageIndex,
+            currentStage,
+            stageExt.stageName,
+            stageExt.decisionDate,
+            setStages,
+            setActiveStageIndex,
+            setViewingStageIndex,
+            saveToCloud,
+            setStatus,
+        ],
+    );
 
     const handleWaiveObjection = useCallback(() => {
         const timeline = [
@@ -72,6 +186,7 @@ export function useSmartFileDefaultJudgmentActions(options: {
         const updated = patchActiveStage(stages, activeStageIndex, {
             judgmentForm: 'غيابي (تم ترك حق الاعتراض)',
             lastJudgmentType: 'غيابي (متروك)',
+            awaitingAbsentJudgmentNotification: false,
             timeline,
         });
         commit(updated);
@@ -113,6 +228,7 @@ export function useSmartFileDefaultJudgmentActions(options: {
                 stageName: `${baseName} (اعتراض غيابي)`,
                 status: 'active',
                 isUnderObjection: true,
+                awaitingAbsentJudgmentNotification: false,
                 timeline,
             });
             commit(updated);
@@ -224,5 +340,9 @@ export function useSmartFileDefaultJudgmentActions(options: {
         handleRegisterObjection,
         handleObjectionJudgment,
         handleOtherAppeals,
+        handleOpenAbsentJudgmentNotification,
+        handleAbsentJudgmentNotification,
+        handleOpenOpponentAbsentObjection,
+        handleOpponentAbsentObjection,
     };
 }

@@ -9,6 +9,8 @@ const ALLOWED_IRAQI_LAW_NAMES = new Set([
     "قانون العقوبات العراقي رقم 111 لسنة 1969",
     "قانون أصول المحاكمات الجزائية العراقي رقم 23 لسنة 1971",
     "قانون رعاية الأحداث العراقي رقم 76 لسنة 1983",
+    "قانون المرافعات المدنية العراقي رقم 83 لسنة 1969",
+    "قانون الإثبات العراقي رقم 107 لسنة 1979",
 ]);
 
 function corsHeadersFor(req: Request): Record<string, string> {
@@ -145,6 +147,7 @@ Deno.serve(async (req: Request) => {
         law_name,
         article_number,
         content,
+        embedding: Array.from({ length: 768 }, () => 0),
     };
 
     const { data, error } = await supabase

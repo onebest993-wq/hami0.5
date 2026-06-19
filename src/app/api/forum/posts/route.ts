@@ -4,6 +4,7 @@ import { checkForumActionRateLimit } from '../../../services/forum/forumRateLimi
 import { redactAnonymousAuthor } from '../../../services/forum/forumMapper.ts';
 import type { CommunityPost } from '../../../services/lawyer-cloud.ts';
 import { requireForumAuth, requireForumAuthAndUnbanned, jsonResponse } from '../_auth.ts';
+import { ForumGroupRepository } from '../../../services/forum/forumGroupRepository.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === 'object';
@@ -19,13 +20,25 @@ export async function GET(request: Request): Promise<Response> {
         const url = new URL(request.url);
         const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') ?? '20') || 20));
         const offset = Math.max(0, Number(url.searchParams.get('offset') ?? '0') || 0);
+        const groupId = url.searchParams.get('groupId')?.trim() || url.searchParams.get('group_id')?.trim() || '';
 
         const banned = await ForumRepository.isBanned(auth.userId);
         if (banned) {
             return jsonResponse(403, { ok: false, error: 'حسابك محظور من المنتدى' });
         }
 
-        const { posts, total } = await ForumRepository.listPosts(limit, offset);
+        if (groupId) {
+            const isMember = await ForumGroupRepository.isMember(groupId, auth.userId);
+            if (!isMember && !auth.isAdmin) {
+                return jsonResponse(403, { ok: false, error: 'يجب الانضمام للمجموعة لعرض منشوراتها' });
+            }
+        }
+
+        const { posts, total } = await ForumRepository.listPosts(
+            limit,
+            offset,
+            groupId ? { groupId } : { publicOnly: true },
+        );
         // إخفاء الهوية للمنشورات المجهولة قبل إرسالها للعميل
         const redacted = posts.map((p) => redactAnonymousAuthor(p, auth.userId, auth.isAdmin));
         return jsonResponse(200, { ok: true, posts: redacted, total });
@@ -71,7 +84,14 @@ export async function POST(request: Request): Promise<Response> {
             if (Array.isArray(post.tags) && post.tags.length > 12) {
                 return jsonResponse(400, { ok: false, error: 'عدد الوسوم تجاوز الحد (12 كحد أقصى)' });
             }
-            const saved = await ForumRepository.savePost(post);
+            const groupId = post.groupId?.trim() || null;
+            if (groupId) {
+                const isMember = await ForumGroupRepository.isMember(groupId, auth.userId);
+                if (!isMember && !auth.isAdmin) {
+                    return jsonResponse(403, { ok: false, error: 'يجب الانضمام للمجموعة قبل النشر فيها' });
+                }
+            }
+            const saved = await ForumRepository.savePost({ ...post, groupId });
             return jsonResponse(200, {
                 ok: true,
                 action: 'create',

@@ -92,10 +92,6 @@ export function secretaryAlertToSmartAlert(alert: SecretaryAlert): SmartAlert {
     };
 }
 
-export function countCriticalAlerts(alerts: SecretaryAlert[]): number {
-    return alerts.filter((a) => a.priority <= 1).length;
-}
-
 /** أقصى أولوية تُحسب في شارة الجرس وتبويب «عاجل» الموحّد */
 export const HEADER_BADGE_MAX_PRIORITY = 2;
 
@@ -103,7 +99,6 @@ export function isHeaderBadgePriority(priority: number): boolean {
     return priority <= HEADER_BADGE_MAX_PRIORITY;
 }
 
-/** عدد التنبيهات الحرجة والعالية (لشارة الجرس) */
 export function countHighPriorityAlerts(alerts: SecretaryAlert[]): number {
     return alerts.filter((a) => isHeaderBadgePriority(a.priority)).length;
 }

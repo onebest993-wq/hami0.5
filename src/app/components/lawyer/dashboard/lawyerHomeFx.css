@@ -1,0 +1,220 @@
+/* Hami Sovereign — home surface effects */
+
+@keyframes hami-sovereign-aurora {
+    0%,
+    100% {
+        transform: translate(0, 0) scale(1);
+        opacity: 0.55;
+    }
+    50% {
+        transform: translate(-4%, 3%) scale(1.08);
+        opacity: 0.85;
+    }
+}
+
+@keyframes hami-sovereign-shine {
+    0% {
+        transform: translateX(-140%) skewX(-16deg);
+        opacity: 0;
+    }
+    15% {
+        opacity: 1;
+    }
+    100% {
+        transform: translateX(240%) skewX(-16deg);
+        opacity: 0;
+    }
+}
+
+@keyframes hami-sovereign-breathe {
+    0%,
+    100% {
+        opacity: 0.4;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.75;
+        transform: scale(1.04);
+    }
+}
+
+@keyframes hami-sovereign-float {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-6px);
+    }
+}
+
+.hami-sovereign-grain {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
+    opacity: 0.35;
+    mix-blend-mode: overlay;
+}
+
+.hami-sovereign-aurora {
+    animation: hami-sovereign-aurora 18s ease-in-out infinite;
+}
+
+.hami-sovereign-shine::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        105deg,
+        transparent 40%,
+        rgba(255, 255, 255, 0.09) 50%,
+        transparent 60%
+    );
+    animation: hami-sovereign-shine 5s ease-in-out infinite;
+    pointer-events: none;
+}
+
+.hami-sovereign-breathe {
+    animation: hami-sovereign-breathe 4s ease-in-out infinite;
+}
+
+.hami-sovereign-float {
+    animation: hami-sovereign-float 5s ease-in-out infinite;
+}
+
+.hami-sovereign-glass {
+    position: relative;
+    isolation: isolate;
+    backdrop-filter: blur(22px) saturate(150%);
+    -webkit-backdrop-filter: blur(22px) saturate(150%);
+}
+
+/* بطاقات لوحة القيادة — كثافة من الإعدادات + لمسة من لون الثيم */
+[data-hami-lawyer-dashboard] .hami-sovereign-glass {
+    transition:
+        background 0.5s ease,
+        border-color 0.5s ease,
+        box-shadow 0.5s ease,
+        backdrop-filter 0.5s ease;
+    backdrop-filter: blur(calc(4px + var(--glass-opacity, 0.88) * 18px))
+        saturate(calc(105% + var(--glass-opacity, 0.88) * 45%));
+    -webkit-backdrop-filter: blur(calc(4px + var(--glass-opacity, 0.88) * 18px))
+        saturate(calc(105% + var(--glass-opacity, 0.88) * 45%));
+    background:
+        linear-gradient(
+            158deg,
+            color-mix(in srgb, var(--hami-primary, #e6c673) calc(var(--glass-opacity, 0.88) * 16%), transparent) 0%,
+            transparent 42%,
+            color-mix(in srgb, var(--hami-secondary, var(--hami-primary, #e6c673)) calc(var(--glass-opacity, 0.88) * 8%), transparent) 100%
+        ),
+        color-mix(
+            in srgb,
+            var(--hami-surface-bg, #0b1021) calc(var(--glass-opacity, 0.88) * 72%),
+            transparent
+        );
+}
+
+[data-hami-lawyer-dashboard] .hami-sovereign-glass::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, calc(var(--glass-opacity, 0.88) * 0.12)) 0%,
+        transparent 36%,
+        rgba(0, 0, 0, calc(var(--glass-opacity, 0.88) * 0.14)) 100%
+    );
+    pointer-events: none;
+    z-index: 0;
+}
+
+[data-hami-lawyer-dashboard] .hami-home-themed-border {
+    border: 1px solid color-mix(in srgb, var(--hami-primary, #e6c673) calc(var(--glass-opacity, 0.88) * 38%), transparent);
+}
+
+[data-hami-lawyer-dashboard] .hami-sovereign-rim {
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, var(--hami-primary, #e6c673) calc(var(--glass-opacity, 0.88) * 40%), transparent),
+        inset 0 -1px 0 color-mix(in srgb, #000 calc(var(--glass-opacity, 0.88) * 38%), transparent),
+        0 0 0 1px color-mix(in srgb, var(--hami-primary, #e6c673) calc(var(--glass-opacity, 0.88) * 6%), transparent),
+        0 18px 52px rgba(0, 0, 0, calc(var(--glass-opacity, 0.88) * 0.5));
+}
+
+[data-hami-lawyer-dashboard] .hami-home-accent-text {
+    color: var(--hami-primary, #e6c673);
+}
+
+[data-hami-lawyer-dashboard] .hami-home-accent-chip {
+    background: color-mix(in srgb, var(--hami-primary, #e6c673) calc(var(--glass-opacity, 0.88) * 22%), transparent);
+    border: 1px solid color-mix(in srgb, var(--hami-primary, #e6c673) calc(var(--glass-opacity, 0.88) * 28%), transparent);
+    color: var(--hami-primary, #e6c673);
+}
+
+[data-hami-lawyer-dashboard] .hami-home-forum-icon {
+    border: 1px solid color-mix(in srgb, var(--hami-primary, #e6c673) calc(var(--glass-opacity, 0.88) * 28%), transparent);
+    background: color-mix(in srgb, var(--hami-primary, #e6c673) calc(var(--glass-opacity, 0.88) * 18%), transparent);
+    color: var(--hami-primary, #e6c673);
+}
+
+/* إطار ثابت — يبقى مرئياً عند شفافية منخفضة */
+html[data-hami-home-container-border='1'] [data-hami-lawyer-dashboard] .hami-home-themed-border {
+    border: 1px solid color-mix(
+        in srgb,
+        var(--hami-primary, #e6c673) 34%,
+        rgba(255, 255, 255, 0.14)
+    );
+}
+
+html[data-hami-home-container-border='1'] [data-hami-lawyer-dashboard] .hami-sovereign-rim {
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, var(--hami-primary, #e6c673) 28%, rgba(255, 255, 255, 0.1)),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.24),
+        0 0 0 1px color-mix(in srgb, var(--hami-primary, #e6c673) 14%, transparent),
+        0 12px 36px rgba(0, 0, 0, 0.3);
+}
+
+/* بدون إطار — يختفي مع الشفافية */
+html[data-hami-home-container-border='0'] [data-hami-lawyer-dashboard] .hami-home-themed-border {
+    border-color: transparent;
+}
+
+html[data-hami-home-container-border='0'] [data-hami-lawyer-dashboard] .hami-sovereign-rim {
+    box-shadow: none;
+}
+
+.hami-sovereign-rim {
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+        0 24px 64px rgba(0, 0, 0, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hami-sovereign-aurora,
+    .hami-sovereign-shine::after,
+    .hami-sovereign-breathe,
+    .hami-sovereign-float {
+        animation: none !important;
+    }
+}
+
+/* Legacy class aliases */
+.hami-home-spin,
+.hami-home-shimmer,
+.hami-home-pulse-ring,
+.hami-home-grid,
+.hami-home-orb {
+    /* kept for backward compat — prefer sovereign classes */
+}
+
+.hami-home-shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.09) 50%, transparent 60%);
+    animation: hami-sovereign-shine 5s ease-in-out infinite;
+    pointer-events: none;
+}
+
+.hami-home-pulse-ring {
+    animation: hami-sovereign-breathe 4s ease-in-out infinite;
+}

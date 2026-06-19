@@ -78,8 +78,24 @@ export interface Decision {
     appealSourceDecisionId?: string | null;
     activeAppealCopyId?: string | null;
     manualExecutorLedgerEntry?: boolean;
-    /** قرار «إضافة قرار» — نافذ أم لا (دون مسار طعن) */
+    /**
+     * قرار «إضافة قرار» — منظومة الحالات الثلاث:
+     * 1 = ساري النفاذ | 2 = موقوف لحين حسم الطعن | 3 = ملغى/منتهٍ
+     */
+    executorDecisionStatusFlag?: 1 | 2 | 3;
+    /** @deprecated استُبدل بـ executorDecisionStatusFlag */
     manualExecutorEnforced?: boolean;
+    /** مَن الطاعن — بعد تسجيل الطعن على قرار «إضافة قرار» */
+    manualExecutorAppealAppellant?: 'lawyer' | 'debtor';
+    /** نوع الطعن — تظلم أو تمييز */
+    manualExecutorAppealKind?: 'tadhallum' | 'tamyeez';
+    /** مرحلة مسار التظلم/التمييز داخل العلم 2 */
+    manualExecutorWorkflowPhase?:
+        | 'grievance_pending'
+        | 'cassation_unlocked'
+        | 'cassation_pending';
+    /** نتيجة تظلم المنفذ — بعد المرحلة 2 */
+    manualExecutorGrievanceOutcome?: 'accepted' | 'rejected';
     /** لمن يصبّ قرار المنفذ المُدخل يدوياً */
     manualExecutorBeneficiary?: 'creditor' | 'debtor' | 'neutral';
     /** أطراف الطاعنين المسجّلين يدوياً لقرار المنفذ — مرحلة التظلم */
@@ -99,6 +115,14 @@ export interface Decision {
     requestCycleSupersededAt?: string;
     /** أرشفة القرار لإخفائه من القائمة الرئيسية */
     isArchived?: boolean;
+    /** انقضت مهلة التمييز — القرار نافذٌ نهائياً (لا يُعاد فتح طعن) */
+    appealDeadlinePerpetuallyEnforced?: boolean;
+    /** تاريخ صدور/تسجيل التظلم (Y-m-d) */
+    grievanceIssuedYmd?: string;
+    /** تاريخ إصدار قرار التظلم من المنفذ — معيار بدء مهلة التمييز بعد نتيجة التظلم */
+    grievanceOutcomeIssuedYmd?: string;
+    /** ساعة احتساب التمييز بعد التظلم (Y-m-d) */
+    cassationAppealClockYmd?: string;
     /** الإنابة التنفيذية — اسم الدائرة المُنابة */
     deputationTargetDirectorate?: string;
     /** الإنابة التنفيذية — تاريخ الإرسال */

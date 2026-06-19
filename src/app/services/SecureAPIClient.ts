@@ -1,12 +1,32 @@
-import { inputSanitizer } from './InputSanitizerService';
 import { RequestSigningService } from './RequestSigningService';
 import { supabase } from '@/app/lib/supabase-client';
+import { readCsrfTokenFromDocument } from '@/app/security/csrfSession';
+import { getOrCreateDeviceId } from '@/app/security/deviceId';
 import { fetchKvProxyGuarded, isKvProxyUrl } from './kvProxyGuard';
+import { assertNetworkAllowed } from '@/app/services/settings/localOnlyGuard';
+import {
+    readDevMockAccessToken,
+} from '@/app/utils/authStorage';
 
 type NativeFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
 const WIFE_NATIVE_FETCH = Symbol.for('WIFE_NATIVE_FETCH');
 const WHITELISTED_ROUTES = ['/api/public'] as const;
+
+let authPauseUntil = 0;
+const AUTH_PAUSE_MS = 30_000;
+
+function markAuthFailure(): void {
+    authPauseUntil = Date.now() + AUTH_PAUSE_MS;
+}
+
+function clearAuthPause(): void {
+    authPauseUntil = 0;
+}
+
+function isAuthPaused(): boolean {
+    return Date.now() < authPauseUntil;
+}
 
 function getNativeFetch(): NativeFetch {
     const g = globalThis as unknown as Record<string | symbol, unknown>;
@@ -56,50 +76,11 @@ function isSameOriginApiRoute(resolved: URL): boolean {
  */
 export async function getCurrentAccessToken(): Promise<string | null> {
     const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token?.trim() ?? '';
+    let token = data.session?.access_token?.trim() ?? '';
+    if (!token && import.meta.env.DEV) {
+        token = readDevMockAccessToken() ?? '';
+    }
     return token || null;
-}
-
-function isJsonContentType(headers: HeadersInit | undefined): boolean {
-    if (!headers) return false;
-    const normalized = new Headers(headers);
-    const contentType = normalized.get('Content-Type') ?? normalized.get('content-type') ?? '';
-    return contentType.toLowerCase().includes('application/json');
-}
-
-function sanitizeJsonStringBody(body: string): string {
-    try {
-        const parsed = JSON.parse(body) as unknown;
-        const sanitized = inputSanitizer.sanitizeUnknown(parsed);
-        return JSON.stringify(sanitized);
-    } catch {
-        return inputSanitizer.sanitizePotentialHTML(body);
-    }
-}
-
-function sanitizeRequestBody(options: RequestInit): BodyInit | null | undefined {
-    const body = options.body;
-    if (typeof body !== 'string') return body;
-    if (!isJsonContentType(options.headers)) return body;
-    return sanitizeJsonStringBody(body);
-}
-
-async function sanitizeRequestBodyAsync(options: RequestInit): Promise<BodyInit | null | undefined> {
-    const body = options.body;
-    if (typeof body === 'string') {
-        return sanitizeRequestBody(options);
-    }
-
-    if (body instanceof Blob) {
-        const blobType = body.type.toLowerCase();
-        const shouldSanitizeAsJson = isJsonContentType(options.headers) || blobType.includes('application/json');
-        if (!shouldSanitizeAsJson) return body;
-        const text = await body.text();
-        const sanitized = sanitizeJsonStringBody(text);
-        return new Blob([sanitized], { type: body.type || 'application/json' });
-    }
-
-    return body;
 }
 
 function formDataToStableString(body: FormData): string {
@@ -179,10 +160,10 @@ export class SecureFetchError extends Error {
     }
 }
 
-function toUrlString(input: RequestInfo | URL): string {
-    if (typeof input === 'string') return input;
-    if (input instanceof URL) return input.toString();
-    return input.url;
+function resolveFetchTimeoutMs(body: BodyInit | null | undefined): number {
+    if (body instanceof FormData) return 120_000;
+    if (body instanceof Blob && body.size > 512_000) return 120_000;
+    return 12_000;
 }
 
 export class SecureAPIClient {
@@ -192,6 +173,7 @@ export class SecureAPIClient {
         _legacyContext?: unknown,
     ): Promise<Response> {
         void _legacyContext;
+        assertNetworkAllowed(endpoint);
         const nativeFetch = getNativeFetch();
         const resolved = resolveUrl(endpoint);
         const pathname = resolved.pathname;
@@ -200,30 +182,30 @@ export class SecureAPIClient {
         // الـ Frontend لا يعتمد عليهما كطبقة أمنية
 
         const method = normalizeMethod(options.method);
-        const sanitizedBody = await sanitizeRequestBodyAsync(options);
+        const wireBody = options.body;
         const shouldSign = isSameOriginApiRoute(resolved);
         let nextHeaders: HeadersInit = mergeHeaders(options.headers, { Accept: 'application/json' });
 
         if (shouldSign) {
             const token = await getCurrentAccessToken();
-            if (!token) {
-                throw new Error('WIFE signing requires an authenticated Supabase session token.');
+            if (!token?.trim() || isAuthPaused()) {
+                throw new SecureFetchError('unauthenticated', 401, '', resolved.toString());
             }
 
             let contentHash: string | undefined;
             let signingPayload: string;
-            if (sanitizedBody instanceof FormData) {
-                const file = pickFormDataFile(sanitizedBody);
+            if (wireBody instanceof FormData) {
+                const file = pickFormDataFile(wireBody);
                 if (file) {
                     contentHash = await sha256HexFromFile(file);
                     signingPayload = contentHash;
                 } else {
-                    const stable = await bodyToSign(sanitizedBody);
+                    const stable = await bodyToSign(wireBody);
                     contentHash = await sha256HexFromString(stable);
                     signingPayload = contentHash;
                 }
             } else {
-                signingPayload = await bodyToSign(sanitizedBody);
+                signingPayload = await bodyToSign(wireBody);
             }
             const signedHeaders = await RequestSigningService.createSignedHeaders(
                 method,
@@ -238,28 +220,26 @@ export class SecureAPIClient {
                 merged.set('Authorization', `Bearer ${token}`);
             }
             Object.entries(signedHeaders).forEach(([k, v]) => merged.set(k, v));
+            merged.set('x-wife-device-id', getOrCreateDeviceId());
             nextHeaders = merged;
         }
 
         if (shouldSign || !isWhitelistedRoute(pathname)) {
             const merged = new Headers(nextHeaders);
-            if (typeof document !== 'undefined') {
-                const meta = document.querySelector('meta[name="x-csrf-token"]');
-                const csrfValue = meta?.getAttribute('content');
-                if (csrfValue && !merged.has('x-csrf-token') && !merged.has('X-CSRF-Token')) {
-                    merged.set('x-csrf-token', csrfValue);
-                }
+            const csrfValue = readCsrfTokenFromDocument();
+            if (csrfValue && !merged.has('x-csrf-token') && !merged.has('X-CSRF-Token')) {
+                merged.set('x-csrf-token', csrfValue);
             }
             nextHeaders = merged;
         }
 
         const nextOptions: RequestInit = {
             ...options,
-            body: sanitizedBody,
+            body: wireBody,
             headers: nextHeaders,
         };
 
-        const FETCH_TIMEOUT_MS = 12_000;
+        const FETCH_TIMEOUT_MS = resolveFetchTimeoutMs(wireBody);
         if (typeof window === 'undefined') {
             return await nativeFetch(endpoint, nextOptions);
         }
@@ -308,9 +288,13 @@ export class SecureAPIClient {
         const text = await response.text().catch(() => '');
 
         if (!response.ok) {
+            if (response.status === 401) {
+                markAuthFailure();
+            }
             throw new SecureFetchError(`HTTP ${response.status}`, response.status, text, resolved.toString());
         }
 
+        clearAuthPause();
         return tryParseJson(text) as T;
     }
 }

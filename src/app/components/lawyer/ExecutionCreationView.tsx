@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
-    X, Plus, Trash2, Gavel, FileText,
+    X, Plus, Trash2, FileText,
     DollarSign, AlertTriangle, Code, Calendar, Zap,
     ChevronDown, Scale, Package, Building2, Sparkles
 } from 'lucide-react';
@@ -36,11 +36,23 @@ import {
 import { MaritalFurnitureSetupSection } from './ExecutionCreationView/components/MaritalFurnitureSetupSection';
 import { ExecutionSaveButton } from './ExecutionCreationView/components/ExecutionSaveButton';
 import {
+    capManualIndependentDebtRaw,
+    capManualIndependentLawyerFeesRaw,
+    canSetDebtorEntityKind,
     claimHasFinancialAmountSection,
     claimUsesMonetaryAmountField,
+    findMissingRequiredMonetaryClaimAmount,
+    isDirectorateSectionComplete,
     isFinancialClaimForPartySplit,
+    isInstrumentSectionReadyForParties,
+    isPersonalStatusClassification,
+    readPartyEntityKind,
+    resolveLockedDebtorEntityKind,
+    showCivilDebtorSolidarySplit,
     isShariaLinkedFinancialClaim,
     parseMoneyInput,
+    resolveDebtorAllocatedShares,
+    resolveManualDebtorAllocatedShares,
     SHARIA_LINKED_FINANCIAL_CLAIM_VALUES,
     splitAmountEqually,
 } from './ExecutionCreationView/hooks/executionFormUtils';
@@ -78,8 +90,20 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
         { id: 1, name: '', phone: '', address: '', occupation: 'كاسب' as 'موظف' | 'كاسب', isClient: false }
     ]);
     const [debtors, setDebtors] = useState([
-        { id: 1, name: '', phone: '', address: '', occupation: 'كاسب' as 'موظف' | 'كاسب', isClient: false }
+        {
+            id: 1,
+            name: '',
+            phone: '',
+            address: '',
+            occupation: 'كاسب' as 'موظف' | 'كاسب',
+            isClient: false,
+            isSolidaryLiability: true,
+        },
     ]);
+    /** دين يدوي لكل مدين مستقل */
+    const [debtorManualDebtClaims, setDebtorManualDebtClaims] = useState<Record<string, string>>({});
+    /** حصة أتعاب المحاماة لكل مدين مستقل */
+    const [debtorLawyerFeesClaims, setDebtorLawyerFeesClaims] = useState<Record<string, string>>({});
 
     /** دائنون إضافيون (الدائن الأول يبقى في creditors[0]) */
     const [additionalCreditors, setAdditionalCreditors] = useState<
@@ -101,16 +125,9 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
             address: string;
             occupation: 'موظف' | 'كاسب';
             isClient: boolean;
+            isSolidaryLiability?: boolean;
         }>
     >([]);
-    /** التضامن والتكافل — يُضبط أسفل المدينين عند إضافة مدين إضافي */
-    const [isSolidaryLiability, setIsSolidaryLiability] = useState(false);
-
-    useEffect(() => {
-        if (additionalDebtorsForm.length === 0) {
-            setIsSolidaryLiability(false);
-        }
-    }, [additionalDebtorsForm.length]);
 
     // === SECTION 3: DOCUMENT & EXECUTION TYPE ===
     const [docType, setDocType] = useState('');
@@ -148,7 +165,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
     const [visitationScheduleDraft, setVisitationScheduleDraft] = useState<
         Partial<VisitationScheduleConfig>
     >(() => createEmptyVisitationScheduleDraft());
-    /** أسماء المحضونين — حصراً عند «تسليم حضانة» (قيمة الخيار الداخلية: تسليم ولد) */
+    /** أسماء المحضونين — حصراً عند «نزع حضانة» (قيمة الخيار الداخلية: تسليم ولد) */
     const [custodyWardNames, setCustodyWardNames] = useState<string[]>(['']);
     const [docTypeSheetOpen, setDocTypeSheetOpen] = useState(false);
     const [claimTypeSheetOpen, setClaimTypeSheetOpen] = useState(false);
@@ -295,16 +312,26 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
             setClaimTypeSheetOpen(false);
             setAdditionalCreditors([]);
             setAdditionalDebtorsForm([]);
-            setIsSolidaryLiability(false);
+            setDebtorManualDebtClaims({});
+            setDebtorLawyerFeesClaims({});
         }
     }, [isOpen]);
 
-    const { imprisonmentStatus, financialSplitHint } = useImprisonmentEligibility(
+    const allDebtorsCombined = useMemo(
+        () => [...debtors, ...additionalDebtorsForm],
+        [debtors, additionalDebtorsForm],
+    );
+
+    const globalClaimTotalForSplit = useMemo(() => {
+        const resolved = resolveGlobalClaimTotalNumber();
+        if (resolved > 0) return resolved;
+        return parseMoneyInput(totalAmount) || parseMoneyInput(claimAmount);
+    }, [resolveGlobalClaimTotalNumber, totalAmount, claimAmount]);
+
+    const { imprisonmentStatus } = useImprisonmentEligibility(
         claimType,
         totalAmount,
-        isSolidaryLiability,
-        additionalDebtorsForm.length,
-        debtors
+        allDebtorsCombined,
     );
 
     // === FORMATTING ===
@@ -365,6 +392,63 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
     }, [hasLegalEntityDebtor, docType, classification]);
 
     const effectiveClaimTypes = activeClaimTypes.length > 0 ? activeClaimTypes : claimType ? [claimType] : [];
+    const requiresClassification =
+        docType !== 'الحجج الشرعية' && getClassificationOptions().length > 0;
+    const showPartiesSection = useMemo(
+        () =>
+            isDirectorateSectionComplete(directorate, fileNumber) &&
+            isInstrumentSectionReadyForParties({
+                docType,
+                classification,
+                claimType,
+                effectiveClaimTypes,
+                requiresClassification,
+            }),
+        [
+            directorate,
+            fileNumber,
+            docType,
+            classification,
+            claimType,
+            effectiveClaimTypes,
+            requiresClassification,
+        ],
+    );
+    const allowMultipleDebtors = !isPersonalStatusClassification(classification);
+    const showDebtorSolidarySplit = useMemo(
+        () => showCivilDebtorSolidarySplit(classification, effectiveClaimTypes, claimType),
+        [classification, effectiveClaimTypes, claimType],
+    );
+
+    useEffect(() => {
+        if (!allowMultipleDebtors && additionalDebtorsForm.length > 0) {
+            setAdditionalDebtorsForm([]);
+            setDebtors((prev) =>
+                prev.map((d) => ({ ...d, isSolidaryLiability: false })),
+            );
+        }
+    }, [allowMultipleDebtors, additionalDebtorsForm.length]);
+
+    useEffect(() => {
+        if (showDebtorSolidarySplit) return;
+        setDebtors((prev) =>
+            prev.map((d) => ({ ...d, isSolidaryLiability: false })),
+        );
+        setAdditionalDebtorsForm((prev) =>
+            prev.map((d) => ({ ...d, isSolidaryLiability: false })),
+        );
+    }, [showDebtorSolidarySplit]);
+
+    /** المدين الأول = ضامن افتراضياً في تقسيم المدني المالي */
+    useEffect(() => {
+        if (!showDebtorSolidarySplit) return;
+        setDebtors((prev) => {
+            const primary = prev[0];
+            if (!primary || primary.isSolidaryLiability) return prev;
+            return [{ ...primary, isSolidaryLiability: true }, ...prev.slice(1)];
+        });
+    }, [showDebtorSolidarySplit]);
+
     const nonFinancialLawyerFeesClaims = new Set([
         'تسليم ولد',
         'تسليم طفل',
@@ -378,6 +462,28 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
     const showLawyerFeesToggle =
         effectiveClaimTypes.length > 0 &&
         effectiveClaimTypes.some((ct) => !nonFinancialLawyerFeesClaims.has(ct));
+    const showLawyerFeesBetweenSections = useMemo(
+        () =>
+            showLawyerFeesToggle &&
+            isInstrumentSectionReadyForParties({
+                docType,
+                classification,
+                claimType,
+                effectiveClaimTypes,
+                requiresClassification,
+            }),
+        [
+            showLawyerFeesToggle,
+            docType,
+            classification,
+            claimType,
+            effectiveClaimTypes,
+            requiresClassification,
+        ],
+    );
+    const totalDebtorCountForSplit = debtors.length + additionalDebtorsForm.length;
+    const totalCreditorCountForSplit = creditors.length + additionalCreditors.length;
+
     const hasActiveClaim = (ct: string) => effectiveClaimTypes.includes(ct);
     const financialAmountClaimTypes = effectiveClaimTypes.filter(claimHasFinancialAmountSection);
     const showMultiClaimAggregatePanel = financialAmountClaimTypes.length > 1;
@@ -448,7 +554,12 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
     useEffect(() => {
         const types = activeClaimTypes.length > 0 ? activeClaimTypes : claimType ? [claimType] : [];
         if (!types.some((ct) => isFinancialClaimForPartySplit(ct))) {
-            setIsSolidaryLiability(false);
+            setDebtors((prev) =>
+                prev.map((d) => ({ ...d, isSolidaryLiability: false })),
+            );
+            setAdditionalDebtorsForm((prev) =>
+                prev.map((d) => ({ ...d, isSolidaryLiability: false })),
+            );
         }
     }, [claimType, activeClaimTypes]);
     
@@ -484,6 +595,12 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
         setActiveClaimTypes([]);
         setClaimAmountsByType({});
         setLinkedClaimDraft([]);
+        if (isPersonalStatusClassification(newClassification)) {
+            setAdditionalDebtorsForm([]);
+            setDebtors((prev) =>
+                prev.map((d) => ({ ...d, isSolidaryLiability: false })),
+            );
+        }
     };
 
     const { currentLegalInfo } = useLegalWarnings(claimType);
@@ -648,7 +765,14 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
         setCreditors((c0) => c0.map((c) => (c.id === id ? { ...c, [field]: value } : c)));
     }, [applyExclusiveClient]);
 
-    const addDebtor = () => {
+    const lockedDebtorEntityKind = useMemo(
+        () => resolveLockedDebtorEntityKind(debtors, additionalDebtorsForm),
+        [debtors, additionalDebtorsForm],
+    );
+
+    const appendAdditionalDebtor = (isSolidaryLiability: boolean) => {
+        if (!allowMultipleDebtors) return;
+        const primaryKind = readPartyEntityKind(debtors[0] ?? {});
         const id = `ad_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         setAdditionalDebtorsForm((prev) => [
             ...prev,
@@ -657,15 +781,52 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                 name: '',
                 phone: '',
                 address: '',
-                occupation: 'موظف',
+                occupation: primaryKind === 'legal_entity' ? ('معنوي' as const) : ('موظف' as const),
                 isClient: false,
+                isSolidaryLiability,
+                entityKind: primaryKind,
+                entityType: primaryKind,
+                type: primaryKind === 'legal_entity' ? 'company' : 'individual',
             },
         ]);
     };
 
+    const addIndependentDebtor = () => appendAdditionalDebtor(false);
+    const addSolidaryDebtor = () => appendAdditionalDebtor(true);
+    const addAnotherDebtor = () => appendAdditionalDebtor(false);
+
     const removeAdditionalDebtor = (id: string) => {
         setAdditionalDebtorsForm((prev) => prev.filter((d) => d.id !== id));
+        setDebtorManualDebtClaims((prev) => {
+            const next = { ...prev };
+            delete next[id];
+            return next;
+        });
+        setDebtorLawyerFeesClaims((prev) => {
+            const next = { ...prev };
+            delete next[id];
+            return next;
+        });
     };
+
+    const guardDebtorEntityKindUpdate = useCallback(
+        (partyId: number | string, nextRaw: string | boolean | number) => {
+            const nextKind = normalizeDebtorEntityKind(String(nextRaw));
+            if (
+                !canSetDebtorEntityKind(
+                    debtors,
+                    additionalDebtorsForm,
+                    partyId,
+                    nextKind,
+                )
+            ) {
+                SmartToast.error('⚠️ لا يمكن دمج مدين طبيعي مع مدين معنوي في نفس الإضبارة');
+                return false;
+            }
+            return true;
+        },
+        [debtors, additionalDebtorsForm],
+    );
 
     const updateAdditionalDebtor = useCallback(
         (id: string, field: string, value: string | boolean | number) => {
@@ -673,11 +834,18 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                 applyExclusiveClient('debtor', id, Boolean(value));
                 return;
             }
+            if (field === 'isSolidaryLiability') return;
+            if (
+                (field === 'entityKind' || field === 'entityType') &&
+                !guardDebtorEntityKindUpdate(id, value)
+            ) {
+                return;
+            }
             setAdditionalDebtorsForm((prev) =>
                 prev.map((d) => (d.id === id ? { ...d, [field]: value } : d))
             );
         },
-        [applyExclusiveClient]
+        [applyExclusiveClient, guardDebtorEntityKindUpdate]
     );
 
     const updateDebtor = useCallback((id: number, field: string, value: string | boolean | number) => {
@@ -685,8 +853,91 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
             applyExclusiveClient('debtor', id, Boolean(value));
             return;
         }
+        if (field === 'isSolidaryLiability') return;
+        if (
+            (field === 'entityKind' || field === 'entityType') &&
+            !guardDebtorEntityKindUpdate(id, value)
+        ) {
+            return;
+        }
         setDebtors((d0) => d0.map((d) => (d.id === id ? { ...d, [field]: value } : d)));
-    }, [applyExclusiveClient]);
+    }, [applyExclusiveClient, guardDebtorEntityKindUpdate]);
+
+    const handleDebtorManualDebtChange = useCallback(
+        (debtorKey: string, raw: string) => {
+            const cleaned = String(raw || '').replace(/,/g, '');
+            if (cleaned !== '' && isNaN(Number(cleaned))) return;
+
+            const debtorSolidaryFlags = [
+                Boolean(debtors[0]?.isSolidaryLiability),
+                ...additionalDebtorsForm.map((d) => Boolean(d.isSolidaryLiability)),
+            ];
+            const manualBySlot = [
+                parseMoneyInput(debtorManualDebtClaims[String(debtors[0]?.id ?? '')] ?? ''),
+                ...additionalDebtorsForm.map((d) =>
+                    parseMoneyInput(debtorManualDebtClaims[String(d.id)] ?? ''),
+                ),
+            ];
+            const slotIndex =
+                String(debtors[0]?.id ?? '') === debtorKey
+                    ? 0
+                    : additionalDebtorsForm.findIndex((d) => String(d.id) === debtorKey) + 1;
+            if (slotIndex < 0 || debtorSolidaryFlags[slotIndex]) return;
+
+            const capped = capManualIndependentDebtRaw(
+                globalClaimTotalForSplit,
+                debtorSolidaryFlags,
+                manualBySlot,
+                slotIndex,
+                cleaned,
+            );
+            setDebtorManualDebtClaims((prev) => ({ ...prev, [debtorKey]: capped }));
+        },
+        [
+            debtors,
+            additionalDebtorsForm,
+            debtorManualDebtClaims,
+            globalClaimTotalForSplit,
+        ],
+    );
+
+    const handleDebtorLawyerFeesChange = useCallback(
+        (debtorKey: string, raw: string) => {
+            const cleaned = String(raw || '').replace(/,/g, '');
+            if (cleaned !== '' && isNaN(Number(cleaned))) return;
+
+            const debtorSolidaryFlags = [
+                Boolean(debtors[0]?.isSolidaryLiability),
+                ...additionalDebtorsForm.map((d) => Boolean(d.isSolidaryLiability)),
+            ];
+            const manualBySlot = [
+                parseMoneyInput(debtorLawyerFeesClaims[String(debtors[0]?.id ?? '')] ?? ''),
+                ...additionalDebtorsForm.map((d) =>
+                    parseMoneyInput(debtorLawyerFeesClaims[String(d.id)] ?? ''),
+                ),
+            ];
+            const slotIndex =
+                String(debtors[0]?.id ?? '') === debtorKey
+                    ? 0
+                    : additionalDebtorsForm.findIndex((d) => String(d.id) === debtorKey) + 1;
+            if (slotIndex < 0 || debtorSolidaryFlags[slotIndex]) return;
+
+            const capped = capManualIndependentLawyerFeesRaw(
+                parseMoneyInput(lawyerFeesAmount),
+                debtorSolidaryFlags,
+                manualBySlot,
+                slotIndex,
+                cleaned,
+            );
+            setDebtorLawyerFeesClaims((prev) => ({ ...prev, [debtorKey]: capped }));
+        },
+        [
+            debtors,
+            additionalDebtorsForm,
+            debtorLawyerFeesClaims,
+            lawyerFeesAmount,
+        ],
+    );
 
     // === DEVELOPER MODE: AUTO-FILL FUNCTION ===
     // ✅ IRAQI LAW UPDATE: Enhanced with new Sharia Deed examples
@@ -857,6 +1108,26 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
             return;
         }
 
+        if (!allowMultipleDebtors && additionalDebtorsForm.length > 0) {
+            SmartToast.error('⚠️ مطالبات أحوال شخصية لا تقبل تعدد المدينين — احذف المدينين الإضافيين');
+            return;
+        }
+
+        const pendingClaimTypes =
+            activeClaimTypes.length > 0 ? activeClaimTypes : claimType ? [claimType] : [];
+        const missingMonetaryClaim = findMissingRequiredMonetaryClaimAmount(
+            pendingClaimTypes,
+            claimType,
+            claimAmountsByType,
+            totalAmount,
+        );
+        if (missingMonetaryClaim) {
+            SmartToast.error(
+                `⚠️ يرجى إدخال المبلغ المطلوب — ${missingMonetaryClaim}`,
+            );
+            return;
+        }
+
         for (let i = 0; i < additionalDebtorsForm.length; i++) {
             if (!additionalDebtorsForm[i].name.trim()) {
                 SmartToast.error(`⚠️ يرجى إكمال اسم المدين الإضافي ${i + 1}`);
@@ -868,8 +1139,6 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
             }
         }
 
-        const pendingClaimTypes =
-            activeClaimTypes.length > 0 ? activeClaimTypes : claimType ? [claimType] : [];
         if (
             pendingClaimTypes.includes('تسليم شيء معين') &&
             !specificDeliveryItemNature
@@ -953,12 +1222,40 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
         const totalDebtorSlots = 1 + additionalDebtorsForm.length;
         const globalClaimTotal = resolveGlobalClaimTotalNumber();
         const applyPartySplit = isFinancialClaimForPartySplit(claimType) && totalDebtorSlots > 0;
+        const debtorSolidaryFlags = [
+            Boolean(debtors[0]?.isSolidaryLiability),
+            ...additionalDebtorsForm.map((d) => Boolean(d.isSolidaryLiability)),
+        ];
+        const anySolidaryDebtor = debtorSolidaryFlags.some(Boolean);
+        const hasIndependentDebtor = debtorSolidaryFlags.some((f) => !f);
+        const manualBySlot = [
+            parseMoneyInput(debtorManualDebtClaims[String(debtors[0]?.id ?? '')] ?? ''),
+            ...additionalDebtorsForm.map((d) =>
+                parseMoneyInput(debtorManualDebtClaims[String(d.id)] ?? ''),
+            ),
+        ];
         let debtorAllocatedShares: number[] = Array(totalDebtorSlots).fill(0);
+        let solidaryRemainderDebt = 0;
         if (applyPartySplit && globalClaimTotal > 0) {
-            if (isSolidaryLiability) {
-                debtorAllocatedShares = Array(totalDebtorSlots).fill(globalClaimTotal);
+            if (hasIndependentDebtor || anySolidaryDebtor) {
+                const resolved = resolveManualDebtorAllocatedShares(
+                    globalClaimTotal,
+                    debtorSolidaryFlags,
+                    manualBySlot,
+                );
+                debtorAllocatedShares = resolved.shares;
+                solidaryRemainderDebt = resolved.solidaryRemainder;
+                if (resolved.independentSum > globalClaimTotal) {
+                    SmartToast.error(
+                        '⚠️ مجموع ديون المدينين المستقلين يتجاوز إجمالي المطالبة المالية',
+                    );
+                    return;
+                }
             } else {
-                debtorAllocatedShares = splitAmountEqually(globalClaimTotal, totalDebtorSlots);
+                debtorAllocatedShares = resolveDebtorAllocatedShares(
+                    globalClaimTotal,
+                    debtorSolidaryFlags,
+                );
             }
         }
 
@@ -1046,12 +1343,18 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
             firstDebtorOcc === 'موظف' && (executionData as any).isAlimony ? true : false;
         executionData.debtors = debtors.map((d, i) => {
             const emp = d.occupation === 'موظف';
+            const debtorKey = String(d.id);
+            const perDebtorLawyerFees = parseMoneyInput(debtorLawyerFeesClaims[debtorKey] ?? '');
             return {
                 ...d,
                 employmentType: d.occupation,
                 isEmployee: emp,
                 employmentInitialWasEmployee: emp,
                 hasGuarantor: i === 0 ? targetHasGuarantor : false,
+                isSolidaryLiability: Boolean(d.isSolidaryLiability),
+                ...(includeLawyerFees && perDebtorLawyerFees > 0 && !d.isSolidaryLiability
+                    ? { lawyerFeesClaimAmount: perDebtorLawyerFees }
+                    : {}),
                 ...(applyPartySplit
                     ? { allocated_debt: debtorAllocatedShares[i] ?? 0, paid_amount: 0 }
                     : {}),
@@ -1064,6 +1367,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
         const additionalDebtorRecords = additionalDebtorsForm.map((d, i) => {
             const emp = d.occupation === 'موظف';
             const occ = d.occupation === 'موظف' ? 'موظف' : 'كاسب';
+            const perDebtorLawyerFees = parseMoneyInput(debtorLawyerFeesClaims[String(d.id)] ?? '');
             return {
                 id: String(d.id),
                 name: d.name.trim(),
@@ -1074,6 +1378,10 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                 isEmployee: emp,
                 employmentInitialWasEmployee: emp,
                 status: 'Active' as const,
+                isSolidaryLiability: Boolean(d.isSolidaryLiability),
+                ...(includeLawyerFees && perDebtorLawyerFees > 0 && !d.isSolidaryLiability
+                    ? { lawyerFeesClaimAmount: perDebtorLawyerFees }
+                    : {}),
                 allocated_debt: applyPartySplit ? debtorAllocatedShares[i + 1] ?? 0 : 0,
                 paid_amount: 0,
             };
@@ -1122,12 +1430,13 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
         if (
             trimmedAdditionalCreditors.length > 0 ||
             additionalDebtorRecords.length > 0 ||
-            isSolidaryLiability
+            anySolidaryDebtor
         ) {
             (executionData as any).party_multiplicity = {
                 additionalCreditors: trimmedAdditionalCreditors,
                 additionalDebtors: additionalDebtorRecords,
-                isSolidaryLiability,
+                isSolidaryLiability: debtorSolidaryFlags.every(Boolean),
+                ...(solidaryRemainderDebt > 0 ? { solidaryRemainderDebt } : {}),
             };
         }
 
@@ -1332,10 +1641,23 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
         
         // PHASE 30: Iddah alimony now handled via totalAmount in financial claims section
         
-        // Lawyer fees
+        // Lawyer fees — أتعاب المحاماة المحكوم بها (بين السند المنفذ وأطراف الإضبارة)
         if (includeLawyerFees) {
+            const globalLawyerFees = parseMoneyInput(lawyerFeesAmount);
+            const independentLawyerFeesSum = [...debtors, ...additionalDebtorsForm]
+                .filter((d) => !d.isSolidaryLiability)
+                .reduce(
+                    (sum, d) => sum + parseMoneyInput(debtorLawyerFeesClaims[String(d.id)] ?? ''),
+                    0,
+                );
+            if (independentLawyerFeesSum > globalLawyerFees) {
+                SmartToast.error(
+                    '⚠️ مجموع حصص أتعاب المدينين المستقلين يتجاوز إجمالي الأتعاب المحكوم بها',
+                );
+                return;
+            }
             executionData.includeLawyerFees = true;
-            executionData.lawyerFeesAmount = parseMoneyInput(lawyerFeesAmount);
+            executionData.lawyerFeesAmount = globalLawyerFees;
         }
         
         // Commercial paper due date
@@ -1395,16 +1717,12 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
             executionData.clientFeesAmount = parseMoneyInput(clientFeesAmount);
         }
 
-        debug.log('📋 [ExecutionCreationView] Submitting Execution Data:', executionData);
-        
-        // ✅ NO ENCRYPTION - Save data as-is for lawyer access
         try {
             const creditorData = executionData.creditor || executionData.creditors?.[0];
             const debtorData = executionData.debtor || executionData.debtors?.[0];
             
-            // ✅ Backend Integration: Save to Supabase Cloud (attempt, but don't require)
             try {
-                const fileId = await SupabaseService.saveExecutionFile({
+                await SupabaseService.saveExecutionFile({
                     id: executionData.id,
                     caseNo: executionData.fileNumber + '/' + executionData.fileYear,
                     executionType: executionData.docType as any,
@@ -1415,11 +1733,8 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                     totalAmount: parseFloat(String(executionData.totalAmount || 0).replace(/,/g, '')),
                     status: executionData.status as any
                 });
-                debug.log('[ExecutionCreationView] ✅ Saved to Supabase:', fileId);
-            } catch (cloudError) {
-                // ✅ FIX: Don't log as error - user might be working in local mode
-                debug.log('[ExecutionCreationView] 💾 وضع محلي - البيانات محفوظة محلياً فقط');
-                // لا نعرض خطأ للمستخدم - البيانات محفوظة محلياً
+            } catch {
+                // محلي فقط — Supabase غير متاح
             }
             
             onSave(executionData);
@@ -1446,7 +1761,6 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                 <div className={ecg.modalHeader}>
                     <div className="flex items-center gap-3">
                         <h1 className={ecg.modalTitle}>
-                            <Gavel size={22} />
                             فتح إضبارة تنفيذ
                         </h1>
                     </div>
@@ -1464,25 +1778,6 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                             fileNumber={fileNumber}
                             onDirectorateChange={setDirectorate}
                             onFileNumberChange={setFileNumber}
-                        />
-
-                        <PartiesSection
-                            creditors={creditors}
-                            additionalCreditors={additionalCreditors}
-                            debtors={debtors}
-                            additionalDebtorsForm={additionalDebtorsForm}
-                            isSolidaryLiability={isSolidaryLiability}
-                            financialSplitHint={financialSplitHint}
-                            claimType={claimType}
-                            onAddCreditor={addCreditor}
-                            onRemoveAdditionalCreditor={removeAdditionalCreditor}
-                            onUpdateAdditionalCreditor={updateAdditionalCreditor}
-                            onUpdateCreditor={updateCreditor}
-                            onAddDebtor={addDebtor}
-                            onRemoveAdditionalDebtor={removeAdditionalDebtor}
-                            onUpdateAdditionalDebtor={updateAdditionalDebtor}
-                            onUpdateDebtor={updateDebtor}
-                            onSetIsSolidaryLiability={setIsSolidaryLiability}
                         />
 
                         <ExecutionCreationSection title="السند المنفذ">
@@ -1757,12 +2052,14 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                         return (
                                             <div key={ct} className={claimSectionCardClass}>
                                                 <label className={ecg.labelGold}>
-                                                    {ctLabel} — المبلغ المطلوب (دينار)
+                                                    {ctLabel} — المبلغ المطلوب (دينار) *
                                                 </label>
                                                 <div className={ecg.moneyWrap}>
                                                     <DollarSign className="text-slate-500 flex-shrink-0" size={18} />
                                                     <input
                                                         type="text"
+                                                        required
+                                                        aria-required="true"
                                                         value={formatCurrency(
                                                             claimAmountsByType[ct] ??
                                                                 (effectiveClaimTypes.length === 1 ? totalAmount : '')
@@ -2179,6 +2476,101 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                             </div>
                         </ExecutionCreationSection>
 
+                        {showLawyerFeesBetweenSections ? (
+                            <div
+                                className={[
+                                    'rounded-2xl border backdrop-blur-sm transition-all duration-300 overflow-hidden',
+                                    includeLawyerFees
+                                        ? 'border-[#E6C673]/40 bg-gradient-to-l from-[#E6C673]/12 via-[#E6C673]/5 to-transparent shadow-[0_0_24px_-12px_rgba(230,198,115,0.35)]'
+                                        : 'border-white/10 bg-white/[0.03]',
+                                ].join(' ')}
+                            >
+                                <label className="flex flex-row-reverse items-center gap-3 min-h-[48px] px-3.5 py-3 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={includeLawyerFees}
+                                        onChange={(e) => setIncludeLawyerFees(e.target.checked)}
+                                        className="sr-only"
+                                    />
+                                    <span
+                                        className={`${ecg.multiToggle} ${
+                                            includeLawyerFees ? ecg.multiToggleChecked : ecg.multiToggleIdle
+                                        }`}
+                                        aria-hidden
+                                    >
+                                        {includeLawyerFees ? (
+                                            <Scale size={12} className="text-[#0A0F1C]" strokeWidth={2.5} />
+                                        ) : null}
+                                    </span>
+                                    <span className="flex-1 text-right text-sm font-bold text-[#F0DFA8]">
+                                        المطالبة بأتعاب المحاماة المحكوم بها
+                                    </span>
+                                </label>
+
+                                <AnimatePresence initial={false}>
+                                    {includeLawyerFees ? (
+                                        <motion.div
+                                            key="lawyer-fees-amount"
+                                            initial={{ height: 0, opacity: 0 }}
+                                            animate={{ height: 'auto', opacity: 1 }}
+                                            exit={{ height: 0, opacity: 0 }}
+                                            transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+                                            className="overflow-hidden"
+                                        >
+                                            <div className="border-t border-[#E6C673]/15 px-3.5 pb-3.5 pt-3">
+                                                <div className={`${ecg.moneyWrap} focus-within:border-[#E6C673]/45`}>
+                                                    <Scale className="text-[#E6C673]/80 flex-shrink-0" size={16} />
+                                                    <input
+                                                        type="text"
+                                                        value={formatCurrency(lawyerFeesAmount)}
+                                                        onChange={(e) =>
+                                                            handleAmountChange(e, setLawyerFeesAmount)
+                                                        }
+                                                        className={ecg.moneyInput}
+                                                        placeholder="إجمالي الأتعاب المحكوم بها للمحامي"
+                                                        aria-label="أتعاب المحاماة المحكوم بها (دينار)"
+                                                    />
+                                                    <span className="text-slate-500 text-[10px] font-bold">IQD</span>
+                                                </div>
+                                            </div>
+                                        </motion.div>
+                                    ) : null}
+                                </AnimatePresence>
+                            </div>
+                        ) : null}
+
+                        {showPartiesSection ? (
+                        <PartiesSection
+                            creditors={creditors}
+                            additionalCreditors={additionalCreditors}
+                            debtors={debtors}
+                            additionalDebtorsForm={additionalDebtorsForm}
+                            allowMultipleDebtors={allowMultipleDebtors}
+                            showDebtorSolidarySplit={showDebtorSolidarySplit}
+                            classification={classification}
+                            claimType={claimType}
+                            effectiveClaimTypes={effectiveClaimTypes}
+                            globalClaimTotal={globalClaimTotalForSplit}
+                            includeLawyerFees={includeLawyerFees}
+                            lockedEntityKind={lockedDebtorEntityKind}
+                            debtorManualDebtClaims={debtorManualDebtClaims}
+                            debtorLawyerFeesClaims={debtorLawyerFeesClaims}
+                            formatCurrency={formatCurrency}
+                            onDebtorManualDebtChange={handleDebtorManualDebtChange}
+                            onDebtorLawyerFeesChange={handleDebtorLawyerFeesChange}
+                            onAddCreditor={addCreditor}
+                            onRemoveAdditionalCreditor={removeAdditionalCreditor}
+                            onUpdateAdditionalCreditor={updateAdditionalCreditor}
+                            onUpdateCreditor={updateCreditor}
+                            onAddIndependentDebtor={addIndependentDebtor}
+                            onAddSolidaryDebtor={addSolidaryDebtor}
+                            onAddAnotherDebtor={addAnotherDebtor}
+                            onRemoveAdditionalDebtor={removeAdditionalDebtor}
+                            onUpdateAdditionalDebtor={updateAdditionalDebtor}
+                            onUpdateDebtor={updateDebtor}
+                        />
+                        ) : null}
+
                         {/* ✅ DELETED: دليل التنفيذ القانوني - All tracking, calculations, and legal warnings belong exclusively to the Active Dashboard, NOT the creation form */}
 
                         {/* ✅ DELETED: متتبع المواعيد القانونية - Statute of Limitations & Notification Tracker belong to Dashboard */}
@@ -2239,7 +2631,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
 
                                 {claimType === 'تسليم ولد' && (
                                     <div className={`${ecg.subCard} space-y-3`}>
-                                        <p className={ecg.subCardTitle}>أسماء المحضونين (تسليم حضانة)</p>
+                                        <p className={ecg.subCardTitle}>أسماء المحضونين (نزع حضانة)</p>
                                         {custodyWardNames.map((wardName, idx) => (
                                             <div key={idx} className="flex gap-2 items-center flex-row-reverse">
                                                 <input
@@ -2284,74 +2676,6 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                         )}
                         
                         {/* ✅ DELETED: الملخص المالي الذكي - Auto-calculated financial summary belongs to Dashboard */}
-
-                        {/* === FINANCIAL SETTINGS & FEES (الإعدادات المالية والأتعاب) === */}
-                        {/* ✅ CRITICAL UPDATE (2026-03-11): HIDE FOR ALL NON-FINANCIAL CLAIMS */}
-                        {/* Rule: Hide "المبلغ المطلوب" field for non-financial executions */}
-                        {showLawyerFeesToggle ? (
-                            <div
-                                className={[
-                                    'rounded-2xl border backdrop-blur-sm transition-all duration-300 overflow-hidden',
-                                    includeLawyerFees
-                                        ? 'border-[#E6C673]/40 bg-gradient-to-l from-[#E6C673]/12 via-[#E6C673]/5 to-transparent shadow-[0_0_24px_-12px_rgba(230,198,115,0.35)]'
-                                        : 'border-white/10 bg-white/[0.03]',
-                                ].join(' ')}
-                            >
-                                <label
-                                    className="flex flex-row-reverse items-center gap-3 min-h-[48px] px-3.5 py-3 cursor-pointer"
-                                >
-                                    <input
-                                        type="checkbox"
-                                        checked={includeLawyerFees}
-                                        onChange={(e) => setIncludeLawyerFees(e.target.checked)}
-                                        className="sr-only"
-                                    />
-                                    <span
-                                        className={`${ecg.multiToggle} ${
-                                            includeLawyerFees ? ecg.multiToggleChecked : ecg.multiToggleIdle
-                                        }`}
-                                        aria-hidden
-                                    >
-                                        {includeLawyerFees ? (
-                                            <Scale size={12} className="text-[#0A0F1C]" strokeWidth={2.5} />
-                                        ) : null}
-                                    </span>
-                                    <span className="flex-1 text-right text-sm font-bold text-[#F0DFA8]">
-                                        المطالبة بأتعاب المحاماة المحكوم بها
-                                    </span>
-                                </label>
-
-                                <AnimatePresence initial={false}>
-                                    {includeLawyerFees ? (
-                                        <motion.div
-                                            key="lawyer-fees-amount"
-                                            initial={{ height: 0, opacity: 0 }}
-                                            animate={{ height: 'auto', opacity: 1 }}
-                                            exit={{ height: 0, opacity: 0 }}
-                                            transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-                                            className="overflow-hidden"
-                                        >
-                                            <div className="border-t border-[#E6C673]/15 px-3.5 pb-3.5 pt-3">
-                                                <div className={`${ecg.moneyWrap} focus-within:border-[#E6C673]/45`}>
-                                                    <Scale className="text-[#E6C673]/80 flex-shrink-0" size={16} />
-                                                    <input
-                                                        type="text"
-                                                        value={formatCurrency(lawyerFeesAmount)}
-                                                        onChange={(e) =>
-                                                            handleAmountChange(e, setLawyerFeesAmount)
-                                                        }
-                                                        className={ecg.moneyInput}
-                                                        placeholder="مقدار أتعاب المحاماة (دينار)"
-                                                        aria-label="مقدار أتعاب المحاماة (دينار)"
-                                                    />
-                                                    <span className="text-slate-500 text-[10px] font-bold">IQD</span>
-                                                </div>
-                                            </div>
-                                        </motion.div>
-                                    ) : null}
-                                </AnimatePresence>
-                            </div>
-                        ) : null}
                         
                         <div className="h-6"></div> {/* Spacer */}
                     </div>

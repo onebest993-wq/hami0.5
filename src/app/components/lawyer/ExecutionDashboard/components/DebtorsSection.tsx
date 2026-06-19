@@ -3,6 +3,7 @@ import React, {
     useCallback,
     useEffect,
     useImperativeHandle,
+    useMemo,
     useRef,
     useState,
     startTransition,
@@ -39,6 +40,10 @@ import {
     type PersonalCoerciveSubtype,
 } from '@/app/utils/executorSeizureDecisionQueue';
 import type { DebtorSummonsProfile } from '@/app/utils/debtorSummonsProfile';
+import { isCustodyRemovalExecutionClaim } from '@/app/utils/executionClaimIsolation';
+import type { DebtorLiabilityGroup } from '@/app/utils/debtorLiabilityGroups';
+import { debtorShowsUnservedMemoBadge } from '@/app/utils/noticeDebtorScope';
+import type { DebtorWorkspaceEntry } from '@/app/components/lawyer/ExecutionDashboard/hooks/useDebtorWorkspaceEntries';
 
 type ExpandControlRegistrar = (debtorKey: string, expand: () => void) => () => void;
 
@@ -169,6 +174,8 @@ type DebtorsSectionProps = {
     debtorArrested: boolean;
     debtorAttendedVoluntarily: boolean;
     debtorBrowserTabsMode: boolean;
+    liabilityGroupTabsMode?: boolean;
+    debtorLiabilityGroups?: DebtorLiabilityGroup[];
     debtorDeathMenuLabel: string;
     debtorEmploymentToggleMenuLabel: (isEmployee: boolean, initial?: boolean) => string;
     debtorForcedToAttend: boolean;
@@ -295,6 +302,8 @@ type DebtorsSectionProps = {
     toggleEvictionGracePinned: () => void;
     viewExecutionData: ExecutionFile | null;
     voluntaryAttendanceCount: number;
+    noticeVoluntaryPeriodEndOptimistic?: boolean;
+    voluntaryEndOptimistic?: boolean;
 };
 
 export type DebtorsSectionHandle = {
@@ -352,6 +361,8 @@ export const DebtorsSection = forwardRef<DebtorsSectionHandle, DebtorsSectionPro
         debtorArrested,
         debtorAttendedVoluntarily,
         debtorBrowserTabsMode,
+        liabilityGroupTabsMode = false,
+        debtorLiabilityGroups = [],
         debtorDeathMenuLabel,
         debtorEmploymentToggleMenuLabel,
         debtorForcedToAttend,
@@ -436,7 +447,9 @@ export const DebtorsSection = forwardRef<DebtorsSectionHandle, DebtorsSectionPro
         timelineDebtorMetadata,
         toggleEvictionGracePinned,
         viewExecutionData,
-        voluntaryAttendanceCount
+        voluntaryAttendanceCount,
+        noticeVoluntaryPeriodEndOptimistic = false,
+        voluntaryEndOptimistic = false,
     } = props;
 
     const {
@@ -451,20 +464,68 @@ export const DebtorsSection = forwardRef<DebtorsSectionHandle, DebtorsSectionPro
         handleRemoveTag,
     } = useDebtorTags();
 
+    const custodyRemovalClaimActive = useMemo(
+        () => isCustodyRemovalExecutionClaim(executionData, claimType),
+        [executionData, claimType]
+    );
+
+    const activeLiabilityGroupEntries = useMemo((): DebtorWorkspaceEntry[] => {
+        if (!liabilityGroupTabsMode || debtorLiabilityGroups.length === 0) return [];
+        return (
+            debtorLiabilityGroups[executionDebtorTabIndex]?.entries ??
+            debtorLiabilityGroups[0]?.entries ??
+            []
+        );
+    }, [liabilityGroupTabsMode, debtorLiabilityGroups, executionDebtorTabIndex]);
+
+    const debtorRowsToRender = useMemo((): Array<DebtorWorkspaceEntry | Debtor> => {
+        if (liabilityGroupTabsMode) {
+            return activeLiabilityGroupEntries;
+        }
+        if (debtorBrowserTabsMode) {
+            return debtorWorkspaceEntries.slice(
+                executionDebtorTabIndex,
+                executionDebtorTabIndex + 1,
+            );
+        }
+        if (multiDebtorMode) {
+            return debtorWorkspaceEntries;
+        }
+        return effectiveDebtors;
+    }, [
+        liabilityGroupTabsMode,
+        activeLiabilityGroupEntries,
+        debtorBrowserTabsMode,
+        debtorWorkspaceEntries,
+        executionDebtorTabIndex,
+        multiDebtorMode,
+        effectiveDebtors,
+    ]);
+
     return (
         <>
 {/* DEBTOR CARD — PRIMARY DEBTOR: renders the main debtor card (most important card). Note: uses its own div.. */}
                     <div className="mx-3 mt-3.5 space-y-1.5">
                             <div className="space-y-1.5">
-                                {debtorBrowserTabsMode && debtorWorkspaceEntries.length > 0 ? (
+                                {debtorBrowserTabsMode &&
+                                (liabilityGroupTabsMode
+                                    ? debtorLiabilityGroups.length > 0
+                                    : debtorWorkspaceEntries.length > 0) ? (
                                     <div
                                         ref={debtorWorkspaceChipStripRef}
                                         className="scrollbar-hide flex gap-1 overflow-x-auto rounded-xl border border-rose-500/25 bg-slate-950/40 p-1.5"
                                         dir="rtl"
                                     >
-                                        {debtorWorkspaceEntries.map((ent, ti) => (
+                                        {(liabilityGroupTabsMode
+                                            ? debtorLiabilityGroups
+                                            : debtorWorkspaceEntries
+                                        ).map((item, ti) => (
                                             <button
-                                                key={ent.key}
+                                                key={
+                                                    liabilityGroupTabsMode
+                                                        ? (item as DebtorLiabilityGroup).tabKey
+                                                        : (item as DebtorWorkspaceEntry).key
+                                                }
                                                 type="button"
                                                 onClick={() => setExecutionDebtorTabIndex(ti)}
                                                 className={`shrink-0 rounded-lg border px-3 py-2 text-[10px] font-bold transition-all ${
@@ -473,20 +534,14 @@ export const DebtorsSection = forwardRef<DebtorsSectionHandle, DebtorsSectionPro
                                                         : 'border-transparent bg-slate-800/60 text-slate-400 hover:border-rose-500/25'
                                                 }`}
                                             >
-                                                {ent.unified.name}
+                                                {liabilityGroupTabsMode
+                                                    ? (item as DebtorLiabilityGroup).label
+                                                    : (item as DebtorWorkspaceEntry).unified.name}
                                             </button>
                                         ))}
                                     </div>
                                 ) : null}
-                                {(debtorBrowserTabsMode
-                                    ? debtorWorkspaceEntries.slice(
-                                          executionDebtorTabIndex,
-                                          executionDebtorTabIndex + 1
-                                      )
-                                    : multiDebtorMode
-                                      ? debtorWorkspaceEntries
-                                      : effectiveDebtors
-                                ).map((raw: DebtorWorkspaceEntry | Debtor, loopIdx: number) => {
+                                {debtorRowsToRender.map((raw: DebtorWorkspaceEntry | Debtor, loopIdx: number) => {
                                             if (
                                                 !multiDebtorMode &&
                                                 effectiveDebtors.length > 2 &&
@@ -498,7 +553,15 @@ export const DebtorsSection = forwardRef<DebtorsSectionHandle, DebtorsSectionPro
                                             const wsDebt = multiDebtorMode;
                                             const wsRow = raw as DebtorWorkspaceEntry;
                                             const d: Debtor = wsDebt ? wsRow.d : (raw as Debtor);
-                                            const idx = wsDebt ? (wsRow.fileDebtorIndex ?? 0) : loopIdx;
+                                            const fileDebtorOrdinal = wsDebt
+                                                ? Math.max(
+                                                      0,
+                                                      debtorWorkspaceEntries.findIndex(
+                                                          (e) => e.key === wsRow.key,
+                                                      ),
+                                                  )
+                                                : loopIdx;
+                                            const idx = wsDebt ? fileDebtorOrdinal : loopIdx;
                                             const isPrimary = wsDebt ? wsRow.isPrimary : loopIdx === 0;
                                             /** ثابت لجميع الدورات: نمرر primaryDebtorStableKey كبديل لـ debtorWorkspaceEntries[0].key */
                                             const primaryDebtorStableKey = (() => {
@@ -520,7 +583,7 @@ export const DebtorsSection = forwardRef<DebtorsSectionHandle, DebtorsSectionPro
                                             const debtorDisp = getExecutionPartyDisplayName(
                                                 d as Party,
                                                 'debtor',
-                                                wsDebt ? (isPrimary ? 0 : 1) : idx,
+                                                fileDebtorOrdinal,
                                                 executionData
                                             );
                                             const debtorHeirsRows = buildPartyHeirsRows(d as Party, 'debtor');
@@ -615,6 +678,20 @@ export const DebtorsSection = forwardRef<DebtorsSectionHandle, DebtorsSectionPro
                                                 (isPrimary || debtorBrowserTabsMode) &&
                                                 !rowIsDeceased &&
                                                 !isRepresentingDebtor;
+                                            const rowShowUnservedMemoBadge = showDebtorNotificationPanel
+                                                ? debtorShowsUnservedMemoBadge(
+                                                      viewExecutionData ?? executionData,
+                                                      debtorKey,
+                                                      primaryDebtorKeyResolved,
+                                                      {
+                                                          isEviction: isEvictionExecutionModule,
+                                                          debtorAttendedVoluntarily,
+                                                          voluntaryAttendanceCount,
+                                                          noticeVoluntaryPeriodEndOptimistic,
+                                                          evictionVoluntaryEndOptimistic: voluntaryEndOptimistic,
+                                                      },
+                                                  )
+                                                : false;
                                             const rowPublicationNoticeBadge: PublicationNoticeBadgeInfo | null =
                                                 (() => {
                                                     if (rowIsDeceased) return null;
@@ -795,7 +872,7 @@ export const DebtorsSection = forwardRef<DebtorsSectionHandle, DebtorsSectionPro
                                             const debtorBadgeExtra =
                                                 debtorWorkspaceEntries.length > 1 ? (
                                                     <span className="tabular-nums text-[10px] font-bold opacity-90">
-                                                        {idx + 1}
+                                                        {fileDebtorOrdinal + 1}
                                                     </span>
                                                 ) : null;
                                             return (
@@ -927,14 +1004,19 @@ export const DebtorsSection = forwardRef<DebtorsSectionHandle, DebtorsSectionPro
                                                                         </button>
                                                                     ) : null}
                                                                     {showDebtorNotificationPanel &&
-                                                                    isPrimary &&
-                                                                    showDebtorUnservedMemoBadge ? (
+                                                                    rowShowUnservedMemoBadge ? (
                                                                         <button
                                                                             type="button"
                                                                             onClick={(e) => {
                                                                                 e.stopPropagation();
-                                                                                setSummonsMarkerPopoverOpen(false);
-                                                                                setExecutionMemoBadgePopoverOpen(true);
+                                                                                if (isPrimary) {
+                                                                                    setSummonsMarkerPopoverOpen(false);
+                                                                                    setExecutionMemoBadgePopoverOpen(true);
+                                                                                } else {
+                                                                                    setSummonsContextDebtorKey(String(debtorKey));
+                                                                                    setSummonsHubInitialMainTab('tabligh');
+                                                                                    setShowUnifiedSummonsModal(true);
+                                                                                }
                                                                             }}
                                                                             className="shrink-0 whitespace-nowrap rounded-md border border-amber-500/35 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-100 hover:bg-amber-500/15"
                                                                             title="لم يُسجَّل بعد تبليغ بمذكرة الإخبار بالتنفيذ"
@@ -1373,6 +1455,21 @@ export const DebtorsSection = forwardRef<DebtorsSectionHandle, DebtorsSectionPro
                                                                                 متوفى
                                                                             </span>
                                                                         ) : null}
+                                                                        {rowShowUnservedMemoBadge ? (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    setSummonsContextDebtorKey(String(debtorKey));
+                                                                                    setSummonsHubInitialMainTab('tabligh');
+                                                                                    setShowUnifiedSummonsModal(true);
+                                                                                }}
+                                                                                className="shrink-0 whitespace-nowrap rounded-md border border-amber-500/35 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-100 hover:bg-amber-500/15"
+                                                                                title="لم يُسجَّل بعد تبليغ بمذكرة الإخبار بالتنفيذ"
+                                                                            >
+                                                                                غير مبلّغ
+                                                                            </button>
+                                                                        ) : null}
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -1397,10 +1494,12 @@ export const DebtorsSection = forwardRef<DebtorsSectionHandle, DebtorsSectionPro
                                                                 }
                                                                 debtorEmploymentToggleToKasabDisabled={false}
                                                                 hideDebtorEmploymentToggle={Boolean(
-																(d as Debtor)?.isDeceased ||
-																	(isPrimary && executionData?.is_debtor_deceased) ||
-                                                                    rowIsLegalEntity
-															)}
+                                                                    (d as Debtor)?.isDeceased ||
+                                                                        (isPrimary &&
+                                                                            executionData?.is_debtor_deceased) ||
+                                                                        rowIsLegalEntity ||
+                                                                        custodyRemovalClaimActive
+                                                                )}
                                                                 isHistoricalMode={isHistoricalMode}
                                                                 editPartyLabel={
                                                                     debtorHeirsEditOnly

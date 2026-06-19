@@ -1,249 +1,279 @@
-import React from 'react';
-import { Calendar, Paperclip, FileText, Scale, Search as SearchIcon, Clock, PauseCircle, Edit3, Trash2 } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import {
+    Search as SearchIcon,
+    Clock,
+    Edit3,
+    Trash2,
+} from 'lucide-react';
 import type { TimelineEvent } from '../../LawyerShared';
+import { CIVIL_LAWSUIT_TEST_IDS } from '../smartFile/civilLawsuitTestIds';
+import {
+    TIMELINE_FEED_CATEGORIES,
+    classifyTimelineEvent,
+    countTimelineByCategory,
+    filterTimelineFeed,
+    formatTimelineCardBody,
+    formatTimelineCardTitle,
+    getTimelineCategoryMeta,
+    type TimelineFeedCategory,
+} from '../smartFile/timelineFeedTaxonomy';
+import { resolveTimelineVisual } from '../smartFile/timelineEventVisuals';
 
-export const TimelineFeed = ({ events, onDelete, onEdit }: { events: TimelineEvent[], onDelete?: (id: string) => void, onEdit?: (id: string) => void }) => {
+type ExtendedTimelineEvent = TimelineEvent & {
+    isPause?: boolean;
+    isInterruption?: boolean;
+};
+
+function getEvidentiaryBadge(weight: string) {
+    switch (weight) {
+        case 'official':
+            return { label: 'سند رسمي', style: 'border-[#E6C673]/30 text-[#E6C673] bg-[#E6C673]/10' };
+        case 'ordinary':
+            return { label: 'سند عادي', style: 'border-white/15 text-white/60 bg-white/[0.04]' };
+        case 'beginning':
+            return { label: 'مبدأ ثبوت', style: 'border-indigo-400/30 text-indigo-300 bg-indigo-500/10 border-dashed' };
+        default:
+            return null;
+    }
+}
+
+export const TimelineFeed = ({
+    events,
+    onDelete,
+    onEdit,
+    visualVariant = 'civil',
+}: {
+    events: TimelineEvent[];
+    onDelete?: (id: string) => void;
+    onEdit?: (id: string) => void;
+    visualVariant?: 'civil' | 'personal' | 'personal-pearl';
+}) => {
+    const isPearl = visualVariant === 'personal-pearl';
+    const isPersonal = visualVariant === 'personal' || isPearl;
+    const [query, setQuery] = useState('');
+    const [category, setCategory] = useState<TimelineFeedCategory>('all');
+
+    const counts = useMemo(() => countTimelineByCategory(events), [events]);
+    const visibleCategories = useMemo(
+        () => TIMELINE_FEED_CATEGORIES.filter((c) => c.id === 'all' || counts[c.id] > 0),
+        [counts],
+    );
+
+    const filteredEvents = useMemo(
+        () => filterTimelineFeed(events, { query, category }),
+        [events, query, category],
+    );
+
+    const shellClass = isPearl
+        ? ''
+        : isPersonal
+        ? 'rounded-xl border border-white/[0.07] bg-[#141214]'
+        : 'rounded-xl border border-[#E6C673]/12 bg-[#0A0F1C]/40 backdrop-blur-xl';
+    const accentIcon = isPearl ? 'text-white/35' : isPersonal ? 'text-[#C4A574]/45' : 'text-[#E6C673]/30';
+    const accentLine = isPearl
+        ? 'before:from-[#F0A8B4]/30 before:via-[#F0A8B4]/08'
+        : isPersonal
+        ? 'before:from-[#C4A574]/30 before:via-[#C4A574]/10'
+        : 'before:from-[#E6C673]/35 before:via-[#E6C673]/15';
+
+    const searchBar = events.length > 0 ? (
+        <div className={`${isPearl ? 'mb-2 space-y-1.5' : `${shellClass} p-2.5 mb-4 space-y-2.5`} print:hidden`}>
+            <div className="relative">
+                <SearchIcon
+                    size={14}
+                    className={`absolute right-3 top-1/2 -translate-y-1/2 ${isPearl ? 'text-[#F0A8B4]/45' : isPersonal ? 'text-[#C4A574]/40' : 'text-[#E6C673]/40'}`}
+                    aria-hidden
+                />
+                <input
+                    type="search"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="بحث في السجل الزمني..."
+                    data-testid={CIVIL_LAWSUIT_TEST_IDS.timelineSearch}
+                    className={`w-full rounded-lg py-1.5 pr-9 pl-3 text-xs text-[#FFFEF9] outline-none placeholder:text-[#9894A0]/60 transition-all ${isPearl ? 'bg-[#F5C6D0]/[0.08] border border-[#F0A8B4]/22 focus:border-[#F0A8B4]/38 focus:bg-[#F5C6D0]/[0.12] backdrop-blur-sm' : 'bg-white/[0.03] border border-white/[0.08] text-white placeholder:text-white/25 focus:border-[#E6C673]/35 focus:bg-white/[0.04]'}`}
+                />
+            </div>
+            {visibleCategories.length > 1 ? (
+                <div className="flex flex-wrap gap-1.5" role="group" aria-label="تصنيف السجل">
+                    {visibleCategories.map((cat) => {
+                        const active = category === cat.id;
+                        const count = counts[cat.id];
+                        const pearlChip = isPearl
+                            ? active
+                                ? 'border-white/[0.22] bg-white/[0.10] text-[#FFFEF9]'
+                                : 'border-white/[0.10] bg-white/[0.04] text-[#9894A0] hover:border-white/[0.18] hover:text-[#ECE8E2]'
+                            : null;
+                        return (
+                            <button
+                                key={cat.id}
+                                type="button"
+                                data-testid={CIVIL_LAWSUIT_TEST_IDS.timelineCategoryChip(cat.id)}
+                                onClick={() => setCategory(cat.id)}
+                                className={[
+                                    'inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-bold transition-all',
+                                    pearlChip ?? (active ? cat.chipActive : cat.chipIdle),
+                                ].join(' ')}
+                            >
+                                <span>{cat.label}</span>
+                                <span className={`tabular-nums text-[9px] ${active ? 'opacity-90' : 'opacity-50'}`}>
+                                    {count}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+            ) : null}
+        </div>
+    ) : null;
+
     if (events.length === 0) {
         return (
-            <div className="text-center py-12">
-                <Clock size={32} className="text-white/10 mx-auto mb-3" />
-                <p className="text-white/20 text-sm">لا توجد إجراءات مسجلة حتى الآن</p>
-                <p className="text-white/10 text-xs mt-1">استخدم الأزرار أعلاه لإضافة مواعيد، ملاحظات، أو مستندات</p>
-            </div>
+            <>
+                {searchBar}
+                {isPearl ? (
+                    <p className="text-[10px] text-[#9894A0] py-0.5">لا إجراءات — استخدم أوامر يسار</p>
+                ) : (
+                <div className={`text-center py-12 ${shellClass}`}>
+                    <Clock size={32} className={`${accentIcon} mx-auto mb-3`} strokeWidth={1.5} />
+                    <p className="text-white/30 text-sm">لا توجد إجراءات مسجلة حتى الآن</p>
+                    <p className="text-white/15 text-xs mt-1">استخدم الأزرار أعلاه لإضافة مواعيد، ملاحظات، أو مستندات</p>
+                </div>
+                )}
+            </>
         );
     }
 
-    // Icon mapping based on event type
-    const getEventIcon = (type: string) => {
-        switch(type) {
-            case 'appointment': return Calendar;
-            case 'document': return Paperclip;
-            case 'note': return FileText;
-            case 'decision': return Scale;
-            case 'expert': return SearchIcon;
-            default: return FileText;
-        }
-    };
+    if (filteredEvents.length === 0) {
+        return (
+            <>
+                {searchBar}
+                <div className={`text-center py-10 ${shellClass} border-dashed`}>
+                    <SearchIcon size={28} className={`${accentIcon} mx-auto mb-2`} strokeWidth={1.5} />
+                    <p className="text-white/40 text-sm">لا نتائج لهذا التصنيف أو البحث</p>
+                    <p className="text-white/20 text-xs mt-1">جرّب تصنيفاً آخر أو كلمات مختلفة</p>
+                </div>
+            </>
+        );
+    }
 
-    const getEventColor = (type: string) => {
-        switch(type) {
-            case 'appointment': return 'text-blue-400';
-            case 'document': return 'text-purple-400';
-            case 'note': return 'text-amber-400';
-            case 'decision': return 'text-green-400';
-            case 'expert': return 'text-teal-400';
-            default: return 'text-white/40';
-        }
-    };
-
-    // 🔥 NEW: Evidentiary Badge Logic
-    const getEvidentiaryBadge = (weight: string) => {
-        switch (weight) {
-            case 'official':
-                return { label: 'سند رسمي 🏛️', style: 'border-[#E6C673] text-[#E6C673] bg-[#E6C673]/10' };
-            case 'ordinary':
-                return { label: 'سند عادي 📄', style: 'border-slate-400 text-slate-300 bg-slate-500/10' };
-            case 'beginning':
-                return { label: 'مبدأ ثبوت 💡', style: 'border-indigo-400 text-indigo-300 bg-indigo-500/10 border-dashed' };
-            default:
-                return null;
-        }
-    };
-    
     return (
-        <div className="space-y-4 relative before:absolute before:right-4 before:top-6 before:bottom-0 before:w-[2px] before:bg-gradient-to-b before:from-[#D4AF37]/40 before:via-[#D4AF37]/20 before:to-transparent">
-            {events.map((event, idx) => {
-                const EventIcon = getEventIcon(event.type);
-                const iconColor = getEventColor(event.type);
-                
-                // SPECIAL STYLING FOR STAY/PAUSE EVENTS & INTERRUPTION EVENTS & EXPERT & CROSS-APPEAL & FAST-TRACK & ATTACHMENT
-                const extendedEvent = event as TimelineEvent & { 
-                    isPause?: boolean; 
-                    isInterruption?: boolean; 
-                    color?: string; 
-                    isFastTrack?: boolean; 
-                    isAttachment?: boolean;
-                    attachmentStatus?: string;
-                    fastTrackStatus?: string;
-                };
-                const isPauseEvent = extendedEvent.isPause || event.title?.includes('استئخار');
-                const isInterruptionEvent = extendedEvent.isInterruption || event.title?.includes('انقطاع السير');
-                const isExpertEvent = event.type === 'expert';
-                const isCrossAppealEvent = extendedEvent.color === 'teal'; // 🔥 NEW: Cross-Appeal support
-                const isFastTrackEvent = extendedEvent.isFastTrack; // 🔥 NEW: Fast-Track support
-                const isAttachmentEvent = extendedEvent.isAttachment; // 🔥 NEW: Attachment support
-                
-                const cardClasses = isPauseEvent 
-                    ? 'flex-1 bg-yellow-500/10 backdrop-blur-sm border-l-4 border-yellow-500 rounded-xl p-4 mr-12 hover:border-yellow-400 transition-all group-hover:bg-yellow-500/15 shadow-lg shadow-yellow-500/10'
-                    : isInterruptionEvent
-                    ? 'flex-1 bg-rose-500/10 backdrop-blur-sm border-l-4 border-rose-500 rounded-xl p-4 mr-12 hover:border-rose-400 transition-all group-hover:bg-rose-500/15 shadow-lg shadow-rose-500/10'
-                    : isAttachmentEvent
-                    ? 'flex-1 bg-red-500/20 backdrop-blur-sm border-2 border-red-500/70 rounded-xl p-4 mr-12 hover:border-red-400 transition-all group-hover:bg-red-500/25 shadow-xl shadow-red-900/40 ring-2 ring-red-500/30'
-                    : isFastTrackEvent
-                    ? 'flex-1 bg-amber-500/20 backdrop-blur-sm border-2 border-amber-500/60 rounded-xl p-4 mr-12 hover:border-amber-400 transition-all group-hover:bg-amber-500/25 shadow-xl shadow-amber-900/30 ring-2 ring-amber-500/20'
-                    : isExpertEvent || isCrossAppealEvent
-                    ? 'flex-1 bg-teal-900/20 backdrop-blur-sm border-l-4 border-teal-500 rounded-xl p-4 mr-12 hover:border-teal-400 transition-all group-hover:bg-teal-500/15 shadow-lg shadow-teal-500/10'
-                    : 'flex-1 bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 mr-12 hover:border-[#D4AF37]/50 transition-all group-hover:bg-white/[0.07] shadow-sm';
-                
-                const dotClasses = isPauseEvent
-                    ? 'absolute right-[11px] top-6 w-3 h-3 rounded-full bg-yellow-500 outline outline-4 outline-[#1A1E2E] z-10 transition-all group-hover:scale-150 group-hover:shadow-[0_0_12px_rgba(234,179,8,0.8)] animate-pulse'
-                    : isInterruptionEvent
-                    ? 'absolute right-[11px] top-6 w-3 h-3 rounded-full bg-rose-500 outline outline-4 outline-[#1A1E2E] z-10 transition-all group-hover:scale-150 group-hover:shadow-[0_0_12px_rgba(244,63,94,0.8)] animate-pulse'
-                    : isAttachmentEvent
-                    ? 'absolute right-[11px] top-6 w-4 h-4 rounded-full bg-red-500 outline outline-4 outline-[#1A1E2E] z-10 transition-all group-hover:scale-150 group-hover:shadow-[0_0_18px_rgba(239,68,68,1)] animate-pulse'
-                    : isFastTrackEvent
-                    ? 'absolute right-[11px] top-6 w-4 h-4 rounded-full bg-amber-500 outline outline-4 outline-[#1A1E2E] z-10 transition-all group-hover:scale-150 group-hover:shadow-[0_0_16px_rgba(245,158,11,1)] animate-pulse'
-                    : isExpertEvent || isCrossAppealEvent
-                    ? 'absolute right-[11px] top-6 w-3 h-3 rounded-full bg-teal-500 outline outline-4 outline-[#1A1E2E] z-10 transition-all group-hover:scale-150 group-hover:shadow-[0_0_12px_rgba(20,184,166,0.8)]'
-                    : `absolute right-[11px] top-6 w-3 h-3 rounded-full ${event.type === 'decision' ? 'bg-green-500' : 'bg-[#D4AF37]'} outline outline-4 outline-[#1A1E2E] z-10 transition-all group-hover:scale-150 group-hover:shadow-[0_0_12px_rgba(212,175,55,0.6)]`;
-                
-                const evidentiaryBadge = event.evidentiaryWeight ? getEvidentiaryBadge(event.evidentiaryWeight) : null;
+        <>
+            {searchBar}
+            <div className={`${isPearl ? 'space-y-2' : 'space-y-3'} relative before:absolute before:right-3 before:top-4 before:bottom-0 before:w-px before:bg-gradient-to-b ${accentLine} before:to-transparent`}>
+                {filteredEvents.map((event) => {
+                    const ext = event as ExtendedTimelineEvent;
+                    const visual = resolveTimelineVisual(
+                        event,
+                        ext,
+                        isPearl ? 'personal-pearl' : 'civil',
+                    );
+                    const { Icon } = visual;
+                    const eventCategory = classifyTimelineEvent(event);
+                    const categoryMeta = getTimelineCategoryMeta(eventCategory);
+                    const displayTitle = formatTimelineCardTitle(event);
+                    const displayDetails = formatTimelineCardBody(event);
 
-                return (
-                    <div
-                        key={event.id}
-                        data-event-id={event.id}
-                        className="relative flex items-start gap-4 group"
-                    >
-                        {/* Timeline Dot - Right aligned for RTL */}
-                        <div className={dotClasses} />
-                        
-                        {/* Content Card - Dynamic Styling */}
-                        <div className={cardClasses}>
-                            <div className="flex justify-between items-start mb-2">
-                                <div className="flex items-start gap-3 flex-1">
-                                    <div className={`w-10 h-10 rounded-lg bg-gradient-to-br from-white/10 to-white/5 flex items-center justify-center shrink-0 ${
-                                        isPauseEvent ? 'text-yellow-400 border-yellow-500/30' : 
-                                        isInterruptionEvent ? 'text-rose-400 border-rose-500/30' :
-                                        isAttachmentEvent ? 'text-red-400 border-red-500/50 shadow-lg shadow-red-500/30' :
-                                        isFastTrackEvent ? 'text-amber-400 border-amber-500/50 shadow-lg shadow-amber-500/30' :
-                                        isExpertEvent || isCrossAppealEvent ? 'text-teal-400 border-teal-500/30' :
-                                        iconColor
-                                    } border border-white/10`}>
-                                        {isPauseEvent ? <PauseCircle size={18} /> : 
-                                         isInterruptionEvent ? <span className="text-lg">🛑</span> :
-                                         isAttachmentEvent ? <span className="text-xl animate-pulse">🔒</span> :
-                                         isFastTrackEvent ? <span className="text-xl animate-pulse">⚡</span> :
-                                         <EventIcon size={18} />}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <h4 className={`font-bold text-sm mb-1 leading-tight ${
-                                            isPauseEvent ? 'text-yellow-300' : 
-                                            isInterruptionEvent ? 'text-rose-300' :
-                                            isAttachmentEvent ? 'text-red-300' :
-                                            isFastTrackEvent ? 'text-amber-300' :
-                                            isExpertEvent || isCrossAppealEvent ? 'text-teal-300' :
-                                            'text-white'
-                                        }`}>
-                                            {event.title}
-                                        </h4>
-                                        <div className="flex items-center gap-2 text-[10px] text-white/40 font-medium flex-wrap">
-                                            <span>{event.date}</span>
-                                            {event.time && <><span>•</span><span>{event.time}</span></>}
-                                            
-                                            {/* 🔥 NEW: Evidentiary Badge in Timeline */}
-                                            {evidentiaryBadge && (
-                                                <span className={`px-2 py-0.5 rounded-full border ${evidentiaryBadge.style} font-bold`}>
-                                                    {evidentiaryBadge.label}
-                                                </span>
-                                            )}
+                    const isPauseEvent = ext.isPause || event.title?.includes('استئخار');
+                    const isInterruptionEvent = ext.isInterruption || event.title?.includes('انقطاع السير');
+                    const evidentiaryBadge = event.evidentiaryWeight
+                        ? getEvidentiaryBadge(event.evidentiaryWeight)
+                        : null;
 
-                                            {isPauseEvent && (
-                                                <span className="bg-yellow-500/20 text-yellow-300 px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1">
-                                                    ⏸️ استئخار نشط
+                    return (
+                        <div
+                            key={event.id}
+                            data-event-id={event.id}
+                            className="relative flex items-start gap-3 group"
+                        >
+                            <div className={visual.dot} />
+
+                            <div className={visual.card}>
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                                        <div className={visual.iconWrap}>
+                                            <Icon size={18} strokeWidth={1.65} className={visual.iconColor} />
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex items-center flex-wrap gap-1.5 mb-1">
+                                                <span
+                                                    className={`shrink-0 px-1.5 py-0.5 rounded-md border text-[8px] font-bold ${
+                                                        isPearl
+                                                            ? 'border-white/[0.16] bg-white/[0.08] text-[#ECE8E2]'
+                                                            : categoryMeta.chipActive
+                                                    }`}
+                                                >
+                                                    {categoryMeta.label}
                                                 </span>
-                                            )}
-                                            {isInterruptionEvent && (
-                                                <span className="bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1">
-                                                    🛑 انقطاع السير
+                                                <span className={`text-[10px] tabular-nums ${isPearl ? 'text-[#9894A0]' : 'text-white/35'}`}>
+                                                    {event.date?.slice(0, 10) || '—'}
                                                 </span>
-                                            )}
-                                            {isAttachmentEvent && (
-                                                <>
-                                                    <span className="bg-red-500/30 text-red-200 px-2.5 py-1 rounded-full text-[9px] font-bold flex items-center gap-1 shadow-lg shadow-red-900/30 border border-red-500/50">
-                                                        🔒 حجز احتياطي
+                                                {event.time ? (
+                                                    <span className={`text-[10px] tabular-nums ${isPearl ? 'text-[#9894A0]/80' : 'text-white/30'}`}>
+                                                        {event.time}
                                                     </span>
-                                                    {extendedEvent.attachmentStatus && (
-                                                        <span className="bg-red-900/40 text-red-100 px-2 py-0.5 rounded text-[8px] font-bold border border-red-700/50">
-                                                            {extendedEvent.attachmentStatus}
-                                                        </span>
-                                                    )}
-                                                </>
-                                            )}
-                                            {isFastTrackEvent && (
-                                                <>
-                                                    <span className="bg-amber-500/30 text-amber-200 px-2.5 py-1 rounded-full text-[9px] font-bold flex items-center gap-1 shadow-lg shadow-amber-900/30 border border-amber-500/50">
-                                                        ⚡ إجراء مستعجل
+                                                ) : null}
+                                                {evidentiaryBadge ? (
+                                                    <span
+                                                        className={`px-1.5 py-0.5 rounded-md border text-[8px] font-bold ${evidentiaryBadge.style}`}
+                                                    >
+                                                        {evidentiaryBadge.label}
                                                     </span>
-                                                    {extendedEvent.fastTrackStatus && (
-                                                        <span className="bg-amber-900/40 text-amber-100 px-2 py-0.5 rounded text-[8px] font-bold border border-amber-700/50">
-                                                            {extendedEvent.fastTrackStatus}
-                                                        </span>
-                                                    )}
-                                                </>
-                                            )}
-                                            {isExpertEvent && (
-                                                <span className="bg-teal-500/20 text-teal-300 px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1">
-                                                    🔎 خبير قضائي
-                                                </span>
-                                            )}
-                                            {event.type === 'decision' && !isPauseEvent && !isInterruptionEvent && (
-                                                <span className="bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full text-[9px] font-bold">قرار قضائي</span>
-                                            )}
-                                            {event.docCategory && <span className="bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full text-[9px] font-bold">{event.docCategory}</span>}
-                                            {event.tags && event.tags.length > 0 && (
-                                                <div className="flex flex-wrap gap-1 mt-1">
-                                                    {event.tags.map((tag: string) => (
-                                                        <span key={tag} className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded text-[8px] font-bold">
-                                                            {tag}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            )}
+                                                ) : null}
+                                                {isPauseEvent ? (
+                                                    <span className="px-1.5 py-0.5 rounded-md border border-amber-500/25 bg-amber-500/10 text-[8px] font-bold text-amber-200/90">
+                                                        استئخار
+                                                    </span>
+                                                ) : null}
+                                                {isInterruptionEvent ? (
+                                                    <span className="px-1.5 py-0.5 rounded-md border border-rose-500/25 bg-rose-500/10 text-[8px] font-bold text-rose-200/90">
+                                                        انقطاع
+                                                    </span>
+                                                ) : null}
+                                            </div>
+                                            <h4 className={`font-bold text-[13px] leading-snug truncate ${visual.title}`}>
+                                                {displayTitle}
+                                            </h4>
                                         </div>
                                     </div>
+                                    {(onEdit || onDelete) && (
+                                        <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity print:hidden shrink-0">
+                                            {onEdit ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onEdit(event.id)}
+                                                    className={`p-1.5 rounded-lg border transition-colors ${
+                                                        isPearl
+                                                            ? 'bg-white/[0.04] border-white/[0.10] hover:border-white/[0.20] text-[#9894A0] hover:text-[#ECE8E2]'
+                                                            : 'bg-white/[0.04] border-white/[0.08] hover:border-[#E6C673]/25 text-white/40 hover:text-[#E6C673]'
+                                                    }`}
+                                                    title="تعديل"
+                                                >
+                                                    <Edit3 size={13} />
+                                                </button>
+                                            ) : null}
+                                            {onDelete ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onDelete(event.id)}
+                                                    className="p-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] hover:border-rose-500/30 text-white/30 hover:text-rose-400 transition-colors"
+                                                    title="حذف"
+                                                >
+                                                    <Trash2 size={13} />
+                                                </button>
+                                            ) : null}
+                                        </div>
+                                    )}
                                 </div>
-                                {/* Action Buttons (Hidden if onEdit/onDelete not provided - Read-Only Mode) */}
-                                {(onEdit || onDelete) && (
-                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity print:hidden">
-                                        {onEdit && (
-                                            <button type="button" 
-                                                onClick={() => onEdit(event.id)} 
-                                                className="p-1.5 rounded-lg hover:bg-blue-500/20 text-white/40 hover:text-blue-400 transition-colors"
-                                                title="تعديل"
-                                            >
-                                                <Edit3 size={14}/>
-                                            </button>
-                                        )}
-                                        {onDelete && (
-                                            <button type="button" 
-                                                onClick={() => onDelete(event.id)} 
-                                                className="p-1.5 rounded-lg hover:bg-red-500/10 text-white/30 hover:text-red-400 transition-colors"
-                                                title="حذف"
-                                            >
-                                                <Trash2 size={14}/>
-                                            </button>
-                                        )}
-                                    </div>
-                                )}
+                                {displayDetails ? (
+                                    <p className={`text-[11px] leading-relaxed mt-2 pl-0.5 line-clamp-5 whitespace-pre-line ${visual.detailsText}`}>
+                                        {displayDetails}
+                                    </p>
+                                ) : null}
                             </div>
-                            {event.details && (
-                                <p className={`text-xs leading-relaxed mr-13 mt-2 border-r-2 pr-3 whitespace-pre-line ${
-                                    isPauseEvent 
-                                        ? 'text-yellow-200/80 border-yellow-500/30' 
-                                        : isInterruptionEvent
-                                        ? 'text-rose-200/80 border-rose-500/30'
-                                        : isExpertEvent
-                                        ? 'text-teal-200/80 border-teal-500/30'
-                                        : 'text-white/60 border-[#D4AF37]/20'
-                                }`}>
-                                    {event.details}
-                                </p>
-                            )}
                         </div>
-                    </div>
-                );
-            })}
-        </div>
+                    );
+                })}
+            </div>
+        </>
     );
 };

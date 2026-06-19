@@ -13,6 +13,14 @@ import { EMPTY_FORM, getDayName, todayYmd, timeValue } from './SmartLegalRadar/u
 import type { EventFormData } from './SmartLegalRadar/utils';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
 import { CALENDAR_REQUEST_SYNC_EVENT } from '@/app/services/calendarBridge.types';
+import {
+    RADAR_PAGE,
+    RADAR_SCROLL,
+    RADAR_BTN_GOLD,
+    RADAR_GLASS_PANEL,
+    RADAR_ICON_GOLD,
+    RADAR_ICON_NAVY,
+} from './SmartLegalRadar/radarTheme';
 
 interface SmartLegalRadarProps {
     onBack: () => void;
@@ -258,17 +266,24 @@ export const SmartLegalRadar: React.FC<SmartLegalRadarProps> = ({
 
     if (loading) {
         return (
-            <div className="flex flex-col h-full bg-[#0B1021]">
+            <div className={RADAR_PAGE}>
                 <RadarHeader {...{onBack, viewYear, viewMonth, onPrevMonth: prevMonth, onNextMonth: nextMonth, onGoToToday: goToToday, showFullMonth, onToggleFullMonth: () => setShowFullMonth(!showFullMonth)}} />
                 <div className="flex-1 flex items-center justify-center">
-                    <Loader2 size={40} className="text-indigo-400 animate-spin" />
+                    <Loader2 size={40} className={`${RADAR_ICON_GOLD} animate-spin`} />
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col h-full bg-[#0B1021] overflow-hidden">
+        <div className={RADAR_PAGE}>
+            {/* خلفية نيلي + لمسات رصاصي وذهبي */}
+            <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+                <div className="absolute -top-24 -right-16 w-72 h-72 rounded-full bg-[#1e3a5f]/25 blur-3xl" />
+                <div className="absolute top-1/3 -left-20 w-56 h-56 rounded-full bg-[#64748b]/10 blur-3xl" />
+                <div className="absolute bottom-32 right-1/4 w-40 h-40 rounded-full bg-[#C9A227]/8 blur-3xl" />
+            </div>
+
             <RadarHeader
                 onBack={onBack}
                 viewYear={viewYear} viewMonth={viewMonth}
@@ -278,9 +293,9 @@ export const SmartLegalRadar: React.FC<SmartLegalRadarProps> = ({
                 onToggleFullMonth={() => setShowFullMonth(!showFullMonth)}
             />
 
-            <div className="flex-1 overflow-y-auto scrollbar-hide p-4 pb-32">
+            <div className={RADAR_SCROLL}>
                 {calendarError && (
-                    <div className="mb-4 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm">
+                    <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-300 text-sm">
                         {calendarError}
                     </div>
                 )}
@@ -304,16 +319,19 @@ export const SmartLegalRadar: React.FC<SmartLegalRadarProps> = ({
                 )}
 
                 <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-white font-bold flex items-center gap-2">
-                            <Calendar size={16} className="text-indigo-400" />
+                    <div className="flex items-center justify-between gap-3">
+                        <h2 className="text-white/95 font-bold flex items-center gap-2 text-sm sm:text-base">
+                            <Calendar size={16} className={RADAR_ICON_GOLD} />
                             {selectedDate ? (
                                 <span>{getDayName(selectedDate)} — {selectedDate}</span>
-                            ) : 'اختر تاريخاً'}
+                            ) : (
+                                'اختر تاريخاً'
+                            )}
                         </h2>
-                        <button type="button"
+                        <button
+                            type="button"
                             onClick={openAddForm}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold transition-all shadow-lg shadow-indigo-900/30"
+                            className={RADAR_BTN_GOLD}
                         >
                             <Plus size={16} />
                             إضافة موعد
@@ -324,21 +342,21 @@ export const SmartLegalRadar: React.FC<SmartLegalRadarProps> = ({
                         <motion.div
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="bg-gradient-to-r from-indigo-900/40 to-slate-900 border border-indigo-500/30 rounded-xl p-5 flex gap-4 items-start shadow-lg relative overflow-hidden"
+                            className={`${RADAR_GLASS_PANEL} p-4 flex gap-4 items-start relative overflow-hidden border-[#5b8fd4]/20`}
                         >
-                            <div className="absolute top-0 right-0 w-20 h-20 bg-indigo-500/20 blur-2xl rounded-full -mr-10 -mt-10 pointer-events-none" />
-                            <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center shrink-0 border border-indigo-500/30 mt-1">
-                                <Bot size={20} className="text-indigo-400" />
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-[#C9A227]/10 blur-2xl rounded-full -mr-12 -mt-12 pointer-events-none" />
+                            <div className="w-10 h-10 rounded-xl bg-[#1e3a5f]/50 flex items-center justify-center shrink-0 border border-[#5b8fd4]/25">
+                                <Bot size={20} className={RADAR_ICON_NAVY} />
                             </div>
                             <div className="flex-1">
-                                <h3 className="text-indigo-300 font-bold text-sm mb-1">ملخص المواعيد لليوم</h3>
-                                <p className="text-white/90 text-sm leading-relaxed">{aiBriefing}</p>
+                                <h3 className="text-[#E6C673] font-bold text-sm mb-1">ملخص المواعيد لليوم</h3>
+                                <p className="text-slate-300 text-sm leading-relaxed">{aiBriefing}</p>
                             </div>
                         </motion.div>
                     )}
 
                     {conflictMessage && (
-                        <div className="bg-rose-950/30 border border-rose-500/40 text-rose-300 text-sm p-3 rounded-lg flex items-start gap-2">
+                        <div className="bg-rose-950/25 border border-rose-500/35 text-rose-300 text-sm p-3 rounded-xl flex items-start gap-2">
                             <AlertTriangle size={16} className="shrink-0 mt-0.5" />
                             <span>{conflictMessage}</span>
                         </div>

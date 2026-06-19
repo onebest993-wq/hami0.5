@@ -7,7 +7,6 @@ type SigningHeaders = {
   'X-WIFE-Content-Hash'?: string;
 };
 
-const NONCE_EXPIRY_MS = 60 * 1000;
 const HMAC_ALGORITHM = 'HMAC';
 const HASH_ALGORITHM = 'SHA-256';
 
@@ -19,16 +18,6 @@ function toBase64Url(data: Uint8Array): string {
   const binary = Array.from(data, (b) => String.fromCharCode(b)).join('');
   const base64 = btoa(binary);
   return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-}
-
-function fromBase64Url(value: string): Uint8Array {
-  const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
-  const pad = (4 - (base64.length % 4)) % 4;
-  const padded = base64 + '='.repeat(pad);
-  const binary = atob(padded);
-  const out = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
-  return out;
 }
 
 /**
@@ -88,7 +77,6 @@ export class RequestSigningService {
    * Cache HMAC keys per token-hash to avoid re-importing keys on every request.
    */
   private static readonly keyCache = new Map<string, Promise<CryptoKey>>();
-  private static readonly seenNonces = new Map<string, number>();
 
   /**
    * Resolve the active auth token used for signing.
@@ -128,20 +116,12 @@ export class RequestSigningService {
         toBufferSource(tokenHashBytes),
         { name: HMAC_ALGORITHM, hash: HASH_ALGORITHM },
         false,
-        ['sign', 'verify'],
+        ['sign'],
       );
     })();
 
     this.keyCache.set(keyCacheId, keyPromise);
     return keyPromise;
-  }
-
-  private static pruneNonces(nowMs: number): void {
-    for (const [nonce, createdAt] of this.seenNonces.entries()) {
-      if (nowMs - createdAt > NONCE_EXPIRY_MS) {
-        this.seenNonces.delete(nonce);
-      }
-    }
   }
 
   private static async signRaw(data: string, explicitToken?: string): Promise<string> {
@@ -182,45 +162,6 @@ export class RequestSigningService {
       headers['X-WIFE-Content-Hash'] = contentHash;
     }
     return headers;
-  }
-
-  public static async verifyRequestSignature(input: {
-    method: string;
-    url: string;
-    body: string;
-    signature: string;
-    timestamp: string;
-    nonce: string;
-    explicitToken?: string;
-  }): Promise<boolean> {
-    const now = Date.now();
-    this.pruneNonces(now);
-
-    const ts = Number(input.timestamp);
-    if (!Number.isFinite(ts)) return false;
-    if (Math.abs(now - ts) > NONCE_EXPIRY_MS) return false;
-    if (this.seenNonces.has(input.nonce)) return false;
-
-    const key = await this.getKey(input.explicitToken);
-    const expectedPayload = canonicalPayload(
-      input.method,
-      canonicalPathAndQuery(input.url),
-      input.timestamp,
-      input.nonce,
-      input.body,
-    );
-    const payloadBytes = new TextEncoder().encode(expectedPayload);
-    const signatureBytes = fromBase64Url(input.signature);
-    const valid = await crypto.subtle.verify(
-      HMAC_ALGORITHM,
-      key,
-      toBufferSource(signatureBytes),
-      toBufferSource(payloadBytes),
-    );
-    if (valid) {
-      this.seenNonces.set(input.nonce, ts);
-    }
-    return valid;
   }
 }
 

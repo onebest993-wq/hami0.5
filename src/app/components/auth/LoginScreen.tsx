@@ -1,15 +1,20 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Mail, Lock, UserPlus, LogIn, Shield, LayoutDashboard } from 'lucide-react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useAuth } from '@/app/context/AuthContext';
 import { supabase } from '../../../lib/supabase';
 import { logAction } from '@/app/utils/auditLog';
+import { prefetchLawyerDashboardEntry } from '@/app/runtime/lawyerDashboardLoader';
 import { LoginGlassCard, LoginGoldButton, LoginInputField } from './loginScreenPrimitives';
 
 /** شاشة التطوير — دخول التطبيق أو المدير */
 const DevAdminLoginScreen = () => {
     const { adminBypassLogin, devBypassLogin } = useAuth();
     const [loadingAction, setLoadingAction] = useState<'app' | 'admin' | null>(null);
+
+    useEffect(() => {
+        prefetchLawyerDashboardEntry();
+    }, []);
 
     return (
         <div dir="rtl" className="min-h-screen font-['Tajawal'] bg-[#000510] text-white">
@@ -26,7 +31,10 @@ const DevAdminLoginScreen = () => {
                         </p>
                         <LoginGoldButton
                             fullWidth
+                            onMouseEnter={prefetchLawyerDashboardEntry}
+                            onFocus={prefetchLawyerDashboardEntry}
                             onClick={() => {
+                                prefetchLawyerDashboardEntry();
                                 void (async () => {
                                     setLoadingAction('app');
                                     try {
@@ -160,7 +168,7 @@ const ProductionLoginScreen = () => {
                                     }
                                     setIsLoading(true);
                                     try {
-                                        await signup(email.trim(), password, { role: 'lawyer' });
+                                        await signup(email.trim(), password, { accountType: 'lawyer' });
                                         setErrorMessage('');
                                         SmartToast.success('تم إنشاء الحساب');
                                     } catch (err: unknown) {

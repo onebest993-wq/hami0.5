@@ -20,11 +20,22 @@ export interface Party {
 export interface ThirdParty {
     id: number;
     name: string;
-    type: string;
+    /** الصفة القانونية — مثل المدعي للأطراف الأصليين */
+    status: string;
+    address: string;
+    /** اختصامي | انضمامي | بقرار المحكمة | بطلب الخصم */
+    entryMode: 'interpleader' | 'affiliative' | 'court' | 'opponent_request';
+    /** جانب الانضمام — للشخص الثالث الانضمامي فقط */
+    affiliatedSide?: 1 | 2;
     roleLabel: string;
-    entryType: string;
-    role: string;
-    alignment: string;
+    /** @deprecated legacy */
+    entryType?: string;
+    /** @deprecated legacy */
+    role?: string;
+    /** @deprecated legacy */
+    alignment?: string;
+    type: string;
+    isClient: boolean;
     hasLawyer: boolean;
     lawyerName: string;
     lawyerPhone: string;
@@ -36,6 +47,8 @@ export interface ThirdPartyModalProps {
     onClose: () => void;
     onSave: (party: ThirdParty) => void;
     currentStage: string;
+    /** نموذج الإنشاء: اختصامي وانضمامي فقط — بقرار المحكمة/بطلب الخصم في الإضبارة */
+    context?: 'newCase' | 'file';
 }
 
 export interface PartyCardProps {
@@ -45,9 +58,6 @@ export interface PartyCardProps {
     onUpdate: (field: keyof Party, value: string | boolean) => void;
     onRemove: () => void;
     canRemove: boolean;
-    onToggleAgent: (side: 1 | 2, id: string) => void;
     labels: { p1Main: string; p2Main: string; courtPlaceholder: string; typePlaceholder: string };
-    currentStage: string;
-    partyCount: number;
     errorMap: Record<string, string>;
 }

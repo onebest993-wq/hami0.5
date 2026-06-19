@@ -18,7 +18,7 @@
  *   └─────────────────────────────────────────────┘
  */
 
-import type { MouseEvent, ReactNode } from 'react';
+import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
 import { motion } from 'motion/react';
 
 export type DossierKind = 'criminal' | 'civil' | 'personal' | 'transaction';
@@ -122,15 +122,30 @@ export const UnifiedDossierCard = ({
         onOpen();
     };
 
+    const handleCardClick = () => {
+        onOpen();
+    };
+
+    const handleCardKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onOpen();
+        }
+    };
+
     return (
         <motion.div
             layout
             data-testid={testId}
+            role="button"
+            tabIndex={0}
+            onClick={handleCardClick}
+            onKeyDown={handleCardKeyDown}
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             whileHover={{ y: -4 }}
             transition={{ type: 'spring', stiffness: 320, damping: 26 }}
-            className={`relative flex flex-col justify-between w-full p-5 rounded-2xl bg-[#ffffff05] backdrop-blur-md border border-white/10 hover:bg-[#ffffff0a] hover:border-white/20 hover:shadow-[0_0_15px_rgba(212,175,55,0.05)] transition-all duration-300 min-h-[220px] ${wrapperClassName ?? ''}`}
+            className={`relative flex flex-col justify-between w-full p-5 rounded-2xl bg-[#ffffff05] backdrop-blur-md border border-white/10 hover:bg-[#ffffff0a] hover:border-white/20 hover:shadow-[0_0_15px_rgba(212,175,55,0.05)] transition-all duration-300 min-h-[220px] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/40 ${wrapperClassName ?? ''}`}
             dir="rtl"
         >
             {overlayBadge}

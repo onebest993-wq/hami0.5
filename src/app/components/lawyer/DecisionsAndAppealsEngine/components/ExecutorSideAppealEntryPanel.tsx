@@ -17,8 +17,6 @@ type ExecutorSideAppealEntryPanelProps = {
     onCommit: (stage: AppealStage, appellants: ManualAppealAppellantActor[]) => void;
     onWaive?: () => void;
     showWaive?: boolean;
-    /** قرار منفذ يدوي — لا يُحجب الطعن بمهلة التاريخ */
-    ignoreDeadlineWindows?: boolean;
     /** بعد تظلم سابق — يُتيح تسجيل تمييز فقط */
     grievanceAlreadyFiled?: boolean;
     /** طاعن التمييز المحدد مسبقاً بعد رد التظلم */
@@ -51,7 +49,6 @@ export function ExecutorSideAppealEntryPanel({
     onCommit,
     onWaive,
     showWaive = false,
-    ignoreDeadlineWindows = false,
     grievanceAlreadyFiled = false,
     presetCassationAppellant = null,
 }: ExecutorSideAppealEntryPanelProps) {
@@ -74,9 +71,7 @@ export function ExecutorSideAppealEntryPanel({
         }
     }, [open, showAppellantPicker, availableAppellants]);
 
-    const stageAllowed =
-        ignoreDeadlineWindows ||
-        (stage === 'grievance' ? windows.canTadhallum : windows.canTamyeez);
+    const stageAllowed = stage === 'grievance' ? windows.canTadhallum : windows.canTamyeez;
     const effectiveAppellants = showAppellantPicker
         ? appellants
         : availableAppellants.length === 1
@@ -126,7 +121,7 @@ export function ExecutorSideAppealEntryPanel({
                     <div className="flex flex-wrap justify-end gap-2">
                         <button
                             type="button"
-                            disabled={locked || (!ignoreDeadlineWindows && !windows.canTadhallum)}
+                            disabled={locked || !windows.canTadhallum}
                             onClick={() => setStage('grievance')}
                             className={`${CHIP_BASE} ${stage === 'grievance' ? CHIP_ON : CHIP_OFF}`}
                         >
@@ -134,7 +129,7 @@ export function ExecutorSideAppealEntryPanel({
                         </button>
                         <button
                             type="button"
-                            disabled={locked || (!ignoreDeadlineWindows && !windows.canTamyeez)}
+                            disabled={locked || !windows.canTamyeez}
                             onClick={() => setStage('cassation')}
                             className={`${CHIP_BASE} ${stage === 'cassation' ? CHIP_ON : CHIP_OFF}`}
                         >

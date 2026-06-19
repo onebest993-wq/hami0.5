@@ -1,4 +1,5 @@
 import type { FontSize, Language, ShapeKey, ThemeKey, ThemeMode } from '@/app/types/common';
+import type { BackgroundPresetId } from './backgroundPresets';
 
 export const SETTINGS_SCHEMA_VERSION = 2 as const;
 
@@ -14,25 +15,18 @@ export interface AppearanceSettings {
     fontSize: number;
     fontPreset: FontSize;
     glassOpacity: number;
+    /** إظهار إطار ثابت لبطاقات لوحة القيادة — يبقى مرئياً عند الشفافية المنخفضة */
+    homeContainerBorder: boolean;
     wallpaper?: string;
+    /** زخرفة خلفية خفيفة للوحة — بدل ألوان صلبة */
+    backgroundPreset: BackgroundPresetId;
+    /** شفافية طبقة الزخرفة 0.12–0.72 */
+    backgroundPatternOpacity: number;
+    /** ضبابية الزخرفة 0–6px */
+    backgroundPatternBlur: number;
     brandColor: string;
     reduceMotion: boolean;
     highContrast: boolean;
-}
-
-export interface NotificationSettings {
-    master: boolean;
-    lawsuits: boolean;
-    execution: boolean;
-    calendar: boolean;
-    community: boolean;
-    financial: boolean;
-    pushEnabled: boolean;
-    sound: boolean;
-    vibrate: boolean;
-    quietHours: boolean;
-    quietHoursStart: string;
-    quietHoursEnd: string;
 }
 
 export interface SecuritySettings {
@@ -40,19 +34,8 @@ export interface SecuritySettings {
     screenshotDeterrent: boolean;
     biometricLock: boolean;
     autoLockMinutes: AutoLockMinutes;
-    decoyMode: boolean;
-    maskSensitiveInPublic: boolean;
-}
-
-export interface WorkflowSettings {
-    viewMode: ViewMode;
-    watermark: boolean;
-    autoSummary: boolean;
-    smartAlerts: boolean;
-    compactMode: boolean;
-    defaultCourt: string;
-    /** ترتيب أقسام الصفحة الرئيسية (تنبيهات، مركز القيادة، المفكرة). */
-    homeSectionOrder: import('./homeSections').HomeSectionId[];
+    /** عزل التطبيق — لا طلبات شبكة خارجية ولا API */
+    localOnlyMode: boolean;
 }
 
 export interface DataSettings {
@@ -67,28 +50,18 @@ export interface DataSettings {
 export interface PerformanceSettings {
     enableAnimations: boolean;
     prefetchScreens: boolean;
-    devPerformanceMonitor: boolean;
 }
 
 /** Unified lawyer app settings (schema v2). */
 export interface AppSettingsState {
     version: typeof SETTINGS_SCHEMA_VERSION;
     appearance: AppearanceSettings;
-    notifications: NotificationSettings;
     security: SecuritySettings;
-    workflow: WorkflowSettings;
     data: DataSettings;
     performance: PerformanceSettings;
 }
 
-export type SettingsSectionId =
-    | 'appearance'
-    | 'notifications'
-    | 'security'
-    | 'workflow'
-    | 'data'
-    | 'account'
-    | 'advanced';
+export type SettingsSectionId = 'appearance' | 'security' | 'data' | 'account';
 
 export interface SettingsNavItem {
     id: SettingsSectionId;

@@ -17,6 +17,7 @@ vi.mock('@/app/services/SecureAPIClient', () => {
     }
     return {
         SecureFetchError,
+        getCurrentAccessToken: vi.fn().mockResolvedValue('test-access-token'),
         SecureAPIClient: {
             fetchSecure: vi.fn(),
         },
@@ -101,6 +102,7 @@ const makePost = (id: string, overrides: Partial<CommunityPost> = {}): Community
 
 let ForumApiService: typeof import('../forumApiService').ForumApiService;
 let SecureAPIClient: typeof import('../SecureAPIClient').SecureAPIClient;
+let getCurrentAccessToken: ReturnType<typeof vi.fn>;
 let SecureFetchError: typeof import('../SecureAPIClient').SecureFetchError;
 let supabaseModule: typeof import('@/app/lib/supabase-client');
 
@@ -111,9 +113,12 @@ beforeEach(async () => {
     supabaseModule = await import('@/app/lib/supabase-client');
     ForumApiService = apiModule.ForumApiService;
     SecureAPIClient = secModule.SecureAPIClient;
+    getCurrentAccessToken = secModule.getCurrentAccessToken as ReturnType<typeof vi.fn>;
     SecureFetchError = secModule.SecureFetchError;
     // إعادة تهيئة mocks
     (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockReset();
+    getCurrentAccessToken.mockReset();
+    getCurrentAccessToken.mockResolvedValue('test-access-token');
     for (const fn of Object.values(lawyerCloudMocks)) fn.mockReset();
     (supabaseModule.supabase.auth.getSession as ReturnType<typeof vi.fn>).mockReset();
     (supabaseModule.supabase.auth.getSession as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -155,13 +160,22 @@ describe('ForumApiService.withFallback', () => {
             expect(lawyerCloudMocks.listPosts).toHaveBeenCalled();
         });
 
-        it('يرمي الخطأ مباشرة عند 401 (لا fallback لأخطاء المصادقة)', async () => {
-            lawyerCloudMocks.listPosts.mockResolvedValueOnce([]);
+        it('يستخدم fallback المحلي عند 401 (جلسة منتهية)', async () => {
+            lawyerCloudMocks.listPosts.mockResolvedValueOnce([makePost('local-401')]);
             (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
                 new SecureFetchError('unauthorized', 401, '', '/api/forum/posts'),
             );
-            await expect(ForumApiService.listPostsPaginated(10, 0)).rejects.toThrow('unauthorized');
+            const res = await ForumApiService.listPostsPaginated(10, 0);
+            expect(res.posts[0]?.id).toBe('local-401');
             expect(lawyerCloudMocks.listPosts).toHaveBeenCalled();
+        });
+
+        it('يتخطى API عند غياب access token ويستخدم المحلي', async () => {
+            getCurrentAccessToken.mockResolvedValueOnce(null);
+            lawyerCloudMocks.listPosts.mockResolvedValueOnce([makePost('offline-local')]);
+            const res = await ForumApiService.listPostsPaginated(10, 0);
+            expect(res.posts[0]?.id).toBe('offline-local');
+            expect(SecureAPIClient.fetchSecure).not.toHaveBeenCalled();
         });
 
         it('يرمي الخطأ مباشرة عند 403 (banned)', async () => {
@@ -172,14 +186,12 @@ describe('ForumApiService.withFallback', () => {
             await expect(ForumApiService.listPostsPaginated(10, 0)).rejects.toThrow('forbidden');
         });
 
-        it('يستخدم المحلي عند 403 توقيع (غير حظر)', async () => {
-            const local = [makePost('local-only')];
-            lawyerCloudMocks.listPosts.mockResolvedValueOnce(local);
+        it('يرمي الخطأ عند 403 توقيع WIFE (لا fallback للقراءة)', async () => {
+            lawyerCloudMocks.listPosts.mockResolvedValueOnce([makePost('local-only')]);
             (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-                new SecureFetchError('forbidden', 403, '', '/api/forum/posts'),
+                new SecureFetchError('forbidden', 403, JSON.stringify({ error: 'Cryptographic verification failed' }), '/api/forum/posts'),
             );
-            const res = await ForumApiService.listPostsPaginated(10, 0);
-            expect(res.posts[0]?.id).toBe('local-only');
+            await expect(ForumApiService.listPostsPaginated(10, 0)).rejects.toThrow('forbidden');
         });
     });
 
@@ -270,14 +282,13 @@ describe('ForumApiService.withFallback', () => {
             expect(SecureAPIClient.fetchSecure).toHaveBeenCalled();
         });
 
-        it('يُرجع النسخة المحلية إذا فشل API', async () => {
+        it('يرمي الخطأ عند 403 WIFE بدلاً من fallback', async () => {
             const updated = makePost('p-edit', { content: 'نص محدّث', isEdited: true });
             lawyerCloudMocks.updateCommunityPost.mockResolvedValueOnce(updated);
             (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-                new SecureFetchError('forbidden', 403, '', '/api/forum/update'),
+                new SecureFetchError('forbidden', 403, JSON.stringify({ error: 'Cryptographic verification failed' }), '/api/forum/update'),
             );
-            const result = await ForumApiService.updatePost('p-edit', 'نص محدّث');
-            expect(result.content).toBe('نص محدّث');
+            await expect(ForumApiService.updatePost('p-edit', 'نص محدّث')).rejects.toThrow('forbidden');
         });
     });
 

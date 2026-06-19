@@ -1,6 +1,5 @@
 import { supabase } from '../lib/supabase-client';
-import { projectId, publicAnonKey } from '@/utils/supabase/info';
-import { SecureAPIClient, getCurrentAccessToken } from './SecureAPIClient';
+import { SecureAPIClient } from './SecureAPIClient';
 import { UserRole } from '../types/admin-types';
 import SecureStoreService from './SecureStoreService';
 import { stripImageMetadata } from '@/app/utils/stripMetadata';
@@ -8,11 +7,33 @@ import { sanitizeLawyerProfile } from '@/app/services/profileSanitizer';
 import { refreshProfileMediaUrl } from '@/app/services/profileMediaService';
 import { isKvProxyNetworkEnabled } from '@/app/services/kvProxyConfig';
 import { deleteVaultBlobByPath, isVaultIdbStoragePath } from '@/app/services/vaultBlobStore';
+import { compareCommunityPostsForFeed } from '@/app/services/forum/forumUrgentConsultation';
 
 // --- INITIALIZATION ---
 // Supabase client imported from singleton
 
-const SERVER_URL = `https://${projectId}.supabase.co/functions/v1/make-server-f09713ba`;
+function isRemoteStorageObjectPath(path: string): boolean {
+    const p = path.trim();
+    if (!p) return false;
+    if (p.startsWith('idb:') || p.startsWith('local:')) return false;
+    if (isVaultIdbStoragePath(p)) return false;
+    return true;
+}
+
+/** WIFE-protected BFF delete — best effort (لا يُوقف حذف السجل المحلي). */
+async function removeStoragePathsBestEffort(paths: string[]): Promise<void> {
+    const toRemove = [...new Set(paths.map((p) => p.trim()).filter(isRemoteStorageObjectPath))];
+    if (toRemove.length === 0) return;
+    try {
+        await SecureAPIClient.fetchSecure('/api/upload/remove', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ paths: toRemove }),
+        });
+    } catch {
+        console.warn('[LawyerStorage] فشل حذف ملف(ات) من المخزن:', toRemove.join(', '));
+    }
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === 'object';
@@ -49,31 +70,21 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
     });
 }
 
-// --- KV PROXY HELPER ---
-// 🔐 يستخدم JWT للمستخدم الحالي (وليس publicAnonKey) ليمرّ فحص ownership الجديد على الـ Edge Function.
-// publicAnonKey يبقى احتياطياً للـ headers الإلزامية فقط لـ Supabase (apikey)، أما Authorization فيحمل JWT الحقيقي.
+// --- KV PROXY (WIFE-protected same-origin BFF) ---
+const KV_PROXY_URL = '/api/kv-proxy';
 
-async function buildAuthHeaders(): Promise<Record<string, string>> {
-    const token = await getCurrentAccessToken();
-    // إذا لا توجد جلسة (مستخدم غير مسجّل) — نتعامل كـ local-only لتفادي 401
-    if (!token) throw new KvLocalOnlyError();
-    return {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-        'apikey': publicAnonKey,
-    };
-}
+type KvProxyGetResponse = { ok?: boolean; value?: unknown };
+type KvProxyPrefixResponse = { ok?: boolean; values?: unknown[] };
 
 const kv = {
     async set(key: string, value: unknown) {
         if (!isKvProxyNetworkEnabled()) throw new KvLocalOnlyError();
-        const headers = await buildAuthHeaders();
         await withTimeout(
             SecureAPIClient.fetchSecure(
-                `${SERVER_URL}/kv-proxy`,
+                KV_PROXY_URL,
                 {
                     method: 'POST',
-                    headers,
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'set', key, value }),
                 },
             ),
@@ -83,44 +94,43 @@ const kv = {
     },
     async get(key: string) {
         if (!isKvProxyNetworkEnabled()) throw new KvLocalOnlyError();
-        const headers = await buildAuthHeaders();
-        return await withTimeout(
-            SecureAPIClient.fetchSecure(
-                `${SERVER_URL}/kv-proxy`,
+        const res = await withTimeout(
+            SecureAPIClient.fetchSecure<KvProxyGetResponse>(
+                KV_PROXY_URL,
                 {
                     method: 'POST',
-                    headers,
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'get', key }),
-                }
+                },
             ),
             CLOUD_KV_TIMEOUT_MS,
             'kv.get',
         );
+        return res?.value ?? null;
     },
     async getByPrefix(prefix: string) {
         if (!isKvProxyNetworkEnabled()) throw new KvLocalOnlyError();
-        const headers = await buildAuthHeaders();
-        return await SecureAPIClient.fetchSecure(
-            `${SERVER_URL}/kv-proxy`,
+        const res = await SecureAPIClient.fetchSecure<KvProxyPrefixResponse>(
+            KV_PROXY_URL,
             {
                 method: 'POST',
-                headers,
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'getByPrefix', prefix }),
-            }
+            },
         );
+        return Array.isArray(res?.values) ? res.values : [];
     },
     async del(key: string) {
         if (!isKvProxyNetworkEnabled()) throw new KvLocalOnlyError();
-        const headers = await buildAuthHeaders();
         await SecureAPIClient.fetchSecure(
-            `${SERVER_URL}/kv-proxy`,
+            KV_PROXY_URL,
             {
                 method: 'POST',
-                headers,
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'del', key }),
-            }
+            },
         );
-    }
+    },
 };
 
 // --- 1. CLOUD FIRESTORE EQUIVALENT (KV STORE STRUCTURE) ---
@@ -289,6 +299,8 @@ export type CommunityPost = {
     isPinned?: boolean;
     /** قفل التعليقات على المنشور (المالك أو الأدمن) */
     isLocked?: boolean;
+    /** معرّف المجموعة — null/undefined = الساحة العامة */
+    groupId?: string | null;
 };
 
 export type NotificationType = 'comment' | 'upvote' | 'best_answer' | 'report_update' | 'system' | 'new_post' | 'new_document';
@@ -369,7 +381,7 @@ async function saveLocalCommunityPosts(posts: CommunityPost[]): Promise<void> {
         try {
             window.localStorage.setItem(COMMUNITY_LOCAL_KEY, payload);
         } catch {
-            console.warn('[CommunityDB] فشل حفظ المنشورات محلياً');
+            /* optional mirror */
         }
     }
 }
@@ -545,6 +557,15 @@ function normalizeCommunityPost(raw: unknown): CommunityPost | null {
               .filter((x): x is ForumEditHistoryEntry => x !== null))
         : undefined;
     const isPinned = typeof o.isPinned === 'boolean' ? o.isPinned : undefined;
+    const isLocked = typeof o.isLocked === 'boolean' ? o.isLocked : undefined;
+    const groupId =
+        typeof o.groupId === 'string'
+            ? o.groupId
+            : typeof o.group_id === 'string'
+              ? o.group_id
+              : o.groupId === null || o.group_id === null
+                ? null
+                : undefined;
     return {
         id,
         authorId: authorIdRaw,
@@ -564,6 +585,8 @@ function normalizeCommunityPost(raw: unknown): CommunityPost | null {
         editCount,
         editHistory,
         isPinned,
+        isLocked,
+        groupId,
     };
 }
 
@@ -667,11 +690,7 @@ export function mergeCommunityPostsById(
 }
 
 export function sortCommunityPosts(posts: CommunityPost[]): CommunityPost[] {
-    return [...posts].sort((a, b) => {
-        const aPin = a.isPinned ? 1 : 0;
-        const bPin = b.isPinned ? 1 : 0;
-        return bPin - aPin || Date.parse(b.createdAt) - Date.parse(a.createdAt);
-    });
+    return [...posts].sort((a, b) => compareCommunityPostsForFeed(a, b));
 }
 
 function mergePostsById(localPosts: CommunityPost[], remotePosts: CommunityPost[]): CommunityPost[] {
@@ -684,11 +703,7 @@ export const CommunityDB = {
         const localPosts = (await loadLocalCommunityPosts()).map((p) => normalizeCommunityPost(p)).filter((p): p is CommunityPost => p !== null);
         const withoutDeleted = filterDeletedCommunityPosts(localPosts, deletedIds);
         if (!isKvProxyNetworkEnabled()) {
-            return withoutDeleted.sort((a, b) => {
-                const aPin = a.isPinned ? 1 : 0;
-                const bPin = b.isPinned ? 1 : 0;
-                return bPin - aPin || Date.parse(b.createdAt) - Date.parse(a.createdAt);
-            });
+            return sortCommunityPosts(withoutDeleted);
         }
         try {
             const res = await kv.getByPrefix('community:posts:');
@@ -763,11 +778,7 @@ export const CommunityDB = {
         }
 
         if (attachmentPath) {
-            try {
-                await supabase.storage.from('make-f09713ba').remove([attachmentPath]);
-            } catch {
-                console.warn('[CommunityDB] فشل حذف الملف من المخزن:', attachmentPath);
-            }
+            await removeStoragePathsBestEffort([attachmentPath]);
         }
 
         if (isKvProxyNetworkEnabled()) {
@@ -1553,11 +1564,7 @@ export const RepositoryDB = {
 
         const storagePath = target?.storagePath?.trim();
         if (storagePath && !storagePath.startsWith('idb:forum:')) {
-            try {
-                await supabase.storage.from('make-f09713ba').remove([storagePath]);
-            } catch {
-                /* الملف قد يكون محذوفاً مسبقاً */
-            }
+            await removeStoragePathsBestEffort([storagePath]);
         }
 
         if (isKvProxyNetworkEnabled()) {
@@ -1620,13 +1627,14 @@ export async function updateRepositoryDocument(
 
 export const LawyerStorage = {
     /**
-     * Uploads a file to the specified smart folder.
-     * @param userId The lawyer's ID
-     * @param file The file object
-     * @param category 'scans' | 'audio' | 'drafts' | 'repository'
+     * Uploads a file via WIFE-protected /api/upload (malware scan + ownership on server).
      */
     async uploadSmartFile(userId: string, file: File, category: 'scans' | 'audio' | 'drafts' | 'repository' | 'vault') {
-        const timestamp = Date.now();
+        const sessionUserId = (await supabase.auth.getSession()).data.session?.user?.id ?? null;
+        if (!sessionUserId || sessionUserId !== userId) {
+            throw new Error('Unauthorized upload: session user mismatch');
+        }
+
         const looksLikeImage =
             file.type.startsWith('image/') || /\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(file.name);
         let uploadFile = file;
@@ -1637,32 +1645,54 @@ export const LawyerStorage = {
                 uploadFile = file;
             }
         }
-        const cleanName = uploadFile.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-        const path = `${userId}/${category}/${timestamp}_${cleanName}`;
 
-        const { data, error } = await supabase.storage
-            .from('make-f09713ba')
-            .upload(path, uploadFile);
+        const formData = new FormData();
+        formData.append('file', uploadFile);
+        formData.append('category', category);
 
-        if (error) throw error;
+        const response = await SecureAPIClient.fetchSecureResponse('/api/upload', {
+            method: 'POST',
+            body: formData,
+        });
+        const text = await response.text().catch(() => '');
+        let body: Record<string, unknown> = {};
+        try {
+            body = JSON.parse(text) as Record<string, unknown>;
+        } catch {
+            /* ignore */
+        }
+        if (!response.ok) {
+            const message =
+                typeof body.error === 'string' && body.error.trim()
+                    ? body.error.trim()
+                    : `Upload failed (${response.status})`;
+            throw new Error(message);
+        }
 
-        const { data: signedData } = await supabase.storage
-            .from('make-f09713ba')
-            .createSignedUrl(path, 60 * 60 * 24 * 7);
+        const path = typeof body.path === 'string' ? body.path : '';
+        const downloadUrl = typeof body.downloadUrl === 'string' ? body.downloadUrl : null;
+        if (!path) {
+            throw new Error('Upload response missing path');
+        }
 
         return {
-            path: path,
-            fullPath: data.path,
-            downloadUrl: signedData?.signedUrl
+            path,
+            fullPath: path,
+            downloadUrl,
         };
     },
 
     async getSignedUrl(path: string): Promise<string | null> {
         try {
-            const { data } = await supabase.storage
-                .from('make-f09713ba')
-                .createSignedUrl(path, 60 * 60 * 24 * 7);
-            return data?.signedUrl ?? null;
+            const res = await SecureAPIClient.fetchSecure<{ ok: boolean; downloadUrl?: string }>(
+                '/api/upload/signed-url',
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path }),
+                },
+            );
+            return res?.downloadUrl?.trim() || null;
         } catch {
             return null;
         }
@@ -1841,7 +1871,7 @@ export const SmartVaultDB = {
                 const doc = raw as SmartVaultDoc;
                 const path = doc.storagePath || '';
                 if (path && !path.startsWith('local:') && !isVaultIdbStoragePath(path)) {
-                    await supabase.storage.from('make-f09713ba').remove([path]);
+                    await removeStoragePathsBestEffort([path]);
                 }
             }
         } catch {
@@ -2138,8 +2168,6 @@ export const CalendarDB = {
 
 const TRANSACTIONS_LOCAL_KEY = 'hami:transactions:v1';
 
-type DateProps<T> = T extends Date ? string : T;
-
 function serializeTransaction(tx: any): any {
     return JSON.parse(JSON.stringify(tx));
 }
@@ -2185,7 +2213,7 @@ async function saveLocalTransactions(transactions: any[]): Promise<void> {
         try {
             localStorage.setItem(TRANSACTIONS_LOCAL_KEY, payload);
         } catch {
-            console.error('[TransactionDB] Failed to persist');
+            /* optional mirror */
         }
     }
 }
@@ -2213,14 +2241,6 @@ export const TransactionDB = {
             await kv.set(`transactions:${transaction.userId}:${transaction.id}`, serializeTransaction(transaction));
         } catch { /* Cloud-First */ }
         await saveLocalTransactions(merged);
-    },
-
-    async deleteTransaction(txId: string, userId: string): Promise<void> {
-        try {
-            await kv.del(`transactions:${userId}:${txId}`);
-        } catch { /* Cloud-First */ }
-        const local = (await loadLocalTransactions()).filter((t: any) => t.id !== txId);
-        await saveLocalTransactions(local);
     },
 
     async updateTransaction(transaction: any): Promise<void> {
@@ -2295,7 +2315,7 @@ async function saveLocalTransactionsThreadingState(userId: string, state: Transa
         try {
             localStorage.setItem(key, payload);
         } catch {
-            console.error('[TransactionsThreadingDB] Failed to persist');
+            /* optional mirror */
         }
     }
 }
@@ -2367,24 +2387,6 @@ export const TransactionsThreadingDB = {
             // Cloud-First
         }
         await saveLocalTransactionsThreadingState(userId, state);
-    },
-
-    async clearState(userId: string): Promise<void> {
-        try {
-            await kv.del(`transactionsThreading:${userId}:state`);
-        } catch {
-            // Cloud-First
-        }
-        const key = getTransactionsThreadingLocalKey(userId);
-        try {
-            await SecureStoreService.setItem(key, '');
-        } catch {
-            try {
-                localStorage.removeItem(key);
-            } catch {
-                // ignore
-            }
-        }
     },
 };
 

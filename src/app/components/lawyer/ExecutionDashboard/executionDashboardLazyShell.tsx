@@ -5,12 +5,6 @@
 import React, { lazy } from 'react';
 import { ChevronDown } from 'lucide-react';
 
-export const LazyExecutionDashboardModularHost = lazy(() =>
-    import('./ExecutionDashboardModularHost').then((m) => ({
-        default: m.ExecutionDashboardModularHost,
-    }))
-);
-
 const personalCoerciveFollowupPanelImport = () =>
     import('../execution/PersonalCoerciveFollowupPanel').then((m) => ({
         default: m.PersonalCoerciveFollowupPanel,
@@ -103,8 +97,232 @@ export const LazyExecutorJudicialCustodianModal = lazy(() =>
     }))
 );
 
+export const LazyPremiumTimelineAuditLog = lazy(() =>
+    import('../PremiumTimelineAuditLog').then((m) => ({
+        default: m.PremiumTimelineAuditLog,
+    }))
+);
+
+export const LazySmartTimelineRadar = lazy(() =>
+    import('../SmartTimelineRadar').then((m) => ({
+        default: m.SmartTimelineRadar,
+    }))
+);
+
+export const LazyPoliceAssistanceDetailsModal = lazy(() =>
+    import('../execution/PoliceAssistanceDetailsModal').then((m) => ({
+        default: m.PoliceAssistanceDetailsModal,
+    }))
+);
+
+export const LazyStayOfExecutionModal = lazy(() =>
+    import('../execution/StayOfExecutionModal').then((m) => ({
+        default: m.StayOfExecutionModal,
+    }))
+);
+
+export const LazyPartyDeathReportModal = lazy(() =>
+    import('../execution/PartyDeathReportModal').then((m) => ({
+        default: m.PartyDeathReportModal,
+    }))
+);
+
+export const LazyRealEstateSeizurePostApprovalModal = lazy(() =>
+    import('../execution/RealEstateSeizurePostApprovalModal').then((m) => ({
+        default: m.RealEstateSeizurePostApprovalModal,
+    }))
+);
+
+export const LazyGuarantorDetailsPostApprovalModal = lazy(() =>
+    import('../execution/GuarantorDetailsPostApprovalModal').then((m) => ({
+        default: m.GuarantorDetailsPostApprovalModal,
+    }))
+);
+
+export const LazyActionGridSection = lazy(() =>
+    import('./components/ActionGridSection').then((m) => ({ default: m.ActionGridSection }))
+);
+
+export const LazyTimelineSection = lazy(() =>
+    import('./components/TimelineSection').then((m) => ({ default: m.TimelineSection }))
+);
+
+export const LazyVisitationScheduleModule = lazy(() =>
+    import('./components/VisitationScheduleModule').then((m) => ({
+        default: m.VisitationScheduleModule,
+    }))
+);
+
+export const LazyMaritalFurnitureModule = lazy(() =>
+    import('./components/MaritalFurnitureModule').then((m) => ({
+        default: m.MaritalFurnitureModule,
+    }))
+);
+
+export const LazyExecutionDecisionsModalContainer = lazy(() =>
+    import('./components/ExecutionDecisionsModalContainer').then((m) => ({
+        default: m.ExecutionDecisionsModalContainer,
+    }))
+);
+
+export const LazyExecutionFullTimelineModalContainer = lazy(() =>
+    import('./components/ExecutionFullTimelineModalContainer').then((m) => ({
+        default: m.ExecutionFullTimelineModalContainer,
+    }))
+);
+
 export const EXEC_OVERLAY_LAZY_FALLBACK: React.ReactNode = null;
 export const EXEC_FOC_LAZY_FALLBACK: React.ReactNode = null;
+export const EXEC_SECTION_LAZY_FALLBACK: React.ReactNode = (
+    <div className="mx-1 my-3 h-28 animate-pulse rounded-2xl bg-white/[0.04]" aria-hidden />
+);
+
+const dashboardHeaderImport = () =>
+    import('./components/DashboardHeaderSection').then((m) => ({ default: m.DashboardHeaderSection }));
+const partiesSectionImport = () =>
+    import('./components/PartiesSection').then((m) => ({ default: m.PartiesSection }));
+const debtorsSectionImport = () =>
+    import('./components/DebtorsSection').then((m) => ({ default: m.DebtorsSection }));
+
+export const LazyDashboardHeaderSection = lazy(dashboardHeaderImport);
+export const LazyPartiesSection = lazy(partiesSectionImport);
+export const LazyDebtorsSection = lazy(debtorsSectionImport);
+
+export const LazyPersonalTab = lazy(() =>
+    import('./components/PersonalTab').then((m) => ({ default: m.PersonalTab }))
+);
+export const LazyCoerciveTab = lazy(() =>
+    import('./components/CoerciveTab').then((m) => ({ default: m.CoerciveTab }))
+);
+export const LazyFinancialTab = lazy(() =>
+    import('./components/FinancialTab').then((m) => ({ default: m.FinancialTab }))
+);
+export const LazyOtherPartyTab = lazy(() =>
+    import('./components/OtherPartyTab').then((m) => ({ default: m.OtherPartyTab }))
+);
+export const LazySeizureRequestsTab = lazy(() =>
+    import('./components/SeizureRequestsTab').then((m) => ({ default: m.SeizureRequestsTab }))
+);
+export const LazyCommunicationsTab = lazy(() =>
+    import('./components/CommunicationsTab').then((m) => ({ default: m.CommunicationsTab }))
+);
+export const LazyRequestsTab = lazy(() =>
+    import('./components/RequestsTab').then((m) => ({ default: m.RequestsTab }))
+);
+export const LazyDossierControlsTab = lazy(() =>
+    import('./components/DossierControlsTab').then((m) => ({ default: m.DossierControlsTab }))
+);
+
+export const LazyPartyEditModal = lazy(() =>
+    import('./components/PartyEditModal').then((m) => ({ default: m.PartyEditModal }))
+);
+export const LazyDossierMetaEditSection = lazy(() =>
+    import('./components/DossierMetaEditSection').then((m) => ({ default: m.DossierMetaEditSection }))
+);
+export const LazyPermanentDeleteConfirmDialog = lazy(() =>
+    import('./components/PermanentDeleteConfirmDialog').then((m) => ({
+        default: m.PermanentDeleteConfirmDialog,
+    }))
+);
+export const LazyLawReferencePanel = lazy(() =>
+    import('./components/LawReferencePanel').then((m) => ({ default: m.LawReferencePanel }))
+);
+export const LazyDossierLifecyclePanel = lazy(() =>
+    import('./components/DossierLifecyclePanel').then((m) => ({ default: m.DossierLifecyclePanel }))
+);
+export const LazyVisitationCalendarModal = lazy(() =>
+    import('./components/VisitationCalendarModal').then((m) => ({ default: m.VisitationCalendarModal }))
+);
+export const LazyExecutionFinancialHubPortal = lazy(() =>
+    import('./components/ExecutionFinancialHubPortal').then((m) => ({
+        default: m.ExecutionFinancialHubPortal,
+    }))
+);
+
+/** تحميل مسبق للهيكل المرئي فور فتح إضبارة التنفيذ */
+export function prefetchExecutionDashboardShell(): void {
+    void dashboardHeaderImport().catch(() => {});
+    void partiesSectionImport().catch(() => {});
+    void debtorsSectionImport().catch(() => {});
+}
+
+/** تحميل مسبق لتبويب طلبات الحجز (الافتراضي في محضر المتابعة) */
+export function prefetchExecutionFollowupDefaultTab(): void {
+    void import('./components/SeizureRequestsTab').catch(() => {});
+}
+
+const executionModalsContainerImport = () =>
+    import('./components/ExecutionModalsContainer').then((m) => ({ default: m.ExecutionModalsContainer }));
+const unifiedSummonsModalImport = () =>
+    import('./components/UnifiedSummonsModalContainer').then((m) => ({
+        default: m.UnifiedSummonsModalContainer,
+    }));
+const executionPaymentModalImport = () =>
+    import('./components/ExecutionPaymentModalContainer').then((m) => ({
+        default: m.ExecutionPaymentModalContainer,
+    }));
+const executionSeizedAssetsModalImport = () =>
+    import('./components/ExecutionSeizedAssetsModalContainer').then((m) => ({
+        default: m.ExecutionSeizedAssetsModalContainer,
+    }));
+const executionDebtorNotificationMemoImport = () =>
+    import('./components/ExecutionDebtorNotificationMemoModalContainer').then((m) => ({
+        default: m.ExecutionDebtorNotificationMemoModalContainer,
+    }));
+const executionCoerciveActionsModalImport = () =>
+    import('./components/ExecutionCoerciveActionsModalContainer').then((m) => ({
+        default: m.ExecutionCoerciveActionsModalContainer,
+    }));
+const executionSolidaryEvictionModalsImport = () =>
+    import('./components/ExecutionSolidaryAndEvictionFollowupModalsContainer').then((m) => ({
+        default: m.ExecutionSolidaryAndEvictionFollowupModalsContainer,
+    }));
+const executionHeirsNotificationModalImport = () =>
+    import('./components/ExecutionHeirsNotificationModalContainer').then((m) => ({
+        default: m.ExecutionHeirsNotificationModalContainer,
+    }));
+const executionNotesAppointmentModalsImport = () =>
+    import('./components/ExecutionNotesAndAppointmentModals').then((m) => ({
+        default: m.ExecutionNotesAndAppointmentModals,
+    }));
+const executorWorkflowPortalModalsImport = () =>
+    import('./components/ExecutorWorkflowPortalModals').then((m) => ({
+        default: m.ExecutorWorkflowPortalModals,
+    }));
+const executionFinancialLedgerPortalImport = () =>
+    import('./components/ExecutionFinancialLedgerPortalContainer').then((m) => ({
+        default: m.ExecutionFinancialLedgerPortalContainer,
+    }));
+
+export const LazyExecutionModalsContainer = lazy(executionModalsContainerImport);
+export const LazyUnifiedSummonsModalContainer = lazy(unifiedSummonsModalImport);
+export const LazyExecutionPaymentModalContainer = lazy(executionPaymentModalImport);
+export const LazyExecutionSeizedAssetsModalContainer = lazy(executionSeizedAssetsModalImport);
+export const LazyExecutionDebtorNotificationMemoModalContainer = lazy(executionDebtorNotificationMemoImport);
+export const LazyExecutionCoerciveActionsModalContainer = lazy(executionCoerciveActionsModalImport);
+export const LazyExecutionSolidaryAndEvictionFollowupModalsContainer = lazy(
+    executionSolidaryEvictionModalsImport,
+);
+export const LazyExecutionHeirsNotificationModalContainer = lazy(executionHeirsNotificationModalImport);
+export const LazyExecutionNotesAndAppointmentModals = lazy(executionNotesAppointmentModalsImport);
+export const LazyExecutorWorkflowPortalModals = lazy(executorWorkflowPortalModalsImport);
+export const LazyExecutionFinancialLedgerPortalContainer = lazy(executionFinancialLedgerPortalImport);
+
+const executionFollowupModalPortalImport = () =>
+    import('./ExecutionFollowupModalPortal').then((m) => ({
+        default: m.ExecutionFollowupModalPortal,
+    }));
+
+export const LazyExecutionFollowupModalPortal = lazy(executionFollowupModalPortalImport);
+
+export function prefetchExecutionModalContainers(): void {
+    void executionPaymentModalImport().catch(() => {});
+    void executionCoerciveActionsModalImport().catch(() => {});
+}
+
+export function prefetchExecutionFollowupModalPortal(): void {
+    void executionFollowupModalPortalImport().catch(() => {});
+}
 
 export function formatUnifiedLedgerDate(iso: string | undefined): string {
     if (!iso) return '—';

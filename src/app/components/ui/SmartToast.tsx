@@ -123,44 +123,45 @@ const SmartToastItem = ({ toast }: { toast: ToastEvent }) => {
 
     // Icon Logic
     let IconComp: React.ElementType = Info;
-    let colorClass = 'text-blue-400';
-    let accentBg = 'bg-blue-500/[0.08]';
-    let borderClass = 'border-blue-500/30';
-    let shadowClass = 'shadow-blue-500/20';
-    let btnClass = 'bg-blue-500/20 hover:bg-blue-500/30 border-blue-500/30 text-blue-100';
+    let colorClass = 'text-[#E6C673]';
+    let btnClass = 'bg-[#E6C673]/15 hover:bg-[#E6C673]/25 border-[#E6C673]/30 text-[#E6C673]';
+
+    let accentBorder = 'border-[#E6C673]/20';
+    let iconGlow = 'text-[#E6C673]';
 
     switch (toast.type) {
         case 'success':
             IconComp = CheckCircle;
             colorClass = 'text-emerald-400';
-            accentBg = 'bg-emerald-500/[0.08]';
-            borderClass = 'border-emerald-500/30';
-            shadowClass = 'shadow-emerald-500/20';
-            btnClass = 'bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/30 text-emerald-100';
+            accentBorder = 'border-emerald-400/25';
+            iconGlow = 'text-emerald-400';
+            btnClass = 'bg-emerald-500/15 hover:bg-emerald-500/25 border-emerald-400/30 text-emerald-100';
             break;
         case 'error':
             IconComp = AlertCircle;
             colorClass = 'text-rose-400';
-            accentBg = 'bg-rose-500/[0.08]';
-            borderClass = 'border-rose-500/30';
-            shadowClass = 'shadow-rose-500/20';
-            btnClass = 'bg-rose-500/20 hover:bg-rose-500/30 border-rose-500/30 text-rose-100';
+            accentBorder = 'border-rose-400/25';
+            iconGlow = 'text-rose-400';
+            btnClass = 'bg-rose-500/15 hover:bg-rose-500/25 border-rose-400/30 text-rose-100';
             break;
         case 'warning':
             IconComp = AlertCircle;
             colorClass = 'text-amber-400';
-            accentBg = 'bg-amber-500/[0.08]';
-            borderClass = 'border-amber-500/30';
-            shadowClass = 'shadow-amber-500/20';
-            btnClass = 'bg-amber-500/20 hover:bg-amber-500/30 border-amber-500/30 text-amber-100';
+            accentBorder = 'border-amber-400/25';
+            iconGlow = 'text-amber-400';
+            btnClass = 'bg-amber-500/15 hover:bg-amber-500/25 border-amber-400/30 text-amber-100';
             break;
         case 'loading':
             IconComp = Sparkles;
-            colorClass = 'text-blue-300';
-            accentBg = 'bg-blue-500/[0.08]';
-            borderClass = 'border-blue-500/30';
-            shadowClass = 'shadow-blue-500/20';
-            btnClass = 'bg-blue-500/20 hover:bg-blue-500/30 border-blue-500/30 text-blue-100';
+            colorClass = 'text-sky-300';
+            accentBorder = 'border-sky-400/25';
+            iconGlow = 'text-sky-300';
+            btnClass = 'bg-sky-500/15 hover:bg-sky-500/25 border-sky-400/30 text-sky-100';
+            break;
+        default:
+            accentBorder = 'border-[#E6C673]/20';
+            iconGlow = 'text-[#E6C673]';
+            btnClass = 'bg-[#E6C673]/15 hover:bg-[#E6C673]/25 border-[#E6C673]/30 text-[#E6C673]';
             break;
     }
 
@@ -175,20 +176,21 @@ const SmartToastItem = ({ toast }: { toast: ToastEvent }) => {
              renderedIcon = <span className="text-lg leading-none">{toast.icon as React.ReactNode}</span>;
         }
     } else {
-        renderedIcon = <IconComp size={18} className={colorClass} />;
+        renderedIcon = <IconComp size={18} className={iconGlow} strokeWidth={1.75} />;
     }
 
-    let containerClasses = `
-        flex items-center gap-3 px-5 py-3 
-        ${accentBg} backdrop-blur-2xl 
-        rounded-2xl border ${borderClass} 
-        shadow-2xl ${shadowClass}
+    const containerClasses = `
+        flex items-center gap-3 px-5 py-3.5 min-w-[220px]
+        bg-[#0A0F1C]/80 backdrop-blur-2xl
+        rounded-2xl border ${accentBorder}
+        shadow-[0_12px_48px_rgba(0,0,0,0.5)]
+        bg-gradient-to-l from-white/[0.04] via-transparent to-transparent
     `;
 
     return (
         <motion.div
             initial={{ y: -50, opacity: 0, scale: 0.5 }}
-            animate={{ y: 100, opacity: 1, scale: 1 }}
+            animate={{ y: 'calc(env(safe-area-inset-top, 0px) + 7.5rem)', opacity: 1, scale: 1 }}
             exit={{ y: -50, opacity: 0, scale: 0.5 }}
             transition={{ type: 'spring' as const, stiffness: 300, damping: 25 }}
             className="pointer-events-auto absolute"
@@ -196,7 +198,7 @@ const SmartToastItem = ({ toast }: { toast: ToastEvent }) => {
              <div className={containerClasses}>
                 {renderedIcon}
                 <div className="flex flex-col">
-                    <span className={`text-sm font-bold whitespace-nowrap ${toast.type === 'error' ? 'text-rose-400' : 'text-white'}`}>{toast.message}</span>
+                    <span className={`text-sm font-bold whitespace-nowrap ${colorClass}`}>{toast.message}</span>
                     {toast.description && (
                         <span className="text-white/60 text-[10px] whitespace-nowrap">{toast.description}</span>
                     )}

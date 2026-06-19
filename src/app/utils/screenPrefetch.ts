@@ -7,18 +7,16 @@ export function prefetchForAuthScreen(): void {
     PrefetchScheduler.planAuthenticatedEntry();
 }
 
-/** @deprecated استخدم prefetchForAuthScreen */
-export function prefetchAfterSplash(): void {
-    prefetchForAuthScreen();
-}
-
 export function prefetchSecondaryAppScreens(): void {
     PrefetchScheduler.enqueueWave(
         [
             {
                 id: 'royal-profile',
                 priority: 'low',
-                loader: () => import('@/app/components/lawyer/RoyalLawyerProfile'),
+                loader: () =>
+                    import('@/app/runtime/royalLawyerProfileLoader').then((m) =>
+                        m.loadRoyalLawyerProfileModule(),
+                    ),
             },
             {
                 id: 'settings-screens',

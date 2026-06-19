@@ -1,11 +1,13 @@
 /// <reference types="vitest" />
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import fs from 'node:fs'
 import { defineConfig, loadEnv, type ViteDevServer } from 'vite'
 import path from 'path'
-import { fileURLToPath, pathToFileURL } from 'url'
+import { fileURLToPath } from 'url'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { preferFileOverDirectory } from './src/vite-plugins/preferFileOverDirectory'
+import { getDevSecurityHeaders, getProductionSecurityHeaders } from './src/app/api/security/wifeSecurityHeaders.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = __dirname
@@ -46,68 +48,91 @@ async function pipeWebBodyToNode(res: ServerResponse, body: ReadableStream<Uint8
     }
 }
 
-/** يمرّر مسارات ‎/api/*‎ إلى ‎route.ts‎ في وضع التطوير فقط */
-const DEV_API_ROUTE_FILES: Record<string, string> = {
-    '/api/forum/posts': './src/app/api/forum/posts/route.ts',
-    '/api/forum/delete': './src/app/api/forum/delete/route.ts',
-    '/api/forum/report': './src/app/api/forum/report/route.ts',
-    '/api/forum/update': './src/app/api/forum/update/route.ts',
-    '/api/forum/comment': './src/app/api/forum/comment/route.ts',
-    '/api/forum/pin': './src/app/api/forum/pin/route.ts',
-    '/api/forum/status': './src/app/api/forum/status/route.ts',
-    '/api/forum/bookmark': './src/app/api/forum/bookmark/route.ts',
-    '/api/forum/comment-upvote': './src/app/api/forum/comment-upvote/route.ts',
-    '/api/forum/lock': './src/app/api/forum/lock/route.ts',
-    '/api/forum/comment-report': './src/app/api/forum/comment-report/route.ts',
-    '/api/requests/create': './src/app/api/requests/create/route.ts',
-    '/api/requests/update': './src/app/api/requests/update/route.ts',
-    '/api/requests/list': './src/app/api/requests/list/route.ts',
-    '/api/upload': './src/app/api/upload/route.ts',
+/** يمرّر مسارات ‎/api/*‎ إلى ‎route.ts‎ في وضع التطوير — اكتشاف ديناميكي */
+function resolveDevApiRouteFile(urlPath: string): string | null {
+    if (!urlPath.startsWith('/api/')) return null
+    const rel = `${urlPath.replace(/^\/api\//, 'src/app/api/')}/route.ts`
+    const abs = path.join(projectRoot, rel)
+    return fs.existsSync(abs) ? rel : null
+}
+
+const DEV_API_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const
+
+function attachApiRouteMiddleware(
+    server: ViteDevServer,
+    middlewares: { use: (fn: (req: IncomingMessage, res: ServerResponse, next: () => void) => void) => void },
+    securityHeaders: Record<string, string>,
+    mode: string,
+) {
+    const env = loadEnv(mode, projectRoot, '')
+    Object.assign(process.env, env)
+
+    middlewares.use((req: IncomingMessage, res: ServerResponse, next: () => void) => {
+        for (const [key, value] of Object.entries(securityHeaders)) {
+            if (!res.getHeader(key)) res.setHeader(key, value)
+        }
+        next()
+    })
+
+    middlewares.use(async (req: IncomingMessage, res: ServerResponse, next: () => void) => {
+        const url = req.url?.split('?')[0] ?? ''
+        const method = (req.method ?? 'GET').toUpperCase()
+        const routeFile = resolveDevApiRouteFile(url)
+        if (!routeFile) return next()
+        if (!DEV_API_METHODS.includes(method as (typeof DEV_API_METHODS)[number])) return next()
+        try {
+            const absRoute = path.join(projectRoot, routeFile)
+            const moduleId = routeFile.replace(/\\/g, '/')
+            const routeModule = await server.ssrLoadModule(moduleId) as {
+                GET?: (request: Request) => Promise<Response>
+                POST?: (request: Request) => Promise<Response>
+                PUT?: (request: Request) => Promise<Response>
+                PATCH?: (request: Request) => Promise<Response>
+                DELETE?: (request: Request) => Promise<Response>
+            }
+            const handler =
+                method === 'GET' ? routeModule.GET
+                : method === 'POST' ? routeModule.POST
+                : method === 'PUT' ? routeModule.PUT
+                : method === 'PATCH' ? routeModule.PATCH
+                : routeModule.DELETE
+            if (!handler) return next()
+            const hasBody = method !== 'GET' && method !== 'HEAD'
+            const raw = hasBody ? await readRequestBody(req) : Buffer.alloc(0)
+            const body = raw.byteLength ? raw : undefined
+            const forwardedHeaders = forwardRequestHeaders(req)
+            const webReq = new Request(`http://127.0.0.1${req.url}`, {
+                method,
+                headers: forwardedHeaders,
+                body: hasBody ? body : undefined,
+            })
+            const webRes = await handler(webReq)
+            res.statusCode = webRes.status
+            const skip = new Set(['content-encoding', 'content-length', 'transfer-encoding'])
+            webRes.headers.forEach((v: string, k: string) => {
+                if (!skip.has(k.toLowerCase())) res.setHeader(k, v)
+            })
+            if (webRes.body) {
+                await pipeWebBodyToNode(res, webRes.body)
+            }
+            res.end()
+        } catch (e) {
+            console.error('[dev-api]', e)
+            if (!res.headersSent) res.statusCode = 500
+            res.setHeader('Content-Type', 'application/json; charset=utf-8')
+            res.end(JSON.stringify({ error: 'خطأ داخلي في خادم التطوير' }))
+        }
+    })
 }
 
 function legalAnalysisDevApiPlugin() {
     return {
         name: 'dev-api-routes',
         configureServer(server: ViteDevServer) {
-            server.middlewares.use(async (req: IncomingMessage, res: ServerResponse, next: () => void) => {
-                const url = req.url?.split('?')[0] ?? ''
-                const method = (req.method ?? 'GET').toUpperCase()
-                const routeFile = DEV_API_ROUTE_FILES[url]
-                if (!routeFile) return next()
-                if (method !== 'GET' && method !== 'POST') return next()
-                try {
-                    const absRoute = path.join(projectRoot, routeFile.replace(/^\.\//, ''))
-                    const routeModule = await import(pathToFileURL(absRoute).href) as {
-                        GET?: (request: Request) => Promise<Response>
-                        POST?: (request: Request) => Promise<Response>
-                    }
-                    const handler = method === 'GET' ? routeModule.GET : routeModule.POST
-                    if (!handler) return next()
-                    const raw = method === 'POST' ? await readRequestBody(req) : Buffer.alloc(0)
-                    const body = raw.byteLength ? raw : undefined
-                    const forwardedHeaders = forwardRequestHeaders(req)
-                    const webReq = new Request(`http://127.0.0.1${req.url}`, {
-                        method,
-                        headers: forwardedHeaders,
-                        body: method === 'POST' ? body : undefined,
-                    })
-                    const webRes = await handler(webReq)
-                    res.statusCode = webRes.status
-                    const skip = new Set(['content-encoding', 'content-length', 'transfer-encoding'])
-                    webRes.headers.forEach((v: string, k: string) => {
-                        if (!skip.has(k.toLowerCase())) res.setHeader(k, v)
-                    })
-                    if (webRes.body) {
-                        await pipeWebBodyToNode(res, webRes.body)
-                    }
-                    res.end()
-                } catch (e) {
-                    console.error('[dev-api]', e)
-                    if (!res.headersSent) res.statusCode = 500
-                    res.setHeader('Content-Type', 'application/json; charset=utf-8')
-                    res.end(JSON.stringify({ error: 'خطأ داخلي في خادم التطوير' }))
-                }
-            })
+            attachApiRouteMiddleware(server, server.middlewares, getDevSecurityHeaders(), server.config.mode)
+        },
+        configurePreviewServer(server: ViteDevServer) {
+            attachApiRouteMiddleware(server, server.middlewares, getProductionSecurityHeaders(), 'production')
         },
     }
 }
@@ -145,13 +170,13 @@ export default defineConfig(({ command }) => ({
         './src/app/App.tsx',
         './src/app/components/lawyer/CommunityScreen.tsx',
         './src/app/components/lawyer/LawyerDashboard.tsx',
-        './src/app/components/lawyer/LawyerHomeHubCard.tsx',
+        './src/app/components/lawyer/LawyerDashboard.tsx',
         './src/app/components/auth/LoginScreen.tsx',
         './src/styles/index.css',
       ],
     },
     headers: {
-      'Cache-Control': 'no-store',
+      ...getDevSecurityHeaders(),
     },
     /** يتبع منفذ الخادم الفعلي — لا تثبيت 8080 يدوياً (كان يسبب stale imports عند 8081/8082) */
   },
@@ -160,6 +185,9 @@ export default defineConfig(({ command }) => ({
     port: 8080,
     strictPort: false,
     open: true,
+    headers: {
+      ...getProductionSecurityHeaders(),
+    },
   },
   optimizeDeps: {
     exclude: ['expo-secure-store', 'expo-modules-core'],
@@ -187,6 +215,13 @@ export default defineConfig(({ command }) => ({
           : ['expo-secure-store', 'expo-modules-core'],
       output: {
         manualChunks(id) {
+          if (
+            id.includes('context/AuthContext') ||
+            id.includes('context\\AuthContext') ||
+            id.includes('utils/authStorage')
+          ) {
+            return 'auth-context';
+          }
           if (id.includes('node_modules')) {
             if (id.includes('lucide-react')) return 'vendor-icons';
             if (id.includes('react-dom')) return 'vendor-react';
@@ -236,8 +271,25 @@ export default defineConfig(({ command }) => ({
             return 'chunk-lawyer-cloud-alerts';
           }
           if (
+            id.includes('ExecutionDashboard/components/DebtorsSection') ||
+            id.includes('ExecutionDashboard\\components\\DebtorsSection')
+          ) {
+            return 'chunk-execution-debtors';
+          }
+          if (
+            id.includes('ExecutionDashboard/components/SeizureRequestsTab') ||
+            id.includes('ExecutionDashboard\\components\\SeizureRequestsTab')
+          ) {
+            return 'chunk-execution-seizure-tab';
+          }
+          if (
             id.includes('LawyerDashboardBackgroundServices') ||
-            id.includes('LawyerDashboard.tsx')
+            id.includes('LawyerDashboard.tsx') ||
+            id.includes('lawyerHomeShell') ||
+            id.includes('LawyerHomeHubCard') ||
+            id.includes('NeuralAlertsCard') ||
+            id.includes('UnifiedCommandHub') ||
+            id.includes('LegalCommandCenterDock')
           ) {
             return 'chunk-lawyer-dashboard';
           }

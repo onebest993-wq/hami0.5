@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-    X, Mic, Square, Loader2, Sparkles, FileText, Play, Trash2
+    X, Mic, Square, Sparkles, FileText, Play, Trash2
 } from 'lucide-react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 
@@ -12,7 +12,6 @@ interface VoiceRecorderModalProps {
 
 export const VoiceRecorderModal = ({ onClose }: VoiceRecorderModalProps) => {
     const [isRecording, setIsRecording] = useState(false);
-    const [isProcessing, setIsProcessing] = useState(false);
     const [result, setResult] = useState<string | null>(null);
     const [recordingTime, setRecordingTime] = useState(0);
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -64,14 +63,8 @@ export const VoiceRecorderModal = ({ onClose }: VoiceRecorderModalProps) => {
                 const blob = new Blob(chunksRef.current, { type: mimeType });
                 const url = URL.createObjectURL(blob);
                 setAudioUrl(url);
-
-                setIsProcessing(true);
-                try {
-                    setResult('تم حفظ التسجيل الصوتي. أضف ملاحظة نصية يدوياً في هذه النسخة.');
-                    SmartToast.success('تم حفظ التسجيل الصوتي');
-                } finally {
-                    setIsProcessing(false);
-                }
+                setResult('تم حفظ التسجيل الصوتي. أضف ملاحظة نصية يدوياً في المفكرة.');
+                SmartToast.success('تم حفظ التسجيل الصوتي');
             };
 
             recorder.start(250);
@@ -95,7 +88,6 @@ export const VoiceRecorderModal = ({ onClose }: VoiceRecorderModalProps) => {
         setResult(null);
         setAudioUrl(null);
         setRecordingTime(0);
-        setIsProcessing(false);
         if (streamRef.current) {
             streamRef.current.getTracks().forEach(t => t.stop());
             streamRef.current = null;
@@ -130,7 +122,7 @@ export const VoiceRecorderModal = ({ onClose }: VoiceRecorderModalProps) => {
                 </div>
                 <div className="p-6 space-y-6">
                     <AnimatePresence mode="wait">
-                        {!isRecording && !isProcessing && !result && (
+                        {!isRecording && !result && (
                             <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="py-8 text-center space-y-4">
                                 <div className="w-24 h-24 mx-auto rounded-full bg-rose-500/10 flex items-center justify-center">
                                     <Mic className="text-rose-400" size={40} />
@@ -148,16 +140,6 @@ export const VoiceRecorderModal = ({ onClose }: VoiceRecorderModalProps) => {
                                     </div>
                                 </div>
                                 <p className="text-white/40 text-3xl font-bold tabular-nums tracking-widest">{formatTime(recordingTime)}</p>
-                            </motion.div>
-                        )}
-                        {isProcessing && (
-                            <motion.div key="processing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="py-8 text-center space-y-4">
-                                <div className="w-24 h-24 mx-auto relative">
-                                    <div className="absolute inset-0 border-4 border-rose-400/30 rounded-full animate-ping" />
-                                    <div className="absolute inset-0 border-4 border-t-rose-400 rounded-full animate-spin" />
-                                    <Loader2 className="absolute inset-0 m-auto text-rose-400 animate-spin" size={32} />
-                                </div>
-                                <p className="text-white/60">جاري تحليل النص واستخراج المعلومات...</p>
                             </motion.div>
                         )}
                         {result && (

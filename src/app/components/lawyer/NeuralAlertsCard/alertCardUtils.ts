@@ -48,12 +48,3 @@ export function urgencyToneStyles(tone: UrgencyTone): {
         iconBg: 'bg-sky-500/10 border-sky-500/20',
     };
 }
-
-export function extractCaseRef(alert: SecretaryAlert): string | undefined {
-    const dash = alert.title.lastIndexOf('—');
-    if (dash >= 0) {
-        const ref = alert.title.slice(dash + 1).trim();
-        if (ref) return ref;
-    }
-    return alert.entityId ? String(alert.entityId) : undefined;
-}

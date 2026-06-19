@@ -1,5 +1,6 @@
 import React, { Component, type ErrorInfo, type ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { FORUM_PLUM_DEEP, FORUM_PUBLISH_BTN, FORUM_TEXT_MUTED, FORUM_TEXT_PRIMARY } from './forumPlumTheme';
 
 interface Props {
     children: ReactNode;
@@ -35,13 +36,14 @@ export class CommunityErrorBoundary extends Component<Props, State> {
             return (
                 <div
                     dir="rtl"
-                    className="w-full h-full bg-[#151822] flex flex-col items-center justify-center p-6 text-center"
+                    className="w-full h-full flex flex-col items-center justify-center p-6 text-center"
+                    style={{ backgroundColor: FORUM_PLUM_DEEP }}
                 >
-                    <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
+                    <div className="w-16 h-16 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
                         <AlertTriangle size={28} className="text-red-400" />
                     </div>
-                    <h2 className="text-white font-bold text-base mb-2">تعذّر عرض المنتدى</h2>
-                    <p className="text-white/50 text-sm mb-6 max-w-sm">
+                    <h2 className={`${FORUM_TEXT_PRIMARY} font-bold text-base mb-2`}>تعذّر عرض المنتدى</h2>
+                    <p className={`${FORUM_TEXT_MUTED} text-sm mb-6 max-w-sm`}>
                         حدث خطأ داخل المنتدى فقط. يمكنك المحاولة مجدداً دون الخروج من التطبيق.
                     </p>
                     {import.meta.env.DEV && this.state.message ? (
@@ -50,7 +52,7 @@ export class CommunityErrorBoundary extends Component<Props, State> {
                     <button
                         type="button"
                         onClick={this.handleRetry}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#E6C673] text-black text-sm font-bold"
+                        className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold ${FORUM_PUBLISH_BTN}`}
                     >
                         <RefreshCw size={16} />
                         إعادة المحاولة

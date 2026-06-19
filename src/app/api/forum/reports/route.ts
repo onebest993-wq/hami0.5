@@ -3,50 +3,33 @@ import {
   getVerifiedTokenSubject,
   isTokenAuthorized,
   verifyWifeSignature,
-  wifeForbiddenResponse,
+  wifeForbiddenResponse, wifeSignatureFailedResponse,
   wifeUnauthorizedResponse,
 } from '../../security/wifeValidator.ts';
 import { ForumRepository } from '../../../services/forum/forumRepository.ts';
+import { canManageForumAdmin, getForumRoleForUser } from '../adminAuth.ts';
 import { UserRole } from '../../../types/admin-types.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object';
 }
 
-function getRoleFromToken(userToken: string): UserRole | null {
-  try {
-    const parts = userToken.split('.');
-    if (parts.length !== 3) return null;
-    const decoded = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-    const role = decoded?.role || decoded?.app_metadata?.role || decoded?.user_metadata?.role || null;
-    if (role === UserRole.SUPER_ADMIN || role === UserRole.MODERATOR) return role;
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-function canManageReports(userToken: string): boolean {
-  const role = getRoleFromToken(userToken);
-  return role === UserRole.SUPER_ADMIN || role === UserRole.MODERATOR;
-}
-
 export async function GET(request: Request): Promise<Response> {
   try {
     const userToken = extractUserTokenFromRequest(request);
     if (!userToken || !(await isTokenAuthorized(userToken))) {
-      return wifeUnauthorizedResponse();
+      return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
     }
     if (!(await verifyWifeSignature(request, userToken))) {
-      return wifeForbiddenResponse();
+      return wifeSignatureFailedResponse(request);
     }
 
     const requesterId = await getVerifiedTokenSubject(userToken);
     if (!requesterId) {
-      return wifeUnauthorizedResponse();
+      return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
     }
 
-    if (!canManageReports(userToken)) {
+    if (!(await canManageForumAdmin(requesterId))) {
       return new Response(
         JSON.stringify({ ok: false, error: 'غير مصرح لك بالاطلاع على البلاغات' }),
         { status: 403, headers: { 'Content-Type': 'application/json; charset=utf-8' } },
@@ -78,25 +61,25 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const userToken = extractUserTokenFromRequest(request);
     if (!userToken || !(await isTokenAuthorized(userToken))) {
-      return wifeUnauthorizedResponse();
+      return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
     }
     if (!(await verifyWifeSignature(request, userToken))) {
-      return wifeForbiddenResponse();
+      return wifeSignatureFailedResponse(request);
     }
 
     const requesterId = await getVerifiedTokenSubject(userToken);
     if (!requesterId) {
-      return wifeUnauthorizedResponse();
+      return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
     }
 
-    if (!canManageReports(userToken)) {
+    if (!(await canManageForumAdmin(requesterId))) {
       return new Response(
         JSON.stringify({ ok: false, error: 'غير مصرح لك بإدارة البلاغات' }),
         { status: 403, headers: { 'Content-Type': 'application/json; charset=utf-8' } },
       );
     }
 
-    const userRole = getRoleFromToken(userToken);
+    const userRole = await getForumRoleForUser(requesterId);
 
     let payload: unknown = null;
     try {

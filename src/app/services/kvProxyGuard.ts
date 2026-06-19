@@ -5,8 +5,9 @@
 type InFlightEntry = { promise: Promise<Response>; startedAt: number };
 
 const WINDOW_MS = import.meta.env.DEV ? 10_000 : 12_000;
-const MAX_REQUESTS_PER_WINDOW = import.meta.env.DEV ? 6 : 12;
-const MAX_IN_FLIGHT = import.meta.env.DEV ? 2 : 4;
+const MAX_REQUESTS_PER_WINDOW = import.meta.env.DEV ? 24 : 16;
+const MAX_IN_FLIGHT = import.meta.env.DEV ? 4 : 6;
+const DEV_RATE_LIMIT_WAIT_MS = 2_000;
 
 let windowStart = 0;
 let windowCount = 0;
@@ -46,11 +47,15 @@ export async function fetchKvProxyGuarded(
         return existing.promise;
     }
 
+    const windowWaitStarted = Date.now();
     while (windowCount >= MAX_REQUESTS_PER_WINDOW) {
         const waitMs = Math.max(50, WINDOW_MS - (Date.now() - windowStart));
         await new Promise((r) => setTimeout(r, Math.min(waitMs, 500)));
         pruneWindow(Date.now());
         if (windowCount < MAX_REQUESTS_PER_WINDOW) break;
+        if (import.meta.env.DEV && Date.now() - windowWaitStarted < DEV_RATE_LIMIT_WAIT_MS) {
+            continue;
+        }
         if (import.meta.env.DEV) {
             console.warn('[KvGuard] تجاوز حد kv-proxy — تم تخطي الطلب');
         }

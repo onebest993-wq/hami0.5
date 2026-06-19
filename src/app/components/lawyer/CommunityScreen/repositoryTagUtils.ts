@@ -9,15 +9,6 @@ export function formatRepositoryTag(label: string): string {
     return core ? `#${core}` : '';
 }
 
-export function parseRepositoryTagsInput(raw: string, picked: string[] = []): string[] {
-    const fromPicked = picked.map(formatRepositoryTag).filter(Boolean);
-    const fromRaw = raw
-        .split(/[,|\s]+/g)
-        .map((x) => formatRepositoryTag(x))
-        .filter(Boolean);
-    return Array.from(new Set([...fromPicked, ...fromRaw])).slice(0, 12);
-}
-
 /** توحيد شكل الوسوم (# + مسافات → _) */
 export function normalizeCommunityTags(tags: string[] | undefined): string[] {
     if (!tags?.length) return [];

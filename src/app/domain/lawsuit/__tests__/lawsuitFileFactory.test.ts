@@ -37,6 +37,18 @@ describe('buildFileDataFromNewCaseSave', () => {
         expect(file!.parties[0]!.isClient).toBe(true);
     });
 
+    it('respects isClient flags per side in structured payload', () => {
+        const file = buildFileDataFromNewCaseSave({
+            mainCategory: 'lawsuit',
+            parties1: [{ id: 1, name: 'المدعي', status: 'مدعي', isClient: true }],
+            parties2: [{ id: 2, name: 'المدعى', status: 'مدعى عليه', isClient: false }],
+            details: { number: '50 / ب / 2025', court: 'بداءة' },
+        });
+        expect(file!.parties[0]!.isClient).toBe(true);
+        expect(file!.parties[1]!.isClient).toBe(false);
+        expect((file as { representedParty?: string }).representedParty).toBe('المدعي');
+    });
+
     it('builds from structured dashboard payload with details and parties1/2', () => {
         const file = buildFileDataFromNewCaseSave({
             mainCategory: 'lawsuit',
@@ -72,5 +84,132 @@ describe('buildFileDataFromNewCaseSave', () => {
             details: { number: '2 / ب / 2026', court: 'بداءة' },
         });
         expect(civil!.lawsuitJurisdiction).toBe('civil');
+    });
+
+    it('persists applicableLaw for personal status cases', () => {
+        const personal = buildFileDataFromNewCaseSave({
+            mainCategory: 'lawsuit',
+            selectedType: 'personal',
+            applicableLaw: 'jaafari_code',
+            parties1: [{ name: 'موكل', status: 'المدعي', isClient: true }],
+            parties2: [{ name: 'خصم', status: 'المدعى عليه' }],
+            details: {
+                number: '3 / ج / 2026',
+                court: 'محكمة الأحوال الشخصية',
+                type: 'طلاق',
+                stage: 'أحوال شخصية',
+                applicableLaw: 'jaafari_code',
+            },
+        });
+        expect(personal!.applicableLaw).toBe('jaafari_code');
+    });
+
+    it('persists isUndeterminedValue and isFixedFee flags', () => {
+        const undetermined = buildFileDataFromNewCaseSave({
+            mainCategory: 'lawsuit',
+            selectedType: 'civil',
+            isUndeterminedValue: true,
+            parties1: [{ name: 'موكل', status: 'المدعي', isClient: true }],
+            parties2: [{ name: 'خصم', status: 'المدعى عليه' }],
+            details: { court: 'بداءة الكرخ', type: 'تعويض', stage: 'بداءة بدرجة أخيرة' },
+        });
+        expect(undetermined!.isUndeterminedValue).toBe(true);
+        expect(undetermined!.isFixedFee).toBeUndefined();
+
+        const fixed = buildFileDataFromNewCaseSave({
+            mainCategory: 'lawsuit',
+            selectedType: 'civil',
+            isFixedFee: true,
+            parties1: [{ name: 'موكل', status: 'المدعي', isClient: true }],
+            parties2: [{ name: 'خصم', status: 'المدعى عليه' }],
+            details: { court: 'بداءة الكرخ', type: 'نزاع مرور', stage: 'بداءة بدرجة أخيرة' },
+        });
+        expect(fixed!.isFixedFee).toBe(true);
+    });
+
+    it('maps interpleader and affiliative third parties', () => {
+        const file = buildFileDataFromNewCaseSave({
+            mainCategory: 'lawsuit',
+            selectedType: 'civil',
+            parties1: [{ name: 'المدعي', status: 'المدعي', isClient: true }],
+            parties2: [{ name: 'المدعى', status: 'المدعى عليه' }],
+            thirdParties: [
+                {
+                    id: 901,
+                    name: 'اختصامي E2E',
+                    entryMode: 'interpleader',
+                    status: 'الشخص الثالث الاختصامي',
+                    roleLabel: 'شخص ثالث (اختصامي)',
+                },
+                {
+                    id: 902,
+                    name: 'انضمامي E2E',
+                    entryMode: 'affiliative',
+                    affiliatedSide: 1,
+                    status: 'مدخل انضمامي — المدعي',
+                    roleLabel: 'شخص ثالث (انضمامي — جانب المدعي)',
+                },
+            ],
+            details: { court: 'بداءة الكرخ', type: 'تعويض', stage: 'بداءة بدرجة أخيرة' },
+        });
+        expect(file!.parties).toHaveLength(4);
+        expect(file!.thirdParties).toHaveLength(2);
+        const interpleader = file!.parties.find((p) => p.name === 'اختصامي E2E');
+        expect(interpleader?.role).toContain('اختصامي');
+        expect(interpleader?.side).toBeUndefined();
+        const affiliative = file!.parties.find((p) => p.name === 'انضمامي E2E');
+        expect(affiliative?.side).toBe('right');
+    });
+
+    it('persists claimValue from structured details', () => {
+        const file = buildFileDataFromNewCaseSave({
+            mainCategory: 'lawsuit',
+            selectedType: 'civil',
+            parties1: [{ name: 'موكل', status: 'المدعي', isClient: true }],
+            parties2: [{ name: 'خصم', status: 'المدعى عليه' }],
+            details: {
+                court: 'بداءة الكرخ',
+                type: 'تعويض',
+                stage: 'بداءة بدرجة أولى',
+                claimValue: '2,500,000',
+            },
+        });
+        expect(file!.claimValue).toBe('2500000');
+        expect(file!.currentStage).toBe('بداءة بدرجة أولى');
+    });
+
+    it('persists retrialTargetStage for إعادة المحاكمة', () => {
+        const file = buildFileDataFromNewCaseSave({
+            mainCategory: 'lawsuit',
+            selectedType: 'civil',
+            parties1: [{ name: 'موكل', status: 'طالب إعادة المحاكمة', isClient: true }],
+            parties2: [{ name: 'خصم', status: 'المطلوب إعادة المحاكمة ضده' }],
+            details: {
+                court: 'بداءة الكرخ',
+                type: 'تعويض',
+                stage: 'إعادة المحاكمة',
+                retrialTargetStage: 'بداءة بدرجة أخيرة',
+            },
+        });
+        expect(file!.currentStage).toBe('إعادة المحاكمة');
+        expect(file!.retrialTargetStage).toBe('بداءة بدرجة أخيرة');
+        expect(file!.claimValue).toBeUndefined();
+    });
+
+    it('persists retrialTargetStage for اعتراض الغير', () => {
+        const file = buildFileDataFromNewCaseSave({
+            mainCategory: 'lawsuit',
+            selectedType: 'civil',
+            parties1: [{ name: 'موكل', status: 'المعترض اعتراض الغير', isClient: true }],
+            parties2: [{ name: 'خصم', status: 'المعترض عليه اعتراض الغير' }],
+            details: {
+                court: 'بداءة الكرخ',
+                type: 'تعويض',
+                stage: 'اعتراض الغير',
+                retrialTargetStage: 'بداءة بدرجة أولى',
+            },
+        });
+        expect(file!.currentStage).toBe('اعتراض الغير');
+        expect(file!.retrialTargetStage).toBe('بداءة بدرجة أولى');
     });
 });

@@ -37,6 +37,8 @@ export interface HiddenFollowupVisibilityInput extends FollowupSpecializationVis
     showHiddenExecutiveDossierPresentation?: boolean;
     /** المدين الموظف — لا مفاتحة تحقيق ولا عرض إضبارة ولا حبس */
     activeDebtorIsEmployee?: boolean;
+    /** نزع حضانة — تُفعَّل الإجراءات الجبرية للموظف والكاسب */
+    isCustodyRemovalClaim?: boolean;
 }
 
 export type HiddenPersonalCoerciveRequestKey =
@@ -82,14 +84,21 @@ export interface HiddenGuarantorContext {
 /** المدين الموظف — لا مسارات الحبس/مفاتحة التحقيق/عرض الإضبارة */
 export function isPersonalCoerciveDetentionPathAllowedForDebtor(
     key: HiddenPersonalCoerciveRequestKey,
-    opts?: { activeDebtorIsEmployee?: boolean }
+    opts?: { activeDebtorIsEmployee?: boolean; isCustodyRemovalClaim?: boolean }
 ): boolean {
+    if (opts?.isCustodyRemovalClaim) return true;
     if (!opts?.activeDebtorIsEmployee) return true;
     return (
         key !== 'arrest_warrant_investigation' &&
         key !== 'executive_dossier_presentation' &&
         key !== 'executive_detention_judge'
     );
+}
+
+export function isEmployeeCoerciveDetentionRestricted(
+    flags: Pick<HiddenFollowupVisibilityInput, 'activeDebtorIsEmployee' | 'isCustodyRemovalClaim'>
+): boolean {
+    return Boolean(flags.activeDebtorIsEmployee) && !flags.isCustodyRemovalClaim;
 }
 
 /** يظهر في «الطلبات المخفية» فقط عندما التبويب الرئيسي مخفي */
@@ -290,6 +299,7 @@ export function listHiddenPersonalCoerciveCatalog(
             item.isHidden(flags) &&
             isPersonalCoerciveDetentionPathAllowedForDebtor(item.key, {
                 activeDebtorIsEmployee: flags.activeDebtorIsEmployee,
+                isCustodyRemovalClaim: flags.isCustodyRemovalClaim,
             })
     );
     if (!domainCtx || isHiddenPersonalCoerciveCatalogAllowed(domainCtx)) return base;

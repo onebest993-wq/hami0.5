@@ -35,6 +35,15 @@ import {
 } from '@/app/components/lawyer/execution/executionModalStack';
 import { formatDateToLocalYmd, getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import { isDebtorNotifiedForCoerciveActions } from '@/app/utils/noticeDebtorScope';
+import {
+    buildDebtorTravelBanActivePatch,
+    buildDebtorTravelBanCycleWithdrawnPatch,
+    buildDebtorTravelBanWithdrawnPatch,
+    isDebtorTravelBanActive,
+    isDebtorTravelBanCycleWithdrawn,
+    isDebtorTravelBanWithdrawn,
+    resolveDebtorDisplayNameForKey,
+} from '@/app/utils/coerciveDebtorScope';
 import { CryptoService } from '@/app/services/CryptoService';
 import {
     isExecutiveDetentionPeriodActive,
@@ -43,9 +52,6 @@ import {
     resolveForcedBringNeedsOutcomeUi,
     isPersonalCoerciveCycleClosed,
     appendImplicitForcedBringBroughtPatch,
-    isTravelBanLaneSettled,
-    isTravelBanRequestCycleWithdrawn,
-    isTravelBanRequestWithdrawn,
     resolveExecutiveDetentionJudgeUiOutcome,
     shouldShowInvestigationCourtBlock,
 } from '@/app/components/lawyer/execution/coerciveStackUtils';
@@ -68,6 +74,7 @@ import {
 import type { Decision } from '@/app/components/lawyer/DecisionsAndAppealsEngine/types';
 import { applyWaiveCassationAfterDebtorGrievanceForExecution } from '@/app/utils/waiveCassationAfterDebtorGrievance';
 import type { HiddenPersonalCoerciveRequestKey } from '@/app/components/lawyer/ExecutionDashboard/components/hiddenFollowupRequestsUtils';
+import { isCustodyRemovalExecutionClaim } from '@/app/utils/executionClaimIsolation';
 
 export interface PersonalCoerciveFollowupPanelProps {
     executionId: string | undefined;
@@ -245,6 +252,12 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
     /** الافتراضي: احترام التسلسل القانوني؛ الاسترخاء اختياري ومحدود من المستدعي */
     const relaxedPersonal = kasabRelaxedGates;
 
+    const custodyRemovalClaimActive = useMemo(
+        () => isCustodyRemovalExecutionClaim(executionData as Record<string, unknown> | null | undefined),
+        [executionData]
+    );
+    const employeeDetentionRestricted = activeDebtorIsEmployee && !custodyRemovalClaimActive;
+
     const showEmbeddedSection = useCallback(
         (key: HiddenPersonalCoerciveRequestKey) =>
             !embeddedHiddenPath || embeddedHiddenPath === key,
@@ -418,10 +431,21 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
 
 
     const arrestStage = executionData?.personal_arrest_warrant_stage ?? 'none';
-    const travelBanWithdrawn = isTravelBanRequestWithdrawn(executionData);
-    const travelBanRequestCycleWithdrawn = isTravelBanRequestCycleWithdrawn(executionData);
+    const travelBanWithdrawn = isDebtorTravelBanWithdrawn(
+        executionData,
+        activeDebtorKey,
+        primaryDebtorKey,
+    );
+    const travelBanRequestCycleWithdrawn = isDebtorTravelBanCycleWithdrawn(
+        executionData,
+        activeDebtorKey,
+        primaryDebtorKey,
+    );
     const travelCycleActive = hasOpenCardForSubtype('travel_ban');
-    const travelLaneSettled = isTravelBanLaneSettled(executionData, { travelCycleActive });
+    const travelLaneSettled =
+        travelBanWithdrawn ||
+        !travelCycleActive ||
+        !isDebtorTravelBanActive(executionData, activeDebtorKey, primaryDebtorKey);
     const judgeDetentionStored =
         (executionData?.executive_detention_judge_outcome as 'approved' | 'rejected' | null) ?? null;
     const detentionJudgeEligibleDecisionId =
@@ -444,7 +468,8 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
         [judgeSync.governingRow, judgeDetentionStored]
     );
     const travelBanEnforced =
-        !travelBanWithdrawn && executionData?.debtor_travel_ban_active === true;
+        !travelBanWithdrawn &&
+        isDebtorTravelBanActive(executionData, activeDebtorKey, primaryDebtorKey);
     const travelLiftReady =
         travelBanEnforced &&
         debtRemainingIqd <= 0 &&
@@ -617,6 +642,38 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
                           }
                         : {};
                 const payload = { ...forcedApproveReset, ...merge };
+                if (
+                    subtype === 'travel_ban' &&
+                    executionData &&
+                    (outcome === 'approved' || outcome === 'rejected')
+                ) {
+                    Object.assign(
+                        payload,
+                        buildDebtorTravelBanActivePatch(
+                            executionData,
+                            activeDebtorKey,
+                            primaryDebtorKey,
+                            outcome === 'approved',
+                        ),
+                    );
+                    if (outcome === 'approved') {
+                        Object.assign(
+                            payload,
+                            buildDebtorTravelBanWithdrawnPatch(
+                                executionData,
+                                activeDebtorKey,
+                                primaryDebtorKey,
+                                null,
+                            ),
+                            buildDebtorTravelBanCycleWithdrawnPatch(
+                                executionData,
+                                activeDebtorKey,
+                                primaryDebtorKey,
+                                null,
+                            ),
+                        );
+                    }
+                }
                 if (Object.keys(payload).length > 0) persistExecutionMerge(payload);
             }
             if (subtype === 'forced_bring_in' && outcome === 'approved') {
@@ -688,7 +745,7 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
 
     const investigationCourtWithdrawn = isInvestigationCourtWithdrawn(executionData);
     const showInvestigationBlock =
-        !activeDebtorIsEmployee && shouldShowInvestigationCourtBlock(executionData, arrest);
+        !employeeDetentionRestricted && shouldShowInvestigationCourtBlock(executionData, arrest);
 
     const renderInlineGate = useCallback(
         (
@@ -1041,6 +1098,19 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
         [activeDebtorKey, exId]
     );
 
+    const scopedRequestTitle = useCallback(
+        (base: string) => {
+            const name = resolveDebtorDisplayNameForKey(
+                executionData,
+                activeDebtorKey,
+                primaryDebtorKey,
+            );
+            if (!name) return base;
+            return `${base} — ${name}`;
+        },
+        [executionData, activeDebtorKey, primaryDebtorKey],
+    );
+
     const submitRequest = useCallback(
         async (
             subtype: Parameters<typeof appendPersonalCoerciveExecutorRequest>[0]['subtype'],
@@ -1116,10 +1186,27 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
                 });
             }
             if (subtype === 'travel_ban') {
-                persistExecutionMerge({
-                    travel_ban_withdrawn_at: null,
-                    travel_ban_request_cycle_withdrawn_at: null,
-                });
+                if (executionData) {
+                    persistExecutionMerge({
+                        ...buildDebtorTravelBanCycleWithdrawnPatch(
+                            executionData,
+                            activeDebtorKey,
+                            primaryDebtorKey,
+                            null,
+                        ),
+                        ...buildDebtorTravelBanWithdrawnPatch(
+                            executionData,
+                            activeDebtorKey,
+                            primaryDebtorKey,
+                            null,
+                        ),
+                    });
+                } else {
+                    persistExecutionMerge({
+                        travel_ban_withdrawn_at: null,
+                        travel_ban_request_cycle_withdrawn_at: null,
+                    });
+                }
             }
             if (subtype === 'executive_dossier_presentation') {
                 persistExecutionMerge({
@@ -1552,11 +1639,34 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
         }
         if (!travelBanEnforced || isHistoricalMode || coerciveUiLocked || travelBanWithdrawn) return;
         const now = new Date().toISOString();
-        persistExecutionMerge({
-            debtor_travel_ban_active: false,
-            travel_ban_withdrawn_at: now,
-            travel_ban_request_cycle_withdrawn_at: null,
-        });
+        if (executionData) {
+            persistExecutionMerge({
+                ...buildDebtorTravelBanActivePatch(
+                    executionData,
+                    activeDebtorKey,
+                    primaryDebtorKey,
+                    false,
+                ),
+                ...buildDebtorTravelBanWithdrawnPatch(
+                    executionData,
+                    activeDebtorKey,
+                    primaryDebtorKey,
+                    now,
+                ),
+                ...buildDebtorTravelBanCycleWithdrawnPatch(
+                    executionData,
+                    activeDebtorKey,
+                    primaryDebtorKey,
+                    null,
+                ),
+            });
+        } else {
+            persistExecutionMerge({
+                debtor_travel_ban_active: false,
+                travel_ban_withdrawn_at: now,
+                travel_ban_request_cycle_withdrawn_at: null,
+            });
+        }
         if (exId) {
             closePersonalCoerciveSubtypeDecisionCycle({
                 executionId: exId,
@@ -1588,15 +1698,37 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
         const now = new Date().toISOString();
         const decisionId = findLatestDecisionIdForSubtype('travel_ban');
         if (decisionId && exId) {
+            const extraMerge = executionData
+                ? {
+                      ...buildDebtorTravelBanActivePatch(
+                          executionData,
+                          activeDebtorKey,
+                          primaryDebtorKey,
+                          true,
+                      ),
+                      ...buildDebtorTravelBanCycleWithdrawnPatch(
+                          executionData,
+                          activeDebtorKey,
+                          primaryDebtorKey,
+                          now,
+                      ),
+                      ...buildDebtorTravelBanWithdrawnPatch(
+                          executionData,
+                          activeDebtorKey,
+                          primaryDebtorKey,
+                          null,
+                      ),
+                  }
+                : {
+                      debtor_travel_ban_active: true,
+                      travel_ban_request_cycle_withdrawn_at: now,
+                      travel_ban_withdrawn_at: null,
+                  };
             syncPersonalCoerciveWithdrawn({
                 executionId: exId,
                 decisionId,
                 subtype: 'travel_ban',
-                extraMerge: {
-                    debtor_travel_ban_active: true,
-                    travel_ban_request_cycle_withdrawn_at: now,
-                    travel_ban_withdrawn_at: null,
-                },
+                extraMerge,
             });
             closePersonalCoerciveSubtypeDecisionCycle({
                 executionId: exId,
@@ -1838,13 +1970,13 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
         setSendingKey('travel_ban');
         void submitRequest(
             'travel_ban',
-            'طلب وضع إشارة منع سفر على المدين',
+            scopedRequestTitle('طلب وضع إشارة منع سفر على المدين'),
             'طلب توجيه كتاب إلى مديرية الجوازات والإقامة لمنع سفر المدين لحين البتّ في التنفيذ.'
         ).then(() => {
             setSendingKey(null);
             setConfirmingKey(null);
         });
-    }, [canSubmitTravelBan, sendingKey, submitRequest, travel.pending]);
+    }, [canSubmitTravelBan, scopedRequestTitle, sendingKey, submitRequest, travel.pending]);
 
     const runArrestInvestigationSubmit = React.useCallback(() => {
         if (sendingKey === 'arrest_warrant_investigation') return;
@@ -2001,7 +2133,7 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
 
     const showDossierPresentationCard =
         !hideDossierJudgePresentation &&
-        !activeDebtorIsEmployee &&
+        !employeeDetentionRestricted &&
         !dossierExecutorPhaseComplete &&
         (dossier.pending ||
             dossier.rejected ||
@@ -2046,7 +2178,7 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
 
     const showJudgeDetentionCard =
         !hideDossierJudgePresentation &&
-        !activeDebtorIsEmployee &&
+        !employeeDetentionRestricted &&
         !detentionLaneEnded &&
         dossierExecutorPhaseComplete &&
         judgeHasActionablePanel;
@@ -2655,7 +2787,6 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
                             disabled={travelSubmitButtonDisabled}
                             onClick={() => {
                                 if (travelSubmitButtonDisabled) return;
-                                if (!guardSummonsGate()) return;
                                 if (!canSubmitTravelBan) return;
                                 setConfirmingKey('travel_ban');
                             }}
@@ -2792,37 +2923,41 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
                             </p>
                         </div>
                     ) : null}
+                    {renderInlineGate('travel_ban', () => {
+                        if (!guardSummonsGate()) {
+                            setConfirmingKey(null);
+                            return;
+                        }
+                        setSendingKey('travel_ban');
+                        if (travel.pending || travel.rejected) {
+                            setSendingKey(null);
+                            setConfirmingKey(null);
+                            return;
+                        }
+                        void submitRequest(
+                            'travel_ban',
+                            scopedRequestTitle('طلب وضع إشارة منع سفر على المدين'),
+                            'طلب توجيه كتاب إلى مديرية الجوازات والإقامة لمنع سفر المدين لحين البتّ في التنفيذ.'
+                        ).then(() => {
+                            setSendingKey(null);
+                            setConfirmingKey(null);
+                        });
+                    })}
+                    {renderInlineGate(
+                        'travel_ban_withdraw',
+                        () => withdrawTravelBanRequestCycle(),
+                        {
+                            confirmLabel: 'تأكيد التراجع',
+                            gateExtra: (
+                                <p className="text-[10px] leading-relaxed text-amber-100/90">
+                                    يُغلق طلب منع السفر الحالي وتعود دورة التقديم. تبقى إشارة المنع
+                                    مفعّلة حتى سداد الدين بالكامل.
+                                </p>
+                            ),
+                        }
+                    )}
                 </div>
             </div>
-            {renderInlineGate('travel_ban', () => {
-                setSendingKey('travel_ban');
-                if (travel.pending || travel.rejected) {
-                    setSendingKey(null);
-                    setConfirmingKey(null);
-                    return;
-                }
-                void submitRequest(
-                    'travel_ban',
-                    'طلب وضع إشارة منع سفر على المدين',
-                    'طلب توجيه كتاب إلى مديرية الجوازات والإقامة لمنع سفر المدين لحين البتّ في التنفيذ.'
-                ).then(() => {
-                    setSendingKey(null);
-                    setConfirmingKey(null);
-                });
-            })}
-            {renderInlineGate(
-                'travel_ban_withdraw',
-                () => withdrawTravelBanRequestCycle(),
-                {
-                    confirmLabel: 'تأكيد التراجع',
-                    gateExtra: (
-                        <p className="text-[10px] leading-relaxed text-amber-100/90">
-                            يُغلق طلب منع السفر الحالي وتعود دورة التقديم. تبقى إشارة المنع
-                            مفعّلة حتى سداد الدين بالكامل.
-                        </p>
-                    ),
-                }
-            )}
             {travelBanRequestCycleWithdrawn && travelBanEnforced && travelShowLiftAction ? (
                 <div className="px-1">
                     <button

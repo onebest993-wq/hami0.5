@@ -2,6 +2,7 @@ import React from 'react';
 import { Plus } from 'lucide-react';
 import { PartyCard } from './PartyCard';
 import type { Party } from '../types';
+import { NC_GLASS_CARD, NC_SECTION_TITLE } from '../newCaseGlassTheme';
 
 export interface PartiesSectionProps {
     side: 1 | 2;
@@ -9,28 +10,28 @@ export interface PartiesSectionProps {
     onUpdate: (side: 1 | 2, id: string, field: keyof Party, value: string | boolean) => void;
     onRemove: (side: 1 | 2, id: string) => void;
     onAdd: (side: 1 | 2) => void;
-    onToggleAgent: (side: 1 | 2, id: string) => void;
     labels: { p1Main: string; p2Main: string; courtPlaceholder: string; typePlaceholder: string };
-    currentStage: string;
     errorMap: Record<string, string>;
     addButtonText: string;
+    clientError?: string;
 }
 
-const SIDE_CONFIG = {
-    1: { title: 'الطرف الأول', borderColor: 'border-l-4 border-white/20', bgColor: 'bg-[#1A1E2E]' },
-    2: { title: 'الطرف الثاني', borderColor: 'border-l-4 border-white/15', bgColor: 'bg-[#151925]' }
+const SIDE_TITLE = {
+    1: 'الطرف الأول',
+    2: 'الطرف الثاني',
 } as const;
 
 export const PartiesSection = ({
-    side, parties, onUpdate, onRemove, onAdd, onToggleAgent,
-    labels, currentStage, errorMap, addButtonText
+    side, parties, onUpdate, onRemove, onAdd,
+    labels, errorMap, addButtonText, clientError,
 }: PartiesSectionProps) => {
-    const config = SIDE_CONFIG[side];
-
     return (
-        <div className={config.bgColor}>
-            <div className={`${config.borderColor} p-4`}>
-                <h3 className="text-lg font-bold text-slate-200 mb-2">{config.title}</h3>
+        <div className="px-4 py-4 border-b border-white/[0.06]">
+            <div className={`${NC_GLASS_CARD} p-4`}>
+                <h3 className={`${NC_SECTION_TITLE} mb-3 text-base text-white/90`}>{SIDE_TITLE[side]}</h3>
+                {clientError ? (
+                    <p className="text-[10px] text-amber-400/90 font-medium mb-3">{clientError}</p>
+                ) : null}
                 <div className="space-y-4">
                     {parties.map((p, index) => (
                         <PartyCard
@@ -41,17 +42,15 @@ export const PartiesSection = ({
                             onUpdate={(f, v) => onUpdate(side, p.id, f, v)}
                             onRemove={() => onRemove(side, p.id)}
                             canRemove={parties.length > 1}
-                            onToggleAgent={onToggleAgent}
                             labels={labels}
-                            currentStage={currentStage}
-                            partyCount={parties.length}
                             errorMap={errorMap}
                         />
                     ))}
                 </div>
-                <button type="button"
+                <button
+                    type="button"
                     onClick={() => onAdd(side)}
-                    className="mt-4 w-full py-2 rounded-lg border border-dashed border-white/10 flex items-center justify-center gap-2 text-white/30 text-xs hover:border-[#E6C673] hover:text-[#E6C673] transition-all"
+                    className="mt-4 w-full py-2.5 rounded-xl border border-dashed border-white/[0.12] bg-white/[0.02] flex items-center justify-center gap-2 text-white/40 text-xs hover:border-[#E6C673]/35 hover:text-[#E6C673]/90 hover:bg-white/[0.04] transition-colors"
                 >
                     <Plus size={14} /> <span>{addButtonText}</span>
                 </button>

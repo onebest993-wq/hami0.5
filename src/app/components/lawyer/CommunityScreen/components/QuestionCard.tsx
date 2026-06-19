@@ -1,15 +1,34 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState, memo } from 'react';
 import {
   User, ArrowUp, MessageCircle,
   FileText, ZoomIn, EyeOff, Loader2, Sparkles,
   Trash2, Pencil, Flag, Link2, X, Eye, Pin, UserPlus, UserCheck,
-  Bookmark, Lock, Unlock, VolumeX
+  Bookmark, Lock, Unlock, VolumeX, Zap
 } from 'lucide-react';
 import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 import { formatRelativeTime } from '../utils';
 import { useForumAttachmentUrl } from '../useForumAttachmentUrl';
+import {
+    FORUM_ACCENT_CHIP,
+    FORUM_FEED_CARD,
+    FORUM_INTERACT_BTN,
+    FORUM_INTERACT_ICON,
+    FORUM_INTERACT_ICON_ACTIVE,
+    FORUM_INTERACT_LABEL,
+    FORUM_INTERACT_LABEL_ACTIVE,
+    FORUM_ICON_BTN,
+    FORUM_PANEL,
+    FORUM_STAT_BOX,
+    FORUM_TEXT_APRICOT,
+    FORUM_TEXT_MUTED,
+    FORUM_TEXT_PRIMARY,
+} from '../forumPlumTheme';
+import {
+    isActiveUrgentConsultation,
+    URGENT_CONSULTATION_BADGE,
+    URGENT_CONSULTATION_LABEL,
+} from '../forumUrgentConsultation';
 
 export interface QuestionCardProps {
   post: CommunityPost;
@@ -35,7 +54,7 @@ export interface QuestionCardProps {
   onMuteUser?: (userId: string) => void;
 }
 
-export const QuestionCard = ({
+export const QuestionCard = memo(function QuestionCard({
   post,
   currentUserId,
   onToggleUpvote,
@@ -54,7 +73,7 @@ export const QuestionCard = ({
   onToggleBookmark,
   onToggleLock,
   onMuteUser,
-}: QuestionCardProps) => {
+}: QuestionCardProps) {
   const [showUserPopup, setShowUserPopup] = useState(false);
   const [showEditInfo, setShowEditInfo] = useState(false);
   const { url: attachmentUrl, loading: attachmentLoading } = useForumAttachmentUrl(post.attachment);
@@ -62,7 +81,7 @@ export const QuestionCard = ({
   const upvoteCount = post.upvoterIds.length;
   const isOwner = !!currentUserId && post.authorId === currentUserId;
   const isAnonymous = post.isAnonymous === true;
-  const isUrgent = post.isUrgent === true;
+  const isActiveUrgent = isActiveUrgentConsultation(post);
   const isPinned = post.isPinned === true;
   const isLocked = post.isLocked === true;
   const canLockUnlock = isOwner || isAdmin;
@@ -76,16 +95,20 @@ export const QuestionCard = ({
   const postCount = stats?.postCount ?? 0;
 
   return (
-    <motion.div
+    <div
       id={`forum-post-${post.id}`}
-      className="group rounded-xl p-4 shadow-lg border transition-all duration-500 bg-[#25293C] border-white/5 hover:border-white/10 relative"
+      className={`${FORUM_FEED_CARD}${isActiveUrgent ? ' ring-1 ring-amber-400/35 shadow-[0_0_28px_rgba(251,191,36,0.08)]' : ''}`}
     >
-      {isUrgent && (
+      {isActiveUrgent && (
         <>
-          <div className="absolute inset-0 rounded-xl border border-red-500/40 animate-pulse pointer-events-none" />
+          <div className="absolute inset-0 rounded-xl border border-amber-400/30 pointer-events-none" />
           <div className="mb-3">
-            <span className="inline-flex items-center text-[11px] px-2.5 py-1 rounded-full bg-red-950/40 text-red-200 border border-red-500/20">
-              🚨 نداء طوارئ عاجل
+            <span className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full bg-gradient-to-l from-amber-950/50 to-orange-950/40 text-amber-100 border border-amber-400/30 font-bold">
+              <Zap size={12} fill="currentColor" />
+              {URGENT_CONSULTATION_LABEL}
+              <span className="rounded-full border border-amber-300/25 bg-amber-400/15 px-1.5 py-px text-[9px] font-black">
+                {URGENT_CONSULTATION_BADGE}
+              </span>
             </span>
           </div>
         </>
@@ -98,20 +121,20 @@ export const QuestionCard = ({
         </div>
       )}
       <div className="flex items-center gap-2 mb-3">
-        <div className={`p-1.5 rounded-full ${isAnonymous ? 'bg-white/5 text-[#E6C673]/80 border border-white/10' : 'bg-white/10 text-gray-400'}`}>
+        <div className={`p-1.5 rounded-full ${isAnonymous ? `${FORUM_ACCENT_CHIP}` : 'bg-[#342C3E] text-[#9A9098]'}`}>
           {isAnonymous ? <EyeOff size={16} /> : <User size={16} />}
         </div>
         <div className="relative">
           <button type="button"
             onClick={() => !isAnonymous && setShowUserPopup(!showUserPopup)}
-            className={`text-sm font-bold ${isAnonymous ? 'text-white/80 cursor-default' : 'text-white/80 hover:text-[#E6C673] transition-colors'}`}
+            className={`text-sm font-bold ${isAnonymous ? `${FORUM_TEXT_MUTED} cursor-default` : `${FORUM_TEXT_PRIMARY} hover:text-[#F0B896] transition-colors`}`}
           >
             {displayName}
           </button>
           {showUserPopup && !isAnonymous && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowUserPopup(false)} />
-              <div className="absolute top-full right-0 mt-2 z-50 w-64 bg-[#1E2235] border border-white/10 rounded-xl shadow-2xl p-4 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className={`absolute top-full right-0 mt-2 z-50 w-64 ${FORUM_PANEL} shadow-2xl p-4 animate-in fade-in slide-in-from-top-2 duration-200`}>
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white/60 border border-white/10">
                     <User size={24} />
@@ -124,13 +147,13 @@ export const QuestionCard = ({
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div className="bg-white/5 rounded-lg p-3 text-center">
-                    <p className="text-white font-bold text-lg">{followerCount}</p>
-                    <p className="text-gray-400 text-[10px]">متابعون</p>
+                  <div className={`${FORUM_STAT_BOX}`}>
+                    <p className={`${FORUM_TEXT_PRIMARY} font-bold text-lg`}>{followerCount}</p>
+                    <p className={`${FORUM_TEXT_MUTED} text-[10px]`}>متابعون</p>
                   </div>
-                  <div className="bg-white/5 rounded-lg p-3 text-center">
-                    <p className="text-white font-bold text-lg">{postCount}</p>
-                    <p className="text-gray-400 text-[10px]">منشورات</p>
+                  <div className={`${FORUM_STAT_BOX}`}>
+                    <p className={`${FORUM_TEXT_PRIMARY} font-bold text-lg`}>{postCount}</p>
+                    <p className={`${FORUM_TEXT_MUTED} text-[10px]`}>منشورات</p>
                   </div>
                 </div>
                 {canFollow && (
@@ -139,7 +162,7 @@ export const QuestionCard = ({
                     className={`w-full text-xs flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg transition-colors ${
                       isFollowing
                         ? 'text-emerald-400 bg-emerald-950/30 border border-emerald-500/20 hover:bg-emerald-950/50'
-                        : 'text-[#E6C673]/70 bg-[#E6C673]/10 border border-[#E6C673]/20 hover:bg-[#E6C673]/20'
+                        : `${FORUM_ACCENT_CHIP} text-xs flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg`
                     }`}
                   >
                     {isFollowing ? <UserCheck size={14} /> : <UserPlus size={14} />}
@@ -157,7 +180,7 @@ export const QuestionCard = ({
             className={`text-xs flex items-center gap-1 px-2 py-0.5 rounded-full transition-colors ${
               isFollowing
                 ? 'text-emerald-400 bg-emerald-950/30 border border-emerald-500/20 hover:bg-emerald-950/50'
-                : 'text-[#E6C673]/70 bg-[#E6C673]/10 border border-[#E6C673]/20 hover:bg-[#E6C673]/20'
+                : `${FORUM_ACCENT_CHIP} text-xs flex items-center gap-1 px-2 py-0.5 rounded-full transition-colors`
             }`}
             title={isFollowing ? 'إلغاء المتابعة' : 'متابعة'}
           >
@@ -172,7 +195,7 @@ export const QuestionCard = ({
             <button
               type="button"
               onClick={() => setShowEditInfo((v) => !v)}
-              className="text-xs text-[#E6C673]/80 hover:text-[#E6C673] transition-colors underline-offset-2 hover:underline"
+              className={`text-xs ${FORUM_TEXT_APRICOT} hover:text-[#F8C4A8] transition-colors underline-offset-2 hover:underline`}
               aria-expanded={showEditInfo}
             >
               (مُعدّل{editCount > 0 ? ` · ${editCount}` : ''})
@@ -180,14 +203,14 @@ export const QuestionCard = ({
             {showEditInfo && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowEditInfo(false)} aria-hidden />
-                <div className="absolute top-full right-0 mt-2 z-50 w-[min(320px,calc(100vw-2rem))] bg-[#1E2235] border border-white/10 rounded-xl shadow-2xl p-4">
-                  <p className="text-white font-bold text-sm mb-1">سجل التعديل</p>
-                  <p className="text-white/50 text-[11px] mb-3">
+                <div className={`absolute top-full right-0 mt-2 z-50 w-[min(320px,calc(100vw-2rem))] ${FORUM_PANEL} shadow-2xl p-4`}>
+                  <p className={`${FORUM_TEXT_PRIMARY} font-bold text-sm mb-1`}>سجل التعديل</p>
+                  <p className={`${FORUM_TEXT_MUTED} text-[11px] mb-3`}>
                     عدد مرات التعديل:{' '}
-                    <span className="text-[#E6C673] font-bold">{editCount || 1}</span>
+                    <span className={`${FORUM_TEXT_APRICOT} font-bold`}>{editCount || 1}</span>
                   </p>
-                  <p className="text-white/40 text-[10px] mb-1">النص الحالي (بعد التعديل):</p>
-                  <p className="text-white/90 text-[13px] leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto">
+                  <p className={`${FORUM_TEXT_MUTED} text-[10px] mb-1`}>النص الحالي (بعد التعديل):</p>
+                  <p className={`${FORUM_TEXT_PRIMARY} text-[13px] leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto`}>
                     {post.content}
                   </p>
                   {(post.editHistory?.length ?? 0) > 0 && (
@@ -211,7 +234,7 @@ export const QuestionCard = ({
             className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
               isLocked
                 ? 'bg-red-950/40 text-red-300 hover:bg-red-950/60'
-                : 'bg-white/5 hover:bg-white/10 text-white/40 hover:text-white'
+                : 'bg-[#342C3A] hover:bg-[#3A3040] text-[#9A9098] hover:text-[#E6E0E4]'
             }`}
             title={isLocked ? 'فتح النقاش' : 'قفل النقاش'}
           >
@@ -224,8 +247,8 @@ export const QuestionCard = ({
             onClick={() => onToggleBookmark(post.id)}
             className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
               isBookmarked
-                ? 'bg-[#E6C673]/15 text-[#E6C673] hover:bg-[#E6C673]/25'
-                : 'bg-white/5 hover:bg-white/10 text-white/40 hover:text-white'
+                ? `${FORUM_ACCENT_CHIP} ${FORUM_TEXT_APRICOT}`
+                : 'bg-[#342C3E] hover:bg-[#3A3040] text-[#9A9098] hover:text-[#E6E0E4]'
             }`}
             title={isBookmarked ? 'إلغاء الحفظ' : 'حفظ للقراءة لاحقاً'}
           >
@@ -236,7 +259,7 @@ export const QuestionCard = ({
         {!isOwner && !isAnonymous && onMuteUser && (
           <button type="button"
             onClick={() => onMuteUser(post.authorId)}
-            className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-white/40 hover:text-white flex items-center justify-center"
+            className={`w-8 h-8 ${FORUM_ICON_BTN}`}
             title="كتم منشورات هذا المستخدم"
           >
             <VolumeX size={15} />
@@ -248,7 +271,7 @@ export const QuestionCard = ({
             className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
               isPinned
                 ? 'bg-amber-950/40 text-amber-300 hover:bg-amber-950/60'
-                : 'bg-white/5 hover:bg-white/10 text-white/40 hover:text-white'
+                : 'bg-[#342C3A] hover:bg-[#3A3040] text-[#9A9098] hover:text-[#E6E0E4]'
             }`}
             title={isPinned ? 'إلغاء التثبيت' : 'تثبيت المنشور'}
           >
@@ -259,7 +282,7 @@ export const QuestionCard = ({
           <div className="flex items-center gap-2">
             <button type="button"
               onClick={() => onEdit(post.id)}
-              className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-white/40 hover:text-white flex items-center justify-center"
+              className={`w-8 h-8 ${FORUM_ICON_BTN}`}
               title="تعديل"
             >
               <Pencil size={16} />
@@ -291,7 +314,7 @@ export const QuestionCard = ({
         )}
       </div>
 
-      <p className="text-[15px] leading-[1.6] line-clamp-3 mb-3 font-medium text-white/90 whitespace-pre-wrap">
+      <p className={`text-[15px] leading-[1.65] line-clamp-3 mb-3 font-medium ${FORUM_TEXT_PRIMARY} whitespace-pre-wrap`}>
         {post.content}
       </p>
 
@@ -299,7 +322,7 @@ export const QuestionCard = ({
         <div className="mb-4 mt-2">
           {post.attachment.type === 'image' && (
             <div
-              className="w-full h-[150px] relative rounded-xl overflow-hidden group/att cursor-pointer border border-white/10 bg-[#1E2235]"
+              className="w-full h-[150px] relative rounded-xl overflow-hidden group/att cursor-pointer border border-[#4A3D52]/50 bg-[#221A28]"
               onClick={() => attachmentUrl && onImageClick(attachmentUrl)}
             >
               {attachmentLoading ? (
@@ -329,7 +352,7 @@ export const QuestionCard = ({
           )}
 
           {post.attachment.type === 'audio' && (
-            <div className="w-full bg-[#1E2235] rounded-xl p-3 border border-white/10">
+            <div className={`w-full ${FORUM_PANEL} p-3`}>
               <p className="text-white/50 text-[10px] mb-2">مقطع صوتي</p>
               {attachmentLoading ? (
                 <div className="flex items-center gap-2 text-white/40 text-xs">
@@ -355,10 +378,10 @@ export const QuestionCard = ({
               href={attachmentUrl}
               target="_blank"
               rel="noreferrer"
-              className="w-full bg-[#1E2235] rounded-xl p-3 border border-white/10 flex items-center gap-3 hover:bg-[#25293C] transition-colors cursor-pointer group/doc"
+              className={`w-full ${FORUM_PANEL} p-3 flex items-center gap-3 hover:bg-[#342C3E] transition-colors cursor-pointer group/doc`}
             >
-              <div className="w-10 h-10 rounded-lg bg-[#E6C673]/10 flex items-center justify-center border border-[#E6C673]/20 group-hover/doc:border-[#E6C673]/50 transition-colors">
-                <FileText size={20} className="text-[#E6C673]" />
+              <div className={`w-10 h-10 rounded-lg bg-[#F0B896]/10 flex items-center justify-center border border-[#F0B896]/25 group-hover/doc:border-[#F0B896]/45 transition-colors`}>
+                <FileText size={20} className="text-[#F0B896]" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-white/90 text-sm font-medium truncate">{post.attachment.name}</p>
@@ -369,9 +392,9 @@ export const QuestionCard = ({
               </div>
             </a>
             ) : (
-              <div className="w-full bg-[#1E2235] rounded-xl p-3 border border-white/10 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-[#E6C673]/10 flex items-center justify-center border border-[#E6C673]/20">
-                  <FileText size={20} className="text-[#E6C673]" />
+              <div className={`w-full ${FORUM_PANEL} p-3 flex items-center gap-3`}>
+                <div className="w-10 h-10 rounded-lg bg-[#F0B896]/10 flex items-center justify-center border border-[#F0B896]/25">
+                  <FileText size={20} className="text-[#F0B896]" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-white/90 text-sm font-medium truncate">{post.attachment.name}</p>
@@ -388,48 +411,48 @@ export const QuestionCard = ({
       {post.tags.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-4">
           {post.tags.map((tag, i) => (
-            <span key={`${post.id}-tag-${i}`} className="px-2 py-1 bg-white/5 rounded-md text-[#E6C673]/80 text-xs border border-white/5">
+            <span key={`${post.id}-tag-${i}`} className={`px-2 py-1 rounded-md text-xs border ${FORUM_ACCENT_CHIP}`}>
               {tag}
             </span>
           ))}
         </div>
       )}
 
-      <div className="h-px bg-white/5 w-full mb-3" />
+      <div className="h-px bg-[#4A3D52]/40 w-full mb-3" />
 
-      <div className="flex items-center gap-6 mt-2">
+      <div className="flex items-center gap-4 mt-2">
         <button type="button"
           onClick={() => onToggleUpvote(post.id)}
-          className="flex items-center gap-1 group/up transition-all duration-200 active:scale-95 p-1 -ml-1 rounded-lg hover:bg-white/5"
+          className={`group/up ${FORUM_INTERACT_BTN}`}
           disabled={!currentUserId}
           title={!currentUserId ? 'سجّل الدخول للتصويت' : 'تصويت'}
         >
           <ArrowUp
             size={20}
-            className={`transition-colors duration-300 ${isUpvoted ? 'text-amber-400 fill-amber-400/20' : 'text-gray-500 group-hover/up:text-white'}`}
+            className={`transition-colors duration-300 ${isUpvoted ? FORUM_INTERACT_ICON_ACTIVE : FORUM_INTERACT_ICON}`}
           />
-          <span className={`font-bold text-sm transition-colors duration-300 ${isUpvoted ? 'text-amber-400' : 'text-gray-400 group-hover/up:text-white'}`}>
+          <span className={isUpvoted ? FORUM_INTERACT_LABEL_ACTIVE : FORUM_INTERACT_LABEL}>
             {upvoteCount}
           </span>
         </button>
 
         <button type="button"
           onClick={() => onCommentClick(post.id)}
-          className="flex items-center gap-1 group/c transition-all duration-200 active:scale-95 p-1 rounded-lg hover:bg-white/5"
+          className={`group/c ${FORUM_INTERACT_BTN}`}
         >
-          <MessageCircle size={20} className="text-gray-500 group-hover/c:text-[#E6C673] transition-colors" />
-          <span className="text-gray-400 text-sm group-hover/c:text-white transition-colors">{post.comments.length} تعليقات زملاء</span>
+          <MessageCircle size={20} className={`${FORUM_INTERACT_ICON} group-hover/c:text-[#F0B896]`} />
+          <span className={`${FORUM_INTERACT_LABEL} group-hover/c:text-[#E6E0E4]`}>{post.comments.length} تعليقات زملاء</span>
         </button>
 
         <button type="button"
           onClick={() => onShare(post.id)}
-          className="flex items-center gap-1 group/s transition-all duration-200 active:scale-95 p-1 rounded-lg hover:bg-white/5"
+          className={`group/s ${FORUM_INTERACT_BTN}`}
           title="مشاركة"
         >
-          <Link2 size={20} className="text-gray-500 group-hover/s:text-[#E6C673] transition-colors" />
-          <span className="text-gray-400 text-sm group-hover/s:text-white transition-colors">مشاركة 🔗</span>
+          <Link2 size={20} className={`${FORUM_INTERACT_ICON} group-hover/s:text-[#F0B896]`} />
+          <span className={`${FORUM_INTERACT_LABEL} group-hover/s:text-[#E6E0E4]`}>مشاركة 🔗</span>
         </button>
       </div>
-    </motion.div>
+    </div>
   );
-};
+});

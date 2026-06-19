@@ -3,7 +3,7 @@ import {
   extractUserTokenFromRequest,
   isTokenAuthorized,
   verifyWifeSignature,
-  wifeForbiddenResponse,
+  wifeForbiddenResponse, wifeSignatureFailedResponse,
   wifeUnauthorizedResponse,
 } from '../../security/wifeValidator.ts';
 import { sanitizePayload } from '../../security/sanitizer.ts';
@@ -96,10 +96,10 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const userToken = extractUserTokenFromRequest(request);
     if (!userToken || !(await isTokenAuthorized(userToken))) {
-      return wifeUnauthorizedResponse();
+      return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
     }
     if (!(await verifyWifeSignature(request, userToken))) {
-      return wifeForbiddenResponse();
+      return wifeSignatureFailedResponse(request);
     }
 
     const payload = sanitizePayload((await request.json().catch(() => null)) as unknown);
@@ -118,7 +118,7 @@ export async function POST(request: Request): Promise<Response> {
       });
     }
     if (!(await enforceTokenActorBinding(userToken, payload))) {
-      return wifeForbiddenResponse();
+      return wifeForbiddenResponse({ request, reason: 'actor_binding_failed' });
     }
 
     const requests = loadPersistedRequests();

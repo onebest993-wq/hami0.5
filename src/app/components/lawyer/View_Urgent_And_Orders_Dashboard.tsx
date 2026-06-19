@@ -16,7 +16,7 @@ import { DashboardControls } from './View_Urgent_And_Orders_Dashboard/DashboardC
 import { DashboardSection } from './View_Urgent_And_Orders_Dashboard/DashboardSection';
 import type { ViewMode, FilterStatus, Props } from './View_Urgent_And_Orders_Dashboard/types';
 import { useAuth } from '@/app/context/AuthContext';
-import { useLawyerSettingsOptional } from '@/app/context/LawyerSettingsContext';
+import { loadPersistedViewMode, persistViewMode } from '@/app/services/settings/builtInBehavior';
 import { DeferredActiveOrderFile, preloadActiveOrderFilePanel } from './DeferredActiveOrderFile';
 import { ErrorBoundary } from '@/app/components/ui/ErrorBoundary';
 import { lazyWithRetry, type LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
@@ -112,18 +112,15 @@ export const View_Urgent_And_Orders_Dashboard: React.FC<Props> = ({
         return authUser?.id ?? 'dev-user-uuid-1';
     }, [authUser?.id, authLoading]);
 
-    const lawyerSettings = useLawyerSettingsOptional();
-    const viewMode: ViewMode = lawyerSettings?.settings.workflow.viewMode ?? 'grid';
+    const [viewMode, setViewMode] = useState<ViewMode>(() => loadPersistedViewMode());
 
-    const handleViewModeChange = useCallback(
-        (mode: ViewMode) => {
-            lawyerSettings?.setSettings((prev) => ({
-                ...prev,
-                workflow: { ...prev.workflow, viewMode: mode },
-            }));
-        },
-        [lawyerSettings],
-    );
+    const handleViewModeChange = useCallback((mode: ViewMode) => {
+        setViewMode(mode);
+        persistViewMode(mode);
+        if (typeof document !== 'undefined') {
+            document.documentElement.dataset.hamiViewMode = mode;
+        }
+    }, []);
     const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
     const [searchQuery, setSearchQuery] = useState<string>('');
 

@@ -174,12 +174,21 @@ export const useCaseStore = create<CaseState>()(
                 updAny.currentStage !== beforeAny.currentStage &&
                 beforeAny.currentStage
               ) {
-                AuditLog.civil.stageAdvanced({
-                  caseId: before.id,
-                  caseNo,
-                  fromStage: String(beforeAny.currentStage),
-                  toStage: String(updAny.currentStage),
-                });
+                if (isPersonal) {
+                  AuditLog.personal.stageAdvanced({
+                    caseId: before.id,
+                    caseNo,
+                    fromStage: String(beforeAny.currentStage),
+                    toStage: String(updAny.currentStage),
+                  });
+                } else {
+                  AuditLog.civil.stageAdvanced({
+                    caseId: before.id,
+                    caseNo,
+                    fromStage: String(beforeAny.currentStage),
+                    toStage: String(updAny.currentStage),
+                  });
+                }
               }
             });
           } catch { /* silent */ }

@@ -1,21 +1,7 @@
-import { projectId, publicAnonKey } from '@/utils/supabase/info';
-import { SecureAPIClient, getCurrentAccessToken } from '@/app/services/SecureAPIClient';
+import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import SecureStoreService from '@/app/services/SecureStoreService';
 
-/**
- * بناء headers المصادقة لطلبات kv-proxy.
- * يستخدم JWT المستخدم الحالي (وليس anon key) لتجاوز فحص ownership على الـ Edge.
- */
-async function buildKvAuthHeaders(): Promise<Record<string, string>> {
-    const token = await getCurrentAccessToken();
-    return {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token ?? publicAnonKey}`,
-        'apikey': publicAnonKey,
-    };
-}
-
-// --- TYPES ---
+const KV_PROXY_URL = '/api/kv-proxy';
 /**
  * أنواع الإشعارات (events). كل واحدة تُشير إلى حدث ماضٍ يستحق علم المستخدم.
  *
@@ -205,9 +191,9 @@ async function persistAddedNotification(userId: string, notif: NotificationModel
         if (import.meta.env.DEV) return; // dev: محلياً فقط
         // prod: مزامنة مع KV proxy (محاولة non-blocking)
         try {
-            const headers = await buildKvAuthHeaders();
+            const headers = { 'Content-Type': 'application/json' };
             await SecureAPIClient.fetchSecure(
-                `https://${projectId}.supabase.co/functions/v1/make-server-f09713ba/kv-proxy`,
+                KV_PROXY_URL,
                 {
                     method: 'POST',
                     headers,
@@ -233,9 +219,9 @@ export const NotificationRepository = {
             return loadLocal(userId);
         }
         try {
-            const headers = await buildKvAuthHeaders();
-            const data = await SecureAPIClient.fetchSecure(
-                `https://${projectId}.supabase.co/functions/v1/make-server-f09713ba/kv-proxy`,
+            const headers = { 'Content-Type': 'application/json' };
+            const data = await SecureAPIClient.fetchSecure<{ value?: unknown }>(
+                KV_PROXY_URL,
                 {
                     method: 'POST',
                     headers,
@@ -244,7 +230,8 @@ export const NotificationRepository = {
                 '127.0.0.1',
             );
 
-            const remote = Array.isArray(data) ? (data as NotificationModel[]) : [];
+            const raw = data?.value;
+            const remote = Array.isArray(raw) ? (raw as NotificationModel[]) : [];
 
             if (remote.length > 0) {
                 saveLocal(userId, remote);
@@ -270,9 +257,9 @@ export const NotificationRepository = {
             return true;
         }
         try {
-            const headers = await buildKvAuthHeaders();
+            const headers = { 'Content-Type': 'application/json' };
             await SecureAPIClient.fetchSecure(
-                `https://${projectId}.supabase.co/functions/v1/make-server-f09713ba/kv-proxy`,
+                KV_PROXY_URL,
                 {
                     method: 'POST',
                     headers,
@@ -299,9 +286,9 @@ export const NotificationRepository = {
             return true;
         }
         try {
-            const headers = await buildKvAuthHeaders();
+            const headers = { 'Content-Type': 'application/json' };
             await SecureAPIClient.fetchSecure(
-                `https://${projectId}.supabase.co/functions/v1/make-server-f09713ba/kv-proxy`,
+                KV_PROXY_URL,
                 {
                     method: 'POST',
                     headers,
@@ -328,9 +315,9 @@ export const NotificationRepository = {
             return capped;
         }
         try {
-            const headers = await buildKvAuthHeaders();
+            const headers = { 'Content-Type': 'application/json' };
             await SecureAPIClient.fetchSecure(
-                `https://${projectId}.supabase.co/functions/v1/make-server-f09713ba/kv-proxy`,
+                KV_PROXY_URL,
                 {
                     method: 'POST',
                     headers,

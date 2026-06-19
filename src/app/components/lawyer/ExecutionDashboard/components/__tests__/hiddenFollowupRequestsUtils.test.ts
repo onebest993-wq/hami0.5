@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
     hasAnyHiddenFollowupContent,
+    isEmployeeCoerciveDetentionRestricted,
+    isPersonalCoerciveDetentionPathAllowedForDebtor,
     listHiddenGuarantorCatalog,
     listHiddenPersonalCoerciveCatalog,
     shouldAlwaysShowHiddenRequestsToggle,
@@ -45,6 +47,33 @@ const guarantorCtx = {
 };
 
 describe('hiddenFollowupRequestsUtils', () => {
+    it('allows detention paths for employee on custody removal only', () => {
+        expect(
+            isEmployeeCoerciveDetentionRestricted({
+                activeDebtorIsEmployee: true,
+                isCustodyRemovalClaim: false,
+            })
+        ).toBe(true);
+        expect(
+            isEmployeeCoerciveDetentionRestricted({
+                activeDebtorIsEmployee: true,
+                isCustodyRemovalClaim: true,
+            })
+        ).toBe(false);
+        expect(
+            isPersonalCoerciveDetentionPathAllowedForDebtor('executive_detention_judge', {
+                activeDebtorIsEmployee: true,
+                isCustodyRemovalClaim: true,
+            })
+        ).toBe(true);
+        expect(
+            isPersonalCoerciveDetentionPathAllowedForDebtor('executive_detention_judge', {
+                activeDebtorIsEmployee: true,
+                isCustodyRemovalClaim: false,
+            })
+        ).toBe(false);
+    });
+
     it('always shows toggle except for deceased debtor', () => {
         expect(shouldAlwaysShowHiddenRequestsToggle()).toBe(true);
         expect(shouldAlwaysShowHiddenRequestsToggle({ activeDebtorIsDeceased: true })).toBe(false);
@@ -87,6 +116,22 @@ describe('hiddenFollowupRequestsUtils', () => {
         expect(keys).not.toContain('arrest_warrant_investigation');
         expect(keys).not.toContain('executive_dossier_presentation');
         expect(keys).not.toContain('executive_detention_judge');
+    });
+
+    it('includes full personal coercive paths for employee on custody removal claim', () => {
+        const items = listHiddenPersonalCoerciveCatalog({
+            ...baseFlags,
+            showPersonalCoerciveFollowupTab: false,
+            activeDebtorIsEmployee: true,
+            isCustodyRemovalClaim: true,
+            showHiddenExecutiveDossierPresentation: true,
+        });
+        const keys = items.map((x) => x.key);
+        expect(keys).toContain('forced_bring_in');
+        expect(keys).toContain('travel_ban');
+        expect(keys).toContain('arrest_warrant_investigation');
+        expect(keys).toContain('executive_dossier_presentation');
+        expect(keys).toContain('executive_detention_judge');
     });
 
     it('hides guarantor seizure from buried list when shown in seizure tab (employee)', () => {

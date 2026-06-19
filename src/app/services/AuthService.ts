@@ -15,7 +15,7 @@ import { supabase } from '@/app/lib/supabase-client';
 import { debug } from '@/app/utils/debug';
 import SecureStoreService from './SecureStoreService';
 import { logAction } from '@/app/utils/auditLog';
-import { registerTokenSession, detectStolenToken } from './StolenTokenRegistry';
+import { registerTokenSession, detectStolenToken } from '@/app/security/stolenTokenClient';
 
 // =====================================================
 // Types
@@ -47,9 +47,25 @@ export interface SignupCredentials extends LoginCredentials {
   phone?: string;
 }
 
+function resolveUserRole(user: {
+  user_metadata?: unknown;
+  app_metadata?: unknown;
+}): User['role'] {
+  const appMeta = (user.app_metadata ?? {}) as Record<string, unknown>;
+  if (appMeta.systemRole === 'SUPER_ADMIN' || appMeta.role === 'SUPER_ADMIN') {
+    return 'admin';
+  }
+
+  const userMeta = (user.user_metadata ?? {}) as Record<string, unknown>;
+  const accountType = userMeta.accountType ?? userMeta.role;
+  if (accountType === 'client') return 'client';
+  if (accountType === 'lawyer') return 'lawyer';
+  return 'lawyer';
+}
+
 function coerceRole(value: unknown): User['role'] {
-  if (value === 'lawyer' || value === 'client' || value === 'admin') return value;
-  return 'client';
+  if (value === 'lawyer' || value === 'client') return value;
+  return 'lawyer';
 }
 
 function safeString(value: unknown): string | undefined {
@@ -215,7 +231,7 @@ export class AuthService {
       const user: User = {
         id: data.user.id,
         email: data.user.email || '',
-        role: coerceRole((data.user.user_metadata as Record<string, unknown> | null | undefined)?.role),
+        role: resolveUserRole(data.user),
         fullName: safeString((data.user.user_metadata as Record<string, unknown> | null | undefined)?.fullName),
         phone: safeString((data.user.user_metadata as Record<string, unknown> | null | undefined)?.phone),
         createdAt: data.user.created_at,
@@ -259,7 +275,7 @@ export class AuthService {
         options: {
           data: {
             fullName: credentials.fullName,
-            role: credentials.role,
+            accountType: credentials.role,
             phone: credentials.phone,
           },
         },
@@ -406,7 +422,7 @@ export class AuthService {
       const user: User = {
         id: data.session.user.id,
         email: data.session.user.email || '',
-        role: coerceRole((data.session.user.user_metadata as Record<string, unknown> | null | undefined)?.role),
+        role: resolveUserRole(data.session.user),
         fullName: safeString((data.session.user.user_metadata as Record<string, unknown> | null | undefined)?.fullName),
         phone: safeString((data.session.user.user_metadata as Record<string, unknown> | null | undefined)?.phone),
         createdAt: data.session.user.created_at,

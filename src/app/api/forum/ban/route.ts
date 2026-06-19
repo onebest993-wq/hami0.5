@@ -2,47 +2,27 @@ import {
   extractUserTokenFromRequest,
   isTokenAuthorized,
   verifyWifeSignature,
-  wifeForbiddenResponse,
+  wifeForbiddenResponse, wifeSignatureFailedResponse,
   wifeUnauthorizedResponse,
 } from '../../security/wifeValidator.ts';
 import { sanitizePayload } from '../../security/sanitizer.ts';
 import { ForumRepository } from '../../../services/forum/forumRepository.ts';
 import type { BanRecord } from '../../../services/lawyer-cloud.ts';
+import { getVerifiedTokenSubject } from '../../security/wifeValidator.ts';
+import { canManageForumAdmin } from '../adminAuth.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object';
 }
 
-function decodeJwtPayload(token: string): Record<string, unknown> | null {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    return JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-  } catch {
-    return null;
-  }
-}
-
-function isAdmin(token: string): boolean {
-  const payload = decodeJwtPayload(token);
-  if (!payload) return false;
-  const role = (payload as Record<string, unknown>).role;
-  const appMeta = payload.app_metadata as Record<string, unknown> | undefined;
-  const userMeta = payload.user_metadata as Record<string, unknown> | undefined;
-  return role === 'SUPER_ADMIN' || appMeta?.role === 'SUPER_ADMIN' || userMeta?.role === 'SUPER_ADMIN';
-}
-
-function getAdminUserId(token: string): string {
-  const payload = decodeJwtPayload(token);
-  return (payload?.sub as string) || '';
-}
-
 export async function GET(request: Request): Promise<Response> {
   try {
     const userToken = extractUserTokenFromRequest(request);
-    if (!userToken || !(await isTokenAuthorized(userToken))) return wifeUnauthorizedResponse();
-    if (!(await verifyWifeSignature(request, userToken))) return wifeForbiddenResponse();
-    if (!isAdmin(userToken)) {
+    if (!userToken || !(await isTokenAuthorized(userToken))) return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
+    if (!(await verifyWifeSignature(request, userToken))) return wifeSignatureFailedResponse(request);
+    const requesterId = await getVerifiedTokenSubject(userToken);
+    if (!requesterId) return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
+    if (!(await canManageForumAdmin(requesterId))) {
       return new Response(JSON.stringify({ ok: false, error: 'غير مصرح لك' }), {
         status: 403, headers: { 'Content-Type': 'application/json; charset=utf-8' },
       });
@@ -62,9 +42,11 @@ export async function GET(request: Request): Promise<Response> {
 export async function POST(request: Request): Promise<Response> {
   try {
     const userToken = extractUserTokenFromRequest(request);
-    if (!userToken || !(await isTokenAuthorized(userToken))) return wifeUnauthorizedResponse();
-    if (!(await verifyWifeSignature(request, userToken))) return wifeForbiddenResponse();
-    if (!isAdmin(userToken)) {
+    if (!userToken || !(await isTokenAuthorized(userToken))) return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
+    if (!(await verifyWifeSignature(request, userToken))) return wifeSignatureFailedResponse(request);
+    const requesterId = await getVerifiedTokenSubject(userToken);
+    if (!requesterId) return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
+    if (!(await canManageForumAdmin(requesterId))) {
       return new Response(JSON.stringify({ ok: false, error: 'غير مصرح لك' }), {
         status: 403, headers: { 'Content-Type': 'application/json; charset=utf-8' },
       });
@@ -87,7 +69,7 @@ export async function POST(request: Request): Promise<Response> {
         userId: payload.userId,
         userName: payload.userName,
         reason: payload.reason,
-        bannedBy: getAdminUserId(userToken),
+        bannedBy: requesterId,
         bannedAt: new Date().toISOString(),
         expiresAt: typeof payload.expiresAt === 'string' ? payload.expiresAt : undefined,
       };

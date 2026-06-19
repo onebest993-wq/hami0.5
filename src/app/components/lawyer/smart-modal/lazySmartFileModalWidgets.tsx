@@ -12,11 +12,16 @@ export const LazyQuickActions = lazy(() =>
 export const LazyToDoList = lazy(() =>
   import('./parts/ToDoList').then((m) => ({ default: m.ToDoList }))
 );
-export const LazyFastTrackPetitionsList = lazy(() =>
-  import('./parts/FastTrackPetitionsList').then((m) => ({ default: m.FastTrackPetitionsList }))
+export const LazySessionAndRequestsHub = lazy(() =>
+  import('./parts/SessionAndRequestsHub').then((m) => ({ default: m.SessionAndRequestsHub }))
 );
-export const LazyAttachmentShieldCard = lazy(() =>
-  import('./parts/AttachmentShieldCard').then((m) => ({ default: m.AttachmentShieldCard }))
+export const LazyCivilLawReferenceHub = lazy(() =>
+  import('./parts/CivilLawReferenceHub').then((m) => ({ default: m.CivilLawReferenceHub }))
+);
+export const LazyPersonalStatusLawReferenceHub = lazy(() =>
+  import('@/app/components/lawyer/personal-status/PersonalStatusLawReferenceHub').then((m) => ({
+    default: m.PersonalStatusLawReferenceHub,
+  }))
 );
 export const LazyIncidentalCasesManager = lazy(() =>
   import('./parts/IncidentalCasesManager').then((m) => ({ default: m.IncidentalCasesManager }))

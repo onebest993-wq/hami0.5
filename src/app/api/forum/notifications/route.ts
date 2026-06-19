@@ -3,7 +3,7 @@ import {
   getVerifiedTokenSubject,
   isTokenAuthorized,
   verifyWifeSignature,
-  wifeForbiddenResponse,
+  wifeForbiddenResponse, wifeSignatureFailedResponse,
   wifeUnauthorizedResponse,
 } from '../../security/wifeValidator.ts';
 import { sanitizePayload } from '../../security/sanitizer.ts';
@@ -16,11 +16,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export async function GET(request: Request): Promise<Response> {
   try {
     const userToken = extractUserTokenFromRequest(request);
-    if (!userToken || !(await isTokenAuthorized(userToken))) return wifeUnauthorizedResponse();
-    if (!(await verifyWifeSignature(request, userToken))) return wifeForbiddenResponse();
+    if (!userToken || !(await isTokenAuthorized(userToken))) return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
+    if (!(await verifyWifeSignature(request, userToken))) return wifeSignatureFailedResponse(request);
 
     const userId = await getVerifiedTokenSubject(userToken);
-    if (!userId) return wifeUnauthorizedResponse();
+    if (!userId) return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
 
     const notifications = await NotificationDB.getNotifications(userId);
     const unreadCount = await NotificationDB.getUnreadCount(userId);
@@ -38,11 +38,11 @@ export async function GET(request: Request): Promise<Response> {
 export async function POST(request: Request): Promise<Response> {
   try {
     const userToken = extractUserTokenFromRequest(request);
-    if (!userToken || !(await isTokenAuthorized(userToken))) return wifeUnauthorizedResponse();
-    if (!(await verifyWifeSignature(request, userToken))) return wifeForbiddenResponse();
+    if (!userToken || !(await isTokenAuthorized(userToken))) return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
+    if (!(await verifyWifeSignature(request, userToken))) return wifeSignatureFailedResponse(request);
 
     const userId = await getVerifiedTokenSubject(userToken);
-    if (!userId) return wifeUnauthorizedResponse();
+    if (!userId) return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
 
     const payload = sanitizePayload(await request.json());
     if (!isRecord(payload) || typeof payload.action !== 'string') {

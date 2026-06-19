@@ -1,7 +1,14 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { ChevronDown, Loader2, MessageSquare } from 'lucide-react';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 import { QuestionCard } from './QuestionCard';
+import {
+    FORUM_GHOST_BTN,
+    FORUM_INTERACT_BTN,
+    FORUM_PUBLISH_BTN_DISABLED,
+    FORUM_TEXT_MUTED,
+    FORUM_TEXT_PRIMARY,
+} from '../forumPlumTheme';
 
 interface ForumPostListProps {
     loadingPosts: boolean;
@@ -28,22 +35,22 @@ interface ForumPostListProps {
     onMuteUser?: (userId: string) => void;
 }
 
-export const ForumPostList = ({
+export const ForumPostList = memo(function ForumPostList({
     loadingPosts, hasMore, loadingMore, visiblePosts,
     currentUserId, onToggleUpvote, onImageClick, onCommentClick,
     onDelete, onEdit, onReport, onShare,
     onLoadMore,
     isAdmin, onTogglePin, onFollow, followingIds, userStats,
     bookmarkedIds, onToggleBookmark, onToggleLock, onMuteUser,
-}: ForumPostListProps) => {
+}: ForumPostListProps) {
     if (loadingPosts) {
         return (
             <div className="px-4 pb-4 space-y-4">
                 {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={`sk-${i}`} className="rounded-xl p-4 bg-white/5 border border-white/10">
-                        <div className="h-4 w-40 bg-white/10 rounded mb-3 animate-pulse" />
-                        <div className="h-4 w-full bg-white/10 rounded mb-2 animate-pulse" />
-                        <div className="h-4 w-2/3 bg-white/10 rounded animate-pulse" />
+                    <div key={`sk-${i}`} className="rounded-xl p-4 bg-[#38303E] border border-[#4A3D52]/50">
+                        <div className="h-4 w-40 bg-[#4A3D52]/40 rounded mb-3 animate-pulse" />
+                        <div className="h-4 w-full bg-[#4A3D52]/30 rounded mb-2 animate-pulse" />
+                        <div className="h-4 w-2/3 bg-[#4A3D52]/30 rounded animate-pulse" />
                     </div>
                 ))}
             </div>
@@ -54,11 +61,11 @@ export const ForumPostList = ({
         return (
             <div className="px-4 pb-4 space-y-4">
                 <div className="py-14 text-center">
-                    <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
-                        <MessageSquare size={36} className="text-white/20" />
+                    <div className="w-20 h-20 rounded-full bg-[#342C3A] border border-[#4A3D52]/40 flex items-center justify-center mx-auto mb-4">
+                        <MessageSquare size={36} className="text-[#F0B896]/30" />
                     </div>
-                    <h3 className="text-white font-bold text-lg mb-2">لا توجد استشارات حالياً</h3>
-                    <p className="text-white/40 text-sm">كُن أول من يطرح نقاشاً قانونياً!</p>
+                    <h3 className={`${FORUM_TEXT_PRIMARY} font-bold text-lg mb-2`}>لا توجد استشارات حالياً</h3>
+                    <p className={`${FORUM_TEXT_MUTED} text-sm`}>كُن أول من يطرح نقاشاً قانونياً!</p>
                 </div>
             </div>
         );
@@ -92,13 +99,14 @@ export const ForumPostList = ({
 
             {hasMore && (
                 <div className="flex justify-center pt-2 pb-4">
-                    <button type="button"
+                    <button
+                        type="button"
                         onClick={() => void onLoadMore()}
                         disabled={loadingMore}
-                        className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all ${
+                        className={`flex items-center gap-2 px-6 py-3 text-sm font-bold transition-all ${
                             loadingMore
-                                ? 'bg-white/5 text-white/30 cursor-not-allowed'
-                                : 'bg-[#25293C] border border-white/10 text-white/70 hover:text-white hover:border-white/20'
+                                ? FORUM_PUBLISH_BTN_DISABLED + ' rounded-xl'
+                                : FORUM_GHOST_BTN + ' ' + FORUM_INTERACT_BTN
                         }`}
                     >
                         {loadingMore ? (
@@ -117,4 +125,4 @@ export const ForumPostList = ({
             )}
         </div>
     );
-};
+});

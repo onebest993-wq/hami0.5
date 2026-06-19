@@ -1,5 +1,7 @@
-import { Scale, Gavel, HeartHandshake, Eye, FileText, Hammer } from 'lucide-react';
+import { Scale, FileText, Hammer } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+
+export type JurisdictionId = 'civil' | 'criminal' | 'personal';
 
 export interface MainGatewayItem {
     id: 'lawsuit' | 'transaction' | 'execution';
@@ -17,27 +19,23 @@ export const MAIN_GATEWAY: MainGatewayItem[] = [
 ];
 
 export interface JurisdictionItem {
-    id: string;
+    id: JurisdictionId;
     title: string;
-    subtitle: string;
-    icon: LucideIcon;
-    color: string;
 }
 
 export const JURISDICTIONS: JurisdictionItem[] = [
-    { id: 'civil', title: 'القضاء المدني', subtitle: 'بداءة، استئناف، عمل، تجارة', icon: Scale, color: '#E6C673' },
-    {
-        id: 'criminal',
-        title: 'القضاء الجزائي',
-        subtitle: 'تحقيق، جنح، جنايات، تمييز — الأحداث عبر بطاقة القاصر',
-        icon: Gavel,
-        color: '#EF4444',
-    },
-    { id: 'personal', title: 'الأحوال الشخصية', subtitle: 'قانون 2025، قانون 1959', icon: HeartHandshake, color: '#EC4899' },
-    { id: 'cassation', title: 'التمييز والتدقيق', subtitle: 'اتحادية، جنايات، استئناف', icon: Eye, color: '#8B5CF6' },
+    { id: 'civil', title: 'القضاء المدني' },
+    { id: 'criminal', title: 'القضاء الجزائي' },
+    { id: 'personal', title: 'الأحوال الشخصية' },
 ];
 
 // --- LOGIC CONSTANTS ---
 export const FIXED_FEE_KEYWORDS = ['مرور', 'مسيل', 'مجرى', 'شرب', 'تعلي', 'سفل', 'شرفات', 'نوافذ', 'حدود', 'جدران', 'استملاك'];
-export const LAST_DEGREE_EXCEPTIONS = ['شيوع', 'تخليي'];
-export const BLOCKED_WORDS = ['جنح', 'جنايات', 'تحقيق', 'أحوال', 'شرعي', 'شرعية', 'شخصية', 'جزاء', 'جزائية', 'إداري', 'إدارية', 'قضاء موظفين'];
+
+/** كلمات ممنوعة في كل الاختصاصات (عدا الجزائي المنفصل). */
+export const UNIVERSAL_BLOCKED_WORDS = ['جنح', 'جنايات', 'تحقيق', 'جزاء', 'جزائية', 'إداري', 'إدارية', 'موظفين', 'قضاء موظفين'];
+
+/** كلمات تُرفض في القضاء المدني فقط — مسموحة في الأحوال الشخصية. */
+export const CIVIL_ONLY_BLOCKED_WORDS = ['أحوال', 'شرعي', 'شرعية', 'شخصية'];
+
+export const BLOCKED_WORDS = [...UNIVERSAL_BLOCKED_WORDS, ...CIVIL_ONLY_BLOCKED_WORDS];

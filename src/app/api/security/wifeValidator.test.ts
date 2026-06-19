@@ -4,18 +4,26 @@ vi.mock('./wifeNonceStore', () => ({
   consumeNonceWithTtl: vi.fn(),
 }));
 
-vi.mock('@/app/services/StolenTokenRegistry', () => ({
-  detectStolenToken: vi.fn().mockResolvedValue({ status: 'valid' }),
-  registerTokenSession: vi.fn().mockResolvedValue(undefined),
+vi.mock('./stolenTokenServer', () => ({
+  detectStolenTokenServer: vi.fn().mockResolvedValue({ status: 'valid' }),
+  registerTokenSessionServer: vi.fn().mockResolvedValue(true),
+  extractDeviceIdFromRequest: vi.fn().mockReturnValue(''),
 }));
 
 import { verifyWifeSignature } from './wifeValidator.ts';
 import { consumeNonceWithTtl } from './wifeNonceStore.ts';
-import { createCsrfToken } from './csrfToken.ts';
 
 /** يجب أن يكون ≥ 20 حرفاً (getVerifiedTokenSubject) */
 const TOKEN = 'test-user-token-abcdefghijklmnopqrstuvwxyz';
 const USER_ID = 'user-1';
+const CSRF_TOKEN = 'AbCdEfGhIjKlMnOpQrStUvWxYz012345';
+
+function csrfHeaders(): { 'x-csrf-token': string; cookie: string } {
+  return {
+    'x-csrf-token': CSRF_TOKEN,
+    cookie: `hami_csrf_token=${encodeURIComponent(CSRF_TOKEN)}`,
+  };
+}
 
 function canonicalPathAndQuery(url: string): string {
   const resolved = new URL(url);
@@ -94,6 +102,7 @@ describe('verifyWifeSignature security checks', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.clearAllMocks();
+    process.env.NODE_ENV = 'test';
   });
 
   it('accepts a valid signed JSON request', async () => {
@@ -103,7 +112,7 @@ describe('verifyWifeSignature security checks', () => {
     const nonce = 'nonce_valid_12345';
     const body = '{"hello":"world"}';
     const signature = await signWifePayload({ method, url, timestamp, nonce, body, token: TOKEN });
-    const csrf = await createCsrfToken(TOKEN);
+    const csrf = csrfHeaders();
 
     const req = new Request(url, {
       method,
@@ -112,7 +121,8 @@ describe('verifyWifeSignature security checks', () => {
         'x-wife-signature': signature,
         'x-wife-timestamp': timestamp,
         'x-wife-nonce': nonce,
-        'x-csrf-token': csrf,
+        'x-csrf-token': csrf['x-csrf-token'],
+        cookie: csrf.cookie,
       },
       body,
     });
@@ -130,6 +140,8 @@ describe('verifyWifeSignature security checks', () => {
     const tamperedBody = '{"safe":false}';
     const signature = await signWifePayload({ method, url, timestamp, nonce, body: originalBody, token: TOKEN });
 
+    const csrf = csrfHeaders();
+
     const req = new Request(url, {
       method,
       headers: {
@@ -137,6 +149,8 @@ describe('verifyWifeSignature security checks', () => {
         'x-wife-signature': signature,
         'x-wife-timestamp': timestamp,
         'x-wife-nonce': nonce,
+        'x-csrf-token': csrf['x-csrf-token'],
+        cookie: csrf.cookie,
       },
       body: tamperedBody,
     });
@@ -155,6 +169,8 @@ describe('verifyWifeSignature security checks', () => {
     const body = '{"lawyer_id":"user-1"}';
     const signature = await signWifePayload({ method, url, timestamp, nonce, body, token: TOKEN });
 
+    const csrf = csrfHeaders();
+
     const req = new Request(url, {
       method,
       headers: {
@@ -162,6 +178,59 @@ describe('verifyWifeSignature security checks', () => {
         'x-wife-signature': signature,
         'x-wife-timestamp': timestamp,
         'x-wife-nonce': nonce,
+        'x-csrf-token': csrf['x-csrf-token'],
+        cookie: csrf.cookie,
+      },
+      body,
+    });
+
+    const valid = await verifyWifeSignature(req, TOKEN);
+    expect(valid).toBe(false);
+  });
+
+  it('rejects POST when CSRF header and cookie mismatch', async () => {
+    const url = 'https://example.test/api/requests/create';
+    const method = 'POST';
+    const timestamp = String(Date.now());
+    const nonce = 'nonce_csrf_mismatch_1';
+    const body = '{"x":1}';
+    const signature = await signWifePayload({ method, url, timestamp, nonce, body, token: TOKEN });
+
+    const req = new Request(url, {
+      method,
+      headers: {
+        'content-type': 'application/json',
+        'x-wife-signature': signature,
+        'x-wife-timestamp': timestamp,
+        'x-wife-nonce': nonce,
+        'x-csrf-token': CSRF_TOKEN,
+        cookie: 'hami_csrf_token=DifferentTokenValue1234567890',
+      },
+      body,
+    });
+
+    const valid = await verifyWifeSignature(req, TOKEN);
+    expect(valid).toBe(false);
+  });
+
+  it('rejects POST when CSRF cookie is missing in production mode', async () => {
+    process.env.NODE_ENV = 'production';
+
+    const url = 'https://example.test/api/requests/create';
+    const method = 'POST';
+    const timestamp = String(Date.now());
+    const nonce = 'nonce_csrf_prod_1';
+    const body = '{"x":1}';
+    const signature = await signWifePayload({ method, url, timestamp, nonce, body, token: TOKEN });
+
+    const req = new Request(url, {
+      method,
+      headers: {
+        'content-type': 'application/json',
+        'x-wife-signature': signature,
+        'x-wife-timestamp': timestamp,
+        'x-wife-nonce': nonce,
+        'x-csrf-token': CSRF_TOKEN,
       },
       body,
     });
@@ -201,7 +270,7 @@ describe('verifyWifeSignature security checks', () => {
       body: contentHash,
       token: TOKEN,
     });
-    const csrf = await createCsrfToken(TOKEN);
+    const csrf = csrfHeaders();
 
     const req = new Request(url, {
       method,
@@ -211,7 +280,8 @@ describe('verifyWifeSignature security checks', () => {
         'x-wife-timestamp': timestamp,
         'x-wife-nonce': nonce,
         'x-wife-content-hash': contentHash,
-        'x-csrf-token': csrf,
+        'x-csrf-token': csrf['x-csrf-token'],
+        cookie: csrf.cookie,
       },
       body: '--test-boundary\r\ncontent\r\n--test-boundary--',
     });
@@ -248,5 +318,39 @@ describe('verifyWifeSignature security checks', () => {
 
     const valid = await verifyWifeSignature(req, TOKEN);
     expect(valid).toBe(false);
+  });
+
+  it('rejects production POST when x-wife-device-id is missing (fail-closed binding)', async () => {
+    process.env.NODE_ENV = 'production';
+    const { extractDeviceIdFromRequest } = await import('./stolenTokenServer.ts');
+    vi.mocked(extractDeviceIdFromRequest).mockReturnValue('');
+
+    const url = 'https://example.test/api/forum/delete';
+    const body = '{"postId":"p1"}';
+    const timestamp = String(Date.now());
+    const nonce = 'nonce_prod_nodevice_1';
+    const signature = await signWifePayload({
+      method: 'POST',
+      url,
+      timestamp,
+      nonce,
+      body,
+      token: TOKEN,
+    });
+    const csrf = csrfHeaders();
+    const req = new Request(url, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-wife-signature': signature,
+        'x-wife-timestamp': timestamp,
+        'x-wife-nonce': nonce,
+        'x-csrf-token': csrf['x-csrf-token'],
+        cookie: csrf.cookie,
+      },
+      body,
+    });
+
+    expect(await verifyWifeSignature(req, TOKEN)).toBe(false);
   });
 });

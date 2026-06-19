@@ -1,5 +1,5 @@
 import { CryptoService } from './CryptoService';
-import { SecureAPIClient } from './SecureAPIClient';
+import { SecureAPIClient, getCurrentAccessToken } from './SecureAPIClient';
 import { RequestStatus, type LegalRequest, type LegalRequestAIMetadata } from '../types/admin-types';
 
 const DEV_REQUESTS_SESSION_KEY = 'hami:dev:requests:v1';
@@ -203,33 +203,43 @@ export class ClientRequestService {
   }
 
   static async getLawyerRequests(lawyerId: string): Promise<LegalRequest[]> {
-    const data = await SecureAPIClient.fetchSecure(
-      '/api/requests/list',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: new Blob([JSON.stringify({ lawyer_id: lawyerId })], { type: 'application/json' }),
+    const devOnly = (): LegalRequest[] =>
+      import.meta.env.DEV ? loadDevRequestsFromSession().filter((r) => r.lawyer_id === lawyerId) : [];
+
+    try {
+      const token = await getCurrentAccessToken();
+      if (!token) return devOnly();
+
+      const data = await SecureAPIClient.fetchSecure(
+        '/api/requests/list',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: new Blob([JSON.stringify({ lawyer_id: lawyerId })], { type: 'application/json' }),
+        },
+      );
+
+      const list = Array.isArray(data) ? data : isRecord(data) && Array.isArray(data.requests) ? data.requests : [];
+      const devList = import.meta.env.DEV ? loadDevRequestsFromSession().filter((r) => r.lawyer_id === lawyerId) : [];
+      const mergedById = new Map<string, unknown>();
+      for (const item of list) {
+        if (isLegalRequest(item)) mergedById.set(item.id, item);
       }
-    );
+      for (const item of devList) {
+        mergedById.set(item.id, item);
+      }
 
-    const list = Array.isArray(data) ? data : isRecord(data) && Array.isArray(data.requests) ? data.requests : [];
-    const devList = import.meta.env.DEV ? loadDevRequestsFromSession().filter((r) => r.lawyer_id === lawyerId) : [];
-    const mergedById = new Map<string, unknown>();
-    for (const item of list) {
-      if (isLegalRequest(item)) mergedById.set(item.id, item);
+      const out: LegalRequest[] = [];
+
+      for (const item of mergedById.values()) {
+        if (!isLegalRequest(item)) continue;
+        if (!isRequestStatus(item.status)) continue;
+        out.push(item);
+      }
+
+      return out;
+    } catch {
+      return devOnly();
     }
-    for (const item of devList) {
-      mergedById.set(item.id, item);
-    }
-
-    const out: LegalRequest[] = [];
-
-    for (const item of mergedById.values()) {
-      if (!isLegalRequest(item)) continue;
-      if (!isRequestStatus(item.status)) continue;
-      out.push(item);
-    }
-
-    return out;
   }
 }

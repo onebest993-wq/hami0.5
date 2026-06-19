@@ -23,6 +23,8 @@ export type LawyerNewCaseStructuredSave = {
     parties1: unknown[];
     parties2: unknown[];
     thirdParties?: unknown[];
+    isUndeterminedValue?: boolean;
+    isFixedFee?: boolean;
     details: Record<string, unknown>;
 };
 
@@ -40,6 +42,8 @@ export interface LawyerNewCaseProps extends ModalProps {
     presetSelectedType?: 'civil' | 'criminal' | 'personal' | 'administrative' | 'cassation' | 'special';
     /** فتح نموذج الإضبارة الجزائية في وضع إكمال التفريق (لا يمسّ المسودّة العادية). */
     criminalSeveranceFormMode?: boolean;
+    /** شريط تنقل توحيد الدعاوى ظاهر فوق النموذج */
+    consolidationNavActive?: boolean;
 }
 
 export interface CaseFormData {
@@ -76,35 +80,6 @@ export interface SmartFileModalProps extends ModalProps {
 export interface FileDisplayData extends CaseFile {
     activeStageIndex: number;
     viewingStageIndex: number;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// COMMUNITY SCREEN TYPES
-// ═══════════════════════════════════════════════════════════════════════════
-
-export interface CommunityScreenProps extends ModalProps {}
-
-export interface LegalQuestion {
-    id: string;
-    author: string;
-    avatar?: string;
-    question: string;
-    category: string;
-    timestamp: string;
-    upvotes: number;
-    answers: LegalAnswer[];
-    aiState: 'idle' | 'researching' | 'answered';
-    aiAnswer?: string;
-}
-
-export interface LegalAnswer {
-    id: string;
-    author: string;
-    avatar?: string;
-    content: string;
-    timestamp: string;
-    upvotes: number;
-    isExpert?: boolean;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

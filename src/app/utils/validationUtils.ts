@@ -140,7 +140,10 @@ export function validateJudgmentData(data: any): { valid: boolean; error?: strin
     if (!data.judgmentType) {
         return { valid: false, error: 'يجب اختيار نوع الحكم' };
     }
-    if (!data.judgmentForm) {
+    const stageName = String(data.stageName ?? '');
+    const isAppealOrCassationStage =
+        stageName.includes('استئناف') || stageName.includes('تمييز');
+    if (!isAppealOrCassationStage && !data.judgmentForm) {
         return { valid: false, error: 'يجب اختيار شكل الحكم' };
     }
     if (!data.judgmentDate || !isValidDate(data.judgmentDate)) {

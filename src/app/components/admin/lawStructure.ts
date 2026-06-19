@@ -1,11 +1,20 @@
 import {
+    CIVIL_PROCEDURE_LAW_CANONICAL_NAME,
+    EVIDENCE_LAW_CANONICAL_NAME,
     EXECUTION_LAW_CANONICAL_NAME,
     IRAQI_LAW_CANONICAL_NAMES,
 } from '@/app/constants/iraqiLawCatalog';
 import { buildExecutionLawAdminBrowseFilters } from '@/data/executionLawHierarchy';
+import { getLawTaxonomySectionFilters } from '@/app/components/lawyer/smart-modal/parts/civilLawTaxonomy';
 
 /** مفتاح القسم العام في شريط التصفية الهرمي */
-export type LawStructureSectionId = "execution" | "penal" | "procedure" | "juvenile";
+export type LawStructureSectionId =
+    | 'execution'
+    | 'penal'
+    | 'procedure'
+    | 'juvenile'
+    | 'civil_procedure'
+    | 'evidence';
 
 export type LawStructureFilter = {
     id: string;
@@ -69,6 +78,18 @@ export const LAW_STRUCTURE: Record<LawStructureSectionId, LawStructureSection> =
             { id: "juv-91-plus", label: "أحكام متفرقة", from: 91, to: 9999 },
         ],
     },
+    civil_procedure: {
+        id: "civil_procedure",
+        label: "المرافعات المدنية",
+        lawName: CIVIL_PROCEDURE_LAW_CANONICAL_NAME,
+        filters: getLawTaxonomySectionFilters('civil_procedure'),
+    },
+    evidence: {
+        id: "evidence",
+        label: "قانون الإثبات",
+        lawName: EVIDENCE_LAW_CANONICAL_NAME,
+        filters: getLawTaxonomySectionFilters('evidence'),
+    },
 };
 
 export const LAW_STRUCTURE_SECTION_IDS = Object.keys(LAW_STRUCTURE) as LawStructureSectionId[];
@@ -80,30 +101,13 @@ export type PinnedLawFilterPath = {
     filterId: string;
 };
 
-export function normalizeArabicDigits(input: string): string {
-    return input
-        .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
-        .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
-}
+import {
+    normalizeArabicDigits,
+    extractArticleSortNumber,
+    articleNumberInRange,
+} from '@/app/utils/articleNumberRange';
 
-/** استخراج أول عدد صحيح من رقم المادة للمقارنة العددية */
-export function extractArticleSortNumber(articleNumber: string): number | null {
-    const normalized = normalizeArabicDigits(String(articleNumber ?? "").trim());
-    const m = normalized.match(/\d+/);
-    if (!m) return null;
-    const n = Number.parseInt(m[0], 10);
-    return Number.isFinite(n) ? n : null;
-}
-
-export function articleNumberInRange(
-    articleNumber: string,
-    from: number,
-    to: number,
-): boolean {
-    const n = extractArticleSortNumber(articleNumber);
-    if (n === null) return false;
-    return n >= from && n <= to;
-}
+export { normalizeArabicDigits, extractArticleSortNumber, articleNumberInRange };
 
 export function readPinnedLawFilter(): PinnedLawFilterPath | null {
     if (typeof window === "undefined") return null;

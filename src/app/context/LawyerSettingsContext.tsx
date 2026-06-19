@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
 import { useAutoSave } from '@/app/hooks/useAutoSave';
 import type { ShapeKey, ThemeKey } from '@/app/types/common';
@@ -8,9 +8,15 @@ import {
     shouldAllowPush,
     invalidateLawyerSettingsCache,
     persistWallpaper,
+    loadPersistedWallpaper,
+    normalizeBackgroundPreset,
+    normalizeBackgroundPatternBlur,
+    normalizeBackgroundPatternOpacity,
     type AppSettingsState,
 } from '@/app/services/settings';
+import { LAWYER_THEME_TOKENS } from '@/app/services/settings/lawyerThemeTokens';
 import { clearStoredBiometricCredential } from '@/app/services/security/webAuthnLock';
+
 type LawyerSettingsContextValue = {
     settings: AppSettingsState;
     setSettings: React.Dispatch<React.SetStateAction<AppSettingsState>>;
@@ -25,57 +31,85 @@ type LawyerSettingsContextValue = {
 
 const LawyerSettingsContext = createContext<LawyerSettingsContextValue | null>(null);
 
-export function LawyerSettingsProvider({ children }: { children: React.ReactNode }) {
-    const [currentTheme, setCurrentTheme] = useState<ThemeKey>(
-        () => persistenceRepository.load<ThemeKey>('lawyer_theme') || 'gold',
+function loadInitialSettings(): AppSettingsState {
+    const migrated = migrateLawyerSettings(
+        persistenceRepository.load('lawyer_settings'),
+        persistenceRepository.load<ThemeKey>('lawyer_theme'),
+        persistenceRepository.load<ShapeKey>('lawyer_shape'),
     );
-    const [currentShape, setCurrentShape] = useState<ShapeKey>(
-        () => persistenceRepository.load<ShapeKey>('lawyer_shape') || 'pill',
-    );
+    const wallpaper = migrated.appearance.wallpaper ?? loadPersistedWallpaper();
+    return {
+        ...migrated,
+        appearance: {
+            ...migrated.appearance,
+            wallpaper,
+            backgroundPreset: normalizeBackgroundPreset(migrated.appearance.backgroundPreset),
+            backgroundPatternOpacity: normalizeBackgroundPatternOpacity(migrated.appearance.backgroundPatternOpacity),
+            backgroundPatternBlur: normalizeBackgroundPatternBlur(migrated.appearance.backgroundPatternBlur),
+        },
+    };
+}
 
-    const [settings, setSettings] = useState<AppSettingsState>(() =>
-        migrateLawyerSettings(
-            persistenceRepository.load('lawyer_settings'),
-            persistenceRepository.load<ThemeKey>('lawyer_theme'),
-            persistenceRepository.load<ShapeKey>('lawyer_shape'),
-        ),
-    );
+/** الصورة تُحفظ في lawyer_wallpaper — لا نكرّرها داخل lawyer_settings */
+function stripWallpaperForStorage(state: AppSettingsState): AppSettingsState {
+    if (!state.appearance.wallpaper) return state;
+    return { ...state, appearance: { ...state.appearance, wallpaper: undefined } };
+}
+
+export function LawyerSettingsProvider({ children }: { children: React.ReactNode }) {
+    const [settings, setSettings] = useState<AppSettingsState>(loadInitialSettings);
+    const [currentTheme, setCurrentThemeState] = useState<ThemeKey>(() => settings.appearance.theme);
+    const [currentShape, setCurrentShapeState] = useState<ShapeKey>(() => settings.appearance.shape);
 
     const autoSaveOn = settings.data.autoSave;
-    useAutoSave('lawyer_settings', settings, 2_000, autoSaveOn);
+    const settingsForPersistence = useMemo(() => stripWallpaperForStorage(settings), [settings]);
+    const settingsForPersistenceRef = useRef(settingsForPersistence);
+    settingsForPersistenceRef.current = settingsForPersistence;
+
+    useAutoSave('lawyer_settings', settingsForPersistence, 2_000, autoSaveOn);
     useAutoSave('lawyer_theme', currentTheme, 2_000, autoSaveOn);
     useAutoSave('lawyer_shape', currentShape, 2_000, autoSaveOn);
+
+    // تفضيلات البيانات تُحفظ فوراً — حتى مع إيقاف الحفظ التلقائي
+    useEffect(() => {
+        persistenceRepository.save('lawyer_settings', settingsForPersistenceRef.current);
+        invalidateLawyerSettingsCache();
+    }, [settings.data]);
 
     useEffect(() => {
         window.dispatchEvent(new CustomEvent('hami:settings-updated', { detail: settings }));
     }, [settings]);
-
-    const patchSettings = useCallback(
-        (patch: Partial<AppSettingsState> | ((prev: AppSettingsState) => AppSettingsState)) => {
-            setSettings((prev) => (typeof patch === 'function' ? patch(prev) : { ...prev, ...patch }));
-        },
-        [],
-    );
 
     useEffect(() => {
         invalidateLawyerSettingsCache();
         applySettingsToDom(settings);
     }, [settings]);
 
-    useEffect(() => {
-        if (settings.appearance.themeMode !== 'auto') return undefined;
-        const mq = window.matchMedia('(prefers-color-scheme: light)');
-        const onChange = () => applySettingsToDom(settings);
-        mq.addEventListener('change', onChange);
-        return () => mq.removeEventListener('change', onChange);
-    }, [settings, settings.appearance.themeMode]);
-
-    useEffect(() => {
+    const setCurrentTheme = useCallback((theme: ThemeKey) => {
+        setCurrentThemeState(theme);
+        const token = LAWYER_THEME_TOKENS[theme] ?? LAWYER_THEME_TOKENS.gold;
         setSettings((prev) => ({
             ...prev,
-            appearance: { ...prev.appearance, theme: currentTheme, shape: currentShape },
+            appearance: { ...prev.appearance, theme, brandColor: token.primary },
         }));
-    }, [currentTheme, currentShape]);
+    }, []);
+
+    const setCurrentShape = useCallback((shape: ShapeKey) => {
+        setCurrentShapeState(shape);
+        setSettings((prev) => ({ ...prev, appearance: { ...prev.appearance, shape } }));
+    }, []);
+
+    useEffect(() => {
+        if (settings.appearance.theme !== currentTheme) {
+            setCurrentThemeState(settings.appearance.theme);
+        }
+    }, [settings.appearance.theme, currentTheme]);
+
+    useEffect(() => {
+        if (settings.appearance.shape !== currentShape) {
+            setCurrentShapeState(settings.appearance.shape);
+        }
+    }, [settings.appearance.shape, currentShape]);
 
     useEffect(() => {
         const onVis = () => {
@@ -101,14 +135,22 @@ export function LawyerSettingsProvider({ children }: { children: React.ReactNode
         return undefined;
     }, [settings.security.screenshotDeterrent]);
 
+    const patchSettings = useCallback(
+        (patch: Partial<AppSettingsState> | ((prev: AppSettingsState) => AppSettingsState)) => {
+            setSettings((prev) => (typeof patch === 'function' ? patch(prev) : { ...prev, ...patch }));
+        },
+        [],
+    );
+
     const resetToDefaults = useCallback(() => {
         const migrated = migrateLawyerSettings(null);
         clearStoredBiometricCredential();
         persistWallpaper(undefined);
+        const stripped = stripWallpaperForStorage(migrated);
         setSettings(migrated);
-        setCurrentTheme(migrated.appearance.theme);
-        setCurrentShape(migrated.appearance.shape);
-        persistenceRepository.save('lawyer_settings', migrated);
+        setCurrentThemeState(migrated.appearance.theme);
+        setCurrentShapeState(migrated.appearance.shape);
+        persistenceRepository.save('lawyer_settings', stripped);
         persistenceRepository.save('lawyer_theme', migrated.appearance.theme);
         persistenceRepository.save('lawyer_shape', migrated.appearance.shape);
         invalidateLawyerSettingsCache();
@@ -127,7 +169,7 @@ export function LawyerSettingsProvider({ children }: { children: React.ReactNode
             pushAllowed: shouldAllowPush(settings),
             resetToDefaults,
         }),
-        [settings, patchSettings, currentTheme, currentShape, resetToDefaults],
+        [settings, patchSettings, currentTheme, currentShape, setCurrentTheme, setCurrentShape, resetToDefaults],
     );
 
     return <LawyerSettingsContext.Provider value={value}>{children}</LawyerSettingsContext.Provider>;

@@ -1,99 +1,529 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, AlertTriangle, Archive, Clock, Gavel, Check } from 'lucide-react';
+import {
+    isNonMeritTerminationType,
+    isSulhJudgmentType,
+    isFirstInstanceStageName,
+    resolveLawyerSide,
+    resolveFirstInstanceHadoriAppealRights,
+    resolveJudgmentAppealHintForLawyer,
+    JUDGMENT_TYPE_WAIVER,
+} from './smartFile/judgmentTypes';
+import {
+    absentObjectionJudgmentOptions,
+    isAbsentObjectionStageName,
+} from './smartFile/absentJudgmentFlow';
+import {
+    hasInterpleaderParties,
+    interpleaderFirstInstanceJudgmentOptions,
+    interpleaderTerminationJudgmentOptions,
+    type JudgmentOptionWithHint,
+} from './smartFile/interpleaderJudgmentEngine';
+import { filterPetitionVoidFromJudgmentOptions } from './smartFile/petitionVoidFlow';
+import {
+    useJudgmentModalStyles,
+    type JudgmentModalStyles,
+} from './smartFile/smartModalChrome';
+import {
+    X,
+    Gavel,
+    Scale,
+    CalendarDays,
+    Users,
+    UserX,
+    Info,
+    ShieldAlert,
+    Trophy,
+    ArrowLeftRight,
+    Stamp,
+    ChevronDown,
+    Check,
+    Clock,
+} from 'lucide-react';
 
 interface SmartJudgmentModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (data: any) => void;
+    onConfirm: (data: any) => boolean | void;
     currentParties: any[];
     currentStage: string;
     representedParty?: string;
 }
 
-export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({ 
-    isOpen, 
-    onClose, 
+const GLASS_BTN =
+    'w-full py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 border';
+const GLASS_BTN_GOLD = `${GLASS_BTN} bg-[#E6C673]/12 border-[#E6C673]/30 text-[#E6C673] hover:bg-[#E6C673]/22`;
+const GLASS_BTN_NEUTRAL = `${GLASS_BTN} bg-white/[0.04] border-white/[0.1] text-white/80 hover:bg-white/[0.08] hover:text-white`;
+const GLASS_BTN_INDIGO = `${GLASS_BTN} bg-indigo-500/10 border-indigo-400/25 text-indigo-200 hover:bg-indigo-500/18`;
+const GLASS_BTN_ROSE = `${GLASS_BTN} bg-rose-500/10 border-rose-400/25 text-rose-200 hover:bg-rose-500/18`;
+const GLASS_BTN_EMERALD = `${GLASS_BTN} bg-emerald-500/10 border-emerald-400/25 text-emerald-200 hover:bg-emerald-500/18`;
+
+type JudgmentOption = JudgmentOptionWithHint;
+
+function enrichJudgmentOptionsWithAppealHints(
+    options: JudgmentOption[],
+    lawyerSide: 'المدعي' | 'المدعى عليه' | null,
+    parties?: any[],
+    representedParty?: string,
+): JudgmentOption[] {
+    return options.map((opt) => {
+        const appealHint = resolveJudgmentAppealHintForLawyer(opt.value, lawyerSide, {
+            parties,
+            representedParty,
+        });
+        if (!appealHint) return opt;
+        const existing = opt.hint?.trim();
+        return {
+            ...opt,
+            hint: existing ? `${existing} · ${appealHint}` : appealHint,
+        };
+    });
+}
+
+function judgmentOptionsForStage(currentStage: string, parties?: any[]): JudgmentOption[] {
+    if (isAbsentObjectionStageName(currentStage)) {
+        return absentObjectionJudgmentOptions();
+    }
+    if (currentStage === 'التمييز') {
+        return [
+            { value: 'تصديق الحكم', label: 'تصديق الحكم (Ratification)' },
+            { value: 'نقض الحكم وإعادة الإضبارة', label: 'نقض الحكم وإعادة الإضبارة (Quash & Remand)' },
+            { value: 'رد الطعن التمييزي شكلاً', label: 'رد الطعن التمييزي شكلاً' },
+        ];
+    }
+    if (currentStage === 'الاستئناف') {
+        return [
+            { value: 'تأييد الحكم المستأنف ورد الاستئناف', label: 'تأييد الحكم المستأنف ورد الاستئناف' },
+            { value: 'فسخ الحكم المستأنف كلياً', label: 'فسخ الحكم المستأنف كلياً' },
+            { value: 'فسخ الحكم المستأنف جزئياً', label: 'فسخ الحكم المستأنف جزئياً' },
+            { value: 'رد الاستئناف شكلاً', label: 'رد الاستئناف شكلاً' },
+        ];
+    }
+    if (hasInterpleaderParties(parties)) {
+        return [
+            ...interpleaderFirstInstanceJudgmentOptions(),
+            ...interpleaderTerminationJudgmentOptions(),
+        ];
+    }
+    return [
+        { value: 'إجابة الدعوى بالكامل', label: 'إجابة الدعوى بالكامل (كسب الدعوى)' },
+        { value: 'رد الدعوى كلياً', label: 'رد الدعوى كلياً (خسارة الدعوى)' },
+        { value: 'رد الدعوى جزئياً', label: 'رد الدعوى جزئياً (كسب/خسارة جزئية)' },
+        { value: 'الصلح', label: 'الصلح' },
+        { value: 'التنازل عن الدعوى', label: 'التنازل عن الدعوى' },
+    ];
+}
+
+function DiamondJudgmentPicker({
+    value,
+    onChange,
+    options,
+    styles: s,
+}: {
+    value: string;
+    onChange: (value: string) => void;
+    options: JudgmentOption[];
+    styles: JudgmentModalStyles;
+}) {
+    const [open, setOpen] = useState(false);
+    const [menuStyle, setMenuStyle] = useState<{
+        top: number;
+        left: number;
+        width: number;
+        maxHeight: number;
+    } | null>(null);
+    const triggerRef = useRef<HTMLButtonElement>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
+    const selected = options.find((o) => o.value === value);
+
+    const updateMenuPosition = useCallback(() => {
+        const trigger = triggerRef.current;
+        if (!trigger) return;
+
+        const rect = trigger.getBoundingClientRect();
+        const gap = 8;
+        const padding = 12;
+        const preferredMax = 240;
+        const spaceBelow = window.innerHeight - rect.bottom - gap - padding;
+        const spaceAbove = rect.top - gap - padding;
+
+        let maxHeight = Math.min(preferredMax, Math.max(spaceBelow, 0));
+        let top = rect.bottom + gap;
+
+        if (maxHeight < 120 && spaceAbove > spaceBelow) {
+            maxHeight = Math.min(preferredMax, spaceAbove);
+            top = Math.max(padding, rect.top - gap - maxHeight);
+        }
+
+        setMenuStyle({
+            top,
+            left: rect.left,
+            width: rect.width,
+            maxHeight: Math.max(maxHeight, 120),
+        });
+    }, []);
+
+    useEffect(() => {
+        if (!open) {
+            setMenuStyle(null);
+            return;
+        }
+        updateMenuPosition();
+        const onReposition = () => updateMenuPosition();
+        window.addEventListener('resize', onReposition);
+        window.addEventListener('scroll', onReposition, true);
+        return () => {
+            window.removeEventListener('resize', onReposition);
+            window.removeEventListener('scroll', onReposition, true);
+        };
+    }, [open, updateMenuPosition]);
+
+    useEffect(() => {
+        if (!open) return;
+        const onPointerDown = (event: MouseEvent) => {
+            const target = event.target as Node;
+            if (triggerRef.current?.contains(target)) return;
+            if (menuRef.current?.contains(target)) return;
+            setOpen(false);
+        };
+        document.addEventListener('mousedown', onPointerDown);
+        return () => document.removeEventListener('mousedown', onPointerDown);
+    }, [open]);
+
+    const menuPortal = open && menuStyle && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+                ref={menuRef}
+                role="listbox"
+                dir="rtl"
+                style={{
+                    position: 'fixed',
+                    top: menuStyle.top,
+                    left: menuStyle.left,
+                    width: menuStyle.width,
+                    maxHeight: menuStyle.maxHeight,
+                    zIndex: 260,
+                }}
+                className={s.diamondMenu}
+            >
+                <button
+                    type="button"
+                    role="option"
+                    aria-selected={!value}
+                    onClick={() => {
+                        onChange('');
+                        setOpen(false);
+                    }}
+                    className={!value ? s.diamondOptionActive : s.diamondOptionIdle}
+                >
+                    <span className="truncate">اختر النتيجة...</span>
+                    {!value ? <Check size={14} className={`shrink-0 ${s.accentCheck}`} /> : null}
+                </button>
+                {options.map((option) => {
+                    const isActive = value === option.value;
+                    return (
+                        <button
+                            key={option.value}
+                            type="button"
+                            role="option"
+                            aria-selected={isActive}
+                            onClick={() => {
+                                onChange(option.value);
+                                setOpen(false);
+                            }}
+                            className={isActive ? s.diamondOptionActive : s.diamondOptionIdle}
+                        >
+                            <span className="min-w-0 flex-1 text-right">
+                                <span className="block truncate">{option.label}</span>
+                                {option.hint ? (
+                                    <span className="block text-[10px] font-normal text-white/35 truncate mt-0.5">
+                                        {option.hint}
+                                    </span>
+                                ) : null}
+                            </span>
+                            {isActive ? <Check size={14} className={`shrink-0 ${s.accentCheck}`} /> : null}
+                        </button>
+                    );
+                })}
+            </div>,
+            document.body,
+        )
+        : null;
+
+    return (
+        <>
+            <button
+                ref={triggerRef}
+                type="button"
+                aria-expanded={open}
+                aria-haspopup="listbox"
+                onClick={() => {
+                    if (open) {
+                        setOpen(false);
+                        return;
+                    }
+                    updateMenuPosition();
+                    setOpen(true);
+                }}
+                className={s.diamondTrigger}
+            >
+                <span className={`min-w-0 flex-1 truncate ${value ? 'text-white' : 'text-white/40'}`}>
+                    {selected ? (
+                        <>
+                            <span className="block truncate">{selected.label}</span>
+                            {selected.hint ? (
+                                <span className="block text-[10px] font-normal text-white/35 truncate mt-0.5">
+                                    {selected.hint}
+                                </span>
+                            ) : null}
+                        </>
+                    ) : (
+                        'اختر النتيجة...'
+                    )}
+                </span>
+                <ChevronDown
+                    size={16}
+                    className={`shrink-0 ${s.accentChevron} transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+                />
+            </button>
+            {menuPortal}
+        </>
+    );
+}
+
+export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
+    isOpen,
+    onClose,
     onConfirm,
     currentParties,
     currentStage,
-    representedParty
+    representedParty,
 }) => {
+    const s = useJudgmentModalStyles();
     const [judgmentType, setJudgmentType] = useState<string>('');
-    const [judgmentForm, setJudgmentForm] = useState<string>('حضوري'); // Default: Presence
+    const [judgmentForm, setJudgmentForm] = useState<string>('حضوري');
     const [nextStage, setNextStage] = useState<string>('');
     const [judgmentDate, setJudgmentDate] = useState<string>(getLocalTodayYmd());
-    const [notes, setNotes] = useState<string>('');
-    
-    // Determine Role (Strict Asymmetric Logic)
-    const isPlaintiffLawyer = representedParty === 'المدعي';
-    const isDefendantLawyer = representedParty === 'المدعى عليه';
-    
-    // 🔥 NEW: Appellate Roles (for Appeal Stage)
-    const myClientRole = currentParties?.find(p => p.role?.includes(representedParty || ''))?.role || '';
-    const isAppellantLawyer = myClientRole.includes('مستأنف') && !myClientRole.includes('مستأنف عليه'); // Attacking the judgment
-    const isAppelleeLawyer = myClientRole.includes('مستأنف عليه'); // Defending the judgment
 
-    // Handle judgment type change
+    const lawyerSide = useMemo(
+        () => resolveLawyerSide(representedParty, currentParties),
+        [representedParty, currentParties],
+    );
+    const isPlaintiffLawyer = lawyerSide === 'المدعي';
+    const isDefendantLawyer = lawyerSide === 'المدعى عليه';
+
+    const myClientRole = currentParties?.find(
+        (p) => p.isClient || p.lawyer?.isMyOffice || p.isMyOffice,
+    )?.role
+        || currentParties?.find((p) => p.role?.includes(representedParty || ''))?.role
+        || '';
+    const isAppellantLawyer = myClientRole.includes('مستأنف') && !myClientRole.includes('مستأنف عليه');
+    const isAppelleeLawyer = myClientRole.includes('مستأنف عليه');
+    const judgmentOptions = useMemo(() => {
+        const base = filterPetitionVoidFromJudgmentOptions(
+            judgmentOptionsForStage(currentStage, currentParties),
+        );
+        if (!isFirstInstanceStageName(currentStage) || isAbsentObjectionStageName(currentStage)) {
+            return base;
+        }
+        return enrichJudgmentOptionsWithAppealHints(
+            base,
+            lawyerSide,
+            currentParties,
+            representedParty,
+        );
+    }, [currentStage, currentParties, lawyerSide, representedParty]);
+    const hasInterpleaderCase = useMemo(
+        () => hasInterpleaderParties(currentParties),
+        [currentParties],
+    );
+    const isAbsentObjectionStage = isAbsentObjectionStageName(currentStage);
+    const isFirstInstance = isFirstInstanceStageName(currentStage);
+    const showJudgmentFormToggle = s.isPearl
+        ? isFirstInstance && !isAbsentObjectionStage
+        : Boolean(currentStage?.includes('بداءة'));
+
     const handleJudgmentChange = (value: string) => {
         setJudgmentType(value);
-        setNextStage(''); 
+        setNextStage('');
     };
 
     const handleSaveJudgment = (actionType: string) => {
         let finalAction = 'waiting_for_appeal';
         let calculatedNextStage = nextStage;
         let openObjectionModal = false;
-        let openAppealTransitionModal = false; // 🔥 NEW FLAG
+        let openAppealTransitionModal = false;
+        let openRegisterOpponentAppealModal = false;
 
-        // Map UI Actions to System Actions
         if (actionType === 'appeal') {
-             // 🔥 NEW: Instead of checking nextStage, we open AppealTransitionModal
-             openAppealTransitionModal = true;
-             finalAction = 'waiting_for_appeal'; // Temporary state until user completes transition modal
+            openAppealTransitionModal = true;
+            finalAction = 'waiting_for_appeal';
         } else if (actionType === 'objection') {
-             // For objection: Save default judgment -> Open Objection Modal
-             finalAction = 'waiting_for_appeal';
-             openObjectionModal = true;
+            finalAction = 'waiting_for_appeal';
+            openObjectionModal = true;
         } else if (actionType === 'wait' || actionType === 'wait_objection') {
-             finalAction = 'waiting_for_appeal';
+            finalAction = 'waiting_for_appeal';
+        } else if (actionType === 'register_opponent_appeal') {
+            finalAction = 'waiting_for_appeal';
+            openRegisterOpponentAppealModal = true;
         } else if (actionType === 'wait_cassation') {
-             // 🔥 NEW: Appellate stage - won the appeal, waiting for opponent's cassation
-             finalAction = 'waiting_for_cassation';
-        } else if (actionType === 'transition_to_cassation') {
-             // 🔥 NEW: Appellate stage - lost the appeal, transitioning to cassation
-             openAppealTransitionModal = true;
-             finalAction = 'waiting_for_cassation';
+            finalAction = 'waiting_for_cassation';
+        } else if (actionType === 'finalize_non_merit') {
+            finalAction = 'finalize_non_merit';
         } else if (actionType === 'final_ratification' || actionType === 'remand_to_lower' || actionType === 'correction_request') {
-             // 🔥 NEW: Cassation final outcomes
-             finalAction = actionType;
+            finalAction = actionType;
         }
 
-        onConfirm({
+        const saved = onConfirm({
             action: finalAction,
             judgmentType,
-            judgmentForm,
+            judgmentForm: showJudgmentFormToggle ? judgmentForm : (judgmentForm || 'حضوري'),
             judgmentDate,
-            notes,
+            notes: '',
             nextStage: calculatedNextStage,
+            stageName: currentStage,
             openObjectionModal,
-            openAppealTransitionModal, // 🔥 NEW FIELD
-            isPleadingsClosed: true, 
-            lastJudgmentType: judgmentForm
+            openAppealTransitionModal,
+            openRegisterOpponentAppealModal,
+            isPleadingsClosed: true,
+            lastJudgmentType: judgmentForm,
         });
-        onClose();
+        if (saved !== false) onClose();
     };
 
     const handleArchiveAnnulled = () => {
         onConfirm({
             action: 'archive_annulled',
             judgmentType,
-            judgmentForm: currentStage?.includes('بداءة') ? judgmentForm : undefined,
+            judgmentForm: showJudgmentFormToggle ? judgmentForm : undefined,
             judgmentDate,
-            notes
+            notes: '',
         });
         onClose();
+    };
+
+    const handleWaitForOpponent = () => {
+        const rights = resolveFirstInstanceHadoriAppealRights(judgmentType, lawyerSide, {
+            parties: currentParties,
+            representedParty,
+        });
+        const confirmed = window.confirm(
+            `سيتم قفل مرحلة المرافعة وحفظ الحكم.\n\n${rights.hint}\n\nتبقى الملاحظات والمستندات والسجل الزمني ظاهرة حتى تسجّل طعن الخصم.\n\nهل تريد المتابعة؟`,
+        );
+        if (!confirmed) return;
+        handleSaveJudgment('wait');
+    };
+
+    const hadoriAppealRights = useMemo(
+        () =>
+            resolveFirstInstanceHadoriAppealRights(judgmentType, lawyerSide, {
+                parties: currentParties,
+                representedParty,
+            }),
+        [judgmentType, lawyerSide, currentParties, representedParty],
+    );
+
+    const btnGold = s.isPearl ? s.btnPrimary : GLASS_BTN_GOLD;
+    const btnNeutral = s.isPearl ? s.btnNeutral : GLASS_BTN_NEUTRAL;
+    const btnWait = s.isPearl ? s.btnWait : GLASS_BTN_INDIGO;
+    const waitHintFallback = s.isPearl
+        ? 'سيُقفل الملف بانتظار انتهاء المدة القانونية لطعن الخصم.'
+        : 'سيُقفل ملف البداءة بانتظار انتهاء المدة القانونية لطعن الخصم.';
+    const selfAppealHintFallback = s.isPearl
+        ? 'يحق لموكلك الطعن — سجّل نوع الطعن في بوابة الانتقال'
+        : 'يحق لموكلك الطعن — اختر الاستئناف أو التمييز في بوابة الانتقال';
+    const appealTransitionLabel = s.isPearl
+        ? 'حفظ والانتقال لمرحلة الطعن'
+        : 'حفظ والانتقال لمرحلة الطعن (استئناف/تمييز)';
+    const loserAppealHint = s.isPearl
+        ? 'إن كنت الخاسر — يحق لك الطعن'
+        : 'إن كنت الخاسر — يحق لك الطعن بالاستئناف أو التمييز';
+
+    const plaintiffWaitAppealBlock = (
+        <div className={s.waitBox}>
+            <p className={`${s.hint} border-0 bg-transparent p-0 ${s.waitHintText} justify-center`}>
+                <Clock size={14} className={`shrink-0 ${s.waitHintIcon}`} />
+                {hadoriAppealRights.hint || waitHintFallback}
+            </p>
+            <button type="button" onClick={handleWaitForOpponent} className={btnWait}>
+                <Clock size={16} />
+                حفظ الحكم وانتظار طعن الخصم
+            </button>
+        </div>
+    );
+
+    const plaintiffNonMeritFinalizeBlock = (
+        <div className="flex flex-col gap-2">
+            <p className={`${s.hint} text-emerald-300/85 border-emerald-500/15 justify-center`}>
+                <Trophy size={14} className="shrink-0 text-emerald-400/80" />
+                إنهاء نهائي — مكتسبة الدرجة القطعية
+            </p>
+            <button type="button" onClick={() => handleSaveJudgment('finalize_non_merit')} className={GLASS_BTN_EMERALD}>
+                <Stamp size={16} />
+                ختم الإضبارة (مكتسبة الدرجة القطعية)
+            </button>
+        </div>
+    );
+
+    const defendantAppealBlock = (
+        <div className="flex flex-col gap-2">
+            <p className={`${s.hint} text-rose-300/85 border-rose-500/15 justify-center`}>
+                <ShieldAlert size={14} className="shrink-0 text-rose-400/80" />
+                {hadoriAppealRights.hint || selfAppealHintFallback}
+            </p>
+            <button
+                type="button"
+                onClick={() => handleSaveJudgment('appeal')}
+                className={btnGold}
+            >
+                {appealTransitionLabel}
+            </button>
+        </div>
+    );
+
+    const renderFirstInstanceHadoriAppealActions = () => {
+        switch (hadoriAppealRights.action) {
+            case 'wait_opponent':
+                return plaintiffWaitAppealBlock;
+            case 'self_appeal':
+                return defendantAppealBlock;
+            case 'finalize_non_merit':
+                return plaintiffNonMeritFinalizeBlock;
+            case 'both_paths':
+                return (
+                    <div className="flex flex-col gap-3">
+                        <div className={s.waitBox}>
+                            <p className={`${s.hint} border-0 bg-transparent p-0 ${s.waitHintText} justify-center`}>
+                                <Clock size={14} className={`shrink-0 ${s.waitHintIcon}`} />
+                                إن كنت الكاسب — لا يحق لك الطعن، انتظر طعن الخصم
+                            </p>
+                            <button type="button" onClick={handleWaitForOpponent} className={btnWait}>
+                                <Clock size={16} />
+                                حفظ الحكم وانتظار طعن الخصم
+                            </button>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            <p className={`${s.hint} text-rose-300/85 border-rose-500/15 justify-center`}>
+                                <ShieldAlert size={14} className="shrink-0 text-rose-400/80" />
+                                {loserAppealHint}
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => handleSaveJudgment('appeal')}
+                                className={btnGold}
+                            >
+                                {appealTransitionLabel}
+                            </button>
+                        </div>
+                    </div>
+                );
+            case 'none':
+                return null;
+            default:
+                return null;
+        }
     };
 
     if (!isOpen) return null;
@@ -101,327 +531,216 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
     return (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-['Tajawal']">
+                <div className={s.overlay} dir="rtl">
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                        initial={{ opacity: 0, scale: 0.96, y: 12 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                        className="w-full max-w-2xl bg-gradient-to-br from-[#1A1E2E] to-[#0F121E] rounded-2xl border border-[#E6C673]/30 shadow-2xl shadow-[#E6C673]/10 overflow-hidden"
+                        exit={{ opacity: 0, scale: 0.96, y: 12 }}
+                        className={s.shell}
                     >
-                        {/* Header */}
-                        <div className="bg-gradient-to-r from-[#E6C673] to-[#B45309] p-6 relative">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-                                        <Gavel size={24} className="text-white" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-white text-2xl font-bold">ختم المرافعة وقرار الحكم</h2>
-                                    </div>
-                                </div>
-                                <button type="button"
-                                    onClick={onClose}
-                                    className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center text-white transition-all"
-                                >
-                                    <X size={20} />
-                                </button>
+                        <div className={s.header}>
+                            <div className="flex items-center gap-3 min-w-0">
+                                <span className={s.headerIconWrap}>
+                                    <Gavel size={18} className={s.headerIcon} />
+                                </span>
+                                <h2 className={s.headerTitle}>
+                                    {isAbsentObjectionStage
+                                        ? 'ختام المرافعة وقرار الاعتراض'
+                                        : 'ختم المرافعة وقرار الحكم'}
+                                </h2>
                             </div>
+                            <button type="button" onClick={onClose} className={s.closeBtn} aria-label="إغلاق">
+                                <X size={18} />
+                            </button>
                         </div>
 
-                        {/* Form */}
-                        <div className="p-6 space-y-6">
-                            {/* Field 0: Judgment Form (Conditional - ONLY for First Instance "Bada'a") */}
-                            {currentStage?.includes('بداءة') && (
-                                <div>
-                                    <label className="text-sm font-bold text-slate-300 mb-2 block">شكل الحكم</label>
-                                    <div className="flex gap-3 w-full mb-4">
-                                        <button type="button"
+                        <div className={s.body}>
+                            {showJudgmentFormToggle && (
+                                <div className={s.section}>
+                                    <label className={s.label}>
+                                        <Scale size={13} className={s.labelIcon} />
+                                        شكل الحكم
+                                    </label>
+                                    <div className="flex gap-2 w-full">
+                                        <button
+                                            type="button"
                                             onClick={() => setJudgmentForm('حضوري')}
-                                            className={`flex-1 py-2 px-4 rounded-lg text-sm transition-all ${
-                                                judgmentForm === 'حضوري'
-                                                    ? 'bg-amber-500/10 border border-amber-500/50 text-amber-400 font-bold shadow-[0_0_10px_rgba(245,158,11,0.1)]'
-                                                    : 'bg-slate-900/50 border border-slate-700 text-slate-400 hover:bg-slate-800'
+                                            className={`${s.toggle} ${
+                                                judgmentForm === 'حضوري' ? s.toggleActive : s.toggleIdle
                                             }`}
                                         >
+                                            <Users size={14} />
                                             حكم حضوري
                                         </button>
-                                        <button type="button"
+                                        <button
+                                            type="button"
                                             onClick={() => setJudgmentForm('غيابي')}
-                                            className={`flex-1 py-2 px-4 rounded-lg text-sm transition-all ${
-                                                judgmentForm === 'غيابي'
-                                                    ? 'bg-amber-500/10 border border-amber-500/50 text-amber-400 font-bold shadow-[0_0_10px_rgba(245,158,11,0.1)]'
-                                                    : 'bg-slate-900/50 border border-slate-700 text-slate-400 hover:bg-slate-800'
+                                            className={`${s.toggle} ${
+                                                judgmentForm === 'غيابي' ? s.toggleActive : s.toggleIdle
                                             }`}
                                         >
+                                            <UserX size={14} />
                                             حكم غيابي
                                         </button>
                                     </div>
                                 </div>
                             )}
 
-                            {/* Field 1: Judgment Type (Dropdown) - STRICT VALUES */}
-                            <div>
-                                <label className="block text-white/80 font-bold mb-2 flex items-center gap-2">
-                                    <span className="text-[#E6C673]">⚖️</span>
-                                    قرار الحكم (نتيجة الدعوى)
+                            <div className={s.diamondSection}>
+                                <label className={s.label}>
+                                    <Scale size={13} className={s.labelIcon} />
+                                    {isAbsentObjectionStage
+                                        ? 'قرار الحكم في الاعتراض على الحكم الغيابي'
+                                        : 'قرار الحكم (نتيجة الدعوى)'}
                                 </label>
-                                <select
+                                <DiamondJudgmentPicker
                                     value={judgmentType}
-                                    onChange={(e) => handleJudgmentChange(e.target.value)}
-                                    className="w-full bg-[#0A1128] border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#E6C673] focus:outline-none transition-all"
-                                >
-                                    <option value="">اختر النتيجة...</option>
-                                    
-                                    {/* 🔥 DYNAMIC OPTIONS: First Instance vs Appellate Court vs Cassation */}
-                                    {currentStage === 'التمييز' ? (
-                                        /* Cassation Court Options (Iraqi Law) */
-                                        <>
-                                            <option value="تصديق الحكم">تصديق الحكم (Ratification)</option>
-                                            <option value="نقض الحكم وإعادة الإضبارة">نقض الحكم وإعادة الإضبارة (Quash & Remand)</option>
-                                            <option value="رد الطعن التمييزي شكلاً">رد الطعن التمييزي شكلاً</option>
-                                        </>
-                                    ) : currentStage === 'الاستئناف' ? (
-                                        /* Appellate Court Options (Iraqi Law) */
-                                        <>
-                                            <option value="تأييد الحكم المستأنف ورد الاستئناف">تأييد الحكم المستأنف ورد الاستئناف</option>
-                                            <option value="فسخ الحكم المستأنف كلياً">فسخ الحكم المستأنف كلياً</option>
-                                            <option value="فسخ الحكم المستأنف جزئياً">فسخ الحكم المستأنف جزئياً</option>
-                                            <option value="رد الاستئناف شكلاً">رد الاستئناف شكلاً</option>
-                                            <option value="إبطال عريضة الاستئناف">إبطال عريضة الاستئناف</option>
-                                        </>
-                                    ) : (
-                                        /* First Instance Options */
-                                        <>
-                                            <option value="إجابة الدعوى بالكامل">إجابة الدعوى بالكامل (كسب الدعوى)</option>
-                                            <option value="رد الدعوى كلياً">رد الدعوى كلياً (خسارة الدعوى)</option>
-                                            <option value="رد الدعوى جزئياً">رد الدعوى جزئياً (كسب/خسارة جزئية)</option>
-                                            <option value="إبطال">إبطال (الدعوى ملغاة)</option>
-                                            
-                                            {/* 🔥 NEW: Non-Merit Terminations (النهايات الرضائية) */}
-                                            <option value="تصديق الصلح والتسوية">تصديق الصلح والتسوية</option>
-                                            <option value="التنازل عن الدعوى">التنازل عن الدعوى</option>
-                                            <option value="إبطال عريضة الدعوى">إبطال عريضة الدعوى</option>
-                                        </>
-                                    )}
-                                </select>
+                                    onChange={handleJudgmentChange}
+                                    options={judgmentOptions}
+                                    styles={s}
+                                />
                             </div>
 
-                            {/* Field 2: Next Stage (Conditional) - REMOVED AS REDUNDANT */}
-                            
-                            {/* Field 3: Judgment Date */}
-                            <div>
-                                <label className="block text-white/80 font-bold mb-2 flex items-center gap-2">
-                                    <span className="text-[#E6C673]">📅</span>
+                            <div className={s.section}>
+                                <label className={s.label}>
+                                    <CalendarDays size={13} className={s.labelIcon} />
                                     تاريخ الحكم
                                 </label>
                                 <input
                                     type="date"
                                     value={judgmentDate}
                                     onChange={(e) => setJudgmentDate(e.target.value)}
-                                    className="w-full bg-[#0A1128] border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#E6C673] focus:outline-none transition-all"
+                                    className={s.field}
                                 />
                             </div>
 
-                            {/* Field 4: Notes */}
-                            <div>
-                                <label className="block text-white/80 font-bold mb-2 flex items-center gap-2">
-                                    <span className="text-[#E6C673]">📝</span>
-                                    ملاحظات
-                                </label>
-                                <textarea
-                                    value={notes}
-                                    onChange={(e) => setNotes(e.target.value)}
-                                    rows={3}
-                                    className="w-full bg-[#0A1128] border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#E6C673] focus:outline-none transition-all resize-none"
-                                    placeholder="أضف ملاحظات إضافية عن الحكم..."
-                                />
-                            </div>
-
-                            {/* 🔥 NEW: Helper text for تصديق الصلح */}
-                            {judgmentType === 'تصديق الصلح والتسوية' && (
-                                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3">
-                                    <p className="text-emerald-400 text-xs font-bold leading-relaxed flex items-center gap-2">
-                                        <span>💡</span>
-                                        يعتبر تصديق الصلح بمثابة حكم مكتسب الدرجة القطعية.
-                                    </p>
+                            {isSulhJudgmentType(judgmentType) && (
+                                <div className={`${s.hint} text-emerald-300/90 border-emerald-500/15 bg-emerald-500/[0.04]`}>
+                                    <Info size={14} className="shrink-0 mt-0.5 text-emerald-400/80" />
+                                    <span>يعتبر الصلح بمثابة حكم مكتسب الدرجة القطعية.</span>
                                 </div>
                             )}
 
-                            {/* DYNAMIC SUBMIT ACTIONS (INJECTED) */}
                             {judgmentType ? (
-                                <div className="flex flex-col gap-3 w-full mt-6 border-t border-slate-700/50 pt-4">
-                                    
-                                    {/* 🔥 NEW: NON-MERIT TERMINATIONS (النهايات الرضائية) */}
-                                    {(['تصديق الصلح والتسوية', 'التنازل عن الدعوى', 'إبطال عريضة الدعوى'].includes(judgmentType)) && (
-                                        <button type="button"
-                                            onClick={() => {
-                                                onConfirm({
-                                                    action: 'finalize_non_merit',
-                                                    judgmentType,
-                                                    judgmentForm: currentStage?.includes('بداءة') ? judgmentForm : undefined,
-                                                    judgmentDate,
-                                                    notes,
-                                                    isPleadingsClosed: true
-                                                });
-                                                onClose();
-                                            }}
-                                            className="w-full py-4 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-xl font-bold text-lg shadow-lg shadow-emerald-500/30 transition-all flex items-center justify-center gap-2"
-                                        >
-                                            📜 ختم الإضبارة (إنهاء الدعوى)
-                                        </button>
-                                    )}
-                                    
-                                    {/* --- SCENARIO 0: VOID (إبطال) --- */}
-                                    {judgmentType === 'إبطال' && (
-                                        <button type="button"
-                                            onClick={handleArchiveAnnulled}
-                                            className="w-full py-4 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white rounded-xl font-bold text-lg shadow-lg shadow-gray-500/30 transition-all flex items-center justify-center gap-2"
-                                        >
-                                            <Archive size={20} />
-                                            أرشفة وحفظ (دعوى مبطلة) 📁
-                                        </button>
-                                    )}
-                                    
-                                    {/* --- 🔥 SCENARIO 0b: VOID APPEAL (إبطال عريضة الاستئناف) --- */}
-                                    {judgmentType === 'إبطال عريضة الاستئناف' && (
-                                        <button type="button"
-                                            onClick={handleArchiveAnnulled}
-                                            className="w-full py-4 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white rounded-xl font-bold text-lg shadow-lg shadow-gray-500/30 transition-all flex items-center justify-center gap-2"
-                                        >
-                                            <Archive size={20} />
-                                            أرشفة وحفظ (عريضة استئناف مبطلة) 📁
-                                        </button>
+                                <div className={`flex flex-col gap-3 w-full ${s.divider}`}>
+                                    {judgmentForm === 'حضوري' && isFirstInstance && judgmentType !== 'إبطال'
+                                        && judgmentType !== 'إبطال عريضة الدعوى وعريضة التدخل' && (
+                                        renderFirstInstanceHadoriAppealActions()
                                     )}
 
-                                    {/* --- SCENARIO 1: IN-PERSON (حضوري) --- */}
-                                    {judgmentForm === 'حضوري' && judgmentType !== 'إبطال' && currentStage !== 'الاستئناف' && 
-                                     !['تصديق الصلح والتسوية', 'التنازل عن الدعوى', 'إبطال عريضة الدعوى'].includes(judgmentType) && (
-                                    <>
-                                        {((isPlaintiffLawyer && judgmentType === 'إجابة الدعوى بالكامل') || (isDefendantLawyer && judgmentType === 'رد الدعوى كلياً')) ? (
-                                        <div className="flex flex-col gap-2">
-                                            <span className="text-emerald-400 text-xs text-center font-bold">🎉 لا توجد مصلحة قانونية للطعن (تم كسب الدعوى)</span>
-                                            <button type="button" onClick={() => handleSaveJudgment('wait')} className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg w-full transition-colors shadow-lg shadow-indigo-500/20">حفظ الحكم وانتظار طعن الخصم</button>
-                                        </div>
-                                        ) : (
-                                        <div className="flex flex-col gap-2">
-                                            <span className="text-rose-400 text-xs text-center font-bold">⚠️ يحق لموكلك الطعن في هذا القرار</span>
-                                            <button type="button" onClick={() => handleSaveJudgment('appeal')} className="bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 rounded-lg w-full transition-colors shadow-lg shadow-amber-500/20">حفظ والانتقال لمرحلة الطعن (استئناف/تمييز)</button>
-                                        </div>
-                                        )}
-                                    </>
+                                    {judgmentForm === 'غيابي' && judgmentType !== 'إبطال'
+                                        && judgmentType !== 'إبطال عريضة الدعوى وعريضة التدخل'
+                                        && currentStage !== 'الاستئناف' &&
+                                     !isNonMeritTerminationType(judgmentType) && (
+                                        <>
+                                            {hasInterpleaderCase ? (
+                                                renderFirstInstanceHadoriAppealActions()
+                                            ) : (
+                                                <>
+                                            {isPlaintiffLawyer && (
+                                                judgmentType === 'إجابة الدعوى بالكامل' ? (
+                                                    <button type="button" onClick={() => handleSaveJudgment('wait_objection')} className={btnWait}>
+                                                        حفظ الحكم وانتظار اعتراض الخصم
+                                                    </button>
+                                                ) : (
+                                                    <button type="button" onClick={() => handleSaveJudgment('appeal')} className={btnGold}>
+                                                        {appealTransitionLabel}
+                                                    </button>
+                                                )
+                                            )}
+                                            {isDefendantLawyer && (
+                                                judgmentType === 'رد الدعوى كلياً' ? (
+                                                    <button type="button" onClick={handleWaitForOpponent} className={btnWait}>
+                                                        حفظ الحكم وانتظار طعن الخصم
+                                                    </button>
+                                                ) : (
+                                                    <div className="flex flex-col gap-2 w-full">
+                                                        <p className={`${s.hint} text-rose-300/85 border-rose-500/15 justify-center`}>
+                                                            <ShieldAlert size={14} className="shrink-0 text-rose-400/80" />
+                                                            صدر حكم غيابي ضد موكلك
+                                                        </p>
+                                                        <button type="button" onClick={() => handleSaveJudgment('objection')} className={GLASS_BTN_ROSE}>
+                                                            حفظ وتقديم اعتراض غيابي
+                                                        </button>
+                                                        <button type="button" onClick={() => handleSaveJudgment('appeal')} className={btnNeutral}>
+                                                            حفظ وترك الحكم غيابياً (انتقال للطعن)
+                                                        </button>
+                                                    </div>
+                                                )
+                                            )}
+                                            {!isPlaintiffLawyer && !isDefendantLawyer && (
+                                                renderFirstInstanceHadoriAppealActions()
+                                            )}
+                                                </>
+                                            )}
+                                        </>
                                     )}
 
-                                    {/* --- SCENARIO 2: DEFAULT (غيابي) --- */}
-                                    {judgmentForm === 'غيابي' && judgmentType !== 'إبطال' && currentStage !== 'الاستئناف' && 
-                                     !['تصديق الصلح والتسوية', 'التنازل عن الدعوى', 'إبطال عريضة الدعوى'].includes(judgmentType) && (
-                                    <>
-                                        {/* Plaintiff Logic */}
-                                        {isPlaintiffLawyer && (
-                                        judgmentType === 'إجابة الدعوى بالكامل' ? (
-                                            <button type="button" onClick={() => handleSaveJudgment('wait_objection')} className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg w-full transition-colors shadow-lg shadow-indigo-500/20">حفظ الحكم وانتظار اعتراض الخصم</button>
-                                        ) : (
-                                            <button type="button" onClick={() => handleSaveJudgment('appeal')} className="bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 rounded-lg w-full transition-colors shadow-lg shadow-amber-500/20">حفظ والانتقال لمرحلة الطعن (استئناف/تمييز)</button>
-                                        )
-                                        )}
-                                        {/* Defendant Logic */}
-                                        {isDefendantLawyer && (
-                                        judgmentType === 'رد الدعوى كلياً' ? (
-                                            <button type="button" onClick={() => handleSaveJudgment('wait')} className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg w-full transition-colors shadow-lg shadow-indigo-500/20">حفظ الحكم وانتظار طعن الخصم</button>
-                                        ) : (
-                                            <div className="flex flex-col gap-2 w-full">
-                                            <span className="text-rose-400 text-xs text-center font-bold">⚠️ صدر حكم غيابي ضد موكلك</span>
-                                            <button type="button" onClick={() => handleSaveJudgment('objection')} className="bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 rounded-lg w-full transition-colors shadow-lg shadow-rose-500/20">حفظ وتقديم اعتراض غيابي 🛡️</button>
-                                            <button type="button" onClick={() => handleSaveJudgment('appeal')} className="bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-lg w-full transition-colors">حفظ وترك الحكم غيابياً (انتقال للطعن) ⏭️</button>
-                                            </div>
-                                        )
-                                        )}
-                                        {/* Fallback if no role matched (though user should be one of them) */}
-                                        {!isPlaintiffLawyer && !isDefendantLawyer && (
-                                            <div className="text-center text-xs text-gray-500">الرجاء تحديد صفة الموكل في إعدادات الملف لتفعيل الخيارات الذكية</div>
-                                        )}
-                                    </>
-                                    )}
-                                    
-                                    {/* --- 🔥 SCENARIO 3: APPELLATE STAGE (الاستئناف) --- */}
-                                    {currentStage === 'الاستئناف' && judgmentType && (
+                                    {!s.isPearl && currentStage === 'الاستئناف' && judgmentType && (
                                         <div className="flex flex-col gap-3 w-full">
-                                            {/* If Lawyer WON the Appeal (No legal interest to file Cassation) */}
-                                            {((isAppellantLawyer && judgmentType === 'فسخ الحكم المستأنف كلياً') || 
-                                              (isAppelleeLawyer && ['تأييد الحكم المستأنف ورد الاستئناف', 'رد الاستئناف شكلاً', 'إبطال عريضة الاستئناف'].includes(judgmentType))) ? (
+                                            {(isAppellantLawyer && judgmentType === 'فسخ الحكم المستأنف كلياً') ||
+                                            (isAppelleeLawyer && ['تأييد الحكم المستأنف ورد الاستئناف', 'رد الاستئناف شكلاً'].includes(judgmentType)) ? (
                                                 <div className="flex flex-col gap-2">
-                                                    <span className="text-emerald-400 text-xs text-center font-bold">🎉 تم كسب مرحلة الاستئناف بنجاح</span>
-                                                    <button type="button" 
-                                                        onClick={() => handleSaveJudgment('wait_cassation')} 
-                                                        className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg w-full transition-colors shadow-lg shadow-indigo-500/20"
-                                                    >
+                                                    <p className={`${s.hint} text-emerald-300/85 border-emerald-500/15 justify-center`}>
+                                                        <Trophy size={14} className="shrink-0 text-emerald-400/80" />
+                                                        تم كسب مرحلة الاستئناف بنجاح
+                                                    </p>
+                                                    <button type="button" onClick={() => handleSaveJudgment('wait_cassation')} className={btnWait}>
                                                         حفظ القرار وانتظار طعن الخصم (تمييزاً)
                                                     </button>
                                                 </div>
                                             ) : (
-                                                /* If Lawyer LOST (Fully or Partially) -> Must go to Cassation */
                                                 <div className="flex flex-col gap-2">
-                                                    <span className="text-rose-400 text-xs text-center font-bold">⚠️ يحق لموكلك الطعن تمييزاً في هذا القرار</span>
-                                                    <button type="button" 
-                                                        onClick={() => handleSaveJudgment('transition_to_cassation')} 
-                                                        className="bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 rounded-lg w-full transition-colors shadow-lg shadow-amber-500/20"
-                                                    >
-                                                        حفظ والانتقال لمحكمة التمييز ⚖️
+                                                    <p className={`${s.hint} text-rose-300/85 border-rose-500/15 justify-center`}>
+                                                        <ShieldAlert size={14} className="shrink-0 text-rose-400/80" />
+                                                        يحق لموكلك الطعن تمييزاً في هذا القرار
+                                                    </p>
+                                                    <button type="button" onClick={() => handleSaveJudgment('appeal')} className={btnGold}>
+                                                        حفظ والانتقال لمحكمة التمييز
                                                     </button>
                                                 </div>
                                             )}
                                         </div>
                                     )}
 
-                                    {/* --- 🔥 SCENARIO 4: CASSATION STAGE (التمييز) --- */}
                                     {currentStage === 'التمييز' && judgmentType && (
-                                        <div className="flex flex-col gap-3 w-full mt-6 border-t border-slate-700/50 pt-4">
-                                            
-                                            {/* SCENARIO A: RATIFIED (تصديق أو رد شكلاً) -> Case is Final */}
-                                            {(judgmentType === 'تصديق الحكم' || judgmentType === 'رد الطعن التمييزي شكلاً') ? (
+                                        <div className="flex flex-col gap-3 w-full">
+                                            {judgmentType === 'تصديق الحكم' || judgmentType === 'رد الطعن التمييزي شكلاً' ? (
                                                 <div className="flex flex-col gap-2">
-                                                    <span className="text-emerald-400 text-xs text-center font-bold">🏛️ اكتسب الحكم الدرجة القطعية (نهاية المطاف)</span>
-                                                    <button type="button" 
-                                                        onClick={() => handleSaveJudgment('final_ratification')} 
-                                                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg w-full transition-colors shadow-lg shadow-emerald-500/20"
-                                                    >
-                                                        📜 ختم الإضبارة (مكتسبة الدرجة القطعية)
+                                                    <p className={`${s.hint} text-emerald-300/85 border-emerald-500/15 justify-center`}>
+                                                        <Gavel size={14} className="shrink-0 text-emerald-400/80" />
+                                                        اكتسب الحكم الدرجة القطعية (نهاية المطاف)
+                                                    </p>
+                                                    <button type="button" onClick={() => handleSaveJudgment('final_ratification')} className={GLASS_BTN_EMERALD}>
+                                                        <Stamp size={16} />
+                                                        ختم الإضبارة (مكتسبة الدرجة القطعية)
                                                     </button>
-                                                    {/* The rare exceptional remedy */}
-                                                    <button type="button" 
-                                                        onClick={() => handleSaveJudgment('correction_request')} 
-                                                        className="bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2 rounded-lg w-full transition-colors text-xs border border-slate-600"
-                                                    >
-                                                        تقديم طلب تصحيح قرار تمييزي ⚠️
+                                                    <button type="button" onClick={() => handleSaveJudgment('correction_request')} className={`${btnNeutral} text-xs py-2.5`}>
+                                                        تقديم طلب تصحيح قرار تمييزي
                                                     </button>
                                                 </div>
                                             ) : (
-                                                /* SCENARIO B: QUASHED & REMANDED (نقض وإعادة) -> Goes back to lower court */
                                                 <div className="flex flex-col gap-2">
-                                                    <span className="text-amber-400 text-xs text-center font-bold">⚠️ تم نقض الحكم! يجب إعادة الدعوى للمحكمة السابقة</span>
-                                                    <button type="button" 
-                                                        onClick={() => handleSaveJudgment('remand_to_lower')} 
-                                                        className="bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 rounded-lg w-full transition-colors shadow-lg shadow-amber-500/20"
-                                                    >
-                                                        ↩️ إعادة الإضبارة (لاتباع القرار التمييزي)
+                                                    <p className={`${s.hint} ${s.isPearl ? 'text-[#FFD4DC]/85 border-[#F0A8B4]/15' : 'text-[#E6C673]/85 border-[#E6C673]/15'} justify-center`}>
+                                                        <ArrowLeftRight size={14} className={`shrink-0 ${s.isPearl ? 'text-[#F0A8B4]/80' : 'text-[#E6C673]/80'}`} />
+                                                        تم نقض الحكم — يجب إعادة الدعوى للمحكمة السابقة
+                                                    </p>
+                                                    <button type="button" onClick={() => handleSaveJudgment('remand_to_lower')} className={btnGold}>
+                                                        إعادة الإضبارة (لاتباع القرار التمييزي)
                                                     </button>
                                                 </div>
                                             )}
                                         </div>
                                     )}
-                                    
-                                    {/* Cancel Button */}
-                                    <button type="button"
-                                        onClick={onClose}
-                                        className="w-full py-3 bg-transparent hover:bg-white/5 text-white/60 hover:text-white rounded-lg font-bold transition-all mt-2"
-                                    >
+
+                                    <button type="button" onClick={onClose} className={`${btnNeutral} text-white/50 hover:text-white/75 mt-1`}>
                                         إلغاء
                                     </button>
-
                                 </div>
                             ) : (
-                                <div className="mt-8 flex flex-col items-center opacity-50">
-                                    <Gavel className="w-8 h-8 text-slate-500 mb-2" />
-                                    <p className="text-slate-400 text-sm">اختر قرار الحكم أولاً لإظهار الخيارات المتاحة</p>
+                                <div className="mt-4 flex flex-col items-center opacity-45 py-4">
+                                    <Gavel className="w-8 h-8 text-white/25 mb-2" />
+                                    <p className="text-white/35 text-sm">اختر قرار الحكم أولاً لإظهار الخيارات المتاحة</p>
                                 </div>
                             )}
                         </div>

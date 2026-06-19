@@ -15,7 +15,11 @@ import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { UserRole } from '@/app/types/admin-types';
 import { logAction } from '@/app/utils/auditLog';
-import { readPersistedSupabaseAuth } from '@/app/utils/authStorage';
+import { readPersistedSupabaseAuth, writeDevMockAuth, clearDevMockAuth, clearStaleDevMockFromSupabaseStorage, readDevMockAccessToken, readDevMockUser } from '@/app/utils/authStorage';
+
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  clearStaleDevMockFromSupabaseStorage();
+}
 
 async function deriveKeyFromSessionSecret(secret: string): Promise<CryptoKey> {
   const encoder = new TextEncoder();
@@ -38,7 +42,7 @@ interface AuthContextType {
   session: Session | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, options?: { fullName?: string; role?: 'lawyer' | 'client' | 'admin'; phone?: string }) => Promise<void>;
+  signup: (email: string, password: string, options?: { fullName?: string; accountType?: 'lawyer' | 'client'; phone?: string }) => Promise<void>;
   logout: () => Promise<void>;
   hasRole: (role: 'lawyer' | 'client' | 'admin') => boolean;
   devBypassLogin: () => Promise<void>;
@@ -57,6 +61,14 @@ function getSystemRoleFromMetadata(meta: Record<string, unknown>): UserRole | nu
   if (legacyRole === 'lawyer') return UserRole.LAWYER;
   if (legacyRole === 'client') return UserRole.CLIENT;
   return null;
+}
+
+export function isSuperAdminUser(user: User | null): boolean {
+  if (!user) return false;
+  const appMeta = (user.app_metadata ?? {}) as Record<string, unknown>;
+  if (getSystemRoleFromMetadata(appMeta) === UserRole.SUPER_ADMIN) return true;
+  const userMeta = (user.user_metadata ?? {}) as Record<string, unknown>;
+  return getSystemRoleFromMetadata(userMeta) === UserRole.SUPER_ADMIN;
 }
 
 function systemRoleForSignup(role: 'lawyer' | 'client' | 'admin'): UserRole {
@@ -81,9 +93,40 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const bootAuth = readPersistedSupabaseAuth();
-  const [user, setUser] = useState<User | null>(bootAuth.user);
-  const [session, setSession] = useState<Session | null>(bootAuth.session);
+  const bootDevUser = import.meta.env.DEV ? readDevMockUser() : null;
+  const bootDevToken = import.meta.env.DEV ? readDevMockAccessToken() : null;
+  const bootDevSession =
+    bootDevUser && bootDevToken
+      ? ({
+          access_token: bootDevToken,
+          token_type: 'bearer',
+          expires_in: 60 * 60,
+          expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
+          refresh_token: 'DEV_REFRESH_TOKEN',
+          user: bootDevUser,
+        } as Session)
+      : null;
+
+  const [user, setUser] = useState<User | null>(bootAuth.user ?? bootDevUser);
+  const [session, setSession] = useState<Session | null>(bootAuth.session ?? bootDevSession);
   const [isLoading, setIsLoading] = useState(false);
+
+  const restoreDevMockIfPresent = (): boolean => {
+    if (!import.meta.env.DEV) return false;
+    const devUser = readDevMockUser();
+    const devToken = readDevMockAccessToken();
+    if (!devUser || !devToken) return false;
+    setSession({
+      access_token: devToken,
+      token_type: 'bearer',
+      expires_in: 60 * 60,
+      expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
+      refresh_token: 'DEV_REFRESH_TOKEN',
+      user: devUser,
+    } as Session);
+    setUser(devUser);
+    return true;
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -97,8 +140,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       .getSession()
       .then(({ data }) => {
         if (!mounted) return;
-        setSession(data.session ?? null);
-        setUser(data.session?.user ?? null);
+        if (data.session) {
+          setSession(data.session);
+          setUser(data.session.user ?? null);
+          return;
+        }
+        if (!restoreDevMockIfPresent()) {
+          setSession(null);
+          setUser(null);
+        }
       })
       .catch(() => {
         if (!mounted) return;
@@ -112,8 +162,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!mounted) return;
-      setSession(nextSession);
-      setUser(nextSession?.user ?? null);
+      if (nextSession) {
+        setSession(nextSession);
+        setUser(nextSession.user ?? null);
+        setIsLoading(false);
+        return;
+      }
+      if (!restoreDevMockIfPresent()) {
+        setSession(null);
+        setUser(null);
+      }
       setIsLoading(false);
     });
 
@@ -136,18 +194,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const signup = async (
     email: string,
     password: string,
-    options?: { fullName?: string; role?: 'lawyer' | 'client' | 'admin'; phone?: string },
+    options?: { fullName?: string; accountType?: 'lawyer' | 'client'; phone?: string },
   ) => {
-    const role = options?.role ?? 'lawyer';
+    const accountType = options?.accountType ?? 'lawyer';
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           fullName: options?.fullName ?? '',
-          role,
           phone: options?.phone ?? '',
-          systemRole: systemRoleForSignup(role),
+          accountType,
         },
       },
     });
@@ -155,17 +212,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const logout = async () => {
+    clearDevMockAuth();
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   };
 
-  const hasRole = (role: 'lawyer' | 'client' | 'admin'): boolean => {
-    const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
-    const systemRole = getSystemRoleFromMetadata(meta);
-    if (role === 'admin') return systemRole === UserRole.SUPER_ADMIN;
-    if (role === 'client') return systemRole === UserRole.CLIENT;
-    return systemRole === UserRole.LAWYER;
-  };
+  const hasRole = (role: 'lawyer' | 'client' | 'admin'): boolean => userHasRole(user, role);
 
   const applyMockSession = async (params: {
     id: string;
@@ -175,6 +227,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     refreshToken: string;
   }): Promise<void> => {
     const nowIso = new Date().toISOString();
+    const systemRole = systemRoleForSignup(params.role);
     const mockUser = {
       id: params.id,
       aud: 'authenticated',
@@ -183,11 +236,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       phone: '',
       created_at: nowIso,
       updated_at: nowIso,
-      app_metadata: { provider: 'email', providers: ['email'] },
+      app_metadata: {
+        provider: 'email',
+        providers: ['email'],
+        systemRole,
+        ...(params.role === 'admin' ? { role: UserRole.SUPER_ADMIN } : {}),
+      },
       user_metadata: {
         role: params.role,
         fullName: params.fullName,
-        systemRole: systemRoleForSignup(params.role),
+        systemRole,
       },
     } as unknown as User;
 
@@ -203,6 +261,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setSession(mockSession);
     setUser(mockUser);
     setIsLoading(false);
+    writeDevMockAuth(mockSession);
+
+    if (params.role === 'lawyer') {
+      void import('@/app/runtime/lawyerDashboardLoader').then((m) => m.prefetchLawyerDashboardEntry());
+    }
     
   };
 
@@ -259,6 +322,42 @@ export const useAuth = (): AuthContextType => {
   
   return context;
 };
+
+/** للمكوّنات lazy — لا يرمي إذا انفصل الـ context بسبب تقسيم الحزم/HMR */
+export function useAuthUser(): User | null {
+  const context = useContext(AuthContext);
+  if (context !== undefined) return context.user;
+  return readPersistedSupabaseAuth().user;
+}
+
+export function userHasRole(
+  user: User | null,
+  role: 'lawyer' | 'client' | 'admin',
+): boolean {
+  if (!user) return false;
+  if (role === 'admin') return isSuperAdminUser(user);
+  const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+  const accountType = typeof meta.accountType === 'string' ? meta.accountType : 'lawyer';
+  if (role === 'client') return accountType === 'client';
+  return accountType !== 'client';
+}
+
+/** للمكوّنات lazy — user + hasRole + isLoading دون رمي خارج AuthProvider */
+export function useAuthSafe(): {
+  user: User | null;
+  isLoading: boolean;
+  hasRole: (role: 'lawyer' | 'client' | 'admin') => boolean;
+} {
+  const context = useContext(AuthContext);
+  const persistedUser = readPersistedSupabaseAuth().user;
+  const user = context !== undefined ? context.user : persistedUser;
+  const isLoading = context !== undefined ? context.isLoading : false;
+  const hasRole = useMemo(
+    () => (role: 'lawyer' | 'client' | 'admin') => userHasRole(user, role),
+    [user],
+  );
+  return { user, isLoading, hasRole };
+}
 
 // =====================================================
 // مكون حماية الصفحات

@@ -141,7 +141,7 @@ describe('followupSpecializationVisibility', () => {
     });
 
     it('hides coercive tab for personal status court; earner keeps personal tab', () => {
-        for (const claim of ['نفقة', 'تسليم ولد']) {
+        for (const claim of ['نفقة']) {
             const earner = resolveFollowupSpecializationVisibility(claim, false, {
                 docType: 'قرارات وأحكام المحاكم',
                 classification: 'شرعي',
@@ -158,6 +158,23 @@ describe('followupSpecializationVisibility', () => {
             expect(employee.hidePersonalCoerciveFollowupTab).toBe(true);
             expect(employee.suppressHiddenPersonalCoerciveRequests).toBe(true);
         }
+
+        const custodyEarner = resolveFollowupSpecializationVisibility('تسليم ولد', false, {
+            docType: 'قرارات وأحكام المحاكم',
+            classification: 'شرعي',
+        });
+        expect(custodyEarner.hideFollowupCoerciveTab).toBe(false);
+        expect(custodyEarner.hidePersonalCoerciveFollowupTab).toBe(false);
+        expect(custodyEarner.suppressHiddenPersonalCoerciveRequests).toBe(false);
+
+        const custodyEmployee = resolveFollowupSpecializationVisibility('تسليم ولد', true, {
+            docType: 'قرارات وأحكام المحاكم',
+            classification: 'شرعي',
+        });
+        expect(custodyEmployee.hideFollowupCoerciveTab).toBe(false);
+        expect(custodyEmployee.hidePersonalCoerciveFollowupTab).toBe(false);
+        expect(custodyEmployee.suppressHiddenPersonalCoerciveRequests).toBe(false);
+        expect(custodyEmployee.hidePersonalJudgePresentation).toBe(false);
 
         const visitationEarner = resolveFollowupSpecializationVisibility('مشاهدة', false, {
             docType: 'قرارات وأحكام المحاكم',

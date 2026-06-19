@@ -21,17 +21,85 @@ function hasValidFileId(id: unknown): boolean {
     );
 }
 
+function readCaseNo(v: Record<string, unknown>): string | null {
+    if (typeof v.caseNo === 'string') return v.caseNo;
+    if (typeof v.caseNumber === 'string') return v.caseNumber;
+    if (isRecord(v.details) && typeof v.details.number === 'string') return v.details.number;
+    return null;
+}
+
+function readCourt(v: Record<string, unknown>): string | null {
+    const courtRaw = v.court;
+    if (typeof courtRaw === 'string') return courtRaw;
+    if (isRecord(courtRaw) && typeof courtRaw.name === 'string') return courtRaw.name;
+    return null;
+}
+
 export function isFileData(value: unknown): value is FileData {
     if (!value || typeof value !== 'object') return false;
     const v = value as Record<string, unknown>;
     return (
         hasValidFileId(v.id) &&
         (v.type === 'lawsuit' || v.type === 'transaction' || v.type === 'execution') &&
-        typeof v.caseNo === 'string' &&
-        typeof v.court === 'string' &&
+        readCaseNo(v) !== null &&
+        readCourt(v) !== null &&
         Array.isArray(v.parties) &&
         typeof v.status === 'string'
     );
+}
+
+/** يُطبّع صف أرشيف/بطاقة إلى FileData قابل للفتح في SmartFileModal. */
+export function normalizeFileDataForOpen(input: unknown): FileData | null {
+    if (!isRecord(input) || !hasValidFileId(input.id)) return null;
+
+    const type = input.type;
+    if (type !== 'lawsuit' && type !== 'transaction' && type !== 'execution') return null;
+
+    const caseNo = readCaseNo(input) ?? 'جديد';
+    const court = readCourt(input) ?? '';
+    const parties = Array.isArray(input.parties) ? (input.parties as Party[]) : [];
+    const status =
+        typeof input.status === 'string' ? (input.status as FileData['status']) : 'active';
+    const id =
+        typeof input.id === 'number' && Number.isFinite(input.id)
+            ? input.id
+            : typeof input.id === 'string' && /^\d+$/.test(input.id.trim())
+              ? Number(input.id)
+              : input.id;
+
+    const normalized = {
+        ...(input as unknown as FileData),
+        id: id as number,
+        type,
+        caseNo,
+        court,
+        parties,
+        status,
+        history: Array.isArray(input.history) ? input.history : [],
+        notes: Array.isArray(input.notes) ? input.notes : [],
+        images: Array.isArray(input.images) ? input.images : [],
+        date:
+            typeof input.date === 'string'
+                ? input.date
+                : new Date().toLocaleDateString('ar-EG'),
+    };
+
+    return isFileData(normalized) ? normalized : null;
+}
+
+/** يحلّ الملف من البطاقة أو من قائمة الداشبورد (بالـ id) قبل الفتح. */
+export function resolveOpenableFileData(
+    value: unknown,
+    pool?: readonly FileData[],
+): FileData | null {
+    if (isRecord(value) && hasValidFileId(value.id) && pool?.length) {
+        const hit = pool.find((f) => String(f.id) === String(value.id));
+        if (hit) {
+            const fromPool = normalizeFileDataForOpen(hit);
+            if (fromPool) return fromPool;
+        }
+    }
+    return normalizeFileDataForOpen(value);
 }
 
 export function isRecord(value: unknown): value is Record<string, unknown> {

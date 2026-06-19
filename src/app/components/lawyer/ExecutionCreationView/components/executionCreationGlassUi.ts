@@ -7,8 +7,18 @@ export const ecg = {
     sheetTitle: 'text-sm font-bold text-[#E6C673] flex-1 text-center tracking-wide',
     sheetClose: 'text-xs text-slate-400 hover:text-white min-w-[3rem] text-right transition-colors',
     sheetBody: 'flex flex-col flex-1 min-h-0 overflow-y-auto overscroll-contain',
-    sheetSectionTitle: 'px-4 pt-2 pb-2 text-[10px] font-bold text-[#E6C673]/75 tracking-wide',
-    sheetExclusiveBlock: 'flex-shrink-0 px-4 pb-4 border-b border-[#E6C673]/20 space-y-2',
+    sheetSectionTitle: 'text-[11px] font-bold text-[#E6C673]/90 tracking-wide',
+    sheetSectionBadge:
+        'shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[9px] font-medium text-slate-500',
+    sheetBodyUnified:
+        'flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-3 pb-2',
+    sheetGroupedCard:
+        'rounded-2xl border border-white/[0.07] bg-white/[0.025] backdrop-blur-sm p-3.5 space-y-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
+    sheetSectionDivider:
+        'h-px w-full bg-gradient-to-r from-transparent via-[#E6C673]/12 to-transparent',
+    sheetSectionHeader: 'flex flex-row-reverse items-center justify-between gap-2 px-0.5',
+    sheetFooter:
+        'flex-shrink-0 border-t border-white/[0.08] bg-[#0A0F1C]/92 backdrop-blur-xl px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]',
     sheetScroll: 'flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-2 space-y-1.5',
     choiceRow: 'flex flex-row-reverse gap-2',
     choiceBtn:
@@ -23,8 +33,7 @@ export const ecg = {
         'text-slate-200 border-white/8 bg-white/[0.03] hover:border-[#E6C673]/25 hover:bg-white/[0.06]',
     optionBtnActive:
         'text-[#F5E6B8] border-[#E6C673]/40 bg-gradient-to-l from-[#E6C673]/14 to-transparent shadow-[0_0_20px_-8px_rgba(230,198,115,0.5)]',
-    multiPanel:
-        'flex-shrink-0 border-t-2 border-[#E6C673]/25 bg-[#05060D]/92 px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] space-y-3',
+    multiPanel: 'space-y-3',
     multiHint: 'text-[11px] font-medium text-slate-400/95 leading-relaxed text-right px-1',
     multiList: 'space-y-2',
     multiItem:

@@ -25,7 +25,9 @@ function canPrefetch(): boolean {
 
 function settingsAllowPrefetch(): boolean {
     try {
-        return getLawyerSettingsSnapshot().performance.prefetchScreens !== false;
+        const s = getLawyerSettingsSnapshot();
+        if (s.security.localOnlyMode) return false;
+        return s.performance.prefetchScreens !== false;
     } catch {
         return true;
     }
@@ -83,57 +85,52 @@ export const PrefetchScheduler = {
     },
 
     planAuthenticatedEntry(): void {
-        this.enqueue({
-            id: 'lawyer-dashboard',
-            priority: 'critical',
-            loader: () => import('@/app/components/lawyer/LawyerDashboard'),
-        });
+        if (!import.meta.env.DEV) {
+            this.enqueue({
+                id: 'lawyer-dashboard',
+                priority: 'critical',
+                loader: () =>
+                    import('@/app/runtime/lawyerDashboardLoader').then((m) => m.loadLawyerDashboardModule()),
+            });
+        }
+        this.planLawyerHomeWave();
     },
 
     planLawyerHomeWave(): void {
-        this.enqueueWave(
-            [
-                {
-                    id: 'unified-command-hub',
-                    priority: 'high',
-                    loader: () => import('@/app/components/lawyer/dashboard/UnifiedCommandHub'),
-                },
-                {
-                    id: 'lawyer-home-hub',
-                    priority: 'high',
-                    loader: () => import('@/app/components/lawyer/LawyerHomeHubCard'),
-                },
-                {
-                    id: 'legal-command-dock',
-                    priority: 'high',
-                    loader: () => import('@/app/components/lawyer/LegalCommandCenterDock'),
-                },
-                {
-                    id: 'smart-file-modal',
-                    priority: 'high',
-                    loader: () =>
-                        Promise.all([
-                            import('@/app/components/lawyer/SmartFileModal'),
-                            import('@/app/components/lawyer/smart-modal/SmartFileModalContent'),
-                        ]),
-                },
-                {
-                    id: 'criminal-dashboard',
-                    priority: 'high',
-                    loader: () =>
-                        Promise.all([
-                            import('@/app/components/lawyer/criminal-system/CriminalDashboard'),
-                            import('@/app/components/lawyer/criminal-system/criminalStore'),
-                        ]),
-                },
-            ],
-            { delayMs: import.meta.env.DEV ? 1_200 : 600 },
-        );
+        const homeJobs: PrefetchJob[] = [
+            {
+                id: 'smart-file-modal',
+                priority: 'high',
+                loader: () =>
+                    Promise.all([
+                        import('@/app/components/lawyer/SmartFileModal'),
+                        import('@/app/components/lawyer/smart-modal/SmartFileModalContent'),
+                    ]),
+            },
+            {
+                id: 'criminal-dashboard',
+                priority: 'high',
+                loader: () =>
+                    Promise.all([
+                        import('@/app/components/lawyer/criminal-system/CriminalDashboard'),
+                        import('@/app/components/lawyer/criminal-system/criminalStore'),
+                    ]),
+            },
+        ];
+        for (const job of homeJobs) {
+            this.enqueue(job);
+        }
     },
 
     planLawyerSecondaryWave(): void {
         this.enqueueWave(
             [
+                {
+                    id: 'global-search-overlay',
+                    priority: 'high',
+                    loader: () =>
+                        import('@/app/runtime/globalSearchLoader').then((m) => m.loadGlobalSearchOverlayModule()),
+                },
                 {
                     id: 'execution-creation',
                     priority: 'low',
@@ -145,7 +142,7 @@ export const PrefetchScheduler = {
                     loader: () => import('@/app/components/lawyer/ExecutionDashboard'),
                 },
             ],
-            { delayMs: import.meta.env.DEV ? 4_000 : 8_000 },
+            { delayMs: import.meta.env.DEV ? 2_500 : 5_000 },
         );
     },
 

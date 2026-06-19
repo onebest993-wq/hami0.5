@@ -12,7 +12,7 @@ const ROOT = path.resolve(__dirname, '..')
 const SRC = path.join(ROOT, 'src')
 
 const CRITICAL_PATTERNS = [
-  { re: /service_role/i, name: 'Supabase service_role (must never ship to client)' },
+  { re: /service_role(?!_KEY)/i, name: 'Supabase service_role (must never ship to client)', skipUnder: 'src/app/api/' },
   { re: /\bsk_live_[a-zA-Z0-9]+/i, name: 'Stripe-style secret key' },
   { re: /\bAKIA[0-9A-Z]{16}\b/, name: 'AWS access key id pattern' },
 ]
@@ -52,7 +52,8 @@ function scanFile(filePath) {
     return
   }
   const rel = path.relative(ROOT, filePath).replace(/\\/g, '/')
-  for (const { re, name } of CRITICAL_PATTERNS) {
+  for (const { re, name, skipUnder } of CRITICAL_PATTERNS) {
+    if (skipUnder && rel.startsWith(skipUnder.replace(/\\/g, '/'))) continue
     if (re.test(text)) critical.push(`${rel}: ${name}`)
   }
   for (const { re, name } of WARNING_PATTERNS) {

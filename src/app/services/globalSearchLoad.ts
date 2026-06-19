@@ -13,6 +13,10 @@ import type { LegalTask } from '@/app/types/TaskEngine';
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
 import { QUANTUM_TASKS_STORAGE_KEY, deserializeQuantumTasks } from '@/app/utils/quantumTasksStorage';
 import type { Transaction, TransactionTask, FinanceRecord } from '@/app/modules/transactionsThreading/types';
+import { invalidateGlobalSearchFuseCache } from '@/app/services/globalSearchFuse';
+import { invalidateGlobalSearchIndexCache } from '@/app/services/globalSearchIndexRuntime';
+import { invalidateProfileLineCache } from '@/app/services/globalSearchProfileCache';
+import { resetGlobalSearchWarmState } from '@/app/services/globalSearchWarm';
 
 export type GlobalSearchExtras = {
     quantumTasks: LegalTask[];
@@ -38,10 +42,33 @@ const emptyExtras = (): GlobalSearchExtras => ({
     communityPosts: [],
 });
 
-/** تحميل مصادر البحث غير المتزامنة من كل أقسام التطبيق */
-export async function loadGlobalSearchExtras(userId: string | null): Promise<GlobalSearchExtras> {
-    if (!userId) return emptyExtras();
+let resolvedExtrasCache: { userId: string; data: GlobalSearchExtras } | null = null;
+let inflightExtras: { userId: string; promise: Promise<GlobalSearchExtras> } | null = null;
 
+export function getCachedGlobalSearchExtras(userId: string | null): GlobalSearchExtras | null {
+    if (!userId || resolvedExtrasCache?.userId !== userId) return null;
+    return resolvedExtrasCache.data;
+}
+
+export function invalidateGlobalSearchExtrasCache(userId?: string | null): void {
+    if (userId && resolvedExtrasCache?.userId !== userId) return;
+    resolvedExtrasCache = null;
+    if (!userId || inflightExtras?.userId === userId) inflightExtras = null;
+    invalidateGlobalSearchIndexCache();
+    invalidateGlobalSearchFuseCache();
+    invalidateProfileLineCache(userId ?? undefined);
+    resetGlobalSearchWarmState();
+}
+
+/** تسخين مصادر البحث في الخلفية — لا يُعيد التحميل إذا كان الكاش سارياً. */
+export function warmGlobalSearchExtras(userId: string | null): void {
+    if (!userId) return;
+    void loadGlobalSearchExtras(userId).catch(() => {
+        /* تسخين اختياري */
+    });
+}
+
+async function fetchGlobalSearchExtras(userId: string): Promise<GlobalSearchExtras> {
     const [calendarEvents, vaultDocs, repositoryDocs, urgentState, threadingState, communityPosts] =
         await Promise.all([
             CalendarDB.getEvents(userId).catch(() => [] as CalendarEvent[]),
@@ -70,4 +97,26 @@ export async function loadGlobalSearchExtras(userId: string | null): Promise<Glo
             : [],
         communityPosts,
     };
+}
+
+/** تحميل مصادر البحث غير المتزامنة من كل أقسام التطبيق — مع كاش جلسة لكل مستخدم. */
+export async function loadGlobalSearchExtras(userId: string | null): Promise<GlobalSearchExtras> {
+    if (!userId) return emptyExtras();
+
+    const cached = getCachedGlobalSearchExtras(userId);
+    if (cached) return cached;
+
+    if (inflightExtras?.userId === userId) return inflightExtras.promise;
+
+    const promise = fetchGlobalSearchExtras(userId)
+        .then((data) => {
+            resolvedExtrasCache = { userId, data };
+            return data;
+        })
+        .finally(() => {
+            if (inflightExtras?.userId === userId) inflightExtras = null;
+        });
+
+    inflightExtras = { userId, promise };
+    return promise;
 }

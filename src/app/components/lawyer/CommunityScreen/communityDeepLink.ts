@@ -29,14 +29,6 @@ export function parseCommunityDeepLinkFromHash(hash: string): CommunityDeepLinkT
     return { postId, openComments };
 }
 
-export function parseCommunityPostIdFromHash(hash: string): string | null {
-    return parseCommunityDeepLinkFromHash(hash)?.postId ?? null;
-}
-
-export function parseCommunityPostIdFromLocation(loc: Pick<Location, 'hash'>): string | null {
-    return parseCommunityPostIdFromHash(loc.hash || '');
-}
-
 export function parseCommunityDeepLinkFromLocation(loc: Pick<Location, 'hash'>): CommunityDeepLinkTarget | null {
     return parseCommunityDeepLinkFromHash(loc.hash || '');
 }

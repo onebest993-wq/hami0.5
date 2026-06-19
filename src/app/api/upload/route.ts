@@ -1,19 +1,23 @@
 import { createClient } from '@supabase/supabase-js';
-import { randomUUID } from 'node:crypto';
 import {
   extractUserTokenFromRequest,
   getVerifiedTokenSubject,
   isTokenAuthorized,
   verifyWifeSignature,
-  wifeForbiddenResponse,
+  wifeForbiddenResponse, wifeSignatureFailedResponse,
   wifeUnauthorizedResponse,
 } from '../security/wifeValidator.ts';
 import { validateFileBuffer, verifyFileContentHash } from '../security/fileValidator.ts';
 import { scanBufferForMalware } from '../../services/server/MalwareScanService.ts';
+import {
+  ALLOWED_UPLOAD_CATEGORIES,
+  buildCategoryObjectPath,
+  resolveUploadBucket,
+  SIGNED_URL_TTL_SEC,
+} from './uploadStorageUtils.ts';
 
 export const runtime = 'nodejs';
 
-const DEFAULT_BUCKET = 'legal_documents';
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB
 
 function json(status: number, payload: Record<string, unknown>): Response {
@@ -32,14 +36,6 @@ function getSupabaseAdminClient() {
   return createClient(supabaseUrl, serviceRoleKey);
 }
 
-function safeExtension(originalName: string): string {
-  const normalized = originalName.trim();
-  const dotIndex = normalized.lastIndexOf('.');
-  if (dotIndex < 0) return '';
-  const ext = normalized.slice(dotIndex + 1).toLowerCase();
-  return /^[a-z0-9]{1,10}$/.test(ext) ? ext : '';
-}
-
 function pickUploadedFile(formData: FormData): File | null {
   const direct = formData.get('file');
   if (direct instanceof File) return direct;
@@ -55,19 +51,19 @@ export async function POST(request: Request): Promise<Response> {
     // 1) Ghost/banned-user checkpoint.
     const userToken = extractUserTokenFromRequest(request);
     if (!userToken || !(await isTokenAuthorized(userToken))) {
-      return wifeUnauthorizedResponse();
+      return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
     }
 
     // 2) WIFE tamper/replay checkpoint.
     if (!(await verifyWifeSignature(request, userToken))) {
-      return wifeForbiddenResponse();
+      return wifeSignatureFailedResponse(request);
     }
 
     const contentHashHeader =
       request.headers.get('x-wife-content-hash') ??
       request.headers.get('X-WIFE-Content-Hash');
     if (!contentHashHeader || !contentHashHeader.trim()) {
-      return wifeForbiddenResponse();
+      return wifeForbiddenResponse({ request, reason: 'signature_failed', detail: 'missing_content_hash' });
     }
 
     // 3) Multipart extraction.
@@ -80,6 +76,13 @@ export async function POST(request: Request): Promise<Response> {
     if (!file) {
       return json(400, { ok: false, error: 'No file provided' });
     }
+
+    const categoryRaw = formData.get('category');
+    const category = typeof categoryRaw === 'string' ? categoryRaw.trim() : '';
+    if (!ALLOWED_UPLOAD_CATEGORIES.has(category)) {
+      return json(400, { ok: false, error: 'Invalid upload category' });
+    }
+
     if (file.size <= 0) {
       return json(400, { ok: false, error: 'Empty file is not allowed' });
     }
@@ -119,12 +122,11 @@ export async function POST(request: Request): Promise<Response> {
 
     const userId = await getVerifiedTokenSubject(userToken);
     if (!userId) {
-      return wifeUnauthorizedResponse();
+      return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
     }
-    const bucket = (process.env.SUPABASE_UPLOAD_BUCKET ?? DEFAULT_BUCKET).trim() || DEFAULT_BUCKET;
-    const ext = safeExtension(file.name);
-    const randomName = randomUUID();
-    const objectPath = `${userId}/${randomName}${ext ? `.${ext}` : ''}`;
+
+    const bucket = resolveUploadBucket();
+    const objectPath = buildCategoryObjectPath(userId, category, file.name);
 
     const { error } = await admin.storage.from(bucket).upload(objectPath, buffer, {
       contentType: file.type || undefined,
@@ -134,10 +136,19 @@ export async function POST(request: Request): Promise<Response> {
       return json(500, { ok: false, error: 'Storage upload failed' });
     }
 
+    const { data: signedData, error: signedErr } = await admin.storage
+      .from(bucket)
+      .createSignedUrl(objectPath, SIGNED_URL_TTL_SEC);
+    if (signedErr) {
+      return json(500, { ok: false, error: 'Failed to create download URL' });
+    }
+
     return json(200, {
       ok: true,
       bucket,
       path: objectPath,
+      fullPath: objectPath,
+      downloadUrl: signedData?.signedUrl ?? null,
     });
   } catch {
     return json(500, { ok: false, error: 'Internal upload error' });

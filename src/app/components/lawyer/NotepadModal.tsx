@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { X, Plus, Trash2, Save, FileText, Mic, StopCircle, ArrowRight, Calendar } from 'lucide-react';
+import { X, Plus, Trash2, Save, FileText, ArrowRight, Pin } from 'lucide-react';
 import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
 import { buildNoteWorkspacePin } from '@/app/workspace/workspacePinBuilders';
 
@@ -16,7 +16,7 @@ type NotepadNote = {
     isPinned?: boolean;
 };
 
-export type NotepadSaveNote = {
+type NotepadSaveNote = {
     id: string | number;
     title: string;
     body: string;
@@ -29,28 +29,35 @@ export type NotepadSaveNote = {
 interface NotepadModalProps {
     isOpen: boolean;
     onClose: () => void;
-    startMode: 'view' | 'add' | 'list' | 'create' | 'voice';
+    startMode: 'list' | 'create';
     notes: NotepadNote[];
     onSave: (note: NotepadSaveNote) => void;
     onDelete: (id: string | number) => void;
     onConvert?: (note: { text: string }) => void;
-    theme?: Record<string, unknown>;
     shapeClass?: string;
-    files?: Record<string, unknown>[];
     focusNoteId?: string;
 }
 
-const mapStartMode = (m: NotepadModalProps['startMode']): 'list' | 'create' | 'voice' => {
-    if (m === 'voice') return 'voice';
-    if (m === 'add' || m === 'create') return 'create';
-    return 'list';
-};
+const PEARL_SHELL =
+    'relative overflow-hidden flex flex-col h-[70vh] rounded-[22px] border border-[#E6C673]/18 ' +
+    'bg-[#0a0a0c]/88 backdrop-blur-2xl shadow-[0_24px_80px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.14)]';
 
-function noteApptYmd(note: NotepadNote): string {
-    const raw = note.apptDate ?? note.reminder_at ?? '';
-    const m = String(raw).match(/^(\d{4}-\d{2}-\d{2})/);
-    return m ? m[1] : '';
-}
+const PEARL_HEADER =
+    'relative px-5 py-4 flex justify-between items-center border-b border-white/[0.08] ' +
+    'bg-gradient-to-l from-white/[0.07] via-white/[0.03] to-transparent';
+
+const PEARL_INPUT =
+    'w-full bg-white/[0.06] border border-white/[0.10] rounded-xl px-4 py-3 text-white ' +
+    'placeholder:text-white/35 outline-none transition-all ' +
+    'focus:border-[#E6C673]/40 focus:bg-white/[0.09] focus:ring-1 focus:ring-[#E6C673]/15';
+
+const PEARL_BTN_GOLD =
+    'px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-all ' +
+    'bg-[#E6C673]/18 border border-[#E6C673]/35 text-[#E6C673] hover:bg-[#E6C673]/26';
+
+const PEARL_CARD =
+    'w-full text-right rounded-xl border border-white/[0.08] bg-white/[0.04] backdrop-blur-md ' +
+    'p-4 transition-all hover:border-[#E6C673]/25 hover:bg-white/[0.07]';
 
 export const NotepadModal = ({
     isOpen,
@@ -63,18 +70,18 @@ export const NotepadModal = ({
     shapeClass,
     focusNoteId,
 }: NotepadModalProps) => {
-    const [mode, setMode] = useState<'list' | 'create' | 'voice'>(() => mapStartMode(startMode));
+    const [mode, setMode] = useState<'list' | 'create'>(() =>
+        startMode === 'create' ? 'create' : 'list',
+    );
     const [editingId, setEditingId] = useState<string | number | null>(null);
     const [currentNote, setCurrentNote] = useState({
         title: '',
         body: '',
-        apptDate: '',
         isPinned: false,
     });
-    const [isRecording, setIsRecording] = useState(false);
 
     useEffect(() => {
-        setMode(mapStartMode(startMode));
+        setMode(startMode === 'create' ? 'create' : 'list');
     }, [startMode]);
 
     useEffect(() => {
@@ -88,7 +95,7 @@ export const NotepadModal = ({
 
     const openCreate = () => {
         setEditingId(null);
-        setCurrentNote({ title: '', body: '', apptDate: '', isPinned: false });
+        setCurrentNote({ title: '', body: '', isPinned: false });
         setMode('create');
     };
 
@@ -97,7 +104,6 @@ export const NotepadModal = ({
         setCurrentNote({
             title: note.title || '',
             body: note.body || note.text || '',
-            apptDate: noteApptYmd(note),
             isPinned: Boolean(note.isPinned),
         });
         setMode('create');
@@ -105,193 +111,196 @@ export const NotepadModal = ({
 
     const handleSave = () => {
         if (!currentNote.body.trim()) return;
-        const appt = currentNote.apptDate.trim();
         onSave({
             id: editingId ?? Date.now(),
             title: currentNote.title.trim() || 'ملاحظة جديدة',
             body: currentNote.body.trim(),
             date: new Date().toLocaleDateString('ar-EG'),
-            apptDate: appt || undefined,
-            reminder_at: appt || undefined,
             isPinned: currentNote.isPinned,
         });
-        setCurrentNote({ title: '', body: '', apptDate: '', isPinned: false });
+        setCurrentNote({ title: '', body: '', isPinned: false });
         setEditingId(null);
         setMode('list');
     };
 
     if (!isOpen) return null;
 
+    const shellClass = shapeClass ? `${PEARL_SHELL} ${shapeClass}` : PEARL_SHELL;
+
     return (
-        <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-[#050508]/75 backdrop-blur-md"
+            dir="rtl"
+        >
+            <div
+                className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_0%,rgba(255,255,255,0.06),transparent_55%)]"
+                aria-hidden
+            />
             <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className={`w-full max-w-2xl bg-[#1A1E2E] border border-white/10 ${shapeClass} overflow-hidden flex flex-col h-[70vh]`}
+                initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: 8 }}
+                className={`w-full max-w-2xl ${shellClass}`}
             >
-                <div className="p-4 border-b border-white/10 flex justify-between items-center bg-[#0B1021]">
+                <div
+                    className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/[0.08] to-transparent"
+                    aria-hidden
+                />
+
+                <div className={PEARL_HEADER}>
                     <div className="flex items-center gap-3">
-                        <FileText className="text-[#E6C673]" />
-                        <h2 className="text-xl font-bold text-white">المفكرة القانونية</h2>
+                        <div className="w-9 h-9 rounded-xl bg-white/[0.06] border border-[#E6C673]/20 flex items-center justify-center">
+                            <FileText className="text-[#E6C673]" size={18} />
+                        </div>
+                        <h2 className="text-lg font-bold text-white/95">المفكرة القانونية</h2>
                     </div>
-                    <button type="button" onClick={onClose}>
-                        <X className="text-white/50 hover:text-white" />
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="w-9 h-9 rounded-xl border border-white/10 bg-white/[0.04] text-white/50 hover:text-white hover:border-[#E6C673]/30 transition-colors flex items-center justify-center"
+                        aria-label="إغلاق"
+                    >
+                        <X size={18} />
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-hidden flex flex-col">
+                <div className="flex-1 overflow-hidden flex flex-col relative z-[1]">
                     {mode === 'list' ? (
                         <div className="flex-1 overflow-y-auto p-4 space-y-3">
                             <button
                                 type="button"
                                 onClick={openCreate}
-                                className="w-full py-3 rounded-xl border border-dashed border-white/20 text-white/50 hover:text-white hover:border-white/50 hover:bg-white/5 flex items-center justify-center gap-2 transition-all"
+                                className="w-full py-3 rounded-xl border border-dashed border-[#E6C673]/25 text-white/45 hover:text-[#E6C673] hover:border-[#E6C673]/45 hover:bg-white/[0.04] flex items-center justify-center gap-2 transition-all"
                             >
                                 <Plus size={18} /> إضافة ملاحظة جديدة
                             </button>
 
                             {notes.length === 0 && (
-                                <div className="text-center py-10 text-white/30">لا توجد ملاحظات محفوظة</div>
+                                <div className="text-center py-10 text-white/30 text-sm">لا توجد ملاحظات محفوظة</div>
                             )}
 
-                            {notes.map((note) => {
-                                const appt = noteApptYmd(note);
-                                return (
-                                    <button
-                                        type="button"
-                                        key={note.id}
-                                        data-note-id={String(note.id)}
-                                        onClick={() => openEdit(note)}
-                                        className={`w-full text-right bg-white/5 p-4 rounded-xl border transition-all group relative ${
-                                            focusNoteId && String(note.id) === focusNoteId
-                                                ? 'border-[#E6C673]/60 ring-1 ring-[#E6C673]/30'
-                                                : 'border-white/5 hover:border-[#E6C673]/30'
-                                        }`}
-                                    >
-                                        <div className="flex justify-between items-start mb-2 gap-2">
-                                            <h3 className="font-bold text-white">{note.title || 'ملاحظة'}</h3>
-                                            <div className="flex flex-col items-end gap-1 shrink-0">
-                                                <span className="text-[10px] text-white/40">{note.date}</span>
-                                                {appt ? (
-                                                    <span className="text-[10px] text-[#E6C673] flex items-center gap-1">
-                                                        <Calendar size={10} />
-                                                        {appt}
-                                                    </span>
-                                                ) : null}
-                                            </div>
-                                        </div>
-                                        <p className="text-white/70 text-sm line-clamp-3 leading-relaxed">
-                                            {note.body || note.text}
-                                        </p>
-
-                                        <div
-                                            className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 flex gap-2 items-center"
-                                            onClick={(e) => e.stopPropagation()}
-                                        >
-                                            {(() => {
-                                                const pin = buildNoteWorkspacePin(note);
-                                                return pin ? (
-                                                    <WorkspacePinButton item={pin} className="!w-7 !h-7" size={14} />
-                                                ) : null;
-                                            })()}
-                                            <button
-                                                type="button"
-                                                onClick={() => onDelete(note.id)}
-                                                className="p-1.5 rounded-full bg-red-500/20 text-red-500 hover:bg-red-500 hover:text-white"
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    const text = note.body || note.text || '';
-                                                    onConvert?.({ text });
-                                                }}
-                                                className="p-1.5 rounded-full bg-[#E6C673]/20 text-[#E6C673] hover:bg-[#E6C673] hover:text-black"
-                                                title="تحويل لقضية"
-                                            >
-                                                <ArrowRight size={14} />
-                                            </button>
-                                        </div>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    ) : (
-                        <div className="flex-1 p-6 flex flex-col gap-4 overflow-y-auto">
-                            <div className="flex items-center gap-2 mb-2">
+                            {notes.map((note) => (
                                 <button
                                     type="button"
-                                    onClick={() => {
-                                        setMode('list');
-                                        setEditingId(null);
-                                    }}
-                                    className="text-white/50 hover:text-white"
+                                    key={note.id}
+                                    data-note-id={String(note.id)}
+                                    onClick={() => openEdit(note)}
+                                    className={`${PEARL_CARD} group relative ${
+                                        focusNoteId && String(note.id) === focusNoteId
+                                            ? 'border-[#E6C673]/45 ring-1 ring-[#E6C673]/20'
+                                            : ''
+                                    }`}
                                 >
-                                    <ArrowRight />
+                                    <div className="flex justify-between items-start mb-2 gap-2">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            {note.isPinned ? (
+                                                <Pin size={12} className="text-[#E6C673] shrink-0" />
+                                            ) : null}
+                                            <h3 className="font-bold text-white/90 truncate">{note.title || 'ملاحظة'}</h3>
+                                        </div>
+                                        <span className="text-[10px] text-white/35 shrink-0">{note.date}</span>
+                                    </div>
+                                    <p className="text-white/60 text-sm line-clamp-3 leading-relaxed">
+                                        {note.body || note.text}
+                                    </p>
+
+                                    <div
+                                        className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 flex gap-2 items-center transition-opacity"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        {(() => {
+                                            const pin = buildNoteWorkspacePin(note);
+                                            return pin ? (
+                                                <WorkspacePinButton item={pin} className="!w-7 !h-7" size={14} />
+                                            ) : null;
+                                        })()}
+                                        <button
+                                            type="button"
+                                            onClick={() => onDelete(note.id)}
+                                            className="p-1.5 rounded-lg bg-rose-500/15 border border-rose-500/25 text-rose-300 hover:bg-rose-500/30"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const text = note.body || note.text || '';
+                                                onConvert?.({ text });
+                                            }}
+                                            className="p-1.5 rounded-lg bg-[#E6C673]/15 border border-[#E6C673]/25 text-[#E6C673] hover:bg-[#E6C673]/25"
+                                            title="تحويل لقضية"
+                                        >
+                                            <ArrowRight size={14} />
+                                        </button>
+                                    </div>
                                 </button>
-                                <span className="text-white/50">
-                                    {editingId ? 'تعديل الملاحظة' : 'ملاحظة جديدة'}
-                                </span>
-                            </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="flex-1 p-5 flex flex-col gap-4 overflow-y-auto">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setMode('list');
+                                    setEditingId(null);
+                                }}
+                                className="inline-flex items-center gap-2 text-white/45 hover:text-white/80 text-sm transition-colors w-fit"
+                            >
+                                <ArrowRight size={16} />
+                                {editingId ? 'تعديل الملاحظة' : 'ملاحظة جديدة'}
+                            </button>
 
                             <input
                                 type="text"
                                 placeholder="عنوان الملاحظة..."
                                 value={currentNote.title}
                                 onChange={(e) => setCurrentNote({ ...currentNote, title: e.target.value })}
-                                className="bg-transparent border-b border-white/10 text-xl font-bold text-white p-2 outline-none focus:border-[#E6C673]"
+                                className={`${PEARL_INPUT} text-lg font-bold`}
                             />
-
-                            <label className="flex flex-col gap-1.5">
-                                <span className="text-xs text-white/50 flex items-center gap-1.5">
-                                    <Calendar size={14} className="text-[#E6C673]" />
-                                    موعد / تذكير في التقويم (اختياري)
-                                </span>
-                                <input
-                                    type="date"
-                                    value={currentNote.apptDate}
-                                    onChange={(e) =>
-                                        setCurrentNote({ ...currentNote, apptDate: e.target.value })
-                                    }
-                                    className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-[#E6C673]/50"
-                                />
-                            </label>
 
                             <textarea
                                 placeholder="اكتب تفاصيل الملاحظة هنا..."
                                 value={currentNote.body}
                                 onChange={(e) => setCurrentNote({ ...currentNote, body: e.target.value })}
-                                className="flex-1 min-h-[120px] bg-white/5 rounded-xl p-4 text-white resize-none outline-none focus:ring-1 focus:ring-[#E6C673]/50"
+                                className={`${PEARL_INPUT} flex-1 min-h-[160px] resize-none leading-relaxed`}
                             />
 
-                            <label className="flex items-center gap-2 text-sm text-white/70">
-                                <input
-                                    type="checkbox"
-                                    checked={currentNote.isPinned}
-                                    onChange={(e) =>
-                                        setCurrentNote({ ...currentNote, isPinned: e.target.checked })
-                                    }
-                                    className="rounded border-white/20"
-                                />
-                                تثبيت الملاحظة
-                            </label>
+                            <button
+                                type="button"
+                                role="switch"
+                                aria-checked={currentNote.isPinned}
+                                onClick={() =>
+                                    setCurrentNote({ ...currentNote, isPinned: !currentNote.isPinned })
+                                }
+                                className={`flex items-center justify-between gap-3 w-full rounded-xl px-4 py-3 border transition-all ${
+                                    currentNote.isPinned
+                                        ? 'bg-[#E6C673]/10 border-[#E6C673]/35 shadow-[0_0_20px_rgba(230,198,115,0.08)]'
+                                        : 'bg-white/[0.04] border-white/[0.10] hover:border-white/[0.16]'
+                                }`}
+                            >
+                                <span className="flex items-center gap-2 text-sm font-medium text-white/80">
+                                    <Pin
+                                        size={15}
+                                        className={currentNote.isPinned ? 'text-[#E6C673]' : 'text-white/35'}
+                                    />
+                                    تثبيت الملاحظة
+                                </span>
+                                <span
+                                    className={`relative w-11 h-6 rounded-full shrink-0 transition-colors ${
+                                        currentNote.isPinned ? 'bg-[#E6C673]/70' : 'bg-white/15'
+                                    }`}
+                                >
+                                    <span
+                                        className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-all ${
+                                            currentNote.isPinned ? 'right-0.5' : 'left-0.5'
+                                        }`}
+                                    />
+                                </span>
+                            </button>
 
-                            <div className="flex justify-end gap-3 pt-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsRecording(!isRecording)}
-                                    className={`p-3 rounded-full ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-white/10 text-white/50 hover:text-white'}`}
-                                >
-                                    {isRecording ? <StopCircle /> : <Mic />}
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={handleSave}
-                                    className="px-6 py-2 bg-[#E6C673] text-[#0B1021] font-bold rounded-xl hover:bg-[#D4B360] flex items-center gap-2"
-                                >
-                                    <Save size={18} /> حفظ
+                            <div className="flex justify-end pt-1">
+                                <button type="button" onClick={handleSave} className={PEARL_BTN_GOLD}>
+                                    <Save size={17} /> حفظ
                                 </button>
                             </div>
                         </div>

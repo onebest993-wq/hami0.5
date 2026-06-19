@@ -2,61 +2,64 @@
 import { lazy } from 'react';
 
 export const LazyEditCaseInfoModal = lazy(() =>
-    import('./SmartFileModals').then((m) => ({ default: m.EditCaseInfoModal }))
+    import('./modals/EditCaseInfoModal').then((m) => ({ default: m.EditCaseInfoModal }))
 );
 export const LazyAddTaskModal = lazy(() =>
-    import('./SmartFileModals').then((m) => ({ default: m.AddTaskModal }))
+    import('./modals/contentEntryModals').then((m) => ({ default: m.AddTaskModal }))
 );
 export const LazyAddDocumentModal = lazy(() =>
-    import('./SmartFileModals').then((m) => ({ default: m.AddDocumentModal }))
+    import('./modals/contentEntryModals').then((m) => ({ default: m.AddDocumentModal }))
 );
 export const LazyAddNoteModal = lazy(() =>
-    import('./SmartFileModals').then((m) => ({ default: m.AddNoteModal }))
+    import('./modals/contentEntryModals').then((m) => ({ default: m.AddNoteModal }))
 );
 export const LazyAddPaymentModal = lazy(() =>
-    import('./SmartFileModals').then((m) => ({ default: m.AddPaymentModal }))
+    import('./modals/contentEntryModals').then((m) => ({ default: m.AddPaymentModal }))
 );
 export const LazyAddIncidentalCaseModal = lazy(() =>
-    import('./SmartFileModals').then((m) => ({ default: m.AddIncidentalCaseModal }))
+    import('./modals/flow-modals/AddIncidentalCaseModal').then((m) => ({ default: m.AddIncidentalCaseModal }))
 );
 export const LazyAddAppointmentModal = lazy(() =>
-    import('./SmartFileModals').then((m) => ({ default: m.AddAppointmentModal }))
+    import('./modals/contentEntryModals').then((m) => ({ default: m.AddAppointmentModal }))
 );
 export const LazyPauseCaseModal = lazy(() =>
-    import('./SmartFileModals').then((m) => ({ default: m.PauseCaseModal }))
+    import('./modals/flow-modals/PauseCaseModal').then((m) => ({ default: m.PauseCaseModal }))
 );
 export const LazyInterruptionModal = lazy(() =>
-    import('./SmartFileModals').then((m) => ({ default: m.InterruptionModal }))
+    import('./modals/flow-modals/InterruptionModal').then((m) => ({ default: m.InterruptionModal }))
 );
 export const LazyResumeInterruptionModal = lazy(() =>
-    import('./SmartFileModals').then((m) => ({ default: m.ResumeInterruptionModal }))
+    import('./modals/flow-modals/ResumeInterruptionModal').then((m) => ({ default: m.ResumeInterruptionModal }))
 );
 export const LazyTrashModal = lazy(() =>
-    import('./SmartFileModals').then((m) => ({ default: m.TrashModal }))
+    import('./modals/flow-modals/TrashModal').then((m) => ({ default: m.TrashModal }))
 );
 export const LazyInterlocutoryAppealModal = lazy(() =>
-    import('./SmartFileModals').then((m) => ({ default: m.InterlocutoryAppealModal }))
+    import('./modals/appealObjectionModals').then((m) => ({ default: m.InterlocutoryAppealModal }))
 );
 export const LazyAppealRegistrationModal = lazy(() =>
-    import('./SmartFileModals').then((m) => ({ default: m.AppealRegistrationModal }))
+    import('./modals/appealObjectionModals').then((m) => ({ default: m.AppealRegistrationModal }))
 );
 export const LazyAddProvisionalOrderModal = lazy(() =>
-    import('./SmartFileModals').then((m) => ({ default: m.AddProvisionalOrderModal }))
+    import('./modals/flow-modals/AddProvisionalOrderModal').then((m) => ({ default: m.AddProvisionalOrderModal }))
 );
 export const LazyJudicialNotificationModal = lazy(() =>
-    import('./SmartFileModals').then((m) => ({ default: m.JudicialNotificationModal }))
+    import('./modals/appealObjectionModals').then((m) => ({ default: m.JudicialNotificationModal }))
 );
 export const LazyObjectionRegistrationModal = lazy(() =>
-    import('./SmartFileModals').then((m) => ({ default: m.ObjectionRegistrationModal }))
+    import('./modals/appealObjectionModals').then((m) => ({ default: m.ObjectionRegistrationModal }))
 );
 export const LazyObjectionJudgmentModal = lazy(() =>
-    import('./SmartFileModals').then((m) => ({ default: m.ObjectionJudgmentModal }))
+    import('./modals/appealObjectionModals').then((m) => ({ default: m.ObjectionJudgmentModal }))
 );
-export const LazyAddActionModal = lazy(() =>
-    import('./SmartFileModals').then((m) => ({ default: m.AddActionModal }))
+export const LazyAbsentJudgmentNotificationModal = lazy(() =>
+    import('./modals/appealObjectionModals').then((m) => ({ default: m.AbsentJudgmentNotificationModal }))
+);
+export const LazyOpponentAbsentObjectionModal = lazy(() =>
+    import('./modals/appealObjectionModals').then((m) => ({ default: m.OpponentAbsentObjectionModal }))
 );
 export const LazyExtraordinaryAppealModal = lazy(() =>
-    import('./SmartFileModals').then((m) => ({ default: m.ExtraordinaryAppealModal }))
+    import('./modals/extraordinaryAppealModal').then((m) => ({ default: m.ExtraordinaryAppealModal }))
 );
 
 export const LazyFastTrackModal = lazy(() =>
@@ -79,17 +82,20 @@ export const LazyMaterialErrorCorrectionModal = lazy(() =>
 );
 
 export const LazyJudgeRecusalModal = lazy(() =>
-    import('./ProceduralModals').then((m) => ({ default: m.JudgeRecusalModal }))
+    import('./procedural-modals/JudgeRecusalModal').then((m) => ({ default: m.JudgeRecusalModal }))
 );
 export const LazyTransferJurisdictionModal = lazy(() =>
-    import('./ProceduralModals').then((m) => ({ default: m.TransferJurisdictionModal }))
+    import('./procedural-modals/TransferJurisdictionModal').then((m) => ({ default: m.TransferJurisdictionModal }))
 );
 export const LazyCaseConsolidationModal = lazy(() =>
-    import('./ProceduralModals').then((m) => ({ default: m.CaseConsolidationModal }))
+    import('./procedural-modals/CaseConsolidationModal').then((m) => ({ default: m.CaseConsolidationModal }))
 );
-export const LazyAttorneyResignationModal = lazy(() =>
-    import('./ProceduralModals').then((m) => ({ default: m.AttorneyResignationModal }))
+export const LazyCaseLinkModal = lazy(() =>
+    import('./procedural-modals/CaseLinkModal').then((m) => ({ default: m.CaseLinkModal }))
 );
-export const LazyExecutionTransferModal = lazy(() =>
-    import('./ProceduralModals').then((m) => ({ default: m.ExecutionTransferModal }))
+export const LazyCorrespondenceModal = lazy(() =>
+    import('./procedural-modals/CorrespondenceModal').then((m) => ({ default: m.CorrespondenceModal }))
+);
+export const LazyAppealBriefOutcomeModal = lazy(() =>
+    import('./procedural-modals/AppealBriefOutcomeModal').then((m) => ({ default: m.AppealBriefOutcomeModal }))
 );

@@ -1,6 +1,6 @@
 /**
  * آلة حالات: تبليغ المدين الكاسب لاستحصال الأتعاب والمصاريف (إضبارة تخلية).
- * منطق صرفي فقط — العرض في EvictionEarnerFeeCollectionFlow.
+ * منطق صرفي فقط — يُستهلك من ExecutionDashboard.
  */
 
 export type FeeCollectionPurpose = 'none' | 'ordinary' | 'coercive';

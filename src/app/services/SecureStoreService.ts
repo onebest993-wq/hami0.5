@@ -332,6 +332,10 @@ class SecureStoreService {
     if (key === 'hami:criminal:store') {
       return this.countCasesInRaw(incoming) === 0 && this.countCasesInRaw(existing) > 0;
     }
+    if (key.startsWith('hami_notes_sync_map_')) {
+      const trimmed = incoming.trim();
+      if (trimmed === '' || trimmed === '{}' || trimmed === 'null') return true;
+    }
     const trimmed = incoming.trim();
     if (trimmed === '' || trimmed === '{}' || trimmed === 'null') return true;
     return false;
@@ -343,7 +347,9 @@ class SecureStoreService {
       try {
         const existing = webFallbackStore.get(key) ?? (await this.webDbGetItem(key));
         if (existing && this.shouldRejectEmptyOverwrite(key, value, existing)) {
-          _warn(`Refused empty overwrite for "${key}" — existing data preserved.`);
+          if (!key.startsWith('hami_notes_sync_map_')) {
+            _warn(`Refused empty overwrite for "${key}" — existing data preserved.`);
+          }
           return;
         }
       } catch {

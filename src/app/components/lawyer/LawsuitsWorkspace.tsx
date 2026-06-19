@@ -14,11 +14,9 @@ import type { FileData } from './LawyerShared';
 import type { ArchiveType } from '@/app/types/common';
 import {
     allLawsuitFilesForArchive,
-    lawsuitFilesToArchiveRows,
 } from '@/app/domain/lawsuit/lawsuitFileFactory';
-import type { CaseFile } from '@/app/types/common';
-import { CIVIL_LAWSUIT_TEST_IDS } from '@/app/components/lawyer/smart-modal/smartFile/civilLawsuitTestIds';
 import type { LawsuitJurisdictionTab } from '@/app/domain/lawsuit/lawsuitJurisdiction';
+import { CIVIL_LAWSUIT_TEST_IDS } from '@/app/components/lawyer/smart-modal/smartFile/civilLawsuitTestIds';
 
 type TabKey = 'civil' | 'urgent';
 
@@ -64,10 +62,7 @@ export const LawsuitsWorkspace: React.FC<Props> = ({
     const [urgentPanelKey, setUrgentPanelKey] = useState(0);
 
     const lawsuitArchiveFiles = useMemo(() => allLawsuitFilesForArchive(files), [files]);
-    const archiveRows = useMemo(
-        () => lawsuitFilesToArchiveRows(lawsuitArchiveFiles) as unknown as CaseFile[],
-        [lawsuitArchiveFiles],
-    );
+    const archiveRows = lawsuitArchiveFiles;
 
     const archiveType: ArchiveType = 'lawsuits';
 

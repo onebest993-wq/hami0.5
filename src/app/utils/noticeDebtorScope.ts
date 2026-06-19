@@ -252,3 +252,45 @@ export function buildDebtorSummonsMarkerPatchForKey(
         ...(isPrimary ? { debtor_summons_marker: marker ? { ...marker } : null } : {}),
     };
 }
+
+export type DebtorUnservedMemoBadgeContext = {
+    isEviction?: boolean;
+    debtorAttendedVoluntarily?: boolean;
+    voluntaryAttendanceCount?: number;
+    noticeVoluntaryPeriodEndOptimistic?: boolean;
+    evictionVoluntaryEndOptimistic?: boolean;
+};
+
+/** شارة «غير مبلّغ» — لكل مدين على حدة */
+export function debtorShowsUnservedMemoBadge(
+    file: ExecutionFile | null | undefined,
+    debtorKey: string,
+    primaryDebtorKey: string,
+    ctx: DebtorUnservedMemoBadgeContext = {},
+): boolean {
+    const dk = String(debtorKey);
+    const pk = String(primaryDebtorKey);
+    const isPrimary = dk === pk;
+    const notice = getDebtorNoticeStateForKey(file, debtorKey, primaryDebtorKey);
+
+    if (getDebtorNotificationCountForKey(file, debtorKey, primaryDebtorKey) > 0) return false;
+    if (notice.notificationDate || notice.memoAnchorDate) return false;
+
+    if (isPrimary) {
+        if (ctx.debtorAttendedVoluntarily) return false;
+        if ((ctx.voluntaryAttendanceCount ?? 0) > 0) return false;
+    }
+
+    if (notice.voluntaryPeriodEndDeclared) return false;
+    if (isPrimary && ctx.noticeVoluntaryPeriodEndOptimistic) return false;
+
+    if (ctx.isEviction) {
+        if (file?.eviction_voluntary_period_end_declared || ctx.evictionVoluntaryEndOptimistic) {
+            return false;
+        }
+    } else if (file?.eviction_voluntary_period_end_declared) {
+        return false;
+    }
+
+    return true;
+}

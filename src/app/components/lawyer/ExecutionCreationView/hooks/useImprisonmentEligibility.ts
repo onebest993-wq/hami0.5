@@ -4,9 +4,7 @@ import { calculateImprisonmentEligibility } from '@/app/utils/imprisonmentEngine
 export function useImprisonmentEligibility(
     claimType: string,
     totalAmount: string,
-    isSolidaryLiability: boolean,
-    additionalDebtorsFormLength: number,
-    debtors: Array<{ occupation: 'موظف' | 'كاسب' }>
+    allDebtors: Array<{ occupation: 'موظف' | 'كاسب'; isSolidaryLiability?: boolean }>,
 ) {
     const financialSplitHint = useMemo(() => {
         if (
@@ -26,14 +24,15 @@ export function useImprisonmentEligibility(
             claimType !== 'أثاث زوجية' &&
             claimType !== 'حجة نفقة اتفاقية'
         ) return null;
-        if (isSolidaryLiability) return null;
-        const n = 1 + additionalDebtorsFormLength;
-        if (n < 2) return null;
-        return `عند الحفظ يُوزَّع إجمالي المطالبة بالتساوي تلقائياً على ${n} مديناً (أساسي + إضافي) في حقل «حصة الدين» لكل منهم.`;
-    }, [claimType, isSolidaryLiability, additionalDebtorsFormLength]);
+        if (allDebtors.length < 2) return null;
+        if (allDebtors.every((d) => d.isSolidaryLiability)) return null;
+        const nonSolidaryCount = allDebtors.filter((d) => !d.isSolidaryLiability).length;
+        if (nonSolidaryCount === 0) return null;
+        return `أدخل مبلغ دين كل مدين مستقل يدوياً؛ الباقي يُسجَّل ذمة متضامنة بين الضامنين.`;
+    }, [claimType, allDebtors]);
 
     const imprisonmentStatus = useMemo(() => {
-        const primaryDebtor = debtors[0];
+        const primaryDebtor = allDebtors[0];
 
         if (!primaryDebtor) {
             return {
@@ -51,7 +50,7 @@ export function useImprisonmentEligibility(
             claimType: claimType,
             debtAmount: totalAmount || '0'
         });
-    }, [debtors, claimType, totalAmount]);
+    }, [allDebtors, claimType, totalAmount]);
 
     return { imprisonmentStatus, financialSplitHint };
 }

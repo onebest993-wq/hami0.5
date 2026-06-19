@@ -151,6 +151,14 @@ export function isVacateDeadlinePassed(deadlineYmd: string | null | undefined, n
     return now.getTime() > end.getTime();
 }
 
+/** قيمة مخزّنة — مطالبة نزع الحضانة (عرض: نزع حضانة) */
+export const CUSTODY_REMOVAL_CLAIM_VALUE = 'تسليم ولد' as const;
+
+export function isCustodyRemovalClaim(claimType: string | undefined | null): boolean {
+    const c = String(claimType || '').trim();
+    return c === CUSTODY_REMOVAL_CLAIM_VALUE || c.includes(CUSTODY_REMOVAL_CLAIM_VALUE);
+}
+
 /** عرض عربي لنوع المطالبة (إصلاح قيم مثل eviction) + تخلية حسب استعمال العقار */
 export function formatClaimTypeArabic(
     claimType: string | undefined | null,
@@ -163,6 +171,7 @@ export function formatClaimTypeArabic(
         return premisesUse === 'commercial' ? 'تخلية — محل تجاري' : 'تخلية — عقار سكني';
     }
     if (c === 'نفقة') return 'نفقة مستمرة';
+    if (isCustodyRemovalClaim(c)) return 'نزع حضانة';
     return c;
 }
 

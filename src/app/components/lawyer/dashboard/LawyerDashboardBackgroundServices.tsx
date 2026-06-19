@@ -15,12 +15,10 @@ import { PrefetchScheduler } from '@/app/runtime/prefetchScheduler';
 
 export type LawyerDashboardBackgroundServicesProps = {
     user: User;
-    isAlternativeMode: boolean;
     syncNotesOn: boolean;
     syncFilesOn: boolean;
     syncExecutionOn: boolean;
     pushAllowed: boolean;
-    smartAlertsEnabled: boolean;
     files: FileData[];
     executionFiles: unknown[];
     criminalCases: unknown[];
@@ -49,12 +47,10 @@ export type LawyerDashboardBackgroundServicesProps = {
 export default function LawyerDashboardBackgroundServices(props: LawyerDashboardBackgroundServicesProps) {
     const {
         user,
-        isAlternativeMode,
         syncNotesOn,
         syncFilesOn,
         syncExecutionOn,
         pushAllowed,
-        smartAlertsEnabled,
         files,
         executionFiles,
         criminalCases,
@@ -78,12 +74,11 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
     const { syncNow: syncNotesNow } = useCloudSync({
         localKey: STORAGE_KEYS.LAWYER_NOTES,
         syncInterval: 120_000,
-        enabled: !!user && !isAlternativeMode && syncNotesOn,
+        enabled: !!user && syncNotesOn,
         onSyncSuccess: () => {
             const synced = persistenceRepository.load<unknown[]>(STORAGE_KEYS.LAWYER_NOTES);
             mergeNotesStores(synced ?? []);
             onNotesSynced(synced ?? []);
-            debug.log('[LawyerDashboard] ✅ تمت مزامنة الملاحظات مع السحابة');
         },
         onSyncError: (error) => debug.error('[LawyerDashboard] ❌ فشلت مزامنة الملاحظات:', error),
     });
@@ -91,11 +86,10 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
     const { syncNow: syncLawsuitFilesNow } = useCloudSync({
         localKey: STORAGE_KEYS.LAWYER_FILES,
         syncInterval: 150_000,
-        enabled: !!user && !isAlternativeMode && syncFilesOn,
+        enabled: !!user && syncFilesOn,
         onSyncSuccess: () => {
             const merged = persistenceRepository.load<FileData[]>(STORAGE_KEYS.LAWYER_FILES);
             if (Array.isArray(merged)) onLawsuitFilesSynced(merged);
-            debug.log('[LawyerDashboard] ✅ تمت مزامنة ملفات الدعاوى مع السحابة');
         },
         onSyncError: (error) => debug.error('[LawyerDashboard] ❌ فشلت مزامنة ملفات الدعاوى:', error),
     });
@@ -103,10 +97,7 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
     const { syncNow: syncExecutionFilesNow } = useCloudSync({
         localKey: EXECUTION_FILES_STORAGE_KEY,
         syncInterval: 180_000,
-        enabled: !!user && !isAlternativeMode && syncExecutionOn,
-        onSyncSuccess: () => {
-            debug.log('[LawyerDashboard] ✅ تمت مزامنة ملفات التنفيذ مع السحابة');
-        },
+        enabled: !!user && syncExecutionOn,
         onSyncError: (error) => debug.error('[LawyerDashboard] ❌ فشلت مزامنة ملفات التنفيذ:', error),
     });
 
@@ -117,7 +108,6 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
         criminalCases,
         notes: globalNotes,
         fieldTasks,
-        smartAlertsEnabled,
         deferUntilIdle: true,
     });
 
@@ -147,7 +137,7 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
 
     useRealtime({
         userId: user.id,
-        enabled: !!user && !isAlternativeMode,
+        enabled: !!user,
         showToasts: true,
         onExecutionUpdate: async (payload) => {
             scheduleRealtimeSync('execution', () => {
@@ -176,7 +166,7 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
     });
 
     useEffect(() => {
-        if (!user || isAlternativeMode) return;
+        if (!user) return;
         if (advancedServicesOnceRef.current) return;
         advancedServicesOnceRef.current = true;
 
@@ -191,12 +181,11 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
                 debug.error('[LawyerDashboard] Push init failed:', e);
             }
         })();
-    }, [user, isAlternativeMode, pushAllowed]);
+    }, [user, pushAllowed]);
 
     useEffect(() => {
         if (prefetchOnceRef.current) return;
         prefetchOnceRef.current = true;
-        PrefetchScheduler.planLawyerHomeWave();
         PrefetchScheduler.planLawyerSecondaryWave();
     }, []);
 

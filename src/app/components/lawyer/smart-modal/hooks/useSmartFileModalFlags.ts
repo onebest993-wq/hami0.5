@@ -25,14 +25,15 @@ export function useSmartFileModalFlags() {
     const [showJudgeRecusalModal, setShowJudgeRecusalModal] = useState(false);
     const [showTransferJurisdictionModal, setShowTransferJurisdictionModal] = useState(false);
     const [showCaseConsolidationModal, setShowCaseConsolidationModal] = useState(false);
-    const [showAttorneyResignationModal, setShowAttorneyResignationModal] = useState(false);
-    const [showExecutionTransferModal, setShowExecutionTransferModal] = useState(false);
+    const [showCaseLinkModal, setShowCaseLinkModal] = useState(false);
+    const [showCorrespondenceModal, setShowCorrespondenceModal] = useState(false);
     const [showNotificationModal, setShowNotificationModal] = useState(false);
     const [showObjectionRegistrationModal, setShowObjectionRegistrationModal] = useState(false);
     const [showObjectionJudgmentModal, setShowObjectionJudgmentModal] = useState(false);
+    const [showAbsentJudgmentNotificationModal, setShowAbsentJudgmentNotificationModal] = useState(false);
+    const [showOpponentAbsentObjectionModal, setShowOpponentAbsentObjectionModal] = useState(false);
     const [showAppealTransitionModal, setShowAppealTransitionModal] = useState(false);
     const [showCrossAppealModal, setShowCrossAppealModal] = useState(false);
-    const [showActionModal, setShowActionModal] = useState(false);
     const [showExtraordinaryAppealModal, setShowExtraordinaryAppealModal] = useState<boolean | string>(false);
     const [showMaterialErrorModal, setShowMaterialErrorModal] = useState<string | null>(null);
     const [showTransitionModal, setShowTransitionModal] = useState(false);
@@ -43,6 +44,7 @@ export function useSmartFileModalFlags() {
     const [editingIncidental, setEditingIncidental] = useState<IncidentalCase | null>(null);
     const [editingFastTrack, setEditingFastTrack] = useState<Record<string, unknown> | null>(null);
     const [editingAttachment, setEditingAttachment] = useState<Record<string, unknown> | null>(null);
+    const [appealOutcomeTask, setAppealOutcomeTask] = useState<Task | null>(null);
 
     useEffect(() => {
         if (!editingEvent) return;
@@ -121,22 +123,24 @@ export function useSmartFileModalFlags() {
         setShowTransferJurisdictionModal,
         showCaseConsolidationModal,
         setShowCaseConsolidationModal,
-        showAttorneyResignationModal,
-        setShowAttorneyResignationModal,
-        showExecutionTransferModal,
-        setShowExecutionTransferModal,
+        showCaseLinkModal,
+        setShowCaseLinkModal,
+        showCorrespondenceModal,
+        setShowCorrespondenceModal,
         showNotificationModal,
         setShowNotificationModal,
         showObjectionRegistrationModal,
         setShowObjectionRegistrationModal,
         showObjectionJudgmentModal,
         setShowObjectionJudgmentModal,
+        showAbsentJudgmentNotificationModal,
+        setShowAbsentJudgmentNotificationModal,
+        showOpponentAbsentObjectionModal,
+        setShowOpponentAbsentObjectionModal,
         showAppealTransitionModal,
         setShowAppealTransitionModal,
         showCrossAppealModal,
         setShowCrossAppealModal,
-        showActionModal,
-        setShowActionModal,
         showExtraordinaryAppealModal,
         setShowExtraordinaryAppealModal,
         showMaterialErrorModal,
@@ -155,5 +159,7 @@ export function useSmartFileModalFlags() {
         setEditingFastTrack,
         editingAttachment,
         setEditingAttachment,
+        appealOutcomeTask,
+        setAppealOutcomeTask,
     };
 }

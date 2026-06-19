@@ -22,6 +22,8 @@ export interface SettlementContextInput {
     settlementBreachTriggeredAt: string | null;
     /** مسار حجز راتب نشط — يُخفى زر التسوية بالكامل */
     salarySeizureActive?: boolean;
+    /** وفاة المدين — إخفاء زر التسوية (أمر عام في التنفيذ) */
+    activeDebtorIsDeceased?: boolean;
 }
 
 export interface SettlementContext {
@@ -49,7 +51,11 @@ export function resolveSettlementContext(input: SettlementContextInput): Settlem
             : input.settlementUxTier;
 
     const showSettlementEntry =
-        !input.salarySeizureActive && !input.completed && remaining > 0 && tier !== 'hidden';
+        !input.activeDebtorIsDeceased &&
+        !input.salarySeizureActive &&
+        !input.completed &&
+        remaining > 0 &&
+        tier !== 'hidden';
     const showSettlementPanel = showSettlementEntry && (input.panelOpen || hasPending);
     /** زر الدخول للتسوية — يختفي أثناء التسوية النشطة */
     const showSettlementEntryButton = showSettlementEntry && !hasPending && !input.panelOpen;

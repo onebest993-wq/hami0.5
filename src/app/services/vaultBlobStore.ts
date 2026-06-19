@@ -121,3 +121,15 @@ export async function deleteVaultBlobByPath(storagePath: string | undefined | nu
     if (!parsed) return;
     await deleteVaultBlob(parsed.userId, parsed.docId);
 }
+
+export async function clearAllVaultBlobs(): Promise<void> {
+    const db = await openDb();
+    if (!db) return;
+
+    await new Promise<void>((resolve) => {
+        const tx = db.transaction(STORE, 'readwrite');
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+        tx.objectStore(STORE).clear();
+    });
+}

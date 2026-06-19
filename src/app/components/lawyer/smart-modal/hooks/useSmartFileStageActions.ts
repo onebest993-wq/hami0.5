@@ -129,30 +129,30 @@ export function useSmartFileStageActions(options: {
             const dateStr = now.split('T')[0]!;
 
             const updated = patchActiveStage(stages, activeStageIndex, (stage) => {
-                const stageExt = stage as CaseStage & { tasks?: unknown[] };
+                if (isCompleted) {
+                    const timeline = [
+                        {
+                            id: `notif_${Date.now()}`,
+                            type: 'decision' as const,
+                            date: dateStr,
+                            title: 'إتمام تبليغ قضائي ✅',
+                            details: `تم تبليغ (${targetPerson}) بـ: ${reason}`,
+                            isSystemLog: true,
+                            isNew: true,
+                        },
+                        ...(stage.timeline || []),
+                    ];
+                    return { ...stage, timeline };
+                }
+
                 const newTask = {
                     id: `task_${Date.now()}`,
                     title: `متابعة تبليغ: ${targetPerson}`,
                     details: `السبب: ${reason}`,
-                    isCompleted,
+                    isCompleted: false,
                     dueDate: dateStr,
                 };
-                const tasks = [newTask, ...(stageExt.tasks || [])];
-                if (!isCompleted) return { ...stage, tasks };
-
-                const timeline = [
-                    {
-                        id: `notif_${Date.now()}`,
-                        type: 'decision' as const,
-                        date: dateStr,
-                        title: 'إتمام تبليغ قضائي ✅',
-                        details: `تم تبليغ (${targetPerson}) بـ: ${reason}`,
-                        isSystemLog: true,
-                        isNew: true,
-                    },
-                    ...(stage.timeline || []),
-                ];
-                return { ...stage, tasks, timeline };
+                return { ...stage, tasks: [newTask, ...(stage.tasks || [])] };
             });
 
             commitStages(updated);

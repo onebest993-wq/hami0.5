@@ -21,7 +21,18 @@ export function loadSyncMap(userId: string): NotesSyncMap {
 }
 
 export function saveSyncMap(userId: string, map: NotesSyncMap): void {
-    SecureStoreService.setItemSync(syncMapKey(userId), JSON.stringify(map));
+    const serialized = JSON.stringify(map);
+    if (serialized === '{}' || serialized === 'null') {
+        try {
+            const existing = SecureStoreService.getItemSync(syncMapKey(userId));
+            if (existing && existing.trim() !== '' && existing !== '{}' && existing !== 'null') {
+                return;
+            }
+        } catch {
+            /* ignore */
+        }
+    }
+    SecureStoreService.setItemSync(syncMapKey(userId), serialized);
 }
 
 export function emitVaultNotesChanged(): void {

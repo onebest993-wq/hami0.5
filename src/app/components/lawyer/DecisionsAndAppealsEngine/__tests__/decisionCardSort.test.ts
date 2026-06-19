@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Decision } from '../types';
 import {
     compareDecisionsNewestFirst,
@@ -12,6 +12,15 @@ import {
     resolveAppealHubProponentCategory,
     resolveAppealsHubFilterOptions,
     resolveManualExecutorLedgerEnforcementState,
+    buildManualExecutorAppealFilePatch,
+    buildManualExecutorAppealWonPatch,
+    buildManualExecutorAppealLostPatch,
+    reconcileTerminatedDecisionArchives,
+    shouldAutoArchiveTerminatedDecision,
+    buildManualExecutorGrievanceOutcomePatch,
+    buildManualExecutorCassationFilePatch,
+    resolveManualExecutorWorkflowPhase,
+    compareDecisionsTerminatedManualLast,
     purgeManualExecutorAppealArtifacts,
     canArchiveExecutorDecisionCard,
 } from '../utils';
@@ -148,34 +157,147 @@ describe('resolveAppealWorkflowPhaseLabel', () => {
 });
 
 describe('manual executor ledger (إضافة قرار)', () => {
-    it('shows نافذ / غير نافذ only', () => {
-        const notEnforced = resolveManualExecutorLedgerEnforcementState(
-            base({ manualExecutorLedgerEntry: true, manualExecutorEnforced: false })
+    it('maps three-state flags to pill labels', () => {
+        const active = resolveManualExecutorLedgerEnforcementState(
+            base({ manualExecutorLedgerEntry: true, executorDecisionStatusFlag: 1 })
         );
-        expect(notEnforced.pillLabel).toBe('غير نافذ');
-        expect(notEnforced.enforced).toBe(false);
+        expect(active.pillLabel).toBe('قرار ساري ومُنتج لآثاره');
+        expect(active.enforced).toBe(true);
+        expect(active.visual).toBe('enforced');
 
-        const enforced = resolveManualExecutorLedgerEnforcementState(
-            base({ manualExecutorLedgerEntry: true, manualExecutorEnforced: true })
+        const grievancePending = resolveManualExecutorLedgerEnforcementState(
+            base({
+                manualExecutorLedgerEntry: true,
+                executorDecisionStatusFlag: 2,
+                manualExecutorWorkflowPhase: 'grievance_pending',
+                manualExecutorAppealKind: 'tadhallum',
+            })
         );
-        expect(enforced.pillLabel).toBe('القرار نافذ');
-        expect(enforced.enforced).toBe(true);
+        expect(grievancePending.pillLabel).toBe('التنفيذ موقوف لحين البت في التظلم');
+
+        const cassationUnlocked = resolveManualExecutorLedgerEnforcementState(
+            base({
+                manualExecutorLedgerEntry: true,
+                executorDecisionStatusFlag: 2,
+                manualExecutorWorkflowPhase: 'cassation_unlocked',
+                manualExecutorGrievanceOutcome: 'rejected',
+            })
+        );
+        expect(cassationUnlocked.pillLabel).toBe('موقوف — مهلة التمييز (7 أيام)');
+
+        const terminated = resolveManualExecutorLedgerEnforcementState(
+            base({ manualExecutorLedgerEntry: true, executorDecisionStatusFlag: 3 })
+        );
+        expect(terminated.pillLabel).toBe('قرار ملغى تمييزاً - منتهٍ');
+        expect(terminated.visual).toBe('withdrawn');
     });
 
-    it('allows archive in previous tab without appeal path', () => {
-        const hub = base({
+    it('allows archive only when terminated (flag 3)', () => {
+        const active = base({
             manualExecutorLedgerEntry: true,
-            manualExecutorEnforced: true,
-            appealStatus: 'tadhallum_filed',
-            activeAppealCopyId: 'appeal_copy_old',
+            executorDecisionStatusFlag: 1,
         });
         expect(
-            canArchiveExecutorDecisionCard(hub, hub, {
+            canArchiveExecutorDecisionCard(active, active, {
+                hubTab: 'previous',
+                settled: true,
+                appealLegallyFinal: false,
+            })
+        ).toBe(false);
+
+        const terminated = base({
+            manualExecutorLedgerEntry: true,
+            executorDecisionStatusFlag: 3,
+        });
+        expect(
+            canArchiveExecutorDecisionCard(terminated, terminated, {
                 hubTab: 'previous',
                 settled: true,
                 appealLegallyFinal: false,
             })
         ).toBe(true);
+    });
+
+    it('grievance path unlocks cassation-only after executor outcome', () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2026-06-03T12:00:00'));
+        const filed = base({
+            manualExecutorLedgerEntry: true,
+            executorDecisionStatusFlag: 1,
+        });
+        const grievancePatch = buildManualExecutorAppealFilePatch(filed, 'lawyer', 'tadhallum');
+        expect(grievancePatch.manualExecutorWorkflowPhase).toBe('grievance_pending');
+
+        const pending = { ...filed, ...grievancePatch } as Decision;
+        expect(resolveManualExecutorWorkflowPhase(pending)).toBe('grievance_pending');
+
+        const afterReject = {
+            ...pending,
+            ...buildManualExecutorGrievanceOutcomePatch(pending, false),
+        } as Decision;
+        expect(resolveManualExecutorWorkflowPhase(afterReject)).toBe('cassation_unlocked');
+
+        const afterCassationFile = {
+            ...afterReject,
+            ...buildManualExecutorCassationFilePatch(afterReject),
+        } as Decision;
+        expect(resolveManualExecutorWorkflowPhase(afterCassationFile)).toBe('cassation_pending');
+        expect(afterCassationFile.manualExecutorAppealKind).toBe('tamyeez');
+        vi.useRealTimers();
+    });
+
+    it('appeal won/lost transitions follow appellant rules', () => {
+        const ours = base({
+            manualExecutorLedgerEntry: true,
+            executorDecisionStatusFlag: 2,
+            manualExecutorWorkflowPhase: 'cassation_pending',
+            manualExecutorAppealAppellant: 'lawyer',
+            manualExecutorAppealKind: 'tamyeez',
+        });
+        const oursWon = buildManualExecutorAppealWonPatch(ours);
+        expect(oursWon.executorDecisionStatusFlag).toBe(3);
+        expect(oursWon.isArchived).toBe(true);
+        expect(buildManualExecutorAppealLostPatch(ours).executorDecisionStatusFlag).toBe(1);
+
+        const debtor = base({
+            manualExecutorLedgerEntry: true,
+            executorDecisionStatusFlag: 2,
+            manualExecutorWorkflowPhase: 'cassation_pending',
+            manualExecutorAppealAppellant: 'debtor',
+            manualExecutorAppealKind: 'tamyeez',
+        });
+        expect(buildManualExecutorAppealWonPatch(debtor).executorDecisionStatusFlag).toBe(1);
+        const debtorLost = buildManualExecutorAppealLostPatch(debtor);
+        expect(debtorLost.executorDecisionStatusFlag).toBe(3);
+        expect(debtorLost.isArchived).toBe(true);
+    });
+
+    it('auto-archives terminated manual hubs on reconcile', () => {
+        const terminated = base({
+            id: 'term',
+            manualExecutorLedgerEntry: true,
+            executorDecisionStatusFlag: 3,
+        });
+        expect(shouldAutoArchiveTerminatedDecision(terminated)).toBe(true);
+        const { rows, mutated } = reconcileTerminatedDecisionArchives([terminated]);
+        expect(mutated).toBe(true);
+        expect(rows[0]!.isArchived).toBe(true);
+    });
+
+    it('sorts terminated manual cards to the bottom', () => {
+        const active = base({
+            id: 'active',
+            manualExecutorLedgerEntry: true,
+            executorDecisionStatusFlag: 1,
+            date: '2026-01-01',
+        });
+        const terminated = base({
+            id: 'terminated',
+            manualExecutorLedgerEntry: true,
+            executorDecisionStatusFlag: 3,
+            date: '2026-06-01',
+        });
+        expect(compareDecisionsTerminatedManualLast(active, terminated)).toBeLessThan(0);
     });
 
     it('purges appeal copies linked to manual hubs', () => {

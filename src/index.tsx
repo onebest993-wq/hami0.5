@@ -2,9 +2,22 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './styles/index.css';
 import SecureStoreService from '@/app/services/SecureStoreService';
+import { hasPersistedSupabaseSession } from '@/app/utils/authStorage';
+import { PrefetchScheduler } from '@/app/runtime/prefetchScheduler';
+/** Dev: static import — dynamic import('./app/App') breaks with Vite HMR stale modules */
+import App from './app/App';
 
-/** Vite dev: لا إعادة تحميل كاملة — HMR invalidate فقط لتجنب خروج مفاجئ من الشاشة */
+if (!import.meta.env.DEV && hasPersistedSupabaseSession()) {
+    void import('@/app/runtime/lawyerDashboardLoader').then((m) => m.prefetchLawyerDashboardEntry());
+}
+if (hasPersistedSupabaseSession()) {
+    PrefetchScheduler.planAuthenticatedEntry();
+}
+
+/** Vite dev: إعادة تحميل واحدة عند فشل dynamic import (HMR stale) */
 if (import.meta.env.DEV) {
+    const STALE_IMPORT_RELOAD_KEY = 'hami:vite-stale-import-reload';
+
     window.addEventListener('vite:preloadError', (event) => {
         const preloadEvent = event as Event & { payload?: { err?: unknown } };
         const err = preloadEvent.payload?.err;
@@ -13,14 +26,18 @@ if (import.meta.env.DEV) {
             return;
         }
         preloadEvent.preventDefault();
+        try {
+            if (!sessionStorage.getItem(STALE_IMPORT_RELOAD_KEY)) {
+                sessionStorage.setItem(STALE_IMPORT_RELOAD_KEY, '1');
+                window.location.reload();
+                return;
+            }
+        } catch {
+            /* ignore */
+        }
         if (import.meta.hot) {
             import.meta.hot.invalidate();
-            return;
         }
-        console.warn(
-            '[Hami] انتهت صلاحية وحدة محمّلة ديناميكياً — أعد المحاولة من الواجهة أو حدّث الصفحة يدوياً.',
-            err,
-        );
     });
 }
 
@@ -64,7 +81,14 @@ function renderFatalBootError(e: unknown): void {
     btn.style.cssText =
         'margin-top:20px;padding:12px 24px;background:#E6C673;color:#000;border:none;border-radius:8px;font-size:16px;font-weight:bold;cursor:pointer;';
     btn.textContent = 'المحاولة مرة أخرى';
-    btn.onclick = () => window.location.reload();
+    btn.onclick = () => {
+        try {
+            sessionStorage.removeItem('hami:vite-stale-import-reload');
+        } catch {
+            /* ignore */
+        }
+        window.location.reload();
+    };
     wrap.appendChild(h1);
     wrap.appendChild(p);
     wrap.appendChild(pre);
@@ -72,23 +96,12 @@ function renderFatalBootError(e: unknown): void {
     document.body.appendChild(wrap);
 }
 
-/**
- * انتظار IndexedDB + تحميل App بالتوازي — يختصر زمن الإقلاع دون المساس بسلامة rehydrate.
- */
 async function bootApp(): Promise<void> {
-    const persistReady = SecureStoreService.ensurePersistedReady().catch((e) => {
+    void SecureStoreService.ensurePersistedReady().catch((e) => {
         console.error('[Boot] فشل تهيئة التخزين المحلي:', e);
     });
 
-    const [modules] = await Promise.all([
-        Promise.all([
-            import('./app/App'),
-            import('@/app/bootstrap/deferredBoot'),
-        ]),
-        persistReady,
-    ]);
-
-    const [{ default: App }, { runDeferredBootTasks }] = modules;
+    const { runDeferredBootTasks } = await import('@/app/bootstrap/deferredBoot');
 
     const rootElement = document.getElementById('root');
     if (!rootElement) throw new Error('Root element missing');
@@ -103,6 +116,12 @@ async function bootApp(): Promise<void> {
             <App />
         ),
     );
+
+    try {
+        sessionStorage.removeItem('hami:vite-stale-import-reload');
+    } catch {
+        /* ignore */
+    }
 
     removeBootLoader();
     requestAnimationFrame(removeBootLoader);

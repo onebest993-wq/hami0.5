@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Plus, Briefcase } from 'lucide-react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuthSafe, userHasRole } from '@/app/context/AuthContext';
 import {
     FollowDB,
     notifyFollowers,
@@ -33,12 +33,30 @@ import { CommentBottomSheet } from './CommunityScreen/components/CommentBottomSh
 import { LegalRepository } from './CommunityScreen/components/LegalRepository';
 import { ForumAppBar } from './CommunityScreen/components/ForumAppBar';
 import { FORUM_FILTER_LABELS } from './CommunityScreen/forumFilters';
+import {
+    compareCommunityPostsByUpvotes,
+    compareCommunityPostsForFeed,
+    hasAnyActiveUrgentConsultation,
+} from '@/app/services/forum/forumUrgentConsultation';
 import { ForumPostList } from './CommunityScreen/components/ForumPostList';
 import { EditPostModal } from './CommunityScreen/components/EditPostModal';
 import { SearchOverlay } from './CommunityScreen/components/SearchOverlay';
 import { AddQuestionSheet } from './CommunityScreen/components/AddQuestionSheet';
+import { ForumGroupsDirectory } from './CommunityScreen/components/ForumGroupsDirectory';
+import { ForumGroupFeedPanel } from './CommunityScreen/components/ForumGroupFeedPanel';
+import { CreateGroupModal } from './CommunityScreen/components/CreateGroupModal';
+import type { ForumGroup } from '@/app/services/forum/forumGroupTypes';
 import { FullscreenImageOverlay } from './CommunityScreen/components/FullscreenImageOverlay';
 import { ForumDeleteConfirmModal } from './CommunityScreen/components/ForumDeleteConfirmModal';
+import {
+    ForumPlumPage,
+    FORUM_PLUM_DEEP,
+    FORUM_PUBLISH_BTN,
+    FORUM_PUBLISH_BTN_DISABLED,
+    FORUM_TEXT_APRICOT,
+    FORUM_TEXT_MUTED,
+    FORUM_TEXT_PRIMARY,
+} from './CommunityScreen/forumPlumTheme';
 import {
     canDeletePost,
     canEditPost,
@@ -49,7 +67,6 @@ import {
 } from './CommunityScreen/communityPermissions';
 
 /** تصنيفات الفلترة — خارج المكوّن لتفادي إعادة الإنشاء عند كل render */
-const FILTER_LABELS = FORUM_FILTER_LABELS;
 
 /** السقف الأعلى لـ userStatsCache (LRU). يَحُد ذاكرة الجلسات الطويلة */
 const USER_STATS_CACHE_LIMIT = 500;
@@ -66,14 +83,26 @@ export const CommunityScreen = ({
     onBack,
     initialPostId = null,
     initialOpenComments = false,
+    lawyerShellAccess = false,
+    fallbackUserId = null,
 }: {
     onBack?: () => void;
     initialPostId?: string | null;
     initialOpenComments?: boolean;
+    /** فُتح من لوحة المحامي — لا نحجب المنتدى إذا كان الجلسة نشطة هناك */
+    lawyerShellAccess?: boolean;
+    fallbackUserId?: string | null;
 }) => {
     const FORUM_DEV_OPEN = import.meta.env.DEV && import.meta.env.VITE_COMMUNITY_DEV_OPEN === 'true';
-    const { user: authUser, isLoading: authIsLoading, hasRole } = useAuth();
-    const currentUserId = authUser?.id ?? null;
+    const { user: authUser, isLoading: authIsLoading, hasRole } = useAuthSafe();
+    const persistedAuth = readPersistedSupabaseAuth();
+    const persistedUser = persistedAuth.user;
+    const canAccessLawyerForum =
+        FORUM_DEV_OPEN ||
+        lawyerShellAccess ||
+        (authUser != null && hasRole('lawyer')) ||
+        (persistedUser != null && userHasRole(persistedUser, 'lawyer'));
+    const currentUserId = authUser?.id ?? fallbackUserId ?? persistedUser?.id ?? null;
     const [posts, setPosts] = useState<CommunityPost[]>([]);
     const [loadingPosts, setLoadingPosts] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
@@ -96,7 +125,24 @@ export const CommunityScreen = ({
     const setActiveSection = useCallback((section: CommunitySection) => {
         setActiveSectionState(section);
         persistCommunitySection(section);
+        if (section !== 'groups') {
+            setActiveGroupId(null);
+        }
     }, []);
+    const [groups, setGroups] = useState<ForumGroup[]>([]);
+    const [groupsLoading, setGroupsLoading] = useState(false);
+    const [groupsSearchQuery, setGroupsSearchQuery] = useState('');
+    const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+    const [groupPosts, setGroupPosts] = useState<CommunityPost[]>([]);
+    const [groupPostsLoading, setGroupPostsLoading] = useState(false);
+    const [groupPostsHasMore, setGroupPostsHasMore] = useState(true);
+    const [groupPostsLoadingMore, setGroupPostsLoadingMore] = useState(false);
+    const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
+    const [newGroupName, setNewGroupName] = useState('');
+    const [newGroupDesc, setNewGroupDesc] = useState('');
+    const [submittingGroup, setSubmittingGroup] = useState(false);
+    const [joiningGroupId, setJoiningGroupId] = useState<string | null>(null);
+    const [leavingGroup, setLeavingGroup] = useState(false);
     const isAdmin = hasRole('admin');
     const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
     const [userStats, setUserStats] = useState<Record<string, { followerCount: number; postCount: number }>>({});
@@ -137,6 +183,32 @@ export const CommunityScreen = ({
     const deepLinkHandledRef = useRef(false);
     const postsRef = useRef(posts);
     postsRef.current = posts;
+    const groupPostsRef = useRef(groupPosts);
+    groupPostsRef.current = groupPosts;
+
+    const findPostById = useCallback((postId: string): CommunityPost | null => {
+        return (
+            postsRef.current.find((p) => p.id === postId) ??
+            groupPostsRef.current.find((p) => p.id === postId) ??
+            null
+        );
+    }, []);
+
+    const updatePostList = useCallback((postId: string, updater: (prev: CommunityPost[]) => CommunityPost[]) => {
+        if (groupPostsRef.current.some((p) => p.id === postId)) {
+            setGroupPosts(updater);
+        } else {
+            setPosts(updater);
+        }
+    }, []);
+
+    const removePostFromList = useCallback((postId: string) => {
+        if (groupPostsRef.current.some((p) => p.id === postId)) {
+            setGroupPosts((prev) => prev.filter((p) => p.id !== postId));
+        } else {
+            setPosts((prev) => prev.filter((p) => p.id !== postId));
+        }
+    }, []);
 
     // تنظيف blob URL المتبقي عند فك تركيب المكوّن (يلتقط حالة الإغلاق المفاجئ)
     const newAttachmentRef = useRef(newAttachment);
@@ -209,6 +281,173 @@ export const CommunityScreen = ({
         }, 90_000);
         return () => window.clearInterval(interval);
     }, [authIsLoading, activeSection, refreshPosts]);
+
+    useEffect(() => {
+        if (authIsLoading || activeSection !== 'groups' || activeGroupId) return;
+        let cancelled = false;
+        setGroupsLoading(true);
+        void ForumApiService.listGroups(groupsSearchQuery)
+            .then((rows) => {
+                if (!cancelled) setGroups(rows);
+            })
+            .catch(() => {
+                if (!cancelled) SmartToast.error('تعذّر تحميل المجموعات');
+            })
+            .finally(() => {
+                if (!cancelled) setGroupsLoading(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [authIsLoading, activeSection, activeGroupId, groupsSearchQuery]);
+
+    useEffect(() => {
+        if (!activeGroupId) {
+            setGroupPosts([]);
+            setGroupPostsHasMore(true);
+            return;
+        }
+        let cancelled = false;
+        setGroupPostsLoading(true);
+        void ForumApiService.listPostsPaginated(PAGE_SIZE, 0, { groupId: activeGroupId })
+            .then(({ posts: page }) => {
+                if (cancelled) return;
+                setGroupPosts(
+                    sortCommunityPosts(
+                        page.map((p) => ({ ...p, tags: resolveCommunityPostTags(p.content, p.tags) })),
+                    ),
+                );
+                setGroupPostsHasMore(page.length === PAGE_SIZE);
+            })
+            .catch(() => {
+                if (!cancelled) SmartToast.error('تعذّر تحميل منشورات المجموعة');
+            })
+            .finally(() => {
+                if (!cancelled) setGroupPostsLoading(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [activeGroupId]);
+
+    const activeGroup = useMemo(
+        () => (activeGroupId ? groups.find((g) => g.id === activeGroupId) ?? null : null),
+        [activeGroupId, groups],
+    );
+
+    const groupVisiblePosts = useMemo(() => {
+        return groupPosts.filter(
+            (p) => !mutedIds.has(p.authorId) || p.authorId === currentUserId,
+        );
+    }, [groupPosts, mutedIds, currentUserId]);
+
+    const handleJoinGroup = useCallback(
+        async (groupId: string) => {
+            if (!currentUserId) {
+                SmartToast.warning('سجّل الدخول للانضمام');
+                return;
+            }
+            setJoiningGroupId(groupId);
+            try {
+                const updated = await ForumApiService.joinGroup(groupId);
+                setGroups((prev) => prev.map((g) => (g.id === groupId ? updated : g)));
+                SmartToast.success('انضممت للمجموعة');
+            } catch (err) {
+                const message =
+                    err instanceof Error && err.message.trim()
+                        ? err.message
+                        : 'تعذّر الانضمام للمجموعة';
+                SmartToast.error(message);
+            } finally {
+                setJoiningGroupId(null);
+            }
+        },
+        [currentUserId],
+    );
+
+    const handleOpenGroup = useCallback(
+        (groupId: string) => {
+            const group = groups.find((g) => g.id === groupId);
+            if (!group?.isMember) return;
+            setActiveGroupId(groupId);
+        },
+        [groups],
+    );
+
+    const handleLeaveGroup = useCallback(async () => {
+        if (!activeGroupId) return;
+        setLeavingGroup(true);
+        try {
+            await ForumApiService.leaveGroup(activeGroupId);
+            setActiveGroupId(null);
+            const rows = await ForumApiService.listGroups(groupsSearchQuery);
+            setGroups(rows);
+            SmartToast.success('غادرت المجموعة');
+        } catch (err) {
+            const message =
+                err instanceof Error && err.message.trim()
+                    ? err.message
+                    : 'تعذّر مغادرة المجموعة';
+            SmartToast.error(message);
+        } finally {
+            setLeavingGroup(false);
+        }
+    }, [activeGroupId, groupsSearchQuery]);
+
+    const handleCreateGroup = useCallback(async () => {
+        const name = newGroupName.trim();
+        const description = newGroupDesc.trim();
+        if (name.length < 3) {
+            SmartToast.warning('اسم المجموعة قصير جداً (3 أحرف على الأقل)');
+            return;
+        }
+        if (description.length < 10) {
+            SmartToast.warning('اكتب وصفاً أوضح للمجموعة (10 أحرف على الأقل)');
+            return;
+        }
+        setSubmittingGroup(true);
+        try {
+            const group = await ForumApiService.createGroup({ name, description });
+            setGroups((prev) => [group, ...prev.filter((g) => g.id !== group.id)]);
+            setIsCreateGroupOpen(false);
+            setNewGroupName('');
+            setNewGroupDesc('');
+            SmartToast.success('تم إنشاء المجموعة');
+        } catch (err) {
+            const message =
+                err instanceof Error && err.message.trim()
+                    ? err.message
+                    : 'تعذّر إنشاء المجموعة';
+            SmartToast.error(message);
+        } finally {
+            setSubmittingGroup(false);
+        }
+    }, [newGroupName, newGroupDesc]);
+
+    const handleLoadMoreGroupPosts = async () => {
+        if (!activeGroupId || groupPostsLoadingMore || !groupPostsHasMore) return;
+        setGroupPostsLoadingMore(true);
+        try {
+            const { posts: nextPage } = await ForumApiService.listPostsPaginated(
+                PAGE_SIZE,
+                groupPosts.length,
+                { groupId: activeGroupId },
+            );
+            setGroupPosts((prev) =>
+                sortCommunityPosts(
+                    mergeCommunityPostsById(
+                        prev,
+                        nextPage.map((p) => ({ ...p, tags: resolveCommunityPostTags(p.content, p.tags) })),
+                    ),
+                ),
+            );
+            setGroupPostsHasMore(nextPage.length === PAGE_SIZE);
+        } catch {
+            SmartToast.error('تعذّر تحميل المزيد');
+        } finally {
+            setGroupPostsLoadingMore(false);
+        }
+    };
 
     useEffect(() => {
         if (!initialPostId || loadingPosts || deepLinkHandledRef.current) return;
@@ -350,13 +589,22 @@ export const CommunityScreen = ({
         setIsRecordingVoice(false);
     }, [isAddQuestionOpen, isRecordingVoice]);
 
-    const filters = FILTER_LABELS;
+    const filters = FORUM_FILTER_LABELS;
     const [selectedFilterIndex, setSelectedFilterIndex] = useState(0);
+    const [urgentPriorityTick, setUrgentPriorityTick] = useState(0);
+
+    useEffect(() => {
+        if (!hasAnyActiveUrgentConsultation(posts)) return;
+        const timerId = window.setInterval(() => {
+            setUrgentPriorityTick((value) => value + 1);
+        }, 60_000);
+        return () => window.clearInterval(timerId);
+    }, [posts]);
 
     const activePostForComments = useMemo(() => {
         if (!commentingPostId) return null;
-        return posts.find((p) => p.id === commentingPostId) || null;
-    }, [posts, commentingPostId]);
+        return findPostById(commentingPostId);
+    }, [commentingPostId, posts, groupPosts, findPostById]);
 
     const allTags = useMemo(() => {
         return Array.from(new Set(posts.flatMap((p) => p.tags || [])));
@@ -384,16 +632,15 @@ export const CommunityScreen = ({
     }, [allTags, repositoryDocs]);
 
     const visiblePosts = useMemo(() => {
-        // تطبيق فلتر الكتم: استبعاد منشورات المستخدمين المكتومين (مع استثناء المنشور لمالكه)
-        const baseList = posts.filter((p) => !mutedIds.has(p.authorId) || p.authorId === currentUserId);
+        // تطبيق فلتر الكتم + الساحة العامة فقط (بدون منشورات المجموعات)
+        const baseList = posts.filter(
+            (p) =>
+                !p.groupId &&
+                (!mutedIds.has(p.authorId) || p.authorId === currentUserId),
+        );
         const list = baseList.slice();
         if (selectedFilterIndex === 1) {
-            list.sort((a, b) => {
-                const aUrg = a.isUrgent === true ? 1 : 0;
-                const bUrg = b.isUrgent === true ? 1 : 0;
-                if (aUrg !== bUrg) return bUrg - aUrg;
-                return b.upvoterIds.length - a.upvoterIds.length || Date.parse(b.createdAt) - Date.parse(a.createdAt);
-            });
+            list.sort((a, b) => compareCommunityPostsByUpvotes(a, b));
             return list;
         }
         if (selectedFilterIndex >= 2) {
@@ -402,26 +649,17 @@ export const CommunityScreen = ({
                 .filter((p) =>
                     communityTagMatchesFilter(resolveCommunityPostTags(p.content, p.tags), topicLabel),
                 )
-                .sort((a, b) => {
-                    const aUrg = a.isUrgent === true ? 1 : 0;
-                    const bUrg = b.isUrgent === true ? 1 : 0;
-                    if (aUrg !== bUrg) return bUrg - aUrg;
-                    return Date.parse(b.createdAt) - Date.parse(a.createdAt);
-                });
+                .sort((a, b) => compareCommunityPostsForFeed(a, b));
         }
-        return list.sort((a, b) => {
-            const aUrg = a.isUrgent === true ? 1 : 0;
-            const bUrg = b.isUrgent === true ? 1 : 0;
-            if (aUrg !== bUrg) return bUrg - aUrg;
-            return Date.parse(b.createdAt) - Date.parse(a.createdAt);
-        });
-    }, [posts, selectedFilterIndex, filters, mutedIds, currentUserId]);
+        return list.sort((a, b) => compareCommunityPostsForFeed(a, b));
+    }, [posts, selectedFilterIndex, filters, mutedIds, currentUserId, urgentPriorityTick]);
 
     // ⚡ لا نحسب نتائج البحث إلا عند فتح شاشة البحث فعلياً
     const filteredPosts = useMemo(() => {
         if (!isSearchOpen) return [];
         const q = searchQuery.trim().toLowerCase();
-        return posts.filter((p) => {
+        return posts
+            .filter((p) => {
             const matchesSearch =
                 q === '' ||
                 p.content.toLowerCase().includes(q) ||
@@ -434,8 +672,9 @@ export const CommunityScreen = ({
                 selectedTag,
             );
             return matchesSearch && matchesPdf && matchesImage && matchesTag;
-        });
-    }, [isSearchOpen, posts, searchQuery, filterHasPdf, filterHasImage, selectedTag]);
+        })
+            .sort((a, b) => compareCommunityPostsForFeed(a, b));
+    }, [isSearchOpen, posts, searchQuery, filterHasPdf, filterHasImage, selectedTag, urgentPriorityTick]);
 
     const filteredRepositoryDocs = useMemo(() => {
         if (!isSearchOpen) return [];
@@ -455,7 +694,7 @@ export const CommunityScreen = ({
             SmartToast.warning('سجّل الدخول للتصويت');
             return;
         }
-        const target = posts.find((p) => p.id === postId);
+        const target = findPostById(postId);
         if (target && !canUpvotePost(target, currentUserId)) {
             SmartToast.warning('لا يمكنك التصويت على منشورك');
             return;
@@ -463,7 +702,7 @@ export const CommunityScreen = ({
         let nextPost: CommunityPost | null = null;
         let wasUpvote = false;
         let targetUserId = '';
-        setPosts((prev) =>
+        updatePostList(postId, (prev) =>
             prev.map((p) => {
                 if (p.id !== postId) return p;
                 const has = p.upvoterIds.includes(currentUserId);
@@ -477,7 +716,7 @@ export const CommunityScreen = ({
         if (nextPost) {
             try {
                 const saved = await ForumApiService.syncPost(nextPost);
-                setPosts((prev) => prev.map((p) => (p.id === postId ? saved : p)));
+                updatePostList(postId, (prev) => prev.map((p) => (p.id === postId ? saved : p)));
             } catch {
                 SmartToast.warning('تعذّر حفظ التصويت');
             }
@@ -524,7 +763,7 @@ export const CommunityScreen = ({
             parentId,
         };
         let nextPost: CommunityPost | null = null;
-        setPosts((prev) =>
+        updatePostList(postId, (prev) =>
             prev.map((p) => {
                 if (p.id !== postId) return p;
                 nextPost = { ...p, comments: [...p.comments, newComment], updatedAt: new Date().toISOString() };
@@ -533,11 +772,11 @@ export const CommunityScreen = ({
         );
         try {
             const saved = await ForumApiService.addComment(postId, newComment);
-            setPosts((prev) => prev.map((p) => (p.id === postId ? saved : p)));
+            updatePostList(postId, (prev) => prev.map((p) => (p.id === postId ? saved : p)));
             SmartToast.success('تم نشر التعليق');
             return true;
         } catch {
-            setPosts((prev) =>
+            updatePostList(postId, (prev) =>
                 prev.map((p) => {
                     if (p.id !== postId) return p;
                     return { ...p, comments: p.comments.filter((c) => c.id !== commentId) };
@@ -550,14 +789,14 @@ export const CommunityScreen = ({
 
     const handleDeleteComment = async (postId: string, commentId: string) => {
         if (!currentUserId) return;
-        const post = posts.find((p) => p.id === postId);
+        const post = findPostById(postId);
         const comment = post?.comments.find((c) => c.id === commentId);
         if (!post || !comment || !canDeleteComment(post, comment, currentUserId, isAdmin)) {
             SmartToast.warning('لا يمكنك حذف هذا التعليق');
             return;
         }
-        const snapshot = posts.find((p) => p.id === postId);
-        setPosts((prev) =>
+        const snapshot = findPostById(postId);
+        updatePostList(postId, (prev) =>
             prev.map((p) => {
                 if (p.id !== postId) return p;
                 const c = p.comments.find((x) => x.id === commentId);
@@ -571,11 +810,11 @@ export const CommunityScreen = ({
         );
         try {
             const saved = await ForumApiService.deleteComment(postId, commentId, isAdmin);
-            setPosts((prev) => prev.map((p) => (p.id === postId ? saved : p)));
+            updatePostList(postId, (prev) => prev.map((p) => (p.id === postId ? saved : p)));
             SmartToast.success('تم حذف التعليق');
         } catch {
             if (snapshot) {
-                setPosts((prev) => prev.map((p) => (p.id === postId ? snapshot : p)));
+                updatePostList(postId, (prev) => prev.map((p) => (p.id === postId ? snapshot : p)));
             }
             SmartToast.error('تعذّر حذف التعليق');
         }
@@ -583,7 +822,7 @@ export const CommunityScreen = ({
 
     const handleEditComment = async (postId: string, commentId: string, newContent: string) => {
         if (!currentUserId) return;
-        const post = posts.find((p) => p.id === postId);
+        const post = findPostById(postId);
         const comment = post?.comments.find((c) => c.id === commentId);
         // تمرير post ليتم احترام قفل «أفضل إجابة» في الواجهة (وليس فقط على السيرفر)
         if (!comment || !post || !canEditComment(comment, currentUserId, post)) {
@@ -596,7 +835,7 @@ export const CommunityScreen = ({
             return;
         }
         let nextPost: CommunityPost | null = null;
-        setPosts((prev) =>
+        updatePostList(postId, (prev) =>
             prev.map((p) => {
                 if (p.id !== postId) return p;
                 const c = p.comments.find((x) => x.id === commentId);
@@ -611,11 +850,11 @@ export const CommunityScreen = ({
         );
         try {
             const saved = await ForumApiService.editComment(postId, commentId, newContent);
-            setPosts((prev) => prev.map((p) => (p.id === postId ? saved : p)));
+            updatePostList(postId, (prev) => prev.map((p) => (p.id === postId ? saved : p)));
             SmartToast.success('تم تعديل التعليق');
         } catch {
             if (post) {
-                setPosts((prev) => prev.map((p) => (p.id === postId ? post : p)));
+                updatePostList(postId, (prev) => prev.map((p) => (p.id === postId ? post : p)));
             }
             SmartToast.error('تعذّر تعديل التعليق');
         }
@@ -623,12 +862,13 @@ export const CommunityScreen = ({
 
     const handleDeletePost = async (postId: string) => {
         if (!currentUserId) return;
-        const post = posts.find((p) => p.id === postId);
+        const post = findPostById(postId);
         if (!post || !canDeletePost(post, currentUserId, isAdmin)) {
             SmartToast.warning('لا يمكنك حذف هذا المنشور');
             return;
         }
-        const snapshot = posts;
+        const snapshotPosts = postsRef.current;
+        const snapshotGroupPosts = groupPostsRef.current;
         setDeletingPost(true);
         try {
             await ForumApiService.deletePost(
@@ -637,10 +877,11 @@ export const CommunityScreen = ({
                 isAdmin,
                 currentUserId,
             );
-            setPosts((prev) => prev.filter((p) => p.id !== postId));
+            removePostFromList(postId);
             SmartToast.success('تم حذف المنشور');
         } catch (err) {
-            setPosts(snapshot);
+            setPosts(snapshotPosts);
+            setGroupPosts(snapshotGroupPosts);
             const message =
                 err instanceof Error && err.message.trim() ? err.message : 'تعذّر حذف المنشور';
             SmartToast.error(message);
@@ -651,7 +892,7 @@ export const CommunityScreen = ({
 
     const requestDeletePost = (postId: string) => {
         if (!currentUserId) return;
-        const post = posts.find((p) => p.id === postId);
+        const post = findPostById(postId);
         if (!post || !canDeletePost(post, currentUserId, isAdmin)) {
             SmartToast.warning('لا يمكنك حذف هذا المنشور');
             return;
@@ -667,12 +908,12 @@ export const CommunityScreen = ({
     };
 
     const pendingDeletePost = pendingDeletePostId
-        ? posts.find((p) => p.id === pendingDeletePostId) ?? null
+        ? findPostById(pendingDeletePostId)
         : null;
 
     const handleToggleBestAnswer = async (postId: string, commentId: string) => {
         if (!currentUserId) return;
-        const post = posts.find((p) => p.id === postId);
+        const post = findPostById(postId);
         if (!post) return;
         if (post.authorId !== currentUserId) {
             SmartToast.warning('فقط صاحب المنشور يمكنه تمييز أفضل إجابة');
@@ -680,7 +921,7 @@ export const CommunityScreen = ({
         }
         const nextBest = (post.bestCommentId ?? null) === commentId ? null : commentId;
         let nextPost: CommunityPost | null = null;
-        setPosts((prev) =>
+        updatePostList(postId, (prev) =>
             prev.map((p) => {
                 if (p.id !== postId) return p;
                 nextPost = { ...p, bestCommentId: nextBest, updatedAt: new Date().toISOString() };
@@ -690,7 +931,7 @@ export const CommunityScreen = ({
         if (nextPost) {
             try {
                 const saved = await ForumApiService.syncPost(nextPost);
-                setPosts((prev) => prev.map((p) => (p.id === postId ? saved : p)));
+                updatePostList(postId, (prev) => prev.map((p) => (p.id === postId ? saved : p)));
             } catch {
                 SmartToast.error('تعذّر تحديث أفضل إجابة');
             }
@@ -949,6 +1190,7 @@ export const CommunityScreen = ({
             bestCommentId: null,
             isAnonymous: newIsAnonymous || undefined,
             isUrgent: newIsUrgent || undefined,
+            ...(activeGroupId ? { groupId: activeGroupId } : {}),
         };
         setIsAddQuestionOpen(false);
         setNewPostText('');
@@ -958,12 +1200,21 @@ export const CommunityScreen = ({
         removeAttachment(); // يُلغي blob URL إن وُجد
         try {
             const saved = await ForumApiService.createPost(post);
-            setPosts((prev) => [
-                { ...saved, tags: resolveCommunityPostTags(saved.content, saved.tags) },
-                ...prev,
-            ]);
-            SmartToast.success('تم نشر الاستشارة');
-            if (currentUserId) {
+            const normalized = {
+                ...saved,
+                tags: resolveCommunityPostTags(saved.content, saved.tags),
+            };
+            if (saved.groupId ?? activeGroupId) {
+                setGroupPosts((prev) =>
+                    sortCommunityPosts(mergeCommunityPostsById(prev, [normalized])),
+                );
+            } else {
+                setPosts((prev) =>
+                    sortCommunityPosts(mergeCommunityPostsById(prev, [normalized])),
+                );
+            }
+            SmartToast.success(activeGroupId ? 'تم نشر المنشور في المجموعة' : 'تم نشر الاستشارة');
+            if (currentUserId && !activeGroupId) {
                 notifyFollowers(currentUserId, 'new_post', 'منشور جديد من متابَع', `نشر ${post.authorName} استشارة جديدة`, saved.id);
             }
         } catch (err) {
@@ -978,7 +1229,7 @@ export const CommunityScreen = ({
     };
 
     const handleEditPost = (postId: string) => {
-        const post = posts.find((p) => p.id === postId);
+        const post = findPostById(postId);
         if (!post || !canEditPost(post, currentUserId, isAdmin)) {
             SmartToast.warning('لا يمكنك تعديل هذا المنشور');
             return;
@@ -999,10 +1250,10 @@ export const CommunityScreen = ({
             return;
         }
         const targetId = editingPostId;
-        const snapshot = posts.find((p) => p.id === targetId);
+        const snapshot = findPostById(targetId);
         const editPatch = snapshot ? buildForumEditPatch(snapshot, nextText) : null;
         // تحديث متفائل: المستخدم يرى الإصدار المُعدَّل فوراً مع علامة «معدّل»
-        setPosts((prev) =>
+        updatePostList(targetId, (prev) =>
             prev.map((p) =>
                 p.id === targetId && editPatch
                     ? { ...p, ...editPatch }
@@ -1023,14 +1274,14 @@ export const CommunityScreen = ({
                             isEdited: true,
                             updatedAt: new Date().toISOString(),
                         };
-            setPosts((prev) => prev.map((p) => (p.id === targetId ? reconciled : p)));
+            updatePostList(targetId, (prev) => prev.map((p) => (p.id === targetId ? reconciled : p)));
             SmartToast.success('تم تحديث المنشور');
             setEditingPostId(null);
             setEditingText('');
         } catch (err) {
             // التراجع عن التحديث المتفائل عند الفشل
             if (snapshot) {
-                setPosts((prev) => prev.map((p) => (p.id === targetId ? snapshot : p)));
+                updatePostList(targetId, (prev) => prev.map((p) => (p.id === targetId ? snapshot : p)));
             }
             const message = err instanceof Error && err.message.trim() ? err.message : 'تعذّر تحديث المنشور';
             SmartToast.error(message);
@@ -1081,12 +1332,12 @@ export const CommunityScreen = ({
             SmartToast.warning('التثبيت متاح للإدارة فقط');
             return;
         }
-        const post = posts.find((p) => p.id === postId);
+        const post = findPostById(postId);
         if (!post) return;
         const nextPinned = !post.isPinned;
         try {
             const updated = await ForumApiService.togglePin(postId, nextPinned);
-            setPosts((prev) => prev.map((p) => (p.id === postId ? updated : p)));
+            updatePostList(postId, (prev) => prev.map((p) => (p.id === postId ? updated : p)));
             SmartToast.success(nextPinned ? 'تم تثبيت المنشور' : 'تم إلغاء تثبيت المنشور');
         } catch {
             SmartToast.error('تعذّر تحديث حالة التثبيت');
@@ -1131,7 +1382,7 @@ export const CommunityScreen = ({
         if (!currentUserId || !commentingPostId) return;
         // تحديث متفائل: نُبدّل عضوية المستخدم في upvoterIds للتعليق
         let didOptimisticUpdate = false;
-        setPosts((prev) =>
+        updatePostList(commentingPostId, (prev) =>
             prev.map((p) => {
                 if (p.id !== commentingPostId) return p;
                 return {
@@ -1150,7 +1401,7 @@ export const CommunityScreen = ({
         try {
             const { upvoterIds } = await ForumApiService.toggleCommentUpvote(commentId);
             // مطابقة الحالة من السيرفر (مصدر الحقيقة)
-            setPosts((prev) =>
+            updatePostList(commentingPostId, (prev) =>
                 prev.map((p) => {
                     if (p.id !== commentingPostId) return p;
                     return {
@@ -1164,7 +1415,7 @@ export const CommunityScreen = ({
         } catch {
             if (didOptimisticUpdate) {
                 // تراجع — نعكس العملية
-                setPosts((prev) =>
+                updatePostList(commentingPostId, (prev) =>
                     prev.map((p) => {
                         if (p.id !== commentingPostId) return p;
                         return {
@@ -1186,7 +1437,7 @@ export const CommunityScreen = ({
 
     const handleToggleLock = async (postId: string) => {
         if (!currentUserId) return;
-        const post = posts.find((p) => p.id === postId);
+        const post = findPostById(postId);
         if (!post) return;
         if (post.authorId !== currentUserId && !isAdmin) {
             SmartToast.warning('قفل النقاش متاح لصاحب المنشور أو الإدارة');
@@ -1194,7 +1445,7 @@ export const CommunityScreen = ({
         }
         const nextLocked = !post.isLocked;
         const snapshot = post.isLocked;
-        setPosts((prev) =>
+        updatePostList(postId, (prev) =>
             prev.map((p) =>
                 p.id === postId
                     ? { ...p, isLocked: nextLocked || undefined, updatedAt: new Date().toISOString() }
@@ -1209,10 +1460,10 @@ export const CommunityScreen = ({
                 isAdmin,
                 post.author_id ?? post.authorId,
             );
-            setPosts((prev) => prev.map((p) => (p.id === postId ? updated : p)));
+            updatePostList(postId, (prev) => prev.map((p) => (p.id === postId ? updated : p)));
             SmartToast.success(nextLocked ? 'تم قفل النقاش' : 'تم فتح النقاش');
         } catch (err) {
-            setPosts((prev) =>
+            updatePostList(postId, (prev) =>
                 prev.map((p) =>
                     p.id === postId ? { ...p, isLocked: snapshot || undefined } : p,
                 ),
@@ -1283,25 +1534,28 @@ export const CommunityScreen = ({
         setIsSearchOpen(false);
     }, [setActiveSection]);
 
-    if (authIsLoading && !authUser && !FORUM_DEV_OPEN && !hadAuthenticatedUserRef.current) {
-        return <div dir="rtl" className="w-full h-full bg-[#151822]" />;
+    const openFullscreenImage = useCallback((url: string) => setFullscreenImage(url), []);
+    const openCommentSheet = useCallback((id: string) => setCommentingPostId(id), []);
+
+    if (authIsLoading && !authUser && !FORUM_DEV_OPEN && !hadAuthenticatedUserRef.current && !lawyerShellAccess) {
+        return <div dir="rtl" className="w-full h-full" style={{ backgroundColor: FORUM_PLUM_DEEP }} />;
     }
-    if (!FORUM_DEV_OPEN && (!authUser || !hasRole('lawyer'))) {
+    if (!canAccessLawyerForum) {
         return (
-            <div dir="rtl" className="w-full h-full bg-[#151822] flex items-center justify-center p-6 text-center">
-                <div className="bg-white/5 border border-white/10 rounded-3xl p-6 max-w-md w-full">
-                    <div className="w-14 h-14 rounded-2xl bg-[#E6C673]/10 border border-[#E6C673]/20 flex items-center justify-center mx-auto mb-3">
-                        <Briefcase size={22} className="text-[#E6C673]" />
+            <div dir="rtl" className="w-full h-full flex items-center justify-center p-6 text-center" style={{ backgroundColor: FORUM_PLUM_DEEP }}>
+                <div className="bg-[#38303E] border border-[#4A3D52]/55 rounded-xl p-6 max-w-md w-full shadow-[inset_0_0_32px_rgba(240,184,150,0.05)]">
+                    <div className="w-14 h-14 rounded-xl bg-[#F0B896]/10 border border-[#F0B896]/25 flex items-center justify-center mx-auto mb-3">
+                        <Briefcase size={22} className="text-[#F0B896]" />
                     </div>
-                    <h2 className="text-white font-bold text-lg mb-1">هذا المنتدى مخصص للمحامين فقط</h2>
-                    <p className="text-white/40 text-sm">يرجى تسجيل الدخول بحساب محامٍ للوصول.</p>
+                    <h2 className={`${FORUM_TEXT_PRIMARY} font-bold text-lg mb-1`}>هذا المنتدى مخصص للمحامين فقط</h2>
+                    <p className={`${FORUM_TEXT_MUTED} text-sm`}>يرجى تسجيل الدخول بحساب محامٍ للوصول.</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div dir="rtl" className="w-full h-full bg-[#151822] flex flex-col relative overflow-hidden z-0">
+        <ForumPlumPage>
             <ForumAppBar
                 onBack={onBack}
                 activeSection={activeSection}
@@ -1331,8 +1585,8 @@ export const CommunityScreen = ({
                         visiblePosts={visiblePosts}
                         currentUserId={currentUserId}
                         onToggleUpvote={handleToggleUpvote}
-                        onImageClick={(url) => setFullscreenImage(url)}
-                        onCommentClick={(id) => setCommentingPostId(id)}
+                        onImageClick={openFullscreenImage}
+                        onCommentClick={openCommentSheet}
                         onDelete={requestDeletePost}
                         onEdit={handleEditPost}
                         onReport={handleReportPost}
@@ -1357,11 +1611,60 @@ export const CommunityScreen = ({
                         selectedTag={repositorySelectedTag}
                     />
                 </div>
+                <div className={activeSection === 'groups' ? 'block' : 'hidden'} aria-hidden={activeSection !== 'groups'}>
+                    {activeGroupId && activeGroup ? (
+                        <ForumGroupFeedPanel
+                            group={activeGroup}
+                            onBack={() => setActiveGroupId(null)}
+                            onLeave={() => void handleLeaveGroup()}
+                            leaving={leavingGroup}
+                            loadingPosts={groupPostsLoading}
+                            hasMore={groupPostsHasMore}
+                            loadingMore={groupPostsLoadingMore}
+                            visiblePosts={groupVisiblePosts}
+                            currentUserId={currentUserId}
+                            onToggleUpvote={handleToggleUpvote}
+                            onImageClick={openFullscreenImage}
+                            onCommentClick={openCommentSheet}
+                            onDelete={requestDeletePost}
+                            onEdit={handleEditPost}
+                            onReport={handleReportPost}
+                            onShare={handleSharePost}
+                            onLoadMore={() => void handleLoadMoreGroupPosts()}
+                            isAdmin={isAdmin}
+                            onTogglePin={handleTogglePin}
+                            onFollow={handleFollow}
+                            followingIds={followingIds}
+                            bookmarkedIds={bookmarkedIds}
+                            onToggleBookmark={handleToggleBookmark}
+                            onToggleLock={handleToggleLock}
+                            onMuteUser={handleMuteUser}
+                            userStats={userStats}
+                        />
+                    ) : (
+                        <ForumGroupsDirectory
+                            groups={groups}
+                            loading={groupsLoading}
+                            searchQuery={groupsSearchQuery}
+                            onSearchQueryChange={setGroupsSearchQuery}
+                            onJoin={(groupId) => void handleJoinGroup(groupId)}
+                            onOpenGroup={handleOpenGroup}
+                            onCreateClick={() => {
+                                if (!currentUserId) {
+                                    SmartToast.warning('سجّل الدخول لإنشاء مجموعة');
+                                    return;
+                                }
+                                setIsCreateGroupOpen(true);
+                            }}
+                            joiningGroupId={joiningGroupId}
+                        />
+                    )}
+                </div>
             </div>
 
-            <div className="fixed bottom-0 left-0 right-0 h-[180px] bg-gradient-to-t from-[#151822] via-[#151822]/95 to-transparent pointer-events-none z-10" />
+            <div className="fixed bottom-0 left-0 right-0 h-[180px] bg-gradient-to-t from-[#0E0812] via-[#140A18]/95 to-transparent pointer-events-none z-10" />
 
-            {/* FAB — المنتدى فقط */}
+            {/* FAB — المنتدى العام أو جدار المجموعة */}
             {activeSection === 'forum' ? (
                 <div className="absolute bottom-6 left-6 z-20">
                     <button
@@ -1373,17 +1676,52 @@ export const CommunityScreen = ({
                             }
                             setIsAddQuestionOpen(true);
                         }}
-                        className={`flex items-center gap-2 font-bold py-3 px-5 rounded-2xl shadow-xl shadow-black/30 transition-transform active:scale-95 ${
+                        className={`flex items-center gap-2 font-bold py-3 px-5 rounded-2xl shadow-lg transition-transform ${
                             currentUserId
-                                ? 'bg-[#E6C673] hover:bg-[#d4b560] text-black'
-                                : 'bg-white/10 text-white/40 cursor-not-allowed'
+                                ? `${FORUM_PUBLISH_BTN} shadow-black/25`
+                                : FORUM_PUBLISH_BTN_DISABLED
                         }`}
                     >
                         <Plus size={20} />
                         <span>طرح استشارة للزملاء</span>
                     </button>
                 </div>
+            ) : activeSection === 'groups' && activeGroupId ? (
+                <div className="absolute bottom-6 left-6 z-20">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (!currentUserId) {
+                                SmartToast.warning('سجّل الدخول أولاً');
+                                return;
+                            }
+                            setIsAddQuestionOpen(true);
+                        }}
+                        className={`flex items-center gap-2 font-bold py-3 px-5 rounded-2xl shadow-lg transition-transform ${
+                            currentUserId
+                                ? `${FORUM_PUBLISH_BTN} shadow-black/25`
+                                : FORUM_PUBLISH_BTN_DISABLED
+                        }`}
+                    >
+                        <Plus size={20} />
+                        <span>نشر في المجموعة</span>
+                    </button>
+                </div>
             ) : null}
+
+            <CreateGroupModal
+                isOpen={isCreateGroupOpen}
+                name={newGroupName}
+                description={newGroupDesc}
+                submitting={submittingGroup}
+                onNameChange={setNewGroupName}
+                onDescriptionChange={setNewGroupDesc}
+                onSubmit={() => void handleCreateGroup()}
+                onClose={() => {
+                    if (submittingGroup) return;
+                    setIsCreateGroupOpen(false);
+                }}
+            />
 
             <EditPostModal
                 editingPostId={editingPostId}
@@ -1479,6 +1817,6 @@ export const CommunityScreen = ({
                     if (!deletingPost) setPendingDeletePostId(null);
                 }}
             />
-        </div>
+        </ForumPlumPage>
     );
 };

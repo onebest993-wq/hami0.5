@@ -26,11 +26,13 @@ import {
     shouldShowGuarantorRequestInSeizureTab,
     shouldShowHiddenBreakInventoryRequest,
     listHiddenPersonalCoerciveCatalog,
+    isEmployeeCoerciveDetentionRestricted,
     isPersonalCoerciveDetentionPathAllowedForDebtor,
     type HiddenFollowupVisibilityInput,
     type HiddenGuarantorContext,
     type HiddenPersonalCoerciveRequestKey,
 } from '@/app/components/lawyer/ExecutionDashboard/components/hiddenFollowupRequestsUtils';
+import { isCustodyRemovalExecutionClaim } from '@/app/utils/executionClaimIsolation';
 import { hasActiveFinancialGuarantorFollowup } from '@/app/components/lawyer/ExecutionDashboard/components/guarantorExternalUtils';
 
 export interface CreditorMirrorWorkflowContext {
@@ -162,9 +164,17 @@ function readCoerciveStates(ctx: CreditorMirrorWorkflowContext) {
             dossierPhase === 'judge_decided' ||
             dossierPhase === 'detention_active');
 
+    const custodyRemovalClaimActive = isCustodyRemovalExecutionClaim(
+        ed as Record<string, unknown> | null | undefined
+    );
+    const employeeDetentionRestricted = isEmployeeCoerciveDetentionRestricted({
+        activeDebtorIsEmployee: ctx.activeDebtorIsEmployee,
+        isCustodyRemovalClaim: custodyRemovalClaimActive,
+    });
+
     const showDossierPresentationCard =
         !ctx.hideDossierJudgePresentation &&
-        !ctx.activeDebtorIsEmployee &&
+        !employeeDetentionRestricted &&
         (dossier.pending ||
             dossier.rejected ||
             dossier.alternative ||
@@ -174,7 +184,7 @@ function readCoerciveStates(ctx: CreditorMirrorWorkflowContext) {
 
     const showJudgeDetentionCard =
         !ctx.hideDossierJudgePresentation &&
-        !ctx.activeDebtorIsEmployee &&
+        !employeeDetentionRestricted &&
         dossierCycleActive &&
         !detentionLaneEnded &&
         dossier.approved &&
@@ -207,12 +217,18 @@ function isPersonalInCreditorCatalog(
     if (
         !isPersonalCoerciveDetentionPathAllowedForDebtor(key, {
             activeDebtorIsEmployee: flags.activeDebtorIsEmployee,
+            isCustodyRemovalClaim: flags.isCustodyRemovalClaim,
         })
     ) {
         return false;
     }
     if (key === 'executive_dossier_presentation' || key === 'executive_detention_judge') {
-        if (flags.hidePersonalJudgePresentation || flags.activeDebtorIsEmployee) return false;
+        if (
+            flags.hidePersonalJudgePresentation ||
+            isEmployeeCoerciveDetentionRestricted(flags)
+        ) {
+            return false;
+        }
     }
     if (flags.showPersonalCoerciveFollowupTab) return true;
     return listHiddenPersonalCoerciveCatalog(flags).some((item) => item.key === key);

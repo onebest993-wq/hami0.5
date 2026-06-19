@@ -1,5 +1,5 @@
-import { uuidv4 } from '@/app/services/lawyer-cloud';
 import type { TransactionsThreadingRepository } from './repository';
+import { createThreadingId } from './ids';
 import {
   FinanceRecordType,
   TransactionStatus,
@@ -66,7 +66,7 @@ export function buildTaskTree(flatTasks: TransactionTask[]): TransactionTaskNode
 export class TransactionsThreadingService {
   constructor(
     private readonly repo: TransactionsThreadingRepository,
-    private readonly idFactory: () => string = uuidv4,
+    private readonly idFactory: () => string = createThreadingId,
     private readonly now: () => string = () => new Date().toISOString(),
   ) {}
 
@@ -260,10 +260,5 @@ export class TransactionsThreadingService {
     const existing = await this.repo.getDocument(id);
     await this.repo.deleteDocument(id);
     if (existing) await this.repo.updateTransaction(existing.transactionId, { updatedAt: this.now() });
-  }
-
-  async buildTransactionTaskTree(transactionId: string): Promise<TransactionTaskNode[]> {
-    const tasks = await this.repo.listTasks(transactionId);
-    return buildTaskTree(tasks);
   }
 }

@@ -26,7 +26,18 @@ export type DocumentEditData = {
     notes?: string;
 };
 
-export type IncidentalCaseEditData = Pick<IncidentalCase, 'id' | 'type' | 'partyName' | 'details'>;
+export type IncidentalCaseEditData = Pick<
+    IncidentalCase,
+    | 'id'
+    | 'type'
+    | 'partyName'
+    | 'details'
+    | 'thirdPartyEntryMode'
+    | 'affiliationSide'
+    | 'affiliationPartyId'
+    | 'affiliationPartyName'
+    | 'entryDecision'
+>;
 
 export type AppointmentEditData = {
     id?: string;
@@ -45,14 +56,6 @@ export type PauseInterruptionEditData = {
     notes?: string;
     decisionType?: string;
     decisionDate?: string;
-};
-
-export type ActionEditData = {
-    id?: string;
-    title?: string;
-    date?: string;
-    details?: string;
-    isStayed?: boolean;
 };
 
 /** حقول تحرير مشتركة لأحداث الخط الزمني في النماذج القديمة */
@@ -93,6 +96,7 @@ export type AddPaymentModalProps = ModalShellProps & {
 export type AddIncidentalCaseModalProps = ModalShellProps &
     EditDataProps<IncidentalCaseEditData> & {
         onAdd: (data: Record<string, unknown>) => void;
+        onSpawnLinkedCase?: (data: { type: 'joined' | 'counter'; details?: string; incidentalId: string }) => void;
         currentStage?: CaseStage | string;
     };
 
@@ -152,11 +156,6 @@ export type InterlocutoryAppealModalProps = ModalShellProps &
         onConfirm: (data: Record<string, unknown>) => void;
     };
 
-export type AddActionModalProps = ModalShellProps &
-    EditDataProps<ActionEditData> & {
-        onAdd: (data: Record<string, unknown>) => void;
-    };
-
 export type AddProvisionalOrderModalProps = ModalShellProps & {
     onConfirm: (data: { type: string; targetParty: string }) => void;
     currentParties?: Array<Record<string, unknown>>;
@@ -169,6 +168,10 @@ export type EditCaseInfoModalProps = ModalShellProps & {
 
 export type AppealRegistrationModalProps = ModalShellProps & {
     onConfirm: (data: Record<string, unknown>) => void;
+    judgmentForm?: string | null;
+    lastJudgmentType?: string | null;
+    stageName?: string | null;
+    appealRoute?: import('./appealRouteEligibility').AppealRouteContext | null;
 };
 
 export type JudicialNotificationModalProps = ModalShellProps & {
@@ -177,6 +180,14 @@ export type JudicialNotificationModalProps = ModalShellProps & {
 
 export type ObjectionRegistrationModalProps = ModalShellProps & {
     onConfirm: (data: Record<string, unknown>) => void;
+};
+
+export type AbsentJudgmentNotificationModalProps = ModalShellProps & {
+    onConfirm: (data: { notificationDate: string }) => void;
+};
+
+export type OpponentAbsentObjectionModalProps = ModalShellProps & {
+    onConfirm: (data: { newCaseNumber: string; filingDate: string }) => void;
 };
 
 export type ObjectionJudgmentModalProps = ModalShellProps & {

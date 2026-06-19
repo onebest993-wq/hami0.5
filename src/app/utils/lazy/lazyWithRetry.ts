@@ -1,4 +1,5 @@
 import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
+import { resetLawyerDashboardModuleCache } from '@/app/runtime/lawyerDashboardLoader';
 
 export type LazyComponent = ComponentType<Record<string, unknown>>;
 
@@ -44,6 +45,9 @@ async function loadLazyModule(
         return await componentImport();
     } catch (error) {
         if (retriesLeft > 0) {
+            if (isDynamicImportFetchError(error)) {
+                resetLawyerDashboardModuleCache();
+            }
             const delayMs = Math.min(200 * 2 ** attempt, 2_000);
             await new Promise((resolve) => setTimeout(resolve, delayMs));
             return loadLazyModule(componentImport, retriesLeft - 1, attempt + 1);
@@ -78,6 +82,9 @@ function importWithTimeout(
                     if (retriesLeft === 0) {
                         finish(() => reject(toLoadError(error)));
                         return;
+                    }
+                    if (isDynamicImportFetchError(error)) {
+                        resetLawyerDashboardModuleCache();
                     }
                     window.setTimeout(() => attemptImport(retriesLeft - 1), 1000);
                 });

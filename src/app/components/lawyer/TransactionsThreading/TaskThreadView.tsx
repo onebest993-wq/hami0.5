@@ -1,7 +1,25 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useTransactionsThreadingStore, buildTaskTree, TransactionTaskStatus, type TransactionTask, type TransactionTaskNode } from '@/app/modules/transactionsThreading';
+import { useTransactionsThreadingStore } from '@/app/modules/transactionsThreading/store';
+import { buildTaskTree } from '@/app/modules/transactionsThreading/service';
+import { TransactionTaskStatus, type TransactionTask, type TransactionTaskNode } from '@/app/modules/transactionsThreading/types';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
 import { TaskNodeCard } from './TaskNodeCard';
+import {
+    GLASS_BTN,
+    GLASS_FIELD,
+    TX_DIALOG_BTN_CANCEL,
+    TX_DIALOG_BTN_DANGER,
+    TX_DIALOG_DESC,
+    TX_DIALOG_SHELL,
+    TX_DIALOG_TITLE,
+    TX_GOLD_BTN,
+    TX_INNER_SURFACE,
+    TX_TEXT_MUTED,
+    TX_TEXT_OCHRE,
+    TX_TEXT_PRIMARY,
+    TX_TEXT_SECONDARY,
+    TxGlassPanel,
+} from './transactionsGlassTheme';
 
 const EMPTY_TASKS: TransactionTask[] = [];
 
@@ -18,10 +36,10 @@ function nextStatus(current: TransactionTaskStatus) {
 }
 
 function nodeDotClass(status: TransactionTaskStatus) {
-  if (status === TransactionTaskStatus.Done) return 'bg-emerald-400 shadow-[0_0_0_4px_rgba(16,185,129,0.15)]';
-  if (status === TransactionTaskStatus.InProgress) return 'bg-amber-300 shadow-[0_0_0_4px_rgba(251,191,36,0.14)]';
-  if (status === TransactionTaskStatus.Blocked) return 'bg-rose-400 shadow-[0_0_0_4px_rgba(244,63,94,0.16)]';
-  return 'bg-gray-400 shadow-[0_0_0_4px_rgba(156,163,175,0.12)]';
+  if (status === TransactionTaskStatus.Done) return 'bg-[#C4782F] shadow-[0_0_0_4px_rgba(196,120,47,0.18)]';
+  if (status === TransactionTaskStatus.InProgress) return 'bg-[#D49248] shadow-[0_0_0_4px_rgba(212,146,72,0.16)]';
+  if (status === TransactionTaskStatus.Blocked) return 'bg-[#8A8680] shadow-[0_0_0_4px_rgba(138,134,128,0.14)]';
+  return 'bg-[#2A4550] shadow-[0_0_0_4px_rgba(42,69,80,0.2)]';
 }
 
 const TREE_INDENT = 20;
@@ -55,7 +73,7 @@ function NodeRenderer({
   const laneRight = 8 + depth * TREE_INDENT;
   const gutterWidth = TREE_GUTTER_BASE + depth * TREE_INDENT;
   const showBottomLine = node.children.length > 0 || index < siblingsCount - 1;
-  const branchLineClass = depth === 0 ? 'bg-[#D4AF37]/25' : 'bg-sky-400/25';
+  const branchLineClass = depth === 0 ? 'bg-[#C4782F]/35' : 'bg-[#2A4550]/70';
 
   return (
     <div className="relative w-full">
@@ -77,7 +95,7 @@ function NodeRenderer({
         />
       )}
       <div
-        className={`absolute w-4 h-4 rounded-full pointer-events-none ${nodeDotClass(node.status)}`}
+        className={`absolute w-4 h-4 rounded-[2px] pointer-events-none ${nodeDotClass(node.status)}`}
         style={{ right: laneRight - 7, top: 18 }}
       />
 
@@ -241,40 +259,36 @@ export function TaskThreadView({
   }, [tasks]);
 
   return (
-    <div dir="rtl" className="px-5 py-5 space-y-3 pb-28 w-full">
-      <div className="rounded-2xl bg-white/5 border border-white/10 px-4 py-4 shadow-[0_16px_55px_rgba(0,0,0,0.30)]">
+    <div dir="rtl" className="py-4 space-y-3 pb-28 w-full">
+      <TxGlassPanel className="px-4 py-4">
         <div className="flex items-center justify-between gap-3">
-          <div className="text-white font-extrabold text-sm">نسبة الإنجاز</div>
-          <div className="text-gray-200 font-extrabold text-sm">{progress.percent}%</div>
+          <div className={`${TX_TEXT_PRIMARY} font-extrabold text-sm`}>نسبة الإنجاز</div>
+          <div className={`${TX_TEXT_OCHRE} font-extrabold text-sm`}>{progress.percent}%</div>
         </div>
-        <div className="mt-3 h-2.5 rounded-full bg-black/20 border border-white/10 overflow-hidden">
+        <div className="mt-3 h-2 rounded-[2px] bg-[#0A171D] border border-[#2A4550]/80 overflow-hidden">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-[#D4AF37] to-amber-300"
+            className="h-full rounded-[1px] bg-gradient-to-r from-[#9A6024] via-[#C4782F] to-[#D49248]"
             style={{ width: `${progress.percent}%` }}
           />
         </div>
-        <div className="mt-2 text-gray-400 text-xs">
+        <div className={`mt-2 ${TX_TEXT_MUTED} text-xs font-medium`}>
           {progress.done} من {progress.total} مهمة منجزة
         </div>
-      </div>
+      </TxGlassPanel>
 
       {tree.length === 0 ? (
-        <div className="pt-10">
-          <div className="rounded-3xl bg-gradient-to-br from-white/7 to-white/3 border border-[#D4AF37]/18 p-5 shadow-[0_25px_70px_rgba(0,0,0,0.35)]">
-            <div className="text-white font-extrabold text-base">لا يوجد مسار بعد</div>
-            <div className="text-gray-400 text-sm mt-2 leading-7">
+        <div className="pt-6">
+          <TxGlassPanel className="p-5">
+            <div className={`${TX_TEXT_PRIMARY} font-extrabold text-base`}>لا يوجد مسار بعد</div>
+            <div className={`${TX_TEXT_MUTED} text-sm mt-2 leading-7 font-medium`}>
               يمكنك إضافة مهام يدوياً أو الاستيراد من قوالبك لتوفير الوقت.
             </div>
             {!readOnly && onImportFromMyTemplates && (
-              <button
-                type="button"
-                onClick={onImportFromMyTemplates}
-                className="mt-4 w-full h-12 rounded-2xl font-extrabold text-sm bg-gradient-to-r from-[#D4AF37] to-[#F4C430] text-[#0D0D1A] shadow-lg shadow-[#D4AF37]/25"
-              >
+              <button type="button" onClick={onImportFromMyTemplates} className={`${GLASS_BTN} mt-4`}>
                 استيراد من قوالبي
               </button>
             )}
-          </div>
+          </TxGlassPanel>
         </div>
       ) : (
         tree.map((node, i) => (
@@ -306,43 +320,35 @@ export function TaskThreadView({
           }
         }}
       >
-        <DialogContent className="bg-[#071022] border border-[#D4AF37]/20 rounded-3xl p-5">
+        <DialogContent className={TX_DIALOG_SHELL}>
           <DialogHeader className="text-right">
-            <DialogTitle className="text-white text-base">تعديل المهمة</DialogTitle>
-            <DialogDescription className="text-gray-400 text-sm">تعديل العنوان والمهلة (اختياري)</DialogDescription>
+            <DialogTitle className={TX_DIALOG_TITLE}>تعديل المهمة</DialogTitle>
+            <DialogDescription className={TX_DIALOG_DESC}>تعديل العنوان والمهلة (اختياري)</DialogDescription>
           </DialogHeader>
           <div dir="rtl" className="text-right space-y-3">
             <div>
-              <div className="text-gray-300 text-sm mb-2">عنوان المهمة</div>
+              <div className={`${TX_TEXT_MUTED} text-sm mb-2 font-medium`}>عنوان المهمة</div>
               <input
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
-                className="w-full h-12 rounded-2xl bg-[#0D0D1A] border border-[#D4AF37]/20 text-white px-4 outline-none focus:border-[#D4AF37]/50"
+                className={GLASS_FIELD}
               />
             </div>
             <div>
-              <div className="text-gray-300 text-sm mb-2">تاريخ نفاذ الصلاحية / المهلة</div>
+              <div className={`${TX_TEXT_MUTED} text-sm mb-2 font-medium`}>تاريخ نفاذ الصلاحية / المهلة</div>
               <input
                 value={editDeadlineDate}
                 onChange={(e) => setEditDeadlineDate(e.target.value)}
                 type="date"
-                className="w-full h-12 rounded-2xl bg-[#0D0D1A] border border-[#D4AF37]/20 text-white px-4 outline-none focus:border-[#D4AF37]/50"
+                className={GLASS_FIELD}
               />
             </div>
           </div>
           <DialogFooter className="sm:justify-start gap-2">
-            <button
-              type="button"
-              onClick={() => setEditOpen(false)}
-              className="h-11 px-5 rounded-2xl bg-white/5 border border-white/10 text-gray-200 font-bold"
-            >
+            <button type="button" onClick={() => setEditOpen(false)} className={TX_DIALOG_BTN_CANCEL}>
               إلغاء
             </button>
-            <button
-              type="button"
-              onClick={saveEdit}
-              className="h-11 px-5 rounded-2xl bg-[#D4AF37]/15 border border-[#D4AF37]/25 text-[#F4C430] font-extrabold"
-            >
+            <button type="button" onClick={saveEdit} className={TX_GOLD_BTN + ' !h-11 !px-5 !text-sm'}>
               حفظ
             </button>
           </DialogFooter>
@@ -359,13 +365,13 @@ export function TaskThreadView({
           }
         }}
       >
-        <DialogContent className="bg-[#071022] border border-rose-500/20 rounded-3xl p-5">
+        <DialogContent className={TX_DIALOG_SHELL}>
           <DialogHeader className="text-right">
-            <DialogTitle className="text-white text-base">حذف مهمة</DialogTitle>
-            <DialogDescription className="text-gray-400 text-sm">سيتم حذف المهمة من المسار</DialogDescription>
+            <DialogTitle className={TX_DIALOG_TITLE}>حذف مهمة</DialogTitle>
+            <DialogDescription className={TX_DIALOG_DESC}>سيتم حذف المهمة من المسار</DialogDescription>
           </DialogHeader>
           <div dir="rtl" className="text-right">
-            <div className="rounded-2xl bg-black/20 border border-white/10 p-4 text-gray-100 text-sm leading-7">
+            <div className={`${TX_INNER_SURFACE} p-4 ${TX_TEXT_SECONDARY} text-sm leading-7`}>
               {deleteCount > 1 ? (
                 <div>
                   هذه المهمة تحتوي على مهام متفرعة. سيتم حذف {deleteCount} مهام (حذف تسلسلي).
@@ -373,22 +379,14 @@ export function TaskThreadView({
               ) : (
                 <div>هل أنت متأكد من حذف هذه المهمة؟</div>
               )}
-              <div className="mt-2 text-gray-300 font-bold truncate">{deleteTarget?.title}</div>
+              <div className={`mt-2 ${TX_TEXT_PRIMARY} font-extrabold truncate`}>{deleteTarget?.title}</div>
             </div>
           </div>
           <DialogFooter className="sm:justify-start gap-2">
-            <button
-              type="button"
-              onClick={() => setDeleteOpen(false)}
-              className="h-11 px-5 rounded-2xl bg-white/5 border border-white/10 text-gray-200 font-bold"
-            >
+            <button type="button" onClick={() => setDeleteOpen(false)} className={TX_DIALOG_BTN_CANCEL}>
               إلغاء
             </button>
-            <button
-              type="button"
-              onClick={confirmDelete}
-              className="h-11 px-5 rounded-2xl bg-rose-500/15 border border-rose-500/25 text-rose-200 font-extrabold"
-            >
+            <button type="button" onClick={confirmDelete} className={TX_DIALOG_BTN_DANGER}>
               حذف
             </button>
           </DialogFooter>
@@ -405,20 +403,20 @@ export function TaskThreadView({
           }
         }}
       >
-        <DialogContent className="bg-[#071022] border border-[#D4AF37]/20 rounded-3xl p-5">
+        <DialogContent className={TX_DIALOG_SHELL}>
           <DialogHeader className="text-right">
-            <DialogTitle className="text-white text-base">إكمال المهمة</DialogTitle>
-            <DialogDescription className="text-gray-400 text-sm">
+            <DialogTitle className={TX_DIALOG_TITLE}>إكمال المهمة</DialogTitle>
+            <DialogDescription className={TX_DIALOG_DESC}>
               إضافة رقم الصادر/الوارد أو الوصل؟ (اختياري)
             </DialogDescription>
           </DialogHeader>
           <div dir="rtl" className="text-right">
-            <div className="text-gray-200 text-sm font-bold truncate">{completeTarget?.title}</div>
+            <div className={`${TX_TEXT_PRIMARY} text-sm font-extrabold truncate`}>{completeTarget?.title}</div>
             <input
               value={officialRef}
               onChange={(e) => setOfficialRef(e.target.value)}
               placeholder="مثال: 1234"
-              className="mt-3 w-full h-12 rounded-2xl bg-[#0D0D1A] border border-[#D4AF37]/20 text-white px-4 outline-none focus:border-[#D4AF37]/50"
+              className={`${GLASS_FIELD} mt-3`}
             />
           </div>
           <DialogFooter className="sm:justify-start gap-2">
@@ -429,15 +427,11 @@ export function TaskThreadView({
                 setCompleteTarget(null);
                 setOfficialRef('');
               }}
-              className="h-11 px-5 rounded-2xl bg-white/5 border border-white/10 text-gray-200 font-bold"
+              className={TX_DIALOG_BTN_CANCEL}
             >
               إلغاء
             </button>
-            <button
-              type="button"
-              onClick={confirmComplete}
-              className="h-11 px-5 rounded-2xl bg-gradient-to-r from-emerald-400 to-emerald-300 text-[#0D0D1A] font-extrabold shadow-lg shadow-emerald-500/20"
-            >
+            <button type="button" onClick={confirmComplete} className={GLASS_BTN + ' !w-auto !h-11 !px-5'}>
               إكمال
             </button>
           </DialogFooter>

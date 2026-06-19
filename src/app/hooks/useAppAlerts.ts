@@ -31,7 +31,6 @@ export function useAppAlerts(params: {
     criminalCases?: unknown[];
     notes: RawNote[];
     fieldTasks?: LegalTask[];
-    smartAlertsEnabled?: boolean;
     /** تأجيل توليد تنبيهات السكرتير حتى idle — لا يعيق أول إطار */
     deferUntilIdle?: boolean;
 }) {
@@ -67,7 +66,7 @@ export function useAppAlerts(params: {
                 criminalCases: criminalRef.current,
                 globalNotes: notesRef.current,
                 fieldTasks: fieldTasksRef.current,
-            });
+            }, { emitUpdated: false });
 
             const rawList = await SecretaryOrchestrator.getUnifiedAlerts({
                 lawyerId: uid,
@@ -87,10 +86,7 @@ export function useAppAlerts(params: {
             const list = filterAuthenticSecretaryAlerts(enriched);
             if (gen !== generationRef.current) return;
             const settings = getLawyerSettingsSnapshot();
-            const visible =
-                params.smartAlertsEnabled === false
-                    ? []
-                    : filterAlertsByNotificationSettings(list, settings);
+            const visible = filterAlertsByNotificationSettings(list, settings);
             setAlerts(visible);
             void syncPushForNewCriticalAlerts(list, uid);
         } catch (err) {
@@ -104,7 +100,7 @@ export function useAppAlerts(params: {
                 hasLoadedOnceRef.current = true;
             }
         }
-    }, [params.lawyerId, params.smartAlertsEnabled]);
+    }, [params.lawyerId]);
 
     useEffect(() => {
         hasLoadedOnceRef.current = false;

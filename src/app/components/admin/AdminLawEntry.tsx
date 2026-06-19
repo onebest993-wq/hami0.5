@@ -1,12 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FunctionsHttpError } from "@supabase/functions-js";
-import { supabase } from "@/app/lib/supabase-client";
 import { cn } from "@/app/components/ui/utils";
 import { SmartDialog } from "@/app/components/ui/SmartDialog";
+import { SecureAPIClient, SecureFetchError } from "@/app/services/SecureAPIClient";
 import { Pin, Scale } from "lucide-react";
-import { IRAQI_LAW_CANONICAL_NAMES, EXECUTION_LAW_CANONICAL_NAME, isAllowedIraqiLawName, resolveLawCodeTypeFromName } from "@/app/constants/iraqiLawCatalog";
+import { IRAQI_LAW_CANONICAL_NAMES, CIVIL_LAW_CANONICAL_NAMES, EXECUTION_LAW_CANONICAL_NAME, isAllowedIraqiLawName, resolveLawCodeTypeFromName, resolveCivilLawCodeTypeFromName } from "@/app/constants/iraqiLawCatalog";
 import { invalidateLegalCodeArticlesCache } from "@/app/components/lawyer/criminal-system/legalCodes/legalCodesDataCache";
 import { invalidateExecutionLawRemoteCache } from "@/app/utils/executionLawRemoteCache";
+import { invalidateCivilLawRemoteCache } from "@/app/utils/civilLawRemoteCache";
+import { invalidatePersonalStatusLawRemoteCache } from "@/app/utils/personalStatusLawRemoteCache";
+import {
+    PERSONAL_STATUS_LAW_CANONICAL_NAMES,
+    resolvePersonalStatusLawCodeType,
+} from "@/app/constants/personalStatusLawCatalog";
 import {
     articleNumberInRange,
     clearPinnedLawFilter,
@@ -19,12 +24,45 @@ import {
     type LawStructureSectionId,
     type PinnedLawFilterPath,
 } from "@/app/components/admin/lawStructure";
+import {
+    parseBulkLawJsonText,
+    summarizeBulkLawParse,
+    type BulkLawInvokeRow,
+} from "@/app/components/admin/adminBulkLawImport";
 
 type AddLawInvokeBody = {
     law_name: string;
     article_number: string;
     content: string;
 };
+
+function parseSecureApiErrorMessage(err: unknown): string {
+    if (!(err instanceof SecureFetchError)) {
+        return err instanceof Error ? err.message : String(err);
+    }
+    const text = err.bodyText?.trim() ?? "";
+    if (text) {
+        try {
+            const body = JSON.parse(text) as { error?: string; details?: string };
+            const parts = [body.error, body.details].filter(
+                (part): part is string => typeof part === "string" && part.trim().length > 0,
+            );
+            if (parts.length > 0) return parts.join(" — ");
+        } catch {
+            if (text.length < 240) return text;
+        }
+    }
+    if (err.status === 401) {
+        return "غير مصرح: استخدم «الدخول كمدير أعلى» أو سجّل دخولاً صالحاً ثم أعد المحاولة.";
+    }
+    if (err.status === 403) {
+        return "ليس لديك صلاحية إدخال القوانين.";
+    }
+    if (err.status === 503) {
+        return "قاعدة البيانات غير مهيأة: أضف SUPABASE_SERVICE_ROLE_KEY في ملف .env ثم أعد تشغيل npm run dev.";
+    }
+    return err.message || `خطأ HTTP ${err.status}`;
+}
 
 type AdminLawEntryTab = "single" | "bulk" | "browse";
 
@@ -36,11 +74,15 @@ type BrowseLawRow = {
 };
 
 const BROWSE_TABLE_PAGE_SIZE = 40;
-type LawDomain = "execution" | "criminal";
+type LawDomain = "execution" | "criminal" | "civil" | "personal";
 type CriminalLawTab = "penal" | "procedure" | "juvenile";
+type CivilLawTab = "civil_procedure" | "evidence";
+type PersonalLawTab = "personal_status_188" | "personal_status_supplementary" | "jaafari_code";
 
 type BulkProgress = {
+    rawTotal: number;
     total: number;
+    skipped: number;
     processed: number;
     success: number;
     failed: number;
@@ -53,6 +95,17 @@ type AddLawResponse = {
     details?: string;
     record?: unknown;
     deletedCount?: number;
+};
+
+type ImportBundleResponse = {
+    ok?: boolean;
+    error?: string;
+    message?: string;
+    details?: string;
+    imported?: number;
+    rawCount?: number;
+    skipped?: number;
+    skippedDetails?: Array<{ index: number; reason: string }>;
 };
 
 type ClearLawsInvokeBody = {
@@ -68,6 +121,8 @@ type AddLawInvokeResult = {
 const LAW_DOMAIN_LABELS: Record<LawDomain, string> = {
     execution: "قسم التنفيذ",
     criminal: "القسم القضائي الجزائي",
+    civil: "الدعاوى المدنية",
+    personal: "الأحوال الشخصية",
 };
 
 const CRIMINAL_LAW_TAB_LABELS: Record<CriminalLawTab, string> = {
@@ -76,57 +131,39 @@ const CRIMINAL_LAW_TAB_LABELS: Record<CriminalLawTab, string> = {
     juvenile: "قانون رعاية الأحداث",
 };
 
-const LAW_NAME_BY_TARGET: Record<LawDomain, string | null> & Record<CriminalLawTab, string> = {
+const CIVIL_LAW_TAB_LABELS: Record<CivilLawTab, string> = {
+    civil_procedure: "المرافعات المدنية",
+    evidence: "قانون الإثبات",
+};
+
+const PERSONAL_LAW_TAB_LABELS: Record<PersonalLawTab, string> = {
+    personal_status_188: "قانون 188",
+    personal_status_supplementary: "قوانين تطبيقية",
+    jaafari_code: "المدونة الجعفرية",
+};
+
+const LAW_NAME_BY_TARGET: Record<LawDomain, string | null> & Record<CriminalLawTab, string> & Record<CivilLawTab, string> & Record<PersonalLawTab, string> = {
     execution: EXECUTION_LAW_CANONICAL_NAME,
     criminal: null,
-    penal: "قانون العقوبات العراقي رقم 111 لسنة 1969",
-    procedure: "قانون أصول المحاكمات الجزائية العراقي رقم 23 لسنة 1971",
-    juvenile: "قانون رعاية الأحداث العراقي رقم 76 لسنة 1983",
+    civil: null,
+    personal: null,
+    penal: IRAQI_LAW_CANONICAL_NAMES.penal,
+    procedure: IRAQI_LAW_CANONICAL_NAMES.procedure,
+    juvenile: IRAQI_LAW_CANONICAL_NAMES.juvenile,
+    civil_procedure: CIVIL_LAW_CANONICAL_NAMES.civil_procedure,
+    evidence: CIVIL_LAW_CANONICAL_NAMES.evidence,
+    personal_status_188: PERSONAL_STATUS_LAW_CANONICAL_NAMES.personal_status_188,
+    personal_status_supplementary: PERSONAL_STATUS_LAW_CANONICAL_NAMES.personal_status_supplementary,
+    jaafari_code: PERSONAL_STATUS_LAW_CANONICAL_NAMES.jaafari_code,
 };
 function refreshLawReaderCaches(lawName: string): void {
     const codeType = resolveLawCodeTypeFromName(lawName);
     if (codeType) invalidateLegalCodeArticlesCache(codeType);
+    const civilCodeType = resolveCivilLawCodeTypeFromName(lawName);
+    if (civilCodeType) invalidateCivilLawRemoteCache(civilCodeType);
+    const personalCodeType = resolvePersonalStatusLawCodeType(lawName);
+    if (personalCodeType) invalidatePersonalStatusLawRemoteCache(personalCodeType);
     if (lawName === EXECUTION_LAW_CANONICAL_NAME) invalidateExecutionLawRemoteCache();
-}
-
-function formatInvokeError(err: unknown): string {
-    if (err && typeof err === "object" && "message" in err) {
-        return String((err as { message: unknown }).message);
-    }
-    return String(err);
-}
-
-/** يقبل article_number كنص أو رقم (مثل 1 أو "المادة 1"). */
-function normalizeBulkArticleNumber(raw: unknown): string {
-    if (typeof raw === "string") return raw.trim();
-    if (typeof raw === "number" && Number.isFinite(raw)) {
-        return String(Math.trunc(raw));
-    }
-    return "";
-}
-
-function normalizeBulkContent(raw: unknown): string {
-    if (typeof raw === "string") return raw.trim();
-    return "";
-}
-
-async function errorBodyFromHttpError(
-    err: FunctionsHttpError,
-): Promise<string | null> {
-    const res = err.context;
-    if (!(res instanceof Response)) return null;
-    try {
-        const body = (await res.clone().json()) as {
-            error?: unknown;
-            ok?: unknown;
-        };
-        if (typeof body.error === "string" && body.error.trim()) {
-            return body.error;
-        }
-    } catch {
-        /* ليس JSON */
-    }
-    return null;
 }
 
 export interface AdminLawEntryProps {
@@ -135,8 +172,7 @@ export interface AdminLawEntryProps {
 }
 
 /**
- * لوحة إدخال مواد قانونية عبر دالة Edge `add-law`.
- * مكوّن مستقل: يستورد عميل Supabase فقط ولا يعدّل التوجيه أو الشاشات الأخرى.
+ * لوحة إدخال مواد قانونية عبر BFF `/api/laws/*` (WIFE + platform admin).
  */
 export function AdminLawEntry({ className }: AdminLawEntryProps) {
     const initialPin = readPinnedLawFilter();
@@ -158,18 +194,27 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
     const [activeDomain, setActiveDomain] = useState<LawDomain>("execution");
     const [activeCriminalLawTab, setActiveCriminalLawTab] =
         useState<CriminalLawTab>("penal");
+    const [activeCivilLawTab, setActiveCivilLawTab] =
+        useState<CivilLawTab>("civil_procedure");
+    const [activePersonalLawTab, setActivePersonalLawTab] =
+        useState<PersonalLawTab>("personal_status_188");
     const [lawName, setLawName] = useState("");
     const [articleNumber, setArticleNumber] = useState("");
     const [content, setContent] = useState("");
     const [singleLoading, setSingleLoading] = useState(false);
     const [bulkLoading, setBulkLoading] = useState(false);
     const [bulkJson, setBulkJson] = useState("");
+    const [bulkJsonFileName, setBulkJsonFileName] = useState<string | null>(null);
+    const bulkJsonFileInputRef = useRef<HTMLInputElement>(null);
     const [bulkProgress, setBulkProgress] = useState<BulkProgress>({
+        rawTotal: 0,
         total: 0,
+        skipped: 0,
         processed: 0,
         success: 0,
         failed: 0,
     });
+    const [bulkErrorHint, setBulkErrorHint] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [clearLoading, setClearLoading] = useState(false);
@@ -179,18 +224,33 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
     const resolvedLawName =
         activeDomain === "execution"
             ? LAW_NAME_BY_TARGET.execution
-            : LAW_NAME_BY_TARGET[activeCriminalLawTab];
+            : activeDomain === "criminal"
+              ? LAW_NAME_BY_TARGET[activeCriminalLawTab]
+              : activeDomain === "civil"
+                ? LAW_NAME_BY_TARGET[activeCivilLawTab]
+                : LAW_NAME_BY_TARGET[activePersonalLawTab];
 
     const activeHierarchySection = LAW_STRUCTURE[hierarchySectionId];
     const activeHierarchyFilter = activeHierarchySection.filters.find(
         (f) => f.id === hierarchyFilterId,
     ) ?? null;
 
+    const bulkParsePreview = useMemo(() => {
+        const trimmed = bulkJson.trim();
+        if (!trimmed) return null;
+        return parseBulkLawJsonText(trimmed, String(resolvedLawName ?? ""));
+    }, [bulkJson, resolvedLawName]);
+
+    const bulkParseSummary = useMemo(() => {
+        if (!bulkParsePreview) return null;
+        return summarizeBulkLawParse(bulkParsePreview);
+    }, [bulkParsePreview]);
+
     const loadBrowseArticles = useCallback(async () => {
         setBrowseLoading(true);
         setBrowseLoadError(null);
         try {
-            const { data, error: fnError } = await supabase.functions.invoke<{
+            const data = await SecureAPIClient.fetchSecure<{
                 ok?: boolean;
                 error?: string;
                 details?: string;
@@ -200,10 +260,11 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                     article_number?: string;
                     content?: string;
                 }>;
-            }>("list-laws", { body: {} });
-            if (fnError) {
-                throw new Error(fnError.message || "تعذر تحميل المواد.");
-            }
+            }>('/api/laws/list', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({}),
+            });
             if (!data || data.ok === false) {
                 throw new Error(
                     (data?.error || data?.details || "تعذر تحميل المواد.").trim(),
@@ -286,23 +347,16 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
     }, []);
 
     const invokeAddLaw = useCallback(async (body: AddLawInvokeBody): Promise<AddLawInvokeResult> => {
-        const { data, error: fnError } = await supabase.functions.invoke<
-            AddLawResponse
-        >("add-law", { body });
-
-        if (fnError) {
-            if (fnError instanceof FunctionsHttpError) {
-                const fromBody = await errorBodyFromHttpError(fnError);
-                if (fromBody) {
-                    throw new Error(fromBody);
-                }
-            }
-            throw new Error(
-                formatInvokeError(fnError) ||
-                    "فشل الاتصال بدالة add-law (تحقق من النشر والجلسة).",
-            );
+        let data: AddLawResponse | null;
+        try {
+            data = await SecureAPIClient.fetchSecure<AddLawResponse>('/api/laws/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+        } catch (e) {
+            throw new Error(parseSecureApiErrorMessage(e));
         }
-
         if (!data) {
             throw new Error("لم تُرجع الخادم أي بيانات.");
         }
@@ -367,96 +421,109 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
         loadBrowseArticles,
     ]);
 
-    const sleep = useCallback(
-        (ms: number) => new Promise((resolve) => setTimeout(resolve, ms)),
+    const handleBulkJsonFileChange = useCallback(
+        (event: React.ChangeEvent<HTMLInputElement>) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (!file) return;
+            if (!file.name.toLowerCase().endsWith(".json")) {
+                setError("ارفع ملف JSON فقط (.json).");
+                setSuccess(null);
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = () => {
+                const text = typeof reader.result === "string" ? reader.result : "";
+                setBulkJson(text);
+                setBulkJsonFileName(file.name);
+                setSuccess(null);
+                setError(null);
+                setBulkErrorHint(null);
+            };
+            reader.onerror = () => {
+                setError("تعذر قراءة الملف.");
+                setSuccess(null);
+            };
+            reader.readAsText(file, "utf-8");
+        },
         [],
     );
 
     const handleBulkSubmit = useCallback(async () => {
         setError(null);
         setSuccess(null);
+        setBulkErrorHint(null);
 
-        let parsed: unknown;
-        try {
-            parsed = JSON.parse(bulkJson);
-        } catch {
-            setError("صيغة JSON غير صحيحة. تأكد من أن النص عبارة عن Array صالح.");
+        const parsed = parseBulkLawJsonText(bulkJson, String(resolvedLawName ?? ""));
+        if (!parsed.ok) {
+            setError(parsed.error);
             return;
         }
 
-        if (!Array.isArray(parsed) || parsed.length === 0) {
-            setError("أدخل مصفوفة JSON تحتوي مادة واحدة على الأقل.");
-            return;
-        }
-
-        const items: AddLawInvokeBody[] = [];
-        for (let i = 0; i < parsed.length; i++) {
-            const row = parsed[i];
-            if (!row || typeof row !== "object" || Array.isArray(row)) {
-                setError(`العنصر رقم ${i + 1} ليس كائناً صحيحاً.`);
-                return;
-            }
-            const o = row as Record<string, unknown>;
-            const law_name = String(resolvedLawName ?? "").trim();
-            const article_number = normalizeBulkArticleNumber(o.article_number);
-            const bodyContent = normalizeBulkContent(o.content);
-            if (!law_name || !article_number || !bodyContent) {
-                setError(
-                    `العنصر رقم ${i + 1} ناقص. يجب أن يحتوي article_number (نص أو رقم) و content، مع اختيار القسم القانوني الصحيح (مثل «قانون رعاية الأحداث»).`,
-                );
-                return;
-            }
-            items.push({ law_name, article_number, content: bodyContent });
+        const items: BulkLawInvokeRow[] = parsed.items;
+        const skippedCount = parsed.skipped.length;
+        if (skippedCount > 0) {
+            setBulkErrorHint(
+                `تخطّي ${skippedCount} عنصر من ${parsed.rawCount} (مثال: ${parsed.skipped[0]?.reason ?? ""})`,
+            );
         }
 
         setBulkLoading(true);
         setBulkProgress({
+            rawTotal: parsed.rawCount,
             total: items.length,
+            skipped: skippedCount,
             processed: 0,
             success: 0,
             failed: 0,
         });
 
-        let successCount = 0;
-        let failedCount = 0;
-        const failedMessages: string[] = [];
-
-        for (let i = 0; i < items.length; i++) {
-            try {
-                await invokeAddLaw(items[i]);
-                successCount++;
-            } catch (e) {
-                failedCount++;
-                const msg = e instanceof Error ? e.message : String(e);
-                failedMessages.push(`فشل المادة ${i + 1}: ${msg}`);
-            }
-
-            setBulkProgress({
-                total: items.length,
-                processed: i + 1,
-                success: successCount,
-                failed: failedCount,
-            });
-
-            if (i < items.length - 1) {
-                await sleep(500);
-            }
-        }
-
-        if (failedCount === 0) {
-            refreshLawReaderCaches(String(resolvedLawName ?? "").trim());
-            setSuccess("تم رفع المواد بنجاح.");
-            setBulkJson("");
-        } else {
-            setError(
-                `اكتمل الرفع مع أخطاء: نجح ${successCount} وفشل ${failedCount} من ${items.length}. ${
-                    failedMessages[0] ?? ""
-                }`,
+        try {
+            const data = await SecureAPIClient.fetchSecure<ImportBundleResponse>(
+                "/api/laws/import-bundle",
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        law_name: String(resolvedLawName ?? "").trim(),
+                        articles: items.map((item) => ({
+                            article_number: item.article_number,
+                            content: item.content,
+                        })),
+                    }),
+                },
             );
-            if (successCount > 0) {
-                refreshLawReaderCaches(String(resolvedLawName ?? "").trim());
-                setSuccess(`تم رفع ${successCount} مادة بنجاح.`);
+
+            if (!data || data.ok === false) {
+                throw new Error(data?.error || data?.details || "فشل الرفع الجماعي.");
             }
+
+            const imported = data.imported ?? items.length;
+            setBulkProgress({
+                rawTotal: parsed.rawCount,
+                total: items.length,
+                skipped: skippedCount,
+                processed: items.length,
+                success: imported,
+                failed: 0,
+            });
+            refreshLawReaderCaches(String(resolvedLawName ?? "").trim());
+            setSuccess(
+                data.message
+                    ?? `تم رفع ${imported} مادة بنجاح${skippedCount > 0 ? ` (تخطّي ${skippedCount} من ${parsed.rawCount})` : ""}.`,
+            );
+            setBulkJson("");
+            setBulkJsonFileName(null);
+            setBulkJsonFileName(null);
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            setError(`فشل الرفع الجماعي: ${msg}`);
+            setBulkErrorHint(msg);
+            setBulkProgress((prev) => ({
+                ...prev,
+                processed: prev.total,
+                failed: prev.total - prev.success,
+            }));
         }
 
         setBulkLoading(false);
@@ -465,8 +532,6 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
     }, [
         bulkJson,
         resolvedLawName,
-        invokeAddLaw,
-        sleep,
         activeTab,
         loadBrowseArticles,
     ]);
@@ -509,15 +574,11 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
             const clearBody: ClearLawsInvokeBody = hasRange
                 ? { law_name: targetLawName, article_from: article_from!, article_to: article_to! }
                 : { law_name: targetLawName };
-            const { data, error: fnError } = await supabase.functions.invoke<AddLawResponse>(
-                "clear-laws",
-                { body: clearBody },
-            );
-            if (fnError) {
-                throw new Error(
-                    formatInvokeError(fnError) || "فشل الاتصال بدالة clear-laws.",
-                );
-            }
+            const data = await SecureAPIClient.fetchSecure<AddLawResponse>('/api/laws/clear', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(clearBody),
+            });
             if (!data) {
                 throw new Error("لم تُرجع الخادم أي بيانات.");
             }
@@ -535,8 +596,16 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                 );
             }
             refreshLawReaderCaches(targetLawName);
-            setBulkProgress({ total: 0, processed: 0, success: 0, failed: 0 });
+            setBulkProgress({
+                rawTotal: 0,
+                total: 0,
+                skipped: 0,
+                processed: 0,
+                success: 0,
+                failed: 0,
+            });
             setBulkJson("");
+            setBulkJsonFileName(null);
             setArticleNumber("");
             setContent("");
             hasLoadedBrowseRef.current = false;
@@ -577,7 +646,7 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
 
             <div className="space-y-5">
                 <div className="space-y-3 rounded-2xl border border-[#E6C673]/20 bg-[#05060D]/70 p-3">
-                    <div className="grid grid-cols-2 gap-2 rounded-xl border border-[#E6C673]/20 bg-[#05060D]/70 p-1.5">
+                    <div className="grid grid-cols-1 gap-2 rounded-xl border border-[#E6C673]/20 bg-[#05060D]/70 p-1.5 sm:grid-cols-2 lg:grid-cols-4">
                         <button
                             type="button"
                             onClick={() => {
@@ -612,6 +681,40 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                         >
                             {LAW_DOMAIN_LABELS.criminal}
                         </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setActiveDomain("civil");
+                                setSuccess(null);
+                                setError(null);
+                            }}
+                            disabled={singleLoading || bulkLoading}
+                            className={cn(
+                                "rounded-lg px-3 py-2 text-sm font-semibold transition",
+                                activeDomain === "civil"
+                                    ? "bg-[#E6C673] text-[#05060D]"
+                                    : "text-[#E6C673] hover:bg-[#E6C673]/10",
+                            )}
+                        >
+                            {LAW_DOMAIN_LABELS.civil}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setActiveDomain("personal");
+                                setSuccess(null);
+                                setError(null);
+                            }}
+                            disabled={singleLoading || bulkLoading}
+                            className={cn(
+                                "rounded-lg px-3 py-2 text-sm font-semibold transition",
+                                activeDomain === "personal"
+                                    ? "bg-[#E6C673] text-[#05060D]"
+                                    : "text-[#E6C673] hover:bg-[#E6C673]/10",
+                            )}
+                        >
+                            {LAW_DOMAIN_LABELS.personal}
+                        </button>
                     </div>
 
                     {activeDomain === "criminal" && (
@@ -634,6 +737,56 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                                     )}
                                 >
                                     {CRIMINAL_LAW_TAB_LABELS[tab]}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {activeDomain === "civil" && (
+                        <div className="grid grid-cols-1 gap-2 rounded-xl border border-white/10 bg-[#0A0F1C]/80 p-2 sm:grid-cols-2">
+                            {(Object.keys(CIVIL_LAW_TAB_LABELS) as CivilLawTab[]).map((tab) => (
+                                <button
+                                    key={tab}
+                                    type="button"
+                                    onClick={() => {
+                                        setActiveCivilLawTab(tab);
+                                        setSuccess(null);
+                                        setError(null);
+                                    }}
+                                    disabled={singleLoading || bulkLoading}
+                                    className={cn(
+                                        "rounded-lg px-3 py-2 text-xs font-bold transition",
+                                        activeCivilLawTab === tab
+                                            ? "bg-[#E6C673] text-[#05060D]"
+                                            : "text-[#E6C673] hover:bg-[#E6C673]/10",
+                                    )}
+                                >
+                                    {CIVIL_LAW_TAB_LABELS[tab]}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {activeDomain === "personal" && (
+                        <div className="grid grid-cols-1 gap-2 rounded-xl border border-white/10 bg-[#0A0F1C]/80 p-2 sm:grid-cols-3">
+                            {(Object.keys(PERSONAL_LAW_TAB_LABELS) as PersonalLawTab[]).map((tab) => (
+                                <button
+                                    key={tab}
+                                    type="button"
+                                    onClick={() => {
+                                        setActivePersonalLawTab(tab);
+                                        setSuccess(null);
+                                        setError(null);
+                                    }}
+                                    disabled={singleLoading || bulkLoading}
+                                    className={cn(
+                                        "rounded-lg px-3 py-2 text-xs font-bold transition",
+                                        activePersonalLawTab === tab
+                                            ? "bg-[#E6C673] text-[#05060D]"
+                                            : "text-[#E6C673] hover:bg-[#E6C673]/10",
+                                    )}
+                                >
+                                    {PERSONAL_LAW_TAB_LABELS[tab]}
                                 </button>
                             ))}
                         </div>
@@ -977,32 +1130,71 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                 {activeTab === "bulk" && (
                     <>
                         <div>
-                            <label
-                                htmlFor="admin-law-bulk-json"
-                                className="mb-1.5 block text-sm font-medium text-[#E6C673]/90"
-                            >
-                                إدخال جماعي بصيغة JSON Array
-                            </label>
+                            <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+                                <label
+                                    htmlFor="admin-law-bulk-json"
+                                    className="block text-sm font-medium text-[#E6C673]/90"
+                                >
+                                    إدخال جماعي بصيغة JSON
+                                </label>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        ref={bulkJsonFileInputRef}
+                                        type="file"
+                                        accept=".json,application/json"
+                                        className="hidden"
+                                        onChange={handleBulkJsonFileChange}
+                                        disabled={singleLoading || bulkLoading}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => bulkJsonFileInputRef.current?.click()}
+                                        disabled={singleLoading || bulkLoading}
+                                        className="rounded-lg border border-[#E6C673]/30 px-3 py-1.5 text-xs font-bold text-[#E6C673] hover:bg-[#E6C673]/10 disabled:opacity-60"
+                                    >
+                                        رفع ملف JSON
+                                    </button>
+                                    {bulkJsonFileName ? (
+                                        <span className="text-xs text-white/60">{bulkJsonFileName}</span>
+                                    ) : null}
+                                </div>
+                            </div>
                             <textarea
                                 id="admin-law-bulk-json"
                                 rows={14}
-                                placeholder={`[\n  { \"article_number\": \"المادة 1\", \"content\": \"النص...\" },\n  { \"article_number\": 2, \"content\": \"النص...\" }\n]\n\nملاحظة: law_name يُحدد تلقائياً حسب القسم/التبويب الحالي. article_number يقبل نصاً أو رقماً.`}
+                                placeholder={`[\n  { \"المادة\": 1, \"النص\": \"...\" },\n  { \"article_number\": \"2\", \"content\": \"...\" },\n  { \"المادة\": 3, \"نص المادة\": \"...\" }\n]\n\nأو حزمة: { \"articles\": [ ... ] } أو { \"articles\": { \"1\": \"نص...\" } }\n\nlaw_name من القسم المختار — يُفضّل رفع الملف كاملاً بدل اللصق.`}
                                 value={bulkJson}
                                 onChange={(e) => {
                                     setBulkJson(e.target.value);
+                                    setBulkJsonFileName(null);
                                     setSuccess(null);
                                     setError(null);
+                                    setBulkErrorHint(null);
                                 }}
                                 disabled={singleLoading || bulkLoading}
                                 className="min-h-[260px] w-full resize-y rounded-xl border border-white/10 bg-[#05060D]/80 px-4 py-3 font-mono text-sm leading-relaxed text-white outline-none ring-[#E6C673]/30 transition-[border-color,box-shadow] placeholder:text-gray-500 focus:border-[#E6C673]/45 focus:ring-2 disabled:opacity-60"
                             />
+                            {bulkParseSummary && !bulkLoading ? (
+                                <p
+                                    className={cn(
+                                        "mt-2 text-xs leading-relaxed",
+                                        bulkParsePreview?.ok ? "text-emerald-300" : "text-amber-300",
+                                    )}
+                                    role="status"
+                                >
+                                    {bulkParseSummary}
+                                </p>
+                            ) : null}
                         </div>
 
                         {(bulkLoading || bulkProgress.processed > 0) && (
                             <div className="rounded-xl border border-[#E6C673]/25 bg-[#0B1120] p-3">
                                 <p className="mb-2 text-sm text-[#E6C673]">
-                                    تم رفع {bulkProgress.success} من {bulkProgress.total}
-                                    {" "}({bulkProgress.processed} معالجة، {bulkProgress.failed} فشل)
+                                    تم رفع {bulkProgress.success} من {bulkProgress.total} صالح
+                                    {bulkProgress.rawTotal > bulkProgress.total
+                                        ? ` (الملف: ${bulkProgress.rawTotal}، تخطّي: ${bulkProgress.skipped})`
+                                        : ""}
+                                    {" "}— {bulkProgress.processed} معالجة، {bulkProgress.failed} فشل
                                 </p>
                                 <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
                                     <div
@@ -1018,6 +1210,11 @@ export function AdminLawEntry({ className }: AdminLawEntryProps) {
                                         }}
                                     />
                                 </div>
+                                {bulkErrorHint ? (
+                                    <p className="mt-2 text-xs leading-relaxed text-red-300" role="alert">
+                                        {bulkErrorHint}
+                                    </p>
+                                ) : null}
                             </div>
                         )}
                     </>

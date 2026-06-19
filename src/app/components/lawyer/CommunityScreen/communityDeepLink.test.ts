@@ -2,15 +2,14 @@ import { describe, expect, it } from 'vitest';
 import {
     buildCommunityPostShareUrl,
     parseCommunityDeepLinkFromHash,
-    parseCommunityPostIdFromHash,
-    parseCommunityPostIdFromLocation,
+    parseCommunityDeepLinkFromLocation,
 } from './communityDeepLink';
 
 describe('communityDeepLink', () => {
     it('parses post id from hash', () => {
-        expect(parseCommunityPostIdFromHash('#community/post/abc-123')).toBe('abc-123');
-        expect(parseCommunityPostIdFromHash('community/post/xyz')).toBe('xyz');
-        expect(parseCommunityPostIdFromHash('#home')).toBeNull();
+        expect(parseCommunityDeepLinkFromHash('#community/post/abc-123')?.postId).toBe('abc-123');
+        expect(parseCommunityDeepLinkFromHash('community/post/xyz')?.postId).toBe('xyz');
+        expect(parseCommunityDeepLinkFromHash('#home')).toBeNull();
     });
 
     it('parses openComments from hash', () => {
@@ -20,7 +19,7 @@ describe('communityDeepLink', () => {
 
     it('parses from location', () => {
         expect(
-            parseCommunityPostIdFromLocation({ hash: '#community/post/%D8%AA%D8%AC%D8%B1%D9%8A%D8%A8%D9%8A' }),
+            parseCommunityDeepLinkFromLocation({ hash: '#community/post/%D8%AA%D8%AC%D8%B1%D9%8A%D8%A8%D9%8A' })?.postId,
         ).toBe('تجريبي');
     });
 

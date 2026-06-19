@@ -59,32 +59,32 @@ export const VaultDocViewer: React.FC<VaultDocViewerProps> = ({ doc, fileUrl, ki
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 z-[50] flex flex-col bg-black/95 backdrop-blur-md"
+            className="absolute inset-0 z-[50] flex flex-col bg-[#1a1614]/95 backdrop-blur-md"
             dir="rtl"
             onClick={onClose}
         >
             <div
-                className="shrink-0 flex items-center justify-between px-5 py-3 border-b border-white/10 gap-2"
+                className="shrink-0 flex items-center justify-between px-5 py-3 border-b border-[#C9A9A6]/12 bg-[#2E2A27] gap-2"
                 onClick={(e) => e.stopPropagation()}
             >
-                <button type="button" onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 transition-colors shrink-0">
-                    <X size={20} className="text-white/70" />
+                <button type="button" onClick={onClose} className="p-2 rounded-lg hover:bg-[#4A4440]/50 transition-colors shrink-0">
+                    <X size={20} className="text-[#F7F3EB]/70" />
                 </button>
                 <div className="flex-1 min-w-0 text-center">
                     <div className="flex items-center justify-center gap-1.5 mb-0.5">
                         <span
                             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold border ${
                                 isPdf
-                                    ? 'bg-red-500/15 text-red-300 border-red-500/30'
-                                    : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                                    ? 'bg-[#B8A078]/15 text-[#B8A078] border-[#B8A078]/30'
+                                    : 'bg-[#C9A9A6]/15 text-[#C9A9A6] border-[#C9A9A6]/30'
                             }`}
                         >
                             {isPdf ? <FileText size={10} /> : <ImageIcon size={10} />}
                             {isPdf ? 'PDF' : 'صورة'}
                         </span>
                     </div>
-                    <h3 className="text-white font-bold text-sm truncate">{doc.title}</h3>
-                    <p className="text-white/40 text-[10px]">
+                    <h3 className="text-[#F7F3EB] font-bold text-sm truncate">{doc.title}</h3>
+                    <p className="text-[#C9A9A6]/50 text-[10px]">
                         {formatDate(doc.createdAt)} — {formatFileSize(doc.fileSize || 0)}
                     </p>
                 </div>
@@ -93,17 +93,17 @@ export const VaultDocViewer: React.FC<VaultDocViewerProps> = ({ doc, fileUrl, ki
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
-                    className="p-2 rounded-lg hover:bg-white/10 transition-colors shrink-0"
+                    className="p-2 rounded-lg hover:bg-[#4A4440]/50 transition-colors shrink-0"
                     title="فتح في نافذة جديدة"
                 >
-                    <ExternalLink size={18} className="text-white/50" />
+                    <ExternalLink size={18} className="text-[#B8A078]/70" />
                 </a>
             </div>
 
             {doc.lawyerNote ? (
-                <div className="shrink-0 px-5 py-2 border-b border-white/5 bg-[#D4AF37]/5" onClick={(e) => e.stopPropagation()}>
-                    <p className="text-[#D4AF37]/80 text-[10px] font-bold mb-0.5">الوصف</p>
-                    <p className="text-white/75 text-xs leading-relaxed">{doc.lawyerNote}</p>
+                <div className="shrink-0 px-5 py-2 border-b border-[#C9A9A6]/10 bg-[#C9A9A6]/8" onClick={(e) => e.stopPropagation()}>
+                    <p className="text-[#B8A078]/80 text-[10px] font-bold mb-0.5">الوصف</p>
+                    <p className="text-[#F7F3EB]/75 text-xs leading-relaxed">{doc.lawyerNote}</p>
                 </div>
             ) : null}
 

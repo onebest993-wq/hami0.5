@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { coerceExecutionFilePreserveId, isFileData } from '../utils';
+import { buildFileDataFromNewCaseSave } from '@/app/domain/lawsuit/lawsuitFileFactory';
+import { coerceExecutionFilePreserveId, isFileData, normalizeFileDataForOpen, resolveOpenableFileData } from '../utils';
 
 describe('LawyerDashboard utils', () => {
     it('isFileData accepts numeric and string ids', () => {
@@ -14,6 +15,40 @@ describe('LawyerDashboard utils', () => {
         expect(isFileData({ ...base, id: 'legacy-id' })).toBe(true);
         expect(isFileData({ ...base, id: '' })).toBe(false);
         expect(isFileData({ ...base, id: null })).toBe(false);
+    });
+
+    it('isFileData accepts caseNumber alias and court object', () => {
+        expect(
+            isFileData({
+                id: 1,
+                type: 'lawsuit',
+                caseNumber: '234 / ب / 2024',
+                court: { name: 'بداءة الكرخ' },
+                parties: [],
+                status: 'active',
+            }),
+        ).toBe(true);
+    });
+
+    it('resolveOpenableFileData normalizes archive rows and resolves from pool', () => {
+        const poolFile = buildFileDataFromNewCaseSave({
+            mainCategory: 'lawsuit',
+            parties1: [{ name: 'مدعي', status: 'مدعي' }],
+            parties2: [{ name: 'مدعى', status: 'مدعى عليه' }],
+            details: { number: '10 / ب / 2026', court: 'محكمة' },
+        })!;
+        const enrichedRow = { ...poolFile, smartStatus: { label: 'مستمرة' } };
+        expect(resolveOpenableFileData(enrichedRow, [poolFile])?.caseNo).toBe('10 / ب / 2026');
+        expect(
+            normalizeFileDataForOpen({
+                id: 99,
+                type: 'lawsuit',
+                caseNumber: '1 / أ / 2025',
+                court: { name: 'استئناف' },
+                parties: [{ id: 1, name: 'أ', role: 'مدعي', isClient: true }],
+                status: 'active',
+            })?.court,
+        ).toBe('استئناف');
     });
 
     it('file id equality is compared as strings in dashboard merge paths', () => {

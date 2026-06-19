@@ -1,10 +1,9 @@
 import { create } from 'zustand';
-import type { FinanceRecord, Transaction, TransactionDocument, TransactionTask, TransactionTaskNode } from './types';
+import type { FinanceRecord, Transaction, TransactionDocument, TransactionTask } from './types';
 import { FinanceRecordType, TransactionStatus, type TransactionDocumentOwnerTag } from './types';
 import { PersistentTransactionsThreadingRepository } from './persistentRepository';
 import { InMemoryTransactionsThreadingRepository, type TransactionsThreadingRepository } from './repository';
-import { TransactionsThreadingService, buildTaskTree } from './service';
-import { bumpThreadingCalendarSync } from '@/app/hooks/useIncrementalCalendarSync';
+import { TransactionsThreadingService } from './service';
 
 let repo: TransactionsThreadingRepository = new InMemoryTransactionsThreadingRepository({
   transactions: [],
@@ -16,7 +15,11 @@ let service = new TransactionsThreadingService(repo);
 let boundUserId: string | null = null;
 
 function syncThreadingToCalendar(): void {
-    bumpThreadingCalendarSync(boundUserId ?? useTransactionsThreadingStore.getState().userId);
+    const lawyerId = boundUserId ?? useTransactionsThreadingStore.getState().userId;
+    if (!lawyerId) return;
+    void import('@/app/hooks/useIncrementalCalendarSync').then((m) => {
+        m.bumpThreadingCalendarSync(lawyerId);
+    });
 }
 
 interface TransactionsThreadingState {
@@ -67,8 +70,6 @@ interface TransactionsThreadingState {
 
   setTransactionStatus: (transactionId: string, status: TransactionStatus) => Promise<Transaction>;
   setTransactionAgreedFees: (transactionId: string, agreedFees: number) => Promise<Transaction>;
-
-  getTaskTree: (transactionId: string) => TransactionTaskNode[];
 }
 
 export const useTransactionsThreadingStore = create<TransactionsThreadingState>((set, get) => ({
@@ -261,10 +262,5 @@ export const useTransactionsThreadingStore = create<TransactionsThreadingState>(
     const tx = await service.setTransactionAgreedFees(transactionId, agreedFees);
     await get().refreshTransactions();
     return tx;
-  },
-
-  getTaskTree: (transactionId) => {
-    const tasks = get().tasksByTransactionId[transactionId] ?? [];
-    return buildTaskTree(tasks);
   },
 }));

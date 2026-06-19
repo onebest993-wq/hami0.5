@@ -1,9 +1,18 @@
 import { useMemo } from 'react';
 import { isPartyDeathCaseForRole } from '@/app/utils/partyDeathCaseScope';
+import {
+    isHeirSubstitutionAllowedForClaim,
+    isPersonalStatusNoHeirExecution,
+} from '@/app/utils/partyDeathClaimPolicy';
+import {
+    resolveAlimonyBeneficiaryProfile,
+} from '@/app/utils/alimonyBeneficiaryDeathUtils';
+import { hasOngoingAlimonyInExecution } from '@/app/components/lawyer/ExecutionCreationView/hooks/executionFormUtils';
 
 export function useDossierDeathStatus(
     executionData: any,
     debtors: any[],
+    claimType?: string,
 ) {
     const isDebtorDeceasedForEvictionHeirs =
         executionData?.is_debtor_deceased === true ||
@@ -20,21 +29,57 @@ export function useDossierDeathStatus(
         return Boolean(executionData?.is_debtor_deceased || d0?.isDeceased);
     }, [executionData?.is_debtor_deceased, executionData?.debtors]);
 
-    const creditorDeathMenuLabel = useMemo(
-        () =>
-            creditorDeathMarked
-                ? 'طلب إحلال ورثة محل الدائن المتوفي'
-                : 'الإبلاغ عن وفاة الدائن',
-        [creditorDeathMarked]
+    const heirSubstitutionAllowed = useMemo(
+        () => isHeirSubstitutionAllowedForClaim(executionData, claimType),
+        [executionData, claimType]
     );
 
-    const debtorDeathMenuLabel = useMemo(
-        () =>
-            debtorDeathMarked
-                ? 'طلب إحلال ورثة محل المدين المتوفي'
-                : 'الإبلاغ عن وفاة المدين',
-        [debtorDeathMarked]
+    const ongoingAlimonyClaim = useMemo(
+        () => hasOngoingAlimonyInExecution(executionData, claimType),
+        [executionData, claimType]
     );
 
-    return { isDebtorDeceasedForEvictionHeirs, creditorDeathMarked, debtorDeathMarked, creditorDeathMenuLabel, debtorDeathMenuLabel };
+    const alimonyBeneficiaryProfile = useMemo(
+        () => (ongoingAlimonyClaim ? resolveAlimonyBeneficiaryProfile(executionData) : null),
+        [executionData, ongoingAlimonyClaim]
+    );
+
+    const creditorDeathMenuLabel = useMemo(() => {
+        if (ongoingAlimonyClaim && alimonyBeneficiaryProfile?.anyBeneficiaryAlive) {
+            return 'الإبلاغ عن وفاة مستحقي النفقة';
+        }
+        if (!heirSubstitutionAllowed || isPersonalStatusNoHeirExecution(executionData, claimType)) {
+            return 'الإبلاغ عن وفاة الدائن';
+        }
+        return creditorDeathMarked
+            ? 'طلب إحلال ورثة محل الدائن المتوفي'
+            : 'الإبلاغ عن وفاة الدائن';
+    }, [
+        alimonyBeneficiaryProfile?.anyBeneficiaryAlive,
+        claimType,
+        creditorDeathMarked,
+        executionData,
+        heirSubstitutionAllowed,
+        ongoingAlimonyClaim,
+    ]);
+
+    const debtorDeathMenuLabel = useMemo(() => {
+        if (!heirSubstitutionAllowed) {
+            return 'الإبلاغ عن وفاة المدين';
+        }
+        return debtorDeathMarked
+            ? 'طلب إحلال ورثة محل المدين المتوفي'
+            : 'الإبلاغ عن وفاة المدين';
+    }, [debtorDeathMarked, heirSubstitutionAllowed]);
+
+    return {
+        isDebtorDeceasedForEvictionHeirs,
+        creditorDeathMarked,
+        debtorDeathMarked,
+        creditorDeathMenuLabel,
+        debtorDeathMenuLabel,
+        heirSubstitutionAllowed,
+        ongoingAlimonyClaim,
+        alimonyBeneficiaryProfile,
+    };
 }

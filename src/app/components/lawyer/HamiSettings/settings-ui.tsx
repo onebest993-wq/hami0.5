@@ -1,9 +1,16 @@
 import React from 'react';
 import type { LucideIcon } from 'lucide-react';
 
+/** زجاج شفاف — يظهر الزخرفة من خلفه */
+export const SETTING_GLASS =
+    'rounded-2xl border border-white/[0.08] bg-white/[0.035] backdrop-blur-xl overflow-hidden shadow-[0_4px_28px_rgba(0,0,0,0.14)] ring-1 ring-inset ring-white/[0.04]';
+
+export const SETTING_GLASS_INNER =
+    'bg-white/[0.03] backdrop-blur-sm border border-white/[0.06]';
+
 export const SectionHeader = ({ title, subtitle, icon: Icon }: { title: string; subtitle?: string; icon: LucideIcon }) => (
     <div className="flex items-start gap-3 mb-3 mt-2 px-0.5">
-        <div className="w-9 h-9 rounded-xl bg-[#E6C673]/10 border border-[#E6C673]/25 flex items-center justify-center shrink-0">
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${SETTING_GLASS_INNER}`}>
             <Icon size={18} className="text-[#E6C673]" />
         </div>
         <div>
@@ -14,9 +21,7 @@ export const SectionHeader = ({ title, subtitle, icon: Icon }: { title: string; 
 );
 
 export const SettingCard = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-    <div
-        className={`rounded-2xl border border-white/[0.06] bg-gradient-to-b from-[#1A1E2E]/90 to-[#0f1424]/80 backdrop-blur-xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.35)] ${className}`}
-    >
+    <div className={`${SETTING_GLASS} ${className}`}>
         {children}
     </div>
 );
@@ -37,10 +42,10 @@ export const SettingRow = ({
     disabled?: boolean;
 }) => (
     <div
-        className={`flex items-center justify-between gap-3 p-4 ${!isLast ? 'border-b border-white/[0.04]' : ''} ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
+        className={`flex items-center justify-between gap-3 p-4 ${!isLast ? 'border-b border-white/[0.03]' : ''} ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
     >
         <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-white/70 shrink-0">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white/70 shrink-0 ${SETTING_GLASS_INNER}`}>
                 <Icon size={17} />
             </div>
             <div className="min-w-0">
@@ -71,19 +76,27 @@ export const Segmented = <T extends string>({
     value,
     options,
     onChange,
+    tone = 'dark',
 }: {
     value: T;
     options: { value: T; label: string }[];
     onChange: (v: T) => void;
+    tone?: 'dark' | 'light';
 }) => (
-    <div className="flex bg-black/30 p-0.5 rounded-xl border border-white/[0.06]">
+    <div className={`flex p-0.5 rounded-xl ${SETTING_GLASS_INNER}`}>
         {options.map((opt) => (
             <button
                 key={opt.value}
                 type="button"
                 onClick={() => onChange(opt.value)}
                 className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
-                    value === opt.value ? 'bg-[#E6C673] text-[#0B1021] shadow-lg' : 'text-white/35 hover:text-white/60'
+                    value === opt.value
+                        ? tone === 'light'
+                            ? 'bg-black/[0.08] text-[#3f4654] ring-1 ring-inset ring-black/[0.08]'
+                            : 'bg-[#E6C673]/18 text-[#E6C673] ring-1 ring-inset ring-[#E6C673]/25'
+                        : tone === 'light'
+                          ? 'text-black/40 hover:text-black/55 hover:bg-black/[0.04]'
+                          : 'text-white/35 hover:text-white/60 hover:bg-white/[0.04]'
                 }`}
             >
                 {opt.label}
@@ -111,7 +124,7 @@ export const SliderRow = ({
     onChange: (v: number) => void;
     hint?: string;
 }) => (
-    <div className="p-4 border-b border-white/[0.04] last:border-0">
+    <div className="p-4 border-b border-white/[0.03] last:border-0">
         <div className="flex justify-between mb-2">
             <span className="text-sm font-semibold text-white">{label}</span>
             <span className="text-xs font-mono text-[#E6C673]">{format(value)}</span>
@@ -142,13 +155,13 @@ export const SelectRow = ({
     onChange: (v: string) => void;
     hint?: string;
 }) => (
-    <div className="p-4 border-b border-white/[0.04] last:border-0">
+    <div className="p-4 border-b border-white/[0.03] last:border-0">
         <label className="text-sm font-semibold text-white block mb-2">{label}</label>
         {hint ? <p className="text-[10px] text-amber-400/80 mb-2 leading-snug">{hint}</p> : null}
         <select
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-3 text-sm text-white outline-none focus:border-[#E6C673]/50"
+            className={`w-full rounded-xl py-2.5 px-3 text-sm text-white outline-none focus:border-[#E6C673]/40 ${SETTING_GLASS_INNER}`}
         >
             {options.map((o) => (
                 <option key={o.value || 'empty'} value={o.value} className="bg-[#0B1021]">

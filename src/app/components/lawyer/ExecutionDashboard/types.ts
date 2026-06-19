@@ -69,6 +69,7 @@ export interface UnifiedExecutionDebtorRow {
     allocated_debt: number;
     paid_amount: number;
     cleared: boolean;
+    isSolidaryLiability?: boolean;
 }
 
 export interface ExecutionDashboardProps {

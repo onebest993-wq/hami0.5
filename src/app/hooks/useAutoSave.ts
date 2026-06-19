@@ -30,6 +30,7 @@ export function useAutoSave<T>(key: string, data: T, delay: number = 2_000, enab
     }, [key, enabled]);
 
     // Debounced save on data change
+    // Debounced save on data change
     useEffect(() => {
         if (!enabled) return;
         if (timeoutRef.current) {
@@ -46,6 +47,15 @@ export function useAutoSave<T>(key: string, data: T, delay: number = 2_000, enab
             }
         };
     }, [data, delay, saveImmediately, enabled]);
+
+    // عند إيقاف الحفظ التلقائي — احفظ آخر حالة فوراً (مثل autoSave: false)
+    const prevEnabledRef = useRef(enabled);
+    useEffect(() => {
+        if (prevEnabledRef.current && !enabled) {
+            saveImmediately();
+        }
+        prevEnabledRef.current = enabled;
+    }, [enabled, saveImmediately]);
 
     // لا حفظ متزامن على beforeunload — كان يجمّد F5/إعادة التحميل مع بيانات كبيرة
     useEffect(() => {

@@ -62,6 +62,7 @@ export type ForumPostRow = {
     is_edited: boolean;
     is_pinned: boolean;
     is_locked?: boolean | null;
+    group_id?: string | null;
     created_at: string;
     updated_at: string;
 };
@@ -136,6 +137,7 @@ export function postRowToCommunity(
         isEdited: row.is_edited || undefined,
         isPinned: row.is_pinned || undefined,
         isLocked: row.is_locked || undefined,
+        groupId: row.group_id ?? undefined,
     };
 }
 
@@ -154,6 +156,7 @@ export function communityPostToInsertRow(post: CommunityPost): Record<string, un
         is_edited: post.isEdited === true,
         is_pinned: post.isPinned === true,
         is_locked: post.isLocked === true,
+        group_id: post.groupId ?? null,
         created_at: post.createdAt,
         updated_at: post.updatedAt,
     };

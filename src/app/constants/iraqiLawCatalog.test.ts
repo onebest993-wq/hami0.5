@@ -10,8 +10,8 @@ import { CODE_TYPE_TO_LAW_NAME } from '@/app/components/lawyer/criminal-system/l
 import { LAW_STRUCTURE } from '@/app/components/admin/lawStructure';
 
 describe('iraqiLawCatalog admin ↔ LegalCodesTab linkage', () => {
-    it('allows only the four V1 law catalogs', () => {
-        expect(ALLOWED_IRAQI_LAW_NAMES).toHaveLength(4);
+    it('allows the six V1 law catalogs', () => {
+        expect(ALLOWED_IRAQI_LAW_NAMES).toHaveLength(6);
         expect(ALLOWED_IRAQI_LAW_NAMES).toContain(EXECUTION_LAW_CANONICAL_NAME);
         expect(ALLOWED_IRAQI_LAW_NAMES).toContain(IRAQI_LAW_CANONICAL_NAMES.penal);
     });

@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { CheckCircle2, ChevronDown, MapPin, PanelBottom, X } from 'lucide-react';
+import { CheckCircle2, ChevronDown, MapPin, PanelBottom, X, ClipboardList } from 'lucide-react';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
 import { buildTaskWorkspacePin } from '@/app/workspace/workspacePinBuilders';
 import type { LegalTask } from '@/app/types/TaskEngine';
@@ -9,6 +10,13 @@ import { isTaskOnFieldCurtain } from '@/app/utils/fieldCurtain';
 import { useQuantumTasksContext } from '@/app/hooks/useQuantumTasksContext';
 import { useFatalTaskComplete } from '@/app/hooks/useFatalTaskComplete';
 import { isTaskAgendaReadOnly, isTaskMarkedDone } from '@/app/components/lawyer/dashboard/tasksManager/utils';
+import {
+    CURTAIN_BACKDROP,
+    CURTAIN_BTN_MANAGE,
+    CURTAIN_GLASS_INNER,
+    CURTAIN_SHEET,
+    TASKS_BRONZE_LINE,
+} from '@/app/components/lawyer/dashboard/tasksManager/tasksBoucleTheme';
 import {
     Dialog,
     DialogContent,
@@ -18,7 +26,7 @@ import {
     DialogTitle,
 } from '@/app/components/ui/dialog';
 
-export type FieldTasksBottomSheetProps = {
+type FieldTasksBottomSheetProps = {
     open: boolean;
     onClose: () => void;
     onManageAll: () => void;
@@ -55,32 +63,34 @@ function FieldCurtainTaskCard({
 
     return (
         <li
-            className={`rounded-xl border px-3 py-2.5 text-right ${
+            className={`relative ${CURTAIN_GLASS_INNER} px-3 py-2.5 text-right ${
                 fatal
-                    ? 'border-red-500/45 bg-red-950/20 shadow-[0_0_12px_rgba(239,68,68,0.18)]'
+                    ? 'border-rose-500/40 shadow-[0_0_12px_rgba(239,68,68,0.15)]'
                     : markedDone
-                      ? 'border-emerald-500/30 bg-emerald-950/10'
-                      : 'border-white/10 bg-white/[0.04]'
+                      ? 'border-[#1A7059]/35'
+                      : ''
             }`}
         >
+            <div className="absolute top-0 right-0 bottom-0 w-0.5 bg-gradient-to-b from-[#A67C52]/50 via-[#1A7059]/30 to-transparent rounded-r-xl pointer-events-none" />
+
             <div className="flex flex-row items-start gap-2">
                 <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-1.5 justify-end mb-1">
                         {task.pinnedToFieldCurtain ? (
-                            <span className="inline-flex items-center gap-0.5 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-200 border border-amber-500/35">
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#A67C52]/15 text-[#D4B896] border border-[#A67C52]/35">
                                 <PanelBottom className="size-3" aria-hidden />
                                 ستارة الميدان
                             </span>
                         ) : null}
                         {fatal ? (
-                            <span className="text-[10px] font-extrabold text-red-200 bg-red-500/22 border border-red-400/35 px-2 py-0.5 rounded-full">
-                                ⚠️ حتمي
+                            <span className="text-[10px] font-extrabold text-rose-200 bg-rose-500/20 border border-rose-400/35 px-2 py-0.5 rounded-full">
+                                حتمي
                             </span>
                         ) : null}
                     </div>
-                    <p className="text-white text-base font-extrabold leading-snug break-words">{task.title}</p>
+                    <p className="text-[#E8F5F0] text-base font-extrabold leading-snug break-words">{task.title}</p>
                     {task.location ? (
-                        <p className="mt-1 text-[11px] font-bold text-emerald-300/90 flex flex-row-reverse items-center gap-1 justify-end">
+                        <p className="mt-1 text-[11px] font-bold text-[#6BC4A8]/90 flex flex-row-reverse items-center gap-1 justify-end">
                             <MapPin className="size-3 shrink-0 opacity-80" aria-hidden />
                             {task.location}
                         </p>
@@ -95,8 +105,8 @@ function FieldCurtainTaskCard({
                             <span
                                 className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-extrabold whitespace-nowrap ${
                                     readOnly
-                                        ? 'bg-slate-700/30 border-slate-600/50 text-slate-300'
-                                        : 'bg-emerald-600/25 border-emerald-500/40 text-emerald-100'
+                                        ? 'bg-[#0c0c0e]/40 border-[#A67C52]/20 text-[#A67C52]/70'
+                                        : 'bg-[#1A7059]/25 border-[#1A7059]/40 text-[#E8F5F0]'
                                 }`}
                             >
                                 <CheckCircle2 className="size-3" aria-hidden />
@@ -106,7 +116,7 @@ function FieldCurtainTaskCard({
                                 <button
                                     type="button"
                                     onClick={() => onReopenTask(task)}
-                                    className="text-[9px] font-bold text-sky-300/90 hover:underline"
+                                    className="text-[9px] font-bold text-[#B8956A] hover:underline"
                                 >
                                     تراجع
                                 </button>
@@ -116,7 +126,7 @@ function FieldCurtainTaskCard({
                         <button
                             type="button"
                             onClick={() => onCompleteRequest(task)}
-                            className="px-2.5 py-1 rounded-lg bg-rose-600/85 hover:bg-rose-600 border border-rose-500/45 text-white text-[10px] font-extrabold transition whitespace-nowrap"
+                            className="px-2.5 py-1 rounded-lg bg-[#1A7059]/70 hover:bg-[#1A7059] border border-[#1A7059]/50 text-[#E8F5F0] text-[10px] font-extrabold transition whitespace-nowrap"
                         >
                             إنهاء المهمة
                         </button>
@@ -125,19 +135,19 @@ function FieldCurtainTaskCard({
             </div>
 
             {hasSubs ? (
-                <div className="mt-2 border-t border-white/10 pt-2">
+                <div className="mt-2 border-t border-[#A67C52]/15 pt-2">
                     <button
                         type="button"
                         onClick={() => setBranchOpen((v) => !v)}
-                        className="w-full flex flex-row-reverse items-center justify-between gap-2 rounded-md px-1 py-0.5 hover:bg-white/5 transition"
+                        className="w-full flex flex-row-reverse items-center justify-between gap-2 rounded-md px-1 py-0.5 hover:bg-[#0c0c0e]/30 transition"
                         aria-expanded={branchOpen}
                     >
-                        <span className="text-[11px] font-bold text-sky-200/90">
+                        <span className="text-[11px] font-bold text-[#B8956A]/90">
                             إجراءات فرعية ({task.subTasks.length}
                             {activeSubs.length > 0 ? ` · ${activeSubs.length} متبق` : ''})
                         </span>
                         <ChevronDown
-                            className={`size-4 text-sky-300/70 shrink-0 transition-transform duration-200 ${
+                            className={`size-4 text-[#A67C52]/70 shrink-0 transition-transform duration-200 ${
                                 branchOpen ? 'rotate-180' : ''
                             }`}
                             aria-hidden
@@ -150,34 +160,32 @@ function FieldCurtainTaskCard({
                                     key={st.id}
                                     className={`rounded-lg border px-2 py-1.5 flex flex-row items-center gap-2 ${
                                         st.isCompleted
-                                            ? 'border-emerald-500/25 bg-emerald-950/15'
-                                            : 'border-white/10 bg-black/20'
+                                            ? 'border-[#1A7059]/25 bg-[#1A7059]/10'
+                                            : `${CURTAIN_GLASS_INNER} border-white/[0.06]`
                                     }`}
                                 >
                                     <div className="flex-1 min-w-0 text-right">
                                         <div className="flex flex-row-reverse items-center gap-1">
-                                            <span className="text-[10px] text-white/45 tabular-nums">{idx + 1}.</span>
+                                            <span className="text-[10px] text-[#A67C52]/50 tabular-nums">{idx + 1}.</span>
                                             <span
                                                 className={`text-sm font-bold leading-snug ${
-                                                    st.isCompleted
-                                                        ? 'text-white/45 line-through'
-                                                        : 'text-white'
+                                                    st.isCompleted ? 'text-[#E8F5F0]/40 line-through' : 'text-[#E8F5F0]'
                                                 }`}
                                             >
                                                 {st.title}
                                             </span>
                                         </div>
                                         {st.location ? (
-                                            <p className="mt-0.5 text-[10px] text-emerald-300/80 truncate">{st.location}</p>
+                                            <p className="mt-0.5 text-[10px] text-[#6BC4A8]/75 truncate">{st.location}</p>
                                         ) : null}
                                     </div>
                                     {st.isCompleted ? (
-                                        <span className="shrink-0 text-[10px] font-extrabold text-emerald-300">تم</span>
+                                        <span className="shrink-0 text-[10px] font-extrabold text-[#6BC4A8]">تم</span>
                                     ) : readOnly ? null : (
                                         <button
                                             type="button"
                                             onClick={() => onToggleSubComplete(task.id, st.id)}
-                                            className="shrink-0 px-2 py-0.5 rounded-md bg-emerald-600/80 hover:bg-emerald-600 text-white text-[10px] font-extrabold transition whitespace-nowrap"
+                                            className="shrink-0 px-2 py-0.5 rounded-md bg-[#1A7059]/75 hover:bg-[#1A7059] text-[#E8F5F0] text-[10px] font-extrabold transition whitespace-nowrap"
                                         >
                                             تم الإجراء
                                         </button>
@@ -216,47 +224,48 @@ export const FieldTasksBottomSheet: React.FC<FieldTasksBottomSheetProps> = ({
         [pendingTasks],
     );
 
+    useBodyScrollLock(open);
+
     if (typeof document === 'undefined') return null;
 
     return createPortal(
-        <AnimatePresence>
-            {open && (
-                <>
-                    <Dialog
-                        open={fatalOpen}
-                        onOpenChange={(o) => {
-                            if (!o) cancelFatalComplete();
-                        }}
-                    >
-                        <DialogContent className="border-[#D4AF37]/40 bg-[#0B1021] text-white sm:max-w-md [&]:translate-x-[-50%] [&]:translate-y-[-50%]">
-                            <DialogHeader className="text-right sm:text-right space-y-2">
-                                <DialogTitle className="text-amber-200 text-base font-extrabold leading-relaxed">
-                                    تحذير — موعد حتمي
-                                </DialogTitle>
-                                <DialogDescription className="text-white/80 text-sm leading-relaxed">
-                                    ⚠️ تحذير: هذا موعد حتمي (سقوط حق). هل أنت متأكد من إنجاز الإجراء القانوني بشكل
-                                    نهائي؟
-                                </DialogDescription>
-                            </DialogHeader>
-                            <DialogFooter className="flex flex-row-reverse gap-2 sm:justify-start">
-                                <button
-                                    type="button"
-                                    onClick={confirmFatalComplete}
-                                    className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-extrabold transition-colors"
-                                >
-                                    تأكيد الإكمال
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={cancelFatalComplete}
-                                    className="px-4 py-2 rounded-lg border border-white/20 bg-white/5 hover:bg-white/10 text-white text-xs font-bold transition-colors"
-                                >
-                                    إلغاء
-                                </button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+        <>
+            <Dialog
+                open={open && fatalOpen}
+                onOpenChange={(o) => {
+                    if (!o) cancelFatalComplete();
+                }}
+            >
+                <DialogContent className="border-[#A67C52]/35 bg-[#0A2E25] text-[#E8F5F0] sm:max-w-md [&]:translate-x-[-50%] [&]:translate-y-[-50%]">
+                    <DialogHeader className="text-right sm:text-right space-y-2">
+                        <DialogTitle className="text-[#D4B896] text-base font-extrabold leading-relaxed">
+                            تحذير — موعد حتمي
+                        </DialogTitle>
+                        <DialogDescription className="text-[#E8F5F0]/80 text-sm leading-relaxed">
+                            هذا موعد حتمي (سقوط حق). هل أنت متأكد من إنجاز الإجراء القانوني بشكل نهائي؟
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="flex flex-row-reverse gap-2 sm:justify-start">
+                        <button
+                            type="button"
+                            onClick={confirmFatalComplete}
+                            className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-extrabold transition-colors"
+                        >
+                            تأكيد الإكمال
+                        </button>
+                        <button
+                            type="button"
+                            onClick={cancelFatalComplete}
+                            className="px-4 py-2 rounded-lg border border-[#A67C52]/30 bg-[#0c0c0e]/40 hover:bg-[#0c0c0e]/60 text-[#E8F5F0] text-xs font-bold transition-colors"
+                        >
+                            إلغاء
+                        </button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
+            <AnimatePresence>
+                {open ? (
                     <motion.button
                         key="ft-backdrop"
                         type="button"
@@ -265,9 +274,11 @@ export const FieldTasksBottomSheet: React.FC<FieldTasksBottomSheetProps> = ({
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.2 }}
-                        className="fixed inset-0 z-[214] bg-black/55 backdrop-blur-[6px] border-0 cursor-default"
+                        className={CURTAIN_BACKDROP}
                         onClick={onClose}
                     />
+                ) : null}
+                {open ? (
                     <motion.div
                         key="ft-sheet"
                         role="dialog"
@@ -277,10 +288,14 @@ export const FieldTasksBottomSheet: React.FC<FieldTasksBottomSheetProps> = ({
                         animate={{ y: 0 }}
                         exit={{ y: '105%' }}
                         transition={{ type: 'spring', damping: 32, stiffness: 380 }}
-                        className="fixed bottom-0 left-0 right-0 z-[215] max-h-[min(88dvh,640px)] flex flex-col rounded-t-[22px] border border-[#D4AF37]/35 border-b-0 bg-[#0B1021]/96 shadow-[0_-12px_48px_rgba(0,0,0,0.55)] backdrop-blur-xl font-['Tajawal','Cairo',sans-serif]"
+                        className={CURTAIN_SHEET}
                     >
+                        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+                            <div className="absolute -top-16 right-8 w-40 h-40 rounded-full bg-[#1A7059]/15 blur-3xl" />
+                        </div>
+
                         <motion.div
-                            className="shrink-0 flex flex-col items-center cursor-grab active:cursor-grabbing touch-pan-y pt-2 pb-1"
+                            className="shrink-0 flex flex-col items-center cursor-grab active:cursor-grabbing touch-pan-y pt-2.5 pb-1 relative z-[1]"
                             drag="y"
                             dragConstraints={{ top: 0, bottom: 140 }}
                             dragElastic={0.12}
@@ -288,28 +303,40 @@ export const FieldTasksBottomSheet: React.FC<FieldTasksBottomSheetProps> = ({
                                 if (info.offset.y > 48 || info.velocity.y > 420) onClose();
                             }}
                         >
-                            <div className="w-11 h-1.5 rounded-full bg-white/25" />
+                            <div className="w-12 h-1 rounded-full bg-[#A67C52]/40" />
                         </motion.div>
 
-                        <div className="shrink-0 flex items-center justify-between gap-3 px-4 pb-2 border-b border-white/10">
-                            <h2 id="field-tasks-sheet-title" className="text-white font-extrabold text-base truncate">
-                                📋 مهام اليوم الميدانية
-                            </h2>
+                        <div className="shrink-0 flex items-center justify-between gap-3 px-4 pb-3 border-b border-[#A67C52]/18 relative z-[1]">
+                            <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-9 h-9 rounded-xl bg-[#0c0c0e]/45 border border-[#A67C52]/25 flex items-center justify-center shrink-0">
+                                    <ClipboardList size={18} className="text-[#B8956A]" />
+                                </div>
+                                <div className="min-w-0">
+                                    <h2 id="field-tasks-sheet-title" className="text-[#E8F5F0] font-extrabold text-base truncate">
+                                        مهام اليوم الميدانية
+                                    </h2>
+                                    <p className="text-[10px] text-[#6BC4A8]/60 font-bold">الستارة الذكية</p>
+                                </div>
+                            </div>
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="shrink-0 w-10 h-10 rounded-xl border border-white/15 bg-white/5 flex items-center justify-center text-white/85 hover:bg-white/10 transition-colors"
+                                className="shrink-0 w-10 h-10 rounded-xl border border-[#A67C52]/22 bg-[#0c0c0e]/40 flex items-center justify-center text-[#E8F5F0]/80 hover:bg-[#0c0c0e]/60 transition-colors"
                                 aria-label="إغلاق"
                             >
                                 <X size={20} />
                             </button>
                         </div>
 
-                        <div dir="rtl" className="flex-1 overflow-y-auto px-4 py-3 min-h-0">
+                        <div dir="rtl" className="flex-1 overflow-y-auto px-4 py-3 min-h-0 relative z-[1]">
                             {curtainTasks.length === 0 ? (
-                                <p className="text-white/45 text-sm text-center font-medium py-10 leading-relaxed">
-                                    لا مهام مثبتة على الستارة. اضغط «ستارة الميدان» في مدير المهام لتثبيت مهمة هنا.
-                                </p>
+                                <div className={`${CURTAIN_GLASS_INNER} flex flex-col items-center py-12 px-4 text-center`}>
+                                    <PanelBottom size={32} className="text-[#A67C52]/50 mb-3" />
+                                    <p className="text-[#E8F5F0]/55 text-sm font-medium leading-relaxed max-w-xs">
+                                        لا مهام مثبتة على الستارة. اضغط «ستارة الميدان» في مدير المهام لتثبيت مهمة هنا.
+                                    </p>
+                                    <div className={`mt-4 w-20 ${TASKS_BRONZE_LINE}`} />
+                                </div>
                             ) : (
                                 <ul className="space-y-2.5">
                                     {curtainTasks.map((task) => (
@@ -328,22 +355,22 @@ export const FieldTasksBottomSheet: React.FC<FieldTasksBottomSheetProps> = ({
                             )}
                         </div>
 
-                        <div className="shrink-0 p-4 pt-2 border-t border-white/10 bg-black/20">
+                        <div className="shrink-0 p-4 pt-2 border-t border-[#A67C52]/18 bg-[#0c0c0e]/30 relative z-[1]">
                             <button
                                 type="button"
-                                onClick={() => {
-                                    onClose();
+                                onClick={(e) => {
+                                    e.stopPropagation();
                                     onManageAll();
                                 }}
-                                className="w-full py-3.5 rounded-xl font-extrabold text-sm text-[#0B1021] bg-gradient-to-l from-[#E6C673] to-[#C4A035] border border-[#E6C673]/60 shadow-[0_4px_24px_rgba(230,198,115,0.25)] active:scale-[0.99] transition-transform"
+                                className={CURTAIN_BTN_MANAGE}
                             >
-                                عرض وإدارة جميع المهام ➔
+                                عرض وإدارة جميع المهام ←
                             </button>
                         </div>
                     </motion.div>
-                </>
-            )}
-        </AnimatePresence>,
+                ) : null}
+            </AnimatePresence>
+        </>,
         document.body,
     );
 };

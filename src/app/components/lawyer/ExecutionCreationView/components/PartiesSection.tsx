@@ -1,9 +1,12 @@
-import React from 'react';
-import { Plus } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Plus, UserPlus, Users } from 'lucide-react';
 import PartyCard, { type PartyCardProps } from './PartyCard';
 import { ecg } from './executionCreationGlassUi';
 import { ExecutionCreationSection } from './ExecutionCreationSection';
-import { isFinancialClaimForPartySplit } from '../hooks/executionFormUtils';
+import {
+    shouldShowIndependentDebtorSharePanels,
+} from '../hooks/executionFormUtils';
+import { IndependentDebtorSharePanel } from './IndependentDebtorSharePanel';
 
 interface CreditorData {
     id: number;
@@ -21,6 +24,7 @@ interface DebtorData {
     address: string;
     occupation: 'موظف' | 'كاسب';
     isClient: boolean;
+    isSolidaryLiability?: boolean;
 }
 
 interface AdditionalCreditor {
@@ -39,6 +43,7 @@ interface AdditionalDebtor {
     address: string;
     occupation: 'موظف' | 'كاسب';
     isClient: boolean;
+    isSolidaryLiability?: boolean;
 }
 
 interface PartiesSectionProps {
@@ -46,18 +51,29 @@ interface PartiesSectionProps {
     additionalCreditors: AdditionalCreditor[];
     debtors: DebtorData[];
     additionalDebtorsForm: AdditionalDebtor[];
-    isSolidaryLiability: boolean;
-    financialSplitHint: string | null;
+    allowMultipleDebtors: boolean;
+    showDebtorSolidarySplit: boolean;
+    classification: string;
     claimType: string;
+    effectiveClaimTypes: string[];
+    globalClaimTotal: number;
+    includeLawyerFees: boolean;
+    lockedEntityKind: 'natural_person' | 'legal_entity' | null;
+    debtorManualDebtClaims: Record<string, string>;
+    debtorLawyerFeesClaims: Record<string, string>;
+    formatCurrency: (value: string) => string;
+    onDebtorManualDebtChange: (debtorKey: string, raw: string) => void;
+    onDebtorLawyerFeesChange: (debtorKey: string, raw: string) => void;
     onAddCreditor: () => void;
     onRemoveAdditionalCreditor: (id: string) => void;
     onUpdateAdditionalCreditor: (id: string, field: string, value: string | boolean | number) => void;
     onUpdateCreditor: (id: number, field: string, value: string | boolean | number) => void;
-    onAddDebtor: () => void;
+    onAddIndependentDebtor: () => void;
+    onAddSolidaryDebtor: () => void;
+    onAddAnotherDebtor: () => void;
     onRemoveAdditionalDebtor: (id: string) => void;
     onUpdateAdditionalDebtor: (id: string, field: string, value: string | boolean | number) => void;
     onUpdateDebtor: (id: number, field: string, value: string | boolean | number) => void;
-    onSetIsSolidaryLiability: (v: boolean) => void;
 }
 
 export const PartiesSection: React.FC<PartiesSectionProps> = React.memo(({
@@ -65,23 +81,71 @@ export const PartiesSection: React.FC<PartiesSectionProps> = React.memo(({
     additionalCreditors,
     debtors,
     additionalDebtorsForm,
-    isSolidaryLiability,
-    financialSplitHint,
+    allowMultipleDebtors,
+    showDebtorSolidarySplit,
+    classification,
     claimType,
+    effectiveClaimTypes,
+    globalClaimTotal,
+    includeLawyerFees,
+    lockedEntityKind,
+    debtorManualDebtClaims,
+    debtorLawyerFeesClaims,
+    formatCurrency,
+    onDebtorManualDebtChange,
+    onDebtorLawyerFeesChange,
     onAddCreditor,
     onRemoveAdditionalCreditor,
     onUpdateAdditionalCreditor,
     onUpdateCreditor,
-    onAddDebtor,
+    onAddIndependentDebtor,
+    onAddSolidaryDebtor,
+    onAddAnotherDebtor,
     onRemoveAdditionalDebtor,
     onUpdateAdditionalDebtor,
     onUpdateDebtor,
-    onSetIsSolidaryLiability,
 }) => {
     const totalCreditorCount = creditors.length + additionalCreditors.length;
     const totalDebtorCount = debtors.length + additionalDebtorsForm.length;
-    const showFinancialSplitHint =
-        isFinancialClaimForPartySplit(claimType) && Boolean(financialSplitHint);
+    const showIndependentDebtorSharePanels = shouldShowIndependentDebtorSharePanels(
+        classification,
+        effectiveClaimTypes,
+        claimType,
+        totalDebtorCount,
+        totalCreditorCount,
+    );
+
+    const showDebtorLiabilityLabels = showDebtorSolidarySplit;
+
+    const renderIndependentDebtPanel = (debtorKey: string, isSolidary: boolean) => {
+        if (!showIndependentDebtorSharePanels || isSolidary) return null;
+        return (
+            <div className="px-3 pb-3">
+                <IndependentDebtorSharePanel
+                    debtDraft={formatCurrency(debtorManualDebtClaims[debtorKey] ?? '')}
+                    onDebtInput={(e) => {
+                        const raw = e.target.value.replace(/,/g, '');
+                        if (raw === '' || !isNaN(Number(raw))) {
+                            onDebtorManualDebtChange(debtorKey, raw);
+                        }
+                    }}
+                    showLawyerFeesShare={includeLawyerFees}
+                    lawyerFeesDraft={formatCurrency(debtorLawyerFeesClaims[debtorKey] ?? '')}
+                    onLawyerFeesInput={(e) => {
+                        const raw = e.target.value.replace(/,/g, '');
+                        if (raw === '' || !isNaN(Number(raw))) {
+                            onDebtorLawyerFeesChange(debtorKey, raw);
+                        }
+                    }}
+                />
+            </div>
+        );
+    };
+
+    const liabilityLabelFor = (isSolidary: boolean): 'مستقل' | 'ضامن' | null => {
+        if (!showDebtorLiabilityLabels) return null;
+        return isSolidary ? 'ضامن' : 'مستقل';
+    };
 
     return (
         <ExecutionCreationSection title="أطراف الإضبارة">
@@ -124,59 +188,71 @@ export const PartiesSection: React.FC<PartiesSectionProps> = React.memo(({
 
             <div className={ecg.partyGroup}>
                 <div className="flex flex-col gap-1 p-1">
-                    {debtors.map((debtor, index) => (
-                        <PartyCard
-                            key={debtor.id}
-                            party={debtor}
-                            index={index}
-                            totalCount={totalDebtorCount}
-                            type="debtor"
-                            onUpdate={onUpdateDebtor as PartyCardProps['onUpdate']}
-                            onRemove={() => {}}
-                        />
-                    ))}
-                    {additionalDebtorsForm.map((d, idx) => (
-                        <PartyCard
-                            key={d.id}
-                            party={d}
-                            index={debtors.length + idx}
-                            totalCount={totalDebtorCount}
-                            type="debtor"
-                            onUpdate={(id, field, value) =>
-                                onUpdateAdditionalDebtor(String(id), field, value)
-                            }
-                            onRemove={(id) => onRemoveAdditionalDebtor(String(id))}
-                        />
-                    ))}
+                    {debtors.map((debtor, index) => {
+                        const debtorKey = String(debtor.id);
+                        const isSolidary = Boolean(debtor.isSolidaryLiability);
+                        return (
+                            <div key={debtor.id} className="border-b border-white/5 last:border-b-0">
+                                <PartyCard
+                                    party={debtor}
+                                    index={index}
+                                    totalCount={totalDebtorCount}
+                                    type="debtor"
+                                    debtorLiabilityLabel={liabilityLabelFor(isSolidary)}
+                                    lockedEntityKind={lockedEntityKind}
+                                    onUpdate={onUpdateDebtor as PartyCardProps['onUpdate']}
+                                    onRemove={() => {}}
+                                />
+                                {renderIndependentDebtPanel(debtorKey, isSolidary)}
+                            </div>
+                        );
+                    })}
+                    {additionalDebtorsForm.map((d, idx) => {
+                        const isSolidary = Boolean(d.isSolidaryLiability);
+                        return (
+                            <div key={d.id} className="border-b border-white/5 last:border-b-0">
+                                <PartyCard
+                                    party={d}
+                                    index={debtors.length + idx}
+                                    totalCount={totalDebtorCount}
+                                    type="debtor"
+                                    debtorLiabilityLabel={liabilityLabelFor(isSolidary)}
+                                    lockedEntityKind={lockedEntityKind}
+                                    onUpdate={(id, field, value) =>
+                                        onUpdateAdditionalDebtor(String(id), field, value)
+                                    }
+                                    onRemove={(id) => onRemoveAdditionalDebtor(String(id))}
+                                />
+                                {renderIndependentDebtPanel(String(d.id), isSolidary)}
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
 
-            <button type="button" onClick={onAddDebtor} className={ecg.addBtn}>
-                <Plus size={16} /> إضافة مدين آخر
-            </button>
-
-            {additionalDebtorsForm.length > 0 ? (
-                <div className={ecg.hintPanel}>
-                    <p className={ecg.hintText}>
-                        يظهر هذا الخيار لأنك أضفتَ مديناً إضافياً: إن كان الحكم بالتكافل والتضامن تُعرض
-                        الإضبارة لاحقاً كذمة موحّدة؛ وإلا تنتقل بين المدينين كما بين نوافذ المتصفح في لوحة
-                        التنفيذ.
-                    </p>
-                    <label className="flex cursor-pointer items-start gap-3 text-right">
-                        <input
-                            type="checkbox"
-                            checked={isSolidaryLiability}
-                            onChange={(e) => onSetIsSolidaryLiability(e.target.checked)}
-                            className="mt-0.5 accent-[#E6C673]"
-                        />
-                        <span className="text-xs font-semibold leading-relaxed text-[#F0DFA8]/95">
-                            الحكم بالتكافل والتضامن (ذمة موحّدة بين المدينين)
-                        </span>
-                    </label>
-                    {showFinancialSplitHint ? (
-                        <p className={`${ecg.hintText} pr-1`}>{financialSplitHint}</p>
-                    ) : null}
+            {allowMultipleDebtors && showDebtorSolidarySplit ? (
+                <div className={`${ecg.choiceRow} mt-2`}>
+                    <button
+                        type="button"
+                        onClick={onAddIndependentDebtor}
+                        className={`${ecg.choiceBtn} ${ecg.choiceBtnIdle} flex items-center justify-center gap-1.5`}
+                    >
+                        <UserPlus size={15} className="shrink-0 opacity-80" />
+                        إضافة مدين مستقل
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onAddSolidaryDebtor}
+                        className={`${ecg.choiceBtn} ${ecg.choiceBtnIdle} flex items-center justify-center gap-1.5 border-[#E6C673]/20 hover:border-[#E6C673]/35`}
+                    >
+                        <Users size={15} className="shrink-0 text-[#E6C673]/80" />
+                        إضافة مدين ضامن
+                    </button>
                 </div>
+            ) : allowMultipleDebtors ? (
+                <button type="button" onClick={onAddAnotherDebtor} className={`${ecg.addBtn} mt-2`}>
+                    <Plus size={16} /> إضافة مدين آخر
+                </button>
             ) : null}
         </ExecutionCreationSection>
     );

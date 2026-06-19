@@ -22,7 +22,6 @@ import {
 import { FORUM_TOPIC_FILTERS } from './forumFilters';
 
 export const REPOSITORY_DOCUMENT_TYPES = ['الكل', 'عقد', 'قرار حكم', 'عريضة', 'بحث قانوني', 'أخرى'] as const;
-export type RepositoryDocumentTypeFilter = (typeof REPOSITORY_DOCUMENT_TYPES)[number];
 
 export const REPOSITORY_SORT_OPTIONS = [
     { value: 'newest', label: 'الأحدث أولاً', icon: Sparkles },

@@ -25,6 +25,14 @@ describe('resolveDossierHeaderFields', () => {
         expect(h.classificationDisplay).toBe('مدني');
     });
 
+    it('displays custody removal claim as نزع حضانة', () => {
+        const h = resolveDossierHeaderFields({
+            id: '3',
+            claimType: 'تسليم ولد',
+        } as ExecutionFile);
+        expect(h.claimTypeDisplay).toBe('نزع حضانة');
+    });
+
     it('parses caseNo when fileNumber/year missing', () => {
         const h = resolveDossierHeaderFields({
             id: '2',

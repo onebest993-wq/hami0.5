@@ -13,6 +13,7 @@ export async function GET(request: Request): Promise<Response> {
             ok: true,
             banned: Boolean(banned),
             ban: banned,
+            isForumModerator: auth.isAdmin,
         });
     } catch {
         return jsonResponse(500, { ok: false, error: 'Internal server error' });

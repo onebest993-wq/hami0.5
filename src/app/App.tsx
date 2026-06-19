@@ -4,53 +4,57 @@ import { motion, AnimatePresence } from "motion/react";
 // Core imports with error handling
 import { FontInjector } from "./components/SharedComponents";
 import { AppProvider } from "./context/AppContext";
-import { AuthProvider, useAuth } from "./context/AuthContext";
+import { AuthProvider, useAuth, isSuperAdminUser } from "./context/AuthContext";
 import { GlobalErrorBoundary } from "./components/shared/GlobalErrorBoundary";
 import { debug } from "./utils/debug";
 import { screenTransitions } from "./animations/transitions";
 import { initializeProduction, logBuildInfo, isProduction } from "./utils/production";
 import { PerformanceMonitor } from "./utils/performanceMonitor";
 import { clearCacheIfNeeded } from "./utils/constants";
-import { getLawyerSettingsSnapshot } from "./services/settings/settingsRuntime";
-import { prefetchSecondaryAppScreens } from "./utils/screenPrefetch";
+import { prefetchSecondaryAppScreens, prefetchLawyerDashboardLazyChunks, prefetchLawyerHeavyDeferredChunks } from "./utils/screenPrefetch";
 import { PrefetchScheduler } from "./runtime/prefetchScheduler";
+import { prefetchLawyerDashboardEntry } from "./runtime/lawyerDashboardLoader";
 import { lazyWithRetry, type LazyComponent } from "./utils/lazy/lazyWithRetry";
-import { UserRole } from "./types/admin-types";
 import { LoginScreen } from "./components/auth/LoginScreen";
 import { hasPersistedSupabaseSession } from "./utils/authStorage";
+import { LawyerDashboard as LawyerDashboardEager } from "./components/lawyer/LawyerDashboard";
+import { SmartToast, SmartToastContainer } from "./components/ui/SmartToast";
+import { SmartDialogContainer } from "./components/ui/SmartDialog";
 
 const CHUNK_RELOAD_SESSION_KEY = "hami:chunk-reload-once";
 const VITE_STALE_IMPORT_RELOAD_KEY = "hami:vite-stale-import-reload";
-
-function isSuperAdminUser(user: { user_metadata?: unknown } | null): boolean {
-  if (!user) return false;
-  const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
-  return meta.systemRole === UserRole.SUPER_ADMIN;
-}
 
 // --- LAZY: Defer security barrel + first-screen payloads from index chunk ---
 const SecurityInitializer = React.lazy(() =>
   import("./security/SecurityInitializer").then((m) => ({ default: m.SecurityInitializer }))
 );
-const PerformanceMonitorUI = React.lazy(() =>
-  import("./components/shared/PerformanceMonitor").then((m) => ({ default: m.PerformanceMonitor }))
-);
 
-// --- Toast: Static (used by 25+ components) ---
-import { SmartToast, SmartToastContainer } from "./components/ui/SmartToast";
-import { SmartDialogContainer } from "./components/ui/SmartDialog";
+// --- Lawyer dashboard: static in dev (no dynamic import / HMR stale fetch), lazy in prod ---
+if (typeof window !== 'undefined' && !import.meta.env.DEV && hasPersistedSupabaseSession()) {
+  prefetchLawyerDashboardEntry();
+}
 
-// --- LAZY: Heavy dashboards (code-split for smaller initial bundle) ---
-const LawyerDashboard = lazyWithRetry(() =>
+const LawyerDashboardLazy = lazyWithRetry(() =>
   import("./components/lawyer/LawyerDashboard").then((m) => ({
     default: m.LawyerDashboard as unknown as LazyComponent,
   })),
 );
+
+type LawyerDashboardProps = React.ComponentProps<typeof LawyerDashboardEager>;
+
+function LawyerDashboard(props: LawyerDashboardProps) {
+  if (import.meta.env.DEV) {
+    return <LawyerDashboardEager {...props} />;
+  }
+  return <LawyerDashboardLazy {...props} />;
+}
 // --- LAZY: Other heavy screens ---
 const AdminDashboard = React.lazy(() => import("./components/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
 const AdminLawLibraryPage = React.lazy(() => import("./admin/page"));
 const RoyalLawyerProfile = React.lazy(() =>
-  import("./components/lawyer/RoyalLawyerProfile").then((m) => ({ default: m.RoyalLawyerProfile }))
+  import('@/app/runtime/royalLawyerProfileLoader').then((m) =>
+    m.loadRoyalLawyerProfileModule().then((mod) => ({ default: mod.RoyalLawyerProfile })),
+  ),
 );
 const PrivacyPolicyScreen = React.lazy(() => import("./components/SettingsScreens").then(m => ({ default: m.PrivacyPolicyScreen })));
 const SupportScreen = React.lazy(() => import("./components/SettingsScreens").then(m => ({ default: m.SupportScreen })));
@@ -71,15 +75,28 @@ const SCREEN_LAZY_FALLBACK: React.ReactNode = (
 );
 
 const LAST_SCREEN_KEY = 'hami:last-screen';
+const ADMIN_HOME_PATH = '/admin';
+const ADMIN_LIBRARY_PATH = '/admin/library';
+
+function normalizeAppPathname(pathname: string): string {
+  return pathname.replace(/\/+$/u, '') || '/';
+}
+
+function screenFromPathname(pathname: string): AppScreen | null {
+  const normalized = normalizeAppPathname(pathname);
+  if (normalized === ADMIN_LIBRARY_PATH) return 'adminLawLibrary';
+  if (normalized === ADMIN_HOME_PATH) return 'admin';
+  return null;
+}
 
 function readSavedScreen(): AppScreen | null {
   try {
     const raw = sessionStorage.getItem(LAST_SCREEN_KEY);
+    if (raw === 'adminLawLibrary') return 'admin';
     if (
       raw === 'lawyer' ||
       raw === 'profile' ||
       raw === 'admin' ||
-      raw === 'adminLawLibrary' ||
       raw === 'privacy' ||
       raw === 'support'
     ) {
@@ -96,10 +113,6 @@ export default function App(): ReactElement {
   
   useEffect(() => {
     const runDeferredAppBoot = () => {
-      if (hasPersistedSupabaseSession()) {
-        PrefetchScheduler.planAuthenticatedEntry();
-      }
-
       PerformanceMonitor.start('app-initialization');
       initializeProduction();
       logBuildInfo();
@@ -118,13 +131,11 @@ export default function App(): ReactElement {
       }
     };
 
-    if (typeof requestIdleCallback !== 'undefined') {
-      const idleId = requestIdleCallback(runDeferredAppBoot, { timeout: 2500 });
-      return () => cancelIdleCallback(idleId);
+    if (hasPersistedSupabaseSession()) {
+      PrefetchScheduler.planAuthenticatedEntry();
     }
 
-    const bootTimer = window.setTimeout(runDeferredAppBoot, 50);
-    return () => window.clearTimeout(bootTimer);
+    runDeferredAppBoot();
   }, []);
 
   useEffect(() => {
@@ -140,29 +151,28 @@ export default function App(): ReactElement {
   }, []);
 
   const screenFromPath = React.useCallback((pathname: string): AppScreen | null => {
-    const normalized = pathname.replace(/\/+$/u, "") || "/";
-    if (normalized === "/admin") return "adminLawLibrary";
-    return null;
+    return screenFromPathname(pathname);
   }, []);
 
   const [screen, setScreenInternal] = useState<AppScreen>(() => {
-    const fromPath =
-      (() => {
-        const normalized = window.location.pathname.replace(/\/+$/u, '') || '/';
-        return normalized === '/admin' ? ('adminLawLibrary' as const) : null;
-      })();
+    const fromPath = screenFromPathname(window.location.pathname);
     if (fromPath) return fromPath;
+    if (import.meta.env.DEV && !hasPersistedSupabaseSession()) {
+      return 'auth';
+    }
     if (hasPersistedSupabaseSession()) {
       return readSavedScreen() ?? 'lawyer';
     }
     return 'auth';
   });
   const [, startScreenTransition] = useTransition();
-  const lastNonAdminScreenRef = React.useRef<AppScreen>(screen === "adminLawLibrary" ? "lawyer" : screen);
+  const lastNonAdminScreenRef = React.useRef<AppScreen>(
+    screen === 'admin' || screen === 'adminLawLibrary' ? 'lawyer' : screen,
+  );
   const skipNextUrlSyncRef = React.useRef(false);
 
   useEffect(() => {
-    if (screen !== "adminLawLibrary") {
+    if (screen !== 'admin' && screen !== 'adminLawLibrary') {
       lastNonAdminScreenRef.current = screen;
     }
   }, [screen]);
@@ -189,13 +199,23 @@ export default function App(): ReactElement {
       skipNextUrlSyncRef.current = false;
       return;
     }
-    const isAdminPath = window.location.pathname === "/admin";
-    if (screen === "adminLawLibrary" && !isAdminPath) {
-      window.history.pushState({ screen }, "", "/admin");
+    const path = normalizeAppPathname(window.location.pathname);
+    const targetPath =
+      screen === 'adminLawLibrary'
+        ? ADMIN_LIBRARY_PATH
+        : screen === 'admin'
+          ? ADMIN_HOME_PATH
+          : '/';
+
+    if (screen === 'admin' || screen === 'adminLawLibrary') {
+      if (path !== targetPath) {
+        window.history.pushState({ screen }, '', targetPath);
+      }
       return;
     }
-    if (screen !== "adminLawLibrary" && isAdminPath) {
-      window.history.pushState({ screen }, "", "/");
+
+    if (path === ADMIN_HOME_PATH || path === ADMIN_LIBRARY_PATH) {
+      window.history.pushState({ screen }, '', '/');
     }
   }, [screen]);
 
@@ -208,17 +228,6 @@ export default function App(): ReactElement {
   );
   
   const role = "lawyer" as const;
-  const [showPerformanceMonitor, setShowPerformanceMonitor] = useState(
-    () => getLawyerSettingsSnapshot().performance.devPerformanceMonitor,
-  );
-
-  useEffect(() => {
-    const syncPerfMonitor = () => {
-      setShowPerformanceMonitor(getLawyerSettingsSnapshot().performance.devPerformanceMonitor);
-    };
-    window.addEventListener('hami:settings-updated', syncPerfMonitor);
-    return () => window.removeEventListener('hami:settings-updated', syncPerfMonitor);
-  }, []);
 
   // Lock body scroll
   useEffect(() => {
@@ -244,8 +253,6 @@ export default function App(): ReactElement {
           screen={screen}
           setScreen={setScreen}
           role={role}
-          showPerformanceMonitor={showPerformanceMonitor}
-          setShowPerformanceMonitor={setShowPerformanceMonitor}
           handleNavigateToProfile={handleNavigateToProfile}
           handleNavigateToAdmin={handleNavigateToAdmin}
           handleBackToDashboard={handleBackToDashboard}
@@ -260,15 +267,13 @@ function AppContent(props: {
   screen: string;
   setScreen: (s: "auth" | "lawyer" | "profile" | "admin" | "adminLawLibrary" | "privacy" | "support") => void;
   role: "lawyer";
-  showPerformanceMonitor: boolean;
-  setShowPerformanceMonitor: (v: boolean) => void;
   handleNavigateToProfile: () => void;
   handleNavigateToAdmin: () => void;
   handleBackToDashboard: () => void;
   handleLogout: () => void;
 }) {
   const {
-    screen, setScreen, role, showPerformanceMonitor, setShowPerformanceMonitor,
+    screen, setScreen, role,
     handleNavigateToProfile,
     handleNavigateToAdmin, handleBackToDashboard,
     handleLogout
@@ -280,8 +285,9 @@ function AppContent(props: {
 
   useEffect(() => {
     if (screen === 'auth') return;
+    const screenToPersist = screen === 'adminLawLibrary' ? 'admin' : screen;
     try {
-      sessionStorage.setItem(LAST_SCREEN_KEY, screen);
+      sessionStorage.setItem(LAST_SCREEN_KEY, screenToPersist);
     } catch {
       /* ignore */
     }
@@ -294,7 +300,11 @@ function AppContent(props: {
 
   useEffect(() => {
     if (user && screen === "auth") {
-      setScreen(isSuperAdmin ? "admin" : "lawyer");
+      if (isSuperAdmin) {
+        setScreen('admin');
+      } else {
+        setScreen("lawyer");
+      }
     }
   }, [user, screen, setScreen, isSuperAdmin]);
 
@@ -319,7 +329,12 @@ function AppContent(props: {
     if (!user) {
       return;
     }
+    if (!import.meta.env.DEV) {
+      prefetchLawyerDashboardEntry();
+    }
     if (screen === "lawyer") {
+      prefetchLawyerDashboardLazyChunks();
+      prefetchLawyerHeavyDeferredChunks();
       prefetchSecondaryAppScreens();
     }
   }, [screen, user]);
@@ -337,12 +352,6 @@ function AppContent(props: {
               <SecurityInitializer />
             </Suspense>
             <FontInjector />
-            
-            {import.meta.env.DEV && showPerformanceMonitor && (
-              <Suspense fallback={null}>
-                <PerformanceMonitorUI />
-              </Suspense>
-            )}
             
             <div className="min-h-screen bg-[#000000] text-white overflow-x-hidden">
                 <AnimatePresence mode="wait">

@@ -29,6 +29,7 @@ export function useAllDebtorsUnified(
                 allocated_debt: alloc,
                 paid_amount: p,
                 cleared: executionDebtorRowCleared(alloc, p),
+                isSolidaryLiability: Boolean(primary.isSolidaryLiability),
             });
         }
         for (const ad of addList) {
@@ -41,6 +42,7 @@ export function useAllDebtorsUnified(
                 allocated_debt: alloc,
                 paid_amount: paid,
                 cleared: executionDebtorRowCleared(alloc, paid, ad.status),
+                isSolidaryLiability: Boolean(ad.isSolidaryLiability),
             });
         }
         return rows;

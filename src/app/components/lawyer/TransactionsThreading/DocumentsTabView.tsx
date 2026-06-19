@@ -1,11 +1,30 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
-import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from '@/app/components/ui/drawer';
-import { Input } from '@/app/components/ui/input';
+import { Drawer, DrawerContent } from '@/app/components/ui/drawer';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
-import { useTransactionsThreadingStore } from '@/app/modules/transactionsThreading';
-import type { Transaction, TransactionDocument, TransactionDocumentOwnerTag } from '@/app/modules/transactionsThreading';
+import { useTransactionsThreadingStore } from '@/app/modules/transactionsThreading/store';
+import type { Transaction, TransactionDocument, TransactionDocumentOwnerTag } from '@/app/modules/transactionsThreading/types';
 import { DocumentCard } from './DocumentCard';
+import {
+    GLASS_BTN,
+    GLASS_CHIP,
+    GLASS_CHIP_ACTIVE,
+    GLASS_FIELD,
+    TX_DIALOG_BTN_CANCEL,
+    TX_DIALOG_BTN_DANGER,
+    TX_DIALOG_DESC,
+    TX_DIALOG_SHELL,
+    TX_DIALOG_TITLE,
+    TX_DRAWER_SHELL,
+    TX_GOLD_BTN,
+    TX_INNER_SURFACE,
+    TX_TEXT_MUTED,
+    TX_TEXT_OCHRE,
+    TX_TEXT_PRIMARY,
+    TX_TEXT_SECONDARY,
+    TxFieldLabel,
+    TxGlassDrawerFrame,
+} from './transactionsGlassTheme';
 
 const OWNER_TAGS = ['للموكل', 'للدائرة', 'أخرى'] as const;
 const EMPTY_DOCS: TransactionDocument[] = [];
@@ -54,12 +73,12 @@ export function DocumentsTabView({ transaction, readOnly }: { transaction: Trans
   return (
     <div dir="rtl" className="px-5 py-5 pb-10 max-w-[640px] mx-auto">
       <div className="flex items-center justify-between">
-        <div className="text-white font-bold text-base">المستمسكات</div>
+        <div className={`${TX_TEXT_PRIMARY} font-extrabold text-base`}>المستمسكات</div>
         <button
           type="button"
           disabled={!!readOnly}
           onClick={() => setOpen(true)}
-          className="h-10 px-4 rounded-2xl bg-white/5 border border-white/10 text-gray-200 text-sm font-bold hover:bg-white/10 disabled:opacity-50 disabled:hover:bg-white/5 disabled:cursor-not-allowed"
+          className={`${TX_GOLD_BTN} !h-10 !px-4 disabled:opacity-50 disabled:cursor-not-allowed`}
         >
           <span className="inline-flex items-center gap-2">
             <Plus className="w-4 h-4" />
@@ -70,7 +89,7 @@ export function DocumentsTabView({ transaction, readOnly }: { transaction: Trans
 
       {sorted.length === 0 ? (
         <div className="pt-14 text-center">
-          <div className="text-gray-400 text-sm">لا توجد مرفقات بعد.</div>
+          <div className={`${TX_TEXT_MUTED} text-sm font-medium`}>لا توجد مرفقات بعد.</div>
         </div>
       ) : (
         <div className="mt-5 grid grid-cols-2 gap-3">
@@ -87,30 +106,22 @@ export function DocumentsTabView({ transaction, readOnly }: { transaction: Trans
           if (!o) setDeleteTarget(null);
         }}
       >
-        <DialogContent className="bg-[#071022] border border-rose-500/20 rounded-3xl p-5">
+        <DialogContent className={TX_DIALOG_SHELL}>
           <DialogHeader className="text-right">
-            <DialogTitle className="text-white text-base">حذف مستمسك</DialogTitle>
-            <DialogDescription className="text-gray-400 text-sm">سيتم حذف المستمسك من هذه المعاملة</DialogDescription>
+            <DialogTitle className={TX_DIALOG_TITLE}>حذف مستمسك</DialogTitle>
+            <DialogDescription className={TX_DIALOG_DESC}>سيتم حذف المستمسك من هذه المعاملة</DialogDescription>
           </DialogHeader>
           <div dir="rtl" className="text-right">
-            <div className="rounded-2xl bg-black/20 border border-white/10 p-4 text-gray-100 text-sm leading-7">
+            <div className={`${TX_INNER_SURFACE} p-4 ${TX_TEXT_SECONDARY} text-sm leading-7`}>
               هل أنت متأكد من حذف المستمسك؟
-              <div className="mt-2 text-gray-300 font-bold truncate">{deleteTarget?.title}</div>
+              <div className={`mt-2 ${TX_TEXT_PRIMARY} font-extrabold truncate`}>{deleteTarget?.title}</div>
             </div>
           </div>
           <DialogFooter className="sm:justify-start gap-2">
-            <button
-              type="button"
-              onClick={() => setDeleteOpen(false)}
-              className="h-11 px-5 rounded-2xl bg-white/5 border border-white/10 text-gray-200 font-bold"
-            >
+            <button type="button" onClick={() => setDeleteOpen(false)} className={TX_DIALOG_BTN_CANCEL}>
               إلغاء
             </button>
-            <button
-              type="button"
-              onClick={confirmDelete}
-              className="h-11 px-5 rounded-2xl bg-rose-500/15 border border-rose-500/25 text-rose-200 font-extrabold"
-            >
+            <button type="button" onClick={confirmDelete} className={TX_DIALOG_BTN_DANGER}>
               حذف
             </button>
           </DialogFooter>
@@ -118,61 +129,46 @@ export function DocumentsTabView({ transaction, readOnly }: { transaction: Trans
       </Dialog>
 
       <Drawer open={open} onOpenChange={setOpen}>
-        <DrawerContent className="bg-[#071022] border-t border-[#D4AF37]/20 rounded-t-3xl px-5 pb-6 pt-2">
-          <div dir="rtl" className="text-right">
-            <div className="py-3">
-              <DrawerTitle className="text-white font-bold text-base">إضافة مرفق</DrawerTitle>
-              <DrawerDescription className="text-gray-400 text-sm mt-1">
-                أدخل وصف المستمسك وحدد عائدية المستمسك
-              </DrawerDescription>
+        <DrawerContent className={TX_DRAWER_SHELL}>
+          <TxGlassDrawerFrame
+            title="إضافة مرفق"
+            subtitle="أدخل وصف المستمسك وحدد عائدية المستمسك"
+            footer={
+              <button type="button" disabled={!canSubmit || !!readOnly} onClick={submit} className={GLASS_BTN}>
+                إضافة
+              </button>
+            }
+          >
+            <div>
+              <TxFieldLabel>
+                اسم/وصف المستمسك <span className={TX_TEXT_OCHRE}>*</span>
+              </TxFieldLabel>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="مثال: هوية الكفيل / كتاب صحة صدور"
+                className={GLASS_FIELD}
+              />
             </div>
-
-            <div className="space-y-3 mt-3">
-              <div className="space-y-2">
-                <div className="text-gray-300 text-sm">
-                  اسم/وصف المستمسك <span className="text-rose-300">*</span>
-                </div>
-                <Input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="مثال: هوية الكفيل / كتاب صحة صدور"
-                  className="h-12 bg-[#0D0D1A] border-[#D4AF37]/20 text-white placeholder:text-gray-500 rounded-2xl focus-visible:ring-0 focus-visible:border-[#D4AF37]/50"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <div className="text-gray-300 text-sm">عائدية المستمسك</div>
-                <div className="flex gap-2">
-                  {OWNER_TAGS.map((t) => {
-                    const active = ownerTag === t;
-                    return (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setOwnerTag(t)}
-                        className={`flex-1 h-11 rounded-2xl border text-sm font-bold transition ${
-                          active
-                            ? 'bg-[#D4AF37]/15 text-[#F4C430] border-[#D4AF37]/25'
-                            : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'
-                        }`}
-                      >
-                        {t}
-                      </button>
-                    );
-                  })}
-                </div>
+            <div>
+              <TxFieldLabel>عائدية المستمسك</TxFieldLabel>
+              <div className="flex gap-2">
+                {OWNER_TAGS.map((t) => {
+                  const active = ownerTag === t;
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setOwnerTag(t)}
+                      className={active ? GLASS_CHIP_ACTIVE + ' flex-1 !rounded-[3px] !py-2.5' : GLASS_CHIP + ' flex-1 !rounded-[3px] !py-2.5'}
+                    >
+                      {t}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-
-            <button
-              type="button"
-              disabled={!canSubmit || !!readOnly}
-              onClick={submit}
-              className="mt-5 w-full h-12 rounded-2xl font-bold text-sm bg-gradient-to-r from-[#D4AF37] to-[#F4C430] text-[#0D0D1A] shadow-lg shadow-[#D4AF37]/25 disabled:opacity-50 disabled:shadow-none"
-            >
-              إضافة
-            </button>
-          </div>
+          </TxGlassDrawerFrame>
         </DrawerContent>
       </Drawer>
     </div>

@@ -44,6 +44,10 @@ interface StandardFinancialLedgerProps {
     repaymentExceedsRemaining?: boolean;
     /** إجمالي النفقة الشهرية المستمرة (زوجة + أولاد) — يُعرض تحت متبقي الوعاء */
     ongoingMonthlyAlimony?: number;
+    /** إظهار حاوية النفقة المستمرة — تُخفى حصراً عند وفاة المدين */
+    showOngoingAlimonyMonthly?: boolean;
+    /** تفاصيل المستحقين الأحياء (زوجة / أولاد) */
+    ongoingAlimonyDetailLines?: string[];
     /** إظهار مداخل التسوية — يُخفى عند نشاط مسار حجز الراتب */
     showSettlementEntry?: boolean;
 }
@@ -79,8 +83,13 @@ export const StandardFinancialLedger = ({
     applyDebtRepayment,
     repaymentExceedsRemaining = false,
     ongoingMonthlyAlimony,
+    showOngoingAlimonyMonthly,
+    ongoingAlimonyDetailLines = [],
     showSettlementEntry = true,
 }: StandardFinancialLedgerProps) => {
+    const ongoingAlimonyVisible =
+        showOngoingAlimonyMonthly ??
+        (ongoingMonthlyAlimony != null && ongoingMonthlyAlimony > 0);
     const [fullPayOpen, setFullPayOpen] = useState(false);
     const [fullPayCountdown, setFullPayCountdown] = useState(0);
 
@@ -215,7 +224,7 @@ export const StandardFinancialLedger = ({
                 {showSettlementEntry &&
                 settlementUxTier === 'primary' &&
                 onActivateSettlement &&
-                !(ongoingMonthlyAlimony != null && ongoingMonthlyAlimony > 0) ? (
+                !ongoingAlimonyVisible ? (
                     <div className="w-full pt-2">
                         <ReactiveSettlementEntry
                             tier="primary"
@@ -225,7 +234,7 @@ export const StandardFinancialLedger = ({
                         />
                     </div>
                 ) : null}
-                {ongoingMonthlyAlimony != null && ongoingMonthlyAlimony > 0 ? (
+                {ongoingAlimonyVisible && ongoingMonthlyAlimony != null && ongoingMonthlyAlimony > 0 ? (
                     <div className="mt-3 w-full border-t border-white/[0.06] pt-3">
                         <p className="text-[10px] text-emerald-400/85 tracking-wide">
                             النفقة المستمرة المطلوبة
@@ -234,6 +243,18 @@ export const StandardFinancialLedger = ({
                             {formatIqdDisplay(ongoingMonthlyAlimony)}
                             <span className="text-[11px] font-semibold text-slate-500 mr-1">/ شهرياً</span>
                         </p>
+                        {ongoingAlimonyDetailLines.length > 0 ? (
+                            <div className="mt-2 space-y-0.5">
+                                {ongoingAlimonyDetailLines.map((line) => (
+                                    <p
+                                        key={line}
+                                        className="text-[10px] text-slate-400 leading-relaxed"
+                                    >
+                                        {line}
+                                    </p>
+                                ))}
+                            </div>
+                        ) : null}
                         {showSettlementEntry && settlementUxTier === 'primary' && onActivateSettlement ? (
                             <div className="mt-3">
                                 <ReactiveSettlementEntry

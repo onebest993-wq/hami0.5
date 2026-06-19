@@ -55,13 +55,6 @@ class NotesVaultService {
         this.save();
     }
 
-    upsertNote(note: Note): void {
-        const idx = this.notes.findIndex((n) => n.id === note.id);
-        if (idx === -1) this.notes.unshift(note);
-        else this.notes[idx] = note;
-        this.save();
-    }
-
     private load() {
         try {
             const stored = SecureStoreService.getItemSync(this.storageKey);
@@ -118,11 +111,6 @@ class NotesVaultService {
 
     getNotes(): Note[] {
         return this.notes;
-    }
-
-    searchNotes(query: string): Note[] {
-        const q = query.toLowerCase();
-        return this.notes.filter(n => String(n.content || '').toLowerCase().includes(q));
     }
 
     deleteNote(id: string) {

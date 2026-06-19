@@ -5,6 +5,8 @@ import { DebtorEntityKindSegment } from '@/app/components/lawyer/ExecutionDashbo
 import { normalizeDebtorEntityKind } from '@/app/utils/debtorEntityKindUtils';
 import { ecg } from './executionCreationGlassUi';
 
+import type { DebtorEntityKind } from '@/app/utils/debtorEntityKindUtils';
+
 interface PartyCardProps {
     party: Party;
     index: number;
@@ -12,6 +14,9 @@ interface PartyCardProps {
     type: 'creditor' | 'debtor';
     onUpdate: (id: string | number, field: string, value: string | boolean | number) => void;
     onRemove: (id: string | number) => void;
+    /** مستقل / ضامن — عند تعدد المدينين مع تقسيم مدني فقط */
+    debtorLiabilityLabel?: 'مستقل' | 'ضامن' | null;
+    lockedEntityKind?: DebtorEntityKind | null;
 }
 
 const OCCUPATIONS = ['كاسب', 'موظف'] as const;
@@ -25,7 +30,9 @@ function readEntityKind(party: Party) {
 }
 
 const PartyCard: React.FC<PartyCardProps> = React.memo(({
-    party, index, totalCount, type, onUpdate, onRemove
+    party, index, totalCount, type, onUpdate, onRemove,
+    debtorLiabilityLabel = null,
+    lockedEntityKind = null,
 }) => {
     const isCreditor = type === 'creditor';
     const isClient = Boolean(party.isClient);
@@ -86,9 +93,11 @@ const PartyCard: React.FC<PartyCardProps> = React.memo(({
     return (
         <div className="p-3">
             <div className="flex justify-between items-center mb-2 pb-2 gap-2">
-                <h4 className={`${isCreditor ? 'text-emerald-500' : 'text-rose-500'} font-bold text-sm shrink-0`}>
-                    {displayTitle}
-                </h4>
+                <div className="flex items-center gap-2 shrink-0">
+                    <h4 className={`${isCreditor ? 'text-emerald-500' : 'text-rose-500'} font-bold text-sm`}>
+                        {displayTitle}
+                    </h4>
+                </div>
                 <div className="flex items-center gap-2 flex-wrap justify-end">
                     {!isLegalEntity ? (
                         <button
@@ -118,6 +127,7 @@ const PartyCard: React.FC<PartyCardProps> = React.memo(({
                         <DebtorEntityKindSegment
                             value={entityKind}
                             allowLegalEntity={!isClient}
+                            lockedEntityKind={lockedEntityKind}
                             onChange={handleEntityKindChange}
                         />
                     ) : null}
@@ -152,14 +162,21 @@ const PartyCard: React.FC<PartyCardProps> = React.memo(({
                     ) : null}
                 </div>
             </div>
-            <input
-                type="text"
-                placeholder="الاسم الكامل"
-                value={draft.name}
-                onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
-                onBlur={() => onUpdate(party.id, 'name', draft.name)}
-                className={`${ecg.field} mb-2`}
-            />
+            <div className="flex items-center gap-2 mb-2">
+                <input
+                    type="text"
+                    placeholder="الاسم الكامل"
+                    value={draft.name}
+                    onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
+                    onBlur={() => onUpdate(party.id, 'name', draft.name)}
+                    className={`${ecg.field} flex-1`}
+                />
+                {!isCreditor && debtorLiabilityLabel ? (
+                    <span className="text-[10px] font-bold text-[#F0DFA8]/90 border border-[#E6C673]/25 rounded-lg px-2 py-1 shrink-0 whitespace-nowrap">
+                        {debtorLiabilityLabel}
+                    </span>
+                ) : null}
+            </div>
             <div className="grid grid-cols-2 gap-3">
                 <input
                     type="text"

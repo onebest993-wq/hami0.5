@@ -1,10 +1,11 @@
-import { supabase } from '@/app/lib/supabase-client';
+import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import {
     CODE_TYPE_TO_LAW_NAME,
     mapAndDedupLawRows,
     type LegalCodeArticle,
     type LegalCodeType,
 } from './legalCodesConstants';
+import { getBundledLawRows } from '@/app/utils/bundledIraqiLawLoader';
 
 const cache = new Map<LegalCodeType, LegalCodeArticle[]>();
 const inflight = new Map<LegalCodeType, Promise<LegalCodeArticle[]>>();
@@ -37,29 +38,42 @@ export async function loadLegalCodeArticles(tab: LegalCodeType): Promise<LegalCo
     if (pending) return pending;
 
     const promise = (async () => {
-        const { data, error } = await supabase.functions.invoke<{
-            ok?: boolean;
-            error?: string;
-            details?: string;
-            items?: Array<{
-                id?: string;
-                law_name?: string;
-                article_number?: string;
-                content?: string;
-            }>;
-        }>('list-laws', { body: { law_name: CODE_TYPE_TO_LAW_NAME[tab] } });
+        try {
+            const data = await SecureAPIClient.fetchSecure<{
+                ok?: boolean;
+                error?: string;
+                details?: string;
+                items?: Array<{
+                    id?: string;
+                    law_name?: string;
+                    article_number?: string;
+                    content?: string;
+                }>;
+            }>('/api/laws/list', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ law_name: CODE_TYPE_TO_LAW_NAME[tab] }),
+            });
 
-        if (error) {
-            throw new Error(error.message || 'تعذر تحميل متون القوانين.');
-        }
-        if (!data || data.ok === false) {
-            throw new Error((data?.error || data?.details || 'تعذر تحميل متون القوانين.').trim());
+            if (data && data.ok !== false) {
+                const rows = Array.isArray(data.items) ? data.items : [];
+                const mapped = mapAndDedupLawRows(rows, tab);
+                if (mapped.length > 0) {
+                    cache.set(tab, mapped);
+                    return mapped;
+                }
+            }
+        } catch {
+            /* fallback to bundled project files */
         }
 
-        const rows = Array.isArray(data.items) ? data.items : [];
-        const mapped = mapAndDedupLawRows(rows, tab);
-        cache.set(tab, mapped);
-        return mapped;
+        const bundled = mapAndDedupLawRows(getBundledLawRows(CODE_TYPE_TO_LAW_NAME[tab]), tab);
+        if (bundled.length > 0) {
+            cache.set(tab, bundled);
+            return bundled;
+        }
+
+        throw new Error('تعذر تحميل متون القوانين من الخادم أو من ملفات المشروع.');
     })();
 
     inflight.set(tab, promise);

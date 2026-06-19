@@ -42,6 +42,13 @@ describe('communityPermissions', () => {
         expect(canEditPost(p, null)).toBe(false);
     });
 
+    it('allows admin to edit any post', () => {
+        const p = post();
+        expect(canEditPost(p, 'admin-id', true)).toBe(true);
+        expect(canEditPost(p, 'random', false)).toBe(false);
+        expect(canEditPost(p, 'author-1', false)).toBe(true);
+    });
+
     it('allows owner or admin to delete post', () => {
         const p = post();
         expect(canDeletePost(p, 'author-1', false)).toBe(true);
@@ -73,5 +80,22 @@ describe('communityPermissions', () => {
         const c = comment({ authorId: 'commenter-1' });
         expect(canEditComment(c, 'commenter-1')).toBe(true);
         expect(canEditComment(c, 'author-1')).toBe(false);
+    });
+
+    it('blocks editing comment marked as best answer', () => {
+        const c = comment({ id: 'c1' });
+        const p = post({ bestCommentId: 'c1' });
+        expect(canEditComment(c, 'commenter-1', p)).toBe(false);
+    });
+
+    it('allows editing non-best comment when post has best answer', () => {
+        const c = comment({ id: 'c2' });
+        const p = post({ bestCommentId: 'c1' });
+        expect(canEditComment(c, 'commenter-1', p)).toBe(true);
+    });
+
+    it('rejects unauthenticated comment edit', () => {
+        const c = comment();
+        expect(canEditComment(c, null)).toBe(false);
     });
 });

@@ -3,11 +3,18 @@ import { ArrowRight, Search, Bell, ChevronDown } from 'lucide-react';
 import { AnimatePresence } from 'motion/react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { NotificationDB, type ForumNotification } from '@/app/services/lawyer-cloud';
-import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
 import { ForumCategoryPanel } from './ForumCategoryPanel';
 import { RepositoryFilterPanel } from './RepositoryFilterPanel';
-import { ForumSectionSwitch } from './ForumSectionSwitch';
+import { ForumSectionSwitch, type ForumSectionId } from './ForumSectionSwitch';
 import { FORUM_FILTER_LABELS } from '../forumFilters';
+import {
+    FORUM_APP_BAR,
+    FORUM_ACCENT_CHIP,
+    FORUM_PANEL,
+    FORUM_TEXT_APRICOT,
+    FORUM_TEXT_MUTED,
+    FORUM_TEXT_PRIMARY,
+} from '../forumPlumTheme';
 import {
     repositoryFilterSummary,
     repositoryHasActiveListFilters,
@@ -16,8 +23,8 @@ import {
 
 interface ForumAppBarProps {
     onBack?: () => void;
-    activeSection: 'forum' | 'repository';
-    onSectionChange: (section: 'forum' | 'repository') => void;
+    activeSection: ForumSectionId;
+    onSectionChange: (section: ForumSectionId) => void;
     onSearchOpen: () => void;
     onNavigateToPost?: (postId: string) => void;
     userId?: string | null;
@@ -81,12 +88,6 @@ export const ForumAppBar = ({
             setUnreadCount(0);
             return;
         }
-        const settings = getLawyerSettingsSnapshot();
-        if (!settings.notifications.master || settings.security.decoyMode) {
-            setNotifications([]);
-            setUnreadCount(0);
-            return;
-        }
         setLoadingNotifs(true);
         try {
             const list = await NotificationDB.getNotifications(userId);
@@ -108,8 +109,6 @@ export const ForumAppBar = ({
 
     const handleMarkAllRead = async () => {
         if (!userId) return;
-        const settings = getLawyerSettingsSnapshot();
-        if (!settings.notifications.master || settings.security.decoyMode) return;
         try {
             await NotificationDB.markAllAsRead(userId);
             setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
@@ -172,20 +171,20 @@ export const ForumAppBar = ({
     };
 
     return (
-        <div className="bg-[#151822]/95 backdrop-blur-xl border-b border-white/5 shadow-sm sticky top-0 z-10">
+        <div className={FORUM_APP_BAR}>
             <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                     {onBack ? (
                         <button
                             type="button"
                             onClick={onBack}
-                            className="w-9 h-9 rounded-full bg-white/5 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                            className="w-9 h-9 rounded-full bg-[#2C2434] flex items-center justify-center text-[#9A9098] hover:text-[#F0B896] hover:bg-[#342C3E] hover:shadow-[inset_0_0_16px_rgba(240,184,150,0.1)] transition-all shrink-0"
                             aria-label="رجوع"
                         >
                             <ArrowRight size={20} />
                         </button>
                     ) : null}
-                    <h1 className="text-white font-bold text-base sm:text-lg truncate leading-tight">
+                    <h1 className={`${FORUM_TEXT_PRIMARY} font-bold text-base sm:text-lg truncate leading-tight`}>
                         منتدى الزملاء المغلق
                     </h1>
                 </div>
@@ -197,7 +196,7 @@ export const ForumAppBar = ({
                             onClick={handleBellClick}
                             aria-label="التنبيهات"
                             aria-expanded={showNotifPanel}
-                            className="w-10 h-10 rounded-full bg-[#25293C] flex items-center justify-center text-white/70 hover:text-white hover:bg-[#2f3346] transition-colors relative"
+                            className="w-10 h-10 rounded-full bg-[#2C2434] flex items-center justify-center text-[#9A9098] hover:text-[#F0B896] hover:bg-[#342C3E] transition-colors relative"
                         >
                             <Bell size={20} />
                             {unreadCount > 0 ? (
@@ -210,14 +209,14 @@ export const ForumAppBar = ({
                         {showNotifPanel ? (
                             <>
                                 <div className="fixed inset-0 z-40" onClick={() => setShowNotifPanel(false)} />
-                                <div className="absolute left-0 top-full mt-2 w-80 z-50 bg-[#1A1D2D] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
-                                    <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
-                                        <h3 className="text-white font-bold text-sm">التنبيهات</h3>
+                                <div className={`absolute left-0 top-full mt-2 w-80 z-50 ${FORUM_PANEL} shadow-2xl overflow-hidden`}>
+                                    <div className="flex items-center justify-between px-4 py-3 border-b border-[#4A3D52]/40">
+                                        <h3 className={`${FORUM_TEXT_PRIMARY} font-bold text-sm`}>التنبيهات</h3>
                                         {unreadCount > 0 ? (
                                             <button
                                                 type="button"
                                                 onClick={() => void handleMarkAllRead()}
-                                                className="text-[#E6C673] text-[11px] font-bold hover:underline"
+                                                className={`${FORUM_TEXT_APRICOT} text-[11px] font-bold hover:underline`}
                                             >
                                                 تحديد الكل كمقروء
                                             </button>
@@ -234,8 +233,8 @@ export const ForumAppBar = ({
                                                     key={n.id}
                                                     type="button"
                                                     onClick={() => void handleNotificationClick(n)}
-                                                    className={`w-full text-right px-4 py-3 border-b border-white/5 last:border-0 transition hover:bg-white/5 ${
-                                                        !n.read ? 'bg-[#E6C673]/5' : ''
+                                                    className={`w-full text-right px-4 py-3 border-b border-[#4A3D52]/30 last:border-0 transition hover:bg-[#342C3E] hover:shadow-[inset_0_0_16px_rgba(240,184,150,0.06)] ${
+                                                        !n.read ? 'bg-[#F0B896]/6' : ''
                                                     }`}
                                                 >
                                                     <p className="text-white text-xs font-bold">{n.title}</p>
@@ -251,12 +250,12 @@ export const ForumAppBar = ({
 
                     {activeSection === 'forum' ? (
                         <div className="relative">
-                            <div className="flex items-center h-10 rounded-full bg-[#25293C] border border-white/10 overflow-hidden shadow-lg shadow-black/20">
+                            <div className="flex items-center h-10 rounded-full bg-[#2C2434] border border-[#4A3D52]/50 overflow-hidden">
                                 <button
                                     type="button"
                                     onClick={handleForumSearchClick}
                                     aria-label="بحث في المنتدى والمستودع"
-                                    className="w-10 h-10 flex items-center justify-center text-white/70 hover:text-white hover:bg-[#2f3346] transition-colors"
+                                    className="w-10 h-10 flex items-center justify-center text-[#9A9098] hover:text-[#F0B896] hover:bg-[#342C3E] transition-colors"
                                 >
                                     <Search size={18} />
                                 </button>
@@ -271,8 +270,8 @@ export const ForumAppBar = ({
                                     aria-expanded={showForumFilterPanel}
                                     className={`relative h-10 px-2.5 flex items-center gap-1 transition-colors ${
                                         showForumFilterPanel || hasForumFilter
-                                            ? 'text-[#E6C673] bg-[#E6C673]/10'
-                                            : 'text-white/70 hover:text-white hover:bg-[#2f3346]'
+                                            ? `${FORUM_TEXT_APRICOT} bg-[#F0B896]/12 shadow-[inset_0_0_14px_rgba(240,184,150,0.1)]`
+                                            : 'text-[#9A9098] hover:text-[#F0B896] hover:bg-[#342C3E]'
                                     }`}
                                 >
                                     <ChevronDown

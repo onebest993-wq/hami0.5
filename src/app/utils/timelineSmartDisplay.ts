@@ -176,12 +176,12 @@ export function timelineTitleForDisplay(event: TimelineEvent): string {
         return rest ? `${label}: ${rest}` : label;
     }
     t = stripPendingLabelsFromExecutorSubject(t);
-    return t.replace(/^[\s✅❌🔄📌📄📝🔔💰⚖️🏠🤖⏳🔢🏛️📈]+/u, '').trim();
+    return t.replace(/^[\s✅❌🔄📌📄📝🔔💰⚖️🏠🤖⏳🔢🏛️📈⏸️🔀🛑🔒⚡🔎🙋]+/u, '').trim();
 }
 
 /** إزالة إيموجي العنوان — نطاق يوافق طلب الواجهة */
 export const TIMELINE_TITLE_EMOJI_RE =
-    /[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F004}\u{1F0CF}]/gu;
+    /[\u{1F300}-\u{1F9FF}\u{1FA00}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2300}-\u{23FF}\u{1F600}-\u{1F64F}\u{1F004}\u{1F0CF}\uFE0F\u200D]/gu;
 
 export function cleanTimelineCardTitle(event: TimelineEvent): string {
     return timelineTitleForDisplay(event)

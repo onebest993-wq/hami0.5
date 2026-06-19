@@ -10,11 +10,11 @@ export const MONTHS = [
 ];
 
 export const TYPE_STYLES: Record<CalendarEventType, { label: string; color: string; bg: string; border: string; icon: React.ElementType }> = {
-    hearing: { label: 'جلسة', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', icon: Gavel },
-    deadline: { label: 'موعد نهائي', color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20', icon: AlertTriangle },
-    consultation: { label: 'استشارة', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', icon: DollarSign },
-    execution: { label: 'تنفيذ', color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20', icon: Scale },
-    custom: { label: 'موعد', color: 'text-indigo-400', bg: 'bg-indigo-500/10', border: 'border-indigo-500/20', icon: Clock },
+    hearing: { label: 'جلسة', color: 'text-[#E6C673]', bg: 'bg-[#C9A227]/12', border: 'border-[#C9A227]/30', icon: Gavel },
+    deadline: { label: 'موعد نهائي', color: 'text-rose-300', bg: 'bg-rose-500/10', border: 'border-rose-500/25', icon: AlertTriangle },
+    consultation: { label: 'استشارة', color: 'text-[#93c5fd]', bg: 'bg-[#1e3a5f]/40', border: 'border-[#5b8fd4]/30', icon: DollarSign },
+    execution: { label: 'تنفيذ', color: 'text-slate-200', bg: 'bg-[#64748b]/15', border: 'border-[#64748b]/30', icon: Scale },
+    custom: { label: 'موعد', color: 'text-slate-300', bg: 'bg-[#64748b]/10', border: 'border-[#64748b]/25', icon: Clock },
 };
 
 export type EventFormData = {
@@ -85,11 +85,11 @@ export function dotColorsForDate(events: UnifiedEvent[]): string[] {
         if (seen.has(e.type)) continue;
         seen.add(e.type);
         switch (e.type) {
-            case 'hearing': colors.push('bg-amber-500'); break;
-            case 'deadline': colors.push('bg-rose-500'); break;
-            case 'consultation': colors.push('bg-emerald-500'); break;
-            case 'execution': colors.push('bg-purple-500'); break;
-            default: colors.push('bg-indigo-500'); break;
+            case 'hearing': colors.push('bg-[#C9A227]'); break;
+            case 'deadline': colors.push('bg-rose-400'); break;
+            case 'consultation': colors.push('bg-[#5b8fd4]'); break;
+            case 'execution': colors.push('bg-slate-400'); break;
+            default: colors.push('bg-[#64748b]'); break;
         }
     }
     return colors.length > 3 ? colors.slice(0, 3) : colors;

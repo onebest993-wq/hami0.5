@@ -6,15 +6,12 @@ import type {
     TaskExpenseEntry,
 } from '@/app/types/TaskEngine';
 import { addDays, parseTaskInput, startOfLocalDay } from '@/app/utils/nlpParser';
-import { buildFieldGrouping } from '@/app/utils/fieldViewGrouping';
-import { groupTasksByTime, type GroupedByTime } from '@/app/utils/groupTasksByTime';
 import { prepareAgendaTasks, isTaskAgendaReadOnly } from '@/app/components/lawyer/dashboard/tasksManager/utils';
 import {
     applySilentPracticalEnrichment,
     type TaskEnrichmentOptions,
 } from '@/app/utils/quantumTaskEnrichment';
 
-export type { GroupedByTime };
 export type AddTaskOptions = TaskEnrichmentOptions;
 
 function newId(): string {
@@ -152,16 +149,6 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
             }
             return prev.filter((t) => t.id !== id);
         });
-    }, []);
-
-    const batchTasks = useCallback((taskIds: string[], newDate: Date) => {
-        const day = startOfLocalDay(newDate);
-        const idSet = new Set(taskIds);
-        setTasks((prev) =>
-            prev.map((t) =>
-                idSet.has(t.id) ? { ...t, parsedDate: new Date(day.getTime()) } : t,
-            ),
-        );
     }, []);
 
     const completeTask = useCallback((id: string) => {
@@ -329,25 +316,6 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
 
     const pendingTasks = useMemo(() => tasks.filter((t) => t.status === 'pending'), [tasks]);
 
-    const groupedByLocation = useMemo(() => {
-        const map = new Map<string, LegalTask[]>();
-        for (const t of pendingTasks) {
-            const key = t.location ?? 'غير محدد';
-            const arr = map.get(key) ?? [];
-            arr.push(t);
-            map.set(key, arr);
-        }
-        const record: Record<string, LegalTask[]> = {};
-        for (const [k, v] of map) {
-            record[k] = v;
-        }
-        return record;
-    }, [pendingTasks]);
-
-    const fieldGrouping = useMemo(() => buildFieldGrouping(pendingTasks), [pendingTasks]);
-
-    const groupedByTime = useMemo(() => groupTasksByTime(pendingTasks), [pendingTasks]);
-
     return {
         tasks,
         pendingTasks,
@@ -356,7 +324,6 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
         addSnoozedBacklogTask,
         updateTask,
         deleteTask,
-        batchTasks,
         completeTask,
         reopenTask,
         toggleTaskFatalDeadline,
@@ -368,9 +335,6 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
         addDocumentRequirement,
         toggleDocumentRequirement,
         addExpense,
-        groupedByLocation,
-        fieldGrouping,
-        groupedByTime,
         setTasks,
     };
 }

@@ -109,7 +109,7 @@ function getClaimTypeOptions(docType: string, classification: string) {
                 { value: 'نفقة عدة', label: 'نفقة عدة' },
                 { value: 'مهر مؤجل', label: 'مهر مؤجل' },
                 { value: 'تعويض عن طلاق تعسفي', label: 'تعويض عن طلاق تعسفي' },
-                { value: 'تسليم ولد', label: 'تسليم حضانة' },
+                { value: 'تسليم ولد', label: 'نزع حضانة' },
                 { value: 'مشاهدة', label: 'مشاهدة واستصحاب' },
                 { value: 'أثاث زوجية', label: 'أثاث زوجية' },
                 { value: 'مطاوعة', label: 'المطاوعة/ ترك النشوز' }
@@ -122,7 +122,7 @@ function getClaimTypeOptions(docType: string, classification: string) {
         case 'تنفيذ الأحكام الأجنبية_شرعي':
             return [
                 { value: 'نفقة', label: 'نفقة' },
-                { value: 'تسليم ولد', label: 'تسليم حضانة' }
+                { value: 'تسليم ولد', label: 'نزع حضانة' }
             ];
         default:
             return [];

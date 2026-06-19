@@ -5,6 +5,8 @@ import { ExecutionPinnedNotesTray } from './ExecutionPinnedNotesTray';
 import { prefetchExecutionLawArticlesRemote } from '@/app/utils/executionLawRemoteCache';
 import {
     prefetchDecisionsAndAppealsEngine,
+    prefetchExecutionDashboardShell,
+    prefetchExecutionFollowupDefaultTab,
     prefetchFinancialOperationsCenter,
     prefetchFollowupMemoPanels,
 } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShell';
@@ -89,6 +91,8 @@ export const ActionGridSection = memo(function ActionGridSection({
     const pinnedCount = pinnedNotes.length + pinnedTasks.length;
 
     useEffect(() => {
+        prefetchExecutionDashboardShell();
+        prefetchExecutionFollowupDefaultTab();
         prefetchExecutionLawArticlesRemote();
         prefetchFinancialOperationsCenter();
         prefetchFollowupMemoPanels();

@@ -8,7 +8,7 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 function toParty(
     p: Record<string, unknown>,
     idx: number,
-    defaults: { isClient: boolean; side: 'right' | 'left' },
+    listSide: 'right' | 'left',
 ): Party | null {
     const name = typeof p.name === 'string' ? p.name.trim() : '';
     if (!name) return null;
@@ -20,22 +20,76 @@ function toParty(
               ? Number(idRaw)
               : Date.now() + idx;
     const role =
-        typeof p.status === 'string'
+        typeof p.status === 'string' && p.status.trim()
             ? p.status
-            : typeof p.role === 'string'
+            : typeof p.role === 'string' && p.role.trim()
               ? p.role
-              : defaults.isClient
+              : listSide === 'right'
                 ? 'المدعي'
                 : 'المدعى عليه';
+    const isClient = p.isClient === true;
     return {
         id,
         name,
         role,
-        isClient: defaults.isClient,
+        isClient,
         phone: typeof p.phone === 'string' ? p.phone : undefined,
         address: typeof p.address === 'string' ? p.address : undefined,
-        side: defaults.side,
+        side: listSide,
     };
+}
+
+function thirdPartyToParty(tp: Record<string, unknown>, idx: number): Party | null {
+    const name = typeof tp.name === 'string' ? tp.name.trim() : '';
+    if (!name) return null;
+    const affiliatedSide = tp.affiliatedSide === 1 || tp.affiliatedSide === 2 ? tp.affiliatedSide : null;
+    const entryMode = typeof tp.entryMode === 'string' ? tp.entryMode : '';
+    const roleLabel =
+        typeof tp.roleLabel === 'string' && tp.roleLabel.trim()
+            ? tp.roleLabel.trim()
+            : entryMode === 'interpleader'
+              ? 'شخص ثالث (اختصامي)'
+              : entryMode === 'affiliative'
+                ? affiliatedSide === 1
+                    ? 'شخص ثالث (انضمامي — جانب المدعي)'
+                    : 'شخص ثالث (انضمامي — جانب المدعى عليه)'
+                : 'شخص ثالث';
+    const side: 'right' | 'left' | undefined =
+        entryMode === 'interpleader'
+            ? undefined
+            : affiliatedSide === 1
+              ? 'right'
+              : affiliatedSide === 2
+                ? 'left'
+                : undefined;
+    const idRaw = tp.id;
+    const id =
+        typeof idRaw === 'number'
+            ? idRaw
+            : typeof idRaw === 'string' && /^\d+$/.test(idRaw)
+              ? Number(idRaw)
+              : Date.now() + idx + 200;
+    return {
+        id,
+        name,
+        role: roleLabel,
+        isClient: tp.isClient === true,
+        phone: typeof tp.phone === 'string' ? tp.phone : undefined,
+        address: typeof tp.address === 'string' ? tp.address : undefined,
+        ...(side ? { side } : {}),
+    };
+}
+
+function resolveRepresentedPartyFromPayload(
+    parties1: Record<string, unknown>[],
+    parties2: Record<string, unknown>[],
+    thirdParties: Record<string, unknown>[],
+): 'المدعي' | 'المدعى عليه' | undefined {
+    if (parties1.some((p) => p.isClient === true)) return 'المدعي';
+    if (parties2.some((p) => p.isClient === true)) return 'المدعى عليه';
+    if (thirdParties.some((tp) => tp.isClient === true && tp.affiliatedSide === 1)) return 'المدعي';
+    if (thirdParties.some((tp) => tp.isClient === true && tp.affiliatedSide === 2)) return 'المدعى عليه';
+    return undefined;
 }
 
 function buildFromStructuredPayload(d: Record<string, unknown>): FileData {
@@ -65,6 +119,45 @@ function buildFromStructuredPayload(d: Record<string, unknown>): FileData {
               ? d.feesTotal
               : '';
     const feesTotal = feesRaw ? feesRaw.replace(/[^0-9.]/g, '') : '0';
+    const judge =
+        typeof details.judge === 'string' && details.judge.trim()
+            ? details.judge.trim()
+            : typeof d.judge === 'string'
+              ? d.judge.trim()
+              : undefined;
+    const currentStage =
+        typeof details.stage === 'string' && details.stage.trim()
+            ? details.stage.trim()
+            : typeof d.currentStage === 'string'
+              ? d.currentStage.trim()
+              : undefined;
+    const claimValueRaw =
+        typeof details.claimValue === 'string'
+            ? details.claimValue
+            : typeof d.claimValue === 'string'
+              ? d.claimValue
+              : '';
+    const claimValue = claimValueRaw.replace(/[^0-9]/g, '') || undefined;
+
+    const isUndeterminedValue = d.isUndeterminedValue === true;
+    const isFixedFee = d.isFixedFee === true;
+    const retrialTargetStage =
+        typeof details.retrialTargetStage === 'string' && details.retrialTargetStage.trim()
+            ? details.retrialTargetStage.trim()
+            : typeof d.retrialTargetStage === 'string' && d.retrialTargetStage.trim()
+              ? d.retrialTargetStage.trim()
+              : undefined;
+
+    const applicableLawRaw =
+        typeof details.applicableLaw === 'string'
+            ? details.applicableLaw
+            : typeof d.applicableLaw === 'string'
+              ? d.applicableLaw
+              : undefined;
+    const applicableLaw =
+        applicableLawRaw === 'law_188_1959' || applicableLawRaw === 'jaafari_code'
+            ? applicableLawRaw
+            : undefined;
 
     const parties1 = Array.isArray(d.parties1) ? (d.parties1 as Record<string, unknown>[]) : [];
     const parties2 = Array.isArray(d.parties2) ? (d.parties2 as Record<string, unknown>[]) : [];
@@ -72,25 +165,17 @@ function buildFromStructuredPayload(d: Record<string, unknown>): FileData {
 
     const parties: Party[] = [
         ...parties1
-            .map((p, idx) => toParty(p, idx, { isClient: true, side: 'right' }))
+            .map((p, idx) => toParty(p, idx, 'right'))
             .filter((x): x is Party => x !== null),
         ...parties2
-            .map((p, idx) => toParty(p, idx + 100, { isClient: false, side: 'left' }))
+            .map((p, idx) => toParty(p, idx + 100, 'left'))
             .filter((x): x is Party => x !== null),
         ...thirdParties
-            .map((p, idx) =>
-                toParty(
-                    {
-                        ...p,
-                        name: typeof p.name === 'string' ? p.name : '',
-                        role: typeof p.entryType === 'string' ? p.entryType : 'طرف ثالث',
-                    },
-                    idx + 200,
-                    { isClient: false, side: 'left' },
-                ),
-            )
+            .map((p, idx) => thirdPartyToParty(p, idx))
             .filter((x): x is Party => x !== null),
     ];
+
+    const representedParty = resolveRepresentedPartyFromPayload(parties1, parties2, thirdParties);
 
     if (parties.length === 0 && Array.isArray(d.parties)) {
         return buildFromCaseFormPayload(d);
@@ -115,6 +200,12 @@ function buildFromStructuredPayload(d: Record<string, unknown>): FileData {
         caseNoParts: { year: new Date().getFullYear().toString(), type: '', seq: '' },
         court,
         docType,
+        ...(judge ? { judge } : {}),
+        ...(currentStage ? { currentStage } : {}),
+        ...(claimValue ? { claimValue } : {}),
+        ...(isUndeterminedValue ? { isUndeterminedValue: true } : {}),
+        ...(isFixedFee ? { isFixedFee: true } : {}),
+        ...(retrialTargetStage ? { retrialTargetStage } : {}),
         feesTotal,
         feesPaid: '0',
         date: new Date().toLocaleDateString('ar-EG'),
@@ -122,7 +213,10 @@ function buildFromStructuredPayload(d: Record<string, unknown>): FileData {
         history: [],
         notes: [],
         images: [],
+        ...(representedParty ? { representedParty } : {}),
+        ...(thirdParties.length > 0 ? { thirdParties } : {}),
         ...(lawsuitJurisdiction ? { lawsuitJurisdiction } : {}),
+        ...(applicableLaw ? { applicableLaw } : {}),
     };
 }
 
@@ -138,12 +232,10 @@ function buildFromCaseFormPayload(d: Record<string, unknown>): FileData {
 
     const rawParties = Array.isArray(d.parties) ? (d.parties as Record<string, unknown>[]) : [];
     const parties: Party[] = rawParties
-        .map((p, idx) =>
-            toParty(p, idx, {
-                isClient: !!p.isClient,
-                side: p.isClient ? 'right' : 'left',
-            }),
-        )
+        .map((p, idx) => {
+            const isClient = p.isClient === true;
+            return toParty(p, idx, isClient ? 'right' : 'left');
+        })
         .filter((x): x is Party => x !== null);
 
     return {
@@ -187,12 +279,4 @@ export function filterLawsuitWorkspaceFiles<T extends { type?: string; status?: 
 /** كل إضابير الدعاوى لبوابة الأرشيف (نشطة + مؤرشفة + سلة). */
 export function allLawsuitFilesForArchive<T extends { type?: string }>(files: T[]): T[] {
     return files.filter((f) => f.type === 'lawsuit');
-}
-
-/**
- * تحويل FileData إلى صفوف ArchivePortal دون `any`.
- * ArchivePortal يقبل حقولاً موسّعة (LooseArchiveFile) متوافقة مع تخزين المحامي.
- */
-export function lawsuitFilesToArchiveRows<T extends FileData>(files: T[]): T[] {
-    return files;
 }

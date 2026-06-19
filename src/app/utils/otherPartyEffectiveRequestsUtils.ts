@@ -20,6 +20,7 @@ import {
 } from '@/app/utils/seizureMatrix';
 import {
     isCreditorGuarantorRequestOptionVisible,
+    isEmployeeCoerciveDetentionRestricted,
     isPersonalCoerciveDetentionPathAllowedForDebtor,
     listHiddenGuarantorCatalog,
     listHiddenPersonalCoerciveCatalog,
@@ -175,6 +176,7 @@ const PERSONAL_DEFS: PersonalDef[] = [
         allowed: (f) =>
             isPersonalCoerciveDetentionPathAllowedForDebtor('forced_bring_in', {
                 activeDebtorIsEmployee: f.activeDebtorIsEmployee,
+                isCustodyRemovalClaim: f.isCustodyRemovalClaim,
             }),
     },
     {
@@ -185,6 +187,7 @@ const PERSONAL_DEFS: PersonalDef[] = [
         allowed: (f) =>
             isPersonalCoerciveDetentionPathAllowedForDebtor('travel_ban', {
                 activeDebtorIsEmployee: f.activeDebtorIsEmployee,
+                isCustodyRemovalClaim: f.isCustodyRemovalClaim,
             }),
     },
     {
@@ -195,6 +198,7 @@ const PERSONAL_DEFS: PersonalDef[] = [
         allowed: (f) =>
             isPersonalCoerciveDetentionPathAllowedForDebtor('arrest_warrant_investigation', {
                 activeDebtorIsEmployee: f.activeDebtorIsEmployee,
+                isCustodyRemovalClaim: f.isCustodyRemovalClaim,
             }),
     },
     {
@@ -204,9 +208,10 @@ const PERSONAL_DEFS: PersonalDef[] = [
         shortLabel: 'عرض الإضبارة',
         allowed: (f) =>
             !f.hidePersonalJudgePresentation &&
-            !f.activeDebtorIsEmployee &&
+            !isEmployeeCoerciveDetentionRestricted(f) &&
             isPersonalCoerciveDetentionPathAllowedForDebtor('executive_dossier_presentation', {
                 activeDebtorIsEmployee: f.activeDebtorIsEmployee,
+                isCustodyRemovalClaim: f.isCustodyRemovalClaim,
             }),
     },
     {
@@ -216,9 +221,10 @@ const PERSONAL_DEFS: PersonalDef[] = [
         shortLabel: 'قرار القاضي',
         allowed: (f) =>
             !f.hidePersonalJudgePresentation &&
-            !f.activeDebtorIsEmployee &&
+            !isEmployeeCoerciveDetentionRestricted(f) &&
             isPersonalCoerciveDetentionPathAllowedForDebtor('executive_detention_judge', {
                 activeDebtorIsEmployee: f.activeDebtorIsEmployee,
+                isCustodyRemovalClaim: f.isCustodyRemovalClaim,
             }),
     },
 ];

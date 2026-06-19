@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { countDocsInCategory } from '@/app/services/vaultCustomCategories';
 import type { SmartVaultDoc } from '@/app/services/lawyer-cloud';
+import { VAULT_CHIP_ACTIVE, VAULT_CHIP_IDLE, VAULT_INPUT } from './vaultDustyRoseTheme';
 
 interface FilterChipsProps {
     activeFilter: string;
@@ -30,17 +31,15 @@ export const FilterChips: React.FC<FilterChipsProps> = ({
         setCreating(false);
     };
 
+    const chipBase = 'shrink-0 px-3 py-1.5 rounded-full text-[11px] font-bold transition-all border';
+
     return (
         <div className="flex flex-col gap-2">
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
                 <button
                     type="button"
                     onClick={() => onChange('الكل')}
-                    className={`shrink-0 px-3 py-1.5 rounded-full text-[11px] font-bold transition-all border ${
-                        activeFilter === 'الكل'
-                            ? 'bg-[#D4AF37]/20 border-[#D4AF37]/50 text-[#D4AF37] shadow-[0_0_10px_rgba(212,175,55,0.15)]'
-                            : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
-                    }`}
+                    className={`${chipBase} ${activeFilter === 'الكل' ? VAULT_CHIP_ACTIVE : VAULT_CHIP_IDLE}`}
                 >
                     الكل
                     <span className="mr-1 text-[10px] opacity-60">({docs.length})</span>
@@ -54,11 +53,7 @@ export const FilterChips: React.FC<FilterChipsProps> = ({
                             type="button"
                             key={category}
                             onClick={() => onChange(category)}
-                            className={`shrink-0 px-3 py-1.5 rounded-full text-[11px] font-bold transition-all border ${
-                                isActive
-                                    ? 'bg-[#D4AF37]/20 border-[#D4AF37]/50 text-[#D4AF37]'
-                                    : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
-                            }`}
+                            className={`${chipBase} ${isActive ? VAULT_CHIP_ACTIVE : VAULT_CHIP_IDLE}`}
                         >
                             {category}
                             <span className="mr-1 text-[10px] opacity-60">({count})</span>
@@ -70,7 +65,7 @@ export const FilterChips: React.FC<FilterChipsProps> = ({
                     <button
                         type="button"
                         onClick={() => setCreating(true)}
-                        className="shrink-0 px-3 py-1.5 rounded-full text-[11px] font-bold border border-dashed border-[#D4AF37]/40 text-[#D4AF37]/90 hover:bg-[#D4AF37]/10 flex items-center gap-1"
+                        className="shrink-0 px-3 py-1.5 rounded-full text-[11px] font-bold border border-dashed border-[#B8A078]/35 text-[#B8A078]/90 hover:bg-[#B8A078]/8 flex items-center gap-1"
                     >
                         <Plus size={12} />
                         تصنيف مخصص
@@ -93,13 +88,13 @@ export const FilterChips: React.FC<FilterChipsProps> = ({
                         }}
                         placeholder="اسم التصنيف الجديد..."
                         autoFocus
-                        className="flex-1 bg-white/5 border border-[#D4AF37]/30 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-[#D4AF37]/50"
+                        className={`flex-1 ${VAULT_INPUT}`}
                     />
                     <button
                         type="button"
                         onClick={submitCategory}
                         disabled={!newName.trim()}
-                        className="px-3 py-2 rounded-xl bg-[#D4AF37] text-black text-xs font-bold disabled:opacity-40"
+                        className="px-3 py-2 rounded-xl bg-[#C9A9A6]/25 border border-[#C9A9A6]/40 text-[#F7F3EB] text-xs font-bold disabled:opacity-40"
                     >
                         إضافة
                     </button>
@@ -109,9 +104,9 @@ export const FilterChips: React.FC<FilterChipsProps> = ({
                             setCreating(false);
                             setNewName('');
                         }}
-                        className="p-2 rounded-lg hover:bg-white/5"
+                        className="p-2 rounded-lg hover:bg-[#4A4440]/40"
                     >
-                        <X size={16} className="text-white/50" />
+                        <X size={16} className="text-[#C9A9A6]/60" />
                     </button>
                 </div>
             ) : null}

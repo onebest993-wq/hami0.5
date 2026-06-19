@@ -38,6 +38,15 @@ describe('AuditLog publisher', () => {
         expect(n.category).toBe('forum');
     });
 
+    it('a4b) forum.questionPosted لا يُنشئ إشعاراً (إجراء ذاتي)', () => {
+        const result = AuditLog.forum.questionPosted({
+            questionId: 'q-self',
+            title: 'سؤال تجريبي',
+        });
+        expect(result).toBeNull();
+        expect(useNotificationStore.getState().notifications).toHaveLength(0);
+    });
+
     it('a5) deriveNotificationCategory يعمل صحيحاً للأنواع الجديدة', () => {
         const base = {
             id: 'x',

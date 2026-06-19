@@ -1,0 +1,109 @@
+import { describe, expect, it } from 'vitest';
+import type { TimelineEvent } from '../../../LawyerShared';
+import {
+    buildOpponentProceedingsPayload,
+    buildSessionRecordPayload,
+    computeNextSessionNumber,
+    isOpponentProceedingsEvent,
+    isSessionTimelineEvent,
+    parseSessionRecordEvent,
+    suggestCurrentHearingDate,
+    suggestNextHearingDate,
+} from '../sessionRecordEngine';
+
+describe('sessionRecordEngine', () => {
+    it('detects session timeline events', () => {
+        expect(isSessionTimelineEvent({ id: '1', type: 'decision', date: '2026-01-01', title: 'x', isSessionRecord: true })).toBe(true);
+        expect(isSessionTimelineEvent({ id: '2', type: 'decision', date: '2026-01-01', title: 'محضر الجلسة 2' })).toBe(true);
+        expect(isSessionTimelineEvent({ id: '3', type: 'note', date: '2026-01-01', title: 'ملاحظة' })).toBe(false);
+    });
+
+    it('computes next session number from records and pleading appointments', () => {
+        const timeline: TimelineEvent[] = [
+            { id: 'a', type: 'decision', date: '2026-01-01', title: 'محضر الجلسة 2', isSessionRecord: true },
+            { id: 'b', type: 'appointment', date: '2026-02-01', title: 'جلسة', subType: 'pleading' },
+        ];
+        expect(computeNextSessionNumber(timeline)).toBe(3);
+    });
+
+    it('parses and builds session record payload with judge decisions and next date', () => {
+        const event: TimelineEvent = {
+            id: 'e1',
+            type: 'decision',
+            date: '2026-03-10',
+            title: 'محضر الجلسة 4',
+            details: [
+                'رقم الجلسة: 4',
+                'تاريخ المرافعة القادمة: 2026-04-01',
+                '',
+                'مجريات الدعوى:',
+                'تمت المرافعة.',
+                '',
+                'قرارات القاضي:',
+                'تأجيل للمرافعة.',
+            ].join('\n'),
+            isSessionRecord: true,
+        };
+        expect(parseSessionRecordEvent(event)).toEqual({
+            date: '2026-03-10',
+            sessionNumber: '4',
+            proceedings: 'تمت المرافعة.',
+            judgeDecisions: 'تأجيل للمرافعة.',
+            nextHearingDate: '2026-04-01',
+        });
+        expect(
+            buildSessionRecordPayload({
+                date: '2026-03-11',
+                sessionNumber: '5',
+                proceedings: 'نص',
+                judgeDecisions: 'قرار',
+                nextHearingDate: '2026-05-01',
+            }),
+        ).toMatchObject({
+            title: 'محضر الجلسة 5',
+            details: expect.stringContaining('قرارات القاضي'),
+            isSessionRecord: true,
+        });
+    });
+
+    it('suggests next pleading date after current session', () => {
+        const timeline: TimelineEvent[] = [
+            { id: 'p1', type: 'appointment', date: '2026-03-01', title: 'مرافعة', subType: 'pleading' },
+            { id: 'p2', type: 'appointment', date: '2026-05-01', title: 'مرافعة', subType: 'pleading' },
+        ];
+        expect(suggestNextHearingDate(timeline, '2026-03-01')).toBe('2026-05-01');
+        expect(suggestCurrentHearingDate(timeline)).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
+
+    it('parses and builds opponent proceedings payload', () => {
+        const event: TimelineEvent = {
+            id: 'opp1',
+            type: 'decision',
+            date: '2026-03-10',
+            title: 'تحركات وكيل الخصم — جلسة 3',
+            details: [
+                'رقم الجلسة: 3',
+                '',
+                'تحركات الطرف الآخر / وكيل الخصم:',
+                'قدّم وكيل الخصم مذكرة جوابية.',
+            ].join('\n'),
+            isSessionRecord: true,
+            isOpponentProceedings: true,
+        };
+        expect(isOpponentProceedingsEvent(event)).toBe(true);
+        expect(parseSessionRecordEvent(event).proceedings).toBe('قدّم وكيل الخصم مذكرة جوابية.');
+        expect(
+            buildOpponentProceedingsPayload({
+                date: '2026-03-11',
+                sessionNumber: '4',
+                proceedings: 'اعتراض شفهي',
+                judgeDecisions: '',
+                nextHearingDate: '',
+            }),
+        ).toMatchObject({
+            title: 'تحركات وكيل الخصم — جلسة 4',
+            isOpponentProceedings: true,
+            details: expect.stringContaining('اعتراض شفهي'),
+        });
+    });
+});

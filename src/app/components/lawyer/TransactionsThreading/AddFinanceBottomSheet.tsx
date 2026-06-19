@@ -1,135 +1,135 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from '@/app/components/ui/drawer';
-import { Input } from '@/app/components/ui/input';
-import { FinanceRecordType, useTransactionsThreadingStore } from '@/app/modules/transactionsThreading';
-import type { FinanceRecord } from '@/app/modules/transactionsThreading';
+import { Drawer, DrawerContent } from '@/app/components/ui/drawer';
+import { useTransactionsThreadingStore } from '@/app/modules/transactionsThreading/store';
+import { FinanceRecordType } from '@/app/modules/transactionsThreading/types';
+import type { FinanceRecord } from '@/app/modules/transactionsThreading/types';
+import {
+    GLASS_BTN,
+    GLASS_CHIP,
+    GLASS_CHIP_ACTIVE,
+    GLASS_FIELD,
+    TX_DRAWER_SHELL,
+    TxFieldLabel,
+    TxGlassDrawerFrame,
+    TX_TEXT_OCHRE,
+} from './transactionsGlassTheme';
 
 export function AddFinanceBottomSheet({
-  open,
-  onOpenChange,
-  transactionId,
-  record,
-  readOnly,
+    open,
+    onOpenChange,
+    transactionId,
+    record,
+    readOnly,
 }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  transactionId: string;
-  record?: FinanceRecord | null;
-  readOnly?: boolean;
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    transactionId: string;
+    record?: FinanceRecord | null;
+    readOnly?: boolean;
 }) {
-  const addFinanceRecord = useTransactionsThreadingStore((s) => s.addFinanceRecord);
-  const updateFinanceRecord = useTransactionsThreadingStore((s) => s.updateFinanceRecord);
+    const addFinanceRecord = useTransactionsThreadingStore((s) => s.addFinanceRecord);
+    const updateFinanceRecord = useTransactionsThreadingStore((s) => s.updateFinanceRecord);
 
-  const [type, setType] = useState<FinanceRecordType>(FinanceRecordType.Expense);
-  const [amount, setAmount] = useState<string>('');
-  const [description, setDescription] = useState('');
+    const [type, setType] = useState<FinanceRecordType>(FinanceRecordType.Expense);
+    const [amount, setAmount] = useState<string>('');
+    const [description, setDescription] = useState('');
 
-  const parsedAmount = useMemo(() => Number(amount), [amount]);
-  const canSubmit = useMemo(
-    () => Number.isFinite(parsedAmount) && parsedAmount > 0 && description.trim().length > 0,
-    [parsedAmount, description],
-  );
+    const parsedAmount = useMemo(() => Number(amount), [amount]);
+    const canSubmit = useMemo(
+        () => Number.isFinite(parsedAmount) && parsedAmount > 0 && description.trim().length > 0,
+        [parsedAmount, description],
+    );
 
-  useEffect(() => {
-    if (!open) return;
-    if (!record) {
-      setType(FinanceRecordType.Expense);
-      setAmount('');
-      setDescription('');
-      return;
-    }
-    setType(record.type);
-    setAmount(String(record.amount));
-    setDescription(record.description);
-  }, [open, record]);
+    useEffect(() => {
+        if (!open) return;
+        if (!record) {
+            setType(FinanceRecordType.Expense);
+            setAmount('');
+            setDescription('');
+            return;
+        }
+        setType(record.type);
+        setAmount(String(record.amount));
+        setDescription(record.description);
+    }, [open, record]);
 
-  const submit = async () => {
-    if (!canSubmit || readOnly) return;
-    if (record) {
-      await updateFinanceRecord(record.id, { type, amount: parsedAmount, description: description.trim() });
-    } else {
-      await addFinanceRecord({
-        transactionId,
-        type,
-        amount: parsedAmount,
-        description: description.trim(),
-      });
-    }
-    onOpenChange(false);
-  };
+    const submit = async () => {
+        if (!canSubmit || readOnly) return;
+        if (record) {
+            await updateFinanceRecord(record.id, { type, amount: parsedAmount, description: description.trim() });
+        } else {
+            await addFinanceRecord({
+                transactionId,
+                type,
+                amount: parsedAmount,
+                description: description.trim(),
+            });
+        }
+        onOpenChange(false);
+    };
 
-  return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="bg-[#071022] border-t border-[#D4AF37]/20 rounded-t-3xl px-5 pb-6 pt-2">
-        <div dir="rtl" className="text-right">
-          <div className="py-3">
-            <DrawerTitle className="text-white font-bold text-base">{record ? 'تعديل حركة مالية' : 'إضافة حركة مالية'}</DrawerTitle>
-            <DrawerDescription className="text-gray-400 text-sm mt-1">مقبوضات من الموكل أو مصروف</DrawerDescription>
-          </div>
-
-          <div className="flex gap-2 mt-2">
-            <button
-              type="button"
-              disabled={!!readOnly}
-              onClick={() => setType(FinanceRecordType.AdvancePayment)}
-              className={`flex-1 h-11 rounded-2xl border text-sm font-bold transition ${
-                type === FinanceRecordType.AdvancePayment
-                  ? 'bg-emerald-500/15 text-emerald-200 border-emerald-500/25'
-                  : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'
-              } disabled:opacity-50 disabled:hover:bg-white/5`}
-            >
-              مقبوضات
-            </button>
-            <button
-              type="button"
-              disabled={!!readOnly}
-              onClick={() => setType(FinanceRecordType.Expense)}
-              className={`flex-1 h-11 rounded-2xl border text-sm font-bold transition ${
-                type === FinanceRecordType.Expense
-                  ? 'bg-rose-500/15 text-rose-200 border-rose-500/25'
-                  : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'
-              } disabled:opacity-50 disabled:hover:bg-white/5`}
-            >
-              مصروف
-            </button>
-          </div>
-
-          <div className="space-y-3 mt-4">
-            <div className="space-y-2">
-              <div className="text-gray-300 text-sm">المبلغ</div>
-              <Input
-                type="number"
-                inputMode="numeric"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0"
-                disabled={!!readOnly}
-                className="h-12 bg-[#0D0D1A] border-[#D4AF37]/20 text-white placeholder:text-gray-500 rounded-2xl focus-visible:ring-0 focus-visible:border-[#D4AF37]/50 disabled:opacity-60"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="text-gray-300 text-sm">الوصف</div>
-              <Input
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="مثال: رسوم طابع"
-                disabled={!!readOnly}
-                className="h-12 bg-[#0D0D1A] border-[#D4AF37]/20 text-white placeholder:text-gray-500 rounded-2xl focus-visible:ring-0 focus-visible:border-[#D4AF37]/50 disabled:opacity-60"
-              />
-            </div>
-          </div>
-
-          <button
-            type="button"
-            disabled={!canSubmit || !!readOnly}
-            onClick={submit}
-            className="mt-5 w-full h-12 rounded-2xl font-bold text-sm bg-gradient-to-r from-[#D4AF37] to-[#F4C430] text-[#0D0D1A] shadow-lg shadow-[#D4AF37]/25 disabled:opacity-50 disabled:shadow-none"
-          >
-            حفظ الحركة
-          </button>
-        </div>
-      </DrawerContent>
-    </Drawer>
-  );
+    return (
+        <Drawer open={open} onOpenChange={onOpenChange}>
+            <DrawerContent className={TX_DRAWER_SHELL}>
+                <TxGlassDrawerFrame
+                    title={record ? 'تعديل حركة مالية' : 'إضافة حركة مالية'}
+                    subtitle="مقبوضات من الموكل أو مصروف"
+                    footer={
+                        <button type="button" disabled={!canSubmit || !!readOnly} onClick={submit} className={GLASS_BTN}>
+                            حفظ الحركة
+                        </button>
+                    }
+                >
+                    <div className="flex gap-2">
+                        <button
+                            type="button"
+                            disabled={!!readOnly}
+                            onClick={() => setType(FinanceRecordType.AdvancePayment)}
+                            className={
+                                type === FinanceRecordType.AdvancePayment
+                                    ? `${GLASS_CHIP_ACTIVE} flex-1 !rounded-[3px] !py-2.5 ${TX_TEXT_OCHRE}`
+                                    : `${GLASS_CHIP} flex-1 !rounded-[3px] !py-2.5`
+                            }
+                        >
+                            مقبوضات
+                        </button>
+                        <button
+                            type="button"
+                            disabled={!!readOnly}
+                            onClick={() => setType(FinanceRecordType.Expense)}
+                            className={
+                                type === FinanceRecordType.Expense
+                                    ? `${GLASS_CHIP_ACTIVE} flex-1 !rounded-[3px] !py-2.5`
+                                    : `${GLASS_CHIP} flex-1 !rounded-[3px] !py-2.5`
+                            }
+                        >
+                            مصروف
+                        </button>
+                    </div>
+                    <div>
+                        <TxFieldLabel>المبلغ</TxFieldLabel>
+                        <input
+                            type="number"
+                            inputMode="numeric"
+                            value={amount}
+                            onChange={(e) => setAmount(e.target.value)}
+                            placeholder="0"
+                            disabled={!!readOnly}
+                            className={`${GLASS_FIELD} disabled:opacity-50`}
+                        />
+                    </div>
+                    <div>
+                        <TxFieldLabel>الوصف</TxFieldLabel>
+                        <input
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            placeholder="مثال: رسوم طابع"
+                            disabled={!!readOnly}
+                            className={`${GLASS_FIELD} disabled:opacity-50`}
+                        />
+                    </div>
+                </TxGlassDrawerFrame>
+            </DrawerContent>
+        </Drawer>
+    );
 }

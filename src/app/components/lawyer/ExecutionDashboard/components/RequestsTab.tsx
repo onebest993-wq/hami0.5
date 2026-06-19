@@ -48,8 +48,7 @@ const LEGACY_ADMIN_TEMPLATES = [
     'الإحالة القطعية',
 ] as const;
 
-/** وضع الكتابة اليدوية — الإدخال الوحيد في نماذج الطلبات */
-export const SPECIAL_REQUEST_MANUAL_MODE = '__manual__';
+export { SPECIAL_REQUEST_MANUAL_MODE } from './requestsTabConstants';
 
 export interface RequestsTabProps {
     executionId: string | undefined;

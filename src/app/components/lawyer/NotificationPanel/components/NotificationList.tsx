@@ -1,0 +1,49 @@
+import React from 'react';
+import type { NotificationModel } from '@/app/infrastructure/NotificationRepository';
+import type { TimeBucket } from '@/app/components/lawyer/NotificationPanel/types';
+import { BUCKET_LABELS } from '@/app/components/lawyer/NotificationPanel/constants';
+import { NotificationCard } from '@/app/components/lawyer/NotificationPanel/components/NotificationCard';
+
+interface NotificationListProps {
+    groupedByTime: Record<TimeBucket, NotificationModel[]>;
+    onTap: (n: NotificationModel) => void;
+    onScan: (e: React.MouseEvent) => void;
+    onClientRequest: (e: React.MouseEvent, n: NotificationModel) => void;
+}
+
+const BUCKET_ORDER: TimeBucket[] = ['today', 'yesterday', 'older'];
+
+export function NotificationList({
+    groupedByTime,
+    onTap,
+    onScan,
+    onClientRequest,
+}: NotificationListProps) {
+    return (
+        <div className="space-y-5" data-testid="notification-panel-list">
+            {BUCKET_ORDER.map((bucket) => {
+                const items = groupedByTime[bucket];
+                if (items.length === 0) return null;
+                return (
+                    <section key={bucket}>
+                        <h3 className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2.5 px-1">
+                            {BUCKET_LABELS[bucket]}{' '}
+                            <span className="text-slate-500 font-normal">({items.length})</span>
+                        </h3>
+                        <div className="space-y-2">
+                            {items.map((notif) => (
+                                <NotificationCard
+                                    key={notif.id}
+                                    notification={notif}
+                                    onTap={onTap}
+                                    onScan={onScan}
+                                    onClientRequest={onClientRequest}
+                                />
+                            ))}
+                        </div>
+                    </section>
+                );
+            })}
+        </div>
+    );
+}

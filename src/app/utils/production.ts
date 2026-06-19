@@ -10,6 +10,7 @@
  * @date 2026-03-17
  */
 import SecureStoreService from '@/app/services/SecureStoreService';
+import { debug } from '@/app/utils/debug';
 
 // =====================================================
 // Environment Detection
@@ -289,8 +290,9 @@ export const getBuildInfo = (): {
  * طباعة معلومات البناء
  */
 export const logBuildInfo = (): void => {
+  if (!import.meta.env.DEV) return;
   const info = getBuildInfo();
-  console.log(`
+  debug.log(`
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     📱 نظام ملف الدعوى الذكي - حامي
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

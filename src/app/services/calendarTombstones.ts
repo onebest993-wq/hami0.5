@@ -14,8 +14,8 @@
  * يعمل مع RLS (auth.uid() = user_id)، لا يحتاج kv-proxy.
  */
 
-import { supabase } from '@/lib/supabase';
 import SecureStoreService from '@/app/services/SecureStoreService';
+import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import { isSupabaseMissingRelationError } from '@/app/utils/supabaseErrors';
 
 const LOCAL_TOMBSTONES_KEY = 'hami:calendar:tombstones:v1';
@@ -179,12 +179,13 @@ export async function recordTombstone(userId: string, eventId: string): Promise<
     // cloud
     if (!isCloudTombstonesSyncEnabled()) return;
     try {
-        const { error } = await supabase
-            .from('calendar_tombstones')
-            .upsert({ user_id: userId, event_id: eventId }, { onConflict: 'user_id,event_id' });
-        if (error) disableCloudTombstones(error);
-    } catch {
-        /* ignore — RLS أو شبكة */
+        await SecureAPIClient.fetchSecure('/api/calendar/tombstones', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'mark', eventId }),
+        });
+    } catch (err) {
+        disableCloudTombstones(err);
     }
 }
 
@@ -198,24 +199,23 @@ async function syncTombstonesFromCloud(userId: string): Promise<void> {
     if (cloudSyncInFlight) return;
     cloudSyncInFlight = true;
     try {
-        const { data, error } = await supabase
-            .from('calendar_tombstones')
-            .select('event_id')
-            .eq('user_id', userId);
-        if (error) {
-            disableCloudTombstones(error);
-            return;
-        }
-        if (!Array.isArray(data)) return;
+        const res = await SecureAPIClient.fetchSecure<{ ok: boolean; eventIds?: string[] }>(
+            '/api/calendar/tombstones',
+            { method: 'GET' },
+        );
+        const data = Array.isArray(res?.eventIds)
+            ? res.eventIds.map((event_id) => ({ event_id }))
+            : [];
+        if (!data.length) return;
         const set = readCache(userId) ?? new Set<string>();
         for (const row of data) {
-            if (row && typeof (row as { event_id?: unknown }).event_id === 'string') {
-                set.add((row as { event_id: string }).event_id);
+            if (row && typeof row.event_id === 'string') {
+                set.add(row.event_id);
             }
         }
         writeCache(userId, set);
-    } catch {
-        /* ignore */
+    } catch (err) {
+        disableCloudTombstones(err);
     } finally {
         cloudSyncInFlight = false;
     }
@@ -263,13 +263,12 @@ export async function clearTombstone(userId: string, eventId: string): Promise<v
     }
     if (!isCloudTombstonesSyncEnabled()) return;
     try {
-        const { error } = await supabase
-            .from('calendar_tombstones')
-            .delete()
-            .eq('user_id', userId)
-            .eq('event_id', eventId);
-        if (error) disableCloudTombstones(error);
-    } catch {
-        /* ignore */
+        await SecureAPIClient.fetchSecure('/api/calendar/tombstones', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'clear', eventId }),
+        });
+    } catch (err) {
+        disableCloudTombstones(err);
     }
 }

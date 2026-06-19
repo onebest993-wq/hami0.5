@@ -5,8 +5,10 @@
 import {
     buildStableBridgeId,
     CalendarBridge,
+    dispatchCalendarUpdatedEvent,
     fireAndForgetCalendarSync,
     flushPendingCalendarSyncs,
+    muteCalendarUpdates,
     normalizeDateToYmd,
     partiesSummaryFromList,
     resolveCalendarUserId,
@@ -407,13 +409,7 @@ function criminalCaseNumber(caseRecord: Record<string, unknown>): string {
 }
 
 function dispatchCalendarUpdated(): void {
-    try {
-        if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent(CALENDAR_UPDATED_EVENT));
-        }
-    } catch {
-        /* ignore */
-    }
+    dispatchCalendarUpdatedEvent();
 }
 
 /**
@@ -1485,23 +1481,22 @@ export function syncDossierFilesIncremental(
 }
 
 let livePopulateInFlight: Promise<void> | null = null;
-let latestLivePopulateParams: {
+type LivePopulateParams = {
     lawyerId: string | null | undefined;
     lawsuitFiles: unknown[];
     executionFiles: unknown[];
     criminalCases?: unknown[];
     globalNotes?: unknown[];
     fieldTasks?: LegalTask[];
-} | null = null;
+};
+let latestLivePopulateParams: { params: LivePopulateParams; emitUpdated: boolean } | null = null;
 
-async function runLiveCalendarPopulate(params: {
-    lawyerId: string | null | undefined;
-    lawsuitFiles: unknown[];
-    executionFiles: unknown[];
-    criminalCases?: unknown[];
-    globalNotes?: unknown[];
-    fieldTasks?: LegalTask[];
-}): Promise<void> {
+async function runLiveCalendarPopulate(
+    params: LivePopulateParams,
+    options?: { emitUpdated?: boolean },
+): Promise<void> {
+    const releaseMute = muteCalendarUpdates();
+    try {
     // 🛡️ WHITELIST صارم — نُسجّل فقط 4 نقاط دخول صريحة:
     //   1) المدني — "موعد جديد" (timeline.type='appointment')
     //   2) الجزائي — تاريخ الجلسة في تبويب المحاكمات (trials[].date / nextSessionDate)
@@ -1546,23 +1541,30 @@ async function runLiveCalendarPopulate(params: {
 
     // 🧹 ضمان نظافة CalendarDB من أي بقايا لمسارات مُلغاة سابقاً
     await purgeNonWhitelistedBridgedEvents(uid);
-
-    dispatchCalendarUpdated();
+    } finally {
+        releaseMute();
+        if (options?.emitUpdated !== false) {
+            dispatchCalendarUpdated();
+        }
+    }
 }
 
 /**
  * يرفع مواعيد الإضابير الحية (من الذاكرة) إلى CalendarDB قبل التنبيهات والرادار.
  * يجب await قبل قراءة CalendarDB في SecretaryOrchestrator.
  */
-export async function ensureCalendarPopulatedFromLiveDossiers(params: {
-    lawyerId: string | null | undefined;
-    lawsuitFiles: unknown[];
-    executionFiles: unknown[];
-    criminalCases?: unknown[];
-    globalNotes?: unknown[];
-    fieldTasks?: LegalTask[];
-}): Promise<void> {
-    latestLivePopulateParams = params;
+export async function ensureCalendarPopulatedFromLiveDossiers(
+    params: {
+        lawyerId: string | null | undefined;
+        lawsuitFiles: unknown[];
+        executionFiles: unknown[];
+        criminalCases?: unknown[];
+        globalNotes?: unknown[];
+        fieldTasks?: LegalTask[];
+    },
+    options?: { emitUpdated?: boolean },
+): Promise<void> {
+    latestLivePopulateParams = { params, emitUpdated: options?.emitUpdated !== false };
     if (livePopulateInFlight) return livePopulateInFlight;
 
     livePopulateInFlight = (async () => {
@@ -1570,12 +1572,15 @@ export async function ensureCalendarPopulatedFromLiveDossiers(params: {
             while (latestLivePopulateParams) {
                 const batch = latestLivePopulateParams;
                 latestLivePopulateParams = null;
-                await runLiveCalendarPopulate(batch);
+                await runLiveCalendarPopulate(batch.params, { emitUpdated: batch.emitUpdated });
             }
         } finally {
             livePopulateInFlight = null;
             if (latestLivePopulateParams) {
-                void ensureCalendarPopulatedFromLiveDossiers(latestLivePopulateParams);
+                void ensureCalendarPopulatedFromLiveDossiers(
+                    latestLivePopulateParams.params,
+                    { emitUpdated: latestLivePopulateParams.emitUpdated },
+                );
             }
         }
     })();

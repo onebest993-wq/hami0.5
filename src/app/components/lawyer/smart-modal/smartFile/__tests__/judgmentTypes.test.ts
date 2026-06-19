@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { addDaysYmd, parseJudgmentDateInput, str } from '../judgmentTypes';
+import {
+    addDaysYmd,
+    isSulhJudgmentType,
+    JUDGMENT_TYPE_SULH,
+    JUDGMENT_TYPE_SULH_LEGACY,
+    parseJudgmentDateInput,
+    str,
+} from '../judgmentTypes';
 
 describe('judgmentTypes helpers', () => {
     it('str coerces unknown values', () => {
@@ -18,5 +25,11 @@ describe('judgmentTypes helpers', () => {
     it('addDaysYmd adds calendar days', () => {
         const base = parseJudgmentDateInput('2026-05-10');
         expect(addDaysYmd(base, 15)).toBe('2026-05-25');
+    });
+
+    it('isSulhJudgmentType accepts current and legacy labels', () => {
+        expect(isSulhJudgmentType(JUDGMENT_TYPE_SULH)).toBe(true);
+        expect(isSulhJudgmentType(JUDGMENT_TYPE_SULH_LEGACY)).toBe(true);
+        expect(isSulhJudgmentType('إبطال')).toBe(false);
     });
 });

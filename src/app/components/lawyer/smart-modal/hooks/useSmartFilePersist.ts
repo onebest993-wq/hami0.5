@@ -21,23 +21,37 @@ export function useSmartFilePersist(options: {
             updatedParent: SmartFileParentData = parentData,
             stageIndex: number = activeStageIndex,
         ) => {
+            let dataToSave: Record<string, unknown>;
             try {
-                const dataToSave = buildCloudSavePayload(
+                dataToSave = buildCloudSavePayload(
                     updatedStages,
                     updatedParent,
                     stageIndex,
                     status,
                 );
-
-                onUpdate?.(dataToSave);
-
-                const success = safeSetItem(`case_backup_${updatedParent.id}`, dataToSave);
-                if (!success) {
-                    debug.warn('⚠️ فشل النسخ الاحتياطي للـ localStorage');
-                }
             } catch (error) {
-                logError('saveToCloud', error);
-                SmartToast.error('حدث خطأ أثناء الحفظ');
+                logError('saveToCloud.buildPayload', error);
+                SmartToast.error('حدث خطأ أثناء تجهيز البيانات للحفظ');
+                return;
+            }
+
+            const backupKey = `case_backup_${String(updatedParent.id ?? 'unknown')}`;
+            const backupOk = safeSetItem(backupKey, dataToSave);
+            if (!backupOk) {
+                debug.warn('⚠️ فشل النسخ الاحتياطي للـ localStorage');
+            }
+
+            if (!onUpdate) return;
+
+            try {
+                onUpdate(dataToSave);
+            } catch (error) {
+                logError('saveToCloud.onUpdate', error);
+                if (backupOk) {
+                    SmartToast.warning('تم الحفظ محلياً — تعذّر مزامنة السحابة');
+                } else {
+                    SmartToast.error('حدث خطأ أثناء الحفظ');
+                }
             }
         },
         [parentData, activeStageIndex, status, onUpdate],

@@ -400,7 +400,17 @@ export type ThemeKey =
     | 'sky'
     | 'brown'
     | 'purple'
-    | 'bronze';
+    | 'bronze'
+    | 'wine'
+    | 'matcha'
+    | 'teal'
+    | 'greige'
+    | 'obsidian'
+    | 'coral'
+    | 'plum'
+    | 'brass'
+    | 'chalk'
+    | 'ice';
 export type ShapeKey = 'pill' | 'rounded' | 'square' | 'circle';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -412,15 +422,6 @@ export type { AppSettingsState as SettingsState } from '@/app/services/settings/
 
 export type Language = 'ar' | 'en';
 export type FontSize = 'small' | 'medium' | 'large' | 'xlarge';
-
-export interface HamiSettingsProps {
-    onClose: () => void;
-    onLogout?: () => void;
-    onOpenArchive?: () => void;
-    onOpenProfile?: () => void;
-    onOpenPrivacy?: () => void;
-    onOpenSupport?: () => void;
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // USER TYPES

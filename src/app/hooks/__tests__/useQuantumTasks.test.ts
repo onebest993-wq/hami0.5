@@ -111,32 +111,4 @@ describe('useQuantumTasks', () => {
         );
         expect(kept!.pinnedToFieldCurtain).toBe(true);
     });
-
-    it('groupedByTime excludes fatal deadlines', () => {
-        const { result } = renderHook(() => useQuantumTasks([]));
-
-        act(() => {
-            result.current.addTask('موعد حتمي تمييز');
-        });
-
-        expect(result.current.pendingTasks[0]!.isFatalDeadline).toBe(true);
-        expect(result.current.groupedByTime.today).toHaveLength(0);
-        expect(result.current.groupedByTime.overdue).toHaveLength(0);
-    });
-
-    it('fieldGrouping aligns with buildFieldGrouping for location', () => {
-        const { result } = renderHook(() => useQuantumTasks([]));
-
-        act(() => {
-            result.current.addTask('زيارة محكمة كرخ غداً');
-        });
-        const id = result.current.tasks[0]!.id;
-
-        act(() => {
-            result.current.setTaskLocation(id, 'كرخ');
-        });
-
-        const keys = Object.keys(result.current.fieldGrouping.byLocation);
-        expect(keys).toContain('كرخ');
-    });
 });

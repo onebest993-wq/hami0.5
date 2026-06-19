@@ -1,5 +1,6 @@
 import { getEffectiveClaimTypes } from '@/app/components/lawyer/ExecutionCreationView/hooks/executionFormUtils';
 import {
+    isCustodyRemovalClaim,
     isEncroachmentRemovalClaim,
     isEvictionClaim,
     isSpecificDeliveryClaim,
@@ -37,6 +38,13 @@ export function isMaritalFurnitureExecutionClaim(
     fallbackClaimType?: string
 ): boolean {
     return executionClaimMatches(data, fallbackClaimType, isMaritalFurnitureClaim);
+}
+
+export function isCustodyRemovalExecutionClaim(
+    data: ExecutionClaimContext,
+    fallbackClaimType?: string
+): boolean {
+    return executionClaimMatches(data, fallbackClaimType, isCustodyRemovalClaim);
 }
 
 export function isEncroachmentExecutionClaim(

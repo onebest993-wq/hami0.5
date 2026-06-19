@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, RefreshCw, AlertCircle } from 'lucide-react';
@@ -7,32 +7,60 @@ import { SmartToast } from '@/app/components/ui/SmartToast';
 interface CrossAppealModalProps {
     isOpen: boolean;
     onClose: () => void;
+    pendingParties?: Array<{ id: number | string; name: string; role?: string }>;
     onConfirm: (data: {
         filingDate: string;
         receiptNumber: string;
         notes: string;
+        crossAppealPartyIds?: Array<number | string>;
     }) => void;
 }
 
 export const CrossAppealModal: React.FC<CrossAppealModalProps> = ({ 
     isOpen, 
-    onClose, 
+    onClose,
+    pendingParties = [],
     onConfirm
 }) => {
     const [filingDate, setFilingDate] = useState<string>(getLocalTodayYmd());
     const [receiptNumber, setReceiptNumber] = useState<string>('');
     const [notes, setNotes] = useState<string>('');
+    const [selectedPartyIds, setSelectedPartyIds] = useState<Array<number | string>>(() =>
+        pendingParties.map((p) => p.id).filter((id) => id != null) as Array<number | string>,
+    );
+
+    useEffect(() => {
+        if (isOpen) {
+            setSelectedPartyIds(
+                pendingParties.map((p) => p.id).filter((id) => id != null) as Array<number | string>,
+            );
+        }
+    }, [isOpen, pendingParties]);
+
+    const toggleParty = (id: number | string) => {
+        setSelectedPartyIds((prev) => {
+            const key = String(id);
+            const exists = prev.some((p) => String(p) === key);
+            if (exists) return prev.filter((p) => String(p) !== key);
+            return [...prev, id];
+        });
+    };
 
     const handleSubmit = () => {
         if (!filingDate) {
             SmartToast.error('⚠️ الرجاء تحديد تاريخ تقديم اللائحة المتقابلة');
             return;
         }
+        if (pendingParties.length > 0 && selectedPartyIds.length === 0) {
+            SmartToast.error('⚠️ اختر طرفاً واحداً على الأقل للاستئناف المتقابل');
+            return;
+        }
 
         onConfirm({
             filingDate,
             receiptNumber: receiptNumber.trim(),
-            notes
+            notes,
+            crossAppealPartyIds: selectedPartyIds.length > 0 ? selectedPartyIds : undefined,
         });
         onClose();
     };
@@ -82,6 +110,35 @@ export const CrossAppealModal: React.FC<CrossAppealModalProps> = ({
                                     </p>
                                 </div>
                             </div>
+
+                            {pendingParties.length > 0 ? (
+                                <div>
+                                    <label className="block text-white/80 font-bold mb-2 text-sm">
+                                        الطرف المستأنف متقابلاً
+                                    </label>
+                                    <div className="space-y-2">
+                                        {pendingParties.map((party) => {
+                                            const selected = selectedPartyIds.some(
+                                                (id) => String(id) === String(party.id),
+                                            );
+                                            return (
+                                                <button
+                                                    key={String(party.id)}
+                                                    type="button"
+                                                    onClick={() => toggleParty(party.id)}
+                                                    className={`w-full rounded-xl border px-3 py-2.5 text-right text-sm transition-all ${
+                                                        selected
+                                                            ? 'border-teal-400/40 bg-teal-500/10 text-teal-100'
+                                                            : 'border-white/10 bg-white/[0.03] text-white/70 hover:border-white/20'
+                                                    }`}
+                                                >
+                                                    {party.name}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ) : null}
 
                             {/* Field 1: تاريخ تقديم اللائحة المتقابلة */}
                             <div>

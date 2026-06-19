@@ -1,21 +1,54 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, ChevronRight, MoreVertical, Plus, Share2 } from 'lucide-react';
+import { CheckCircle2, MoreVertical, Share2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/app/components/ui/dropdown-menu';
-import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from '@/app/components/ui/drawer';
+import { Drawer, DrawerContent } from '@/app/components/ui/drawer';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/app/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/app/components/ui/tabs';
-import { TransactionStatus, listTaskTemplates, saveTaskTemplate, deleteTaskTemplate, useTransactionsThreadingStore } from '@/app/modules/transactionsThreading';
-import type { Transaction, TransactionTask } from '@/app/modules/transactionsThreading';
+import { useTransactionsThreadingStore } from '@/app/modules/transactionsThreading/store';
+import { listTaskTemplates, saveTaskTemplate, deleteTaskTemplate } from '@/app/modules/transactionsThreading/taskTemplates';
+import { TransactionStatus } from '@/app/modules/transactionsThreading/types';
+import type { Transaction, TransactionTask } from '@/app/modules/transactionsThreading/types';
 import { TaskThreadView } from './TaskThreadView';
 import { AddTaskBottomSheet } from './AddTaskBottomSheet';
 import { DocumentsTabView } from './DocumentsTabView';
 import { FinancesTabView } from './FinancesTabView';
 import { generateClientReport } from './generateClientReport';
+import {
+    GLASS_BTN,
+    GLASS_FIELD,
+    TX_ACCENT_SURFACE,
+    TX_DIALOG_BTN_CANCEL,
+    TX_DIALOG_DESC,
+    TX_DIALOG_SHELL,
+    TX_DIALOG_TITLE,
+    TX_DRAWER_SHELL,
+    TX_DROPDOWN_CONTENT,
+    TX_DROPDOWN_FOCUS,
+    TX_GOLD_BTN,
+    TX_ICON_BTN,
+    TX_INNER_SURFACE,
+    TX_OCHRE_BTN,
+    TX_STATUS_ACTIVE,
+    TX_STATUS_COMPLETED,
+    TX_STATUS_PAUSED,
+    TX_TAB_TRIGGER,
+    TX_TEXT_MUTED,
+    TX_TEXT_OCHRE,
+    TX_TEXT_PRIMARY,
+    TX_TEXT_SECONDARY,
+    TxGlassDrawerFrame,
+    TxGlassFab,
+    TxGlassHeader,
+    TxGlassPage,
+    TxGlassPanel,
+    TxGlassTabsList,
+    TxHeaderRow,
+} from './transactionsGlassTheme';
 
 const EMPTY_TASKS: TransactionTask[] = [];
 
@@ -26,9 +59,9 @@ function txStatusLabelAr(status: TransactionStatus) {
 }
 
 function txStatusBadgeClass(status: TransactionStatus) {
-  if (status === TransactionStatus.Active) return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/20';
-  if (status === TransactionStatus.Paused) return 'bg-amber-500/15 text-amber-300 border-amber-500/20';
-  return 'bg-slate-500/15 text-slate-300 border-slate-500/20';
+  if (status === TransactionStatus.Active) return TX_STATUS_ACTIVE;
+  if (status === TransactionStatus.Paused) return TX_STATUS_PAUSED;
+  return TX_STATUS_COMPLETED;
 }
 
 export function TransactionDetailsScreen({
@@ -67,9 +100,13 @@ export function TransactionDetailsScreen({
 
   if (!tx) {
     return (
-      <div dir="rtl" className="min-h-screen bg-[#001830] text-right flex items-center justify-center px-6">
-        <div className="text-gray-300 text-sm">تعذر العثور على المعاملة</div>
-      </div>
+      <TxGlassPage>
+        <div className="flex items-center justify-center min-h-[60vh] px-6">
+          <TxGlassPanel className="px-6 py-8 text-center">
+            <p className={`${TX_TEXT_MUTED} text-sm font-medium`}>تعذر العثور على المعاملة</p>
+          </TxGlassPanel>
+        </div>
+      </TxGlassPage>
     );
   }
 
@@ -172,110 +209,87 @@ export function TransactionDetailsScreen({
   };
 
   return (
-    <div dir="rtl" className="h-full min-h-screen bg-[#001830] text-right">
-      <div className="sticky top-0 z-40 bg-[#001830]/95 backdrop-blur-xl border-b border-[#D4AF37]/20">
-        <div className="px-5 pt-5 pb-4">
-          <div className="flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={onBack}
-              className="w-10 h-10 rounded-full border border-white/10 bg-white/5 text-gray-200 flex items-center justify-center hover:bg-white/10"
-              aria-label="رجوع"
-            >
-              <ChevronRight className="w-5 h-5" />
+    <TxGlassPage>
+      <TxGlassHeader>
+        <TxHeaderRow
+          title={tx.title}
+          subtitle={tx.clientName}
+          onBack={onBack}
+          trailing={
+            <div className={`px-2.5 py-0.5 rounded-[3px] border text-[10px] font-bold shrink-0 ${txStatusBadgeClass(tx.status)}`}>
+              {txStatusLabelAr(tx.status)}
+            </div>
+          }
+        />
+
+        <div className="mt-3 flex items-center gap-2 flex-wrap justify-end">
+          {isReadOnly ? (
+            <button type="button" onClick={reopenTransaction} className={TX_GOLD_BTN}>
+              إعادة فتح
             </button>
+          ) : (
+            <button type="button" onClick={() => setCompleteOpen(true)} className={TX_OCHRE_BTN}>
+              إنهاء المعاملة
+            </button>
+          )}
 
-            <div className="min-w-0 flex-1">
-              <div className="text-white font-bold text-base truncate">{tx.title}</div>
-              <div className="text-gray-400 text-sm mt-1 truncate">{tx.clientName}</div>
-            </div>
-
-            <div className="shrink-0 flex items-center gap-2">
-              {isReadOnly ? (
-                <button
-                  type="button"
-                  onClick={reopenTransaction}
-                  className="h-10 px-4 rounded-2xl bg-white/5 border border-white/10 text-gray-200 font-extrabold text-xs hover:bg-white/10"
-                >
-                  إعادة فتح
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setCompleteOpen(true)}
-                  className="h-10 px-4 rounded-2xl bg-gradient-to-r from-[#D4AF37] to-[#F4C430] text-[#0D0D1A] shadow-lg shadow-[#D4AF37]/25 font-extrabold text-xs"
-                >
-                  إنهاء المعاملة
-                </button>
-              )}
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="w-10 h-10 rounded-full border border-white/10 bg-white/5 text-gray-200 flex items-center justify-center hover:bg-white/10"
-                    aria-label="قائمة المعاملة"
-                  >
-                    <MoreVertical className="w-5 h-5" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="z-[1200] bg-[#071022] border border-[#D4AF37]/20 text-gray-200 rounded-xl p-1">
-                  <DropdownMenuItem
-                    disabled={!canSaveTemplate}
-                    onSelect={() => {
-                      setTemplateName(tx.title);
-                      setSaveTemplateOpen(true);
-                    }}
-                    className="cursor-default"
-                  >
-                    حفظ المسار كقالب
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <button
-                type="button"
-                onClick={() => setReportOpen(true)}
-                className="w-10 h-10 rounded-full border border-white/10 bg-white/5 text-gray-200 flex items-center justify-center hover:bg-white/10"
-                aria-label="مشاركة تحديث الموكل"
-              >
-                <Share2 className="w-5 h-5" />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button type="button" className={TX_ICON_BTN} aria-label="قائمة المعاملة">
+                <MoreVertical className="w-5 h-5" />
               </button>
-              <div className={`px-3 py-1 rounded-full border text-xs font-bold ${txStatusBadgeClass(tx.status)}`}>
-                {txStatusLabelAr(tx.status)}
-              </div>
-            </div>
-          </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className={TX_DROPDOWN_CONTENT}>
+              <DropdownMenuItem
+                disabled={!canSaveTemplate}
+                onSelect={() => {
+                  setTemplateName(tx.title);
+                  setSaveTemplateOpen(true);
+                }}
+                className={TX_DROPDOWN_FOCUS}
+              >
+                حفظ المسار كقالب
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-          <div className="mt-4">
-            <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full">
-              <TabsList className="w-full bg-white/5 border border-white/10 rounded-2xl p-1">
-                <TabsTrigger value="path" className="rounded-xl data-[state=active]:bg-[#0D0D1A]">
+          <button type="button" onClick={() => setReportOpen(true)} className={TX_ICON_BTN} aria-label="مشاركة تحديث الموكل">
+            <Share2 className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="mt-4">
+          <Tabs value={tab} onValueChange={(v) => setTab(v as 'path' | 'docs' | 'fin')} className="w-full">
+            <TxGlassTabsList>
+              <TabsList className="w-full h-auto p-0 bg-transparent border-0 flex gap-1">
+                <TabsTrigger value="path" className={TX_TAB_TRIGGER}>
                   المسار
                 </TabsTrigger>
-                <TabsTrigger value="docs" className="rounded-xl data-[state=active]:bg-[#0D0D1A]">
+                <TabsTrigger value="docs" className={TX_TAB_TRIGGER}>
                   المستمسكات
                 </TabsTrigger>
-                <TabsTrigger value="fin" className="rounded-xl data-[state=active]:bg-[#0D0D1A]">
+                <TabsTrigger value="fin" className={TX_TAB_TRIGGER}>
                   المصاريف
                 </TabsTrigger>
               </TabsList>
+            </TxGlassTabsList>
 
-              {isReadOnly && (
-                <div className="mt-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 shadow-[0_14px_40px_rgba(0,0,0,0.25)]">
-                  <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center text-emerald-200 shrink-0">
-                      <CheckCircle2 className="w-5 h-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-emerald-200 font-extrabold text-sm">تمت أرشفة المعاملة</div>
-                      <div className="text-gray-300 text-xs mt-1">وضع للقراءة فقط — تم قفل جميع إجراءات التعديل</div>
-                    </div>
+            {isReadOnly && (
+              <TxGlassPanel className="mt-3 px-4 py-3">
+                <div className="flex items-start gap-3">
+                  <div className={`w-9 h-9 rounded-[3px] ${TX_ACCENT_SURFACE} flex items-center justify-center ${TX_TEXT_OCHRE} shrink-0`}>
+                    <CheckCircle2 className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className={`${TX_TEXT_OCHRE} font-extrabold text-sm`}>تمت أرشفة المعاملة</div>
+                    <div className={`${TX_TEXT_MUTED} text-xs mt-1 font-medium`}>وضع للقراءة فقط — تم قفل جميع إجراءات التعديل</div>
                   </div>
                 </div>
-              )}
+              </TxGlassPanel>
+            )}
 
-              <TabsContent value="path" className="mt-2">
+            <div className="mt-3 max-w-[520px] mx-auto px-0">
+              <TabsContent value="path" className="mt-0">
                 <TaskThreadView
                   transactionId={transactionId}
                   onRequestAddTask={requestAddTask}
@@ -283,26 +297,19 @@ export function TransactionDetailsScreen({
                   readOnly={isReadOnly}
                 />
               </TabsContent>
-              <TabsContent value="docs" className="mt-2">
+              <TabsContent value="docs" className="mt-0">
                 <DocumentsTabView transaction={tx as Transaction} readOnly={isReadOnly} />
               </TabsContent>
-              <TabsContent value="fin" className="mt-2">
+              <TabsContent value="fin" className="mt-0">
                 <FinancesTabView transaction={tx as Transaction} readOnly={isReadOnly} />
               </TabsContent>
-            </Tabs>
-          </div>
+            </div>
+          </Tabs>
         </div>
-      </div>
+      </TxGlassHeader>
 
       {tab === 'path' && !isReadOnly && (
-        <button
-          type="button"
-          onClick={() => requestAddTask(null)}
-          className="fixed bottom-6 left-6 h-14 px-5 rounded-full bg-gradient-to-r from-[#D4AF37] to-[#F4C430] text-[#0D0D1A] shadow-2xl shadow-[#D4AF37]/30 flex items-center justify-center gap-2 font-bold"
-        >
-          <Plus className="w-5 h-5" />
-          إضافة مهمة
-        </button>
+        <TxGlassFab label="إضافة مهمة" extended onClick={() => requestAddTask(null)} />
       )}
 
       <AddTaskBottomSheet
@@ -317,29 +324,21 @@ export function TransactionDetailsScreen({
       />
 
       <Dialog open={completeOpen} onOpenChange={setCompleteOpen}>
-        <DialogContent className="bg-[#071022] border border-[#D4AF37]/20 rounded-3xl p-5">
+        <DialogContent className={TX_DIALOG_SHELL}>
           <DialogHeader className="text-right">
-            <DialogTitle className="text-white text-base">إنهاء المعاملة</DialogTitle>
-            <DialogDescription className="text-gray-400 text-sm">سيتم تحويل المعاملة إلى وضع القراءة فقط</DialogDescription>
+            <DialogTitle className={TX_DIALOG_TITLE}>إنهاء المعاملة</DialogTitle>
+            <DialogDescription className={TX_DIALOG_DESC}>سيتم تحويل المعاملة إلى وضع القراءة فقط</DialogDescription>
           </DialogHeader>
           <div dir="rtl" className="text-right">
-            <div className="rounded-2xl bg-black/20 border border-white/10 p-4 text-gray-100 text-sm leading-7">
+            <div className={`${TX_INNER_SURFACE} p-4 ${TX_TEXT_SECONDARY} text-sm leading-7 font-medium`}>
               بعد الأرشفة لن تتمكن من إضافة مهام/مستمسكات/حركات مالية أو تعديل الحالات.
             </div>
           </div>
           <DialogFooter className="sm:justify-start gap-2">
-            <button
-              type="button"
-              onClick={() => setCompleteOpen(false)}
-              className="h-11 px-5 rounded-2xl bg-white/5 border border-white/10 text-gray-200 font-bold"
-            >
+            <button type="button" onClick={() => setCompleteOpen(false)} className={TX_DIALOG_BTN_CANCEL}>
               إلغاء
             </button>
-            <button
-              type="button"
-              onClick={completeTransaction}
-              className="h-11 px-5 rounded-2xl bg-gradient-to-r from-[#D4AF37] to-[#F4C430] text-[#0D0D1A] font-bold shadow-lg shadow-[#D4AF37]/25"
-            >
+            <button type="button" onClick={completeTransaction} className={GLASS_BTN + ' !w-auto px-5 h-11'}>
               تأكيد الإنهاء
             </button>
           </DialogFooter>
@@ -347,33 +346,25 @@ export function TransactionDetailsScreen({
       </Dialog>
 
       <Dialog open={saveTemplateOpen} onOpenChange={setSaveTemplateOpen}>
-        <DialogContent className="bg-[#071022] border border-[#D4AF37]/20 rounded-3xl p-5">
+        <DialogContent className={TX_DIALOG_SHELL}>
           <DialogHeader className="text-right">
-            <DialogTitle className="text-white text-base">حفظ المسار كقالب</DialogTitle>
-            <DialogDescription className="text-gray-400 text-sm">سيظهر القالب ضمن “قوالبي” للاستيراد لاحقاً</DialogDescription>
+            <DialogTitle className={TX_DIALOG_TITLE}>حفظ المسار كقالب</DialogTitle>
+            <DialogDescription className={TX_DIALOG_DESC}>سيظهر القالب ضمن “قوالبي” للاستيراد لاحقاً</DialogDescription>
           </DialogHeader>
           <div dir="rtl" className="text-right">
-            <div className="text-gray-300 text-sm mb-2">اسم القالب</div>
+            <label className={`${TX_TEXT_MUTED} text-[11px] font-bold mb-1.5 block`}>اسم القالب</label>
             <input
               value={templateName}
               onChange={(e) => setTemplateName(e.target.value)}
-              className="w-full h-12 rounded-2xl bg-[#0D0D1A] border border-[#D4AF37]/20 text-white px-4 outline-none focus:border-[#D4AF37]/50"
+              className={GLASS_FIELD}
               placeholder="مثال: مسار قسام شرعي"
             />
           </div>
           <DialogFooter className="sm:justify-start gap-2">
-            <button
-              type="button"
-              onClick={() => setSaveTemplateOpen(false)}
-              className="h-11 px-5 rounded-2xl bg-white/5 border border-white/10 text-gray-200 font-bold"
-            >
+            <button type="button" onClick={() => setSaveTemplateOpen(false)} className={TX_DIALOG_BTN_CANCEL}>
               إلغاء
             </button>
-            <button
-              type="button"
-              onClick={doSaveTemplate}
-              className="h-11 px-5 rounded-2xl bg-gradient-to-r from-[#D4AF37] to-[#F4C430] text-[#0D0D1A] font-bold shadow-lg shadow-[#D4AF37]/25"
-            >
+            <button type="button" onClick={doSaveTemplate} className={GLASS_BTN + ' !w-auto px-5 h-11'}>
               حفظ
             </button>
           </DialogFooter>
@@ -381,31 +372,24 @@ export function TransactionDetailsScreen({
       </Dialog>
 
       <Drawer open={templatesOpen} onOpenChange={setTemplatesOpen}>
-        <DrawerContent className="bg-[#071022] border-t border-[#D4AF37]/20 rounded-t-3xl px-5 pb-6 pt-2">
-          <div dir="rtl" className="text-right">
-            <div className="py-3">
-              <DrawerTitle className="text-white font-bold text-base">استيراد من قوالبي</DrawerTitle>
-              <DrawerDescription className="text-gray-400 text-sm mt-1">اختر قالباً محفوظاً لاستيراده إلى هذه المعاملة</DrawerDescription>
-            </div>
-
-            <div className="space-y-2 mt-2">
+        <DrawerContent className={TX_DRAWER_SHELL}>
+          <TxGlassDrawerFrame title="استيراد من قوالبي" subtitle="اختر قالباً محفوظاً لاستيراده إلى هذه المعاملة">
+            <div className="space-y-2">
               {templates.length === 0 ? (
-                <div className="rounded-2xl bg-white/5 border border-white/10 p-4 text-gray-300 text-sm">
-                  لا توجد قوالب محفوظة بعد.
-                </div>
+                <TxGlassPanel className={`p-4 ${TX_TEXT_MUTED} text-sm font-medium`}>لا توجد قوالب محفوظة بعد.</TxGlassPanel>
               ) : (
                 templates.map((t) => (
-                  <div key={t.id} className="rounded-2xl bg-white/5 border border-white/10 p-4 flex items-center justify-between gap-3">
+                  <TxGlassPanel key={t.id} className="p-4 flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="text-white font-extrabold text-sm truncate">{t.name}</div>
-                      <div className="text-gray-400 text-xs mt-1">{t.tasks.length} خطوة</div>
+                      <div className={`${TX_TEXT_PRIMARY} font-extrabold text-sm truncate`}>{t.name}</div>
+                      <div className={`${TX_TEXT_MUTED} text-xs mt-1 font-medium`}>{t.tasks.length} خطوة</div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <button
                         type="button"
                         disabled={isReadOnly || tasks.length > 0}
                         onClick={() => importTemplate(t.id)}
-                        className="h-9 px-4 rounded-xl bg-[#D4AF37]/15 border border-[#D4AF37]/25 text-[#F4C430] text-xs font-extrabold disabled:opacity-50"
+                        className={TX_GOLD_BTN + ' disabled:opacity-50'}
                       >
                         استيراد
                       </button>
@@ -417,41 +401,37 @@ export function TransactionDetailsScreen({
                           deleteTaskTemplate(userId, t.id);
                           setTemplatesVersion((v) => v + 1);
                         }}
-                        className="h-9 px-3 rounded-xl bg-white/5 border border-white/10 text-gray-200 text-xs font-bold disabled:opacity-50"
+                        className={TX_DIALOG_BTN_CANCEL + ' !h-9 !px-3 text-xs disabled:opacity-50'}
                       >
                         حذف
                       </button>
                     </div>
-                  </div>
+                  </TxGlassPanel>
                 ))
               )}
             </div>
-          </div>
+          </TxGlassDrawerFrame>
         </DrawerContent>
       </Drawer>
 
       <Dialog open={reportOpen} onOpenChange={setReportOpen}>
-        <DialogContent className="bg-[#071022] border border-[#D4AF37]/20 rounded-3xl p-5">
+        <DialogContent className={TX_DIALOG_SHELL}>
           <DialogHeader className="text-right">
-            <DialogTitle className="text-white text-base">تحديث الموكل</DialogTitle>
-            <DialogDescription className="text-gray-400 text-sm">نص جاهز للإرسال عبر واتساب</DialogDescription>
+            <DialogTitle className={TX_DIALOG_TITLE}>تحديث الموكل</DialogTitle>
+            <DialogDescription className={TX_DIALOG_DESC}>نص جاهز للإرسال عبر واتساب</DialogDescription>
           </DialogHeader>
           <div dir="rtl" className="text-right">
-            <div className="rounded-2xl bg-black/20 border border-white/10 p-4 text-gray-100 text-sm whitespace-pre-wrap leading-7">
+            <div className={`${TX_INNER_SURFACE} p-4 ${TX_TEXT_SECONDARY} text-sm whitespace-pre-wrap leading-7 max-h-[50vh] overflow-y-auto font-medium`}>
               {reportText}
             </div>
           </div>
           <DialogFooter className="sm:justify-start">
-            <button
-              type="button"
-              onClick={copyReport}
-              className="h-11 px-5 rounded-2xl bg-gradient-to-r from-[#D4AF37] to-[#F4C430] text-[#0D0D1A] font-bold shadow-lg shadow-[#D4AF37]/25"
-            >
+            <button type="button" onClick={copyReport} className={GLASS_BTN + ' !w-auto px-5 h-11'}>
               {copied ? 'تم النسخ' : 'نسخ النص'}
             </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </TxGlassPage>
   );
 }

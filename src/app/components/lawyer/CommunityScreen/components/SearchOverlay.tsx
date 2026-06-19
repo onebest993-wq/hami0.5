@@ -1,9 +1,24 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowRight, Search, Paperclip, ImageIcon, FolderOpen, User, EyeOff, BookOpen, FileText } from 'lucide-react';
+import { ArrowRight, Search, Paperclip, ImageIcon, FolderOpen, User, EyeOff, BookOpen, FileText, Zap } from 'lucide-react';
 import type { CommunityPost, RepositoryDocument } from '@/app/services/lawyer-cloud';
 import { formatRelativeTime } from '../utils';
 import { getRepositoryMediaKind } from './repositoryMedia';
+import {
+    isActiveUrgentConsultation,
+    URGENT_CONSULTATION_BADGE,
+} from '@/app/services/forum/forumUrgentConsultation';
+import {
+    FORUM_ACCENT_CHIP,
+    FORUM_FEED_CARD,
+    FORUM_GHOST_BTN,
+    FORUM_ICON_BTN,
+    FORUM_LAYER,
+    FORUM_SURFACE_INPUT,
+    FORUM_TEXT_APRICOT,
+    FORUM_TEXT_MUTED,
+    FORUM_TEXT_PRIMARY,
+} from '../forumPlumTheme';
 
 interface SearchOverlayProps {
     isOpen: boolean;
@@ -43,40 +58,40 @@ export const SearchOverlay = ({
                     animate={{ x: 0 }}
                     exit={{ x: "100%" }}
                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                    className="fixed inset-0 z-[70] bg-[#151822] flex flex-col"
+                    className={`${FORUM_LAYER} z-[70] flex flex-col`}
                 >
-                    <div className="px-4 py-4 flex items-center gap-3 border-b border-white/5">
+                    <div className="px-4 py-4 flex items-center gap-3 border-b border-[#4A3D52]/40">
                         <button type="button"
                             onClick={onClose}
-                            className="w-10 h-10 flex items-center justify-center text-white/70 hover:text-white active:scale-95 transition-transform"
+                            className={`w-10 h-10 flex items-center justify-center ${FORUM_TEXT_MUTED} hover:text-[#F0B896] active:scale-95 transition-transform`}
                         >
                             <ArrowRight size={24} />
                         </button>
-                        <div className="flex-1 bg-[#25293C] h-12 rounded-xl flex items-center px-4 gap-2 border border-white/5 focus-within:border-[#E6C673]/50 transition-colors">
-                            <Search size={18} className="text-white/30" />
+                        <div className={`flex-1 h-12 rounded-xl flex items-center px-4 gap-2 ${FORUM_SURFACE_INPUT}`}>
+                            <Search size={18} className="text-[#9A9098]/60" />
                             <input
                                 type="text"
                                 value={searchQuery}
                                 onChange={(e) => onSearchQueryChange(e.target.value)}
                                 placeholder="ابحث في المنتدى والمستودع معاً..."
-                                className="bg-transparent flex-1 text-white text-sm placeholder-white/30 outline-none"
+                                className={`bg-transparent flex-1 text-sm outline-none ${FORUM_TEXT_PRIMARY} placeholder:text-[#9A9098]/55`}
                                 autoFocus
                             />
                         </div>
                     </div>
 
-                    <div className="px-4 py-4 space-y-4 border-b border-white/5 bg-[#151822]">
+                    <div className="px-4 py-4 space-y-4 border-b border-[#4A3D52]/40 bg-[#140A18]">
                         <div className="flex gap-2">
                             <button type="button"
                                 onClick={() => onFilterHasPdfChange(!filterHasPdf)}
-                                className={`px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-2 border transition-all ${filterHasPdf ? 'bg-[#E6C673]/20 border-[#E6C673] text-[#E6C673]' : 'bg-[#25293C] border-white/5 text-gray-400'}`}
+                                className={`px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-2 border transition-all ${filterHasPdf ? FORUM_ACCENT_CHIP : FORUM_GHOST_BTN}`}
                             >
                                 <Paperclip size={14} />
                                 يحتوي على PDF
                             </button>
                             <button type="button"
                                 onClick={() => onFilterHasImageChange(!filterHasImage)}
-                                className={`px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-2 border transition-all ${filterHasImage ? 'bg-[#E6C673]/20 border-[#E6C673] text-[#E6C673]' : 'bg-[#25293C] border-white/5 text-gray-400'}`}
+                                className={`px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-2 border transition-all ${filterHasImage ? FORUM_ACCENT_CHIP : FORUM_GHOST_BTN}`}
                             >
                                 <ImageIcon size={14} />
                                 يحتوي على صور
@@ -90,7 +105,7 @@ export const SearchOverlay = ({
                                         <button type="button"
                                             key={tag}
                                             onClick={() => onSelectedTagChange(selectedTag === tag ? null : tag)}
-                                            className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${selectedTag === tag ? 'bg-white/10 border-white text-white' : 'bg-[#25293C] border-white/5 text-gray-500 hover:text-gray-300'}`}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${selectedTag === tag ? FORUM_ACCENT_CHIP : FORUM_GHOST_BTN}`}
                                         >
                                             {tag}
                                         </button>
@@ -100,7 +115,7 @@ export const SearchOverlay = ({
                         ) : null}
                     </div>
 
-                    <div className="flex-1 overflow-y-auto scrollbar-hide p-4 bg-[#0F121E]">
+                    <div className="flex-1 overflow-y-auto scrollbar-hide p-4 bg-[#0E0812]">
                         {!hasActiveFilters ? (
                             <div className="h-full flex flex-col items-center justify-center text-center opacity-50 pb-20">
                                 <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-4">
@@ -120,8 +135,8 @@ export const SearchOverlay = ({
                                 {filteredPosts.length > 0 ? (
                                     <section>
                                         <div className="flex items-center gap-2 mb-3">
-                                            <BookOpen size={14} className="text-[#E6C673]" />
-                                            <p className="text-[#E6C673] text-xs font-bold">
+                                            <BookOpen size={14} className={FORUM_TEXT_APRICOT} />
+                                            <p className={`${FORUM_TEXT_APRICOT} text-xs font-bold`}>
                                                 المنتدى ({filteredPosts.length})
                                             </p>
                                         </div>
@@ -131,7 +146,7 @@ export const SearchOverlay = ({
                                                     type="button"
                                                     key={`search-post-${q.id}`}
                                                     onClick={() => onOpenPost?.(q.id)}
-                                                    className="w-full text-right bg-[#151822] rounded-xl p-4 border border-white/5 hover:border-[#E6C673]/25 transition-colors"
+                                                    className={`w-full text-right ${FORUM_FEED_CARD} p-4`}
                                                 >
                                                     <div className="flex items-start justify-between mb-2">
                                                         <div className="flex items-center gap-2">
@@ -142,9 +157,14 @@ export const SearchOverlay = ({
                                                             <span className="text-gray-600 text-[10px]">• {formatRelativeTime(q.createdAt)}</span>
                                                         </div>
                                                         <div className="flex gap-1">
-                                                            {q.isUrgent && <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-950/40 text-red-200 border border-red-500/20">🚨</span>}
-                                                            {q.attachment?.type === 'document' && <Paperclip size={12} className="text-[#E6C673]" />}
-                                                            {q.attachment?.type === 'image' && <ImageIcon size={12} className="text-[#E6C673]" />}
+                                                            {isActiveUrgentConsultation(q) && (
+                                                                <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-amber-950/45 text-amber-100 border border-amber-400/25 font-bold">
+                                                                    <Zap size={10} fill="currentColor" />
+                                                                    {URGENT_CONSULTATION_BADGE}
+                                                                </span>
+                                                            )}
+                                                            {q.attachment?.type === 'document' && <Paperclip size={12} className={FORUM_TEXT_APRICOT} />}
+                                                            {q.attachment?.type === 'image' && <ImageIcon size={12} className={FORUM_TEXT_APRICOT} />}
                                                         </div>
                                                     </div>
                                                     <p className="text-white/90 text-sm line-clamp-2 mb-2 font-medium">
@@ -177,7 +197,7 @@ export const SearchOverlay = ({
                                                         type="button"
                                                         key={`search-doc-${doc.id}`}
                                                         onClick={() => onOpenDocument?.(doc)}
-                                                        className="w-full text-right bg-[#151822] rounded-xl p-4 border border-white/5 hover:border-sky-400/25 transition-colors"
+                                                        className={`w-full text-right ${FORUM_FEED_CARD} p-4`}
                                                     >
                                                         <div className="flex items-start justify-between gap-2 mb-2">
                                                             <div className="flex items-center gap-2 min-w-0">
@@ -193,7 +213,7 @@ export const SearchOverlay = ({
                                                         <p className="text-white/70 text-xs line-clamp-2 mb-2">{doc.description}</p>
                                                         <div className="flex items-center gap-2 flex-wrap">
                                                             <span className="text-[10px] text-white/40">{doc.authorName}</span>
-                                                            {mediaKind === 'pdf' && <Paperclip size={11} className="text-[#E6C673]" />}
+                                                            {mediaKind === 'pdf' && <Paperclip size={11} className={FORUM_TEXT_APRICOT} />}
                                                             {mediaKind === 'image' && <ImageIcon size={11} className="text-sky-300" />}
                                                             {(doc.tags ?? []).slice(0, 4).map((t) => (
                                                                 <span key={`${doc.id}-${t}`} className="text-[10px] text-gray-500 bg-white/5 px-1.5 py-0.5 rounded">{t}</span>

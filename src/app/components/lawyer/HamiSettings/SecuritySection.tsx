@@ -1,6 +1,8 @@
 import React from 'react';
-import { Fingerprint, Shield, User } from 'lucide-react';
+import { Eye, Fingerprint, Shield, WifiOff } from 'lucide-react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import { SmartDialog } from '@/app/components/ui/SmartDialog';
+import { useLawyerSettings } from '@/app/context/LawyerSettingsContext';
 import {
     clearStoredBiometricCredential,
     isWebAuthnLockSupported,
@@ -9,13 +11,33 @@ import {
 import { settingWiringHint } from '@/app/services/settings/settingsCapabilities';
 import { AUTO_LOCK_OPTIONS, type AppSettingsState } from '@/app/services/settings';
 import { SectionHeader, SettingCard, SettingRow, Toggle, SelectRow } from './settings-ui';
+import { useSettingsPatches } from './hooks/useSettingsPatches';
 
-export type SecuritySectionProps = {
-    settings: AppSettingsState;
-    patchSecurity: (partial: Partial<AppSettingsState['security']>) => void;
-};
+export function SecuritySection() {
+    const { settings } = useLawyerSettings();
+    const { patchSecurity, patchData } = useSettingsPatches();
 
-export function SecuritySection({ settings, patchSecurity }: SecuritySectionProps) {
+    const toggleLocalOnly = async (enabled: boolean) => {
+        if (enabled) {
+            const ok = await SmartDialog.confirm(
+                'لن يتصل التطبيق بالإنترنت أو السحابة. تبقى القضايا والملاحظات والتنفيذ على هذا الجهاز فقط. يمكنك إلغاء ذلك لاحقاً.',
+                { title: 'تفعيل قطع الاتصال؟' },
+            );
+            if (!ok) return;
+            patchSecurity({ localOnlyMode: true });
+            patchData({
+                cloudSync: false,
+                syncNotes: false,
+                syncFiles: false,
+                syncExecution: false,
+            });
+            SmartToast.success('قطع الاتصال — العمل محلياً بالكامل');
+            return;
+        }
+        patchSecurity({ localOnlyMode: false });
+        SmartToast.info('تم استعادة إمكانية الاتصال');
+    };
+
     const toggleBiometric = async (checked: boolean) => {
         if (!checked) {
             clearStoredBiometricCredential();
@@ -24,7 +46,7 @@ export function SecuritySection({ settings, patchSecurity }: SecuritySectionProp
             return;
         }
         if (!isWebAuthnLockSupported()) {
-            SmartToast.info('القفل البيومتري يتطلب HTTPS وجهازاً يدعم البصمة');
+            SmartToast.info('القفل البيومتري يتطلب جهازاً يدعم البصمة أو Face ID');
             return;
         }
         try {
@@ -49,27 +71,41 @@ export function SecuritySection({ settings, patchSecurity }: SecuritySectionProp
     return (
         <>
             <SectionHeader title="الأمان والخصوصية" subtitle="حماية بيانات الموكلين والمكتب" icon={Shield} />
+
+            {settings.security.localOnlyMode ? (
+                <div className="mb-4 px-4 py-3 rounded-2xl border border-amber-500/25 bg-amber-500/10 text-center">
+                    <p className="text-xs font-bold text-amber-200/95">قطع الاتصال مفعّل</p>
+                    <p className="text-[10px] text-amber-100/70 mt-1">كل العمل محلي — لا مزامنة ولا اتصال خارجي</p>
+                </div>
+            ) : null}
+
             <SettingCard>
                 <SettingRow
-                    icon={Shield}
-                    label="تمويه عند الخروج"
-                    subLabel="ضبابية الشاشة عند تبديل التطبيق"
-                    action={<Toggle checked={settings.security.privacyBlur} onChange={(v) => patchSecurity({ privacyBlur: v })} />}
+                    icon={WifiOff}
+                    label="قطع الاتصال"
+                    subLabel={settingWiringHint('security.localOnlyMode')}
+                    action={
+                        <Toggle
+                            checked={settings.security.localOnlyMode}
+                            onChange={(v) => void toggleLocalOnly(v)}
+                        />
+                    }
                 />
                 <SettingRow
                     icon={Shield}
-                    label="منع القائمة اليمنى"
-                    subLabel={settingWiringHint('security.screenshotDeterrent')}
-                    action={<Toggle checked={settings.security.screenshotDeterrent} onChange={(v) => patchSecurity({ screenshotDeterrent: v })} />}
+                    label="تمويه عند الخروج"
+                    subLabel={settingWiringHint('security.privacyBlur')}
+                    action={<Toggle checked={settings.security.privacyBlur} onChange={(v) => patchSecurity({ privacyBlur: v })} />}
                 />
                 <SettingRow
                     icon={Fingerprint}
                     label="قفل بيومتري"
-                    subLabel="يُطلب عند العودة للتطبيق أو بعد مدة الخمول"
+                    subLabel={settingWiringHint('security.biometricLock')}
                     action={<Toggle checked={settings.security.biometricLock} onChange={toggleBiometric} />}
                 />
                 <SelectRow
                     label="قفل تلقائي بعد"
+                    hint={settingWiringHint('security.autoLockMinutes')}
                     value={String(settings.security.autoLockMinutes)}
                     options={AUTO_LOCK_OPTIONS.map((o) => ({ value: String(o.value), label: o.label }))}
                     onChange={(v) =>
@@ -77,20 +113,18 @@ export function SecuritySection({ settings, patchSecurity }: SecuritySectionProp
                     }
                 />
                 <SettingRow
-                    icon={Shield}
-                    label="وضع الخصوصية العالي"
-                    subLabel="يوقف الخدمات الشبكية (السحابة/التزامن الحي/إشعارات الدفع)"
-                    action={<Toggle checked={settings.security.decoyMode} onChange={(v) => patchSecurity({ decoyMode: v })} />}
-                />
-                <SettingRow
-                    icon={User}
-                    label="إخفاء أسماء حساسة"
-                    subLabel="في رأس الشاشة: «المحامي» بدل الاسم الحقيقي"
+                    icon={Eye}
+                    label="حماية لقطة الشاشة"
+                    subLabel={settingWiringHint('security.screenshotDeterrent')}
                     isLast
-                    action={<Toggle checked={settings.security.maskSensitiveInPublic} onChange={(v) => patchSecurity({ maskSensitiveInPublic: v })} />}
+                    action={
+                        <Toggle
+                            checked={settings.security.screenshotDeterrent}
+                            onChange={(v) => patchSecurity({ screenshotDeterrent: v })}
+                        />
+                    }
                 />
             </SettingCard>
         </>
     );
 }
-

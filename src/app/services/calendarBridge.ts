@@ -118,6 +118,7 @@ function buildNotesBlock(payload: CalendarBridgePayload): string {
 }
 
 function notifyCalendarUpdated(): void {
+    if (calendarUpdateMuteDepth > 0) return;
     try {
         if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent(CALENDAR_UPDATED_EVENT));
@@ -125,6 +126,20 @@ function notifyCalendarUpdated(): void {
     } catch {
         /* ignore */
     }
+}
+
+let calendarUpdateMuteDepth = 0;
+
+/** يكتم أحداث تحديث التقويم أثناء المزامنة الدفعية (يمنع عاصفة طلبات API). */
+export function muteCalendarUpdates(): () => void {
+    calendarUpdateMuteDepth += 1;
+    return () => {
+        calendarUpdateMuteDepth = Math.max(0, calendarUpdateMuteDepth - 1);
+    };
+}
+
+export function dispatchCalendarUpdatedEvent(): void {
+    notifyCalendarUpdated();
 }
 
 /**

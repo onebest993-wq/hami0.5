@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
     CheckCircle2, X, Plus,
@@ -18,20 +17,49 @@ const LazyViewUrgentDashboard = React.lazy(() =>
 );
 import { DeferredActiveOrderFile } from './DeferredActiveOrderFile';
 import { fileDataFromUrgentForm } from '@/app/domain/urgent';
-import { MAIN_GATEWAY, JURISDICTIONS, FIXED_FEE_KEYWORDS } from './LawyerNewCase/constants';
+import { MAIN_GATEWAY, JURISDICTIONS } from './LawyerNewCase/constants';
 import type { MainCategory, CaseType, CivilSubView, Party, ThirdParty } from './LawyerNewCase/types';
 import type { LawyerNewCaseProps } from '@/app/types/components';
 import { useCriminalStore } from '@/app/components/lawyer/criminal-system/criminalStore';
 import { GatewayCard } from './LawyerNewCase/components/GatewayCard';
-import { JurisdictionCard } from './LawyerNewCase/components/JurisdictionCard';
-import { PartyCard } from './LawyerNewCase/components/PartyCard';
+import { JurisdictionGlassPanel } from './LawyerNewCase/components/JurisdictionGlassPanel';
 import { ThirdPartyModal } from './LawyerNewCase/components/ThirdPartyModal';
 import { CaseHeader } from './LawyerNewCase/components/CaseHeader';
 import { CaseBasicsForm } from './LawyerNewCase/components/CaseBasicsForm';
-import { FinancialSection } from './LawyerNewCase/components/FinancialSection';
-import { CivilTabs } from './LawyerNewCase/components/CivilTabs';
+import { PersonalStatusNewCaseForm } from './personal-status/PersonalStatusNewCaseForm';
+import {
+    validatePersonalStatusForm,
+    getPersonalStatusRoleForSide,
+    getPersonalStatusLabels,
+    type PersonalApplicableLaw,
+} from './personal-status/personalStatusValidation';
+import {
+    PERSONAL_STATUS_FORM_GRADIENT,
+    PERSONAL_STATUS_FORM_GRADIENT_2,
+    PERSONAL_STATUS_FORM_SHELL,
+} from './personal-status/personalStatusVisualTheme';
 import { SaveButton } from './LawyerNewCase/components/SaveButton';
 import { PartiesSection } from './LawyerNewCase/components/PartiesSection';
+import { ThirdPartiesSection } from './LawyerNewCase/components/ThirdPartiesSection';
+import {
+    hasLawyerClientMark,
+} from './LawyerNewCase/clientRepresentation';
+import {
+    computeStageOptions,
+    getBlockedWordsError,
+    getStageCourtMismatchErrors,
+    getRetrialTargetCourtMismatchErrors,
+    getUnderlyingStageOptions,
+    isAbsentJudgmentObjectionStage,
+    isExtraordinaryProcedureStage,
+    isEvictionOrSharing,
+    getValuePlaceholder,
+    getExceptionWarning,
+    getCaseNumberError,
+    isFixedFeeType,
+    validateForm,
+    getLabels,
+} from './LawyerNewCase/validation';
 
 export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
     onClose,
@@ -39,6 +67,7 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
     onOpenCriminalDashboard,
     presetSelectedType,
     criminalSeveranceFormMode = false,
+    consolidationNavActive = false,
 }) => {
     const debug = (window as unknown as Record<string, { log: (...args: unknown[]) => void }>).debug || { log: (...args: unknown[]) => console.log(...args) };
     // عند وجود `presetSelectedType` (مثلاً عند مسار تفريق الدعوى): تجاوز خطوة الاختيار
@@ -62,22 +91,20 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
     const [isThirdPartyModalOpen, setIsThirdPartyModalOpen] = useState(false);
     const [thirdParties, setThirdParties] = useState<ThirdParty[]>([]);
 
-    const [stageOptions, setStageOptions] = useState<string[]>(['بداءة بدرجة أولى', 'بداءة بدرجة أخيرة', 'استئناف', 'اعتراض على الحكم الغيابي', 'اعتراض الغير', 'إعادة المحاكمة']);
     const [isUndeterminedValue, setIsUndeterminedValue] = useState(false);
     const [isFixedFee, setIsFixedFee] = useState(false);
+    const [applicableLaw, setApplicableLaw] = useState<PersonalApplicableLaw | ''>('');
     const [errorMap, setErrorMap] = useState<Record<string, string>>({});
-    const [exceptionWarning, setExceptionWarning] = useState<string | null>(null);
-    const [valuePlaceholder, setValuePlaceholder] = useState('مهم لتحديد الاختصاص');
-    const [caseNumberError, setCaseNumberError] = useState<string | null>(null);
 
     const [caseDetails, setCaseDetails] = useState({
-        number: '234 / ب / 2024',
+        number: '',
         court: '',
         type: '',
         judge: '',
         stage: '',
         claimValue: '',
-        totalAgreedFees: ''
+        totalAgreedFees: '',
+        retrialTargetStage: '',
     });
 
     const topFormRef = useRef<HTMLDivElement>(null);
@@ -85,73 +112,122 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
     const typeRef = useRef<HTMLInputElement>(null);
     const stageRef = useRef<HTMLSelectElement>(null);
     const numberRef = useRef<HTMLInputElement>(null);
+    const retrialTargetRef = useRef<HTMLSelectElement>(null);
+
+
+    const stageOptions = useMemo(
+        () => computeStageOptions(caseDetails.court),
+        [caseDetails.court],
+    );
+    const valuePlaceholder = useMemo(
+        () => getValuePlaceholder(caseDetails.type || ''),
+        [caseDetails.type],
+    );
+    const exceptionWarning = useMemo(
+        () => getExceptionWarning(caseDetails.claimValue, caseDetails.type || ''),
+        [caseDetails.claimValue, caseDetails.type],
+    );
+    const caseNumberError = useMemo(
+        () => getCaseNumberError(caseDetails.number),
+        [caseDetails.number],
+    );
+    const labels = useMemo(
+        () =>
+            selectedType === 'personal'
+                ? getPersonalStatusLabels(caseDetails.stage)
+                : getLabels(mainCategory),
+        [mainCategory, selectedType, caseDetails.stage],
+    );
+    const isPersonalCase = selectedType === 'personal';
 
     useEffect(() => {
-        const prefs = getLawyerSettingsSnapshot().workflow;
-        if (!prefs.defaultCourt) return;
-        setCaseDetails((prev) => ({
-            ...prev,
-            court: prev.court || prefs.defaultCourt,
-        }));
-    }, []);
+        setIsFixedFee(isFixedFeeType(caseDetails.type || ''));
+    }, [caseDetails.type]);
 
     useEffect(() => {
+        if (isPersonalCase) return;
+        if (!isExtraordinaryProcedureStage(caseDetails.stage)) return;
+        setIsUndeterminedValue(false);
+        setIsFixedFee(false);
+        setCaseDetails((prev) => {
+            let next = prev.claimValue ? { ...prev, claimValue: '' } : prev;
+            if (
+                isAbsentJudgmentObjectionStage(prev.stage) &&
+                prev.retrialTargetStage?.includes('استئناف')
+            ) {
+                next = { ...next, retrialTargetStage: '' };
+            }
+            return next;
+        });
+    }, [caseDetails.stage, isPersonalCase]);
+
+    useEffect(() => {
+        if (isPersonalCase) return;
+        if (isExtraordinaryProcedureStage(caseDetails.stage)) return;
+        setCaseDetails((prev) => (prev.retrialTargetStage ? { ...prev, retrialTargetStage: '' } : prev));
+    }, [caseDetails.stage, isPersonalCase]);
+
+    useEffect(() => {
+        if (isPersonalCase) {
+            const validationErrors: Record<string, string> = {};
+            Object.assign(validationErrors, getBlockedWordsError(caseDetails.court, caseDetails.type, selectedType));
+            if (caseDetails.stage.includes('استئناف') || caseDetails.stage.includes('بداءة')) {
+                validationErrors.stage =
+                    'مرحلة غير متاحة في الأحوال الشخصية — اختر أحوال شخصية أو تمييز أو طعن استثنائي.';
+            }
+            setErrorMap((prev) => {
+                const newMap: Record<string, string> = {};
+                Object.keys(prev).forEach((key) => {
+                    if (!['court', 'type', 'stage', 'retrialTargetStage', 'applicableLaw', 'number'].includes(key)) {
+                        newMap[key] = prev[key];
+                    }
+                });
+                Object.assign(newMap, validationErrors);
+                return newMap;
+            });
+            return;
+        }
+
         const validationErrors: Record<string, string> = {};
-        const GENERIC_ERROR = 'ملاحظة: يرجى التأكد من تطابق المعلومات المدخلة';
+        const { court, type, stage, claimValue: value, retrialTargetStage } = caseDetails;
 
-        const court = caseDetails.court.toLowerCase();
-        const type = caseDetails.type.toLowerCase();
-        const stage = caseDetails.stage;
-        const value = caseDetails.claimValue;
+        Object.assign(validationErrors, getStageCourtMismatchErrors(court, stage));
+        if (isExtraordinaryProcedureStage(stage) && retrialTargetStage) {
+            Object.assign(validationErrors, getRetrialTargetCourtMismatchErrors(court, retrialTargetStage));
+        }
+        Object.assign(validationErrors, getBlockedWordsError(court, type, selectedType));
 
-        if (court.includes('بداءة')) {
-            const allowedStages = ['بداءة بدرجة أخيرة', 'بداءة بدرجة أولى', 'اعتراض على الحكم الغيابي', 'اعتراض الغير', 'إعادة المحاكمة'];
-            if (stageOptions.join() !== allowedStages.join()) {
-                setStageOptions(allowedStages);
-            }
-            if (stage.includes('استئناف')) {
-                validationErrors['stage'] = GENERIC_ERROR;
-            }
-        }
-        else if (court.includes('استئناف')) {
-            const allowedStages = ['استئناف', 'اعتراض على الحكم الغيابي', 'اعتراض الير', 'إعادة المحاكمة'];
-            if (stageOptions.join() !== allowedStages.join()) {
-                setStageOptions(allowedStages);
-            }
-            if (stage.includes('بداءة')) {
-                validationErrors['court'] = GENERIC_ERROR;
-            }
-        }
-        else if (!court || (!court.includes('بداءة') && !court.includes('استئناف'))) {
-            const defaultStages = ['بداءة بدرجة أولى', 'بداءة بدرجة أخيرة', 'استئناف', 'اعتراض على الحكم الغيابي', 'اعتراض الغير', 'إعادة المحاكمة'];
-            if (stageOptions.join() !== defaultStages.join()) {
-                setStageOptions(defaultStages);
-            }
-        }
-
-        const blockedWords = ['شرعي', 'شرعية', 'أحوال', 'جنايات', 'جنح', 'جزاء', 'تحقيق', 'إداري', 'إدارية', 'موظفين'];
-
-        if (blockedWords.some(word => court.includes(word))) {
-            validationErrors['court'] = GENERIC_ERROR;
-        }
-        if (blockedWords.some(word => type.includes(word))) {
-            validationErrors['type'] = GENERIC_ERROR;
+        if (isExtraordinaryProcedureStage(stage)) {
+            setErrorMap((prev) => {
+                const newMap: Record<string, string> = {};
+                Object.keys(prev).forEach((key) => {
+                    if (!['court', 'type', 'stage', 'retrialTargetStage'].includes(key)) {
+                        newMap[key] = prev[key];
+                    }
+                });
+                Object.keys(validationErrors).forEach((key) => {
+                    newMap[key] = validationErrors[key];
+                });
+                return newMap;
+            });
+            return;
         }
 
         const cleanValue = parseInt(value.replace(/[^0-9]/g, '')) || 0;
-        const isEvictionOrSharing = type.includes('تخلي') || type.includes('شيوع');
+        const typeLower = type.toLowerCase();
+        const evictionOrSharing = isEvictionOrSharing(typeLower);
 
-        if (isEvictionOrSharing && stage && !stage.includes('استئناف')) {
+        if (evictionOrSharing && stage && !stage.includes('استئناف')) {
             if (stage !== 'بداءة بدرجة أخيرة') {
                 setCaseDetails(prev => ({ ...prev, stage: 'بداءة بدرجة أخيرة' }));
             }
         }
-        else if ((isFixedFee || isUndeterminedValue) && !isEvictionOrSharing) {
+        else if ((isFixedFee || isUndeterminedValue) && !evictionOrSharing) {
             if (value !== '' || (stage !== 'بداءة بدرجة أخيرة' && !stage.includes('استئناف'))) {
                 setCaseDetails(prev => ({ ...prev, claimValue: '', stage: prev.stage.includes('استئناف') ? prev.stage : 'بداءة بدرجة أخيرة' }));
             }
         }
-        else if (cleanValue > 0 && !isEvictionOrSharing && !isFixedFee && !isUndeterminedValue && stage.includes('بداءة')) {
+        else if (cleanValue > 0 && !evictionOrSharing && !isFixedFee && !isUndeterminedValue && stage.includes('بداءة')) {
             if (cleanValue > 1000000 && stage !== 'بداءة بدرجة أولى') {
                 setCaseDetails(prev => ({ ...prev, stage: 'بداءة بدرجة أولى' }));
             } else if (cleanValue <= 1000000 && stage !== 'بداءة بدرجة أخيرة') {
@@ -172,25 +248,25 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
             return newMap;
         });
 
-    }, [caseDetails.court, caseDetails.type, caseDetails.stage, caseDetails.claimValue, parties1, parties2, isFixedFee, isUndeterminedValue]);
-
-    useEffect(() => {
-        const type = caseDetails.type || '';
-        if (type.includes('تخلي')) setValuePlaceholder('أدخل بدل الإيجار السنوي (مادة 18)');
-        else if (type.includes('معارضة')) setValuePlaceholder('أدخل بدل المفعة السنوي');
-        else if (type.includes('شفعة')) setValuePlaceholder('القيمة المسجلة بالطابو');
-        else setValuePlaceholder('مهم لتحديد الاختصاص');
-    }, [caseDetails.type]);
-
-    useEffect(() => {
-        const type = caseDetails.type || '';
-        if (FIXED_FEE_KEYWORDS.some(k => type.includes(k))) {
-            setIsFixedFee(true);
-        }
-    }, [caseDetails.type]);
+    }, [caseDetails.court, caseDetails.type, caseDetails.stage, caseDetails.claimValue, caseDetails.retrialTargetStage, selectedType, isFixedFee, isUndeterminedValue, isPersonalCase, applicableLaw]);
 
     useEffect(() => {
         const stage = caseDetails.stage;
+        if (isPersonalCase) {
+            if (!stage) return;
+            setParties1((prev) => {
+                const role = getPersonalStatusRoleForSide(stage, 1, prev.length);
+                if (prev.length > 0 && prev[0].status === role) return prev;
+                return prev.map((p) => ({ ...p, status: role }));
+            });
+            setParties2((prev) => {
+                const role = getPersonalStatusRoleForSide(stage, 2, prev.length);
+                if (prev.length > 0 && prev[0].status === role) return prev;
+                return prev.map((p) => ({ ...p, status: role }));
+            });
+            return;
+        }
+
         if (!stage) {
             setParties1(prev => {
                 const role = prev.length > 1 ? 'المدعين' : 'المدعي';
@@ -217,39 +293,8 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
             if (prev.length > 0 && prev[0].status === role) return prev;
             return prev.map(p => ({ ...p, status: role }));
         });
-    }, [caseDetails.stage, parties1.length, parties2.length]);
+    }, [caseDetails.stage, parties1.length, parties2.length, isPersonalCase]);
 
-    useEffect(() => {
-        const cleanValue = parseInt(caseDetails.claimValue.replace(/[^0-9]/g, '')) || 0;
-        const EXCEPTION_TYPES = ['تخلي', 'شيوع', 'دين', 'استرداد', 'تعرض', 'وقف', 'تعويض'];
-        const typeMatches = EXCEPTION_TYPES.some(t => (caseDetails.type || '').includes(t));
-
-        if (cleanValue > 0 && cleanValue <= 1000000 && typeMatches) {
-            if (exceptionWarning !== 'تنبيه: الطعن في هذه الدعوى يكون أمام محكمة الاستئناف بصفتها التمييزية') {
-                setExceptionWarning('تنبيه: الطعن في هذه الدعوى يكون أمام محكمة الاستئناف بصفتها التمييزية');
-            }
-        } else {
-            if (exceptionWarning !== null) setExceptionWarning(null);
-        }
-    }, [caseDetails.claimValue, caseDetails.type, exceptionWarning]);
-
-    useEffect(() => {
-        const num = caseDetails.number;
-        const stage = caseDetails.stage;
-        if (!num) {
-            if (caseNumberError) setCaseNumberError(null);
-            return;
-        }
-
-        const permissiveRegex = /^[\d\u0660-\u0669\s]+\/[\u0600-\u06FF\s]+\/[\d\u0660-\u0669\s]+$/;
-
-        if (!permissiveRegex.test(num)) {
-            const hint = 'يرجى استخدام الصيغة: رقم / حرف / سنة (مثال: 234 / ب / 2024)';
-            if (caseNumberError !== hint) setCaseNumberError(hint);
-        } else {
-            if (caseNumberError) setCaseNumberError(null);
-        }
-    }, [caseDetails.number, caseDetails.stage, caseNumberError]);
 
     const scrollToElement = (ref: React.RefObject<HTMLInputElement | HTMLSelectElement>) => {
         ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -257,10 +302,51 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
     };
 
     const handleSave = () => {
-        const errors: Record<string, string> = {};
-        let firstErrorRef: React.RefObject<HTMLInputElement | HTMLSelectElement> | null = null;
+        if (isPersonalCase) {
+            const personalFieldKeys = ['court', 'type', 'stage', 'retrialTargetStage', 'applicableLaw'];
+            const hasValidationErrors = personalFieldKeys.some((key) => errorMap[key]);
+            if (hasValidationErrors) {
+                SmartToast.error('يرجى تصحيح الحقول المؤشرة باللون الأصفر.');
+                if (errorMap.court) scrollToElement(courtRef);
+                else if (errorMap.type) scrollToElement(typeRef);
+                else if (errorMap.stage) scrollToElement(stageRef);
+                else if (errorMap.retrialTargetStage) scrollToElement(retrialTargetRef);
+                return;
+            }
 
-        const validationErrors = ['court', 'type', 'stage'];
+            const personalErrors = validatePersonalStatusForm({
+                court: caseDetails.court,
+                type: caseDetails.type,
+                stage: caseDetails.stage,
+                applicableLaw,
+                retrialTargetStage: caseDetails.retrialTargetStage,
+            });
+            const errors: Record<string, string> = { ...personalErrors };
+            if (caseNumberError) errors.number = caseNumberError;
+            if (!hasLawyerClientMark(parties1, parties2, thirdParties)) {
+                errors.lawyer_client = 'يرجى تحديد الموكل — يجب اختيار طرف واحد على الأقل';
+            }
+            if (Object.keys(errors).length > 0) {
+                setErrorMap((prev) => ({ ...prev, ...errors }));
+                SmartToast.error('يرجى تصحيح الحقول المؤشرة باللون الأصفر.');
+                return;
+            }
+
+            setIsAnalyzing(true);
+            onSave({
+                mainCategory: mainCategory || 'lawsuit',
+                selectedType: 'personal',
+                parties1,
+                parties2,
+                thirdParties,
+                applicableLaw,
+                details: { ...caseDetails, applicableLaw },
+            });
+            setIsAnalyzing(false);
+            return;
+        }
+
+        const validationErrors = ['court', 'type', 'stage', 'retrialTargetStage'];
         const hasValidationErrors = validationErrors.some(key => errorMap[key]);
 
         if (hasValidationErrors) {
@@ -268,33 +354,29 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
             if (errorMap['court']) scrollToElement(courtRef);
             else if (errorMap['type']) scrollToElement(typeRef);
             else if (errorMap['stage']) scrollToElement(stageRef);
+            else if (errorMap['retrialTargetStage']) scrollToElement(retrialTargetRef);
             return;
         }
 
-        if (!caseDetails.court) {
-            errors['court'] = 'ملاحظة: يرجى التأكد من تطابق المعلومات المدخلة';
-            if (!firstErrorRef) firstErrorRef = courtRef;
-        }
-        if (!caseDetails.type) {
-            errors['type'] = 'ملاحظة: يرجى التأكد من تطابق المعلومات المدخلة';
-            if (!firstErrorRef) firstErrorRef = typeRef;
-        }
-        if (!caseDetails.stage) {
-            errors['stage'] = 'ملاحظة: يرجى التأكد من تطابق المعلومات المدخلة';
-            if (!firstErrorRef) firstErrorRef = stageRef;
-        }
+        const { errors, firstErrorField } = validateForm(
+            caseDetails,
+            errorMap,
+            caseNumberError,
+            parties1,
+            parties2,
+        );
+        const refByField: Record<string, React.RefObject<HTMLInputElement | HTMLSelectElement>> = {
+            court: courtRef,
+            type: typeRef,
+            stage: stageRef,
+            number: numberRef,
+            retrialTargetStage: retrialTargetRef,
+        };
+        let firstErrorRef = firstErrorField ? refByField[firstErrorField] ?? null : null;
 
-        if (caseNumberError) {
-            errors['number'] = caseNumberError;
-            if (!firstErrorRef) firstErrorRef = numberRef;
+        if (!hasLawyerClientMark(parties1, parties2, thirdParties)) {
+            errors['lawyer_client'] = 'يرجى تحديد الموكل — يجب اختيار طرف واحد على الأقل';
         }
-
-        parties1.forEach(p => {
-            if (!p.name) errors[`party_${p.id}`] = 'ملاحظة: يرجى التأكد من تطابق المعلومات المدخلة';
-        });
-        parties2.forEach(p => {
-            if (!p.name) errors[`party_${p.id}`] = 'ملاحظة: يرجى التأكد من تطابق المعلومات المدخلة';
-        });
 
         if (Object.keys(errors).length > 0) {
             setErrorMap(errors);
@@ -304,39 +386,20 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
         }
 
         setIsAnalyzing(true);
-        setTimeout(() => {
-            setIsAnalyzing(false);
-            onSave({
-                mainCategory: mainCategory || 'lawsuit',
-                selectedType: selectedType || 'civil',
-                parties1,
-                parties2,
-                thirdParties,
-                details: { ...caseDetails },
-            });
-        }, 1200);
+        onSave({
+            mainCategory: mainCategory || 'lawsuit',
+            selectedType: selectedType || 'civil',
+            parties1,
+            parties2,
+            thirdParties,
+            isUndeterminedValue,
+            isFixedFee,
+            details: { ...caseDetails },
+        });
+        setIsAnalyzing(false);
     };
-
-    const getLabels = () => {
-        switch (mainCategory) {
-            case 'execution':
-                return { p1Main: 'الطرف الأول', p2Main: 'الطرف الثاني', courtPlaceholder: 'مديرية التنفيذ...', typePlaceholder: 'السند التنفيذي...' };
-            case 'transaction':
-                return { p1Main: 'الطرف الأول', p2Main: 'الطرف الثاني', courtPlaceholder: 'دائرة كاتب العدل...', typePlaceholder: 'نوع المعاملة...' };
-            default:
-                return { p1Main: 'الطرف الأول', p2Main: 'الطرف الثاني', courtPlaceholder: 'اسم المحكمة المختصة...', typePlaceholder: 'أدخل نوع الدعوى...' };
-        }
-    };
-    const labels = getLabels();
 
     const getDefaultStatus = (side: 1 | 2) => '';
-
-    const toggleAgent = (side: 1 | 2, id: string) => {
-        const updater = (prev: Party[]) => prev.map(p =>
-            p.id === id ? { ...p, hasLawyer: !p.hasLawyer } : p
-        );
-        side === 1 ? setParties1(updater) : setParties2(updater);
-    };
 
     useEffect(() => {
         setParties1(prev => prev.map(p => ({ ...p, status: getDefaultStatus(1) })));
@@ -357,33 +420,164 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
         if (side === 2 && parties2.length > 1) setParties2(parties2.filter(p => p.id !== id));
     };
 
-    const updateParty = (side: 1 | 2, id: string, field: keyof Party, value: string | boolean) => {
-        if (field === 'isMyOffice' && value === true) {
-            const otherSideParties = side === 1 ? parties2 : parties1;
-            const hasConflict = otherSideParties.some(p => p.isMyOffice === true);
+    const clearLawyerClientError = () => {
+        setErrorMap((prev) => {
+            if (!prev.lawyer_client) return prev;
+            const next = { ...prev };
+            delete next.lawyer_client;
+            return next;
+        });
+    };
 
-            if (hasConflict) {
-                SmartToast.error("⚠️ تعارض مصالح: لا يمكن تمثيل الطرفين في نفس الدعوى!");
-                return;
-            }
+    const clearClientFromParty = (p: Party): Party => ({
+        ...p,
+        isClient: false,
+        isMyOffice: false,
+        lawyerName: p.isMyOffice ? '' : (p.lawyerName ?? ''),
+    });
+
+    const markPartyAsClient = (p: Party): Party => ({
+        ...p,
+        isClient: true,
+        isMyOffice: true,
+        lawyerName: 'مكتبي (الوكيل الأصيل)',
+    });
+
+    const clearClientFromThirdParty = (tp: ThirdParty): ThirdParty => ({
+        ...tp,
+        isClient: false,
+        isMyOffice: false,
+        lawyerName: tp.isMyOffice ? '' : tp.lawyerName,
+    });
+
+    const markThirdPartyAsClient = (tp: ThirdParty): ThirdParty => ({
+        ...tp,
+        isClient: true,
+        isMyOffice: true,
+        lawyerName: 'مكتبي (الوكيل الأصيل)',
+    });
+
+    const clearClientsOnSide = (side: 1 | 2) => {
+        const wipeParty = (p: Party): Party => ({
+            ...p,
+            isClient: false,
+            isMyOffice: false,
+            lawyerName: p.isMyOffice ? '' : (p.lawyerName ?? ''),
+        });
+        if (side === 1) setParties1((prev) => prev.map(wipeParty));
+        else setParties2((prev) => prev.map(wipeParty));
+        setThirdParties((prev) =>
+            prev.map((tp) => {
+                if (tp.isClient && tp.entryMode === 'affiliative' && tp.affiliatedSide === side) {
+                    return { ...tp, isClient: false, isMyOffice: false, lawyerName: '' };
+                }
+                return tp;
+            }),
+        );
+    };
+
+    const otherSideHasClient = (side: 1 | 2) => {
+        const other = side === 1 ? 2 : 1;
+        const otherParties = other === 1 ? parties1 : parties2;
+        return (
+            otherParties.some((p) => p.isClient || p.isMyOffice) ||
+            thirdParties.some((tp) => tp.isClient && (tp.affiliatedSide === other || tp.entryMode === 'interpleader'))
+        );
+    };
+
+    const updateParty = (side: 1 | 2, id: string, field: keyof Party, value: string | boolean) => {
+        if (field === 'isClient' && value === true) {
+            clearLawyerClientError();
+            setParties1((prev) =>
+                prev.map((p) =>
+                    side === 1 && p.id === id ? markPartyAsClient(p) : clearClientFromParty(p),
+                ),
+            );
+            setParties2((prev) =>
+                prev.map((p) =>
+                    side === 2 && p.id === id ? markPartyAsClient(p) : clearClientFromParty(p),
+                ),
+            );
+            setThirdParties((prev) => prev.map(clearClientFromThirdParty));
+            return;
         }
 
-        const updater = (prev: Party[]) => prev.map(p => {
-            if (p.id === id) {
+        if (field === 'isClient' && value === false) {
+            const updater = (prev: Party[]) =>
+                prev.map((p) => (p.id === id ? clearClientFromParty(p) : p));
+            side === 1 ? setParties1(updater) : setParties2(updater);
+            return;
+        }
+
+        if (field === 'isMyOffice' && value === true) {
+            if (otherSideHasClient(side)) {
+                SmartToast.error('⚠️ تعارض مصالح: لا يمكن تمثيل الطرفين في نفس الدعوى!');
+                return;
+            }
+            clearClientsOnSide(side === 1 ? 2 : 1);
+        }
+
+        const updater = (prev: Party[]) =>
+            prev.map((p) => {
+                if (p.id !== id) return p;
                 if (field === 'isMyOffice' && value === true) {
-                    return { ...p, [field]: value, lawyerName: 'مكتبي (الوكيل الأصيل)', isClient: true };
+                    return { ...p, isMyOffice: true, isClient: true, lawyerName: 'مكتبي (الوكيل الأصيل)' };
                 }
                 if (field === 'isMyOffice' && value === false) {
-                    return { ...p, [field]: value, lawyerName: '', isClient: false };
+                    return { ...p, isMyOffice: false, lawyerName: '' };
                 }
                 return { ...p, [field]: value };
-            }
-            return p;
-        });
+            });
         side === 1 ? setParties1(updater) : setParties2(updater);
     };
 
     const handleAddThirdParty = (party: ThirdParty) => setThirdParties([...thirdParties, party]);
+
+    const removeThirdParty = (id: number) => setThirdParties(thirdParties.filter((tp) => tp.id !== id));
+
+    const updateThirdParty = (id: number, field: keyof ThirdParty, value: string | boolean | number) => {
+        const target = thirdParties.find((tp) => tp.id === id);
+        if (!target) return;
+
+        if (field === 'isClient' && value === true) {
+            clearLawyerClientError();
+            setParties1((prev) => prev.map(clearClientFromParty));
+            setParties2((prev) => prev.map(clearClientFromParty));
+            setThirdParties((prev) =>
+                prev.map((tp) => (tp.id === id ? markThirdPartyAsClient(tp) : clearClientFromThirdParty(tp))),
+            );
+            return;
+        }
+
+        if (field === 'isClient' && value === false) {
+            setThirdParties((prev) =>
+                prev.map((tp) => (tp.id === id ? clearClientFromThirdParty(tp) : tp)),
+            );
+            return;
+        }
+
+        if (field === 'isMyOffice' && value === true) {
+            const side = target.affiliatedSide;
+            if (side && otherSideHasClient(side)) {
+                SmartToast.error('⚠️ تعارض مصالح: لا يمكن تمثيل الطرفين في نفس الدعوى!');
+                return;
+            }
+            if (side) clearClientsOnSide(side === 1 ? 2 : 1);
+        }
+
+        setThirdParties((prev) =>
+            prev.map((tp) => {
+                if (tp.id !== id) return tp;
+                if (field === 'isMyOffice' && value === true) {
+                    return { ...tp, isMyOffice: true, isClient: true, lawyerName: 'مكتبي (الوكيل الأصيل)' };
+                }
+                if (field === 'isMyOffice' && value === false) {
+                    return { ...tp, isMyOffice: false, lawyerName: '' };
+                }
+                return { ...tp, [field]: value };
+            }),
+        );
+    };
 
     const getAddPartyButtonText = (side: 1 | 2) => {
         const parties = side === 1 ? parties1 : parties2;
@@ -402,40 +596,26 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
         return 'إضافة طرف آخر';
     };
 
-    const triggerDemoMode = () => {
-        const demoData = {
-            mainCategory: 'lawsuit',
-            type: 'civil',
-            parties1: [{ id: 'demo_p1', name: 'شركة النهرين للمقاولات العامة', status: 'مدعي', isClient: true, phone: '07701234567', address: 'بغداد، المنصور' }],
-            parties2: [{ id: 'demo_p2', name: 'وزارة الإعمار والإسكان', status: 'مدعى عليه', isClient: false, phone: '07901234567', address: 'بغداد، العلاوي' }],
-            details: {
-                number: '234/ب/2024',
-                court: 'محكمة بداءة الكرادة',
-                type: 'مطالبة بمستحقات مالية',
-                judge: 'أحمد خليل',
-                stage: 'بداءة بدرجة أولى',
-                claimValue: '150,000,000',
-                totalAgreedFees: '5,000,000'
-            }
-        };
-        setIsAnalyzing(true);
-        setTimeout(() => {
-            setIsAnalyzing(false);
-            setParties1(demoData.parties1 as Party[]);
-            setParties2(demoData.parties2 as Party[]);
-            setCaseDetails(demoData.details);
-            onSave({
-                mainCategory: 'lawsuit',
-                selectedType: 'civil',
-                parties1: demoData.parties1,
-                parties2: demoData.parties2,
-                details: demoData.details,
-            });
-        }, 800);
-    };
-
     return (
-        <div ref={topFormRef} className="fixed inset-0 z-[100] bg-[#0F172A] font-['Tajawal'] flex flex-col overflow-hidden">
+        <div
+            ref={topFormRef}
+            className={`${
+                isPersonalCase && step === 'form'
+                    ? PERSONAL_STATUS_FORM_SHELL
+                    : 'fixed inset-0 z-[100] flex flex-col overflow-hidden bg-[#080c14] font-[\'Tajawal\']'
+            } ${consolidationNavActive ? 'pt-12' : ''}`}
+        >
+            {!isPersonalCase ? (
+                <>
+                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_-10%,rgba(230,198,115,0.07),transparent_52%)]" aria-hidden />
+                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_100%_100%,rgba(90,120,180,0.06),transparent_48%)]" aria-hidden />
+                </>
+            ) : (
+                <>
+                    <div className={PERSONAL_STATUS_FORM_GRADIENT} aria-hidden />
+                    <div className={PERSONAL_STATUS_FORM_GRADIENT_2} aria-hidden />
+                </>
+            )}
 
             <ThirdPartyModal
                 isOpen={isThirdPartyModalOpen}
@@ -447,12 +627,11 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
             {!(step === 'form' && selectedType === 'criminal') && (
                 <CaseHeader
                     step={step}
-                    onTriggerDemo={triggerDemoMode}
                     onClose={onClose}
                 />
             )}
 
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] scrollbar-hide bg-[#0F172A]">
+            <div className="relative flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y [-webkit-overflow-scrolling:touch] scrollbar-hide">
                 <AnimatePresence mode='wait'>
                     {step === 'gateway' && (
                         <motion.div key="gateway" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-4 pt-10 flex flex-col items-center justify-center h-full">
@@ -468,32 +647,29 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
                         </motion.div>
                     )}
                     {step === 'selection' && (
-                        <motion.div key="selection" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-4 grid grid-cols-2 gap-3 pt-10">
-                            {JURISDICTIONS.map((jur) => (
-                                <JurisdictionCard
-                                    key={jur.id}
-                                    item={jur}
-                                    onClick={() => {
-                                        if (jur.id === 'criminal' && !criminalSeveranceFormMode) {
-                                            useCriminalStore.getState().prepareNormalCriminalCaseForm();
-                                        }
-                                        setSelectedType(jur.id as CaseType);
-                                        setStep('form');
-                                    }}
-                                />
-                            ))}
+                        <motion.div
+                            key="selection"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="px-5 pt-4 pb-14 max-w-md mx-auto w-full"
+                        >
+                            <h2 className="mb-7 text-right text-lg font-bold text-white/88">اختصاص الدعوى</h2>
+                            <JurisdictionGlassPanel
+                                items={JURISDICTIONS}
+                                onSelect={(id) => {
+                                    if (id === 'criminal' && !criminalSeveranceFormMode) {
+                                        useCriminalStore.getState().prepareNormalCriminalCaseForm();
+                                    }
+                                    setSelectedType(id as CaseType);
+                                    setStep('form');
+                                }}
+                            />
                         </motion.div>
                     )}
 
                     {step === 'form' && (
-                        <motion.div key="form" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="overflow-visible">
-
-                            {selectedType === 'civil' && (
-                                <CivilTabs
-                                    civilSubView={civilSubView}
-                                    onSelectMainForm={() => setCivilSubView('main-form')}
-                                />
-                            )}
+                        <motion.div key="form" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="overflow-visible pb-6">
 
                             {/* القضاء الجزائي: النموذج الفعلي في criminal-system/CriminalNewCase (نفس DOM z-[100]) */}
                             {selectedType === 'criminal' && (
@@ -521,6 +697,31 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
 
                             {selectedType !== 'criminal' && (selectedType !== 'civil' || civilSubView === 'main-form') && (
                             <>
+                            {isPersonalCase ? (
+                                <PersonalStatusNewCaseForm
+                                    caseDetails={caseDetails}
+                                    applicableLaw={applicableLaw}
+                                    setApplicableLaw={setApplicableLaw}
+                                    setCaseDetails={setCaseDetails}
+                                    parties1={parties1}
+                                    parties2={parties2}
+                                    thirdParties={thirdParties}
+                                    onUpdateParty={updateParty}
+                                    onRemoveParty={removeParty}
+                                    onAddParty={addParty}
+                                    onAddThirdParty={() => setIsThirdPartyModalOpen(true)}
+                                    onRemoveThirdParty={removeThirdParty}
+                                    onUpdateThirdParty={updateThirdParty}
+                                    errorMap={errorMap}
+                                    caseNumberError={caseNumberError}
+                                    courtRef={courtRef as React.RefObject<HTMLInputElement | null>}
+                                    typeRef={typeRef as React.RefObject<HTMLInputElement | null>}
+                                    stageRef={stageRef as React.RefObject<HTMLSelectElement | null>}
+                                    numberRef={numberRef as React.RefObject<HTMLInputElement | null>}
+                                    retrialTargetRef={retrialTargetRef as React.RefObject<HTMLSelectElement | null>}
+                                />
+                            ) : (
+                            <>
                             <CaseBasicsForm
                                 caseDetails={caseDetails}
                                 setCaseDetails={setCaseDetails}
@@ -538,6 +739,7 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
                                 typeRef={typeRef as React.RefObject<HTMLInputElement | null>}
                                 stageRef={stageRef as React.RefObject<HTMLSelectElement | null>}
                                 numberRef={numberRef as React.RefObject<HTMLInputElement | null>}
+                                retrialTargetRef={retrialTargetRef as React.RefObject<HTMLSelectElement | null>}
                             />
 
                             <PartiesSection
@@ -546,11 +748,10 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
                                 onUpdate={updateParty}
                                 onRemove={removeParty}
                                 onAdd={addParty}
-                                onToggleAgent={toggleAgent}
                                 labels={labels}
-                                currentStage={caseDetails.stage}
                                 errorMap={errorMap}
                                 addButtonText={getAddPartyButtonText(1)}
+                                clientError={errorMap['lawyer_client']}
                             />
 
                             <PartiesSection
@@ -559,17 +760,21 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
                                 onUpdate={updateParty}
                                 onRemove={removeParty}
                                 onAdd={addParty}
-                                onToggleAgent={toggleAgent}
                                 labels={labels}
-                                currentStage={caseDetails.stage}
                                 errorMap={errorMap}
                                 addButtonText={getAddPartyButtonText(2)}
+                                clientError={errorMap['lawyer_client']}
                             />
 
-                            <FinancialSection
-                                totalAgreedFees={caseDetails.totalAgreedFees}
-                                onFeesChange={(val) => setCaseDetails(prev => ({ ...prev, totalAgreedFees: val }))}
+                            <ThirdPartiesSection
+                                thirdParties={thirdParties}
+                                onAdd={() => setIsThirdPartyModalOpen(true)}
+                                onRemove={removeThirdParty}
+                                onUpdate={updateThirdParty}
+                                clientError={errorMap['lawyer_client']}
                             />
+                            </>
+                            )}
                                 </>
                             )}
 
@@ -627,6 +832,7 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
                     isAnalyzing={isAnalyzing}
                     hasCriminalError={Boolean(errorMap['criminal_error'])}
                     onSave={handleSave}
+                    variant={isPersonalCase ? 'personal' : 'civil'}
                 />
             )}
         </div>

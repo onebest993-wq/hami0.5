@@ -6,9 +6,14 @@ import { buildCloudSavePayload } from '../cloudSavePayload';
 import { buildInitialParentDataFromFile } from '../parentDataInit';
 import { buildInitialStagesFromFile, isViewingArchivedStage, resolveInitialStageIndex } from '../stageInit';
 import SecureStoreService from '@/app/services/SecureStoreService';
-import { LAWSUIT_FILES_STORAGE_KEY } from '@/app/utils/lawsuitFilesStorage';
 import { patchActiveStage } from '../stageMutations';
 import { printDossier } from '../printDossier';
+import {
+    filterMethodsForAppealRoute,
+    isAppellateAppealAllowed,
+    resolveAppealRouteContext,
+    resolveCassationOnlyHint,
+} from '../appealRouteEligibility';
 
 describe('civil lawsuit flow (integration)', () => {
     it('new case → stages → cloud payload → workspace filter', () => {
@@ -105,5 +110,22 @@ describe('civil lawsuit flow (integration)', () => {
         ];
         const next = patchActiveStage(stages, 0, { court: 'استئناف' });
         expect((next[0] as CaseStage).court).toBe('استئناف');
+    });
+
+    it('undetermined civil file blocks appellate appeal route (تمييز only)', () => {
+        const file = buildFileDataFromNewCaseSave({
+            mainCategory: 'lawsuit',
+            selectedType: 'civil',
+            isUndeterminedValue: true,
+            parties1: [{ name: 'موكل', status: 'المدعي', isClient: true }],
+            parties2: [{ name: 'خصm', status: 'المدعى عليه' }],
+            details: { court: 'بداءة الكرخ', type: 'تعويض', stage: 'بداءة بدرجة أخيرة' },
+        });
+        expect(file!.isUndeterminedValue).toBe(true);
+        const ctx = resolveAppealRouteContext(file, null);
+        expect(isAppellateAppealAllowed(ctx)).toBe(false);
+        const appellate = '\u0627\u0633\u062a\u0626\u0646\u0627\u0641';
+        expect(filterMethodsForAppealRoute([appellate, 'تمييز'], ctx)).toEqual(['تمييز']);
+        expect(resolveCassationOnlyHint(ctx)).toContain('غير مقدرة');
     });
 });

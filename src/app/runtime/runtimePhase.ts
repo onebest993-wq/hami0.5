@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 /** مراحل تشغيل التطبيق — تفصل التفاعل الأول عن الخدمات الثقيلة. */
 export type RuntimePhase = 'boot' | 'interactive' | 'background';
 
-const BACKGROUND_IDLE_TIMEOUT_MS = 5_000;
+const BACKGROUND_IDLE_TIMEOUT_MS = 1_200;
 
 export function useRuntimePhase(): RuntimePhase {
     const [phase, setPhase] = useState<RuntimePhase>('boot');

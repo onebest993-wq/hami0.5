@@ -480,39 +480,53 @@ describe('manual executor grievance cassation entitlement', () => {
 });
 
 describe('executor manual ledger hub routing', () => {
-    it('keeps manual hub in previous tab even when stale appeal copy id exists', () => {
+    it('moves manual hub to appeals tab when appeal pipeline is active (flag 2)', () => {
         const hub = baseDecision({
             manualExecutorLedgerEntry: true,
             appealRequestOrigin: 'executor_side',
+            executorDecisionStatusFlag: 2,
+            manualExecutorWorkflowPhase: 'grievance_pending',
+            manualExecutorAppealKind: 'tadhallum',
+        });
+        expect(hubHasActiveAppealLedgerEntry(hub)).toBe(true);
+    });
+
+    it('keeps settled manual hub in previous tab when no appeal is open', () => {
+        const hub = baseDecision({
+            manualExecutorLedgerEntry: true,
+            appealRequestOrigin: 'executor_side',
+            executorDecisionStatusFlag: 1,
             activeAppealCopyId: 'appeal_copy_1',
         });
         expect(hubHasActiveAppealLedgerEntry(hub)).toBe(false);
     });
 
-    it('shows غير نافذ / القرار نافذ on manual executor hub only', () => {
-        const notEnforced = baseDecision({
+    it('shows three-state labels on manual executor hub', () => {
+        const active = baseDecision({
             manualExecutorLedgerEntry: true,
             appealRequestOrigin: 'executor_side',
             status: 'accepted',
-            manualExecutorEnforced: false,
+            executorDecisionStatusFlag: 1,
         });
-        const enforced = baseDecision({
-            ...notEnforced,
-            manualExecutorEnforced: true,
+        const grievancePending = baseDecision({
+            ...active,
+            executorDecisionStatusFlag: 2,
+            manualExecutorWorkflowPhase: 'grievance_pending',
+            manualExecutorAppealKind: 'tadhallum',
         });
         expect(
-            resolveCreditorDecisionEnforcementState(notEnforced, notEnforced, {
+            resolveCreditorDecisionEnforcementState(active, active, {
                 hubTab: 'previous',
                 appealLegallyFinal: false,
                 needsExecutor: false,
             }).pillLabel
-        ).toBe('غير نافذ');
+        ).toBe('قرار ساري ومُنتج لآثاره');
         expect(
-            resolveCreditorDecisionEnforcementState(enforced, enforced, {
+            resolveCreditorDecisionEnforcementState(grievancePending, grievancePending, {
                 hubTab: 'previous',
                 appealLegallyFinal: false,
                 needsExecutor: false,
             }).pillLabel
-        ).toBe('القرار نافذ');
+        ).toBe('التنفيذ موقوف لحين البت في التظلم');
     });
 });

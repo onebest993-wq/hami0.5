@@ -24,6 +24,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { SupabaseService } from '@/app/services/SupabaseService';
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
 import { debug } from '@/app/utils/debug';
+import { isLocalOnlyModeEnabled } from '@/app/services/settings/localOnlyGuard';
 import { EXECUTION_FILES_STORAGE_KEY } from '@/app/utils/executionFilesStorage';
 import { STORAGE_KEYS } from '@/app/utils/constants';
 
@@ -197,6 +198,7 @@ export function useCloudSync(options: CloudSyncOptions): CloudSyncState & {
    */
   const performSync = useCallback(async () => {
     if (!enabled) return;
+    if (isLocalOnlyModeEnabled()) return;
     const cloudNetworkEnabled = import.meta.env.VITE_ENABLE_CLOUD_SYNC === 'true';
     if (!cloudNetworkEnabled) {
       if (import.meta.env.DEV && !disabledLoggedRef.current) {

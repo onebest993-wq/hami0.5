@@ -8,9 +8,7 @@ import React, {
     useRef,
     startTransition,
     Suspense,
-    lazy,
 } from 'react';
-import { flushSync } from 'react-dom';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { debug } from '@/app/utils/debug';
@@ -28,6 +26,15 @@ import {
     parseLocalNotificationDate,
 } from '@/app/utils/executionStateMachine';
 import { buildCreditorDebtRows, distributePaymentProRata } from '@/app/utils/creditorPaymentProRata';
+import {
+    buildDebtorLiabilityGroups,
+    isPerDebtorSolidarySplitMode,
+    readAllDebtorRowsFromExecution,
+    resolveLiabilityGroupLawyerFees,
+    resolveLiabilityGroupPrincipal,
+    shouldShowDebtorLiabilityGroupTabs,
+    type DebtorLiabilityGroup,
+} from '@/app/utils/debtorLiabilityGroups';
 import { resolveUnifiedVesselPrincipalAmount, hasOngoingAlimonyInExecution, buildExecutionClaimBreakdown, getEffectiveClaimTypes } from '@/app/components/lawyer/ExecutionCreationView/hooks/executionFormUtils';
 import { syncRollingCalendarSessions } from '@/app/utils/visitationScheduleEngine';
 import type { VisitationScheduleBundle } from '@/app/types/visitationSchedule';
@@ -47,8 +54,6 @@ import {
 // MODULAR HELPERS - دوال مساعدة معيارية
 // ═══════════════════════════════════════════════════════════════════════════
 import {
-    // Progress Bars
-    DebtorFinancialProgressBar,
     // Date Utilities
     evictionLocalYmdToday,
     evictionInclusiveCalendarDays,
@@ -60,47 +65,24 @@ import {
     upsertSeizedMovableFromDetails,
     upsertSeizedPropertyFromDetails,
     // Heir Utilities
-    makeHeirRowId,
     heirsDetailsIncludeClient,
     heirRowCompletenessScore,
-    dedupeHeirDetailRowsByName,
-    collectPartyHeirDetailRows,
     heirRowHasAnyText,
-    type HeirDetailRow,
     // Dossier Lifecycle Utilities
     dossierLifecycleLabelAr,
     dossierLifecycleTriggerTextClass,
     dossierLifecycleTriggerDotClass,
 } from './ExecutionDashboard/helpers';
-import {
-    buildPartyEditPersistPatch,
-    getPartyListFromFile,
-    resolvePartyIndexInList,
-    type PartyEditTargetState,
-} from './ExecutionDashboard/helpers/partyEditPersistence';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MODULAR COMPONENTS - مكونات معيارية
 // ═══════════════════════════════════════════════════════════════════════════
 import { ExecutionToast } from './ExecutionDashboard/components/ExecutionToast';
 import { ExecutionTrashModal } from './ExecutionDashboard/components/ExecutionTrashModal';
-import { ExecutionFinancialLedgerPortalContainer } from './ExecutionDashboard/components/ExecutionFinancialLedgerPortalContainer';
-import { ExecutionHeirsNotificationModalContainer } from './ExecutionDashboard/components/ExecutionHeirsNotificationModalContainer';
-import { PartiesSection } from './ExecutionDashboard/components/PartiesSection';
-import { DebtorsSection, type DebtorsSectionHandle } from './ExecutionDashboard/components/DebtorsSection';
+import type { DebtorsSectionHandle } from './ExecutionDashboard/components/DebtorsSection';
 import { GuarantorExternalHub } from './ExecutionDashboard/components/GuarantorExternalHub';
 import { shouldShowGuarantorExternalHub } from './ExecutionDashboard/components/guarantorExternalUtils';
 import { DossierSwitcher } from './ExecutionDashboard/components/DossierSwitcher';
-import { DashboardHeaderSection } from './ExecutionDashboard/components/DashboardHeaderSection';
-import { ExecutionModalsContainer } from './ExecutionDashboard/components/ExecutionModalsContainer';
-import { UnifiedSummonsModalContainer } from './ExecutionDashboard/components/UnifiedSummonsModalContainer';
-import { ExecutorWorkflowPortalModals } from './ExecutionDashboard/components/ExecutorWorkflowPortalModals';
-import { ExecutionNotesAndAppointmentModals } from './ExecutionDashboard/components/ExecutionNotesAndAppointmentModals';
-import { ExecutionPaymentModalContainer } from './ExecutionDashboard/components/ExecutionPaymentModalContainer';
-import { ExecutionSeizedAssetsModalContainer } from './ExecutionDashboard/components/ExecutionSeizedAssetsModalContainer';
-import { ExecutionDebtorNotificationMemoModalContainer } from './ExecutionDashboard/components/ExecutionDebtorNotificationMemoModalContainer';
-import { ExecutionCoerciveActionsModalContainer } from './ExecutionDashboard/components/ExecutionCoerciveActionsModalContainer';
-import { ExecutionSolidaryAndEvictionFollowupModalsContainer } from './ExecutionDashboard/components/ExecutionSolidaryAndEvictionFollowupModalsContainer';
 import { TimelineEditModal } from './ExecutionDashboard/components/TimelineEditModal';
 import { InlineActionGate } from './ExecutionDashboard/components/InlineActionGate';
 import {
@@ -149,6 +131,8 @@ import {
     useOpenFinancialHubLedger,
     useEvictionLawyerFeeOutcome,
     useCaseTasksAndNotes,
+    useExecutionTrashAndPins,
+    usePartyEditWorkflow,
 } from './ExecutionDashboard/hooks';
 import {
     readFollowupModalPersist,
@@ -156,71 +140,20 @@ import {
     writeFollowupModalPersist,
     type FollowupModalTabId,
 } from './ExecutionDashboard/utils/followupModalPersistUtils';
-import { PartyEditModal, CoerciveToolsGrid, DossierMetaEditSection, EvictionProceduresSection, FinancialTab, OtherPartyTab, SeizureRequestsTab, CommunicationsTab, RequestsTab, PersonalTab, CoerciveTab, ExecutionFinancialHubPortal, PermanentDeleteConfirmDialog, LawReferencePanel, DossierLifecyclePanel, VisitationCalendarModal } from './ExecutionDashboard/components';
-import { SPECIAL_REQUEST_MANUAL_MODE } from './ExecutionDashboard/components/RequestsTab';
+import { SPECIAL_REQUEST_MANUAL_MODE } from './ExecutionDashboard/components/requestsTabConstants';
 import { ExecutionHeirsQuickViewModal } from './ExecutionDashboard/components/ExecutionHeirsQuickViewModal';
-import type { PartyEditDraft } from './ExecutionDashboard/components';
+import { ExecutionTransferFileNumberModal } from './ExecutionDashboard/components/ExecutionTransferFileNumberModal';
+import type { PartyEditDraft } from './ExecutionDashboard/components/PartyEditModal';
 import { DossierActionsModal } from './ExecutionDashboard/components/DossierActionsModal';
 import type { DossierActionType, DossierActionPayload } from './ExecutionDashboard/components/DossierActionsModal';
-import { DossierControlsTab } from './ExecutionDashboard/components/DossierControlsTab';
 import {
     createInabaCorrespondenceLogEntry,
     getInabaCorrespondenceLog,
     patchParentInabaCorrespondenceLog,
 } from './ExecutionDashboard/utils/inabaCorrespondenceLog';
 import { LinkedDossierTimelineModal } from './ExecutionDashboard/components/LinkedDossierTimelineModal';
+import { SeizureRequestSubjectModal } from './ExecutionDashboard/components/SeizureRequestSubjectModal';
 
-const PoliceAssistanceDetailsModal = lazy(() =>
-    import('@/app/components/lawyer/execution/PoliceAssistanceDetailsModal').then((m) => ({
-        default: m.PoliceAssistanceDetailsModal,
-    }))
-);
-const StayOfExecutionModal = lazy(() =>
-    import('@/app/components/lawyer/execution/StayOfExecutionModal').then((m) => ({
-        default: m.StayOfExecutionModal,
-    }))
-);
-const PartyDeathReportModal = lazy(() =>
-    import('@/app/components/lawyer/execution/PartyDeathReportModal').then((m) => ({
-        default: m.PartyDeathReportModal,
-    }))
-);
-const RealEstateSeizurePostApprovalModal = lazy(() =>
-    import('@/app/components/lawyer/execution/RealEstateSeizurePostApprovalModal').then((m) => ({
-        default: m.RealEstateSeizurePostApprovalModal,
-    }))
-);
-const GuarantorDetailsPostApprovalModal = lazy(() =>
-    import('@/app/components/lawyer/execution/GuarantorDetailsPostApprovalModal').then((m) => ({
-        default: m.GuarantorDetailsPostApprovalModal,
-    }))
-);
-const LazyActionGridSection = lazy(() =>
-    import('./ExecutionDashboard/components/ActionGridSection').then((m) => ({ default: m.ActionGridSection }))
-);
-const LazyTimelineSection = lazy(() =>
-    import('./ExecutionDashboard/components/TimelineSection').then((m) => ({ default: m.TimelineSection }))
-);
-const LazyVisitationScheduleModule = lazy(() =>
-    import('./ExecutionDashboard/components/VisitationScheduleModule').then((m) => ({
-        default: m.VisitationScheduleModule,
-    }))
-);
-const LazyMaritalFurnitureModule = lazy(() =>
-    import('./ExecutionDashboard/components/MaritalFurnitureModule').then((m) => ({
-        default: m.MaritalFurnitureModule,
-    }))
-);
-const LazyExecutionDecisionsModalContainer = lazy(() =>
-    import('./ExecutionDashboard/components/ExecutionDecisionsModalContainer').then((m) => ({
-        default: m.ExecutionDecisionsModalContainer,
-    }))
-);
-const LazyExecutionFullTimelineModalContainer = lazy(() =>
-    import('./ExecutionDashboard/components/ExecutionFullTimelineModalContainer').then((m) => ({
-        default: m.ExecutionFullTimelineModalContainer,
-    }))
-);
 // 🆕 V10.5: ENHANCED UTILITIES
 import { storageCache } from '@/app/utils/storageCache';
 import {
@@ -349,7 +282,23 @@ import {
     resolveCreditorOtherPartyTrackDecision,
     submitCreditorOtherPartyTrackToDecisions,
 } from '@/app/utils/otherPartyCreditorTrackDecisionUtils';
+import { AlimonyBeneficiaryDeathModal } from '@/app/components/lawyer/execution/AlimonyBeneficiaryDeathModal';
 import {
+    buildAlimonyBeneficiaryDeathMerge,
+    buildSoleSurvivorDeathInput,
+    resolveAlimonyBeneficiaryProfile,
+    shouldShowAlimonyBeneficiaryDeathPicker,
+    type AlimonyBeneficiaryProfile,
+} from '@/app/utils/alimonyBeneficiaryDeathUtils';
+import {
+    applyDebtorDeathFollowupOverlay,
+    buildDossierAutoFinishPatch,
+    isHeirSubstitutionAllowedForClaim,
+    shouldAutoFinishDossierOnDeathReport,
+} from '@/app/utils/partyDeathClaimPolicy';
+import { resolveFollowupSpecializationFromExecution } from '@/app/utils/followupSpecializationVisibility';
+import {
+    isCustodyRemovalExecutionClaim,
     isMaritalFurnitureExecutionClaim,
     isNonFinancialExecutionClaim,
     isVisitationExecutionClaim,
@@ -396,7 +345,6 @@ import {
     type SalarySeizureDetailsPatch,
 } from '@/app/components/lawyer/ExecutionDashboard/components/SalarySeizureLogDetailCard';
 import { UnifiedSeizureLogHost } from '@/app/components/lawyer/ExecutionDashboard/components/UnifiedSeizureLogHost';
-import type { MovableInlineSaveContext } from '@/app/components/lawyer/ExecutionDashboard/utils/movableSeizureInlinePersistence';
 import type { PropertyInlineSaveContext } from '@/app/components/lawyer/ExecutionDashboard/utils/propertySeizureInlinePersistence';
 import {
     buildSalarySeizureDescriptionText,
@@ -424,40 +372,78 @@ import {
     EXEC_MODAL_BACKDROP_STRONG,
     EXEC_MODAL_Z,
 } from '@/app/components/lawyer/execution/executionModalStack';
-const PremiumTimelineAuditLog = lazy(() =>
-    import('@/app/components/lawyer/PremiumTimelineAuditLog').then((m) => ({
-        default: m.PremiumTimelineAuditLog,
-    }))
-);
-const SmartTimelineRadar = lazy(() =>
-    import('@/app/components/lawyer/SmartTimelineRadar').then((m) => ({
-        default: m.SmartTimelineRadar,
-    }))
-);
 import {
     AR_TABLIGH_RAQM,
     EXEC_FOC_LAZY_FALLBACK,
     EXEC_OVERLAY_LAZY_FALLBACK,
+    EXEC_SECTION_LAZY_FALLBACK,
     formatUnifiedLedgerDate,
+    LazyActionGridSection,
+    LazyCoerciveTab,
+    LazyCommunicationsTab,
+    LazyDashboardHeaderSection,
+    LazyDebtorsSection,
     LazyDecisionsAndAppealsEngine,
+    LazyDossierControlsTab,
+    LazyDossierLifecyclePanel,
+    LazyDossierMetaEditSection,
     LazyDocumentVault,
+    LazyExecutionDecisionsModalContainer,
+    LazyExecutionDebtorNotificationMemoModalContainer,
+    LazyExecutionFinancialHubPortal,
+    LazyExecutionFinancialLedgerPortalContainer,
+    LazyExecutionFullTimelineModalContainer,
+    LazyExecutionHeirsNotificationModalContainer,
+    LazyExecutionModalsContainer,
+    LazyExecutionNotesAndAppointmentModals,
+    LazyExecutionPaymentModalContainer,
+    LazyExecutionSeizedAssetsModalContainer,
+    LazyExecutionSolidaryAndEvictionFollowupModalsContainer,
+    LazyExecutorWorkflowPortalModals,
+    LazyUnifiedSummonsModalContainer,
     LazyFinancialOperationsCenter,
+    LazyFinancialTab,
+    LazyGuarantorDetailsPostApprovalModal,
+    LazyLawReferencePanel,
+    LazyMaritalFurnitureModule,
     LazyModalSeizedAssetsManager,
+    LazyOtherPartyTab,
+    LazyPartiesSection,
+    LazyPartyEditModal,
+    LazyPermanentDeleteConfirmDialog,
+    LazyPersonalTab,
+    LazyRequestsTab,
+    LazySeizureRequestsTab,
+    LazyPartyDeathReportModal,
     LazyPaymentCalculator,
+    LazyPoliceAssistanceDetailsModal,
+    LazyPremiumTimelineAuditLog,
+    LazyRealEstateSeizurePostApprovalModal,
     LazySettlementCalculator,
+    LazySmartTimelineRadar,
+    LazyStayOfExecutionModal,
+    LazyTimelineSection,
     LazyUnifiedSummonsHub,
+    LazyVisitationScheduleModule,
+    LazyVisitationCalendarModal,
     LazyExecutorApprovedDateTimeModal,
     LazyExecutorBreakInventoryFurnitureModal,
     LazyExecutorJudicialCustodianModal,
     LazyExecutorWorkflowConfirmModal,
-    LazyExecutionDashboardModularHost,
     LazyPersonalCoerciveFollowupPanel,
     LazyEmployeeAssignmentCoerciveFollowupBlock,
     LazyJudicialCustodianCardMenu,
     LazyEvictionFieldProceduresPanel,
     LazyOtherPartyActionsLog,
     PartyOverflowToggle,
+    prefetchExecutionDashboardShell,
+    prefetchExecutionFollowupDefaultTab,
+    prefetchExecutionModalContainers,
+    prefetchExecutionFollowupModalPortal,
+    LazyExecutionFollowupModalPortal,
 } from './ExecutionDashboard/executionDashboardLazyShell';
+import { FollowupModalContext } from './ExecutionDashboard/followupModalContext';
+import { buildFollowupModalSnapshot } from './ExecutionDashboard/followupModalSnapshot';
 import {
     EVICTION_WORKFLOW_BY_ACTION_ID,
     fieldVisitAppointmentStorageKey,
@@ -483,7 +469,6 @@ import { buildSeizedAssetDetailLines } from '@/app/utils/seizedAssetDisplay';
 import { computeNewDossierAmountAfterRealEstateSale } from '@/app/utils/realEstateSeizureMath';
 import {
     getExecutionPartyDisplayName,
-    isPartyHeirsEditOnlyMode,
 } from '@/app/utils/partyDisplayName';
 import {
     buildScopedPartyDeathPersistPatch,
@@ -519,6 +504,7 @@ import {
     getDebtorSummonsMarkerForKey,
     areDebtorSummonsMarkersEqual,
 } from '@/app/utils/noticeDebtorScope';
+import { resolveDebtorDisplayNameForKey } from '@/app/utils/coerciveDebtorScope';
 import { timelineDebtorMetadata, timelineEventBelongsToDebtorWorkspace } from '@/app/utils/timelineDebtorScope';
 import {
     useExecutionDashboardStore,
@@ -799,6 +785,12 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     const [loadError, setLoadError] = useState<string | null>(executionData ? null : 'لم يتم العثور على بيانات التنفيذ');
     
     const debtorsSectionRef = useRef<DebtorsSectionHandle>(null);
+
+    useEffect(() => {
+        prefetchExecutionDashboardShell();
+        prefetchExecutionFollowupDefaultTab();
+        prefetchExecutionModalContainers();
+    }, []);
     /** عند >2 دائن/مدين: إظهار أول اثنين فقط حتى يضغط المستخدم لعرض الباقي */
     const [showExtraCreditors, setShowExtraCreditors] = useState(false);
     const [showExtraDebtors, setShowExtraDebtors] = useState(false);
@@ -818,12 +810,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         if (show) openModal(key);
         else closeModal(key);
     }, []);
-
-    const stableSetShowPaymentModal = useCallback((v: boolean) => setExecutionModal('showPaymentModal', v), [setExecutionModal]);
-    const stableSetShowNotificationModal = useCallback((v: boolean) => setExecutionModal('showNotificationModal', v), [setExecutionModal]);
-    const stableSetShowDocumentsModal = useCallback((v: boolean) => setExecutionModal('showDocumentsModal', v), [setExecutionModal]);
-    const stableSetShowAppointmentModal = useCallback((v: boolean) => setExecutionModal('showAppointmentModal', v), [setExecutionModal]);
-    const stableSetShowPaymentCalculator = useCallback((v: boolean) => setExecutionModal('showPaymentCalculator', v), [setExecutionModal]);
 
     const executionDashboardFileId = executionData?.id ?? null;
     useEffect(() => {
@@ -866,7 +852,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     const [showLinkedDossierTimeline, setShowLinkedDossierTimeline] = useState(false);
     const [linkedDossierToView, setLinkedDossierToView] = useState<NonNullable<ExecutionFile['linkedDossiers']>[number] | null>(null);
     const [showTransferFileNumberChangeModal, setShowTransferFileNumberChangeModal] = useState(false);
-    const [transferFileNumberDraft, setTransferFileNumberDraft] = useState('');
 
     const rootFileId = String(currentFileId || '').trim();
     const unificationTick = useExecutionDashboardStore((s) => s.unificationTick);
@@ -928,6 +913,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     /** تضامن: اختيار المستهدف قبل فتح نموذج الإجراء الجبري */
     const [showSolidaryCoerciveTargetModal, setShowSolidaryCoerciveTargetModal] = useState(false);
     const [solidaryCoerciveActionPending, setSolidaryCoerciveActionPending] = useState<string | null>(null);
+    /** تبويبات المدينين المتضامنين داخل محضر المتابعة */
+    const [followupSolidaryDebtorIndex, setFollowupSolidaryDebtorIndex] = useState(0);
     const coerciveSubjectRef = useRef<{ id: string; name: string }>({ id: '', name: '' });
     const followupModalChipTablistRef = useRef<HTMLDivElement>(null);
     const followupModalDebtorTabsRef = useRef<HTMLDivElement>(null);
@@ -937,6 +924,9 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     const debtorWorkspaceChipStripRef = useRef<HTMLDivElement>(null);
     const [partyDeathModalParty, setPartyDeathModalParty] = useState<'creditor' | 'debtor' | null>(null);
     const [partyDeathModalDecisionId, setPartyDeathModalDecisionId] = useState<string | null>(null);
+    const [alimonyBeneficiaryDeathModalOpen, setAlimonyBeneficiaryDeathModalOpen] = useState(false);
+    const [alimonyBeneficiaryDeathModalProfile, setAlimonyBeneficiaryDeathModalProfile] =
+        useState<AlimonyBeneficiaryProfile | null>(null);
     const lastHeirSubRequestAtRef = useRef<{ creditor: number; debtor: number }>({
         creditor: 0,
         debtor: 0,
@@ -1103,7 +1093,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     const [forcedPathAttendanceSecured, setForcedPathAttendanceSecured] = useState<boolean>(
         executionData?.forcedPathAttendanceSecured ?? false
     );
-    const [memoWarningDialogOpen, setMemoWarningDialogOpen] = useState(false);
     
     // ===========================
     // 7-YEAR STATUTE OF LIMITATIONS TRACKER
@@ -1129,19 +1118,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         width: number;
     } | null>(null);
     const [showExecutionTrashModal, setShowExecutionTrashModal] = useState(false);
-    const [timelineEditDraft, setTimelineEditDraft] = useState<TimelineEvent | null>(null);
-    const [editPartyTarget, setEditPartyTarget] = useState<PartyEditTargetState | null>(null);
     const [permanentDeleteTimelineId, setPermanentDeleteTimelineId] = useState<string | null>(null);
-    const [partyEditDraft, setPartyEditDraft] = useState<{
-        name: string;
-        phone: string;
-        address: string;
-        heirs: HeirDetailRow[];
-        lockBaseInfo: boolean;
-        includeHeirsInForm?: boolean;
-        heirsOnlyEdit?: boolean;
-    } | null>(null);
-    const [partyEditHeirDeleteConfirmIdx, setPartyEditHeirDeleteConfirmIdx] = useState<number | null>(null);
 
     const [paidDebt, setPaidDebt] = useState<number>(0);
     const paidDebtRef = useRef<number>(paidDebt);
@@ -1229,10 +1206,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         executionData?.dossier_status_reason,
         executionData?.dossier_status_date,
     ]);
-
-    useEffect(() => {
-        if (!editPartyTarget) setPartyEditHeirDeleteConfirmIdx(null);
-    }, [editPartyTarget]);
 
     const [noteText, setNoteText] = useState<string>('');
     const [appointmentPurpose, setAppointmentPurpose] = useState<string>('');
@@ -2071,10 +2044,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         executionId,
         showToast,
     });
-    const [heirsQuickView, setHeirsQuickView] = useState<{
-        title: string;
-        rows: Array<{ name: string; phone: string; address: string; isClient?: boolean }>;
-    } | null>(null);
     
     // 🆕 V10.5: PERFORMANCE MONITORING
     useEffect(() => {
@@ -2241,11 +2210,36 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     }, [debtors, executionData?.debtors]);
 
     const partyMultiplicityExec = executionData?.party_multiplicity;
-    const isSolidaryLiability = partyMultiplicityExec?.isSolidaryLiability ?? false;
+    const legacyGlobalSolidary = partyMultiplicityExec?.isSolidaryLiability ?? false;
     const additionalCreditorsPm = partyMultiplicityExec?.additionalCreditors ?? [];
 
     /** للعرض فقط: المدين الأساسي ثم الإضافيين — يطابق party_multiplicity */
     const allDebtorsUnified = useAllDebtorsUnified(effectiveDebtors, executionData);
+
+    const resolveDebtorSolidaryFlag = useCallback(
+        (row: (typeof allDebtorsUnified)[number]) => {
+            const primary = effectiveDebtors[0] as import('@/app/types/execution').Debtor | undefined;
+            const perDebtorSolidaryMode =
+                allDebtorsUnified.length > 1 &&
+                (primary?.isSolidaryLiability !== undefined ||
+                    (partyMultiplicityExec?.additionalDebtors ?? []).some(
+                        (d) => d.isSolidaryLiability !== undefined,
+                    ));
+            if (perDebtorSolidaryMode) return Boolean(row.isSolidaryLiability);
+            return legacyGlobalSolidary;
+        },
+        [allDebtorsUnified, effectiveDebtors, partyMultiplicityExec?.additionalDebtors, legacyGlobalSolidary],
+    );
+
+    const allDebtorsSolidary = useMemo(
+        () =>
+            allDebtorsUnified.length > 1 &&
+            allDebtorsUnified.every((r) => resolveDebtorSolidaryFlag(r)),
+        [allDebtorsUnified, resolveDebtorSolidaryFlag],
+    );
+
+    /** توافق مع المنطق السابق — كل المدينين متضامنين */
+    const isSolidaryLiability = allDebtorsSolidary;
 
     /** مدين أساسي + إضافيون — لعرض «نافذة» واحدة في الواجهة الرئيسية */
     const debtorWorkspaceEntries = useDebtorWorkspaceEntries(
@@ -2262,27 +2256,155 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     useEffect(() => {
         setExecutionDebtorTabIndex((i) => {
             if (allDebtorsUnified.length === 0) return 0;
+            const perSplit = isPerDebtorSolidarySplitMode(
+                allDebtorsUnified,
+                partyMultiplicityExec?.additionalDebtors,
+            );
+            if (perSplit) {
+                const groups = buildDebtorLiabilityGroups(debtorWorkspaceEntries);
+                if (groups.length > 0) {
+                    return Math.min(Math.max(0, i), groups.length - 1);
+                }
+            }
             return Math.min(Math.max(0, i), allDebtorsUnified.length - 1);
         });
-    }, [allDebtorsUnified.length, executionData?.id]);
+    }, [allDebtorsUnified.length, executionData?.id, debtorWorkspaceEntries, partyMultiplicityExec?.additionalDebtors]);
+
+    const perDebtorSolidarySplitMode = useMemo(
+        () =>
+            isPerDebtorSolidarySplitMode(
+                allDebtorsUnified,
+                partyMultiplicityExec?.additionalDebtors,
+            ),
+        [allDebtorsUnified, partyMultiplicityExec?.additionalDebtors],
+    );
+
+    const debtorLiabilityGroups = useMemo(
+        (): DebtorLiabilityGroup[] =>
+            perDebtorSolidarySplitMode ? buildDebtorLiabilityGroups(debtorWorkspaceEntries) : [],
+        [perDebtorSolidarySplitMode, debtorWorkspaceEntries],
+    );
+
+    const liabilityGroupTabsMode = shouldShowDebtorLiabilityGroupTabs(
+        perDebtorSolidarySplitMode,
+        debtorLiabilityGroups,
+    );
 
     /** ذمة مقسومة (تبويبات): المدين النشط يحدد مسارات محضر المتابعة والإجراءات الجبرية */
     const multiDebtorMode = allDebtorsUnified.length > 1;
-    const debtorBrowserTabsMode = multiDebtorMode && !isSolidaryLiability;
+    /** تبويبات الذمة: متضامنون في تبويب / مستقلون في تبويب — أو تبويب لكل مدين (الوضع القديم) */
+    const debtorBrowserTabsMode = liabilityGroupTabsMode
+        ? liabilityGroupTabsMode
+        : multiDebtorMode && !allDebtorsSolidary;
+
+    const activeLiabilityGroup = liabilityGroupTabsMode
+        ? (debtorLiabilityGroups[executionDebtorTabIndex] ?? debtorLiabilityGroups[0] ?? null)
+        : null;
+    const activeGroupEntries = activeLiabilityGroup?.entries ?? [];
+    const activeLiabilityGroupId = activeLiabilityGroup?.id ?? null;
+
+    const allDebtorRowsForLiability = useMemo(
+        () => readAllDebtorRowsFromExecution(executionData as Record<string, unknown> | null | undefined),
+        [executionData],
+    );
+    const activeDebtorSolidary = useMemo(() => {
+        if (liabilityGroupTabsMode && activeLiabilityGroupId) {
+            return activeLiabilityGroupId === 'solidary';
+        }
+        const row = allDebtorsUnified[executionDebtorTabIndex];
+        return row ? resolveDebtorSolidaryFlag(row) : legacyGlobalSolidary;
+    }, [
+        liabilityGroupTabsMode,
+        activeLiabilityGroupId,
+        allDebtorsUnified,
+        executionDebtorTabIndex,
+        resolveDebtorSolidaryFlag,
+        legacyGlobalSolidary,
+    ]);
     const activeWorkspaceDebtorForFollowup = useMemo(() => {
-        if (!debtorBrowserTabsMode || debtorWorkspaceEntries.length === 0) return null;
+        if (!debtorBrowserTabsMode) return null;
+        if (liabilityGroupTabsMode) {
+            return activeGroupEntries[0] ?? null;
+        }
+        if (debtorWorkspaceEntries.length === 0) return null;
         return (
             debtorWorkspaceEntries[executionDebtorTabIndex] ??
             debtorWorkspaceEntries[0] ??
             null
         );
-    }, [debtorBrowserTabsMode, debtorWorkspaceEntries, executionDebtorTabIndex]);
+    }, [
+        debtorBrowserTabsMode,
+        liabilityGroupTabsMode,
+        activeGroupEntries,
+        debtorWorkspaceEntries,
+        executionDebtorTabIndex,
+    ]);
 
     const primaryDebtorWorkspaceKey = debtorWorkspaceEntries[0]?.key;
     const primaryDebtorKeyResolved = primaryDebtorWorkspaceKey ?? 'primary_debtor';
 
+    const showFollowupSolidaryDebtorTabs =
+        liabilityGroupTabsMode &&
+        activeLiabilityGroupId === 'solidary' &&
+        activeGroupEntries.length > 1;
+
+    const effectiveFollowupDebtorEntry = useMemo(() => {
+        if (showFollowupSolidaryDebtorTabs) {
+            return (
+                activeGroupEntries[followupSolidaryDebtorIndex] ??
+                activeGroupEntries[0] ??
+                null
+            );
+        }
+        return activeWorkspaceDebtorForFollowup;
+    }, [
+        showFollowupSolidaryDebtorTabs,
+        activeGroupEntries,
+        followupSolidaryDebtorIndex,
+        activeWorkspaceDebtorForFollowup,
+    ]);
+
+    const followupAssignmentWorkspaceCtx = useMemo(
+        () => ({
+            splitDebtsTabs: debtorBrowserTabsMode,
+            activeDebtorKey:
+                effectiveFollowupDebtorEntry?.key ??
+                primaryDebtorWorkspaceKey ??
+                'primary_debtor',
+            activeIsPrimary: Boolean(effectiveFollowupDebtorEntry?.isPrimary),
+        }),
+        [
+            debtorBrowserTabsMode,
+            effectiveFollowupDebtorEntry,
+            primaryDebtorWorkspaceKey,
+        ],
+    );
+
+
+    useEffect(() => {
+        if (!showUnifiedExecutionModal) setFollowupSolidaryDebtorIndex(0);
+    }, [showUnifiedExecutionModal]);
+
+    useEffect(() => {
+        setFollowupSolidaryDebtorIndex(0);
+    }, [executionDebtorTabIndex, activeLiabilityGroupId]);
+
     const mergedTimelineEventsDebtorScoped = useMemo(() => {
-        if (!debtorBrowserTabsMode || !activeWorkspaceDebtorForFollowup || !primaryDebtorWorkspaceKey) {
+        if (!debtorBrowserTabsMode || !primaryDebtorWorkspaceKey) {
+            return mergedTimelineEvents;
+        }
+        if (liabilityGroupTabsMode && activeGroupEntries.length > 0) {
+            const keys = new Set(activeGroupEntries.map((ent) => ent.key));
+            return mergedTimelineEvents.filter((e) => {
+                for (const ak of keys) {
+                    if (timelineEventBelongsToDebtorWorkspace(e as any, ak, primaryDebtorWorkspaceKey)) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+        }
+        if (!activeWorkspaceDebtorForFollowup) {
             return mergedTimelineEvents;
         }
         const ak = activeWorkspaceDebtorForFollowup.key;
@@ -2291,6 +2413,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         );
     }, [
         debtorBrowserTabsMode,
+        liabilityGroupTabsMode,
+        activeGroupEntries,
         activeWorkspaceDebtorForFollowup,
         primaryDebtorWorkspaceKey,
         mergedTimelineEvents,
@@ -2384,6 +2508,124 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         debtorBrowserTabsMode,
         activeWorkspaceDebtorForFollowup,
         effectiveDebtors,
+    );
+
+    const {
+        activeDebtorIsEmployee: followupActiveDebtorIsEmployee,
+        activeDebtorIsDeceased: followupActiveDebtorIsDeceased,
+    } = useActiveDebtorProfile(
+        executionData,
+        debtorBrowserTabsMode,
+        effectiveFollowupDebtorEntry,
+        effectiveDebtors,
+    );
+
+    const followupActiveDebtorNoticeScope = useMemo(
+        () =>
+            getDebtorNoticeStateForKey(
+                executionData,
+                followupAssignmentWorkspaceCtx.activeDebtorKey,
+                primaryDebtorKeyResolved,
+            ),
+        [
+            followupAssignmentWorkspaceCtx.activeDebtorKey,
+            primaryDebtorKeyResolved,
+            executionData?.debtor_notification_date_by_debtor,
+            executionData?.execution_memo_anchor_date_by_debtor,
+            executionData?.active_notice_state_by_debtor,
+            executionData?.notice_voluntary_period_end_declared_by_debtor,
+            executionData?.debtor_absence_badge_dismissed_by_debtor,
+            executionData?.debtorNotificationDate,
+            executionData?.execution_memo_anchor_date,
+            executionData?.activeNoticeState,
+            executionData?.notice_voluntary_period_end_declared,
+            executionData?.debtor_absence_badge_dismissed,
+            executionData?.debtors,
+        ],
+    );
+
+    const modalActiveDebtorNoticeScope = showFollowupSolidaryDebtorTabs
+        ? followupActiveDebtorNoticeScope
+        : activeDebtorNoticeScope;
+    const followupModalDebtorIsEmployee = debtorBrowserTabsMode
+        ? followupActiveDebtorIsEmployee
+        : activeDebtorIsEmployee;
+    const followupModalDebtorIsDeceased = debtorBrowserTabsMode
+        ? followupActiveDebtorIsDeceased
+        : activeDebtorIsDeceased;
+    const modalKasabTerminationEmphasis = !followupModalDebtorIsEmployee;
+
+    const modalResolvedEmployeeSummonsAssignment = useMemo(() => {
+        if (!executionData) return null;
+        return getEmployeeAssignmentForDebtorKey(
+            executionData,
+            followupAssignmentWorkspaceCtx.activeDebtorKey,
+            primaryDebtorKeyResolved,
+        );
+    }, [
+        executionData,
+        executionData?.employee_summons_assignments_by_debtor,
+        executionData?.employee_summons_assignment,
+        followupAssignmentWorkspaceCtx.activeDebtorKey,
+        primaryDebtorKeyResolved,
+    ]);
+
+    const modalShowEmployeeAssignmentCoerciveBlock = useMemo(() => {
+        if (!followupModalDebtorIsEmployee) return false;
+        const a = modalResolvedEmployeeSummonsAssignment;
+        if (!a) return false;
+        return (
+            a.phase === 'absent_declared' ||
+            a.phase === 'investigation_pending' ||
+            a.phase === 'warrant_ui'
+        );
+    }, [followupModalDebtorIsEmployee, modalResolvedEmployeeSummonsAssignment]);
+
+    const followupModalEntityKind = useMemo((): DebtorEntityKind => {
+        const prim = executionData?.debtors?.[0] as Debtor | undefined;
+        let debtor: Debtor | Record<string, unknown> | undefined = prim;
+        const entry = effectiveFollowupDebtorEntry ?? activeWorkspaceDebtorForFollowup;
+        if (debtorBrowserTabsMode && entry) {
+            if (!entry.isPrimary) {
+                const ad = executionData?.party_multiplicity?.additionalDebtors?.find(
+                    (a) => String(a.id) === entry.key
+                );
+                debtor = ad ?? entry.d;
+            } else {
+                debtor = prim ?? entry.d;
+            }
+        }
+        return resolveDebtorEntityKind({
+            executionData,
+            debtor,
+            debtorKey: followupAssignmentWorkspaceCtx.activeDebtorKey,
+        });
+    }, [
+        executionData,
+        debtorBrowserTabsMode,
+        effectiveFollowupDebtorEntry,
+        activeWorkspaceDebtorForFollowup,
+        followupAssignmentWorkspaceCtx.activeDebtorKey,
+    ]);
+
+    const followupModalSpecialization = useMemo(
+        () =>
+            resolveFollowupSpecializationFromExecution(
+                executionData as Record<string, unknown> | null | undefined,
+                followupModalDebtorIsEmployee,
+                claimType,
+                followupModalEntityKind,
+            ),
+        [executionData, followupModalDebtorIsEmployee, claimType, followupModalEntityKind],
+    );
+
+    const followupModalSpecializationEffective = useMemo(
+        () =>
+            applyDebtorDeathFollowupOverlay(
+                followupModalSpecialization,
+                Boolean(followupModalDebtorIsDeceased),
+            ),
+        [followupModalSpecialization, followupModalDebtorIsDeceased],
     );
 
     const { seizedPropertiesForSeizureLog, seizedMovablesForSeizureLog, seizureLogExecutorDecisions } =
@@ -2540,6 +2782,11 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     /** مصدر موحّد — نفس أعلام resolveFollowupSpecializationFromExecution عبر طبقة العزل */
     const followupSpecialization = executionDomainContext.flags;
 
+    const followupSpecializationEffective = useMemo(
+        () => applyDebtorDeathFollowupOverlay(followupSpecialization, Boolean(activeDebtorIsDeceased)),
+        [followupSpecialization, activeDebtorIsDeceased]
+    );
+
     const timelineFilterOptions = useMemo(
         () =>
             resolveExecutionTimelineFilterOptions(
@@ -2560,11 +2807,11 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
 
     /** وفاة المدين أو استحصال مالي+موظف: إخفاء التبويب؛ الكاسب يعيد الظهور */
     const showPersonalCoerciveFollowupTab =
-        !activeDebtorIsDeceased && !followupSpecialization.hidePersonalCoerciveFollowupTab;
+        !followupSpecializationEffective.hidePersonalCoerciveFollowupTab;
     /** موظف: إظهار حجز الراتب في الحجز المالي — كاسب: إخفاؤه */
-    const showSalarySeizureInFollowupModal = activeDebtorIsEmployee;
+    const showSalarySeizureInFollowupModal = followupModalDebtorIsEmployee;
     const followupSalarySeizureLabel =
-        activeDebtorIsDeceased && activeDebtorIsEmployee
+        followupModalDebtorIsDeceased && followupModalDebtorIsEmployee
             ? 'حجز مستحقات ومكافأة نهاية الخدمة'
             : 'طلب حجز راتب (١/٥)';
     useEffect(() => {
@@ -2581,7 +2828,10 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     const showEmployeeCompulsoryProceduresBanner =
         employeeAssignmentPhaseForCoercive === 'absent_declared' && !employeeCompulsoryBannerDismissed;
     const activeFollowupDebtorKey = String(
-        assignmentWorkspaceCtx.activeDebtorKey ?? primaryDebtorWorkspaceKey ?? executionId ?? ''
+        followupAssignmentWorkspaceCtx.activeDebtorKey ??
+            primaryDebtorWorkspaceKey ??
+            executionId ??
+            ''
     );
     const [personalTabUnlockByDebtor, setPersonalTabUnlockByDebtor] = useState<Record<string, boolean>>({});
     const employeePersonalTabUnlockStorageKey = useMemo(() => {
@@ -2599,8 +2849,32 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             setPersonalTabUnlockByDebtor((prev) => ({ ...parsed, ...prev }));
         } catch {}
     }, [employeePersonalTabUnlockStorageKey]);
+    const custodyRemovalClaimActive = useMemo(
+        () =>
+            isCustodyRemovalExecutionClaim(
+                viewExecutionData as Record<string, unknown> | null | undefined,
+                String(claimType || '').trim() || undefined
+            ),
+        [viewExecutionData, claimType]
+    );
+    const employeeCoerciveDetentionRestricted =
+        Boolean(activeDebtorIsEmployee) && !custodyRemovalClaimActive;
+
+    const modalEmployeeCoerciveDetentionRestricted =
+        Boolean(followupModalDebtorIsEmployee) && !custodyRemovalClaimActive;
+
+    const modalShowPersonalCoerciveFollowupTab =
+        !followupModalSpecializationEffective.hidePersonalCoerciveFollowupTab ||
+        modalShowEmployeeAssignmentCoerciveBlock;
+
     const personalTabLockedForEmployee =
-        Boolean(activeDebtorIsEmployee) && !Boolean(personalTabUnlockByDebtor[activeFollowupDebtorKey]);
+        employeeCoerciveDetentionRestricted &&
+        !Boolean(personalTabUnlockByDebtor[activeFollowupDebtorKey]);
+
+    const modalPersonalTabLockedForEmployee =
+        modalEmployeeCoerciveDetentionRestricted &&
+        !Boolean(personalTabUnlockByDebtor[activeFollowupDebtorKey]) &&
+        !followupModalSpecializationEffective.hidePersonalCoerciveFollowupTab;
 
     const restrictedFollowupTabIds = useMemo(
         () => new Set(['correspondences', 'admin', 'dossier_controls', 'other_party']),
@@ -2643,18 +2917,18 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 | 'other_party';
             label: string;
         }> = [];
-        if (showPersonalCoerciveFollowupTab && !followupTabsRestricted) {
+        if (modalShowPersonalCoerciveFollowupTab && !followupTabsRestricted) {
             tabs.push({
                 id: 'personal',
-                label: personalTabLockedForEmployee
+                label: modalPersonalTabLockedForEmployee
                     ? '🔒 التنفيذ الجبري الشخصي'
                     : 'التنفيذ الجبري الشخصي',
             });
         }
-        if (!followupSpecialization.hideFollowupCoerciveTab && !followupTabsRestricted) {
+        if (!followupModalSpecializationEffective.hideFollowupCoerciveTab && !followupTabsRestricted) {
             tabs.push({ id: 'coercive', label: 'الإجراءات الجبرية' });
         }
-        if (!followupTabsRestricted) {
+        if (!followupTabsRestricted && !followupModalSpecializationEffective.hideFollowupSeizureRequestsTab) {
             tabs.push({ id: 'seizure_requests', label: 'طلبات الحجز المالية' });
         }
         tabs.push(
@@ -2665,24 +2939,50 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         );
         return tabs;
     }, [
-        showPersonalCoerciveFollowupTab,
-        personalTabLockedForEmployee,
-        followupSpecialization.hideFollowupCoerciveTab,
+        modalShowPersonalCoerciveFollowupTab,
+        modalPersonalTabLockedForEmployee,
+        modalShowEmployeeAssignmentCoerciveBlock,
+        followupModalSpecializationEffective.hideFollowupCoerciveTab,
+        followupModalSpecializationEffective.hideFollowupSeizureRequestsTab,
         followupTabsRestricted,
+    ]);
+
+    useEffect(() => {
+        if (!showUnifiedExecutionModal) return;
+        if (modalShowPersonalCoerciveFollowupTab) return;
+        if (unifiedModalTab !== 'personal') return;
+        const nextTab = followupModalSpecializationEffective.hideFollowupSeizureRequestsTab
+            ? followupModalSpecializationEffective.hideFollowupCoerciveTab
+                ? 'correspondences'
+                : 'coercive'
+            : 'seizure_requests';
+        setUnifiedModalTab(nextTab);
+    }, [
+        showUnifiedExecutionModal,
+        followupSolidaryDebtorIndex,
+        executionDebtorTabIndex,
+        modalShowPersonalCoerciveFollowupTab,
+        followupModalSpecializationEffective.hideFollowupSeizureRequestsTab,
+        followupModalSpecializationEffective.hideFollowupCoerciveTab,
+        unifiedModalTab,
     ]);
 
     const isFollowupTabActive = useCallback(
         (tabId: (typeof followupModalTabs)[number]['id']) => {
             if (tabId === 'coercive') {
-                if (followupSpecialization.hideFollowupCoerciveTab) return false;
+                if (followupModalSpecializationEffective.hideFollowupCoerciveTab) return false;
                 return (
                     unifiedModalTab === 'coercive' ||
-                    (unifiedModalTab === 'personal' && !showPersonalCoerciveFollowupTab)
+                    (unifiedModalTab === 'personal' && !modalShowPersonalCoerciveFollowupTab)
                 );
             }
             return unifiedModalTab === tabId;
         },
-        [unifiedModalTab, showPersonalCoerciveFollowupTab, followupSpecialization.hideFollowupCoerciveTab]
+        [
+            unifiedModalTab,
+            modalShowPersonalCoerciveFollowupTab,
+            followupModalSpecializationEffective.hideFollowupCoerciveTab,
+        ]
     );
 
     const goFollowupSectionTabByDelta = useCallback(
@@ -2728,6 +3028,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
 
     const openFollowupModalPersisted = useCallback(
         (opts?: { tab?: FollowupModalTabId }) => {
+            prefetchExecutionFollowupModalPortal();
             followupModalOpenGenerationRef.current += 1;
             setShowUnifiedExecutionModal(true);
             const order = (followupSectionTabOrder as readonly string[]).filter(
@@ -3006,6 +3307,48 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         );
     }, [isNonFinancialClaim, isMaritalFurnitureClaim, executionData, parsedDebtAmount]);
 
+    const financialPrincipalAmount = useMemo(() => {
+        if (!liabilityGroupTabsMode || !activeLiabilityGroup || isNonFinancialClaim) {
+            return principalDebtAmount;
+        }
+        if (isMaritalFurnitureClaim) return principalDebtAmount;
+        return resolveLiabilityGroupPrincipal(
+            allDebtorRowsForLiability,
+            executionData?.party_multiplicity as Record<string, unknown> | undefined,
+            activeLiabilityGroup,
+        );
+    }, [
+        liabilityGroupTabsMode,
+        activeLiabilityGroup,
+        isNonFinancialClaim,
+        isMaritalFurnitureClaim,
+        principalDebtAmount,
+        allDebtorRowsForLiability,
+        executionData?.party_multiplicity,
+    ]);
+
+    const financialLawyerFeesAmount = useMemo(() => {
+        if (!liabilityGroupTabsMode || !activeLiabilityGroup) {
+            return parsedLawyerFees;
+        }
+        const globalFees = Math.max(
+            parseMoneyLike(lawyerFeesAmount),
+            parseMoneyLike(executionFee),
+        );
+        return resolveLiabilityGroupLawyerFees(
+            allDebtorRowsForLiability,
+            globalFees,
+            activeLiabilityGroup,
+        );
+    }, [
+        liabilityGroupTabsMode,
+        activeLiabilityGroup,
+        parsedLawyerFees,
+        allDebtorRowsForLiability,
+        lawyerFeesAmount,
+        executionFee,
+    ]);
+
     /** نوع المطالبة الأساسي — يمنع تسريب إجراءات نوع آخر عند claimTypes[] */
     const claimTypeForExecutionModule = useMemo(
         () =>
@@ -3090,8 +3433,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         executionData,
         evictionCaseExpensesSum,
         isEvictionExecutionModule,
-        parsedLawyerFees,
-        principalDebtAmount,
+        financialLawyerFeesAmount,
+        financialPrincipalAmount,
         total_execution_expenses,
     );
 
@@ -3120,7 +3463,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                       ?.eviction_lawyer_fee_waived_at_intake
               );
         return {
-            principal_amount: principalDebtAmount,
+            principal_amount: financialPrincipalAmount,
             courtOrderedFeesSafe: Math.max(0, evictionLawyerFeesInTotals),
             evictionLawyerFeeWaivedAtIntake,
             executionExpensesSumSafe: Math.max(0, total_execution_expenses),
@@ -3135,7 +3478,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         executionId,
         isEvictionExecutionModule,
         executionData,
-        principalDebtAmount,
+        financialPrincipalAmount,
         evictionLawyerFeesInTotals,
         total_execution_expenses,
         evictionCaseExpensesTotalForFinancial,
@@ -3454,8 +3797,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         effectiveDebtors,
         claimType,
         isNonFinancialClaim,
-        principalDebtAmount,
-        parsedLawyerFees,
+        financialPrincipalAmount,
+        financialLawyerFeesAmount,
     );
     
     const {
@@ -3508,7 +3851,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         executionData,
         effectiveDebtors,
         debtorBrowserTabsMode,
-        activeWorkspaceDebtorForFollowup,
+        effectiveFollowupDebtorEntry ?? activeWorkspaceDebtorForFollowup,
         isEvictionExecutionModule,
         evictionGraceAnchorDate,
         debtorNotificationDate,
@@ -3527,7 +3870,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         paidDebt,
         totalOwed,
         parsedCourtFees,
-        principalDebtAmount,
+        financialPrincipalAmount,
         paidCourtFees,
         paidDirectorateFees,
         paidClientFees,
@@ -3539,15 +3882,16 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             executionId: decisionsStorageExecutionId ?? executionId,
             claimType: String(claimType || '').trim(),
             flags: {
-                ...followupSpecialization,
+                ...followupSpecializationEffective,
                 showPersonalCoerciveFollowupTab,
                 showGuarantorInSeizureTab: showGuarantorInSeizureFollowupTab,
                 isPersonalStatusExecutionClaim,
                 isAlimonyClaim: isAlimonyClaimType,
                 activeDebtorIsEmployee,
+                isCustodyRemovalClaim: custodyRemovalClaimActive,
                 showHiddenExecutiveDossierPresentation:
-                    !followupSpecialization.hidePersonalJudgePresentation &&
-                    !activeDebtorIsEmployee &&
+                    !followupSpecializationEffective.hidePersonalJudgePresentation &&
+                    !employeeCoerciveDetentionRestricted &&
                     remainingBalanceForSeizure > 0,
             },
             guarantorCtx: {
@@ -3600,6 +3944,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         primaryDebtorKeyResolved,
         forcedSummoningAnalysis.canForceSummon,
         personalTabLockedForEmployee,
+        custodyRemovalClaimActive,
+        employeeCoerciveDetentionRestricted,
         remaining,
     ]);
 
@@ -3637,7 +3983,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     const coerciveUiLocked = executionPaused || isPaused || stayOfExecutionActive;
     /** ذمة مقسومة: المدين النشط في تبويب محضر المتابعة أوفى حصته */
     const dividedActiveDebtorCleared =
-        !isSolidaryLiability &&
+        !activeDebtorSolidary &&
         allDebtorsUnified.length > 1 &&
         Boolean(allDebtorsUnified[executionDebtorTabIndex]?.cleared);
     /** تعطيل أزرار الحجز/الإجراء الجبري داخل محضر المتابعة عند إيقاف الإضبارة أو براءة ذمة التبويب */
@@ -3659,7 +4005,10 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         debtorDeathMarked,
         creditorDeathMenuLabel,
         debtorDeathMenuLabel,
-    } = useDossierDeathStatus(executionData, debtors);
+        heirSubstitutionAllowed,
+        ongoingAlimonyClaim,
+        alimonyBeneficiaryProfile,
+    } = useDossierDeathStatus(executionData, debtors, claimType);
 
     const lawyerFeePayoutApproved = useMemo(
         () => hasApprovedLawyerFeePayout(String(executionData?.id ?? executionId ?? '')),
@@ -3746,7 +4095,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     useEffect(() => {
         const shouldBeEnded = executionStatus === 'READY_FOR_COERCIVE';
         if (shouldBeEnded && !gracePeriodEnded) {
-            debug.log('🔥 [V15 Auto-Unlock] Grace period automatically ended based on State Machine');
             setGracePeriodEnded(true);
             setGracePeriodActive(false);
         }
@@ -3794,12 +4142,12 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         showSalaryCaptureForEmployee,
     } = useDebtorSummonsProfile(
         effectiveDebtors,
-        principalDebtAmount,
-        parsedLawyerFees,
+        financialPrincipalAmount,
+        financialLawyerFeesAmount,
         claimType,
         isNonFinancialClaim,
         debtorBrowserTabsMode,
-        activeWorkspaceDebtorForFollowup,
+        effectiveFollowupDebtorEntry ?? activeWorkspaceDebtorForFollowup,
     );
 
     const {
@@ -3813,7 +4161,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         primaryMemoNoticeBadge,
         primaryDebtorNoticeYmdResolved,
         showDebtorUnservedMemoBadge,
-        shouldWarnOnMemoClick,
         primaryDebtorAbsenceBadge,
         showDebtorSummonsAttendanceBadge,
         noticeKindGoalStrictBinding,
@@ -4435,6 +4782,63 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     persistExecutionMergeRef.current = persistExecutionMerge;
     executionFileSnapshotRef.current = executionData ?? null;
 
+    const {
+        timelineEditDraft,
+        setTimelineEditDraft,
+        moveTimelineEventToTrash,
+        toggleTimelineEventPin,
+        requestEditTimelineEvent,
+        restoreTimelineEventFromTrash,
+        permanentlyDeleteTimelineEvent,
+        moveCaseNoteToTrash,
+        moveCaseTaskToTrash,
+        toggleCaseNotePin,
+        toggleCaseTaskPin,
+        saveTimelineEditDraft,
+        restoreCaseNoteFromTrash,
+        permanentlyDeleteCaseNote,
+        restoreCaseTaskFromTrash,
+        permanentlyDeleteCaseTask,
+    } = useExecutionTrashAndPins({
+        showExecutionTrashModal,
+        setShowExecutionTrashModal,
+        timelineEventsRef,
+        caseNotesLogRef,
+        caseTasksPendingRef,
+        setTimelineEvents,
+        setCaseNotesLog,
+        setCaseTasksPending,
+        persistExecutionMerge,
+        showToast,
+        currentFileId,
+        setPermanentDeleteTimelineId,
+    });
+
+    const {
+        editPartyTarget,
+        setEditPartyTarget,
+        partyEditDraft,
+        setPartyEditDraft,
+        partyEditHeirDeleteConfirmIdx,
+        setPartyEditHeirDeleteConfirmIdx,
+        heirsQuickView,
+        setHeirsQuickView,
+        openEditParty,
+        buildPartyHeirsRows,
+        openHeirsQuickView,
+        savePartyEditDraft,
+        removeHeirFromPartyEditDraftAtIndex,
+        togglePartyEditHeirClient,
+    } = usePartyEditWorkflow({
+        executionData,
+        viewExecutionData,
+        executionDataRef,
+        decisionsStorageExecutionId,
+        isHistoricalMode,
+        persistExecutionMerge,
+        showToast,
+    });
+
     useEffect(() => {
         if (!isMaritalFurnitureClaim || !executionData) return;
         const items = maritalFurnitureItemsForFollowup;
@@ -4649,15 +5053,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     const {
         executionCopilotDecisions,
         firstActiveAppealDecisionId,
-        executionCopilotSnapshot,
-        executionCopilotFingerprint,
-        runExecutionAICopilot,
-        triggerCopilotAfterLocalChange,
-        applyCopilotSuggestionAsNote,
-        applyCopilotSuggestionAsTask,
-        copyCopilotDraftText,
     } = useExecutionAICopilot({
-        executionData,
         decisionsStorageExecutionId,
         decisionsReloadEpoch,
     });
@@ -4774,35 +5170,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         [executionId, persistExecutionMerge, parentDossierId]
     );
     pushTimelineEventRef.current = pushTimelineEvent;
-
-    const movableInlineSaveCtx = useMemo((): MovableInlineSaveContext => {
-        return {
-            dossierId: String(decisionsStorageExecutionId ?? executionData?.id ?? executionId ?? '').trim(),
-            showToast: (msg, type) => showToast(msg, type ?? 'info'),
-            persistMovables: (next) => persistExecutionMerge({ seizedMovables: next }),
-            pushTimeline: pushTimelineEvent,
-            nextTimelineId,
-            onAuctionCalendar: ({ dossierId, decisionId, ymd, purpose }) => {
-                pushSeizureAuctionCalendarAppointment({
-                    dossierId,
-                    decisionId,
-                    ymd,
-                    purpose,
-                    linkToAppointments: linkSeizureAuctionToAppointments,
-                });
-            },
-        };
-    }, [
-        decisionsStorageExecutionId,
-        executionData?.id,
-        executionId,
-        showToast,
-        persistExecutionMerge,
-        pushTimelineEvent,
-        nextTimelineId,
-        linkSeizureAuctionToAppointments,
-        pushSeizureAuctionCalendarAppointment,
-    ]);
 
     const propertyInlineSaveCtx = useMemo((): PropertyInlineSaveContext => {
         return {
@@ -5436,15 +5803,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         return () => document.removeEventListener('keydown', onKey);
     }, [dossierLifecyclePanelOpen, closeDossierLifecyclePanel]);
 
-    useEffect(() => {
-        if (!showExecutionTrashModal) return;
-        const onKey = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') setShowExecutionTrashModal(false);
-        };
-        document.addEventListener('keydown', onKey);
-        return () => document.removeEventListener('keydown', onKey);
-    }, [showExecutionTrashModal]);
-
     useLayoutEffect(() => {
         if (!dossierLifecyclePanelOpen) {
             setDossierLifecyclePopStyle(null);
@@ -5481,153 +5839,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             window.removeEventListener('scroll', update, true);
         };
     }, [dossierLifecyclePanelOpen, dossierLifecyclePanelPhase, dossierStatusDraft]);
-
-    const moveTimelineEventToTrash = useCallback(
-        (ev: TimelineEvent) => {
-            const cur = timelineEventsRef.current.find((e) => e.id === ev.id);
-            if (!cur) {
-                showToast('لا يمكن حذف حدث تابع لإضبارة أخرى من هذا العرض.', 'warning');
-                return;
-            }
-            if (cur.trashedAt) return;
-            const iso = new Date().toISOString();
-            setTimelineEvents((prev) => {
-                const next = prev.map((e) => (e.id === ev.id ? { ...e, trashedAt: iso } : e));
-                queueMicrotask(() => persistExecutionMerge({ timelineEvents: next }));
-                return next;
-            });
-            if (String(ev.type || '') === 'appointment') {
-                CalendarBridge.remove('execution', String(currentFileId), String(ev.id));
-            }
-            showToast('نُقل الحدث إلى سلة مهملات الإضبارة', 'info');
-        },
-        [persistExecutionMerge, showToast, currentFileId]
-    );
-
-    const toggleTimelineEventPin = useCallback(
-        (ev: TimelineEvent) => {
-            if (!timelineEventsRef.current.some((e) => e.id === ev.id)) {
-                showToast('لا يمكن تثبيت/إلغاء تثبيت حدث تابع لإضبارة أخرى من هذا العرض.', 'warning');
-                return;
-            }
-            setTimelineEvents((prev) => {
-                const next = prev.map((e) =>
-                    e.id === ev.id ? { ...e, isPinned: !e.isPinned } : e
-                );
-                queueMicrotask(() => persistExecutionMerge({ timelineEvents: next }));
-                return next;
-            });
-        },
-        [persistExecutionMerge, showToast]
-    );
-
-    const requestEditTimelineEvent = useCallback(
-        (ev: TimelineEvent) => {
-            if (!timelineEventsRef.current.some((e) => e.id === ev.id)) {
-                showToast('لا يمكن تعديل حدث تابع لإضبارة أخرى من هذا العرض.', 'warning');
-                return;
-            }
-            setTimelineEditDraft({ ...ev });
-        },
-        [showToast]
-    );
-
-    const restoreTimelineEventFromTrash = useCallback(
-        (id: string, trashedAt: string | undefined) => {
-            const idTrim = String(id || '').trim();
-            if (!idTrim) return;
-            const cur = timelineEventsRef.current.find(
-                (e) => e.id === idTrim && String(e.trashedAt || '') === String(trashedAt || '')
-            );
-            if (!cur || !cur.trashedAt) return;
-            setTimelineEvents((prev) => {
-                const next = prev.map((e) =>
-                    e.id === idTrim && String(e.trashedAt || '') === String(trashedAt || '')
-                        ? { ...e, trashedAt: undefined }
-                        : e
-                );
-                queueMicrotask(() => persistExecutionMerge({ timelineEvents: next }));
-                return next;
-            });
-            showToast('أُعيد الحدث إلى السجل الزمني', 'success');
-        },
-        [persistExecutionMerge, showToast]
-    );
-
-    const permanentlyDeleteTimelineEvent = useCallback(
-        (id: string) => {
-            const had = timelineEventsRef.current.some((e) => e.id === id);
-            setPermanentDeleteTimelineId(null);
-            if (!had) return;
-            setTimelineEvents((prev) => {
-                const next = prev.filter((e) => e.id !== id);
-                queueMicrotask(() => persistExecutionMerge({ timelineEvents: next }));
-                return next;
-            });
-            showToast('حُذف الحدث نهائياً من السجل', 'success');
-        },
-        [persistExecutionMerge, showToast]
-    );
-
-    const moveCaseNoteToTrash = useCallback(
-        (id: string) => {
-            const cur = caseNotesLogRef.current.find((n) => n.id === id);
-            if (!cur || cur.trashedAt) return;
-            const iso = new Date().toISOString();
-            setCaseNotesLog((prev) => {
-                const next = prev.map((n) =>
-                    n.id === id ? { ...n, trashedAt: iso, pinned: false } : n
-                );
-                queueMicrotask(() => persistExecutionMerge({ caseNotesLog: next }));
-                return next;
-            });
-            showToast('نُقلت الملاحظة إلى السلة', 'info');
-        },
-        [persistExecutionMerge, showToast]
-    );
-
-    const moveCaseTaskToTrash = useCallback(
-        (id: string) => {
-            const cur = caseTasksPendingRef.current.find((t) => t.id === id);
-            if (!cur || cur.trashedAt) return;
-            const iso = new Date().toISOString();
-            setCaseTasksPending((prev) => {
-                const next = prev.map((t) =>
-                    t.id === id ? { ...t, trashedAt: iso, pinned: false } : t
-                );
-                queueMicrotask(() => persistExecutionMerge({ caseTasksPending: next }));
-                return next;
-            });
-            const trashed = caseTasksPendingRef.current.find((t) => t.id === id);
-            if (trashed) {
-                syncExecutionTaskDue({ executionId: currentFileId, task: { ...trashed, trashedAt: iso, pinned: false } });
-            }
-            showToast('نُقلت المهمة إلى السلة', 'info');
-        },
-        [persistExecutionMerge, showToast, currentFileId]
-    );
-
-    const toggleCaseNotePin = useCallback(
-        (id: string) => {
-            setCaseNotesLog((prev) => {
-                const next = prev.map((n) => (n.id === id ? { ...n, pinned: !n.pinned } : n));
-                queueMicrotask(() => persistExecutionMerge({ caseNotesLog: next }));
-                return next;
-            });
-        },
-        [persistExecutionMerge]
-    );
-
-    const toggleCaseTaskPin = useCallback(
-        (id: string) => {
-            setCaseTasksPending((prev) => {
-                const next = prev.map((t) => (t.id === id ? { ...t, pinned: !t.pinned } : t));
-                queueMicrotask(() => persistExecutionMerge({ caseTasksPending: next }));
-                return next;
-            });
-        },
-        [persistExecutionMerge]
-    );
 
     const {
         showEditDossierMetaModal,
@@ -5697,318 +5908,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         parentIsEvictionForExpandedHeader,
         persistParentDossierMerge,
         showToast,
-    );
-
-    const openEditParty = useCallback(
-        (
-            kind: 'creditor' | 'debtor',
-            index: number,
-            opts?: { forceHeirs?: boolean; party?: Party | Creditor | Debtor },
-        ) => {
-            const base = executionDataRef.current ?? viewExecutionData ?? executionData;
-            const list = getPartyListFromFile(base, kind);
-            const resolvedIndex = resolvePartyIndexInList(list, index, opts?.party ?? null);
-            const row = opts?.party ?? (resolvedIndex >= 0 ? list[resolvedIndex] : null);
-            if (!row || resolvedIndex < 0) {
-                showToast('تعذر فتح التعديل — لم يُعثر على بيانات الطرف', 'warning');
-                return;
-            }
-            const partyId = String((row as { id?: unknown }).id ?? resolvedIndex);
-            const heirsOnlyEdit = isPartyHeirsEditOnlyMode(
-                base,
-                kind,
-                row as Party,
-                resolvedIndex,
-                decisionsStorageExecutionId
-            );
-            const lockBaseInfo =
-                heirsOnlyEdit ||
-                (kind === 'creditor'
-                    ? Boolean(
-                          row.isDeceased ||
-                              (resolvedIndex === 0 && base?.is_creditor_deceased)
-                      )
-                    : Boolean(
-                          row.isDeceased ||
-                              (resolvedIndex === 0 && base?.is_debtor_deceased)
-                      ));
-            const substitutionApproved =
-                kind === 'creditor'
-                    ? getCreditorHeirSubstitutionRequestStatus(decisionsStorageExecutionId) ===
-                          'approved' ||
-                      getCreditorHeirSubstitutionRequestStatus(decisionsStorageExecutionId) ===
-                          'alternative'
-                    : getDebtorHeirSubstitutionRequestStatus(decisionsStorageExecutionId) ===
-                          'approved' ||
-                      getDebtorHeirSubstitutionRequestStatus(decisionsStorageExecutionId) ===
-                          'alternative';
-            const includeHeirsInForm = Boolean(
-                opts?.forceHeirs || heirsOnlyEdit || lockBaseInfo || substitutionApproved
-            );
-            const hasHeirsDetailsField = Array.isArray((row as any)?.heirs_details);
-            const heirDetailsRaw = hasHeirsDetailsField ? ((row as any).heirs_details as any[]) : [];
-            const heirRowsRaw = hasHeirsDetailsField
-                ? heirDetailsRaw.map((h) => ({
-                      rowId: makeHeirRowId(),
-                      name: String(h?.name || ''),
-                      phone: String(h?.phone || ''),
-                      address: String(h?.address || ''),
-                      isClient: Boolean(h?.isClient),
-                  }))
-                : ((row.heirs || []).map((h) => ({
-                      rowId: makeHeirRowId(),
-                      name: String(h || ''),
-                      phone: '',
-                      address: '',
-                      isClient: false,
-                  })) as HeirDetailRow[]);
-            let heirRows = includeHeirsInForm ? dedupeHeirDetailRowsByName(heirRowsRaw) : [];
-            if (heirsOnlyEdit && heirRows.length === 0) {
-                const partyDeathCase = getPartyDeathCaseForRole(base, kind);
-                const caseDetails = (partyDeathCase?.heir_details || [])
-                    .map((h) => ({
-                        rowId: makeHeirRowId(),
-                        name: String(h?.name || ''),
-                        phone: String(h?.phone || ''),
-                        address: String(h?.address || ''),
-                        isClient: false,
-                    }))
-                    .filter((h) => /\S/.test(h.name));
-                const caseNames = (partyDeathCase?.heir_names || [])
-                    .map((name) => ({
-                        rowId: makeHeirRowId(),
-                        name: String(name || ''),
-                        phone: '',
-                        address: '',
-                        isClient: false,
-                    }))
-                    .filter((h) => /\S/.test(h.name));
-                heirRows = dedupeHeirDetailRowsByName(
-                    caseDetails.length > 0 ? caseDetails : caseNames
-                );
-            }
-            const baseDraft = {
-                name: row.name || '',
-                phone: row.phone || '',
-                address: row.address || '',
-                heirs:
-                    includeHeirsInForm && heirRows.length > 0
-                        ? heirRows.map((h) => ({ ...h, rowId: h.rowId || makeHeirRowId() }))
-                        : [],
-                lockBaseInfo,
-                includeHeirsInForm,
-                heirsOnlyEdit,
-            };
-            let cloned = baseDraft;
-            try {
-                const sc = (globalThis as any).structuredClone as (<T>(x: T) => T) | undefined;
-                cloned = sc ? sc(baseDraft) : (JSON.parse(JSON.stringify(baseDraft)) as typeof baseDraft);
-            } catch {
-                cloned = JSON.parse(JSON.stringify(baseDraft)) as typeof baseDraft;
-            }
-            flushSync(() => {
-                setPartyEditDraft(cloned);
-                setEditPartyTarget({ kind, index: resolvedIndex, partyId });
-            });
-        },
-        [
-            viewExecutionData,
-            executionData,
-            decisionsStorageExecutionId,
-            executionData?.is_creditor_deceased,
-            executionData?.is_debtor_deceased,
-            showToast,
-        ]
-    );
-
-    const buildPartyHeirsRows = useCallback(
-        (party: Party | null | undefined, partyKind: 'creditor' | 'debtor') =>
-            collectPartyHeirDetailRows(party, executionData, partyKind),
-        [
-            executionData,
-            executionData?.creditor_party_death_case,
-            executionData?.debtor_party_death_case,
-            executionData?.party_death_case,
-            executionData?.creditors,
-            executionData?.debtors,
-        ]
-    );
-
-    const openHeirsQuickView = useCallback(
-        (party: Party | null | undefined, partyKind: 'creditor' | 'debtor', title: string) => {
-            const rows = buildPartyHeirsRows(party, partyKind);
-            if (rows.length === 0) {
-                showToast('لا توجد بيانات ورثة مسجّلة بعد.', 'info');
-                return;
-            }
-            flushSync(() => {
-                setHeirsQuickView({ title, rows });
-            });
-        },
-        [buildPartyHeirsRows, showToast]
-    );
-
-    const savePartyEditDraft = useCallback(() => {
-        if (!editPartyTarget || !partyEditDraft) return;
-        if (isHistoricalMode) {
-            showToast('لا يمكن التعديل في وضع المعاينة التاريخية', 'warning');
-            return;
-        }
-        const base = executionDataRef.current;
-        if (!base) {
-            showToast('تعذر الحفظ — لا توجد بيانات إضبارة', 'warning');
-            return;
-        }
-        const patch = buildPartyEditPersistPatch(base, editPartyTarget, partyEditDraft);
-        if (!patch) {
-            showToast('تعذر الحفظ — لم يُعثر على الطرف في الإضبارة', 'warning');
-            return;
-        }
-        const locked = partyEditDraft.lockBaseInfo;
-        const onlyHeirs =
-            locked &&
-            Boolean(partyEditDraft.includeHeirsInForm) &&
-            partyEditDraft.heirs.length > 0;
-        if (
-            locked &&
-            !onlyHeirs &&
-            !partyEditDraft.includeHeirsInForm &&
-            !partyEditDraft.heirsOnlyEdit
-        ) {
-            showToast(
-                'بيانات الاسم/الهاتف/العنوان مقفلة (وفاة أو إحلال). يمكن تعديل الورثة بعد موافقة المنفذ فقط.',
-                'info'
-            );
-            return;
-        }
-        persistExecutionMerge(patch);
-        setEditPartyTarget(null);
-        setPartyEditDraft(null);
-        showToast('تم حفظ بيانات الطرف', 'success');
-    }, [
-        editPartyTarget,
-        partyEditDraft,
-        persistExecutionMerge,
-        showToast,
-        isHistoricalMode,
-    ]);
-
-    const removeHeirFromPartyEditDraftAtIndex = useCallback(
-        (idx: number) => {
-            setPartyEditDraft((d) => {
-                if (!d) return d;
-                const next = d.heirs.filter((_, i) => i !== idx);
-                return { ...d, heirs: next };
-            });
-            setPartyEditHeirDeleteConfirmIdx(null);
-        },
-        [decisionsStorageExecutionId, editPartyTarget?.kind]
-    );
-
-    const togglePartyEditHeirClient = useCallback((heirIdx: number) => {
-        setPartyEditDraft((d) => {
-            if (!d) return d;
-            const cur = d.heirs[heirIdx];
-            if (!cur) return d;
-            const was = Boolean(cur.isClient);
-            const next = d.heirs.map((h, i) => ({
-                ...h,
-                isClient: was ? false : i === heirIdx,
-            }));
-            return { ...d, heirs: next };
-        });
-    }, []);
-
-    const saveTimelineEditDraft = useCallback(() => {
-        if (!timelineEditDraft) return;
-        setTimelineEvents((prev) => {
-            const next = prev.map((e) =>
-                e.id === timelineEditDraft.id
-                    ? {
-                          ...e,
-                          title: timelineEditDraft.title,
-                          description: timelineEditDraft.description,
-                          date: timelineEditDraft.date,
-                      }
-                    : e
-            );
-            queueMicrotask(() => persistExecutionMerge({ timelineEvents: next }));
-            return next;
-        });
-        setTimelineEditDraft(null);
-        showToast('تم تحديث الحدث في السجل', 'success');
-    }, [timelineEditDraft, persistExecutionMerge, showToast]);
-
-    const restoreCaseNoteFromTrash = useCallback(
-        (id: string, trashedAt: string | undefined) => {
-            const idTrim = String(id || '').trim();
-            if (!idTrim) return;
-            const cur = caseNotesLogRef.current.find(
-                (n) => n.id === idTrim && String(n.trashedAt || '') === String(trashedAt || '')
-            );
-            if (!cur || !cur.trashedAt) return;
-            setCaseNotesLog((prev) => {
-                const next = prev.map((n) =>
-                    n.id === idTrim && String(n.trashedAt || '') === String(trashedAt || '')
-                        ? { ...n, trashedAt: undefined }
-                        : n
-                );
-                queueMicrotask(() => persistExecutionMerge({ caseNotesLog: next }));
-                return next;
-            });
-            showToast('أُعيدت الملاحظة', 'success');
-        },
-        [persistExecutionMerge, showToast]
-    );
-
-    const permanentlyDeleteCaseNote = useCallback(
-        (id: string) => {
-            const had = caseNotesLogRef.current.some((n) => n.id === id);
-            if (!had) return;
-            setCaseNotesLog((prev) => {
-                const next = prev.filter((n) => n.id !== id);
-                queueMicrotask(() => persistExecutionMerge({ caseNotesLog: next }));
-                return next;
-            });
-            showToast('حُذفت الملاحظة نهائياً', 'success');
-        },
-        [persistExecutionMerge, showToast]
-    );
-
-    const restoreCaseTaskFromTrash = useCallback(
-        (id: string, trashedAt: string | undefined) => {
-            const idTrim = String(id || '').trim();
-            if (!idTrim) return;
-            const cur = caseTasksPendingRef.current.find(
-                (t) => t.id === idTrim && String(t.trashedAt || '') === String(trashedAt || '')
-            );
-            if (!cur || !cur.trashedAt) return;
-            setCaseTasksPending((prev) => {
-                const next = prev.map((t) =>
-                    t.id === idTrim && String(t.trashedAt || '') === String(trashedAt || '')
-                        ? { ...t, trashedAt: undefined }
-                        : t
-                );
-                queueMicrotask(() => persistExecutionMerge({ caseTasksPending: next }));
-                return next;
-            });
-            showToast('أُعيدت المهمة', 'success');
-        },
-        [persistExecutionMerge, showToast]
-    );
-
-    const permanentlyDeleteCaseTask = useCallback(
-        (id: string) => {
-            const had = caseTasksPendingRef.current.some((t) => t.id === id);
-            if (!had) return;
-            setCaseTasksPending((prev) => {
-                const next = prev.filter((t) => t.id !== id);
-                queueMicrotask(() => persistExecutionMerge({ caseTasksPending: next }));
-                return next;
-            });
-            showToast('حُذفت المهمة نهائياً', 'success');
-        },
-        [persistExecutionMerge, showToast]
     );
 
     /** مصدر موحّد لتحديث المدينين — يفضّل البيانات المدمجة في الملف على props المتأخرة */
@@ -6792,6 +6691,15 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     const handlePartyDeathSave = useCallback(
         (payload: PartyDeathSavePayload): boolean => {
             const base = executionDataRef.current ?? executionData;
+            if (
+                (payload.action === 'heir_substitution' ||
+                    payload.action === 'seek_heir' ||
+                    payload.action === 'no_heirs') &&
+                !isHeirSubstitutionAllowedForClaim(base as Record<string, unknown>, claimType)
+            ) {
+                showToast('لا يوجد مسار ورثة لهذا النوع من المطالبة.', 'info');
+                return false;
+            }
             const partyLabelAr = payload.deceased_party === 'debtor' ? 'المدين' : 'الدائن';
             const mergeHeirNames = (existing: string[], incoming: string[]) => {
                 const out: string[] = [];
@@ -6849,6 +6757,18 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                               .filter((h) => /\S/.test(h.name))
                         : [];
                 if (payload.action === 'death_only') {
+                    if (hasOngoingAlimonyInExecution(base as Record<string, unknown>, claimType)) {
+                        showToast(
+                            'نفقة مستمرة — حدّد المستحق المتوفى من قائمة الدائن (نافذة مستحقي النفقة).',
+                            'warning'
+                        );
+                        return false;
+                    }
+                    const autoFinishCreditor = shouldAutoFinishDossierOnDeathReport(
+                        base as Record<string, unknown>,
+                        claimType,
+                        'creditor'
+                    );
                     if (creditorsList[0]) {
                         creditorsList[0] = {
                             ...creditorsList[0],
@@ -6884,10 +6804,18 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                             deceased_creditor_legal_name_snapshot:
                                 nameSnapshot || base?.deceased_creditor_legal_name_snapshot,
                             timelineEvents: next,
+                            ...(autoFinishCreditor
+                                ? buildDossierAutoFinishPatch('وفاة الدائن — إغلاق الإضبارة')
+                                : {}),
                         });
                         return next;
                     });
-                    showToast('تم تسجيل الإبلاغ عن وفاة الدائن.', 'success');
+                    showToast(
+                        autoFinishCreditor
+                            ? 'تم تسجيل وفاة الدائن وإغلاق الإضبارة.'
+                            : 'تم تسجيل الإبلاغ عن وفاة الدائن.',
+                        'success'
+                    );
                     return true;
                 }
                 if (
@@ -7111,12 +7039,24 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 applyHeirsToParty([], []);
                 flow = 'death_only';
                 storedHeirNames = [];
+                const autoFinishDebtor = shouldAutoFinishDossierOnDeathReport(
+                    base as Record<string, unknown>,
+                    claimType,
+                    'debtor'
+                );
+                if (autoFinishDebtor) {
+                    mergeExtra = buildDossierAutoFinishPatch('وفاة المدين — إغلاق الإضبارة');
+                }
                 te = {
                     id: teId,
                     date: now.slice(0, 10),
                     timestamp: now,
-                    title: 'تسجيل الإبلاغ عن الوفاة',
-                    description: `تم تسجيل الإبلاغ عن وفاة ${nameSnapshot || partyLabelAr} في الإضبارة.`,
+                    title: autoFinishDebtor
+                        ? 'تسجيل وفاة المدين — إغلاق الإضبارة'
+                        : 'تسجيل الإبلاغ عن الوفاة',
+                    description: autoFinishDebtor
+                        ? `تم تسجيل وفاة ${nameSnapshot || partyLabelAr} وإغلاق الإضبارة آلياً.`
+                        : `تم تسجيل الإبلاغ عن وفاة ${nameSnapshot || partyLabelAr} في الإضبارة.`,
                     type: 'procedure',
                     source: 'بطاقة الخصوم',
                 };
@@ -7199,7 +7139,12 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             });
 
             if (payload.action === 'death_only') {
-                showToast('تم تسجيل الإبلاغ عن الوفاة.', 'success');
+                showToast(
+                    mergeExtra.dossier_lifecycle_status === 'finished'
+                        ? 'تم تسجيل وفاة المدين وإغلاق الإضبارة.'
+                        : 'تم تسجيل الإبلاغ عن الوفاة.',
+                    'success'
+                );
             } else if (payload.action === 'no_heirs') {
                 showToast('تم تسجيل الوفاة وإغلاق الإضبارة (لا ورثة).', 'success');
             } else if (payload.action === 'seek_heir') {
@@ -7228,7 +7173,64 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             partyDeathModalDecisionId,
             patchExecutorDecisionRow,
             showToast,
+            claimType,
         ]
+    );
+
+    const handleAlimonyBeneficiaryDeathConfirm = useCallback(
+        (input: { wifeDeceased: boolean; childrenDiedCount: number }): boolean => {
+            const base = executionDataRef.current ?? executionData;
+            const merge = buildAlimonyBeneficiaryDeathMerge(base, input);
+            if (!merge) {
+                showToast('تعذّر تطبيق الإبلاغ — راجع بيانات النفقة المستمرة.', 'warning');
+                return false;
+            }
+            const now = new Date().toISOString();
+            const parts: string[] = [];
+            if (input.wifeDeceased) parts.push('الزوجة');
+            if (input.childrenDiedCount > 0) {
+                parts.push(
+                    input.childrenDiedCount === 1
+                        ? 'طفل واحد'
+                        : `${input.childrenDiedCount} من الأولاد`
+                );
+            }
+            const te: TimelineEvent = {
+                id: nextTimelineId(),
+                date: now.slice(0, 10),
+                timestamp: now,
+                title: 'إبلاغ وفاة مستحقي النفقة',
+                description: `تم تسجيل وفاة: ${parts.join(' و')} — وتحديث المركز المالي.${
+                    merge.dossier_lifecycle_status === 'finished'
+                        ? '\nأُغلقت الإضبارة لوفاة جميع المستحقين.'
+                        : ''
+                }`,
+                type: 'procedure',
+                source: 'بطاقة الخصوم',
+            };
+            setTimelineEvents((prev) => {
+                const next = [te, ...prev];
+                const mergedFile = {
+                    ...(base as Record<string, unknown>),
+                    ...merge,
+                    timelineEvents: next,
+                };
+                persistExecutionMerge({ ...merge, timelineEvents: next });
+                executionDataRef.current = mergedFile as ExecutionFile;
+                setAlimonyBeneficiaryDeathModalProfile(
+                    resolveAlimonyBeneficiaryProfile(mergedFile)
+                );
+                return next;
+            });
+            showToast(
+                merge.dossier_lifecycle_status === 'finished'
+                    ? 'تم الإبلاغ وإغلاق الإضبارة — لا مستحقين متبقين.'
+                    : 'تم الإبلاغ وتحديث مبالغ النفقة في المركز المالي.',
+                'success'
+            );
+            return true;
+        },
+        [executionData, nextTimelineId, persistExecutionMerge, showToast]
     );
 
     const debtorSubstitutionRequestStatus = useMemo(
@@ -7241,6 +7243,10 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     );
 
     const handleRequestDebtorSubstitution = useCallback((): boolean => {
+        if (!isHeirSubstitutionAllowedForClaim(executionData, claimType)) {
+            showToast('لا يوجد مسار إحلال ورثة لهذا النوع من المطالبة.', 'info');
+            return false;
+        }
         if (debtorSubstitutionRequestStatus === 'pending') {
             showToast('الطلب مُرسل مسبقاً وقيد البت لدى المنفذ.', 'warning');
             return false;
@@ -7295,6 +7301,10 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     ]);
 
     const handleRequestCreditorSubstitution = useCallback((): boolean => {
+        if (!isHeirSubstitutionAllowedForClaim(executionData, claimType)) {
+            showToast('لا يوجد مسار إحلال ورثة لهذا النوع من المطالبة.', 'info');
+            return false;
+        }
         if (creditorSubstitutionRequestStatus === 'pending') {
             showToast('الطلب مُرسل مسبقاً وقيد البت لدى المنفذ.', 'warning');
             return false;
@@ -7349,6 +7359,38 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     ]);
 
     const handleCreditorDeathMenuAction = useCallback(() => {
+        if (ongoingAlimonyClaim) {
+            const profileNow = resolveAlimonyBeneficiaryProfile(
+                executionDataRef.current ?? executionData
+            );
+            if (!profileNow) {
+                showToast(
+                    'لا تتوفر بيانات مستحقي النفقة في الإضبارة. راجع مبالغ الزوجة/الأولاد عند الإنشاء.',
+                    'warning'
+                );
+                return;
+            }
+            if (!profileNow.anyBeneficiaryAlive) {
+                showToast('جميع مستحقي النفقة مُسجَّلون متوفين.', 'info');
+                return;
+            }
+            if (shouldShowAlimonyBeneficiaryDeathPicker(profileNow)) {
+                setAlimonyBeneficiaryDeathModalProfile(profileNow);
+                setAlimonyBeneficiaryDeathModalOpen(true);
+                return;
+            }
+            const soleInput = buildSoleSurvivorDeathInput(profileNow);
+            if (soleInput) {
+                handleAlimonyBeneficiaryDeathConfirm(soleInput);
+                return;
+            }
+            showToast('تعذّر تحديد مستحق النفقة المتبقي.', 'warning');
+            return;
+        }
+        if (!heirSubstitutionAllowed) {
+            handlePartyDeathSave({ action: 'death_only', deceased_party: 'creditor' });
+            return;
+        }
         if (!creditorDeathMarked) {
             handlePartyDeathSave({ action: 'death_only', deceased_party: 'creditor' });
             return;
@@ -7366,18 +7408,27 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         }
         handleRequestCreditorSubstitution();
     }, [
+        alimonyBeneficiaryProfile?.anyBeneficiaryAlive,
         creditorDeathMarked,
         creditorSubstitutionRequestStatus,
         decisionsStorageExecutionId,
+        executionData,
         findLatestHeirSubstitutionDecisionNeedingEntry,
+        handleAlimonyBeneficiaryDeathConfirm,
         handlePartyDeathSave,
         handleRequestCreditorSubstitution,
+        heirSubstitutionAllowed,
+        ongoingAlimonyClaim,
         showToast,
     ]);
 
     const handleDebtorDeathMenuAction = useCallback(() => {
         if (!debtorDeathMarked) {
             handlePartyDeathSave({ action: 'death_only', deceased_party: 'debtor' });
+            return;
+        }
+        if (!heirSubstitutionAllowed) {
+            showToast('تم تسجيل وفاة المدين مسبقاً — لا إجراء إضافي في هذا النوع من المطالبة.', 'info');
             return;
         }
         const openId = findLatestHeirSubstitutionDecisionNeedingEntry(decisionsStorageExecutionId, 'debtor');
@@ -7399,6 +7450,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         findLatestHeirSubstitutionDecisionNeedingEntry,
         handlePartyDeathSave,
         handleRequestDebtorSubstitution,
+        heirSubstitutionAllowed,
         showToast,
     ]);
 
@@ -8509,8 +8561,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     });
     const handleSaveNote = useCallback(async () => {
         await runSaveNoteSubmit();
-        triggerCopilotAfterLocalChange();
-    }, [runSaveNoteSubmit, triggerCopilotAfterLocalChange]);
+    }, [runSaveNoteSubmit]);
     
     const completePendingTask = useCallback((taskId: string) => {
         const task = caseTasksPending.find(t => t.id === taskId);
@@ -8537,8 +8588,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         setTimelineEvents(nextTimeline);
         persistExecutionMerge({ caseTasksPending: nextTasks, caseNotesLog: nextNotes, timelineEvents: nextTimeline });
         showToast('تم تسجيل إنجاز المهمة', 'success');
-        triggerCopilotAfterLocalChange();
-    }, [nextTimelineId, persistExecutionMerge, showToast, triggerCopilotAfterLocalChange]);
+    }, [nextTimelineId, persistExecutionMerge, showToast]);
 
     const beginEditPendingTask = useCallback((taskId: string) => {
         const task = caseTasksPending.find((t) => t.id === taskId);
@@ -8626,27 +8676,10 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         [completePendingTask]
     );
 
-    const acknowledgeMemoFollowupWarning = useCallback(() => {
-        setMemoWarningDialogOpen(false);
-        persistExecutionMerge({ memo_followup_warning_acknowledged: true } as any);
-    }, [persistExecutionMerge]);
-
     const handleMemoFollowupClick = useCallback(() => {
         closeUnifiedSeizureLog();
-        const warningAlreadyAcknowledged = Boolean(
-            (executionData as { memo_followup_warning_acknowledged?: boolean })?.memo_followup_warning_acknowledged
-        );
-        if (shouldWarnOnMemoClick && !warningAlreadyAcknowledged) {
-            setMemoWarningDialogOpen(true);
-        } else {
-            openFollowupModalPersisted();
-        }
-    }, [
-        shouldWarnOnMemoClick,
-        executionData,
-        openFollowupModalPersisted,
-        closeUnifiedSeizureLog,
-    ]);
+        openFollowupModalPersisted();
+    }, [openFollowupModalPersisted, closeUnifiedSeizureLog]);
 
     // ✅ OPTIMIZED: useCallback
     const handleSaveAppointment = useCallback(() => {
@@ -8733,7 +8766,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         setAppointmentDateOnly('');
         setAppointmentTimeOptional('');
         setEditingAppointmentId(null);
-        triggerCopilotAfterLocalChange();
     }, [
         appointmentPurpose,
         appointmentDateOnly,
@@ -8742,7 +8774,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         showToast,
         nextTimelineId,
         persistExecutionMerge,
-        triggerCopilotAfterLocalChange,
         currentFileId,
         executionData,
         file,
@@ -9375,14 +9406,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         debtorBrowserTabsMode,
         activeWorkspaceDebtorForFollowup,
     );
-
-    const memoWarningHeirsLabel = useMemo(() => {
-        const names = activeDebtorHeirsForNotification;
-        if (names.length === 0) return 'الورثة';
-        if (names.length === 1) return `الوريث «${names[0]}»`;
-        if (names.length === 2) return `الوريثين «${names[0]}» و«${names[1]}»`;
-        return `الورثة: ${names.map((n) => `«${n}»`).join('، ')}`;
-    }, [activeDebtorHeirsForNotification]);
 
     const normalizeHeirWorkflowKey = useCallback((name: string) => {
         const raw = String(name || '').trim();
@@ -11524,21 +11547,28 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         }
 
         const multi = allDebtorsUnified.length > 1;
+        const activeRow = allDebtorsUnified[executionDebtorTabIndex];
+        const activeSolidary = activeRow ? resolveDebtorSolidaryFlag(activeRow) : isSolidaryLiability;
 
-        if (isSolidaryLiability && multi) {
-            const selectable = allDebtorsUnified.filter((r) => !r.cleared);
+        if (activeSolidary && multi) {
+            const selectable = allDebtorsUnified.filter(
+                (r) => !r.cleared && resolveDebtorSolidaryFlag(r),
+            );
             if (selectable.length === 0) {
                 showToast('لا يوجد مدين نشط لتوجيه الإجراء ضده.', 'warning');
                 return;
             }
             const preferred = allDebtorsUnified[executionDebtorTabIndex];
-            const picked = preferred && !preferred.cleared ? preferred : selectable[0];
+            const picked =
+                preferred && !preferred.cleared && resolveDebtorSolidaryFlag(preferred)
+                    ? preferred
+                    : selectable[0];
             coerciveSubjectRef.current = { id: picked.id, name: picked.name };
             saveCoerciveAction(actionType, buildInitialExecutorSeizureDetails(actionType));
             return;
         }
 
-        if (!isSolidaryLiability && multi) {
+        if (!activeSolidary && multi) {
             const row = allDebtorsUnified[executionDebtorTabIndex];
             if (!row || row.cleared) {
                 showToast(
@@ -13700,34 +13730,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 zIndex={EXEC_MODAL_Z.toastAboveExecution}
             />
 
-            {import.meta.env.DEV || import.meta.env.MODE === 'test' ? (
-                <Suspense fallback={null}>
-                    <LazyExecutionDashboardModularHost
-                        key={`modular-${executionData.id}`}
-                        executionData={executionData as ExecutionFile}
-                        onClose={onClose}
-                        creditorsRows={effectiveCreditors}
-                        debtorsRows={effectiveDebtors}
-                        timelineEvents={
-                            debtorBrowserTabsMode
-                                ? activeTimelineEventsDebtorScoped
-                                : activeTimelineEvents
-                        }
-                        financialLedger={financialLedger}
-                        totalAmount={totalOwed}
-                        paidAmount={paidDebt}
-                        remainingAmount={Math.max(0, totalOwed - paidDebt)}
-                        isHeaderExpanded={isHeaderExpanded}
-                        onToggleHeaderExpand={toggleHeaderExpanded}
-                        setShowPaymentModal={stableSetShowPaymentModal}
-                        setShowNotificationModal={stableSetShowNotificationModal}
-                        setShowDocumentsModal={stableSetShowDocumentsModal}
-                        setShowAppointmentModal={stableSetShowAppointmentModal}
-                        setShowPaymentCalculator={stableSetShowPaymentCalculator}
-                    />
-                </Suspense>
-            ) : null}
-            
             {/* MODALS */}
             <ExecutionTrashModal
                 visible={showExecutionTrashModal}
@@ -13748,13 +13750,13 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 timelineEvent={timelineEditDraft}
                 onClose={() => setTimelineEditDraft(null)}
                 onSave={saveTimelineEditDraft}
-                onDelete={(id) => {
-                    // دالة الحذف - يمكن إضافتها لاحقاً
-                    console.log('Delete timeline event:', id);
+                onDelete={() => {
+                    if (timelineEditDraft) moveTimelineEventToTrash(timelineEditDraft);
                 }}
             />
 
-            <DossierMetaEditSection
+            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+            <LazyDossierMetaEditSection
                 showEditDossierMetaModal={showEditDossierMetaModal}
                 dossierMetaDraft={dossierMetaDraft}
                 isEvictionExecutionModule={isEvictionExecutionModule}
@@ -13762,8 +13764,10 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 setDossierMetaDraft={setDossierMetaDraft}
                 saveDossierMetaDraft={saveDossierMetaDraft}
             />
+            </Suspense>
 
-            <PartyEditModal
+            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+            <LazyPartyEditModal
                 editPartyTarget={editPartyTarget}
                 setEditPartyTarget={setEditPartyTarget}
                 partyEditDraft={partyEditDraft}
@@ -13775,6 +13779,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 removeHeirFromPartyEditDraftAtIndex={removeHeirFromPartyEditDraftAtIndex}
                 decisionsStorageExecutionId={decisionsStorageExecutionId}
             />
+            </Suspense>
 
             <ExecutionHeirsQuickViewModal
                 heirsQuickView={heirsQuickView}
@@ -13782,13 +13787,17 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 X={X}
             />
 
-            <PermanentDeleteConfirmDialog
+            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+            <LazyPermanentDeleteConfirmDialog
                 permanentDeleteTimelineId={permanentDeleteTimelineId}
                 setPermanentDeleteTimelineId={setPermanentDeleteTimelineId}
                 permanentlyDeleteTimelineEvent={permanentlyDeleteTimelineEvent}
             />
+            </Suspense>
 
-            <ExecutionNotesAndAppointmentModals
+            {(showNotesModal || showAppointmentModal) && (
+            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+            <LazyExecutionNotesAndAppointmentModals
                 showNotesModal={showNotesModal}
                 setShowNotesModal={setShowNotesModal}
                 setNoteTitle={setNoteTitle}
@@ -13830,11 +13839,19 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 toggleCaseNotePin={toggleCaseNotePin}
                 toggleCaseTaskPin={toggleCaseTaskPin}
             />
+            </Suspense>
+            )}
 
-            <ExecutorWorkflowPortalModals
+            {(executorScheduleModalOpen ||
+                policeAssistanceModalOpen ||
+                breakInventoryFurnitureModalOpen ||
+                judicialCustodianModalOpen ||
+                executionReportPrompt) && (
+            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+            <LazyExecutorWorkflowPortalModals
                 EXEC_OVERLAY_LAZY_FALLBACK={EXEC_OVERLAY_LAZY_FALLBACK}
                 LazyExecutorApprovedDateTimeModal={LazyExecutorApprovedDateTimeModal}
-                PoliceAssistanceDetailsModal={PoliceAssistanceDetailsModal}
+                PoliceAssistanceDetailsModal={LazyPoliceAssistanceDetailsModal}
                 LazyExecutorBreakInventoryFurnitureModal={LazyExecutorBreakInventoryFurnitureModal}
                 LazyExecutorJudicialCustodianModal={LazyExecutorJudicialCustodianModal}
                 LazyExecutorWorkflowConfirmModal={LazyExecutorWorkflowConfirmModal}
@@ -13864,6 +13881,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 openExecutionSeizuresTab={openExecutionSeizuresTab}
                 showToast={showToast}
             />
+            </Suspense>
+            )}
 
             {showDocumentsModal && (
                 <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
@@ -13889,7 +13908,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
 
             {showRealEstateSeizureModal ? (
                 <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
-                    <RealEstateSeizurePostApprovalModal
+                    <LazyRealEstateSeizurePostApprovalModal
                         open={showRealEstateSeizureModal}
                         onOpenChange={(open) => {
                             setShowRealEstateSeizureModal(open);
@@ -13942,7 +13961,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         });
                         return next;
                     });
-                    triggerCopilotAfterLocalChange();
                 }}
                 bootHubTab={
                     (decisionsModalBootListTab ?? decisionsModalBootHubTab) ?? undefined
@@ -13974,15 +13992,21 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             />
             </Suspense>
 
-            <ExecutionSeizedAssetsModalContainer
+            {showSeizedAssetsModal && (
+            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+            <LazyExecutionSeizedAssetsModalContainer
                 showSeizedAssetsModal={showSeizedAssetsModal}
                 EXEC_OVERLAY_LAZY_FALLBACK={EXEC_OVERLAY_LAZY_FALLBACK}
                 LazyModalSeizedAssetsManager={LazyModalSeizedAssetsManager}
                 setShowSeizedAssetsModal={setShowSeizedAssetsModal}
                 seizedAssetsModalExecutionId={executionId || file?.id}
             />
+            </Suspense>
+            )}
 
-            <ExecutionPaymentModalContainer
+            {showPaymentModal && (
+            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+            <LazyExecutionPaymentModalContainer
                 showPaymentModal={showPaymentModal}
                 setShowPaymentModal={setShowPaymentModal}
                 paymentAmount={paymentAmount}
@@ -13991,6 +14015,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 setPaymentDate={setPaymentDate}
                 handlePayment={handlePayment}
             />
+            </Suspense>
+            )}
 
             <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
             <LazyExecutionFullTimelineModalContainer
@@ -14000,7 +14026,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 activeTimelineEventsDebtorScoped={mergedTimelineEventsDebtorScoped}
                 activeTimelineEvents={mergedTimelineEvents}
                 EXEC_OVERLAY_LAZY_FALLBACK={EXEC_OVERLAY_LAZY_FALLBACK}
-                PremiumTimelineAuditLog={PremiumTimelineAuditLog}
+                PremiumTimelineAuditLog={LazyPremiumTimelineAuditLog}
                 History={History}
                 toggleTimelineEventPin={toggleTimelineEventPin}
                 moveTimelineEventToTrash={moveTimelineEventToTrash}
@@ -14059,7 +14085,9 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                 />
                             </button>
                             {dossierLifecyclePanelOpen && dossierLifecyclePopStyle
-                                ? <DossierLifecyclePanel
+                                ? (
+                                <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                                <LazyDossierLifecyclePanel
                                     dossierLifecyclePanelOpen={dossierLifecyclePanelOpen}
                                     dossierLifecyclePopStyle={dossierLifecyclePopStyle}
                                     dossierLifecyclePanelPhase={dossierLifecyclePanelPhase}
@@ -14076,6 +14104,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                     handleDossierLifecycleConfirmDetails={handleDossierLifecycleConfirmDetails}
                                     dossierLifecyclePanelPortalRef={dossierLifecyclePanelPortalRef}
                                 />
+                                </Suspense>
+                                )
                                 : null}
                         </div>
 
@@ -14175,7 +14205,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     dir="rtl"
                 >
                     
-                    <DashboardHeaderSection
+                    <Suspense fallback={EXEC_SECTION_LAZY_FALLBACK}>
+                    <LazyDashboardHeaderSection
                         statuteStatus={statuteStatus}
                         isAlimonyClaim={isAlimonyClaim}
                         executionPaused={executionPaused}
@@ -14238,7 +14269,6 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         }
                     }}
                     onRequestTransferFileNumberChange={() => {
-                        setTransferFileNumberDraft(String(executionData?.fileNumber || '').trim());
                         setShowTransferFileNumberChangeModal(true);
                     }}
                     onSaveSubFileNumber={(fileNumber, fileYear) => {
@@ -14286,6 +14316,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                             : undefined
                     }
                 />
+                    </Suspense>
 
                     <DossierActionsModal
                         open={dossierActionModalOpen}
@@ -14304,7 +14335,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     />
 
                     {/* Parties / Creditors */}
-                    <PartiesSection
+                    <Suspense fallback={EXEC_SECTION_LAZY_FALLBACK}>
+                    <LazyPartiesSection
                         creditorWorkspaceEntries={creditorWorkspaceEntries}
                         showExtraCreditors={showExtraCreditors}
                         setShowExtraCreditors={setShowExtraCreditors}
@@ -14331,8 +14363,10 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         decisionsStorageExecutionId={decisionsStorageExecutionId}
                         openEditParty={openEditParty}
                     />
+                    </Suspense>
                     
-                    <DebtorsSection ref={debtorsSectionRef} {...{
+                    <Suspense fallback={EXEC_SECTION_LAZY_FALLBACK}>
+                    <LazyDebtorsSection ref={debtorsSectionRef} {...{
                         Bell,
                         Calendar,
                         DebtorSeizureCategoryBadges,
@@ -14360,6 +14394,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         debtorArrested,
                         debtorAttendedVoluntarily,
                         debtorBrowserTabsMode,
+                        liabilityGroupTabsMode,
+                        debtorLiabilityGroups,
                         debtorDeathMenuLabel,
                         debtorEmploymentToggleMenuLabel,
                         debtorForcedToAttend,
@@ -14404,7 +14440,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         openHeirsNotificationCenter,
                         openHeirsQuickView,
                         openPoliceAssistanceFromBadge,
-                        parsedLawyerFees,
+                        parsedLawyerFees: financialLawyerFeesAmount,
                         partyBadgesExecutionId,
                         persistExecutionMerge,
                         persistGuarantorFollowupDetails,
@@ -14412,7 +14448,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         primaryDebtorAbsenceBadge,
                         primaryDebtorKeyResolved,
                         primaryMemoNoticeBadge,
-                        principalDebtAmount,
+                        principalDebtAmount: financialPrincipalAmount,
                         publicationNoticeDeadlineYmd,
                         pushTimelineEvent,
                         realEstateSeizureAssets,
@@ -14444,8 +14480,11 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         timelineDebtorMetadata,
                         toggleEvictionGracePinned,
                         viewExecutionData,
-                        voluntaryAttendanceCount
+                        voluntaryAttendanceCount,
+                        noticeVoluntaryPeriodEndOptimistic,
+                        voluntaryEndOptimistic,
                     }} />
+                    </Suspense>
 
                     {shouldShowGuarantorExternalHub(viewExecutionData) &&
                     !followupSpecialization.hideAllGuarantorPresence ? (
@@ -14492,7 +14531,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         showVisitationCalendarModal &&
                         (viewExecutionData as { visitationSchedule?: import('@/app/types/visitationSchedule').VisitationScheduleBundle })
                             ?.visitationSchedule?.config && (
-                            <VisitationCalendarModal
+                            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                            <LazyVisitationCalendarModal
                                 open={showVisitationCalendarModal}
                                 onClose={() => setShowVisitationCalendarModal(false)}
                                 config={
@@ -14511,6 +14551,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                                 }
                                 todayYmd={todayYmd}
                             />
+                            </Suspense>
                         )}
 
                     {isEvictionExecutionModule && judicialCustodiansResolved.length > 0 && (
@@ -14743,7 +14784,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         activeTimelineEventsDebtorScoped={mergedTimelineEventsDebtorScoped}
                         activeTimelineEvents={mergedTimelineEvents}
                         EXEC_OVERLAY_LAZY_FALLBACK={EXEC_OVERLAY_LAZY_FALLBACK}
-                        SmartTimelineRadar={SmartTimelineRadar}
+                        SmartTimelineRadar={LazySmartTimelineRadar}
                         toggleTimelineEventPin={toggleTimelineEventPin}
                         setShowTimelineModal={setShowTimelineModal}
                         timelineRadarPreviewLimit={mergedTimelineRadarPreviewLimit}
@@ -14752,7 +14793,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         setActiveTimelineFilter={setActiveTimelineFilter}
                         todayYmd={todayYmd}
                         timelineFilterOptions={timelineFilterOptions}
-                        PremiumTimelineAuditLog={PremiumTimelineAuditLog}
+                        PremiumTimelineAuditLog={LazyPremiumTimelineAuditLog}
                         moveTimelineEventToTrash={moveTimelineEventToTrash}
                         onRequestEditTimelineEvent={requestEditTimelineEvent}
                         showOnlyActiveFileTimeline={showOnlyActiveFileTimeline}
@@ -14763,15 +14804,18 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     />
                     </Suspense>
 
-                <LawReferencePanel
+                <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                <LazyLawReferencePanel
                     isLawReferenceOpen={isLawReferenceOpen}
                     setIsLawReferenceOpen={setIsLawReferenceOpen}
                     EXEC_MODAL_Z={EXEC_MODAL_Z}
                     isEvictionExecutionModule={isEvictionExecutionModule}
                     executionData={viewExecutionData}
                 />
+                </Suspense>
 
-                <ExecutionFinancialHubPortal
+                <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                <LazyExecutionFinancialHubPortal
                     showExecutionFinancialHub={showExecutionFinancialHub}
                     setShowExecutionFinancialHub={setShowExecutionFinancialHub}
                     onOpenUnifiedSeizureLog={() => openUnifiedSeizureLog()}
@@ -14796,10 +14840,10 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     setIsFinancialCenterExpanded={setIsFinancialCenterExpanded}
                     activeFinancialTab={activeFinancialTab}
                     setActiveFinancialTab={setActiveFinancialTab}
-                    principalDebtAmount={principalDebtAmount}
+                    principalDebtAmount={financialPrincipalAmount}
                     evictionLawyerFeesInTotals={evictionLawyerFeesInTotals}
                     isEvictionExecutionModule={isEvictionExecutionModule}
-                    parsedLawyerFees={parsedLawyerFees}
+                    parsedLawyerFees={financialLawyerFeesAmount}
                     total_execution_expenses={total_execution_expenses}
                     monthlyAlimony={monthlyAlimony}
                     totalOwed={totalOwed}
@@ -14856,6 +14900,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     setCaseTasksPending={setCaseTasksPending}
                     onClearSalarySeizurePath={clearActiveSalarySeizurePath}
                     isRepresentingDebtor={isRepresentingDebtor}
+                    activeDebtorIsDeceased={activeDebtorIsDeceased}
                 />
 
                 <UnifiedSeizureLogHost
@@ -14902,113 +14947,30 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         confirmThirdPartyReceive,
                     }}
                 />
+                </Suspense>
 
 
-                {propertySeizureRequestModalOpen && typeof document !== 'undefined'
-                    ? createPortal(
-                          <div
-                              className={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG}`}
-                              style={{ zIndex: EXEC_MODAL_Z.nestedOverFollowUpPortal }}
-                              role="presentation"
-                              onClick={(e) => {
-                                  if (e.target === e.currentTarget) setPropertySeizureRequestModalOpen(false);
-                              }}
-                          >
-                              <div
-                                  className="w-full max-w-md rounded-3xl border-2 border-amber-500/35 bg-[#0B1120] shadow-2xl shadow-black/50"
-                                  onClick={(e) => e.stopPropagation()}
-                                  dir="rtl"
-                              >
-                                  <div className="flex items-center justify-between border-b border-amber-500/20 p-4">
-                                      <button
-                                          type="button"
-                                          onClick={() => setPropertySeizureRequestModalOpen(false)}
-                                          className="rounded-lg p-2 text-slate-400 hover:bg-white/5 hover:text-white"
-                                          aria-label="إغلاق"
-                                      >
-                                          <X size={18} />
-                                      </button>
-                                      <p className="text-[12px] font-black text-amber-200">طلب حجز عقار</p>
-                                      <span className="w-8" aria-hidden />
-                                  </div>
-                                  <div className="p-4 space-y-3">
-                                      <div className="rounded-2xl border border-white/10 bg-slate-900/35 p-3">
-                                          <label className="block text-[10px] text-slate-400 text-right mb-2">
-                                              موضوع الطلب
-                                          </label>
-                                          <textarea
-                                              value={propertySeizureSubjectDraft}
-                                              onChange={(e) => setPropertySeizureSubjectDraft(e.target.value)}
-                                              className="min-h-[96px] w-full resize-none rounded-2xl border border-slate-700/40 bg-slate-900/40 px-4 py-3 text-[12px] text-white outline-none"
-                                              placeholder="اكتب موضوع طلب حجز العقار"
-                                          />
-                                      </div>
-                                      <button
-                                          type="button"
-                                          onClick={submitPropertySeizureRequest}
-                                          className="w-full rounded-2xl border border-amber-500/35 bg-amber-600/15 px-4 py-3 text-[12px] font-black text-amber-100 hover:bg-amber-600/20"
-                                      >
-                                          إرسال إلى المنفذ
-                                      </button>
-                                  </div>
-                              </div>
-                          </div>,
-                          document.body
-                      )
-                    : null}
+                <SeizureRequestSubjectModal
+                    open={propertySeizureRequestModalOpen}
+                    title="طلب حجز عقار"
+                    placeholder="اكتب موضوع طلب حجز العقار"
+                    subjectDraft={propertySeizureSubjectDraft}
+                    tone="amber"
+                    onClose={() => setPropertySeizureRequestModalOpen(false)}
+                    onSubjectDraftChange={setPropertySeizureSubjectDraft}
+                    onSubmit={submitPropertySeizureRequest}
+                />
 
-                {movableSeizureRequestModalOpen && typeof document !== 'undefined'
-                    ? createPortal(
-                          <div
-                              className={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG}`}
-                              style={{ zIndex: EXEC_MODAL_Z.nestedOverFollowUpPortal }}
-                              role="presentation"
-                              onClick={(e) => {
-                                  if (e.target === e.currentTarget) setMovableSeizureRequestModalOpen(false);
-                              }}
-                          >
-                              <div
-                                  className="w-full max-w-md rounded-3xl border-2 border-sky-500/35 bg-[#0B1120] shadow-2xl shadow-black/50"
-                                  onClick={(e) => e.stopPropagation()}
-                                  dir="rtl"
-                              >
-                                  <div className="flex items-center justify-between border-b border-sky-500/20 p-4">
-                                      <button
-                                          type="button"
-                                          onClick={() => setMovableSeizureRequestModalOpen(false)}
-                                          className="rounded-lg p-2 text-slate-400 hover:bg-white/5 hover:text-white"
-                                          aria-label="إغلاق"
-                                      >
-                                          <X size={18} />
-                                      </button>
-                                      <p className="text-[12px] font-black text-sky-200">طلب حجز مال منقول</p>
-                                      <span className="w-8" aria-hidden />
-                                  </div>
-                                  <div className="p-4 space-y-3">
-                                      <div className="rounded-2xl border border-white/10 bg-slate-900/35 p-3">
-                                          <label className="block text-[10px] text-slate-400 text-right mb-2">
-                                              موضوع الطلب
-                                          </label>
-                                          <textarea
-                                              value={movableSeizureSubjectDraft}
-                                              onChange={(e) => setMovableSeizureSubjectDraft(e.target.value)}
-                                              className="min-h-[96px] w-full resize-none rounded-2xl border border-slate-700/40 bg-slate-900/40 px-4 py-3 text-[12px] text-white outline-none"
-                                              placeholder="اكتب موضوع طلب حجز المال المنقول"
-                                          />
-                                      </div>
-                                      <button
-                                          type="button"
-                                          onClick={submitMovableSeizureRequest}
-                                          className="w-full rounded-2xl border border-sky-500/35 bg-sky-600/15 px-4 py-3 text-[12px] font-black text-sky-100 hover:bg-sky-600/20"
-                                      >
-                                          إرسال إلى المنفذ
-                                      </button>
-                                  </div>
-                              </div>
-                          </div>,
-                          document.body
-                      )
-                    : null}
+                <SeizureRequestSubjectModal
+                    open={movableSeizureRequestModalOpen}
+                    title="طلب حجز مال منقول"
+                    placeholder="اكتب موضوع طلب حجز المال المنقول"
+                    subjectDraft={movableSeizureSubjectDraft}
+                    tone="sky"
+                    onClose={() => setMovableSeizureRequestModalOpen(false)}
+                    onSubjectDraftChange={setMovableSeizureSubjectDraft}
+                    onSubmit={submitMovableSeizureRequest}
+                />
 
                 {seizedPropertyStepModalOpen &&
                 seizedPropertyStepEntityKind !== 'movable' &&
@@ -15519,7 +15481,9 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     
                 </div>
                 
-                <ExecutionDebtorNotificationMemoModalContainer
+                {showNotificationModal && (
+                <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                <LazyExecutionDebtorNotificationMemoModalContainer
                     showNotificationModal={showNotificationModal}
                     setShowNotificationModal={setShowNotificationModal}
                     debtorNotificationDate={debtorNotificationDate}
@@ -15529,7 +15493,11 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     EXEC_MODAL_BACKDROP_STRONG={EXEC_MODAL_BACKDROP_STRONG}
                     notificationModalZIndex={EXEC_MODAL_Z.unifiedSummonsAndLegacyNotification}
                 />
-                <ExecutionCoerciveActionsModalContainer
+                </Suspense>
+                )}
+                {showCoerciveModal && (
+                <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                <LazyExecutionCoerciveActionsModalContainer
                     showCoerciveModal={showCoerciveModal}
                     setShowCoerciveModal={setShowCoerciveModal}
                     followupEmployeeFinancialSalaryOnlyCoercive={followupEmployeeFinancialSalaryOnlyCoercive}
@@ -15544,653 +15512,210 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     isNonFinancialClaim={isNonFinancialClaim}
                     showToast={showToast}
                 />
+                </Suspense>
+                )}
 
                 
-                {/* UNIFIED EXECUTION & ASSETS MODAL — portal يتجنب احتواء fixed داخل backdrop-filter (كان يعطل نقرات شريط التبويب) */}
-                {showUnifiedExecutionModal &&
-                    typeof document !== 'undefined' &&
-                    createPortal(
-                        <div
-                            className={`fixed inset-0 ${EXEC_MODAL_BACKDROP_STRONG}`}
-                            style={{ zIndex: EXEC_MODAL_Z.unifiedFollowUp }}
-                            role="presentation"
-                            onClick={(e) => {
-                                if (e.target === e.currentTarget) closeFollowupModalPersisted();
-                            }}
-                        >
-						<div className="w-full" onClick={(e) => e.stopPropagation()}>
-							<div className="relative mx-auto flex h-[min(90vh,920px)] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-900/40 shadow-[0_8px_32px_rgba(0,0,0,0.5)] ring-1 ring-white/5 backdrop-blur-3xl">
-								<div className="flex shrink-0 items-center justify-between border-b border-white/10 bg-white/[0.02] px-4 py-3 backdrop-blur-3xl">
-									<button
-                                    type="button"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        closeFollowupModalPersisted();
-                                    }}
-										className="rounded-full p-2 text-slate-200/90 transition-all hover:bg-white/10 hover:text-white"
-                                    aria-label="إغلاق محضر المتابعة"
-                                >
-                                    <X size={20} className="text-white" />
-                                </button>
-								<h2 className="flex flex-row-reverse items-center gap-2 text-lg font-bold tracking-wide text-amber-200">
-                                    <span>محضر المتابعة</span>
-									<ClipboardList
-										size={22}
-										className="shrink-0 text-amber-300 drop-shadow-[0_0_14px_rgba(230,198,115,0.35)]"
-									/>
-                                </h2>
-                                    <span className="w-9" aria-hidden />
-                            </div>
+                {/* UNIFIED EXECUTION & ASSETS MODAL — lazy portal (نفس الشكل؛ chunk منفصل) */}
+                {showUnifiedExecutionModal && (
+                <FollowupModalContext.Provider
+                    value={buildFollowupModalSnapshot({
+        activeCoerciveActions,
+        activeDebtorIsDeceased,
+        activeDebtorIsEmployee,
+        activeDebtorIsLegalEntity,
+        activeFollowupDebtorKey,
+        activeGroupEntries,
+        activeNoticeState,
+        activeSubFileId,
+        activeTimelineEvents,
+        appealPerspective,
+        appendEvictionExecutorRequest,
+        appendEvictionProcedure,
+        claimType,
+        claimTypeForExecutionModule,
+        closeFollowupModalPersisted,
+        coerciveUiLocked,
+        consumeFollowupExpandProcedure,
+        creditorOtherPartyTrackHandlers,
+        custodyRemovalClaimActive,
+        daysRemainingInGracePeriod,
+        debtorArrested,
+        debtorAttendedVoluntarily,
+        debtorForcedToAttend,
+        debtorSummonsProfile,
+        debtorsSectionRef,
+        decisionsReloadEpoch,
+        decisionsStorageExecutionId,
+        dossierActionModalSaving,
+        effectiveFollowupModalTabs,
+        employeeForcedBringAwaitingPersonalOutcome,
+        employeePersonalTabUnlockStorageKey,
+        evictionHeirsNotificationDateYmd,
+        evictionPremisesUseResolved,
+        evictionProcedureLockHint,
+        evictionProcedureLocked,
+        executionCoerciveButtonDisabled,
+        executionData,
+        executionDataRef,
+        executionDomainContext,
+        executionId,
+        executionPaused,
+        executionStatus,
+        finalizeBreakInventoryEntry,
+        followupAssignmentWorkspaceCtx,
+        followupEmployeeFinancialSalaryOnlyCoercive,
+        followupExpandProcedureKey,
+        followupGarnishmentAmountPreview,
+        followupModalBodyScrollRef,
+        followupModalChipTablistRef,
+        followupModalDebtorIsDeceased,
+        followupModalDebtorIsEmployee,
+        followupModalDebtorTabsRef,
+        followupModalSectionTabsRef,
+        followupModalSpecializationEffective,
+        followupMonetaryCoerciveLimitedOnly,
+        followupSalarySeizureLabel,
+        followupSolidaryDebtorIndex,
+        followupSpecialization,
+        forcedBringDecisionState,
+        forcedSummoningAnalysis,
+        getLocalTodayYmd,
+        goFollowupSectionTabByDelta,
+        gracePeriodEnded,
+        handleCoerciveAction,
+        handleDossierAction,
+        handleEmployeeAssignmentRequestForcedBring,
+        handleEmployeeAssignmentRequestInvestigation,
+        handleEmployeeAssignmentResolveForcedBringOutcome,
+        handleEmployeeAssignmentTerminate,
+        handleEmployeeRegisterArrestOrder,
+        handleEmployeeWarrantOutcome,
+        handleEncroachmentExpenseRecorded,
+        handleEndGracePeriod,
+        handleEvictionHeirsNotificationDateChange,
+        handleGuarantorRequestFromFollowup,
+        handleIssueHeirsExecutionNoticeMemo,
+        handleSpecificDeliveryExpenseRecorded,
+        handleSpecificDeliveryFinancialized,
+        headerFields,
+        hideCoerciveTabsForDebtorAgent,
+        inabaCorrespondenceLog,
+        inabaTargets,
+        inlineActionGateKey,
+        insertTimelineEventToSupabase,
+        isAlimonyClaimType,
+        isEvictionExecutionModule,
+        isFollowupTabActive,
+        isHistoricalMode,
+        isInabaActive,
+        isMaritalFurnitureClaim,
+        isPersonalStatusExecutionClaim,
+        isRepresentingDebtor,
+        lawyerStartedPostNoticeExecution,
+        maritalFurnitureItemsForFollowup,
+        mergeSimilarRecentTimelineEvent,
+        modalActiveDebtorNoticeScope,
+        modalEmployeeCoerciveDetentionRestricted,
+        modalKasabTerminationEmphasis,
+        modalPersonalTabLockedForEmployee,
+        modalResolvedEmployeeSummonsAssignment,
+        modalShowEmployeeAssignmentCoerciveBlock,
+        modalShowPersonalCoerciveFollowupTab,
+        nextTimelineId,
+        noticeVoluntaryPeriodEndOptimistic,
+        openDecisionsModalWithBoot,
+        openEvictionResidentialGraceModal,
+        openExecutionSeizuresTab,
+        openFinancialHubLedger,
+        openGuarantorDetailsModal,
+        openOtherPartyAppealsModal,
+        openPoliceAssistanceDetailsForDecision,
+        openSeizureRequestsTab,
+        otherPartyCreditorMirrorProps,
+        otherPartyTabSubmitHandler,
+        parentDossierId,
+        persistExecutionMerge,
+        persistFollowupModalViewport,
+        persistGuarantorFollowupDetails,
+        personalTabLockedForEmployee,
+        primaryDebtorKeyResolved,
+        primaryDebtorWorkspaceKey,
+        pushTimelineEvent,
+        queueMicrotask,
+        registerDebtorVoluntaryAttendance,
+        remaining,
+        remainingBalanceForSeizure,
+        requestFollowupSeizureDecision,
+        requestGuarantorSeizure,
+        residentialGraceAllowsFieldwork,
+        residentialGracePeriodSaved,
+        runSpecialFollowupSubmit,
+        saveBreakInventoryLedgerEntry,
+        saveCoerciveAction,
+        saveMaritalFurnitureDeliveryInventoryEntry,
+        savePoliceAssistanceEntry,
+        saveSeizedMovableInitForDecision,
+        saveSeizedPropertyInitForDecision,
+        saveStandaloneExecutionMarkForDecision,
+        saveThirdPartySeizureForDecision,
+        seizureDetailCompletion,
+        seizureMatrix,
+        setActiveNoticeState,
+        setDebtorArrested,
+        setDebtorForcedToAttend,
+        setDossierActionModalSaving,
+        setEncroachmentCaseExpenses,
+        setExecutionDebtorTabIndex,
+        setExecutionStorageTick,
+        setFollowupSolidaryDebtorIndex,
+        setInlineActionGateKey,
+        setNonInterferenceIssued,
+        setPersonalTabUnlockByDebtor,
+        setShowUnifiedExecutionModal,
+        setShowUnifiedSummonsModal,
+        setSpecialRequestContent,
+        setSpecialRequestDate,
+        setSpecialRequestManualTitle,
+        setSpecialRequestTemplatePick,
+        setSummonsContextDebtorKey,
+        setSummonsHubInitialMainTab,
+        setTimelineEvents,
+        setUnifiedModalTab,
+        settlementGuarantorGate,
+        showBreakInventoryRequest,
+        showFollowupSolidaryDebtorTabs,
+        showGuarantorInSeizureFollowupTab,
+        showResidentialEvictionGraceControl,
+        showResidentialGraceEarlyEndRequest,
+        showToast,
+        specialRequestContent,
+        specialRequestDate,
+        specialRequestManualTitle,
+        specialRequestTemplatePick,
+        specificDeliveryConvertedAmount,
+        specificDeliveryFinancialized,
+        stayOfExecutionActive,
+        tryOpenPendingBreakInventoryLedger,
+        tryOpenPendingCustodianDetails,
+        unifiedModalTab,
+        viewExecutionData,
+        voluntaryAttendanceCount,
+        voluntaryEndOptimistic,
+                    })}
+                >
+                    <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                        <LazyExecutionFollowupModalPortal />
+                    </Suspense>
+                </FollowupModalContext.Provider>
+                )}
 
-                                <div
-                                    className="shrink-0 border-b border-white/10 bg-gradient-to-b from-[#0A0F1C]/80 to-transparent px-3 py-2.5"
-                                    dir="rtl"
-                                >
-                                    <div className="mb-2 flex items-center justify-between gap-2">
-                                        <p className="text-[10px] font-bold text-slate-500">أقسام المحضر</p>
-                                        <div className="flex items-center gap-1">
-                                            <button
-                                                type="button"
-                                                onClick={() => goFollowupSectionTabByDelta(-1)}
-                                                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06]"
-                                                title="التبويب السابق (Alt + ←)"
-                                                aria-label="التبويب السابق"
-                                            >
-                                                <ChevronRight size={16} />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => goFollowupSectionTabByDelta(1)}
-                                                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06]"
-                                                title="التبويب التالي (Alt + →)"
-                                                aria-label="التبويب التالي"
-                                            >
-                                                <ChevronLeft size={16} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div
-                                        ref={(el) => {
-                                            (followupModalChipTablistRef as any).current = el;
-                                            (followupModalSectionTabsRef as any).current = el;
-                                        }}
-                                        role="tablist"
-                                        aria-label="أقسام محضر المتابعة"
-                                        className="flex gap-1.5 overflow-x-auto scroll-smooth pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                                        onWheelCapture={(e) => {
-                                            const el = e.currentTarget;
-                                            if (el.scrollWidth <= el.clientWidth) return;
-                                            const delta =
-                                                Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-                                            if (delta === 0) return;
-                                            e.preventDefault();
-                                            el.scrollLeft += delta;
-                                        }}
-                                    >
-                                        {effectiveFollowupModalTabs.map((tab) => {
-                                            const active = isFollowupTabActive(tab.id);
-                                            return (
-                                                <button
-                                                    key={tab.id}
-                                                    type="button"
-                                                    role="tab"
-                                                    data-followup-tab={tab.id}
-                                                    aria-selected={active}
-                                                    onClick={() => {
-                                                        if (tab.id === 'seizure_requests') {
-                                                            openSeizureRequestsTab();
-                                                            return;
-                                                        }
-                                                        setUnifiedModalTab(tab.id);
-                                                    }}
-                                                    title={
-                                                        tab.id === 'personal' && personalTabLockedForEmployee
-                                                            ? 'المدين موظف — الخيارات مقفلة حتى فك القفل'
-                                                            : undefined
-                                                    }
-                                                    className={`flex shrink-0 snap-start flex-row-reverse items-center gap-1.5 whitespace-nowrap rounded-xl border px-4 py-2.5 text-[11px] font-bold transition-all ${
-                                                        active
-                                                            ? 'border-amber-400/35 bg-gradient-to-b from-amber-500/20 to-amber-500/5 text-amber-50 shadow-[0_0_22px_-8px_rgba(230,198,115,0.45)]'
-                                                            : 'border-transparent bg-white/[0.03] text-slate-400 hover:border-white/10 hover:bg-white/[0.06] hover:text-slate-200'
-                                                    }`}
-                                                >
-                                                    {tab.label}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-
-								<div
-                                    ref={followupModalBodyScrollRef}
-                                    onScroll={() => persistFollowupModalViewport()}
-                                    className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10"
-                                >
-                                {!isSolidaryLiability && allDebtorsUnified.length > 1 ? (
-                                    <div className="sticky top-0 z-[5] border-b border-slate-700/50 bg-[#0B1120]/98 px-2 pt-2 pb-2 backdrop-blur-md">
-                                        <p className="mb-1 px-1 text-right text-[9px] text-slate-500">
-                                            مدينو الإضبارة — ذمة مستقلة لكل منهم (اختر التبويب قبل الإجراء)
-                                        </p>
-                                        <div
-                                            ref={followupModalDebtorTabsRef}
-                                            className="scrollbar-hide flex gap-1 overflow-x-auto pb-1"
-                                        >
-                                            {allDebtorsUnified.map((d, i) => (
-                                                <button
-                                                    key={d.id}
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setExecutionDebtorTabIndex(i);
-                                                    }}
-                                                    className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[10px] font-bold transition-all ${
-                                                        executionDebtorTabIndex === i
-                                                            ? 'border-amber-500/50 bg-amber-950/40 text-amber-100'
-                                                            : 'border-slate-600/40 bg-slate-900/60 text-slate-400 hover:border-slate-500/50'
-                                                    }`}
-                                                >
-                                                    {`مدين ${i + 1}`}
-                                                </button>
-                                            ))}
-                                        </div>
-                                        {allDebtorsUnified[executionDebtorTabIndex] ? (
-                                            <>
-                                                <DebtorFinancialProgressBar
-                                                    allocated={
-                                                        allDebtorsUnified[executionDebtorTabIndex].allocated_debt
-                                                    }
-                                                    paid={allDebtorsUnified[executionDebtorTabIndex].paid_amount}
-                                                    label="حصة المدين النشط"
-                                                />
-                                                <div className="flex justify-end px-1 -mt-1 pb-1">
-                                                    <span className="text-[10px] text-slate-500">
-                                                        {`المدين النشط: مدين ${executionDebtorTabIndex + 1}`}
-                                                    </span>
-                                                </div>
-                                                {allDebtorsUnified[executionDebtorTabIndex].cleared ? (
-                                                    <div className="flex justify-end px-1 pb-1">
-                                                        <span className="rounded-lg border border-emerald-500/45 bg-emerald-950/30 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
-                                                            براءة ذمة / Cleared
-                                                        </span>
-                                                    </div>
-                                                ) : null}
-                                            </>
-                                        ) : null}
-                                    </div>
-                                ) : null}
-
-                                {isSolidaryLiability && allDebtorsUnified.length >= 1 ? (
-                                    <div className="border-b border-amber-500/25 bg-slate-900/50 px-3 py-2">
-                                        <p className="mb-2 text-right text-[10px] font-bold text-amber-200/90">
-                                            تضامن — عرض موحّد لجميع المدينين
-                                        </p>
-                                        <ul className="mb-2 space-y-1 text-right text-[11px] text-slate-300">
-                                            {allDebtorsUnified.map((d, idx) => (
-                                                <li key={d.id}>
-                                                    • {`مدين ${idx + 1}`}
-                                                    {d.cleared ? (
-                                                        <span className="mr-1 text-[9px] text-emerald-400">
-                                                            (براءة ذمة جزئية)
-                                                        </span>
-                                                    ) : null}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                        <DebtorFinancialProgressBar
-                                            allocated={totalOwed}
-                                            paid={paidDebt}
-                                            label="تقدّم الإضبارة (إجمالي)"
-                                        />
-                                    </div>
-                                ) : null}
-
-                                {unifiedModalTab === 'personal' && showPersonalCoerciveFollowupTab ? (
-                                    <PersonalTab
-                                        personalTabLockedForEmployee={personalTabLockedForEmployee}
-                                        onConfirmUnlock={() =>
-                                            setPersonalTabUnlockByDebtor((prev) => {
-                                                const next = { ...prev, [activeFollowupDebtorKey]: true };
-                                                if (employeePersonalTabUnlockStorageKey) {
-                                                    try {
-                                                        SecureStoreService.setItemSync(
-                                                            employeePersonalTabUnlockStorageKey,
-                                                            JSON.stringify(next)
-                                                        );
-                                                    } catch {}
-                                                }
-                                                return next;
-                                            })
-                                        }
-                                        activeNoticeState={activeNoticeState}
-                                        debtorSummonsProfile={debtorSummonsProfile}
-                                        setDebtorForcedToAttend={setDebtorForcedToAttend}
-                                        setActiveNoticeState={setActiveNoticeState}
-                                        showToast={showToast}
-                                        setNonInterferenceIssued={setNonInterferenceIssued}
-                                        debtorArrested={debtorArrested}
-                                        setDebtorArrested={setDebtorArrested}
-                                        showEmployeeAssignmentCoerciveBlock={showEmployeeAssignmentCoerciveBlock}
-                                        resolvedEmployeeSummonsAssignment={resolvedEmployeeSummonsAssignment}
-                                        EXEC_OVERLAY_LAZY_FALLBACK={EXEC_OVERLAY_LAZY_FALLBACK}
-                                        LazyEmployeeAssignmentCoerciveFollowupBlock={LazyEmployeeAssignmentCoerciveFollowupBlock}
-                                        forcedBringDecisionState={forcedBringDecisionState}
-                                        employeeForcedBringAwaitingPersonalOutcome={employeeForcedBringAwaitingPersonalOutcome}
-                                        LazyPersonalCoerciveFollowupPanel={LazyPersonalCoerciveFollowupPanel}
-                                        decisionsStorageExecutionId={decisionsStorageExecutionId}
-                                        decisionsReloadEpoch={decisionsReloadEpoch}
-                                        coerciveUiLocked={coerciveUiLocked}
-                                        debtorAttendedVoluntarily={debtorAttendedVoluntarily}
-                                        debtorForcedToAttend={debtorForcedToAttend}
-                                        voluntaryAttendanceCount={voluntaryAttendanceCount}
-                                        isEvictionExecutionModule={isEvictionExecutionModule}
-                                        executionData={viewExecutionData}
-                                        voluntaryEndOptimistic={voluntaryEndOptimistic}
-                                        noticeVoluntaryPeriodEndOptimistic={noticeVoluntaryPeriodEndOptimistic}
-                                        forcedSummoningAnalysis={forcedSummoningAnalysis}
-                                        viewExecutionData={viewExecutionData}
-                                        isHistoricalMode={isHistoricalMode}
-                                        remaining={remaining}
-                                        persistExecutionMerge={persistExecutionMerge}
-                                        pushTimelineEvent={pushTimelineEvent}
-                                        nextTimelineId={nextTimelineId}
-                                        assignmentWorkspaceCtx={assignmentWorkspaceCtx}
-                                        primaryDebtorKeyResolved={primaryDebtorKeyResolved}
-                                        onOpenDecisions={openDecisionsModalWithBoot}
-                                        onOpenSummonsCenter={() => {
-                                            setSummonsContextDebtorKey(
-                                                String(assignmentWorkspaceCtx.activeDebtorKey)
-                                            );
-                                            setSummonsHubInitialMainTab('tabligh');
-                                            setShowUnifiedSummonsModal(true);
-                                        }}
-                                        onOpenGuarantorDetails={() => {
-                                            setShowUnifiedExecutionModal(false);
-                                            setExecutionDebtorTabIndex(0);
-                                            if (primaryDebtorWorkspaceKey) {
-                                                debtorsSectionRef.current?.expandDebtor(
-                                                    primaryDebtorWorkspaceKey
-                                                );
-                                            }
-                                            openGuarantorDetailsModal();
-                                        }}
-                                        kasabTerminationEmphasis={kasabTerminationEmphasis}
-                                        activeDebtorIsEmployee={activeDebtorIsEmployee}
-                                        hidePersonalJudgePresentation={
-                                            followupSpecialization.hidePersonalJudgePresentation ||
-                                            activeDebtorIsEmployee
-                                        }
-                                        hidePersonalForcedBringActivation={
-                                            followupSpecialization.hidePersonalForcedBringActivation
-                                        }
-                                        activeDebtorNoticeScope={activeDebtorNoticeScope}
-                                        handleEmployeeAssignmentRequestInvestigation={handleEmployeeAssignmentRequestInvestigation}
-                                        handleEmployeeRegisterArrestOrder={handleEmployeeRegisterArrestOrder}
-                                        handleEmployeeAssignmentRequestForcedBring={handleEmployeeAssignmentRequestForcedBring}
-                                        handleEmployeeAssignmentResolveForcedBringOutcome={handleEmployeeAssignmentResolveForcedBringOutcome}
-                                        handleEmployeeWarrantOutcome={handleEmployeeWarrantOutcome}
-                                        handleEmployeeAssignmentTerminate={handleEmployeeAssignmentTerminate}
-                                    />
-								) : !followupSpecialization.hideFollowupCoerciveTab &&
-								  (unifiedModalTab === 'coercive' ||
-								  (unifiedModalTab === 'personal' && !showPersonalCoerciveFollowupTab)) ? (
-									<motion.div
-										key="followup-coercive"
-										initial="hidden"
-										animate="show"
-										variants={{
-											hidden: { opacity: 0, y: 10 },
-											show: {
-												opacity: 1,
-												y: 0,
-												transition: { duration: 0.25 },
-											},
-										}}
-										className="p-4 sm:p-5 space-y-4"
-									>
-                                        <CoerciveTab
-                                            coerciveUiLocked={coerciveUiLocked}
-                                            isEvictionExecutionModule={isEvictionExecutionModule}
-                                            executionData={viewExecutionData}
-                                            gracePeriodEnded={gracePeriodEnded}
-                                            daysRemainingInGracePeriod={daysRemainingInGracePeriod}
-                                            executionStatus={executionStatus}
-                                            debtorAttendedVoluntarily={debtorAttendedVoluntarily}
-                                            lawyerStartedPostNoticeExecution={lawyerStartedPostNoticeExecution}
-                                            registerDebtorVoluntaryAttendance={registerDebtorVoluntaryAttendance}
-                                            openExecutionSeizuresTab={openExecutionSeizuresTab}
-                                            EXEC_OVERLAY_LAZY_FALLBACK={EXEC_OVERLAY_LAZY_FALLBACK}
-                                            LazyEvictionFieldProceduresPanel={LazyEvictionFieldProceduresPanel}
-                                            evictionProcedureLocked={evictionProcedureLocked}
-                                            evictionProcedureLockHint={evictionProcedureLockHint}
-                                            activeTimelineEvents={activeTimelineEvents}
-                                            evictionPremisesUseResolved={evictionPremisesUseResolved}
-                                            showResidentialEvictionGraceControl={showResidentialEvictionGraceControl}
-                                            residentialGracePeriodSaved={residentialGracePeriodSaved}
-                                            openEvictionResidentialGraceModal={openEvictionResidentialGraceModal}
-                                            showResidentialGraceEarlyEndRequest={showResidentialGraceEarlyEndRequest}
-                                            showBreakInventoryRequest={showBreakInventoryRequest}
-                                            showEvictionFieldworkRequests={residentialGraceAllowsFieldwork}
-                                            evictionHeirsNotificationDateYmd={evictionHeirsNotificationDateYmd}
-                                            handleEvictionHeirsNotificationDateChange={handleEvictionHeirsNotificationDateChange}
-                                            handleIssueHeirsExecutionNoticeMemo={handleIssueHeirsExecutionNoticeMemo}
-                                            appendEvictionProcedure={appendEvictionProcedure}
-                                            tryOpenPendingBreakInventoryLedger={tryOpenPendingBreakInventoryLedger}
-                                            tryOpenPendingCustodianDetails={tryOpenPendingCustodianDetails}
-                                            openPoliceAssistanceDetails={openPoliceAssistanceDetailsForDecision}
-                                            savePoliceAssistance={savePoliceAssistanceEntry}
-                                            saveBreakInventoryLedger={saveBreakInventoryLedgerEntry}
-                                            finalizeBreakInventoryRequest={finalizeBreakInventoryEntry}
-                                            isMaritalFurnitureClaim={isMaritalFurnitureClaim}
-                                            maritalFurnitureItems={maritalFurnitureItemsForFollowup}
-                                            saveMaritalFurnitureDeliveryInventory={
-                                                saveMaritalFurnitureDeliveryInventoryEntry
-                                            }
-                                            expandProcedureKey={followupExpandProcedureKey}
-                                            onExpandProcedureConsumed={consumeFollowupExpandProcedure}
-                                            followupEmployeeFinancialSalaryOnlyCoercive={followupEmployeeFinancialSalaryOnlyCoercive}
-                                            followupMonetaryCoerciveLimitedOnly={followupMonetaryCoerciveLimitedOnly}
-                                            hideCoerciveGraceNoticeBanner={followupSpecialization.hideCoerciveGraceNoticeBanner}
-                                            hideCoerciveFinancialBanners={followupSpecialization.hideCoerciveFinancialBanners}
-                                            hideCoerciveSeizureSalaryAndProperty={followupSpecialization.hideCoerciveSeizureSalaryAndProperty}
-                                            hideEncroachmentEvictionProcedureItems={followupSpecialization.hideEncroachmentEvictionProcedureItems}
-                                            showEncroachmentRemovalRequestCards={
-                                                followupSpecialization.showEncroachmentRemovalRequestCards
-                                            }
-                                            showSpecificDeliverySurveyorCard={
-                                                followupSpecialization.showSpecificDeliverySurveyorCard
-                                            }
-                                            showSpecificDeliveryConversionCard={
-                                                followupSpecialization.showSpecificDeliveryConversionCard
-                                            }
-                                            hideEvictionCustodianProcedure={
-                                                followupSpecialization.hideEvictionCustodianProcedure
-                                            }
-                                            showSpecificDeliveryBreakInventoryCard={
-                                                followupSpecialization.showSpecificDeliveryBreakInventoryCard
-                                            }
-                                            showSpecificDeliveryFieldProcedures={
-                                                followupSpecialization.showSpecificDeliveryFieldProcedures
-                                            }
-                                            showGenericFieldProcedureCards={
-                                                followupSpecialization.showSpecificDeliveryFieldProcedures &&
-                                                !isMaritalFurnitureClaim
-                                            }
-                                            hideFollowupCoerciveTab={
-                                                followupSpecialization.hideFollowupCoerciveTab
-                                            }
-                                            isSpecificDeliveryModule={isSpecificDeliveryClaim(
-                                                claimTypeForExecutionModule
-                                            )}
-                                            specificDeliveryFinancialized={Boolean(
-                                                (executionData as { specificDeliveryFinancialized?: boolean })
-                                                    ?.specificDeliveryFinancialized
-                                            )}
-                                            specificDeliveryItemName={headerFields.specificDeliveryItemName}
-                                            specificDeliveryItemNature={headerFields.specificDeliveryItemNature}
-                                            debtAmount={executionData?.debtAmount}
-                                            totalAmount={executionData?.totalAmount}
-                                            specificDeliveryConvertedAmount={
-                                                (executionData as { specificDeliveryConvertedAmount?: number })
-                                                    ?.specificDeliveryConvertedAmount
-                                            }
-                                            onSpecificDeliveryFinancialized={handleSpecificDeliveryFinancialized}
-                                            onEncroachmentExpenseRecorded={handleEncroachmentExpenseRecorded}
-                                            onSpecificDeliveryExpenseRecorded={handleSpecificDeliveryExpenseRecorded}
-                                            executionCoerciveButtonDisabled={executionCoerciveButtonDisabled}
-                                            inlineActionGateKey={inlineActionGateKey}
-                                            setInlineActionGateKey={setInlineActionGateKey}
-                                            handleCoerciveAction={handleCoerciveAction}
-                                            handleEndGracePeriod={handleEndGracePeriod}
-                                            appendEvictionExecutorRequest={appendEvictionExecutorRequest}
-                                            decisionsStorageExecutionId={decisionsStorageExecutionId}
-                                            showToast={showToast}
-                                            EVICTION_TIMELINE_ACTION_IDS={EVICTION_TIMELINE_ACTION_IDS}
-                                            activeDebtorIsEmployee={activeDebtorIsEmployee}
-                                            activeCoerciveActions={activeCoerciveActions}
-                                            followupSalarySeizureLabel={followupSalarySeizureLabel}
-                                            followupGarnishmentAmountPreview={followupGarnishmentAmountPreview}
-                                        />
-                                    </motion.div>
-                                ) : unifiedModalTab === 'financial' ? (
-                                    <FinancialTab openFinancialHubLedger={openFinancialHubLedger} />
-                                ) : unifiedModalTab === 'other_party' ? (
-                                    <OtherPartyTab
-                                        executionData={viewExecutionData}
-                                        decisionsStorageExecutionId={decisionsStorageExecutionId}
-                                        persistExecutionMerge={persistExecutionMerge}
-                                        handleOtherPartyActionSubmitToDecisions={otherPartyTabSubmitHandler}
-                                        EXEC_OVERLAY_LAZY_FALLBACK={EXEC_OVERLAY_LAZY_FALLBACK}
-                                        LazyOtherPartyActionsLog={LazyOtherPartyActionsLog}
-                                        showCreditorRequestsMirror={isRepresentingDebtor}
-                                        creditorRequestsMirror={otherPartyCreditorMirrorProps ?? undefined}
-                                        onOpenAppeals={openOtherPartyAppealsModal}
-                                        creditorTrackHandlers={creditorOtherPartyTrackHandlers}
-                                        appealPerspective={appealPerspective}
-                                    />
-                                ) : unifiedModalTab === 'seizure_requests' ? (
-                                    <SeizureRequestsTab
-                                        executionId={decisionsStorageExecutionId ?? executionId}
-                                        executionData={viewExecutionData}
-                                        remainingBalanceIqd={remainingBalanceForSeizure}
-                                        financialCenterTotalIqd={remainingBalanceForSeizure}
-                                        seizureMatrix={seizureMatrix}
-                                        seizureDetailCompletion={seizureDetailCompletion}
-                                        saveCoerciveAction={saveCoerciveAction}
-                                        persistExecutionMerge={persistExecutionMerge}
-                                        persistGuarantorFollowupDetails={persistGuarantorFollowupDetails}
-                                        pushTimelineEvent={pushTimelineEvent}
-                                        nextTimelineId={nextTimelineId}
-                                        getLocalTodayYmd={getLocalTodayYmd}
-                                        showToast={showToast}
-                                        activeDebtorIsDeceased={activeDebtorIsDeceased}
-                                        activeDebtorIsEmployee={activeDebtorIsEmployee}
-                                        executionCoerciveButtonDisabled={executionCoerciveButtonDisabled}
-                                        coerciveUiLocked={coerciveUiLocked}
-                                        isHistoricalMode={isHistoricalMode}
-                                        inlineActionGateKey={inlineActionGateKey}
-                                        setInlineActionGateKey={setInlineActionGateKey}
-                                        handleCoerciveAction={handleCoerciveAction}
-                                        handleGuarantorRequestFromFollowup={handleGuarantorRequestFromFollowup}
-                                        requestFollowupSeizureDecision={requestFollowupSeizureDecision}
-                                        saveSeizedPropertyInitForDecision={saveSeizedPropertyInitForDecision}
-                                        saveSeizedMovableInitForDecision={saveSeizedMovableInitForDecision}
-                                        saveThirdPartySeizureForDecision={saveThirdPartySeizureForDecision}
-                                        saveStandaloneExecutionMarkForDecision={
-                                            saveStandaloneExecutionMarkForDecision
-                                        }
-                                        requestGuarantorSeizure={requestGuarantorSeizure}
-                                        forceHideGuarantorSeizureSubTab={
-                                            followupSpecialization.hideGuarantorSeizureSubTab
-                                        }
-                                        financialGuarantorRequestOnly={
-                                            followupSpecialization.showFinancialGuarantorRequestOnly
-                                        }
-                                        isFinancialDebtCollectionClaim={
-                                            followupSpecialization.isFinancialDebtCollection
-                                        }
-                                        settlementBreachTriggeredAt={
-                                            settlementGuarantorGate.settlementBreachTriggeredAt
-                                        }
-                                        hideAllGuarantorPresence={
-                                            followupSpecialization.hideAllGuarantorPresence
-                                        }
-                                        ledgerPendingSettlement={
-                                            settlementGuarantorGate.pendingSettlement
-                                        }
-                                        isAlimonyClaim={isAlimonyClaimType}
-                                        claimType={claimType}
-                                    />
-								) : unifiedModalTab === 'correspondences' ? (
-                                    <CommunicationsTab
-                                        decisionsStorageExecutionId={decisionsStorageExecutionId}
-                                        showToast={showToast}
-                                        showSoftFieldProcedures={
-                                            followupSpecialization.showCorrespondencesSoftProcedures
-                                        }
-                                        showEncroachmentSurveyor={
-                                            followupSpecialization.showEncroachmentRemovalRequestCards
-                                        }
-                                        showSpecificDeliverySurveyor={
-                                            followupSpecialization.showSpecificDeliverySurveyorCard
-                                        }
-                                        inlineActionGateKey={inlineActionGateKey}
-                                        setInlineActionGateKey={setInlineActionGateKey}
-                                        onEncroachmentExpenseRecorded={(row) => {
-                                            setEncroachmentCaseExpenses((prev) => [...prev, row]);
-                                        }}
-                                        pushTimelineEvent={(event) => {
-                                            setTimelineEvents((prev) => {
-                                                const next = mergeSimilarRecentTimelineEvent(prev, event);
-                                                queueMicrotask(() => {
-                                                    persistExecutionMerge({ timelineEvents: next });
-                                                    const execId = String(
-                                                        executionDataRef.current?.id ?? executionId ?? ''
-                                                    );
-                                                    if (!execId || execId === 'undefined') return;
-                                                    const findEvent = next.find((e) => e.id === event.id) ?? next[0];
-                                                    if (!findEvent) return;
-                                                    void import('@/app/services/timelineEventsSupabase').then(
-                                                        ({ insertTimelineEventToSupabase }) =>
-                                                            insertTimelineEventToSupabase({
-                                                                executionFileId: execId,
-                                                                event: findEvent,
-                                                            })
-                                                    );
-                                                });
-                                                return next;
-                                            });
-                                        }}
-                                        nextTimelineId={nextTimelineId}
-                                    />
-                                ) : unifiedModalTab === 'dossier_controls' ? (
-                                    <motion.div
-                                        key="followup-dossier-controls"
-                                        initial="hidden"
-                                        animate="show"
-                                        variants={{
-                                            hidden: { opacity: 0, y: 10 },
-                                            show: {
-                                                opacity: 1,
-                                                y: 0,
-                                                transition: { duration: 0.25 },
-                                            },
-                                        }}
-                                        className="p-4 sm:p-5"
-                                        dir="rtl"
-                                    >
-                                        <DossierControlsTab
-                                            parentFileId={parentDossierId}
-                                            decisionsStorageExecutionId={decisionsStorageExecutionId}
-                                            appealPerspective={appealPerspective}
-                                            inabaTargets={inabaTargets}
-                                            inabaCorrespondenceLog={inabaCorrespondenceLog}
-                                            onExecutorOutcomeApplied={() => {
-                                                setExecutionStorageTick((t) => t + 1);
-                                            }}
-                                            showInabaCorrespondence={
-                                                activeSubFileId === null &&
-                                                !isInabaActive &&
-                                                inabaTargets.length > 0
-                                            }
-                                            showRenew={
-                                                activeSubFileId === null &&
-                                                (executionPaused ||
-                                                    stayOfExecutionActive ||
-                                                    normalizeDossierLifecycleStatus(
-                                                        (executionData as any)?.dossier_lifecycle_status
-                                                    ) === 'paused' ||
-                                                    normalizeDossierLifecycleStatus(
-                                                        (executionData as any)?.dossier_lifecycle_status
-                                                    ) === 'suspended')
-                                            }
-                                            saving={dossierActionModalSaving}
-                                            onSubmit={(payload) => {
-                                                setDossierActionModalSaving(true);
-                                                return handleDossierAction(payload);
-                                            }}
-                                        />
-                                    </motion.div>
-                                ) : unifiedModalTab === 'admin' ? (
-                                    <RequestsTab
-                                        executionId={decisionsStorageExecutionId ?? executionId}
-                                        appealPerspective={appealPerspective}
-                                        specialRequestTemplatePick={specialRequestTemplatePick}
-                                        setSpecialRequestTemplatePick={setSpecialRequestTemplatePick}
-                                        specialRequestDate={specialRequestDate}
-                                        setSpecialRequestDate={setSpecialRequestDate}
-                                        specialRequestContent={specialRequestContent}
-                                        setSpecialRequestContent={setSpecialRequestContent}
-                                        specialRequestManualTitle={specialRequestManualTitle}
-                                        setSpecialRequestManualTitle={setSpecialRequestManualTitle}
-                                        inlineActionGateKey={inlineActionGateKey}
-                                        setInlineActionGateKey={setInlineActionGateKey}
-                                        runSpecialFollowupSubmit={runSpecialFollowupSubmit}
-                                        activeDebtorIsDeceased={activeDebtorIsDeceased}
-                                        activeDebtorIsLegalEntity={activeDebtorIsLegalEntity}
-                                        hideHiddenFollowupRequests={
-                                            activeDebtorIsLegalEntity || hideCoerciveTabsForDebtorAgent
-                                        }
-                                        hiddenFollowupRequestOptions={{
-                                            domainContext: executionDomainContext,
-                                            flags: {
-                                                ...followupSpecialization,
-                                                showPersonalCoerciveFollowupTab,
-                                                showGuarantorInSeizureTab:
-                                                    showGuarantorInSeizureFollowupTab,
-                                                isPersonalStatusExecutionClaim,
-                                                isAlimonyClaim: isAlimonyClaimType,
-                                                activeDebtorIsEmployee,
-                                                showHiddenExecutiveDossierPresentation:
-                                                    !followupSpecialization.hidePersonalJudgePresentation &&
-                                                    !activeDebtorIsEmployee &&
-                                                    remainingBalanceForSeizure > 0,
-                                            },
-                                            guarantorCtx: {
-                                                executionData: viewExecutionData,
-                                                settlementBreachTriggeredAt:
-                                                    settlementGuarantorGate.settlementBreachTriggeredAt,
-                                                ledgerPendingSettlement:
-                                                    settlementGuarantorGate.pendingSettlement,
-                                                financialCenterTotalIqd: remainingBalanceForSeizure,
-                                                activeDebtorIsDeceased,
-                                                activeDebtorIsEmployee,
-                                            },
-                                            personal: {
-                                                appealPerspective,
-                                                coerciveUiLocked,
-                                                isHistoricalMode,
-                                                activeDebtorKey:
-                                                    assignmentWorkspaceCtx.activeDebtorKey,
-                                                primaryDebtorKey: primaryDebtorKeyResolved,
-                                                kasabRelaxedGates: !activeDebtorIsEmployee,
-                                                forcedSummonAllowed:
-                                                    forcedSummoningAnalysis.canForceSummon,
-                                                forcedSummonLockReason:
-                                                    forcedSummoningAnalysis.lockReasonAr,
-                                                showToast,
-                                                persistExecutionMerge,
-                                                onOpenDecisions: openDecisionsModalWithBoot,
-                                            },
-                                            guarantor: {
-                                                executionData: viewExecutionData,
-                                                coerciveUiLocked,
-                                                isHistoricalMode,
-                                                handleGuarantorRequestFromFollowup,
-                                                requestGuarantorSeizure,
-                                                onOpenDecisions: openDecisionsModalWithBoot,
-                                                showToast,
-                                            },
-                                        }}
-                                    />
-													) : null}
-                            </div>
-                        </div>
-						</div>
-                    </div>,
-                        document.body
-                    )}
-
-                <ExecutionSolidaryAndEvictionFollowupModalsContainer
+                {(showSolidaryCoerciveTargetModal ||
+                    showEvictionExpenseModal ||
+                    showEvictionLawyerFeeModal ||
+                    showEvictionResidentialGraceModal) && (
+                <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                <LazyExecutionSolidaryAndEvictionFollowupModalsContainer
                     showSolidaryCoerciveTargetModal={showSolidaryCoerciveTargetModal}
                     solidaryCoerciveActionPending={solidaryCoerciveActionPending}
                     setShowSolidaryCoerciveTargetModal={setShowSolidaryCoerciveTargetModal}
@@ -16214,7 +15739,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     runEvictionExpenseSubmit={runEvictionExpenseSubmit}
                     showEvictionLawyerFeeModal={showEvictionLawyerFeeModal}
                     setShowEvictionLawyerFeeModal={setShowEvictionLawyerFeeModal}
-                    parsedLawyerFees={parsedLawyerFees}
+                    parsedLawyerFees={financialLawyerFeesAmount}
                     lawyerFeeDisburseMode={lawyerFeeDisburseMode}
                     setLawyerFeeDisburseMode={setLawyerFeeDisburseMode}
                     lawyerFeeDisburseNotes={lawyerFeeDisburseNotes}
@@ -16230,9 +15755,13 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     residentialGraceModalShowPrimarySave={residentialGraceModalShowPrimarySave}
                     submitEvictionResidentialGraceFromModal={submitEvictionResidentialGraceFromModal}
                 />
+                </Suspense>
+                )}
 
 
-                <ExecutionHeirsNotificationModalContainer
+                {showHeirsNotificationModal && (
+                <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                <LazyExecutionHeirsNotificationModalContainer
                     showHeirsNotificationModal={showHeirsNotificationModal}
                     setShowHeirsNotificationModal={setShowHeirsNotificationModal}
                     EXEC_MODAL_BACKDROP_STRONG={EXEC_MODAL_BACKDROP_STRONG}
@@ -16252,8 +15781,11 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     markHeirSummonsAttended={markHeirSummonsAttended}
                     markHeirSummonsPeriodEnded={markHeirSummonsPeriodEnded}
                 />
+                </Suspense>
+                )}
             {showGuarantorDetailsModal || showStayOfExecutionModal || Boolean(partyDeathModalParty) || showPauseModal ? (
-            <ExecutionModalsContainer
+            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+            <LazyExecutionModalsContainer
                 EXEC_OVERLAY_LAZY_FALLBACK={EXEC_OVERLAY_LAZY_FALLBACK}
                 isHistoricalMode={isHistoricalMode}
                 executionId={executionId}
@@ -16262,7 +15794,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 storageCache={storageCache}
                 showToast={showToast}
                 setTimelineEvents={setTimelineEvents}
-                GuarantorDetailsPostApprovalModal={GuarantorDetailsPostApprovalModal}
+                GuarantorDetailsPostApprovalModal={LazyGuarantorDetailsPostApprovalModal}
                 showGuarantorDetailsModal={showGuarantorDetailsModal}
                 setShowGuarantorDetailsModal={setShowGuarantorDetailsModal}
                 setGuarantorDetailsDecisionId={setGuarantorDetailsDecisionId}
@@ -16275,12 +15807,12 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 setGuarantorSalaryDraft={setGuarantorSalaryDraft}
                 setGuarantorDeductionDraft={setGuarantorDeductionDraft}
                 persistGuarantorFollowupDetails={persistGuarantorFollowupDetails}
-                StayOfExecutionModal={StayOfExecutionModal}
+                StayOfExecutionModal={LazyStayOfExecutionModal}
                 showStayOfExecutionModal={showStayOfExecutionModal}
                 setShowStayOfExecutionModal={setShowStayOfExecutionModal}
                 stayOfExecutionActive={stayOfExecutionActive}
                 handleSpecialCasesStay={handleSpecialCasesStay}
-                PartyDeathReportModal={PartyDeathReportModal}
+                PartyDeathReportModal={LazyPartyDeathReportModal}
                 partyDeathModalParty={partyDeathModalParty}
                 setPartyDeathModalParty={setPartyDeathModalParty}
                 setPartyDeathModalDecisionId={setPartyDeathModalDecisionId}
@@ -16301,10 +15833,22 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 pauseReason={pauseReason}
                 setPauseReason={setPauseReason}
             />
+            </Suspense>
             ) : null}
+
+            <AlimonyBeneficiaryDeathModal
+                open={alimonyBeneficiaryDeathModalOpen}
+                onClose={() => {
+                    setAlimonyBeneficiaryDeathModalOpen(false);
+                    setAlimonyBeneficiaryDeathModalProfile(null);
+                }}
+                profile={alimonyBeneficiaryDeathModalProfile ?? alimonyBeneficiaryProfile}
+                onConfirm={handleAlimonyBeneficiaryDeathConfirm}
+            />
             
             {showUnifiedSummonsModal ? (
-            <UnifiedSummonsModalContainer
+            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+            <LazyUnifiedSummonsModalContainer
                 showUnifiedSummonsModal={showUnifiedSummonsModal}
                 EXEC_OVERLAY_LAZY_FALLBACK={EXEC_OVERLAY_LAZY_FALLBACK}
                 LazyUnifiedSummonsHub={LazyUnifiedSummonsHub}
@@ -16346,7 +15890,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 handleDeclareEvictionVoluntaryPeriodEnd={handleDeclareEvictionVoluntaryPeriodEnd}
                 isEvictionGraceEffectivelyExpired={isEvictionGraceEffectivelyExpired}
                 unifiedCollectionApproved={unifiedCollectionApproved}
-                parsedLawyerFees={parsedLawyerFees}
+                parsedLawyerFees={financialLawyerFeesAmount}
                 debtorEvaded={debtorEvaded}
                 handleDebtorEvasion={handleDebtorEvasion}
                 noticeVoluntaryPeriodEndOptimistic={noticeVoluntaryPeriodEndOptimistic}
@@ -16383,66 +15927,9 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 nextTimelineId={nextTimelineId}
                 showToast={showToast}
             />
+            </Suspense>
             ) : null}
 
-            {memoWarningDialogOpen && typeof document !== 'undefined'
-                ? createPortal(
-                      <div
-                          className={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG}`}
-                          style={{ zIndex: EXEC_MODAL_Z.nestedOverFollowUpPortal + 10 }}
-                          dir="rtl"
-                          role="presentation"
-                          onClick={() => acknowledgeMemoFollowupWarning()}
-                      >
-                          <div
-                              className="w-full max-w-md overflow-hidden rounded-3xl border border-amber-500/25 bg-gradient-to-br from-[#1A1510]/95 via-[#1E1812]/95 to-[#221A12]/95 p-6 shadow-[0_30px_80px_rgba(0,0,0,0.65)] backdrop-blur-2xl"
-                              onClick={(e) => e.stopPropagation()}
-                          >
-                              <div className="flex flex-col items-center text-center gap-4">
-                                  <div className="grid h-16 w-16 place-items-center rounded-full border border-amber-400/25 bg-amber-400/10">
-                                      <AlertTriangle size={32} className="text-amber-300" />
-                                  </div>
-                                  <div className="space-y-2">
-                                      <h3 className="text-lg font-black text-amber-100">تنبيه بخصوص التبليغ</h3>
-                                      <p className="text-sm leading-relaxed text-slate-300">
-                                          {activeDebtorIsDeceased ? (
-                                              <>
-                                                  لم يتم استكمال مرحلة التبليغ بمذكرة الإخبار بالتنفيذ بعد.
-                                                  يرجى توجيه وإبلاغ {memoWarningHeirsLabel} بمذكرة الإخبار بالتنفيذ
-                                                  أو تسجيل حضور الوريث (أو وكيله) قبل اتخاذ أي إجراء في محضر المتابعة.
-                                              </>
-                                          ) : (
-                                              <>
-                                                  لم يتم استكمال مرحلة التبليغ بمذكرة الإخبار بالتنفيذ بعد.
-                                                  يرجى توجيه وإبلاغ المدين بمذكرة الإخبار بالتنفيذ
-                                                  أو تسجيل حضوره (أو حضور وكيله) قبل اتخاذ أي إجراء في محضر المتابعة.
-                                              </>
-                                          )}
-                                      </p>
-                                  </div>
-                                  <button
-                                      type="button"
-                                      onClick={() => {
-                                          acknowledgeMemoFollowupWarning();
-                                          openFollowupModalPersisted();
-                                      }}
-                                      className="w-full rounded-xl bg-gradient-to-l from-amber-600 to-amber-500 px-6 py-3 text-sm font-black text-white shadow-[0_0_24px_rgba(217,119,6,0.25)] hover:from-amber-500 hover:to-amber-400 transition-all"
-                                  >
-                                      تفهمت ذلك
-                                  </button>
-                                  <button
-                                      type="button"
-                                      onClick={() => acknowledgeMemoFollowupWarning()}
-                                      className="w-full rounded-xl border border-white/10 px-6 py-2.5 text-sm font-bold text-slate-300 hover:bg-white/5 transition-all"
-                                  >
-                                      إلغاء
-                                  </button>
-                              </div>
-                          </div>
-                      </div>,
-                      document.body
-                  )
-                : null}
 
             {/* 🆕 V9: PAYMENT CALCULATOR */}
             {showPaymentCalculator && (
@@ -16468,16 +15955,17 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 </Suspense>
             )}
             
-            {/* السجل المالي العام — مكونات الإضبارة + أرشيف الوعاء الموحّد */}
-            <ExecutionFinancialLedgerPortalContainer
+            {showLedgerModal && (
+            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+            <LazyExecutionFinancialLedgerPortalContainer
                 showLedgerModal={showLedgerModal}
                 executionData={viewExecutionData}
                 executionId={executionId}
-                parsedLawyerFees={parsedLawyerFees}
+                parsedLawyerFees={financialLawyerFeesAmount}
                 totalExecutionExpenses={total_execution_expenses}
                 isEvictionExecutionModule={isEvictionExecutionModule}
                 evictionCaseExpensesTotalForFinancial={evictionCaseExpensesTotalForFinancial}
-                principalDebtAmount={principalDebtAmount}
+                principalDebtAmount={financialPrincipalAmount}
                 evictionCaseExpenses={evictionCaseExpenses}
                 judicialCustodianSalariesExpenseIqd={judicialCustodianSalariesExpenseIqd}
                 shouldCalculateExecutionFee={shouldCalculateExecutionFee}
@@ -16490,78 +15978,22 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 filterUnifiedExpensesHideFileDuplicate={filterUnifiedExpensesHideFileDuplicate}
                 formatUnifiedLedgerDate={formatUnifiedLedgerDate}
             />
+            </Suspense>
+            )}
 
-            {showTransferFileNumberChangeModal ? (
-                <div
-                    className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-                    onClick={() => setShowTransferFileNumberChangeModal(false)}
-                    role="presentation"
-                >
-                    <div
-                        className="w-full max-w-md overflow-hidden rounded-2xl border border-amber-500/20 bg-[#0A0F1C] shadow-2xl"
-                        onClick={(e) => e.stopPropagation()}
-                        dir="rtl"
-                    >
-                        <div className="flex items-center justify-between border-b border-white/10 px-5 py-3.5">
-                            <span className="text-[13px] font-bold text-amber-200">تغيير رقم الإضبارة</span>
-                            <button
-                                type="button"
-                                onClick={() => setShowTransferFileNumberChangeModal(false)}
-                                className="rounded-lg p-1.5 text-slate-400 hover:bg-white/5 hover:text-slate-200 transition-colors"
-                                aria-label="إغلاق"
-                            >
-                                <X size={16} />
-                            </button>
-                        </div>
-                        <div className="p-5 space-y-4">
-                            <div className="rounded-xl bg-amber-950/20 border border-amber-500/10 p-3">
-                                <p className="text-[10px] text-amber-300/70 leading-relaxed">
-                                    بعد نقل الإضبارة وتغيير المديرية، يمكنك إدخال رقم الإضبارة الجديد هنا.
-                                </p>
-                            </div>
-                            <div>
-                                <label className="mb-1.5 block text-[10px] font-bold text-slate-400">
-                                    رقم الإضبارة الجديد
-                                </label>
-                                <input
-                                    type="text"
-                                    value={transferFileNumberDraft}
-                                    onChange={(e) => setTransferFileNumberDraft(e.target.value)}
-                                    placeholder="مثال: 1111"
-                                    className="w-full bg-black/30 border border-white/10 text-white rounded-xl p-3 text-[11px] focus:outline-none focus:border-amber-500/50 placeholder:text-white/20"
-                                />
-                            </div>
-                            <div className="flex items-center justify-end gap-2 pt-1">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowTransferFileNumberChangeModal(false)}
-                                    className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-[11px] font-bold text-slate-200 hover:bg-white/10 transition-colors"
-                                >
-                                    لاحقاً
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        const nextNo = String(transferFileNumberDraft || '').trim();
-                                        if (!nextNo) {
-                                            showToast('أدخل رقم الإضبارة الجديد', 'warning');
-                                            return;
-                                        }
-                                        persistExecutionMerge({
-                                            fileNumber: nextNo,
-                                            transferPendingFileNumberChange: false,
-                                        });
-                                        setShowTransferFileNumberChangeModal(false);
-                                    }}
-                                    className="rounded-xl border border-amber-500/25 bg-amber-950/35 px-4 py-2 text-[11px] font-bold text-amber-200 hover:bg-amber-950/55 hover:border-amber-500/45 transition-colors"
-                                >
-                                    تأكيد
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            ) : null}
+            <ExecutionTransferFileNumberModal
+                open={showTransferFileNumberChangeModal}
+                initialFileNumber={String(executionData?.fileNumber || '').trim()}
+                onClose={() => setShowTransferFileNumberChangeModal(false)}
+                onValidationWarning={(message) => showToast(message, 'warning')}
+                onConfirm={(nextNo) => {
+                    persistExecutionMerge({
+                        fileNumber: nextNo,
+                        transferPendingFileNumberChange: false,
+                    });
+                    setShowTransferFileNumberChangeModal(false);
+                }}
+            />
 
             {showLinkedDossierTimeline && linkedDossierToView && (
                 <LinkedDossierTimelineModal

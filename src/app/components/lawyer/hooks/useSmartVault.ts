@@ -14,12 +14,15 @@ import {
     type VaultUploadKind,
     type VaultDocViewerKind,
 } from '@/app/services/vaultUploadService';
-import { useAuth } from '@/app/context/AuthContext';
-import { useLawyerSettingsOptional } from '@/app/context/LawyerSettingsContext';
+import { useAuthUser } from '@/app/context/AuthContext';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
+import { loadPersistedViewMode, persistViewMode } from '@/app/services/settings/builtInBehavior';
 import {
     addCustomCategory,
+    countDocsInCategory,
     docMatchesCategoryFilter,
     mergeCustomCategoriesFromDocs,
+    removeCustomCategory,
 } from '@/app/services/vaultCustomCategories';
 
 // --- Types ---
@@ -114,6 +117,7 @@ interface UseSmartVaultReturn {
     setSearchQuery: React.Dispatch<React.SetStateAction<string>>;
     setActiveFilter: React.Dispatch<React.SetStateAction<string>>;
     addVaultCategory: (name: string) => void;
+    removeVaultCategory: (name: string) => Promise<void>;
     setViewMode: (mode: ViewMode) => void;
     setOpenDropdownId: React.Dispatch<React.SetStateAction<string | null>>;
 
@@ -138,7 +142,7 @@ interface UseSmartVaultReturn {
 }
 
 export const useSmartVault = (onClose: () => void, propUserId?: string): UseSmartVaultReturn => {
-    const { user: authUser } = useAuth();
+    const authUser = useAuthUser();
     const currentUserId = propUserId || authUser?.id || '';
 
     const [docs, setDocs] = useState<SmartVaultDoc[]>([]);
@@ -148,18 +152,15 @@ export const useSmartVault = (onClose: () => void, propUserId?: string): UseSmar
     const [mounted, setMounted] = useState(false);
     const [activeFilter, setActiveFilter] = useState<string>('الكل');
     const [customCategories, setCustomCategories] = useState<string[]>([]);
-    const lawyerSettings = useLawyerSettingsOptional();
-    const viewMode: ViewMode = lawyerSettings?.settings.workflow.viewMode ?? 'grid';
+    const [viewMode, setViewModeState] = useState<ViewMode>(() => loadPersistedViewMode());
 
-    const setViewMode = useCallback(
-        (mode: ViewMode) => {
-            lawyerSettings?.setSettings((prev) => ({
-                ...prev,
-                workflow: { ...prev.workflow, viewMode: mode },
-            }));
-        },
-        [lawyerSettings],
-    );
+    const setViewMode = useCallback((mode: ViewMode) => {
+        setViewModeState(mode);
+        persistViewMode(mode);
+        if (typeof document !== 'undefined') {
+            document.documentElement.dataset.hamiViewMode = mode;
+        }
+    }, []);
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
     const [isSavingMeta, setIsSavingMeta] = useState(false);
     const [isSavingEdit, setIsSavingEdit] = useState(false);
@@ -221,13 +222,50 @@ export const useSmartVault = (onClose: () => void, propUserId?: string): UseSmar
         [currentUserId],
     );
 
+    const removeVaultCategory = useCallback(
+        async (name: string) => {
+            const trimmed = name.trim();
+            if (!currentUserId || !trimmed) return;
+
+            const count = countDocsInCategory(docsRef.current, trimmed);
+            const ok = await SmartDialog.confirm(
+                count > 0
+                    ? `هل تريد حذف تصنيف «${trimmed}»؟\nسيتم إزالة التصنيف من ${count} ملف.`
+                    : `هل تريد حذف تصنيف «${trimmed}»؟`,
+            );
+            if (!ok) return;
+
+            try {
+                const affected = docsRef.current.filter(
+                    (d) => (d.customCategory?.trim() || '') === trimmed,
+                );
+                for (const doc of affected) {
+                    await SmartVaultDB.updateDoc(
+                        {
+                            ...doc,
+                            customCategory: null,
+                            tags: doc.tags.filter((t) => t !== trimmed),
+                            updatedAt: new Date().toISOString(),
+                        },
+                        currentUserId,
+                    );
+                }
+                setCustomCategories(removeCustomCategory(currentUserId, trimmed));
+                setActiveFilter((f) => (f === trimmed ? 'الكل' : f));
+                SmartToast.success('تم حذف التصنيف');
+                await loadDocs();
+            } catch {
+                SmartToast.error('فشل حذف التصنيف');
+            }
+        },
+        [currentUserId, loadDocs],
+    );
+
+    useBodyScrollLock(mounted);
+
     useEffect(() => {
         setMounted(true);
-        document.body.style.overflow = 'hidden';
-        return () => {
-            document.body.style.overflow = 'unset';
-            setOpenDropdownId(null);
-        };
+        return () => setOpenDropdownId(null);
     }, []);
 
     const beginNextPendingUpload = useCallback(async (files: File[], kind: VaultUploadKind) => {
@@ -462,7 +500,7 @@ export const useSmartVault = (onClose: () => void, propUserId?: string): UseSmar
         activeFilter, customCategories, viewMode, openDropdownId, currentUserId,
         pendingUpload, uploadQueueCount: uploadQueue.length, fileViewer, imageViewer: fileViewer, editDoc, isSavingMeta, isSavingEdit,
         imageInputRef, pdfInputRef, searchInputRef, mounted, filteredDocs,
-        setSearchQuery, setActiveFilter, addVaultCategory, setViewMode, setOpenDropdownId,
+        setSearchQuery, setActiveFilter, addVaultCategory, removeVaultCategory, setViewMode, setOpenDropdownId,
         handleImageUploadSelect, handlePdfUploadSelect, confirmPendingUpload, cancelPendingUpload,
         closeFileViewer, closeImageViewer: closeFileViewer, saveDocEdit, closeEditDoc,
         handleDelete, handleEdit, handleViewFile,

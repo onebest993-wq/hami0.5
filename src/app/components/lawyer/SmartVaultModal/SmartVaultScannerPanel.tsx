@@ -5,8 +5,9 @@ import { saveScannedImageToVault } from '@/app/services/vaultUploadService';
 import { SmartVaultDB, type SmartVaultDoc } from '@/app/services/lawyer-cloud';
 import { extractTextFromDocumentImage, ocrFallbackMessage } from '@/app/services/documentOcrService';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
+import { isBuiltInAutoSummaryEnabled } from '@/app/services/settings/settingsRuntime';
 import { VaultCategoryPicker } from '@/app/components/lawyer/SmartVaultModal/VaultCategoryPicker';
+import { VAULT_SHEET, VAULT_INPUT } from '@/app/components/lawyer/SmartVaultModal/vaultDustyRoseTheme';
 
 export interface ScannerSaveResult {
     text: string;
@@ -157,7 +158,7 @@ export const SmartVaultScannerPanel: React.FC<SmartVaultScannerPanelProps> = ({
             ]);
 
             const ocrText = ocr.text.trim();
-            const autoSummary = getLawyerSettingsSnapshot().workflow.autoSummary;
+            const autoSummary = isBuiltInAutoSummaryEnabled();
             if (autoSummary && ocrText) {
                 const summary = ocrText.slice(0, 2000);
                 if (saved.doc.aiSummary !== summary) {
@@ -217,8 +218,8 @@ export const SmartVaultScannerPanel: React.FC<SmartVaultScannerPanelProps> = ({
         : 'absolute inset-0 z-[45] flex items-end sm:items-center justify-center pointer-events-auto';
 
     const panelClass = standalone
-        ? 'bg-[#1A1E2E] w-full max-w-lg mx-4 rounded-2xl border border-[#E6C673]/20 shadow-2xl overflow-hidden relative z-10 max-h-[90vh] flex flex-col'
-        : 'bg-[#1A1E2E] w-full sm:max-w-lg sm:mx-4 rounded-t-2xl sm:rounded-2xl border border-[#E6C673]/20 shadow-2xl overflow-hidden relative z-10 max-h-[85vh] flex flex-col';
+        ? `${VAULT_SHEET} w-full max-w-lg mx-4 relative z-10 max-h-[90vh]`
+        : `${VAULT_SHEET} w-full sm:max-w-lg sm:mx-4 relative z-10 max-h-[85vh]`;
 
     return (
         <AnimatePresence>
@@ -235,7 +236,7 @@ export const SmartVaultScannerPanel: React.FC<SmartVaultScannerPanelProps> = ({
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     onClick={handleClose}
-                    className="absolute inset-0 bg-black/75 backdrop-blur-sm"
+                    className="absolute inset-0 bg-[#1a1614]/80 backdrop-blur-sm"
                 />
 
                 <motion.div
@@ -246,20 +247,20 @@ export const SmartVaultScannerPanel: React.FC<SmartVaultScannerPanelProps> = ({
                     className={panelClass}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <div className="shrink-0 px-5 py-4 border-b border-white/5 flex items-center justify-between bg-[#131620]">
+                    <div className="shrink-0 px-5 py-4 border-b border-[#C9A9A6]/12 flex items-center justify-between bg-[#322E2A]">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-[#E6C673]/10 rounded-lg text-[#E6C673]">
+                            <div className="p-2 bg-[#C9A9A6]/15 rounded-lg text-[#C9A9A6]">
                                 <Scan size={20} />
                             </div>
                             <div>
-                                <h3 className="text-white font-bold text-base">ماسح المستندات</h3>
-                                <p className="text-white/35 text-[10px]">يُحفظ مباشرة في المخزن الذكي</p>
+                                <h3 className="text-[#F7F3EB] font-bold text-base">ماسح المستندات</h3>
+                                <p className="text-[#C9A9A6]/45 text-[10px]">يُحفظ مباشرة في المخزن الذكي</p>
                             </div>
                         </div>
                         <button
                             type="button"
                             onClick={handleClose}
-                            className="p-2 hover:bg-white/5 rounded-full text-white/50 hover:text-white transition-colors"
+                            className="p-2 hover:bg-[#4A4440]/40 rounded-full text-[#C9A9A6]/60 hover:text-[#F7F3EB] transition-colors"
                         >
                             {standalone ? <X size={20} /> : <ChevronLeft size={20} />}
                         </button>
@@ -276,7 +277,7 @@ export const SmartVaultScannerPanel: React.FC<SmartVaultScannerPanelProps> = ({
                                 <button
                                     type="button"
                                     onClick={startCamera}
-                                    className="flex items-center justify-center gap-3 bg-[#E6C673]/10 hover:bg-[#E6C673]/20 border border-[#E6C673]/30 rounded-xl py-5 text-[#E6C673] font-bold transition-all"
+                                    className="flex items-center justify-center gap-3 bg-[#C9A9A6]/15 hover:bg-[#C9A9A6]/25 border border-[#C9A9A6]/35 rounded-xl py-5 text-[#F7F3EB] font-bold transition-all"
                                 >
                                     <Camera size={24} />
                                     فتح الكاميرا
@@ -284,7 +285,7 @@ export const SmartVaultScannerPanel: React.FC<SmartVaultScannerPanelProps> = ({
                                 <button
                                     type="button"
                                     onClick={() => fileInputRef.current?.click()}
-                                    className="flex items-center justify-center gap-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl py-5 text-white font-bold transition-all"
+                                    className="flex items-center justify-center gap-3 bg-[#4A4440]/40 hover:bg-[#4A4440]/55 border border-[#C9A9A6]/20 rounded-xl py-5 text-[#D4B8B5] font-bold transition-all"
                                 >
                                     <Upload size={24} />
                                     رفع صورة من الجهاز
@@ -296,7 +297,7 @@ export const SmartVaultScannerPanel: React.FC<SmartVaultScannerPanelProps> = ({
                                     className="hidden"
                                     onChange={handleFileSelect}
                                 />
-                                <p className="text-white/30 text-xs text-center">JPG · PNG · WEBP · HEIC</p>
+                                <p className="text-[#C9A9A6]/35 text-xs text-center">JPG · PNG · WEBP · HEIC</p>
                             </div>
                         )}
 
@@ -314,7 +315,7 @@ export const SmartVaultScannerPanel: React.FC<SmartVaultScannerPanelProps> = ({
                                 <button
                                     type="button"
                                     onClick={captureFromCamera}
-                                    className="flex items-center justify-center gap-3 bg-[#E6C673] hover:bg-[#D4B360] text-black font-bold py-4 rounded-xl transition-all"
+                                    className="flex items-center justify-center gap-3 bg-[#F7F3EB] hover:bg-[#FAF6EF] text-[#3A3530] font-bold py-4 rounded-xl transition-all"
                                 >
                                     <Camera size={22} />
                                     التقاط الصورة
@@ -337,14 +338,14 @@ export const SmartVaultScannerPanel: React.FC<SmartVaultScannerPanelProps> = ({
                                         value={scanTitle}
                                         onChange={(e) => setScanTitle(e.target.value)}
                                         placeholder="عنوان المسح"
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-[#E6C673]/40"
+                                        className={VAULT_INPUT}
                                     />
                                     <textarea
                                         value={scanNote}
                                         onChange={(e) => setScanNote(e.target.value)}
                                         placeholder="وصف / تذكير: لمن هذا المستند؟"
                                         rows={2}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-[#E6C673]/40 resize-none"
+                                        className={`${VAULT_INPUT} resize-none`}
                                     />
                                     <VaultCategoryPicker
                                         id="vault-scan-category"
@@ -358,7 +359,7 @@ export const SmartVaultScannerPanel: React.FC<SmartVaultScannerPanelProps> = ({
                                     <button
                                         type="button"
                                         onClick={retake}
-                                        className="flex-1 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-xl transition-all"
+                                        className="flex-1 flex items-center justify-center gap-2 bg-[#4A4440]/45 hover:bg-[#4A4440]/60 text-[#D4B8B5] font-bold py-3 rounded-xl transition-all"
                                     >
                                         <X size={18} />
                                         إعادة
@@ -366,7 +367,7 @@ export const SmartVaultScannerPanel: React.FC<SmartVaultScannerPanelProps> = ({
                                     <button
                                         type="button"
                                         onClick={() => void uploadScan()}
-                                        className="flex-1 flex items-center justify-center gap-2 bg-[#E6C673] hover:bg-[#D4B360] text-black font-bold py-3 rounded-xl transition-all"
+                                        className="flex-1 flex items-center justify-center gap-2 bg-[#C9A9A6]/25 hover:bg-[#C9A9A6]/35 border border-[#C9A9A6]/40 text-[#F7F3EB] font-bold py-3 rounded-xl transition-all"
                                     >
                                         <Upload size={18} />
                                         حفظ في المخزن
@@ -377,8 +378,8 @@ export const SmartVaultScannerPanel: React.FC<SmartVaultScannerPanelProps> = ({
 
                         {phase === 'uploading' && (
                             <div className="flex flex-col items-center justify-center py-16 gap-4">
-                                <Loader2 size={48} className="text-[#E6C673] animate-spin" />
-                                <p className="text-white/60 text-sm">جاري حفظ المستند في المخزن...</p>
+                                <Loader2 size={48} className="text-[#C9A9A6] animate-spin" />
+                                <p className="text-[#D4B8B5]/70 text-sm">جاري حفظ المستند في المخزن...</p>
                             </div>
                         )}
 
@@ -387,23 +388,23 @@ export const SmartVaultScannerPanel: React.FC<SmartVaultScannerPanelProps> = ({
                                 <div className="flex items-center justify-center gap-3 py-4">
                                     <CheckCircle2 size={44} className="text-emerald-500 shrink-0" />
                                     <div>
-                                        <p className="text-white font-bold text-lg">تم الحفظ بنجاح</p>
-                                        <p className="text-white/40 text-xs">
+                                        <p className="text-[#F7F3EB] font-bold text-lg">تم الحفظ بنجاح</p>
+                                        <p className="text-[#C9A9A6]/50 text-xs">
                                             {result.localOnly ? 'محفوظ محلياً في المخزن' : 'تمت إضافته للمخزن الذكي'}
                                         </p>
                                     </div>
                                 </div>
                                 {result.text ? (
-                                    <div className="max-h-40 overflow-y-auto rounded-xl bg-white/5 border border-white/10 p-3 text-right">
-                                        <p className="text-white/50 text-[10px] mb-1">النص المستخرج</p>
-                                        <p className="text-white/80 text-xs leading-relaxed whitespace-pre-wrap">{result.text}</p>
+                                    <div className="max-h-40 overflow-y-auto rounded-xl bg-[#4A4440]/35 border border-[#C9A9A6]/15 p-3 text-right">
+                                        <p className="text-[#B8A078] text-[10px] mb-1">النص المستخرج</p>
+                                        <p className="text-[#F7F3EB]/75 text-xs leading-relaxed whitespace-pre-wrap">{result.text}</p>
                                     </div>
                                 ) : null}
                                 {result.doc ? (
                                     <button
                                         type="button"
                                         onClick={() => onViewDoc?.(result.doc)}
-                                        className="flex items-center justify-center gap-2 bg-[#E6C673]/15 hover:bg-[#E6C673]/25 border border-[#E6C673]/35 rounded-xl py-3 text-[#E6C673] text-sm font-bold transition-all"
+                                        className="flex items-center justify-center gap-2 bg-[#B8A078]/12 hover:bg-[#B8A078]/20 border border-[#B8A078]/30 rounded-xl py-3 text-[#B8A078] text-sm font-bold transition-all"
                                     >
                                         <Eye size={16} />
                                         معاينة داخل التطبيق
@@ -412,7 +413,7 @@ export const SmartVaultScannerPanel: React.FC<SmartVaultScannerPanelProps> = ({
                                 <button
                                     type="button"
                                     onClick={retake}
-                                    className="flex items-center justify-center gap-2 bg-[#E6C673]/10 hover:bg-[#E6C673]/20 border border-[#E6C673]/30 rounded-xl py-3 text-[#E6C673] text-sm font-bold transition-all"
+                                    className="flex items-center justify-center gap-2 bg-[#C9A9A6]/12 hover:bg-[#C9A9A6]/22 border border-[#C9A9A6]/30 rounded-xl py-3 text-[#C9A9A6] text-sm font-bold transition-all"
                                 >
                                     <Camera size={16} />
                                     مسح مستند آخر

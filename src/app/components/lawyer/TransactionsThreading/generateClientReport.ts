@@ -1,4 +1,4 @@
-import { TransactionTaskStatus, type Transaction, type TransactionTask } from '@/app/modules/transactionsThreading';
+import { TransactionTaskStatus, type Transaction, type TransactionTask } from '@/app/modules/transactionsThreading/types';
 
 export function generateClientReport(transaction: Transaction, tasks: TransactionTask[]) {
   const done = tasks.filter((t) => t.status === TransactionTaskStatus.Done);

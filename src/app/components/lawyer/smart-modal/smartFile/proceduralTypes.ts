@@ -48,8 +48,6 @@ export type UseSmartFileProceduralActionsOptions = {
     setShowJudgeRecusalModal: (v: boolean) => void;
     setShowTransferJurisdictionModal: (v: boolean) => void;
     setShowCaseConsolidationModal: (v: boolean) => void;
-    setShowAttorneyResignationModal: (v: boolean) => void;
-    setShowExecutionTransferModal: (v: boolean) => void;
     setShowMaterialErrorModal: (v: string | null) => void;
     setShowPauseModal: (v: boolean) => void;
     setShowInterruptionModal: (v: boolean) => void;
@@ -64,6 +62,7 @@ export type UseSmartFileProceduralActionsOptions = {
     status: string;
     /** للربط الصامت بالتقويم — لا يغيّر الواجهة */
     calendarUserId?: string | null;
+    setAppealOutcomeTask: (task: Task | null) => void;
 };
 
 export function stageTasks(stage: CaseStage): Task[] {

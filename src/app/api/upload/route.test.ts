@@ -2,23 +2,30 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Buffer } from 'node:buffer';
 
 const uploadMock = vi.fn();
+const signedUrlMock = vi.fn();
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({
     storage: {
       from: () => ({
         upload: uploadMock,
+        createSignedUrl: signedUrlMock,
       }),
     },
   }),
 }));
 
-vi.mock('../security/wifeValidator', () => ({
+vi.mock('../security/wifeValidator.ts', () => ({
   extractUserTokenFromRequest: vi.fn(),
   getVerifiedTokenSubject: vi.fn(),
   isTokenAuthorized: vi.fn(),
   verifyWifeSignature: vi.fn(),
   wifeForbiddenResponse: () =>
+    new Response(JSON.stringify({ ok: false, error: 'Cryptographic verification failed' }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    }),
+  wifeSignatureFailedResponse: () =>
     new Response(JSON.stringify({ ok: false, error: 'Cryptographic verification failed' }), {
       status: 403,
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
@@ -30,9 +37,13 @@ vi.mock('../security/wifeValidator', () => ({
     }),
 }));
 
-vi.mock('../security/fileValidator', () => ({
+vi.mock('../security/fileValidator.ts', () => ({
   validateFileBuffer: vi.fn(),
   verifyFileContentHash: vi.fn(),
+}));
+
+vi.mock('../../services/server/MalwareScanService.ts', () => ({
+  scanBufferForMalware: vi.fn().mockResolvedValue({ safe: true }),
 }));
 
 import { POST } from './route';
@@ -41,13 +52,23 @@ import {
   getVerifiedTokenSubject,
   isTokenAuthorized,
   verifyWifeSignature,
-} from '../security/wifeValidator';
-import { validateFileBuffer, verifyFileContentHash } from '../security/fileValidator';
+} from '../security/wifeValidator.ts';
+import { validateFileBuffer, verifyFileContentHash } from '../security/fileValidator.ts';
+
+function jpegTestFile(): File {
+  const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0x00]);
+  const file = new File([bytes], 'proof.jpg', { type: 'image/jpeg' });
+  Object.defineProperty(file, 'arrayBuffer', {
+    configurable: true,
+    value: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+  });
+  return file;
+}
 
 function buildUploadRequest(): Request {
   const fd = new FormData();
-  const file = new File([new Uint8Array([0xff, 0xd8, 0xff, 0x00])], 'proof.jpg', { type: 'image/jpeg' });
-  fd.append('file', file);
+  fd.append('file', jpegTestFile());
+  fd.append('category', 'vault');
   const headers = new Headers({
     'x-wife-content-hash': 'a'.repeat(64),
     'content-type': 'multipart/form-data; boundary=test-boundary',
@@ -74,6 +95,7 @@ describe('upload route security checkpoints', () => {
     (verifyFileContentHash as unknown as ReturnType<typeof vi.fn>).mockReturnValue(true);
     (validateFileBuffer as unknown as ReturnType<typeof vi.fn>).mockReturnValue(true);
     uploadMock.mockResolvedValue({ error: null });
+    signedUrlMock.mockResolvedValue({ data: { signedUrl: 'https://example.test/signed' }, error: null });
   });
 
   it('returns 401 when token is missing/unauthorized', async () => {
@@ -93,6 +115,34 @@ describe('upload route security checkpoints', () => {
     (req.headers as Headers).delete('x-wife-content-hash');
     const res = await POST(req);
     expect(res.status).toBe(403);
+  });
+
+  it('returns 400 when category is invalid', async () => {
+    const fd = new FormData();
+    fd.append('file', jpegTestFile());
+    fd.append('category', 'not-a-real-category');
+    const headers = new Headers({
+      'x-wife-content-hash': 'a'.repeat(64),
+    });
+    const req = {
+      method: 'POST',
+      url: 'http://127.0.0.1/api/upload',
+      headers,
+      formData: async () => fd,
+    } as unknown as Request;
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 200 with signed downloadUrl on success', async () => {
+    const res = await POST(buildUploadRequest());
+    const body = (await res.json()) as { ok?: boolean; downloadUrl?: string; path?: string; error?: string };
+    if (res.status !== 200) {
+      throw new Error(`expected 200 got ${res.status}: ${JSON.stringify(body)}`);
+    }
+    expect(body.ok).toBe(true);
+    expect(body.downloadUrl).toContain('https://');
+    expect(body.path).toMatch(/^user-1\/vault\//);
   });
 });
 

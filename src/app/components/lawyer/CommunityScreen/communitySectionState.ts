@@ -1,4 +1,4 @@
-export type CommunitySection = 'forum' | 'repository';
+export type CommunitySection = 'forum' | 'groups' | 'repository';
 
 const SECTION_KEY = 'hami:community-section';
 
@@ -6,7 +6,7 @@ export function readPersistedCommunitySection(): CommunitySection {
     if (typeof window === 'undefined') return 'forum';
     try {
         const saved = sessionStorage.getItem(SECTION_KEY);
-        if (saved === 'repository' || saved === 'forum') return saved;
+        if (saved === 'repository' || saved === 'forum' || saved === 'groups') return saved;
     } catch {
         /* ignore */
     }

@@ -1,5 +1,17 @@
 import React from 'react';
-import { Briefcase, Coins } from 'lucide-react';
+import { Briefcase, Coins, Check } from 'lucide-react';
+import { formatNumberInput } from '@/app/components/lawyer/FinancialOperationsCenter/utils';
+import { NC_FIELD, NC_LABEL, NC_SECTION, NC_SECTION_TITLE, ncFieldClass } from '../newCaseGlassTheme';
+import {
+    getUnderlyingStageFieldLabel,
+    getUnderlyingStageOptions,
+    isExtraordinaryProcedureStage,
+} from '../validation';
+
+const VALUE_MODE_OPTIONS = [
+    { id: 'undetermined' as const, label: 'دعوى غير مقدرة القيمة' },
+    { id: 'fixedFee' as const, label: 'دعوى خاضعة للرسم المقطوع' },
+];
 
 export interface CaseBasicsFormProps {
     caseDetails: {
@@ -10,6 +22,7 @@ export interface CaseBasicsFormProps {
         stage: string;
         claimValue: string;
         totalAgreedFees: string;
+        retrialTargetStage?: string;
     };
     setCaseDetails: React.Dispatch<React.SetStateAction<{
         number: string;
@@ -19,6 +32,7 @@ export interface CaseBasicsFormProps {
         stage: string;
         claimValue: string;
         totalAgreedFees: string;
+        retrialTargetStage?: string;
     }>>;
     errorMap: Record<string, string>;
     caseNumberError: string | null;
@@ -34,6 +48,7 @@ export interface CaseBasicsFormProps {
     typeRef: React.RefObject<HTMLInputElement | null>;
     stageRef: React.RefObject<HTMLSelectElement | null>;
     numberRef: React.RefObject<HTMLInputElement | null>;
+    retrialTargetRef?: React.RefObject<HTMLSelectElement | null>;
 }
 
 export const CaseBasicsForm = ({
@@ -43,38 +58,62 @@ export const CaseBasicsForm = ({
     isUndeterminedValue, setIsUndeterminedValue,
     isFixedFee, setIsFixedFee,
     valuePlaceholder, exceptionWarning,
-    courtRef, typeRef, stageRef, numberRef
+    courtRef, typeRef, stageRef, numberRef, retrialTargetRef
 }: CaseBasicsFormProps) => {
+    const isExtraordinary = isExtraordinaryProcedureStage(caseDetails.stage);
+    const underlyingStageOptions = getUnderlyingStageOptions(caseDetails.stage);
+    const numberPlaceholder = isExtraordinary
+        ? (caseDetails.retrialTargetStage?.includes('استئناف') ? '15/س/2026' : '15/ب/2026')
+        : (caseDetails.stage.includes('استئناف') ? '15/س/2026' : '15/ب/2026');
+    const valueLocked = isUndeterminedValue || isFixedFee;
+
+    const numberHasError = Boolean(errorMap['number'] || caseNumberError);
+
+    const toggleValueMode = (id: 'undetermined' | 'fixedFee') => {
+        if (id === 'undetermined') {
+            const next = !isUndeterminedValue;
+            setIsUndeterminedValue(next);
+            if (next) setIsFixedFee(false);
+        } else {
+            const next = !isFixedFee;
+            setIsFixedFee(next);
+            if (next) setIsUndeterminedValue(false);
+        }
+    };
+
     return (
-        <div className="bg-[#151925] border-b border-white/5 p-5">
-            <h4 className="flex items-center gap-2 text-xs font-bold text-[#E6C673] uppercase tracking-wider mb-4">
+        <div className={NC_SECTION}>
+            <h4 className={`flex items-center gap-2 ${NC_SECTION_TITLE}`}>
                 <Briefcase size={12} /> أساسيات الدعوى
             </h4>
 
             <div className="space-y-4">
                 <div>
-                    <label className="text-[10px] text-white mb-1 block">رقم الدعوى</label>
-                    <input
-                        ref={numberRef}
-                        type="text"
-                        value={caseDetails.number}
-                        onChange={(e) => setCaseDetails({...caseDetails, number: e.target.value})}
-                        className={`w-full bg-[#2A3241] border ${errorMap['number'] || caseNumberError ? 'border-amber-500' : 'border-white/15'} rounded-lg px-3 py-2 text-white focus:border-[#E6C673] outline-none text-sm placeholder-white/50 text-right`}
-                        placeholder={caseDetails.stage.includes('استئناف') ? "15/س/2026" : "15/ب/2026"}
-                        dir="ltr"
-                    />
-                    <p className="text-white/30 text-[10px] mt-1 text-right">يدعم الأرقام والحروف (مثال: 15/ب/2024)</p>
-                    {caseNumberError && <p className="text-amber-500/80 text-[10px] mt-1 font-bold">{caseNumberError}</p>}
+                    <label className={NC_LABEL}>رقم الدعوى</label>
+                    <div className="relative group">
+                        <input
+                            ref={numberRef}
+                            type="text"
+                            inputMode="text"
+                            autoComplete="off"
+                            spellCheck={false}
+                            value={caseDetails.number}
+                            onChange={(e) => setCaseDetails({ ...caseDetails, number: e.target.value })}
+                            className={`${NC_FIELD} text-left [unicode-bidi:plaintext] ${numberHasError ? 'border-amber-500/60 ring-1 ring-amber-500/20' : ''}`}
+                            placeholder={numberPlaceholder}
+                        />
+                    </div>
+                    {caseNumberError && <p className="text-amber-500/80 text-[10px] mt-1.5 font-bold">{caseNumberError}</p>}
                 </div>
 
                 <div>
-                    <label className="text-[10px] text-white mb-1 block">اسم المحكمة المختصة</label>
+                    <label className={NC_LABEL}>اسم المحكمة المختصة</label>
                     <input
                         ref={courtRef}
                         type="text"
                         value={caseDetails.court}
-                        onChange={(e) => setCaseDetails({...caseDetails, court: e.target.value})}
-                        className={`w-full bg-[#2A3241] border ${errorMap['court'] ? 'border-yellow-500' : 'border-white/15'} rounded-lg px-3 py-2 text-white focus:border-[#E6C673] outline-none text-sm placeholder-white/50`}
+                        onChange={(e) => setCaseDetails({ ...caseDetails, court: e.target.value })}
+                        className={ncFieldClass(Boolean(errorMap['court']))}
                         placeholder={labels.courtPlaceholder}
                     />
                     {errorMap['court'] && <p className="text-yellow-600/90 text-[10px] mt-1 font-medium">{errorMap['court']}</p>}
@@ -82,25 +121,25 @@ export const CaseBasicsForm = ({
 
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="text-[10px] text-white mb-1 block">نوع الدعوى</label>
+                        <label className={NC_LABEL}>نوع الدعوى</label>
                         <input
                             ref={typeRef}
                             type="text"
                             value={caseDetails.type}
-                            onChange={(e) => setCaseDetails({...caseDetails, type: e.target.value})}
-                            className={`w-full bg-[#2A3241] border ${errorMap['type'] ? 'border-yellow-500' : 'border-white/15'} rounded-lg px-3 py-2 text-white focus:border-[#E6C673] outline-none text-sm placeholder-white/50`}
+                            onChange={(e) => setCaseDetails({ ...caseDetails, type: e.target.value })}
+                            className={ncFieldClass(Boolean(errorMap['type']))}
                             placeholder={labels.typePlaceholder}
                         />
                         {errorMap['type'] && <p className="text-yellow-600/90 text-[10px] mt-1 font-medium">{errorMap['type']}</p>}
                     </div>
 
                     <div>
-                        <label className="text-[10px] text-white mb-1 block">المرحلة الحالية</label>
+                        <label className={NC_LABEL}>المرحلة الحالية</label>
                         <select
                             ref={stageRef}
                             value={caseDetails.stage}
-                            onChange={(e) => setCaseDetails({...caseDetails, stage: e.target.value})}
-                            className={`w-full bg-[#2A3241] border ${errorMap['stage'] ? 'border-yellow-500' : 'border-white/15'} rounded-lg px-3 py-2 text-white focus:border-[#E6C673] outline-none text-sm placeholder-white/50 appearance-none`}
+                            onChange={(e) => setCaseDetails({ ...caseDetails, stage: e.target.value })}
+                            className={`${ncFieldClass(Boolean(errorMap['stage']))} appearance-none`}
                         >
                             <option value="" disabled>اختر المرحلة...</option>
                             {stageOptions.map(opt => (
@@ -112,49 +151,86 @@ export const CaseBasicsForm = ({
                 </div>
                 <div className="grid grid-cols-2 gap-4 items-start">
                     <div>
-                        <label className="text-[10px] text-white mb-1 block">اسم السيد القاضي</label>
+                        <label className={NC_LABEL}>اسم السيد القاضي</label>
                         <input
                             type="text"
                             value={caseDetails.judge}
-                            onChange={(e) => setCaseDetails({...caseDetails, judge: e.target.value})}
-                            className="w-full bg-[#2A3241] border border-white/15 rounded-lg px-3 py-2 text-white focus:border-[#E6C673] outline-none text-sm placeholder-white/50"
+                            onChange={(e) => setCaseDetails({ ...caseDetails, judge: e.target.value })}
+                            className={ncFieldClass()}
                             placeholder="اختياري"
                         />
                     </div>
                     <div>
-                        <label className="text-[10px] text-[#E6C673] font-bold mb-1 block flex items-center gap-1"><Coins size={10} /> القيمة التقديرية للدعوى</label>
-                        <input
-                            type="text"
-                            value={caseDetails.claimValue}
-                            disabled={isUndeterminedValue || isFixedFee}
-                            onChange={(e) => setCaseDetails({...caseDetails, claimValue: e.target.value})}
-                            className={`w-full bg-[#2A3241] border ${errorMap['claimValue'] ? 'border-amber-500' : (exceptionWarning ? 'border-amber-500/50' : 'border-white/15')} rounded-lg px-3 py-2 text-white focus:border-[#E6C673] outline-none text-sm disabled:opacity-50`}
-                            placeholder={isUndeterminedValue || isFixedFee ? "----" : valuePlaceholder}
-                        />
-                        <div className="flex gap-3 mt-2">
-                            <label className="flex items-center gap-1.5 cursor-pointer">
+                        {isExtraordinary ? (
+                            <>
+                                <label className="text-[10px] text-[#E6C673] font-bold mb-1.5 block">
+                                    {getUnderlyingStageFieldLabel(caseDetails.stage)}
+                                </label>
+                                <select
+                                    ref={retrialTargetRef}
+                                    value={caseDetails.retrialTargetStage ?? ''}
+                                    onChange={(e) =>
+                                        setCaseDetails({ ...caseDetails, retrialTargetStage: e.target.value })
+                                    }
+                                    className={`${ncFieldClass(Boolean(errorMap['retrialTargetStage']))} appearance-none`}
+                                >
+                                    <option value="" disabled>اختر المرحلة...</option>
+                                    {underlyingStageOptions.map((opt) => (
+                                        <option key={opt} value={opt} className="bg-[#1A1E2E]">{opt}</option>
+                                    ))}
+                                </select>
+                                {errorMap['retrialTargetStage'] && (
+                                    <p className="text-yellow-600/90 text-[10px] mt-1 font-medium">
+                                        {errorMap['retrialTargetStage']}
+                                    </p>
+                                )}
+                            </>
+                        ) : (
+                            <>
+                                <label className="text-[10px] text-[#E6C673] font-bold mb-1 block flex items-center gap-1"><Coins size={10} /> القيمة التقديرية للدعوى</label>
                                 <input
-                                    type="checkbox"
-                                    checked={isUndeterminedValue}
-                                    onChange={(e) => { setIsUndeterminedValue(e.target.checked); if (e.target.checked) setIsFixedFee(false); }}
-                                    className="accent-[#E6C673] w-3 h-3"
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={caseDetails.claimValue}
+                                    disabled={valueLocked}
+                                    onChange={(e) => setCaseDetails({ ...caseDetails, claimValue: formatNumberInput(e.target.value) })}
+                                    className={`${ncFieldClass(Boolean(errorMap['claimValue']) || Boolean(exceptionWarning))} disabled:opacity-50 text-left`}
+                                    placeholder={valueLocked ? '----' : valuePlaceholder}
                                 />
-                                <span className="text-[9px] text-white/70">دعوى غير مقدرة القيمة</span>
-                            </label>
-                            <label className="flex items-center gap-1.5 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={isFixedFee}
-                                    onChange={(e) => { setIsFixedFee(e.target.checked); if (e.target.checked) setIsUndeterminedValue(false); }}
-                                    className="accent-[#E6C673] w-3 h-3"
-                                />
-                                <span className="text-[9px] text-white/70">دعوى خاضعة للرسم المقطوع</span>
-                            </label>
-                        </div>
-                        {exceptionWarning && (
-                            <div className="mt-1 text-[9px] text-amber-400 font-bold animate-pulse">
-                                {exceptionWarning}
-                            </div>
+                                <div className="mt-2 flex flex-col gap-1.5">
+                                    {VALUE_MODE_OPTIONS.map(({ id, label }) => {
+                                        const active = id === 'undetermined' ? isUndeterminedValue : isFixedFee;
+                                        return (
+                                            <button
+                                                key={id}
+                                                type="button"
+                                                role="checkbox"
+                                                aria-checked={active}
+                                                onClick={() => toggleValueMode(id)}
+                                                className={`flex items-center gap-2 w-full rounded-lg border px-2.5 py-1.5 text-[10px] font-medium text-right transition-all duration-200 ${
+                                                    active
+                                                        ? 'border-[#E6C673]/45 bg-[#E6C673]/10 text-[#E6C673] shadow-[0_0_12px_rgba(230,198,115,0.08)]'
+                                                        : 'border-white/[0.08] bg-white/[0.03] text-white/45 hover:border-white/15 hover:bg-white/[0.05] hover:text-white/65'
+                                                }`}
+                                            >
+                                                <span
+                                                    className={`shrink-0 w-3.5 h-3.5 rounded-md border flex items-center justify-center transition-colors ${
+                                                        active ? 'border-[#E6C673] bg-[#E6C673] text-[#0F172A]' : 'border-white/25 bg-transparent'
+                                                    }`}
+                                                >
+                                                    {active && <Check size={9} strokeWidth={3} />}
+                                                </span>
+                                                <span className="leading-tight">{label}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                {exceptionWarning && (
+                                    <div className="mt-1 text-[9px] text-amber-400 font-bold animate-pulse">
+                                        {exceptionWarning}
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
                 </div>

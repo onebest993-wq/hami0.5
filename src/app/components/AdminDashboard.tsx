@@ -5,6 +5,7 @@ import { PageWrapper, GlassCard, GoldButton } from './SharedComponents';
 import { cn } from '@/app/components/ui/utils';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useApp } from '@/app/context/AppContext';
+import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -345,8 +346,10 @@ const ReportsInbox = () => {
     const fetchReports = React.useCallback(async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/forum/reports');
-            const data = await res.json();
+            const data = await SecureAPIClient.fetchSecure<{ ok: boolean; reports: typeof reportsData }>(
+                '/api/forum/reports',
+                { method: 'GET' },
+            );
             if (data.ok) {
                 setReportsData(data.reports);
             }
@@ -364,7 +367,7 @@ const ReportsInbox = () => {
     const handleDismiss = async (reportId: string) => {
         setActionLoading(reportId);
         try {
-            await fetch('/api/forum/reports', {
+            await SecureAPIClient.fetchSecure('/api/forum/reports', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'dismiss', reportId }),
@@ -380,7 +383,7 @@ const ReportsInbox = () => {
     const handleDeletePost = async (postId: string, reportId: string) => {
         setActionLoading(reportId);
         try {
-            await fetch('/api/forum/reports', {
+            await SecureAPIClient.fetchSecure('/api/forum/reports', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'delete_post', postId, reportId }),
@@ -488,12 +491,10 @@ const ForumAdminPanel = () => {
     const fetchData = React.useCallback(async () => {
         setLoading(true);
         try {
-            const [statsRes, bansRes] = await Promise.all([
-                fetch('/api/forum/stats'),
-                fetch('/api/forum/ban'),
+            const [statsData, bansData] = await Promise.all([
+                SecureAPIClient.fetchSecure<{ ok: boolean; stats: typeof stats }>('/api/forum/stats', { method: 'GET' }),
+                SecureAPIClient.fetchSecure<{ ok: boolean; bannedUsers: typeof bannedUsers }>('/api/forum/ban', { method: 'GET' }),
             ]);
-            const statsData = await statsRes.json();
-            const bansData = await bansRes.json();
             if (statsData.ok) setStats(statsData.stats);
             if (bansData.ok) setBannedUsers(bansData.bannedUsers);
         } catch {
@@ -511,12 +512,11 @@ const ForumAdminPanel = () => {
             return;
         }
         try {
-            const res = await fetch('/api/forum/ban', {
+            const data = await SecureAPIClient.fetchSecure<{ ok: boolean; error?: string }>('/api/forum/ban', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'ban', userId: banUserId, userName: banUserName, reason: banReason }),
             });
-            const data = await res.json();
             if (data.ok) {
                 SmartToast.success('تم حظر المستخدم');
                 setBanUserId(''); setBanUserName(''); setBanReason('');
@@ -531,12 +531,11 @@ const ForumAdminPanel = () => {
 
     const handleUnban = async (userId: string) => {
         try {
-            const res = await fetch('/api/forum/ban', {
+            const data = await SecureAPIClient.fetchSecure<{ ok: boolean }>('/api/forum/ban', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'unban', userId }),
             });
-            const data = await res.json();
             if (data.ok) {
                 SmartToast.success('تم رفع الحظر');
                 await fetchData();

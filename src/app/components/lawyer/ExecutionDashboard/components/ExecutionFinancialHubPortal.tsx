@@ -98,6 +98,7 @@ export interface ExecutionFinancialHubPortalProps {
     setCaseTasksPending: React.Dispatch<React.SetStateAction<any[]>>;
     onClearSalarySeizurePath?: () => void;
     isRepresentingDebtor?: boolean;
+    activeDebtorIsDeceased?: boolean;
 }
 
 export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalProps> = ({
@@ -185,6 +186,7 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
     setCaseTasksPending,
     onClearSalarySeizurePath,
     isRepresentingDebtor = false,
+    activeDebtorIsDeceased = false,
 }) => {
     const closeFinancialHub = useCallback(() => {
         setFinancialHubAutoOpenMode(null);
@@ -214,6 +216,10 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
 
     const debtors = (executionData?.debtors as any[]) || [];
     const firstDebtor = debtors[0] || {};
+    const hubDebtorIsDeceased =
+        activeDebtorIsDeceased ||
+        Boolean(executionData?.is_debtor_deceased) ||
+        Boolean(firstDebtor?.isDeceased);
     const debtorJob = firstDebtor?.occupation || 'كاسب';
     const debtorEmploymentType = firstDebtor?.employmentType;
     const debtorKinship = firstDebtor?.kinship || '';
@@ -334,13 +340,53 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
                             past_wife_alimony={executionData?.pastWifeAlimony || 0}
                             past_children_alimony={executionData?.pastChildrenAlimony || 0}
                             alimonyCalculated={executionData?.alimony?.calculated ?? null}
+                            alimony_blob={
+                                executionData?.alimony &&
+                                typeof executionData.alimony === 'object'
+                                    ? (executionData.alimony as Record<string, unknown>)
+                                    : null
+                            }
+                            alimony_beneficiary_death={
+                                (executionData as { alimony_beneficiary_death?: unknown } | null | undefined)
+                                    ?.alimony_beneficiary_death ?? null
+                            }
                             pastAlimonyClaim={
                                 (executionData as { pastAlimonyClaim?: unknown } | null | undefined)
                                     ?.pastAlimonyClaim ?? null
                             }
-                            monthly_wife_alimony={executionData?.monthlyWifeAlimony || monthlyAlimony}
-                            monthly_children_alimony={executionData?.monthlyChildrenAlimony || 0}
-                            children_count={executionData?.childrenCount || 1}
+                            monthly_wife_alimony={
+                                executionData?.monthlyWifeAlimony ??
+                                executionData?.monthly_wife_alimony ??
+                                0
+                            }
+                            monthly_children_alimony={
+                                executionData?.monthlyChildrenAlimony ??
+                                executionData?.monthly_children_alimony ??
+                                0
+                            }
+                            monthlyAlimony={(() => {
+                                const death = (executionData as { alimony_beneficiary_death?: unknown })
+                                    ?.alimony_beneficiary_death;
+                                const hasDeathReport = Boolean(
+                                    (death as { wife_deceased?: boolean })?.wife_deceased ||
+                                        Number(
+                                            (death as { children_deceased_count?: number })
+                                                ?.children_deceased_count
+                                        ) > 0
+                                );
+                                const persisted = Number(executionData?.monthlyAlimony ?? 0) || 0;
+                                if (hasDeathReport && persisted > 0) return persisted;
+                                return (
+                                    persisted ||
+                                    Number(executionData?.alimony?.calculated?.monthlyOngoing ?? 0) ||
+                                    monthlyAlimony
+                                );
+                            })()}
+                            children_count={
+                                executionData?.childrenCount ??
+                                executionData?.children_count ??
+                                1
+                            }
                             totalOwed={totalOwed}
                             remaining={remaining}
                             feesTotal={parsedCourtFees + parsedDirectorateFees + parsedClientFees}
@@ -357,7 +403,6 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
                             totalWithExecutionFee={totalWithExecutionFee}
                             executionFee={calculatedExecutionFee}
                             shouldCalculateExecutionFee={shouldCalculateExecutionFee}
-                            monthlyAlimony={monthlyAlimony}
                             accumulatedAlimony={accumulatedAlimony}
                             courtFees={parsedCourtFees}
                             directorateFees={parsedDirectorateFees}
@@ -614,6 +659,7 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
                             onClearSalarySeizurePath={onClearSalarySeizurePath}
                             isRepresentingDebtor={isRepresentingDebtor}
                             debtorAgentSeizedItems={debtorAgentSeizedItems}
+                            activeDebtorIsDeceased={hubDebtorIsDeceased}
                         />
                     </Suspense>
                 </div>

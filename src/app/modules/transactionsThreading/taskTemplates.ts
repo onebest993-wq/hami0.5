@@ -1,4 +1,8 @@
-import { uuidv4 } from '@/app/services/lawyer-cloud';
+import { createThreadingId } from './ids';
+
+function newTemplateId(): string {
+    return createThreadingId('tpl');
+}
 
 export type TaskTemplateTask = {
   id: string;
@@ -56,14 +60,14 @@ export function saveTaskTemplate(
 ) {
   const now = new Date().toISOString();
   const tasks = (input as any).tasks.map((t: any) => ({
-    id: t.id ?? uuidv4(),
+    id: t.id ?? newTemplateId(),
     title: String(t.title ?? '').trim(),
     parentTaskId: t.parentTaskId ?? null,
     deadline: t.deadline ?? null,
   })) as TaskTemplateTask[];
 
   const next: TaskTemplate = {
-    id: uuidv4(),
+    id: newTemplateId(),
     name: input.name.trim() || 'قالب بدون اسم',
     createdAt: now,
     tasks,

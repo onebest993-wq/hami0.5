@@ -229,7 +229,7 @@ export class PushNotificationService {
    */
   static async notifyNewExecution(caseNo: string): Promise<void> {
     const settings = getLawyerSettingsSnapshot();
-    if (!canSendPushNotifications(settings) || !isNotificationChannelAllowed(settings, 'execution')) return;
+    if (!canSendPushNotifications(settings) || !isNotificationChannelAllowed('execution')) return;
     await this.showNotification(
       pushNotificationOptionsFromSettings(settings, {
         title: '📩 ملف تنفيذ جديد',
@@ -242,7 +242,7 @@ export class PushNotificationService {
 
   static async notifyNewLawsuit(caseNo: string): Promise<void> {
     const settings = getLawyerSettingsSnapshot();
-    if (!canSendPushNotifications(settings) || !isNotificationChannelAllowed(settings, 'lawsuits')) return;
+    if (!canSendPushNotifications(settings) || !isNotificationChannelAllowed('lawsuits')) return;
     await this.showNotification(
       pushNotificationOptionsFromSettings(settings, {
         title: '📩 ملف دعوى جديد',

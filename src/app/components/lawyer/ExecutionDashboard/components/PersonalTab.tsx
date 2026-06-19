@@ -42,6 +42,7 @@ export interface PersonalTabProps {
     onOpenGuarantorDetails: () => void;
     kasabTerminationEmphasis: boolean;
     activeDebtorIsEmployee: boolean;
+    custodyRemovalClaimActive?: boolean;
     hidePersonalJudgePresentation?: boolean;
     hidePersonalForcedBringActivation?: boolean;
     activeDebtorNoticeScope: Record<string, any>;
@@ -95,6 +96,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
     onOpenGuarantorDetails,
     kasabTerminationEmphasis,
     activeDebtorIsEmployee,
+    custodyRemovalClaimActive = false,
     hidePersonalJudgePresentation = false,
     hidePersonalForcedBringActivation = false,
     activeDebtorNoticeScope,
@@ -167,6 +169,15 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                         }
                     />
                 </Suspense>
+            ) : activeDebtorIsEmployee && !custodyRemovalClaimActive ? (
+                <div className="rounded-2xl border border-sky-500/30 bg-sky-950/20 p-4 text-right">
+                    <p className="text-sky-200 text-sm font-bold mb-2">المدين موظف</p>
+                    <p className="text-sky-100/85 text-xs leading-relaxed">
+                        مسارات التنفيذ الجبري الشخصي للكاسب (منع السفر، الإحضار الجبري، الحبس، وعرض
+                        الإضبارة) لا تنطبق على المدين الموظف في مطالبات الاستحصال المالي. استخدم تبويب
+                        «طلبات الحجز المالية» لحجز الراتب والإجراءات المرتبطة بالتكليف.
+                    </p>
+                </div>
             ) : (
                 <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
                     <LazyPersonalCoerciveFollowupPanel
@@ -208,7 +219,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                         onOpenSummonsCenter={onOpenSummonsCenter}
                         onOpenGuarantorDetails={onOpenGuarantorDetails}
                         kasabCoerciveEmphasis={kasabTerminationEmphasis}
-                        kasabRelaxedGates={!activeDebtorIsEmployee}
+                        kasabRelaxedGates={!activeDebtorIsEmployee || custodyRemovalClaimActive}
                         hideDossierJudgePresentation={hidePersonalJudgePresentation}
                         hideExecutorForcedBringActivation={hidePersonalForcedBringActivation}
                         activeDebtorIsEmployee={activeDebtorIsEmployee}

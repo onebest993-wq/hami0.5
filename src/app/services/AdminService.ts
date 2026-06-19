@@ -5,19 +5,15 @@ import type { SystemStats } from '../types/admin-types';
 export class AdminService {
   static async verifyAdmin(userId: string): Promise<boolean> {
     try {
-      const adminUuid = (process.env.ADMIN_UUID ?? '').trim();
-      if (adminUuid) {
-        return userId === adminUuid;
-      }
+      const { data } = await supabase.auth.getSession();
+      const sessionUserId = data.session?.user?.id ?? null;
+      if (!sessionUserId || sessionUserId !== userId) return false;
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', userId)
-        .single();
-
-      if (error || !data) return false;
-      return (data as { role?: string }).role === 'admin';
+      const res = await SecureAPIClient.fetchSecure<{ ok: boolean; isAdmin?: boolean }>(
+        '/api/admin/verify',
+        { method: 'GET' },
+      );
+      return Boolean(res?.isAdmin);
     } catch {
       return false;
     }
@@ -43,7 +39,6 @@ export class AdminService {
             updates: { is_banned: true },
           }),
         },
-        '127.0.0.1',
       );
 
       return true;

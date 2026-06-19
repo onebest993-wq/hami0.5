@@ -10,11 +10,7 @@
  */
 
 // Export from progressBars
-export { 
-    DebtorFinancialProgressBar, 
-    executionDebtorRowCleared,
-    type ProgressBarProps 
-} from './progressBars';
+export { executionDebtorRowCleared } from './progressBars';
 
 // Export from dateUtils
 export { 

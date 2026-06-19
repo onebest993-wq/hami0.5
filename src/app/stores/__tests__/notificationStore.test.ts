@@ -12,17 +12,19 @@ import { useNotificationStore } from '../notificationStore';
 import type { NotificationModel } from '@/app/infrastructure/NotificationRepository';
 
 const persistMock = vi.fn().mockResolvedValue(undefined);
-vi.mock('@/app/infrastructure/NotificationRepository', () => ({
-    NotificationRepository: {
-        fetchNotifications: vi.fn().mockResolvedValue([]),
-        markAsRead: vi.fn().mockResolvedValue(undefined),
-        markAllAsRead: vi.fn().mockResolvedValue(undefined),
-        replaceAllNotifications: vi.fn().mockResolvedValue([]),
-        addNotification: (...args: unknown[]) => persistMock(...args),
-    },
-    isActivityLogNotification: (n: { type?: string }) =>
-        String(n?.type ?? '').startsWith('audit_log_'),
-}));
+vi.mock('@/app/infrastructure/NotificationRepository', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/app/infrastructure/NotificationRepository')>();
+    return {
+        ...actual,
+        NotificationRepository: {
+            fetchNotifications: vi.fn().mockResolvedValue([]),
+            markAsRead: vi.fn().mockResolvedValue(undefined),
+            markAllAsRead: vi.fn().mockResolvedValue(undefined),
+            replaceAllNotifications: vi.fn().mockResolvedValue([]),
+            addNotification: (...args: unknown[]) => persistMock(...args),
+        },
+    };
+});
 
 function makeNotif(id: string, isRead = false): NotificationModel {
     return {
@@ -105,5 +107,15 @@ describe('notificationStore', () => {
         const state = useNotificationStore.getState();
         expect(state.notifications.length).toBe(1);
         expect(state.unreadCount).toBe(1);
+    });
+
+    it('n8) addNotification يرفض الإجراءات الذاتية (outgoing)', () => {
+        useNotificationStore.getState().addNotification({
+            ...makeNotif('self'),
+            title: 'حذفت سؤالاً',
+            type: 'forum_reply',
+            direction: 'outgoing',
+        });
+        expect(useNotificationStore.getState().notifications).toHaveLength(0);
     });
 });

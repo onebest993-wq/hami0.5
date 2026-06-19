@@ -1,4 +1,4 @@
-export type NoteType = 'text' | 'voice' | 'image' | 'schedule';
+type NoteType = 'text' | 'voice' | 'schedule';
 
 export interface CommandCenterNote {
     id: number;

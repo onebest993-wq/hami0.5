@@ -5,9 +5,11 @@ import {
     isActivityLogNotification,
 } from '../infrastructure/NotificationRepository';
 import { sanitizeNotificationDisplayMessage, isNavigationNoiseNotification } from '@/app/services/notificationMessageFormat';
+import { isIncomingNotification } from '@/app/services/notificationIncomingFilter';
 
 function normalizeNotification(notification: NotificationModel): NotificationModel | null {
     if (isActivityLogNotification(notification)) return null;
+    if (!isIncomingNotification(notification)) return null;
     if (isNavigationNoiseNotification(notification)) return null;
     const message = sanitizeNotificationDisplayMessage(notification);
     if (!message.trim()) return null;
@@ -15,9 +17,9 @@ function normalizeNotification(notification: NotificationModel): NotificationMod
     return { ...notification, message };
 }
 
-function stripActivityNotifications(list: NotificationModel[]): NotificationModel[] {
+function stripInvalidNotifications(list: NotificationModel[]): NotificationModel[] {
     return list
-        .filter((n) => !isActivityLogNotification(n) && !isNavigationNoiseNotification(n))
+        .filter((n) => !isActivityLogNotification(n) && isIncomingNotification(n) && !isNavigationNoiseNotification(n))
         .map((n) => normalizeNotification(n))
         .filter((n): n is NotificationModel => n != null);
 }
@@ -49,7 +51,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     fetchNotifications: async (userId: string) => {
         set({ isLoading: true, currentUserId: userId });
         const raw = await NotificationRepository.fetchNotifications(userId);
-        const list = stripActivityNotifications(raw);
+        const list = stripInvalidNotifications(raw);
 
         if (list.length !== raw.length) {
             void NotificationRepository.replaceAllNotifications(userId, list);
@@ -64,7 +66,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
                 if (normalized) byId.set(n.id, normalized);
             }
         }
-        const merged = stripActivityNotifications(Array.from(byId.values())).sort((a, b) => {
+        const merged = stripInvalidNotifications(Array.from(byId.values())).sort((a, b) => {
             const ta = new Date(a.createdAt).getTime();
             const tb = new Date(b.createdAt).getTime();
             return tb - ta;
@@ -100,6 +102,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
     addNotification: (notification: NotificationModel) => {
         if (isActivityLogNotification(notification)) return;
+        if (!isIncomingNotification(notification)) return;
         const normalized = normalizeNotification(notification);
         if (!normalized) return;
         const { notifications, currentUserId } = get();

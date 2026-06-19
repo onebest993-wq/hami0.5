@@ -55,8 +55,6 @@ describe('lawsuit appointment → calendar', () => {
                 setShowJudgeRecusalModal: vi.fn(),
                 setShowTransferJurisdictionModal: vi.fn(),
                 setShowCaseConsolidationModal: vi.fn(),
-                setShowAttorneyResignationModal: vi.fn(),
-                setShowExecutionTransferModal: vi.fn(),
                 setShowMaterialErrorModal: vi.fn(),
                 setShowPauseModal: vi.fn(),
                 setShowInterruptionModal: vi.fn(),

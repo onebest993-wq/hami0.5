@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { X, Shield, AlertCircle, Lock } from 'lucide-react';
+import { X, Lock } from 'lucide-react';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 
 interface AttachmentShieldModalProps {
@@ -22,8 +21,21 @@ interface AttachmentData {
     notes: string;
 }
 
-export const AttachmentShieldModal = ({ isOpen, onClose, onSave, editMode = false, editData }: AttachmentShieldModalProps) => {
-    // Form State
+const fieldClass =
+    'w-full bg-white/[0.04] backdrop-blur-sm border border-white/[0.08] rounded-xl p-3 text-sm text-white outline-none focus:border-[#E6C673]/30 focus:bg-white/[0.06] transition-all [color-scheme:dark]';
+
+const selectClass =
+    'w-full bg-[#0A0F1C] border border-white/[0.08] rounded-xl p-3 text-sm text-white outline-none focus:border-[#E6C673]/30 focus:bg-[#0F121E] transition-all cursor-pointer appearance-none [color-scheme:dark]';
+
+const optionClass = 'bg-[#0A0F1C] text-white';
+
+export const AttachmentShieldModal = ({
+    isOpen,
+    onClose,
+    onSave,
+    editMode = false,
+    editData,
+}: AttachmentShieldModalProps) => {
     const [type, setType] = useState('عقار');
     const [target, setTarget] = useState('');
     const [location, setLocation] = useState('');
@@ -31,8 +43,7 @@ export const AttachmentShieldModal = ({ isOpen, onClose, onSave, editMode = fals
     const [registrationDate, setRegistrationDate] = useState(getLocalTodayYmd());
     const [status, setStatus] = useState('مُقدم - بانتظار القرار (24 ساعة)');
     const [notes, setNotes] = useState('');
-    
-    // Pre-fill in edit mode
+
     useEffect(() => {
         if (editMode && editData) {
             setType(editData.type || 'عقار');
@@ -43,7 +54,6 @@ export const AttachmentShieldModal = ({ isOpen, onClose, onSave, editMode = fals
             setStatus(editData.status || 'مُقدم - بانتظار القرار (24 ساعة)');
             setNotes(editData.notes || '');
         } else {
-            // Reset on create
             setType('عقار');
             setTarget('');
             setLocation('');
@@ -66,7 +76,7 @@ export const AttachmentShieldModal = ({ isOpen, onClose, onSave, editMode = fals
             status,
             notes,
             isActive: status === 'صدر قرار بالحجز ✅',
-            ...(editMode && editData ? { id: editData.id } : {})
+            ...(editMode && editData ? { id: editData.id } : {}),
         };
 
         onSave(attachmentData);
@@ -76,143 +86,125 @@ export const AttachmentShieldModal = ({ isOpen, onClose, onSave, editMode = fals
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-['Tajawal']" dir="rtl">
-            <div className="bg-[#1A1E2E] border border-red-500/40 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl shadow-red-900/40 animate-in zoom-in-95 duration-200">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-red-600 to-rose-700 p-4 text-white flex justify-between items-center shadow-lg">
-                    <h3 className="font-bold flex items-center gap-2 text-sm">
-                        <Lock size={20} className="text-white" />
-                        درع الحجز الاحتياطي (المواد 231-250)
+        <div
+            className="fixed inset-0 z-[160] flex items-center justify-center bg-[#05060D]/65 backdrop-blur-[3px] p-4 font-['Tajawal']"
+            dir="rtl"
+            onClick={onClose}
+        >
+            <div
+                className="w-full max-w-lg overflow-hidden rounded-2xl border border-white/[0.1] bg-[#0A0F1C]/80 backdrop-blur-2xl shadow-[0_24px_80px_rgba(0,0,0,0.65)] animate-in zoom-in-95 fade-in duration-200"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="relative px-4 py-4 border-b border-white/[0.08] bg-gradient-to-l from-[#E6C673]/10 via-transparent to-transparent flex justify-between items-center">
+                    <h3 className="font-bold flex items-center gap-2 text-[14px] text-white/95 pr-1">
+                        <Lock size={17} className="text-[#E6C673] shrink-0" strokeWidth={1.75} />
+                        درع الحجز الاحتياطي
                     </h3>
-                    <button type="button" onClick={onClose} className="hover:bg-black/10 rounded-full p-1 transition-colors">
-                        <X size={18} />
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="p-1.5 rounded-lg bg-white/[0.06] border border-white/[0.08] text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                        aria-label="إغلاق"
+                    >
+                        <X size={16} />
                     </button>
                 </div>
 
-                <div className="p-5 space-y-4 max-h-[80vh] overflow-y-auto scrollbar-hide">
-                    {/* Critical Legal Warning */}
-                    <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-200 text-[11px] font-bold flex items-start gap-2">
-                        <AlertCircle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
-                        <div>
-                            <div className="mb-1">⚠️ نظام الحجز الاحتياطي - مواعيد حرجة</div>
-                            <div className="text-[10px] font-normal text-red-300/80 leading-relaxed">
-                                • المحكمة تقرر خلال 24 ساعة (اليوم التالي) - المادة 233<br />
-                                • إذا رُفع قبل الدعوى: يجب إقامة الدعوى خلال 8 أيام - المادة 237<br />
-                                • يبطل الحجز بعد 3 أشهر إن لم يتم التبليغ - المادة 237<br />
-                                • التظلم: 3 أيام فقط من التبليغ - المادة 240
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Type Field */}
+                <div className="p-5 space-y-4 max-h-[80vh] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
                     <div>
-                        <label className="block text-xs font-bold text-white/60 mb-1.5">
-                            نوع المال المحجوز <span className="text-red-500">*</span>
+                        <label className="block text-[11px] font-bold text-white/50 mb-1.5">
+                            نوع المال المحجوز <span className="text-red-400">*</span>
                         </label>
-                        <select
-                            value={type}
-                            onChange={(e) => setType(e.target.value)}
-                            className="w-full bg-[#0F172A] border border-white/10 rounded-lg p-3 text-sm text-white outline-none focus:border-red-500 transition-colors"
-                        >
-                            <option value="عقار">عقار</option>
-                            <option value="حساب بنكي">حساب بنكي</option>
-                            <option value="سيارة">سيارة</option>
-                            <option value="آلة صناعية">آلة صناعية</option>
-                            <option value="أثاث">أثاث</option>
-                            <option value="مواد أخرى">مواد أخرى</option>
+                        <select value={type} onChange={(e) => setType(e.target.value)} className={selectClass}>
+                            <option value="عقار" className={optionClass}>عقار</option>
+                            <option value="حساب بنكي" className={optionClass}>حساب بنكي</option>
+                            <option value="سيارة" className={optionClass}>سيارة</option>
+                            <option value="آلة صناعية" className={optionClass}>آلة صناعية</option>
+                            <option value="أثاث" className={optionClass}>أثاث</option>
+                            <option value="مواد أخرى" className={optionClass}>مواد أخرى</option>
                         </select>
                     </div>
 
-                    {/* Target Field */}
                     <div>
-                        <label className="block text-xs font-bold text-white/60 mb-1.5">
-                            المال المحجوز (وصف دقيق) <span className="text-red-500">*</span>
+                        <label className="block text-[11px] font-bold text-white/50 mb-1.5">
+                            المال المحجوز (وصف دقيق) <span className="text-red-400">*</span>
                         </label>
                         <textarea
                             value={target}
                             onChange={(e) => setTarget(e.target.value)}
                             placeholder="مثال: عقار رقم 123/456 في منطقة الكرادة، أو حساب بنكي رقم..."
-                            className="w-full bg-[#0F172A] border border-white/10 rounded-lg p-3 text-sm text-white outline-none focus:border-red-500 min-h-[70px] transition-colors"
+                            className={`${fieldClass} min-h-[70px] resize-none`}
                         />
                     </div>
 
-                    {/* Location Field */}
                     <div>
-                        <label className="block text-xs font-bold text-white/60 mb-1.5">
-                            موقع المال المحجوز
-                        </label>
+                        <label className="block text-[11px] font-bold text-white/50 mb-1.5">موقع المال المحجوز</label>
                         <input
                             type="text"
                             value={location}
                             onChange={(e) => setLocation(e.target.value)}
                             placeholder="مثال: منطقة الكرادة، أو مدينة بغداد"
-                            className="w-full bg-[#0F172A] border border-white/10 rounded-lg p-3 text-sm text-white outline-none focus:border-red-500 transition-colors"
+                            className={fieldClass}
                         />
                     </div>
 
-                    {/* Estimated Value */}
                     <div>
-                        <label className="block text-xs font-bold text-white/60 mb-1.5">
-                            القيمة التقديرية للحجز (IQD) <span className="text-red-500">*</span>
+                        <label className="block text-[11px] font-bold text-white/50 mb-1.5">
+                            القيمة التقديرية للحجز (IQD) <span className="text-red-400">*</span>
                         </label>
                         <input
                             type="number"
                             value={estimatedValue}
                             onChange={(e) => setEstimatedValue(e.target.value)}
                             placeholder="0"
-                            className="w-full bg-[#0F172A] border border-white/10 rounded-lg p-3 text-sm text-white outline-none focus:border-red-500 transition-colors"
+                            className={fieldClass}
                         />
                     </div>
 
-                    {/* Registration Date */}
                     <div>
-                        <label className="block text-xs font-bold text-white/60 mb-1.5">
-                            تاريخ تقديم الطلب <span className="text-red-500">*</span>
+                        <label className="block text-[11px] font-bold text-white/50 mb-1.5">
+                            تاريخ تقديم الطلب <span className="text-red-400">*</span>
                         </label>
                         <input
                             type="date"
                             value={registrationDate}
                             onChange={(e) => setRegistrationDate(e.target.value)}
-                            className="w-full bg-[#0F172A] border border-white/10 rounded-lg p-3 text-sm text-white outline-none focus:border-red-500 [color-scheme:dark] transition-colors"
+                            className={fieldClass}
                         />
                     </div>
 
-                    {/* Status Dropdown */}
                     <div>
-                        <label className="block text-xs font-bold text-white/60 mb-1.5">
-                            حالة الطلب <span className="text-red-500">*</span>
+                        <label className="block text-[11px] font-bold text-white/50 mb-1.5">
+                            حالة الطلب <span className="text-red-400">*</span>
                         </label>
                         <select
                             value={status}
                             onChange={(e) => setStatus(e.target.value)}
-                            className="w-full bg-[#0F172A] border border-white/10 rounded-lg p-3 text-sm text-white outline-none focus:border-red-500 font-bold transition-colors"
+                            className={`${selectClass} font-semibold`}
                         >
-                            <option value="مُقدم - بانتظار القرار (24 ساعة)">مُقدم - بانتظار القرار (24 ساعة)</option>
-                            <option value="صدر قرار بالحجز ✅">صدر قرار بالحجز ✅</option>
-                            <option value="رُفض الطلب ❌">رُفض الطلب ❌</option>
+                            <option value="مُقدم - بانتظار القرار (24 ساعة)" className={optionClass}>مُقدم - بانتظار القرار (24 ساعة)</option>
+                            <option value="صدر قرار بالحجز ✅" className={optionClass}>صدر قرار بالحجز ✅</option>
+                            <option value="رُفض الطلب ❌" className={optionClass}>رُفض الطلب ❌</option>
                         </select>
                     </div>
 
-                    {/* Notes Field */}
                     <div>
-                        <label className="block text-xs font-bold text-white/60 mb-1.5">
-                            ملاحظات إضافية
-                        </label>
+                        <label className="block text-[11px] font-bold text-white/50 mb-1.5">ملاحظات إضافية</label>
                         <textarea
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                             placeholder="ملاحظات إضافية حول الحجز..."
-                            className="w-full bg-[#0F172A] border border-white/10 rounded-lg p-3 text-sm text-white outline-none focus:border-red-500 min-h-[70px] transition-colors"
+                            className={`${fieldClass} min-h-[70px] resize-none`}
                         />
                     </div>
 
-                    {/* Submit Button */}
-                    <button type="button"
+                    <button
+                        type="button"
                         onClick={handleSubmit}
                         disabled={!target || !estimatedValue}
-                        className="w-full bg-gradient-to-r from-red-600 to-rose-700 text-white py-3.5 rounded-lg font-bold text-sm hover:from-red-500 hover:to-rose-600 transition-all shadow-lg shadow-red-900/30 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+                        className="w-full py-3.5 rounded-xl font-bold text-sm transition-all active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed flex justify-center items-center gap-2 bg-[#E6C673]/15 border border-[#E6C673]/30 text-[#E6C673] hover:bg-[#E6C673]/25 hover:border-[#E6C673]/45"
                     >
-                        <Lock size={16} />
+                        <Lock size={16} strokeWidth={1.75} />
                         {editMode ? 'تحديث بيانات الحجز' : 'حفظ طلب الحجز الاحتياطي'}
                     </button>
                 </div>

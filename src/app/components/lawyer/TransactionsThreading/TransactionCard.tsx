@@ -1,63 +1,75 @@
-import { Building2 } from 'lucide-react';
-import type { Transaction } from '@/app/modules/transactionsThreading';
-import { TransactionStatus } from '@/app/modules/transactionsThreading';
+import { Building2, ChevronLeft } from 'lucide-react';
+import type { Transaction } from '@/app/modules/transactionsThreading/types';
+import { TransactionStatus } from '@/app/modules/transactionsThreading/types';
 import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
 import { buildThreadingWorkspacePin } from '@/app/workspace/workspacePinBuilders';
+import {
+    TX_STATUS_ACTIVE,
+    TX_STATUS_COMPLETED,
+    TX_STATUS_PAUSED,
+    TX_TEXT_MUTED,
+    TX_TEXT_PRIMARY,
+    TX_TEXT_SECONDARY,
+    TxGlassPanel,
+} from './transactionsGlassTheme';
 
 function statusLabelAr(status: TransactionStatus) {
-  if (status === TransactionStatus.Active) return 'نشطة';
-  if (status === TransactionStatus.Paused) return 'في الانتظار';
-  return 'مكتملة';
+    if (status === TransactionStatus.Active) return 'نشطة';
+    if (status === TransactionStatus.Paused) return 'في الانتظار';
+    return 'مكتملة';
 }
 
 function statusBadgeClass(status: TransactionStatus) {
-  if (status === TransactionStatus.Active) return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/20';
-  if (status === TransactionStatus.Paused) return 'bg-amber-500/15 text-amber-300 border-amber-500/20';
-  return 'bg-slate-500/15 text-slate-300 border-slate-500/20';
+    if (status === TransactionStatus.Active) return TX_STATUS_ACTIVE;
+    if (status === TransactionStatus.Paused) return TX_STATUS_PAUSED;
+    return TX_STATUS_COMPLETED;
 }
 
 export function TransactionCard({
-  transaction,
-  onPress,
+    transaction,
+    onPress,
 }: {
-  transaction: Transaction;
-  onPress: (tx: Transaction) => void;
+    transaction: Transaction;
+    onPress: (tx: Transaction) => void;
 }) {
-  const clusterPin = buildThreadingWorkspacePin(transaction);
+    const clusterPin = buildThreadingWorkspacePin(transaction);
 
-  return (
-    <div
-      dir="rtl"
-      className="w-full text-right rounded-2xl bg-white/5 border border-white/10 hover:bg-white/7 hover:border-white/15 transition px-4 py-4 shadow-[0_10px_30px_rgba(0,0,0,0.25)]"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <button
-          type="button"
-          onClick={() => onPress(transaction)}
-          className="min-w-0 flex-1 text-right"
-        >
-          <div className="text-white font-bold text-base truncate">{transaction.title}</div>
-          <div className="text-gray-400 text-sm mt-1 truncate">{transaction.clientName}</div>
-        </button>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {clusterPin ? (
-            <WorkspacePinButton item={clusterPin} className="!w-8 !h-8" size={14} />
-          ) : null}
-          <div className={`px-3 py-1 rounded-full border text-xs font-bold ${statusBadgeClass(transaction.status)}`}>
-            {statusLabelAr(transaction.status)}
-          </div>
-        </div>
-      </div>
+    return (
+        <TxGlassPanel hover className="w-full text-right">
+            <button
+                type="button"
+                onClick={() => onPress(transaction)}
+                className="w-full text-right px-4 py-4"
+            >
+                <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                        <div className={`${TX_TEXT_PRIMARY} font-extrabold text-[15px] truncate leading-snug`}>
+                            {transaction.title}
+                        </div>
+                        <div className={`${TX_TEXT_MUTED} text-[12px] mt-1 truncate font-medium`}>
+                            {transaction.clientName}
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                        {clusterPin ? (
+                            <WorkspacePinButton item={clusterPin} className="!w-8 !h-8" size={14} />
+                        ) : null}
+                        <span
+                            className={`px-2.5 py-0.5 rounded-[3px] border text-[10px] font-bold ${statusBadgeClass(transaction.status)}`}
+                        >
+                            {statusLabelAr(transaction.status)}
+                        </span>
+                    </div>
+                </div>
 
-      <button
-        type="button"
-        onClick={() => onPress(transaction)}
-        className="mt-3 flex items-center gap-2 text-gray-300 w-full text-right"
-      >
-        <Building2 className="w-4 h-4 text-[#D4AF37]" />
-        <span className="text-sm truncate">{transaction.targetDepartment}</span>
-      </button>
-    </div>
-  );
+                <div className="mt-3 flex items-center justify-between gap-2 pt-3 border-t border-[#2A4550]/60">
+                    <div className={`flex items-center gap-2 min-w-0 ${TX_TEXT_SECONDARY}`}>
+                        <Building2 className="w-3.5 h-3.5 text-[#B4B0AA] shrink-0" />
+                        <span className="text-[11px] truncate font-medium">{transaction.targetDepartment}</span>
+                    </div>
+                    <ChevronLeft size={14} className="text-[#8A8680]/50 shrink-0" />
+                </div>
+            </button>
+        </TxGlassPanel>
+    );
 }
-

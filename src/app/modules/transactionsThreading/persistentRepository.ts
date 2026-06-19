@@ -1,6 +1,10 @@
-import { TransactionsThreadingDB } from '@/app/services/lawyer-cloud';
 import type { FinanceRecord, Transaction, TransactionDocument, TransactionTask } from './types';
 import { InMemoryTransactionsThreadingRepository, type TransactionsThreadingRepository } from './repository';
+
+async function loadThreadingDb() {
+    const { TransactionsThreadingDB } = await import('@/app/services/lawyer-cloud');
+    return TransactionsThreadingDB;
+}
 
 export class PersistentTransactionsThreadingRepository implements TransactionsThreadingRepository {
   private inner: InMemoryTransactionsThreadingRepository;
@@ -21,6 +25,7 @@ export class PersistentTransactionsThreadingRepository implements TransactionsTh
   private async ensureLoaded() {
     if (this.loadPromise) return this.loadPromise;
     this.loadPromise = (async () => {
+      const TransactionsThreadingDB = await loadThreadingDb();
       const state = await TransactionsThreadingDB.getState(this.userId);
       if (!state) return;
       this.inner.replace({
@@ -35,6 +40,7 @@ export class PersistentTransactionsThreadingRepository implements TransactionsTh
 
   private async persist() {
     const dump = this.inner.dump();
+    const TransactionsThreadingDB = await loadThreadingDb();
     await TransactionsThreadingDB.saveState(this.userId, dump);
   }
 

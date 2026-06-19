@@ -15,6 +15,48 @@ function parseMoneyLike(v: unknown): number {
     return 0;
 }
 
+/** مجموع الدين الأصلي دون مضاعفة الحصص */
+function resolvePrincipalFromAllocatedRows(
+    rows: Array<Record<string, unknown>>,
+    partyMultiplicity?: Record<string, unknown>,
+): number {
+    if (rows.length === 0) return 0;
+    const hasSolidary = rows.some((r) => Boolean(r.isSolidaryLiability));
+    const hasIndependent = rows.some((r) => !r.isSolidaryLiability);
+    const independentRemainder = parseMoneyLike(partyMultiplicity?.independentRemainderDebt);
+    const legacySolidaryRemainder = parseMoneyLike(partyMultiplicity?.solidaryRemainderDebt);
+
+    if (hasSolidary && hasIndependent) {
+        const solidarySum = rows
+            .filter((r) => Boolean(r.isSolidaryLiability))
+            .reduce((t, row) => t + Math.max(0, parseMoneyLike(row?.allocated_debt)), 0);
+        if (independentRemainder > 0) return solidarySum + independentRemainder;
+        const independentSum = rows
+            .filter((r) => !r.isSolidaryLiability)
+            .reduce((t, row) => t + Math.max(0, parseMoneyLike(row?.allocated_debt)), 0);
+        return solidarySum + independentSum;
+    }
+
+    if (hasSolidary && !hasIndependent) {
+        return rows.reduce(
+            (t, row) => t + Math.max(0, parseMoneyLike(row?.allocated_debt)),
+            0,
+        );
+    }
+
+    if (!hasSolidary && legacySolidaryRemainder > 0) {
+        const independentSum = rows
+            .filter((r) => !r.isSolidaryLiability)
+            .reduce((t, row) => t + Math.max(0, parseMoneyLike(row?.allocated_debt)), 0);
+        return independentSum + legacySolidaryRemainder;
+    }
+
+    return rows.reduce(
+        (t, row) => t + Math.max(0, parseMoneyLike(row?.allocated_debt)),
+        0,
+    );
+}
+
 export function useFinancialComputed(
     executionData: unknown,
     totalAmount: number,
@@ -30,14 +72,14 @@ export function useFinancialComputed(
         const allocatedSum = (() => {
             const d = executionData as Record<string, unknown>;
             const primary = Array.isArray(d?.debtors) ? (d.debtors as Array<Record<string, unknown>>) : [];
-            const additional = Array.isArray((d?.party_multiplicity as Record<string, unknown>)?.additionalDebtors)
-                ? ((d?.party_multiplicity as Record<string, unknown>).additionalDebtors as Array<Record<string, unknown>>)
+            const pm = d?.party_multiplicity as Record<string, unknown> | undefined;
+            const additional = Array.isArray(pm?.additionalDebtors)
+                ? (pm.additionalDebtors as Array<Record<string, unknown>>)
                 : [];
-            const sum = [...primary, ...additional].reduce((t: number, row: Record<string, unknown>) => {
-                const n = parseMoneyLike(row?.allocated_debt);
-                return t + (Number.isFinite(n) ? Math.max(0, n) : 0);
-            }, 0);
-            return Number.isFinite(sum) ? Math.max(0, sum) : 0;
+            return resolvePrincipalFromAllocatedRows(
+                [...primary, ...additional],
+                pm,
+            );
         })();
         const candidates: unknown[] = [
             (executionData as Record<string, unknown>)?.totalAmount,
@@ -55,7 +97,23 @@ export function useFinancialComputed(
         return 0;
     }, [executionData, totalAmount, debtAmount]);
 
-    const parsedLawyerFees = Math.max(parseMoneyLike(lawyerFeesAmount), parseMoneyLike(executionFee));
+    const parsedLawyerFees = useMemo(() => {
+        const d = executionData as Record<string, unknown>;
+        const primary = Array.isArray(d?.debtors) ? (d.debtors as Array<Record<string, unknown>>) : [];
+        const pm = d?.party_multiplicity as Record<string, unknown> | undefined;
+        const additional = Array.isArray(pm?.additionalDebtors)
+            ? (pm.additionalDebtors as Array<Record<string, unknown>>)
+            : [];
+        const perDebtorLawyerSum = [...primary, ...additional].reduce(
+            (t, row) => t + parseMoneyLike(row?.lawyerFeesClaimAmount),
+            0,
+        );
+        return Math.max(
+            parseMoneyLike(lawyerFeesAmount),
+            parseMoneyLike(executionFee),
+            perDebtorLawyerSum,
+        );
+    }, [executionData, lawyerFeesAmount, executionFee]);
     const parsedExecutionFee = parsedLawyerFees;
 
     const parsedClientFees = parseMoneyLike(clientFeesAmount);

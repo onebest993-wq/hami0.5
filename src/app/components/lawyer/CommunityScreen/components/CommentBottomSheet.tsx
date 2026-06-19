@@ -7,6 +7,23 @@ import {
 } from 'lucide-react';
 import type { CommunityPost, CommunityComment } from '@/app/services/lawyer-cloud';
 import { formatRelativeTime } from '../utils';
+import {
+    FORUM_ACCENT_CHIP,
+    FORUM_COMMENT_BEST,
+    FORUM_COMMENT_CARD,
+    FORUM_GHOST_BTN,
+    FORUM_ICON_BTN,
+    FORUM_INTERACT_BTN,
+    FORUM_PANEL,
+    FORUM_PUBLISH_BTN,
+    FORUM_PUBLISH_BTN_DISABLED,
+    FORUM_PUBLISH_BTN_SM,
+    FORUM_SHEET,
+    FORUM_SURFACE_INPUT,
+    FORUM_TEXT_APRICOT,
+    FORUM_TEXT_MUTED,
+    FORUM_TEXT_PRIMARY,
+} from '../forumPlumTheme';
 
 /** الحد الأقصى لطول نص التعليق — يجب أن يطابق حدّ السيرفر */
 const COMMENT_MAX_LENGTH = 5_000;
@@ -126,7 +143,7 @@ export const CommentBottomSheet = ({
 
     if (isEditing) {
       return (
-        <div key={c.id} className={`${indentClass} ${threadClass} rounded-2xl p-4 border border-[#E6C673]/40 bg-[#151822]`}>
+        <div key={c.id} className={`${indentClass} ${threadClass} ${FORUM_COMMENT_CARD} border-[#F0B896]/30`}>
           <div className="flex items-center gap-2 mb-2">
             <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-white/50">
               <User size={14} />
@@ -138,7 +155,7 @@ export const CommentBottomSheet = ({
                 className={`text-[10px] flex items-center gap-0.5 px-1.5 py-0.5 rounded-full transition-colors ${
                   followingIds.has(c.authorId)
                     ? 'text-emerald-400 bg-emerald-950/30 border border-emerald-500/20 hover:bg-emerald-950/50'
-                    : 'text-[#E6C673]/70 bg-[#E6C673]/10 border border-[#E6C673]/20 hover:bg-[#E6C673]/20'
+                    : `${FORUM_ACCENT_CHIP} text-xs`
                 }`}
                 title={followingIds.has(c.authorId) ? 'إلغاء المتابعة' : 'متابعة'}
               >
@@ -152,7 +169,7 @@ export const CommentBottomSheet = ({
           <textarea
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
-            className="w-full bg-[#1A1E2E] text-white/80 text-sm rounded-xl p-3 border border-white/10 outline-none resize-none"
+            className={`w-full text-sm rounded-xl p-3 outline-none resize-none ${FORUM_SURFACE_INPUT}`}
             rows={3}
           />
           <div className="flex gap-2 mt-3">
@@ -165,13 +182,13 @@ export const CommentBottomSheet = ({
                 setEditContent('');
               }}
               disabled={!editContent.trim()}
-              className="text-[11px] px-3 py-1.5 rounded-full bg-[#E6C673] text-black font-bold hover:bg-[#FCEEA7] transition disabled:opacity-50"
+              className={FORUM_PUBLISH_BTN_SM}
             >
               حفظ
             </button>
             <button type="button"
               onClick={() => { setEditingCommentId(null); setEditContent(''); }}
-              className="text-[11px] px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-white/60 hover:text-white transition"
+              className={`text-[11px] px-3 py-1.5 rounded-full ${FORUM_GHOST_BTN}`}
             >
               إلغاء
             </button>
@@ -184,7 +201,7 @@ export const CommentBottomSheet = ({
       <div
         key={c.id}
         className={`${indentClass} ${threadClass} group/comment rounded-2xl p-4 border transition-colors ${
-          isBest ? 'bg-[#151822] border-[#E6C673]/40 shadow-[0_0_20px_rgba(230,198,115,0.08)]' : 'bg-white/5 border-white/10'
+          isBest ? FORUM_COMMENT_BEST : `${FORUM_COMMENT_CARD}`
         }`}
       >
         <div className="flex items-center gap-2 mb-2">
@@ -198,7 +215,7 @@ export const CommentBottomSheet = ({
                 className={`text-[10px] flex items-center gap-0.5 px-1.5 py-0.5 rounded-full transition-colors ${
                   followingIds.has(c.authorId)
                     ? 'text-emerald-400 bg-emerald-950/30 border border-emerald-500/20 hover:bg-emerald-950/50'
-                    : 'text-[#E6C673]/70 bg-[#E6C673]/10 border border-[#E6C673]/20 hover:bg-[#E6C673]/20'
+                    : `${FORUM_ACCENT_CHIP} text-xs`
                 }`}
                 title={followingIds.has(c.authorId) ? 'إلغاء المتابعة' : 'متابعة'}
               >
@@ -210,7 +227,7 @@ export const CommentBottomSheet = ({
             <span className="text-white/30 text-xs">{formatRelativeTime(c.createdAt)}</span>
           <div className="flex-1" />
           {isBest && (
-            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-full bg-[#E6C673]/10 text-[#E6C673] border border-[#E6C673]/30">
+            <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-full ${FORUM_ACCENT_CHIP}`}>
               <BadgeCheck size={12} />
               أفضل إجابة
             </span>
@@ -219,7 +236,7 @@ export const CommentBottomSheet = ({
             <button type="button"
               onClick={() => onToggleBestAnswer(post.id, c.id)}
               className={`text-[10px] px-2 py-1 rounded-full border ${
-                isBest ? 'bg-[#E6C673]/15 border-[#E6C673]/30 text-[#E6C673]' : 'bg-white/5 border-white/10 text-white/50 hover:text-white hover:border-white/20'
+                isBest ? `${FORUM_ACCENT_CHIP} ${FORUM_TEXT_APRICOT}` : `${FORUM_GHOST_BTN} text-[11px] px-2.5 py-1`
               }`}
               title="تمييز أفضل إجابة"
             >
@@ -231,7 +248,7 @@ export const CommentBottomSheet = ({
               {canEditComment && (
                 <button type="button"
                   onClick={() => { setEditingCommentId(c.id); setEditContent(c.content); }}
-                  className="text-[10px] px-2 py-1 rounded-full bg-white/5 border border-white/10 text-white/50 hover:text-white hover:border-white/20 transition-colors"
+                  className={`text-[10px] px-2 py-1 rounded-full ${FORUM_GHOST_BTN}`}
                   title="تعديل التعليق"
                 >
                   <Edit2 size={10} />
@@ -270,7 +287,7 @@ export const CommentBottomSheet = ({
           {!isLocked && (
             <button type="button"
               onClick={() => setReplyingToCommentId(c.id)}
-              className="text-[11px] px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/60 hover:text-white hover:border-white/20 transition-colors inline-flex items-center gap-1"
+              className={`text-[11px] px-2.5 py-1 rounded-full ${FORUM_GHOST_BTN} inline-flex items-center gap-1`}
               title="رد"
             >
               <CornerUpLeft size={12} />
@@ -282,8 +299,8 @@ export const CommentBottomSheet = ({
               onClick={() => onToggleCommentUpvote(c.id)}
               className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors inline-flex items-center gap-1 ${
                 (c.upvoterIds ?? []).includes(currentUserId)
-                  ? 'bg-[#E6C673]/15 border-[#E6C673]/30 text-[#E6C673]'
-                  : 'bg-white/5 border-white/10 text-white/60 hover:text-white hover:border-white/20'
+                  ? `${FORUM_ACCENT_CHIP} ${FORUM_TEXT_APRICOT}`
+                  : `${FORUM_GHOST_BTN} text-[11px] px-2.5 py-1 inline-flex items-center gap-1`
               }`}
               title="إعجاب بالتعليق"
             >
@@ -352,15 +369,15 @@ export const CommentBottomSheet = ({
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
           transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          className="bg-[#1A1E2E] w-full max-w-2xl h-[70vh] rounded-t-3xl border-t border-[#E6C673]/20 shadow-2xl flex flex-col pointer-events-auto relative z-10"
+          className={`${FORUM_SHEET} w-full max-w-2xl h-[70vh] rounded-t-3xl flex flex-col pointer-events-auto relative z-10 border-t-[#F0B896]/25`}
         >
           <div className="w-full flex justify-center pt-3 pb-1" onClick={onClose}>
             <div className="w-12 h-1.5 rounded-full bg-white/10" />
           </div>
 
-          <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between gap-3">
-            <h3 className="text-white font-bold text-lg flex items-center gap-2">
-              <MessageCircle size={20} className="text-[#E6C673]" />
+          <div className="px-6 py-4 border-b border-[#4A3D52]/40 flex items-center justify-between gap-3">
+            <h3 className={`${FORUM_TEXT_PRIMARY} font-bold text-lg flex items-center gap-2`}>
+              <MessageCircle size={20} className={FORUM_TEXT_APRICOT} />
               التعليقات
               {isLocked && (
                 <span className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-full bg-red-500/10 text-red-200 border border-red-500/30">
@@ -376,16 +393,16 @@ export const CommentBottomSheet = ({
                   <select
                     value={sortMode}
                     onChange={(e) => setSortMode(e.target.value as CommentSortMode)}
-                    className="bg-white/5 text-white/70 rounded-md px-2 py-1 outline-none border border-white/10"
+                    className={`${FORUM_SURFACE_INPUT} rounded-md px-2 py-1 text-sm`}
                     title="ترتيب التعليقات"
                   >
-                    <option value="oldest" className="bg-[#1A1E2E]">الأقدم</option>
-                    <option value="newest" className="bg-[#1A1E2E]">الأحدث</option>
-                    <option value="top" className="bg-[#1A1E2E]">الأعلى تصويتاً</option>
+                    <option value="oldest" className="bg-[#221A28]">الأقدم</option>
+                    <option value="newest" className="bg-[#221A28]">الأحدث</option>
+                    <option value="top" className="bg-[#221A28]">الأعلى تصويتاً</option>
                   </select>
                 </div>
               )}
-              <button type="button" onClick={onClose} className="p-2 hover:bg-white/5 rounded-full text-white/50 hover:text-white">
+              <button type="button" onClick={onClose} className={`p-2 ${FORUM_ICON_BTN}`}>
                 <X size={20} />
               </button>
             </div>
@@ -428,7 +445,7 @@ export const CommentBottomSheet = ({
               </div>
             )}
             {!isLocked && replyingTo && (
-              <div className="mb-3 flex items-center justify-between bg-white/5 border border-white/10 rounded-2xl px-4 py-2">
+              <div className={`mb-3 flex items-center justify-between ${FORUM_PANEL} px-4 py-2`}>
                 <span className="text-white/70 text-xs">
                   أنت ترد على <span className="text-white font-bold">{replyingTo.authorName}</span>...
                 </span>
@@ -442,7 +459,7 @@ export const CommentBottomSheet = ({
               </div>
             )}
             <div className="flex gap-3 items-end">
-              <div className="flex-1 bg-[#1A1E2E] rounded-2xl border border-white/10 focus-within:border-[#E6C673]/50 transition-colors p-3">
+              <div className={`flex-1 rounded-2xl p-3 ${FORUM_SURFACE_INPUT}`}>
                 <textarea
                   value={comment}
                   onChange={(e) => setComment(e.target.value.slice(0, COMMENT_MAX_LENGTH))}
@@ -460,7 +477,7 @@ export const CommentBottomSheet = ({
                 )}
               </div>
               <button type="button"
-                className={`p-3 rounded-xl transition-all ${(comment.trim() && !submittingComment && !isLocked) ? 'bg-[#E6C673] text-black hover:scale-105' : 'bg-white/5 text-white/20 cursor-not-allowed'}`}
+                className={`p-3 rounded-xl transition-all ${comment.trim() && !submittingComment && !isLocked ? FORUM_PUBLISH_BTN : FORUM_PUBLISH_BTN_DISABLED}`}
                 disabled={!comment.trim() || submittingComment || isLocked}
                 onClick={async () => {
                   const text = comment.trim();

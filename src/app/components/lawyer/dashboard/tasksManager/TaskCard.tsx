@@ -22,6 +22,13 @@ import type { DetailPanel } from './types';
 import { formatIqd, isReminderDue, isTaskAgendaReadOnly, isTaskDayOverdueIncomplete, isTaskMarkedDone, parseAmountInput } from './utils';
 import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
 import { buildTaskWorkspacePin } from '@/app/workspace/workspacePinBuilders';
+import {
+    TASK_CARD_BASE,
+    TASK_CARD_DEFAULT,
+    TASK_CARD_DONE,
+    TASK_CARD_FATAL,
+    TASK_TOOL_BTN,
+} from './tasksBoucleTheme';
 
 export type TaskCardProps = {
     task: LegalTask;
@@ -49,8 +56,7 @@ export type TaskCardProps = {
     onReminderBadgeClick: (task: LegalTask) => void;
 };
 
-const toolBtn =
-    'flex flex-row-reverse items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-extrabold border transition';
+const toolBtn = TASK_TOOL_BTN;
 
 export function TaskCard({
     task,
@@ -159,10 +165,11 @@ export function TaskCard({
 
     return (
         <li
-            className={`relative bg-slate-800/50 backdrop-blur-md border rounded-xl flex flex-col transition-all duration-300 overflow-hidden
-                ${fatalPulse ? 'border-rose-500/70 shadow-[0_0_28px_rgba(244,63,94,0.35)] motion-safe:animate-pulse' : readOnly && markedDone ? 'border-slate-600/40 bg-slate-800/45 opacity-95' : markedDone ? 'border-emerald-500/30 bg-slate-800/55' : overdueIncomplete ? 'border-rose-500/40' : 'border-slate-700/50'}
+            className={`${TASK_CARD_BASE}
+                ${fatalPulse ? `${TASK_CARD_FATAL} motion-safe:animate-pulse` : readOnly && markedDone ? `${TASK_CARD_DONE} opacity-95` : markedDone ? TASK_CARD_DONE : overdueIncomplete ? 'border-rose-500/40' : TASK_CARD_DEFAULT}
             `}
         >
+            <div className="absolute top-0 right-0 bottom-0 w-0.5 bg-gradient-to-b from-[#A67C52]/45 via-[#1A7059]/25 to-transparent pointer-events-none" />
             <div className="p-3.5 text-right space-y-2">
                 {hasBadges ? (
                     <div className="flex flex-wrap gap-1 justify-end">
@@ -207,20 +214,20 @@ export function TaskCard({
                             <DropdownMenuTrigger asChild>
                                 <button
                                     type="button"
-                                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-600/80 bg-slate-900/80 text-slate-300 hover:bg-slate-700 hover:text-white"
+                                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#A67C52]/25 bg-[#0c0c0e]/55 text-[#E8F5F0]/75 hover:bg-[#0c0c0e]/75 hover:text-[#E8F5F0]"
                                     aria-label="خيارات المهمة"
                                 >
                                     <MoreHorizontal className="size-4" aria-hidden />
                                 </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent
-                                className="z-[300] border-slate-600 bg-slate-900 text-slate-100 min-w-[12rem] shadow-xl shadow-black/40"
+                                className="z-[300] border-[#A67C52]/25 bg-[#0A2E25] text-[#E8F5F0] min-w-[12rem] shadow-xl shadow-black/40"
                                 side="bottom"
                                 align="end"
                                 sideOffset={6}
                             >
                                 <DropdownMenuItem
-                                    className="gap-2 justify-end flex flex-row-reverse text-right cursor-pointer text-slate-100 focus:bg-slate-800 focus:text-white"
+                                    className="gap-2 justify-end flex flex-row-reverse text-right cursor-pointer text-[#E8F5F0] focus:bg-slate-800 focus:text-white"
                                     disabled={readOnly}
                                     onSelect={(e) => {
                                         e.preventDefault();
@@ -247,11 +254,11 @@ export function TaskCard({
                     </div>
 
                     <div className="flex-1 min-w-0 text-right px-1">
-                        <p className="font-extrabold text-slate-50 text-lg sm:text-xl leading-snug break-words tracking-tight">
+                        <p className="font-extrabold text-[#E8F5F0] text-lg sm:text-xl leading-snug break-words tracking-tight">
                             {task.title}
                         </p>
                         {task.location ? (
-                            <p className="mt-1.5 text-sm font-bold text-emerald-300/95 flex flex-row-reverse items-center gap-1 justify-end">
+                            <p className="mt-1.5 text-sm font-bold text-[#6BC4A8]/95 flex flex-row-reverse items-center gap-1 justify-end">
                                 <MapPinned className="size-3.5 shrink-0 opacity-80" aria-hidden />
                                 {task.location}
                             </p>
@@ -266,7 +273,7 @@ export function TaskCard({
                             </span>
                         ) : null}
                         {hasSubTasks ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-sky-500/15 text-sky-200 border border-sky-500/30 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#A67C52]/12 text-[#D4B896] border border-[#A67C52]/25 whitespace-nowrap">
                                 <GitBranch className="size-3 shrink-0 opacity-80" aria-hidden />
                                 {task.subTasks.length} فرع{activeSubs > 0 ? ` · ${activeSubs} متبق` : ''}
                             </span>
@@ -297,7 +304,7 @@ export function TaskCard({
                             <button
                                 type="button"
                                 onClick={() => onCompleteRequest(task)}
-                                className="px-3.5 py-1.5 rounded-lg bg-rose-600/85 hover:bg-rose-600 border border-rose-500/50 text-white text-xs font-extrabold transition whitespace-nowrap"
+                                className="px-3.5 py-1.5 rounded-lg bg-[#1A7059]/75 hover:bg-[#1A7059] border border-[#1A7059]/45 text-[#E8F5F0] text-xs font-extrabold transition whitespace-nowrap"
                             >
                                 إنهاء المهمة
                             </button>
@@ -313,7 +320,7 @@ export function TaskCard({
                         className={`${toolBtn} ${
                             task.isFatalDeadline
                                 ? 'border-rose-500/70 bg-rose-500/25 text-rose-100'
-                                : 'border-slate-600/90 bg-slate-900/50 text-slate-400 hover:border-rose-400/45 hover:text-rose-200'
+                                : 'border-[#A67C52]/25 bg-[#0c0c0e]/40 text-[#A67C52]/70 hover:border-[#A67C52]/40 hover:text-[#D4B896]'
                         }`}
                     >
                         حتمي
@@ -333,7 +340,7 @@ export function TaskCard({
                         className={`${toolBtn} ${
                             task.pinnedToFieldCurtain
                                 ? 'border-amber-500/60 bg-amber-500/15 text-amber-100'
-                                : 'border-slate-600/90 bg-slate-900/50 text-slate-400 hover:border-amber-400/40 hover:text-amber-100'
+                                : 'border-[#A67C52]/22 bg-[#0c0c0e]/40 text-slate-400 hover:border-amber-400/40 hover:text-amber-100'
                         }`}
                     >
                         ستارة الميدان
@@ -343,7 +350,7 @@ export function TaskCard({
                         type="button"
                         disabled={readOnly}
                         onClick={() => !readOnly && onToggleLocationPicker(showPicker ? null : task.id)}
-                        className={`${toolBtn} border-slate-600/90 bg-slate-900/50 text-slate-300 hover:border-emerald-500/45 hover:text-emerald-200`}
+                        className={`${toolBtn} border-[#A67C52]/22 bg-[#0c0c0e]/40 text-slate-300 hover:border-emerald-500/45 hover:text-emerald-200`}
                     >
                         موقع
                         <MapPinned className="size-3.5 shrink-0" aria-hidden />
@@ -354,7 +361,7 @@ export function TaskCard({
                         className={`${toolBtn} ${
                             branchOpen
                                 ? 'border-sky-500/50 bg-sky-500/15 text-sky-100'
-                                : 'border-slate-700/80 bg-slate-900/40 text-slate-400 hover:text-slate-200'
+                                : 'border-[#A67C52]/18 bg-[#0c0c0e]/35 text-slate-400 hover:text-slate-200'
                         }`}
                     >
                         تفريع
@@ -366,7 +373,7 @@ export function TaskCard({
                         className={`${toolBtn} ${
                             panelKind === 'brief'
                                 ? 'border-violet-500/50 bg-violet-500/15 text-violet-100'
-                                : 'border-slate-700/80 bg-slate-900/40 text-slate-400 hover:text-slate-200'
+                                : 'border-[#A67C52]/18 bg-[#0c0c0e]/35 text-slate-400 hover:text-slate-200'
                         }`}
                     >
                         متطلبات
@@ -378,7 +385,7 @@ export function TaskCard({
                         className={`${toolBtn} ${
                             panelKind === 'expense'
                                 ? 'border-amber-500/50 bg-amber-500/15 text-amber-100'
-                                : 'border-slate-700/80 bg-slate-900/40 text-slate-400 hover:text-slate-200'
+                                : 'border-[#A67C52]/18 bg-[#0c0c0e]/35 text-slate-400 hover:text-slate-200'
                         }`}
                     >
                         رسوم
@@ -387,14 +394,14 @@ export function TaskCard({
                 </div>
 
                 {showPicker ? (
-                    <div className="rounded-xl border border-slate-700/60 bg-slate-950/40 p-3 space-y-2">
+                    <div className="rounded-xl border border-[#A67C52]/18/60 bg-slate-950/40 p-3 space-y-2">
                         <input
                             dir="rtl"
                             type="text"
                             value={locDraft}
                             onChange={(e) => setLocDraft(e.target.value)}
                             placeholder="اكتب موقع المحكمة أو الدائرة…"
-                            className="w-full rounded-lg border border-slate-600/80 bg-slate-900/70 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-600 outline-none focus:border-emerald-500/40"
+                            className="w-full rounded-lg border border-slate-600/80 bg-[#0c0c0e]/50 px-3 py-2 text-xs text-[#E8F5F0] placeholder:text-slate-600 outline-none focus:border-emerald-500/40"
                         />
                         <div className="flex flex-row-reverse flex-wrap gap-2 justify-end">
                             <button
@@ -423,7 +430,7 @@ export function TaskCard({
             </div>
 
             {showBranchSection ? (
-                <div className="mx-3 mb-3 border-r-2 border-emerald-500/35 pr-2.5 py-2 bg-slate-950/30 rounded-lg rounded-tr-none text-right">
+                <div className="mx-3 mb-3 border-r-2 border-emerald-500/35 pr-2.5 py-2 bg-[#0c0c0e]/35 rounded-lg rounded-tr-none text-right">
                     <button
                         type="button"
                         onClick={toggleBranchSection}
@@ -452,7 +459,7 @@ export function TaskCard({
                                             className={`rounded-lg border px-2.5 py-1.5 flex flex-row items-center gap-2 ${
                                                 st.isCompleted
                                                     ? 'border-emerald-500/25 bg-emerald-950/15'
-                                                    : 'border-slate-700/55 bg-slate-900/35'
+                                                    : 'border-[#A67C52]/18/55 bg-slate-900/35'
                                             }`}
                                         >
                                             <div className="flex-1 min-w-0 text-right">
@@ -464,7 +471,7 @@ export function TaskCard({
                                                         className={`text-sm font-bold leading-snug break-words ${
                                                             st.isCompleted
                                                                 ? 'text-slate-500 line-through'
-                                                                : 'text-slate-100'
+                                                                : 'text-[#E8F5F0]'
                                                         }`}
                                                     >
                                                         {st.title}
@@ -498,7 +505,7 @@ export function TaskCard({
                             ) : null}
 
                             {!readOnly && addStepOpen ? (
-                                <div className="border-t border-slate-700/45 pt-2 space-y-1.5">
+                                <div className="border-t border-[#A67C52]/18/45 pt-2 space-y-1.5">
                                     <input
                                         dir="rtl"
                                         type="text"
@@ -510,7 +517,7 @@ export function TaskCard({
                                             e.preventDefault();
                                             commitNewSubTask();
                                         }}
-                                        className="w-full rounded-lg border border-slate-700/90 bg-slate-900/70 px-2.5 py-1.5 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-emerald-500/40"
+                                        className="w-full rounded-lg border border-[#A67C52]/18/90 bg-[#0c0c0e]/50 px-2.5 py-1.5 text-sm text-[#E8F5F0] placeholder:text-slate-600 outline-none focus:border-emerald-500/40"
                                     />
                                     <input
                                         dir="rtl"
@@ -518,7 +525,7 @@ export function TaskCard({
                                         placeholder="موقع الفرع (اختياري)…"
                                         value={subNewLocDraft}
                                         onChange={(e) => setSubNewLocDraft(e.target.value)}
-                                        className="w-full rounded-lg border border-slate-700/90 bg-slate-900/70 px-2.5 py-1.5 text-[11px] text-slate-100 placeholder:text-slate-600 outline-none focus:border-emerald-500/40"
+                                        className="w-full rounded-lg border border-[#A67C52]/18/90 bg-[#0c0c0e]/50 px-2.5 py-1.5 text-[11px] text-[#E8F5F0] placeholder:text-slate-600 outline-none focus:border-emerald-500/40"
                                     />
                                     <div className="flex flex-row-reverse gap-1.5 pt-0.5">
                                         <button
@@ -553,7 +560,7 @@ export function TaskCard({
             ) : null}
 
             {panelKind === 'brief' ? (
-                <div className="mx-3.5 mb-3.5 mr-5 border-r-2 border-violet-500/35 pr-3 py-2.5 bg-slate-950/30 rounded-lg rounded-tr-none text-right space-y-2">
+                <div className="mx-3.5 mb-3.5 mr-5 border-r-2 border-violet-500/35 pr-3 py-2.5 bg-[#0c0c0e]/35 rounded-lg rounded-tr-none text-right space-y-2">
                     <p className="text-[11px] font-bold text-violet-200/90">حقيبة المستندات</p>
                     <ul className="space-y-1.5 max-h-36 overflow-y-auto">
                         {task.documentRequirements.map((d) => (
@@ -581,7 +588,7 @@ export function TaskCard({
                             placeholder="مستند مطلوب…"
                             value={docDraft}
                             onChange={(e) => setDocDraft(e.target.value)}
-                            className="flex-1 rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-violet-500/40"
+                            className="flex-1 rounded-lg border border-[#A67C52]/18 bg-[#0c0c0e]/50 px-3 py-2 text-sm text-[#E8F5F0] placeholder:text-slate-600 outline-none focus:border-violet-500/40"
                         />
                         <button
                             type="button"
@@ -600,7 +607,7 @@ export function TaskCard({
             ) : null}
 
             {panelKind === 'expense' ? (
-                <div className="mx-3.5 mb-3.5 mr-5 border-r-2 border-amber-500/35 pr-3 py-2.5 bg-slate-950/30 rounded-lg rounded-tr-none text-right space-y-2">
+                <div className="mx-3.5 mb-3.5 mr-5 border-r-2 border-amber-500/35 pr-3 py-2.5 bg-[#0c0c0e]/35 rounded-lg rounded-tr-none text-right space-y-2">
                     <p className="text-[11px] font-bold text-amber-200/90">مصروفات مسجلة</p>
                     <ul className="space-y-1 text-sm text-slate-300">
                         {task.expenses.map((e) => (
@@ -620,7 +627,7 @@ export function TaskCard({
                             placeholder="50000"
                             value={expAmount}
                             onChange={(e) => setExpAmount(e.target.value)}
-                            className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-amber-500/40 text-left"
+                            className="rounded-lg border border-[#A67C52]/18 bg-[#0c0c0e]/50 px-3 py-2 text-sm text-[#E8F5F0] placeholder:text-slate-600 outline-none focus:border-amber-500/40 text-left"
                         />
                         <input
                             dir="rtl"
@@ -628,7 +635,7 @@ export function TaskCard({
                             placeholder="بند (مثلاً: رسم خبير)"
                             value={expLabel}
                             onChange={(e) => setExpLabel(e.target.value)}
-                            className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-amber-500/40"
+                            className="rounded-lg border border-[#A67C52]/18 bg-[#0c0c0e]/50 px-3 py-2 text-sm text-[#E8F5F0] placeholder:text-slate-600 outline-none focus:border-amber-500/40"
                         />
                     </div>
                     <button

@@ -1,18 +1,11 @@
-import { supabase } from '@/app/lib/supabase-client';
+import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import { debug } from '@/app/utils/debug';
 import type { TimelineEvent } from '@/app/types/execution';
 import type { TimelineEventDbRow } from '@/app/types/supabase-timeline';
 
-const TABLE = 'timeline_events';
-
-function payloadWithoutSnapshot(event: TimelineEvent): Record<string, unknown> {
-    const { snapshot: _snap, ...rest } = event;
-    return rest as Record<string, unknown>;
-}
-
 /**
- * إدراج حدث زمني (ومنها snapshot_data) في Supabase.
- * يتجاهل الفشل بهدوء إن لم يكن الجدول متاحاً أو المستخدم غير مسجّل.
+ * إدراج حدث زمني عبر WIFE BFF.
+ * يتجاهل الفشل بهدوء إن لم يكن الخادم متاحاً أو المستخدم غير مسجّل.
  */
 export async function insertTimelineEventToSupabase(params: {
     executionFileId: string;
@@ -23,44 +16,18 @@ export async function insertTimelineEventToSupabase(params: {
     if (!executionFileId || executionFileId === 'undefined') return;
 
     try {
-        const {
-            data: { user },
-            error: authErr,
-        } = await supabase.auth.getUser();
-        if (authErr || !user?.id) {
-            debug.log('[timelineEventsSupabase] تخطي الإدراج — لا مستخدم Supabase');
-            return;
-        }
-
-        const snap = snapshotData !== undefined ? snapshotData : event.snapshot;
-        const row = {
-            user_id: user.id,
-            execution_file_id: executionFileId,
-            event_id: String(event.id),
-            title: String(event.title ?? ''),
-            description: event.description ?? null,
-            event_type: event.type != null ? String(event.type) : null,
-            event_date: event.date ?? null,
-            event_timestamp: event.timestamp ?? null,
-            source: event.source ?? null,
-            metadata: (event.metadata as Record<string, unknown>) ?? null,
-            snapshot_data: snap ?? null,
-            payload: payloadWithoutSnapshot(event),
-        };
-
-        const { error } = await supabase.from(TABLE).upsert(row, {
-            onConflict: 'execution_file_id,event_id',
+        await SecureAPIClient.fetchSecure('/api/timeline-events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ executionFileId, event, snapshotData }),
         });
-        if (error) {
-            debug.error('[timelineEventsSupabase] فشل upsert:', error.message);
-        }
     } catch (e) {
-        debug.error('[timelineEventsSupabase] استثناء:', e);
+        debug.error('[timelineEventsSupabase] فشل upsert:', e);
     }
 }
 
 /**
- * جلب أحداث السجل من Supabase مع snapshot_data للدمج مع الواجهة.
+ * جلب أحداث السجل من BFF مع snapshot_data للدمج مع الواجهة.
  */
 export async function fetchTimelineEventsFromSupabase(
     executionFileId: string
@@ -68,26 +35,11 @@ export async function fetchTimelineEventsFromSupabase(
     if (!executionFileId || executionFileId === 'undefined') return [];
 
     try {
-        const {
-            data: { user },
-            error: authErr,
-        } = await supabase.auth.getUser();
-        if (authErr || !user?.id) return [];
-
-        const { data, error } = await supabase
-            .from(TABLE)
-            .select(
-                'id,user_id,execution_file_id,event_id,title,description,event_type,event_date,event_timestamp,source,metadata,snapshot_data,payload,created_at'
-            )
-            .eq('execution_file_id', executionFileId)
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false });
-
-        if (error) {
-            debug.error('[timelineEventsSupabase] فشل الجلب:', error.message);
-            return [];
-        }
-        return (data ?? []) as TimelineEventDbRow[];
+        const res = await SecureAPIClient.fetchSecure<{ ok: boolean; rows?: TimelineEventDbRow[] }>(
+            `/api/timeline-events?executionFileId=${encodeURIComponent(executionFileId)}`,
+            { method: 'GET' },
+        );
+        return Array.isArray(res?.rows) ? res.rows : [];
     } catch (e) {
         debug.error('[timelineEventsSupabase] جلب — استثناء:', e);
         return [];

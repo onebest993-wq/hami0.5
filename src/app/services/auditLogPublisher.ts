@@ -139,10 +139,13 @@ function makeId(prefix: string): string {
 function publish(params: PublishParams): NotificationModel | null {
     if (isActivityAuditNotificationType(params.type)) return null;
 
+    const direction = params.direction ?? defaultDirectionForCategory(params.category);
+    // لا نُنشئ إشعارات للإجراءات الذاتية — فقط الوارد الحقيقي (رد، mention، تنبيه نظام، ...)
+    if (direction === 'outgoing') return null;
+
     const now = Date.now();
     if (shouldDedupe(params.dedupeKey, now)) return null;
 
-    const direction = params.direction ?? defaultDirectionForCategory(params.category);
     const message = sanitizeNotificationDisplayMessage({
         message: params.message,
         title: params.title,
@@ -701,6 +704,21 @@ export const AuditLog = {
                 message: p.caseNo,
                 actionPayload: { caseId: p.caseId },
                 dedupeKey: `personal:archive:${p.caseId}`,
+            });
+        },
+        stageAdvanced(p: {
+            caseId: string | number;
+            caseNo: string;
+            fromStage: string;
+            toStage: string;
+        }) {
+            return publish({
+                type: 'audit_log_civil',
+                category: 'civil',
+                title: 'تقدمت قضية أحوال شخصية لمرحلة جديدة',
+                message: `${p.caseNo} • من ${p.fromStage} إلى ${p.toStage}`,
+                actionPayload: { caseId: p.caseId },
+                dedupeKey: `personal:stage-advance:${p.caseId}:${p.toStage}`,
             });
         },
     },

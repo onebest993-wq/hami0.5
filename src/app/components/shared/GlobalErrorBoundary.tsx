@@ -1,6 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { debug } from "@/app/utils/debug";
+import { resetLawyerDashboardModuleCache } from "@/app/runtime/lawyerDashboardLoader";
 
 interface Props {
   children: ReactNode;
@@ -28,9 +29,19 @@ export class GlobalErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    if (isStaleChunkLoadError(error)) {
-      // لا نُعيد تحميل الصفحة تلقائياً — يسبب خروجاً مفاجئاً من المنتدى/اللوحة.
-      // lazyWithRetry يعيد محاولة تحميل الـ chunks؛ المستخدم يضغط «المحاولة مرة أخرى» عند الحاجة.
+    if (isStaleChunkLoadError(error) && import.meta.env.DEV) {
+      try {
+        const reloadKey = 'hami:vite-stale-import-reload';
+        if (!sessionStorage.getItem(reloadKey)) {
+          sessionStorage.setItem(reloadKey, '1');
+          resetLawyerDashboardModuleCache();
+          debug.error('❌ [GlobalErrorBoundary] Stale chunk — reloading once:', error.message);
+          window.location.reload();
+          return;
+        }
+      } catch {
+        /* ignore */
+      }
       debug.error('❌ [GlobalErrorBoundary] Stale chunk load (no auto-reload):', error.message);
     }
 
@@ -45,6 +56,8 @@ export class GlobalErrorBoundary extends Component<Props, State> {
   }
 
   private handleReset = () => {
+    resetLawyerDashboardModuleCache();
+    void import('@/app/utils/lazyComponents').then((m) => m.resetArchivePortalPrefetch());
     this.setState({ hasError: false, error: null, errorInfo: null });
   };
 

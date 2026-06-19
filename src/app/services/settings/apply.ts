@@ -1,6 +1,16 @@
 import type { ThemeMode, ThemeKey } from '@/app/types/common';
 import type { AppSettingsState } from './types';
+import { normalizeGlassOpacity } from './surfaceAppearance';
 import { applyLawyerThemeCssVars } from './lawyerThemeTokens';
+import {
+    BUILTIN_COMPACT_MODE,
+    BUILTIN_NOTIFICATIONS_ENABLED,
+    BUILTIN_PUSH_ENABLED,
+    BUILTIN_VIEW_MODE_DEFAULT,
+    BUILTIN_WATERMARK_EXPORT,
+    isWithinBuiltInQuietHours,
+    loadPersistedViewMode,
+} from './builtInBehavior';
 
 export function resolveThemeMode(themeMode: ThemeMode): 'light' | 'dark' {
     if (themeMode === 'light') return 'light';
@@ -13,12 +23,13 @@ export function resolveThemeMode(themeMode: ThemeMode): 'light' | 'dark' {
 
 const WALLPAPER_KEY = 'lawyer_wallpaper';
 
-export function persistWallpaper(dataUrl: string | undefined) {
+export function persistWallpaper(dataUrl: string | undefined): boolean {
     try {
         if (dataUrl) localStorage.setItem(WALLPAPER_KEY, dataUrl);
         else localStorage.removeItem(WALLPAPER_KEY);
+        return true;
     } catch {
-        /* quota / private mode */
+        return false;
     }
 }
 
@@ -30,15 +41,23 @@ export function loadPersistedWallpaper(): string | undefined {
     }
 }
 
+export function resolveWallpaperSrc(
+    appearance: Pick<AppSettingsState['appearance'], 'wallpaper'>,
+): string | undefined {
+    return appearance.wallpaper ?? loadPersistedWallpaper();
+}
+
 /** Apply settings to document root / body (call on change + mount). */
 export function applySettingsToDom(settings: AppSettingsState) {
     const root = document.documentElement;
     const { appearance, performance } = settings;
 
-    root.style.setProperty('--glass-opacity', String(appearance.glassOpacity));
+    root.style.setProperty('--glass-opacity', String(normalizeGlassOpacity(appearance.glassOpacity)));
+    root.dataset.hamiHomeContainerBorder = appearance.homeContainerBorder !== false ? '1' : '0';
     root.style.setProperty('--hami-brand', appearance.brandColor);
     root.style.setProperty('--hami-font-size', `${appearance.fontSize}px`);
     applyLawyerThemeCssVars(appearance.theme as ThemeKey);
+    root.dataset.hamiBgPreset = appearance.backgroundPreset ?? 'none';
     root.dataset.hamiTheme = appearance.theme;
     root.dataset.hamiShape = appearance.shape;
     const colorMode = resolveThemeMode(appearance.themeMode);
@@ -46,12 +65,12 @@ export function applySettingsToDom(settings: AppSettingsState) {
     root.dataset.hamiLang = appearance.language;
     document.documentElement.lang = appearance.language === 'en' ? 'en' : 'ar';
     document.documentElement.dir = appearance.language === 'en' ? 'ltr' : 'rtl';
-    root.dataset.hamiViewMode = settings.workflow.viewMode;
-    root.dataset.hamiCompact = settings.workflow.compactMode ? '1' : '0';
+    root.dataset.hamiViewMode = loadPersistedViewMode() ?? BUILTIN_VIEW_MODE_DEFAULT;
+    root.dataset.hamiCompact = BUILTIN_COMPACT_MODE ? '1' : '0';
     root.dataset.hamiHighContrast = appearance.highContrast ? '1' : '0';
     root.dataset.hamiReduceMotion = appearance.reduceMotion || !performance.enableAnimations ? '1' : '0';
 
-    const wallpaper = appearance.wallpaper ?? loadPersistedWallpaper();
+    const wallpaper = resolveWallpaperSrc(appearance);
     if (wallpaper) {
         document.body.style.backgroundImage = `url(${wallpaper})`;
         document.body.style.backgroundSize = 'cover';
@@ -76,35 +95,26 @@ export function applySettingsToDom(settings: AppSettingsState) {
         root.classList.remove('hami-high-contrast');
     }
 
-    if (settings.workflow.compactMode) {
+    if (BUILTIN_COMPACT_MODE) {
         root.classList.add('hami-compact');
     } else {
         root.classList.remove('hami-compact');
     }
 
-    if (settings.workflow.watermark) {
+    if (BUILTIN_WATERMARK_EXPORT) {
         root.classList.add('hami-watermark-export');
     } else {
         root.classList.remove('hami-watermark-export');
     }
+
+    root.dataset.hamiLocalOnly = settings.security.localOnlyMode ? '1' : '0';
 }
 
-export function isWithinQuietHours(settings: AppSettingsState, now = new Date()): boolean {
-    if (!settings.notifications.quietHours) return false;
-    const [sh, sm] = settings.notifications.quietHoursStart.split(':').map(Number);
-    const [eh, em] = settings.notifications.quietHoursEnd.split(':').map(Number);
-    const mins = now.getHours() * 60 + now.getMinutes();
-    const start = sh * 60 + (sm || 0);
-    const end = eh * 60 + (em || 0);
-    if (start <= end) return mins >= start && mins < end;
-    return mins >= start || mins < end;
+export function isWithinQuietHours(_settings?: AppSettingsState, now = new Date()): boolean {
+    return isWithinBuiltInQuietHours(now);
 }
 
 export function shouldAllowPush(settings: AppSettingsState): boolean {
-    return (
-        settings.notifications.master &&
-        settings.notifications.pushEnabled &&
-        !settings.security.decoyMode &&
-        !isWithinQuietHours(settings)
-    );
+    if (settings.security.localOnlyMode) return false;
+    return BUILTIN_NOTIFICATIONS_ENABLED && BUILTIN_PUSH_ENABLED && !isWithinBuiltInQuietHours();
 }

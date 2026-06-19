@@ -6,13 +6,15 @@ import {
 
 export function DebtorEntityKindSegment(props: {
     value: DebtorEntityKind;
+    /** عند تعدد المدينين — يُقفل على صفة المدين الأول (طبيعي/معنوي) */
+    lockedEntityKind?: DebtorEntityKind | null;
     onChange: (next: DebtorEntityKind) => void;
     disabled?: boolean;
     compact?: boolean;
     /** عند موكلي المحامي للمدين — يُخفى خيار الشخص المعنوي */
     allowLegalEntity?: boolean;
 }) {
-    const { value, onChange, disabled, compact, allowLegalEntity = true } = props;
+    const { value, onChange, disabled, compact, allowLegalEntity = true, lockedEntityKind = null } = props;
     const kinds = allowLegalEntity
         ? (['natural_person', 'legal_entity'] as const)
         : (['natural_person'] as const);
@@ -32,9 +34,18 @@ export function DebtorEntityKindSegment(props: {
                     <button
                         key={kind}
                         type="button"
-                        disabled={disabled}
+                        disabled={
+                            disabled ||
+                            (lockedEntityKind != null && kind !== lockedEntityKind)
+                        }
                         onClick={() => {
-                            if (disabled || active) return;
+                            if (
+                                disabled ||
+                                active ||
+                                (lockedEntityKind != null && kind !== lockedEntityKind)
+                            ) {
+                                return;
+                            }
                             onChange(kind);
                         }}
                         className={`${segBtn} ${active ? segActive : segIdle}`}

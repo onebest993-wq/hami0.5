@@ -6,10 +6,6 @@ import type { LegalTask } from '@/app/types/TaskEngine';
 import { TransactionStatus, type Transaction, type TransactionTask, type FinanceRecord } from '@/app/modules/transactionsThreading/types';
 import type { FileData, Party, Task } from '@/app/components/lawyer/LawyerShared';
 import { normalizeArabic } from '@/app/components/lawyer/LawyerShared';
-import { notesVault } from '@/app/data/NotesVault';
-import { docsVault } from '@/app/data/DocsVault';
-import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
-import { STORAGE_KEYS } from '@/app/utils/constants';
 import {
     resolveCaseSearchLifecycle,
     resolveFileSearchLifecycle,
@@ -78,6 +74,9 @@ function withLifecycle(entry: Omit<GlobalSearchEntry, 'lifecycle'>, lifecycle: S
 }
 
 type GlobalNoteRow = { id: number | string; title?: string; body?: string; type?: string };
+
+export type PreparedVaultNote = { id: string; content: string; type?: 'text' | 'voice' };
+export type PreparedDocsVaultDoc = { id: string; name: string; caseId?: string; tags?: string[] };
 
 const ALL_CATEGORIES: GlobalSearchCategory[] = [
     'lawsuit',
@@ -428,8 +427,11 @@ function repositoryToEntry(d: RepositoryDocument): GlobalSearchEntry {
     );
 }
 
-function docsVaultEntries(fileLifecycleById: Map<string, SearchLifecycle>): GlobalSearchEntry[] {
-    return docsVault.getDocuments().map((d) => {
+function docsVaultEntriesFromPrepared(
+    docs: PreparedDocsVaultDoc[],
+    fileLifecycleById: Map<string, SearchLifecycle>,
+): GlobalSearchEntry[] {
+    return docs.map((d) => {
         const linkedLifecycle = d.caseId ? fileLifecycleById.get(String(d.caseId)) : undefined;
         return withLifecycle(
             {
@@ -768,6 +770,14 @@ export type BuildGlobalSearchIndexInput = {
     userId: string | null;
     notifications?: { id: string; title: string; message: string; type: string }[];
     extras?: GlobalSearchExtras;
+    /** ملاحظات المفكرة المحلية — تُجمَّع على الخيط الرئيسي قبل الفهرسة */
+    preparedVaultNotes?: PreparedVaultNote[];
+    /** مستندات إضبارة خفيفة (بدون dataUrl) */
+    preparedDocsVault?: PreparedDocsVaultDoc[];
+    /** ملاحظات مخزنة في localStorage */
+    preparedStoredNotes?: GlobalNoteRow[];
+    /** نسخة الكاش — يزيدها LawyerDashboard عند تغيّر الملاحظات */
+    cacheGeneration?: number;
 };
 
 /** فهرس موحّد — كل أقسام التطبيق المحلية */
@@ -816,29 +826,29 @@ export function buildGlobalSearchIndex(input: BuildGlobalSearchIndexInput): Glob
     }
 
     const seenNoteIds = new Set<string>();
+    const preparedVaultNotes = input.preparedVaultNotes ?? [];
+    const preparedStoredNotes = input.preparedStoredNotes ?? [];
+    const preparedDocsVault = input.preparedDocsVault ?? [];
 
-    if (input.userId) {
-        notesVault.setUserScope(input.userId);
-        for (const n of notesVault.getNotes()) {
-            seenNoteIds.add(String(n.id));
-            const isVoice = n.type === 'voice';
-            push(
-                withLifecycle(
-                    {
-                        id: `nv-${n.id}`,
-                        category: isVoice ? 'voice' : 'note',
-                        title: isVoice ? 'تسجيل صوتي' : n.content.slice(0, 80) || 'ملاحظة',
-                        subtitle: isVoice ? 'مفكرة — صوت' : 'مفكرة الملاحظات',
-                        snippet: isVoice ? undefined : n.content,
-                        _searchStr: blob([n.content, isVoice ? 'صوت' : '']),
-                        navigate: isVoice
-                            ? { type: 'voice', noteId: String(n.id) }
-                            : { type: 'note', noteId: String(n.id) },
-                    },
-                    LIFECYCLE_ACTIVE,
-                ),
-            );
-        }
+    for (const n of preparedVaultNotes) {
+        seenNoteIds.add(String(n.id));
+        const isVoice = n.type === 'voice';
+        push(
+            withLifecycle(
+                {
+                    id: `nv-${n.id}`,
+                    category: isVoice ? 'voice' : 'note',
+                    title: isVoice ? 'تسجيل صوتي' : n.content.slice(0, 80) || 'ملاحظة',
+                    subtitle: isVoice ? 'مفكرة — صوت' : 'مفكرة الملاحظات',
+                    snippet: isVoice ? undefined : n.content,
+                    _searchStr: blob([n.content, isVoice ? 'صوت' : '']),
+                    navigate: isVoice
+                        ? { type: 'voice', noteId: String(n.id) }
+                        : { type: 'note', noteId: String(n.id) },
+                },
+                LIFECYCLE_ACTIVE,
+            ),
+        );
     }
 
     for (const n of input.globalNotes) {
@@ -847,16 +857,13 @@ export function buildGlobalSearchIndex(input: BuildGlobalSearchIndexInput): Glob
         push(noteRowToEntry(n, 'المفكرة العامة'));
     }
 
-    const storedNotes = persistenceRepository.load<GlobalNoteRow[]>(STORAGE_KEYS.LAWYER_NOTES);
-    if (Array.isArray(storedNotes)) {
-        for (const n of storedNotes) {
-            if (seenNoteIds.has(String(n.id))) continue;
-            seenNoteIds.add(String(n.id));
-            push(noteRowToEntry(n, 'ملاحظات المحامي'));
-        }
+    for (const n of preparedStoredNotes) {
+        if (seenNoteIds.has(String(n.id))) continue;
+        seenNoteIds.add(String(n.id));
+        push(noteRowToEntry(n, 'ملاحظات المحامي'));
     }
 
-    docsVaultEntries(fileLifecycleById).forEach(push);
+    docsVaultEntriesFromPrepared(preparedDocsVault, fileLifecycleById).forEach(push);
 
     for (const n of input.notifications ?? []) {
         if (n.title?.trim() || n.message?.trim()) push(notificationToEntry(n));

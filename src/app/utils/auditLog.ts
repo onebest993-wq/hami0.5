@@ -1,20 +1,14 @@
-import { supabase } from '@/lib/supabase';
+import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import { debug } from '@/app/utils/debug';
-import { isSupabaseMissingRelationError } from '@/app/utils/supabaseErrors';
 
-export async function logAction(action: string, details: any): Promise<void> {
+export async function logAction(action: string, details: unknown): Promise<void> {
   try {
-    const { error } = await supabase.from('audit_logs').insert({
-      action,
-      details,
+    await SecureAPIClient.fetchSecure('/api/audit/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, details }),
     });
-
-    if (error) {
-      if (isSupabaseMissingRelationError(error)) return;
-      throw error;
-    }
   } catch (error) {
-    if (isSupabaseMissingRelationError(error)) return;
     debug.error('[audit] failed to log action:', error);
   }
 }

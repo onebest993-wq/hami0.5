@@ -1,4 +1,3 @@
-import { UserRole } from '@/app/types/admin-types';
 import type { CommunityComment, CommunityPost } from '@/app/services/lawyer-cloud';
 
 export function canEditPost(

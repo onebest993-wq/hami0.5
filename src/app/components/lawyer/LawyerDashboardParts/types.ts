@@ -1,4 +1,4 @@
-import type { CaseType, FileData, Party } from '../LawyerShared';
+import type { FileData } from '../LawyerShared';
 
 export type GlobalNote = {
     id: number | string;
@@ -14,21 +14,6 @@ export type GlobalNote = {
     linkedFileId?: number;
     type?: string;
 };
-
-export type WizardNoteSeed = { id: number; text: string; date: string };
-
-export type WizardInitialData =
-    | {
-          type: CaseType;
-          notes?: WizardNoteSeed[];
-      }
-    | {
-          mainCategory: CaseType;
-          details: Record<string, unknown>;
-          parties1: Array<Record<string, unknown>>;
-          parties2: Array<Record<string, unknown>>;
-          notes?: Array<Record<string, unknown>>;
-      };
 
 export type ExecutionFile = FileData & {
     fileNumber?: string;

@@ -1,4 +1,8 @@
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { readCaseLinks } from './caseLinking';
+
+import type { CaseLinkRecord, ConsolidationSecondaryRef } from '../../LawyerShared';
+import { readConsolidationSecondaryRefs } from './caseConsolidationLinking';
 
 export type SmartFileParentData = {
     id: unknown;
@@ -6,12 +10,15 @@ export type SmartFileParentData = {
     parties?: unknown[];
     caseNo?: string;
     court?: string;
+    judge?: string;
     feesTotal: number | string;
     feesPaid: number | string;
     docType: string;
     createdDate: string;
     representedParty: string | null;
     status?: string;
+    caseLinks?: CaseLinkRecord[];
+    consolidationSecondaryRefs?: ConsolidationSecondaryRef[];
 };
 
 function resolveRepresentedParty(file: Record<string, unknown>): string | null {
@@ -30,10 +37,18 @@ export function buildInitialParentDataFromFile(
         parties: (file?.parties as unknown[]) || (file?.originalParties as unknown[]) || [],
         caseNo: typeof file?.caseNo === 'string' ? file.caseNo : typeof file?.caseNumber === 'string' ? file.caseNumber : undefined,
         court: typeof file?.court === 'string' ? file.court : typeof file?.courtName === 'string' ? file.courtName : undefined,
+        judge:
+            typeof file?.judge === 'string' && file.judge.trim()
+                ? file.judge.trim()
+                : typeof (file?.details as Record<string, unknown> | undefined)?.judge === 'string'
+                  ? String((file?.details as Record<string, unknown>).judge).trim()
+                  : undefined,
         feesTotal: (file?.feesTotal as number | string) || 0,
         feesPaid: (file?.feesPaid as number | string) || 0,
         docType: String(file?.docType ?? file?.type ?? ''),
         createdDate: typeof file?.date === 'string' ? file.date : getLocalTodayYmd(),
         representedParty: resolveRepresentedParty(file ?? {}),
+        caseLinks: readCaseLinks(file),
+        consolidationSecondaryRefs: readConsolidationSecondaryRefs(file),
     };
 }

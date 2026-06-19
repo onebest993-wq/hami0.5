@@ -1,9 +1,8 @@
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { isKvProxyNetworkEnabled } from '@/app/services/kvProxyConfig';
-import { projectId, publicAnonKey } from '@/utils/supabase/info';
 import { SecureAPIClient, getCurrentAccessToken } from '@/app/services/SecureAPIClient';
 
-const SERVER_URL = `https://${projectId}.supabase.co/functions/v1/make-server-f09713ba`;
+const KV_PROXY_URL = '/api/kv-proxy';
 const LOCAL_PREFIX = 'hami:push-subscription:';
 
 const kv = {
@@ -11,13 +10,9 @@ const kv = {
         if (!isKvProxyNetworkEnabled()) throw new Error('kv_local_only');
         const token = await getCurrentAccessToken();
         if (!token) throw new Error('kv_local_only');
-        await SecureAPIClient.fetchSecure(`${SERVER_URL}/kv-proxy`, {
+        await SecureAPIClient.fetchSecure(KV_PROXY_URL, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-                'apikey': publicAnonKey,
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'set', key, value }),
         });
     },

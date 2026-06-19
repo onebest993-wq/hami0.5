@@ -5,6 +5,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import twilio from "npm:twilio";
 
 import * as kv from './kv_store.tsx';
+import { isKeyOwnedBy, isPrefixOwnedBy } from './kvProxyKeyOwnership.ts';
 
 const app = new Hono();
 
@@ -17,9 +18,21 @@ app.post('/make-server-f09713ba/legal-memory-search', async (c) => {
     return c.json({ matches: [], count: 0, disabled: true });
 });
 
-// --- 2. TWILIO COMMS ROUTE (WITH MOCK) ---
+// --- 2. TWILIO COMMS ROUTE (legacy — prefer /api/comms-dispatcher with WIFE) ---
 app.post('/make-server-f09713ba/comms-dispatcher', async (c) => {
     try {
+        if (Deno.env.get('WIFE_DISABLE_EDGE_COMMS_DISPATCHER') === 'true') {
+            return c.json(
+                { error: 'Edge comms-dispatcher deprecated. Use same-origin /api/comms-dispatcher with WIFE signing.' },
+                410,
+            );
+        }
+
+        const userId = await extractUserIdFromAuth(c);
+        if (!userId) {
+            return c.json({ error: 'Unauthorized: valid user JWT required' }, 401);
+        }
+
         const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
         const authToken = Deno.env.get('TWILIO_AUTH_TOKEN');
         const fromNumber = Deno.env.get('TWILIO_PHONE_NUMBER');
@@ -54,7 +67,7 @@ app.post('/make-server-f09713ba/comms-dispatcher', async (c) => {
 });
 
 
-// --- KV PROXY (BRIDGE TO DATABASE) ---
+// --- KV PROXY (legacy — prefer /api/kv-proxy with WIFE) ---
 // 🔐 محمي بـ JWT + key scoping منذ الإصلاح الأمني.
 // كل مفتاح/prefix يجب أن يخص المستخدم نفسه؛ يُمنع الوصول لمفاتيح أي شخص آخر
 // أو لمفاتيح عامة غير مُعرَّفة في الـ whitelist.
@@ -63,73 +76,6 @@ const kvProxySupabase = createClient(
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
     { auth: { autoRefreshToken: false, persistSession: false } },
 );
-
-/**
- * فحص ملكية المفتاح. نقسّمها لثلاث فئات:
- *
- *   PRIVATE (يجب احتواء userId): يُسمح فقط إن كان المفتاح يحوي userId الخاص بالمستخدم في الموضع المتوقع.
- *   - `user:${u}:...`, `calendar:${u}:...`, `lawyer_files:${u}:...`
- *   - `urgentActions:${u}:...`, `transactions:${u}:...`, `transactionsThreading:${u}:...`
- *   - `notifications:${u}:...`, `notifications_${u}`
- *   - `vault:docs:${u}:...` (authorId)
- *   - `follow:${u}:${otherUserId}` (followerId === u)
- *   - `hami:push:${u}`, `hami:calendar:events:${u}:v1`
- *
- *   READABLE_GLOBAL (مُتاح للجميع للقراءة، الكتابة محمية بطبقة API منفصلة):
- *   - `community:posts:...`, `community:reports:...`
- *   - `repository:docs:...`
- *   - `banned:users:...` (للأدمن يقرأ، حالياً نمنع كتابة عبر هذا proxy)
- */
-function isKeyOwnedBy(rawKey: unknown, userId: string, op: 'read' | 'write'): boolean {
-    if (typeof rawKey !== 'string' || !rawKey || !userId) return false;
-    const k = rawKey;
-    const u = userId;
-
-    // PRIVATE keys — يجب احتواء userId
-    if (k.startsWith(`user:${u}:`)) return true;
-    if (k.startsWith(`calendar:${u}:`)) return true;
-    if (k.startsWith(`lawyer_files:${u}:`)) return true;
-    if (k.startsWith(`urgentActions:${u}:`)) return true;
-    if (k.startsWith(`transactions:${u}:`)) return true;
-    if (k.startsWith(`transactionsThreading:${u}:`)) return true;
-    if (k.startsWith(`notifications:${u}:`)) return true;
-    if (k === `notifications_${u}`) return true;
-    if (k.startsWith(`vault:docs:${u}:`)) return true;
-    if (k === `hami:push:${u}`) return true;
-    if (k === `hami:calendar:events:${u}:v1`) return true;
-    // follow:${followerId}:${followingId} — الكتابة فقط لو المُتابِع هو نفسه
-    if (k.startsWith(`follow:${u}:`)) return true;
-
-    // READABLE_GLOBAL — قراءة فقط
-    if (op === 'read') {
-        if (k.startsWith('community:posts:')) return true;
-        if (k.startsWith('community:reports:')) return true;
-        if (k.startsWith('repository:docs:')) return true;
-        if (k.startsWith('banned:users:')) return true;
-        // قراءة follow لطرف ثانٍ (للتحقق إن كان X يتابع Y)
-        if (k.startsWith('follow:')) return true;
-    }
-
-    return false;
-}
-
-function isPrefixOwnedBy(rawPrefix: unknown, userId: string): boolean {
-    if (typeof rawPrefix !== 'string' || !rawPrefix || !userId) return false;
-    const p = rawPrefix;
-    const u = userId;
-    if (p.startsWith(`user:${u}:`)) return true;
-    if (p.startsWith(`calendar:${u}:`)) return true;
-    if (p.startsWith(`lawyer_files:${u}:`)) return true;
-    if (p.startsWith(`urgentActions:${u}:`)) return true;
-    if (p.startsWith(`transactions:${u}:`)) return true;
-    if (p.startsWith(`notifications:${u}:`)) return true;
-    if (p.startsWith(`vault:docs:${u}:`)) return true;
-    // global readable prefixes — للقوائم العامة فقط
-    if (p === 'community:posts:' || p.startsWith('community:posts:')) return true;
-    if (p === 'community:reports:' || p.startsWith('community:reports:')) return true;
-    if (p === 'repository:docs:' || p.startsWith('repository:docs:')) return true;
-    return false;
-}
 
 async function extractUserIdFromAuth(c: any): Promise<string | null> {
     const authHeader = c.req.header('Authorization') ?? '';
@@ -148,6 +94,13 @@ async function extractUserIdFromAuth(c: any): Promise<string | null> {
 
 app.post('/make-server-f09713ba/kv-proxy', async (c) => {
     try {
+        if (Deno.env.get('WIFE_DISABLE_EDGE_KV_PROXY') === 'true') {
+            return c.json(
+                { error: 'Edge kv-proxy deprecated. Use same-origin /api/kv-proxy with WIFE signing.' },
+                410,
+            );
+        }
+
         // 1) المصادقة الإجبارية
         const userId = await extractUserIdFromAuth(c);
         if (!userId) {
@@ -369,13 +322,15 @@ app.all('/wp-admin', (c) => {
 });
 
 /**
- * 🔍 ADMIN ROUTE: View Access Log (Protected)
+ * 🔍 ADMIN ROUTE: View Access Log (Protected — requires ADMIN_ACCESS_KEY env)
  */
 app.get('/make-server-f09713ba/wife-diagnostics', (c) => {
+    const adminKey = Deno.env.get('ADMIN_ACCESS_KEY')?.trim();
+    if (!adminKey) {
+        return c.json({ error: 'Admin diagnostics disabled (ADMIN_ACCESS_KEY not configured)' }, 503);
+    }
+
     const authHeader = c.req.header('Authorization');
-    const adminKey = Deno.env.get('ADMIN_ACCESS_KEY') || 'CHANGE_ME_IN_PRODUCTION';
-    
-    // Simple auth check
     if (authHeader !== `Bearer ${adminKey}`) {
         return c.json({ error: 'Unauthorized' }, 401);
     }
@@ -389,12 +344,15 @@ app.get('/make-server-f09713ba/wife-diagnostics', (c) => {
 });
 
 /**
- * 🔓 ADMIN ROUTE: Unblock IP
+ * 🔓 ADMIN ROUTE: Unblock IP (requires ADMIN_ACCESS_KEY env)
  */
 app.post('/make-server-f09713ba/unblock-ip', async (c) => {
+    const adminKey = Deno.env.get('ADMIN_ACCESS_KEY')?.trim();
+    if (!adminKey) {
+        return c.json({ error: 'Admin unblock disabled (ADMIN_ACCESS_KEY not configured)' }, 503);
+    }
+
     const authHeader = c.req.header('Authorization');
-    const adminKey = Deno.env.get('ADMIN_ACCESS_KEY') || 'CHANGE_ME_IN_PRODUCTION';
-    
     if (authHeader !== `Bearer ${adminKey}`) {
         return c.json({ error: 'Unauthorized' }, 401);
     }
@@ -412,66 +370,19 @@ app.post('/make-server-f09713ba/unblock-ip', async (c) => {
 
 // === END W.I.F.E PROTOCOL ===
 
-// --- AUTO-SYNC ENDPOINT (حماية البيانات) ---
-app.post('/make-server-f09713ba/sync', async (c) => {
-    try {
-        const { key, data, timestamp } = await c.req.json();
-        
-        if (!key || !data) {
-            return c.json({ error: 'Missing key or data' }, 400);
-        }
+// --- AUTO-SYNC (deprecated — was unauthenticated; client uses local SecureStore only) ---
+app.post('/make-server-f09713ba/sync', (c) =>
+    c.json(
+        { error: 'Edge auto-sync deprecated and disabled. Use local SecureStore / WIFE-protected /api/kv-proxy.' },
+        410,
+    ),
+);
 
-        console.log(`[AutoSync] Receiving sync for key: ${key} at ${new Date(timestamp).toISOString()}`);
-
-        // حفظ البيانات في KV Store
-        await kv.set(key, {
-            data,
-            timestamp,
-            syncedAt: Date.now()
-        });
-
-        console.log(`[AutoSync] ✅ Successfully synced: ${key}`);
-
-        return c.json({ 
-            success: true, 
-            key,
-            timestamp: Date.now()
-        });
-
-    } catch (e: any) {
-        console.error('[AutoSync] Error:', e);
-        return c.json({ error: e.message }, 500);
-    }
-});
-
-// --- GET SYNCED DATA ENDPOINT ---
-app.get('/make-server-f09713ba/sync/:key', async (c) => {
-    try {
-        const key = c.req.param('key');
-        
-        if (!key) {
-            return c.json({ error: 'Missing key' }, 400);
-        }
-
-        console.log(`[AutoSync] Fetching synced data for key: ${key}`);
-
-        const result = await kv.get(key);
-
-        if (!result) {
-            return c.json({ error: 'Key not found' }, 404);
-        }
-
-        return c.json({
-            success: true,
-            data: result.data,
-            timestamp: result.timestamp,
-            syncedAt: result.syncedAt
-        });
-
-    } catch (e: any) {
-        console.error('[AutoSync] Error:', e);
-        return c.json({ error: e.message }, 500);
-    }
-});
+app.get('/make-server-f09713ba/sync/:key', (c) =>
+    c.json(
+        { error: 'Edge auto-sync deprecated and disabled. Use local SecureStore / WIFE-protected /api/kv-proxy.' },
+        410,
+    ),
+);
 
 Deno.serve(app.fetch);

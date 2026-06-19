@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { FileText, FolderOpen, X, Download, Upload, FileImage } from 'lucide-react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuthSafe } from '@/app/context/AuthContext';
 import { RepositoryDB, LawyerStorage, notifyFollowers, uuidv4, type RepositoryDocument } from '@/app/services/lawyer-cloud';
 import { RepositoryCard } from './RepositoryCard';
 import { UploadDocumentModal } from './UploadDocumentModal';
@@ -201,7 +201,7 @@ export const LegalRepository = ({
     sortBy?: RepositorySortKey;
     selectedTag?: string | null;
 } = {}) => {
-    const { user, hasRole } = useAuth();
+    const { user, hasRole } = useAuthSafe();
     const userId = user?.id ?? null;
 
     const [documents, setDocuments] = useState<RepositoryDocument[]>([]);

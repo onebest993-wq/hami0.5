@@ -1,4 +1,5 @@
 import {
+    isCustodyRemovalClaim,
     isEncroachmentRemovalClaim,
     isEvictionClaim,
     isSpecificDeliveryClaim,
@@ -94,6 +95,8 @@ export function isMaritalFurnitureClaim(claimType: string): boolean {
     const c = String(claimType || '').trim();
     return c === 'أثاث زوجية' || c.includes('أثاث زوجية');
 }
+
+export { isCustodyRemovalClaim } from '@/app/utils/executionModuleStrategies';
 
 export interface FollowupSpecializationVisibility {
     /** استحصال/استخلاص دين مالي — يفعّل بوابة التسوية لكفيل ضامن للمبلغ */
@@ -234,8 +237,14 @@ export function resolveFollowupSpecializationVisibility(
         debtorEntityKind,
     );
 
-    const finalize = (flags: FollowupSpecializationVisibility): FollowupSpecializationVisibility => {
-        let next = personalStatusCourt ? applyPersonalStatusCourtCoerciveBan(flags, isEmployee) : flags;
+    const finalize = (
+        flags: FollowupSpecializationVisibility,
+        opts?: { skipPersonalStatusCourtBan?: boolean }
+    ): FollowupSpecializationVisibility => {
+        let next = flags;
+        if (personalStatusCourt && !opts?.skipPersonalStatusCourtBan && !isCustodyRemovalClaim(c)) {
+            next = applyPersonalStatusCourtCoerciveBan(flags, isEmployee);
+        }
         if (isLegalEntityDebtorKind(debtorEntityKind)) {
             next = applyLegalEntityDebtorFollowupBan(next);
         }
@@ -305,6 +314,28 @@ export function resolveFollowupSpecializationVisibility(
             suppressHiddenPersonalCoerciveRequests: true,
         };
         return finalize(isEmployee ? applyEmployeeDebtorAmountGuarantorBan(flags) : flags);
+    }
+
+    /**
+     * نزع حضانة (تسليم ولد) — إجراءات جبريّة شخصية للموظف والكاسب على حدٍ سواء.
+     */
+    if (isCustodyRemovalClaim(c)) {
+        const flags: FollowupSpecializationVisibility = {
+            ...defaultFollowupSpecialization(),
+            hideFollowupCoerciveTab: false,
+            hidePersonalCoerciveFollowupTab: false,
+            hidePersonalJudgePresentation: false,
+            hidePersonalForcedBringActivation: false,
+            hideCoerciveGraceNoticeBanner: true,
+            hideCoerciveFinancialBanners: true,
+            hideCoerciveSeizureSalaryAndProperty: true,
+            hideDossierFinancialTools: true,
+            hideFollowupSeizureRequestsTab: true,
+            hideAllGuarantorPresence: true,
+            hideGuarantorSeizureSubTab: true,
+            suppressHiddenPersonalCoerciveRequests: false,
+        };
+        return isEmployee ? finalize(applyEmployeeDebtorAmountGuarantorBan(flags), { skipPersonalStatusCourtBan: true }) : finalize(flags, { skipPersonalStatusCourtBan: true });
     }
 
     /** أثاث زوجية — إجراءات ميدانية (كسر وجرد) دون حجز عقار/إخلاء/حارس أو بانرات مالية */

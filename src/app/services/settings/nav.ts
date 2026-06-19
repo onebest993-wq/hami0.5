@@ -1,69 +1,32 @@
 import type { SettingsNavItem } from './types';
 
+/** أقسام الإعدادات المعروضة — فقط ما يطابق التطبيق ويُستخدم فعلياً. */
 export const SETTINGS_NAV: SettingsNavItem[] = [
     {
         id: 'appearance',
-        label: 'المظهر',
+        label: 'المنظر',
         labelEn: 'Appearance',
-        keywords: ['ثيم', 'لون', 'خط', 'زجاج', 'خلفية', 'شكل', 'theme', 'font', 'wallpaper'],
-    },
-    {
-        id: 'notifications',
-        label: 'الإشعارات',
-        labelEn: 'Notifications',
-        keywords: ['تنبيه', 'صوت', 'هدوء', 'push', 'قضية', 'تقويم', 'مجتمع'],
+        keywords: ['لون', 'ثيم', 'خلفية', 'شكل', 'خط', 'حركة', 'theme', 'wallpaper', 'motion'],
     },
     {
         id: 'security',
         label: 'الأمان',
         labelEn: 'Security',
-        keywords: ['خصوصية', 'بصمة', 'قفل', 'تمويه', 'لقطة', 'biometric', 'blur'],
-    },
-    {
-        id: 'workflow',
-        label: 'سير العمل',
-        labelEn: 'Workflow',
-        keywords: ['محكمة', 'علامة', 'تلخيص', 'قائمة', 'شبكة', 'ذكاء', 'watermark'],
+        keywords: ['خصوصية', 'بصمة', 'قفل', 'تمويه', 'biometric', 'blur'],
     },
     {
         id: 'data',
         label: 'البيانات',
         labelEn: 'Data',
-        keywords: ['نسخ', 'سحابة', 'مزامنة', 'حفظ', 'تصدير', 'أرشيف', 'backup'],
+        keywords: ['نسخ', 'حفظ', 'تصدير', 'أرشيف', 'backup', 'استيراد'],
     },
     {
         id: 'account',
         label: 'الحساب',
         labelEn: 'Account',
-        keywords: ['ملف', 'لغة', 'حساب', 'profile', 'language'],
-    },
-    {
-        id: 'advanced',
-        label: 'متقدم',
-        labelEn: 'Advanced',
-        keywords: ['أداء', 'مطور', 'إعادة', 'reset', 'performance'],
+        keywords: ['ملف', 'حساب', 'profile', 'دعم', 'خصوصية'],
     },
 ];
-
-export const EXTENDED_THEMES = [
-    { id: 'gold', color: '#E6C673', name: 'ذهبي ملكي' },
-    { id: 'navy', color: '#3B82F6', name: 'كحلي قضائي' },
-    { id: 'crimson', color: '#EF4444', name: 'قرمزي' },
-    { id: 'emerald', color: '#10B981', name: 'زمردي' },
-    { id: 'black', color: '#9CA3AF', name: 'فحمي' },
-    { id: 'silver', color: '#E2E8F0', name: 'فضي' },
-    { id: 'sky', color: '#38BDF8', name: 'سماوي' },
-    { id: 'brown', color: '#D97706', name: 'بني' },
-    { id: 'purple', color: '#A855F7', name: 'بنفسجي' },
-    { id: 'bronze', color: '#CD7F32', name: 'برونزي' },
-] as const;
-
-export const SHAPE_OPTIONS = [
-    { id: 'pill', label: 'كبسولة' },
-    { id: 'rounded', label: 'مستدير' },
-    { id: 'square', label: 'حاد' },
-    { id: 'circle', label: 'دائري' },
-] as const;
 
 export const FONT_PRESETS = [
     { id: 'small' as const, label: 'صغير', px: 14 },
@@ -89,6 +52,19 @@ export const IRAQ_COURTS_SAMPLE = [
     'محكمة الأحوال الشخصية',
     'محكمة التنفيذ',
 ];
+
+/** @deprecated kept for migration — no longer shown in settings UI */
+export const EXTENDED_THEMES = [
+    { id: 'gold', color: '#E6C673', name: 'ذهبي ملكي' },
+    { id: 'navy', color: '#3B82F6', name: 'كحلي قضائي' },
+] as const;
+
+export const SHAPE_OPTIONS = [
+    { id: 'pill', label: 'كبسولة' },
+    { id: 'rounded', label: 'مستدير' },
+    { id: 'square', label: 'حاد' },
+    { id: 'circle', label: 'دائري' },
+] as const;
 
 export const IRAQ_GOVERNORATES = [
     '',

@@ -3,6 +3,7 @@
  * Centralized configuration for magic numbers and common values
  */
 import SecureStoreService from '@/app/services/SecureStoreService';
+import { debug } from '@/app/utils/debug';
 
 // === TIMING CONSTANTS ===
 export const TIMING = {
@@ -90,9 +91,7 @@ export const clearCacheIfNeeded = (): boolean => {
   const storedVersion = SecureStoreService.getItemSync(CACHE_KEY);
   
   if (storedVersion !== CACHE_VERSION) {
-    if (import.meta.env.DEV) {
-      console.log(`🔄 [Cache] تحديث من ${storedVersion || 'null'} إلى ${CACHE_VERSION}`);
-    }
+    debug.log(`🔄 [Cache] تحديث من ${storedVersion || 'null'} إلى ${CACHE_VERSION}`);
     
     const volatilePrefixes = ['cache_', 'hami_cache_', 'temp_', 'hami_temp_'];
     const allKeys = SecureStoreService.listKeysSync();
@@ -109,9 +108,7 @@ export const clearCacheIfNeeded = (): boolean => {
 
     SecureStoreService.setItemSync(CACHE_KEY, CACHE_VERSION);
 
-    if (import.meta.env.DEV) {
-      console.log('✅ [Cache] تم تحديث الذاكرة المؤقتة بنجاح');
-    }
+    debug.log('✅ [Cache] تم تحديث الذاكرة المؤقتة بنجاح');
     return true;
   }
   

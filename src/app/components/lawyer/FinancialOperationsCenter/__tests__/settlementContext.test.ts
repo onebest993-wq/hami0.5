@@ -49,6 +49,13 @@ describe('settlementContext', () => {
         expect(baseContext({ salarySeizureActive: true }).showSettlementPanel).toBe(false);
     });
 
+    it('hides settlement entry when debtor is deceased', () => {
+        const ctx = baseContext({ activeDebtorIsDeceased: true });
+        expect(ctx.showSettlementEntry).toBe(false);
+        expect(ctx.showSettlementEntryButton).toBe(false);
+        expect(ctx.showSettlementPanel).toBe(false);
+    });
+
     it('shows entry triggers by tier but panel only when explicitly open', () => {
         expect(baseContext({ settlementUxTier: 'buried', panelOpen: false }).showSettlementEntry).toBe(true);
         expect(baseContext({ settlementUxTier: 'buried', panelOpen: false }).showSettlementPanel).toBe(

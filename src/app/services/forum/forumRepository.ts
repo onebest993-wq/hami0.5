@@ -10,6 +10,7 @@ import {
 } from './forumMapper';
 import { getForumSupabaseAdmin, isForumSupabaseConfigured } from './supabaseAdmin';
 import { buildForumEditPatch } from './forumEditUtils';
+import { compareCommunityPostsForFeed } from './forumUrgentConsultation';
 
 function createId(): string {
     const cryptoObj = globalThis.crypto as Crypto | undefined;
@@ -20,15 +21,20 @@ function createId(): string {
 }
 
 function sortPosts(posts: CommunityPost[]): CommunityPost[] {
-    return posts.sort((a, b) => {
-        const aPin = a.isPinned ? 1 : 0;
-        const bPin = b.isPinned ? 1 : 0;
-        if (aPin !== bPin) return bPin - aPin;
-        const aUrg = a.isUrgent ? 1 : 0;
-        const bUrg = b.isUrgent ? 1 : 0;
-        if (aUrg !== bUrg) return bUrg - aUrg;
-        return Date.parse(b.createdAt) - Date.parse(a.createdAt);
-    });
+    return posts.sort((a, b) => compareCommunityPostsForFeed(a, b));
+}
+
+export type ForumListPostsOptions = {
+    /** عند التحديد: منشورات المجموعة فقط */
+    groupId?: string;
+    /** الساحة العامة فقط (group_id = null) — الافتراضي عند غياب groupId */
+    publicOnly?: boolean;
+};
+
+function matchesListScope(post: CommunityPost, options?: ForumListPostsOptions): boolean {
+    if (options?.groupId) return post.groupId === options.groupId;
+    if (options?.publicOnly !== false) return !post.groupId;
+    return true;
 }
 
 async function loadCommentsForPosts(postIds: string[]): Promise<Map<string, ForumCommentRow[]>> {
@@ -116,28 +122,40 @@ async function migrateFromLegacyKvIfEmpty(): Promise<void> {
 export const ForumRepository = {
     isConfigured: isForumSupabaseConfigured,
 
-    async listPosts(limit = 500, offset = 0): Promise<{ posts: CommunityPost[]; total: number }> {
+    async listPosts(
+        limit = 500,
+        offset = 0,
+        options?: ForumListPostsOptions,
+    ): Promise<{ posts: CommunityPost[]; total: number }> {
         const admin = getForumSupabaseAdmin();
         if (!admin) {
             const { CommunityDB } = await import('@/app/services/lawyer-cloud');
-            const all = await CommunityDB.listPosts();
+            const all = (await CommunityDB.listPosts()).filter((p) => matchesListScope(p, options));
             const sorted = sortPosts(all);
             return { posts: sorted.slice(offset, offset + limit), total: sorted.length };
         }
 
         await migrateFromLegacyKvIfEmpty();
 
-        const { count } = await admin.from('forum_posts').select('*', { count: 'exact', head: true });
-        const { data, error } = await admin
-            .from('forum_posts')
-            .select('*')
+        let countQuery = admin.from('forum_posts').select('*', { count: 'exact', head: true });
+        let dataQuery = admin.from('forum_posts').select('*');
+        if (options?.groupId) {
+            countQuery = countQuery.eq('group_id', options.groupId);
+            dataQuery = dataQuery.eq('group_id', options.groupId);
+        } else {
+            countQuery = countQuery.is('group_id', null);
+            dataQuery = dataQuery.is('group_id', null);
+        }
+
+        const { count } = await countQuery;
+        const { data, error } = await dataQuery
             .order('is_pinned', { ascending: false })
             .order('created_at', { ascending: false })
             .range(offset, offset + limit - 1);
 
         if (error || !data) {
             const { CommunityDB } = await import('@/app/services/lawyer-cloud');
-            const all = await CommunityDB.listPosts();
+            const all = (await CommunityDB.listPosts()).filter((p) => matchesListScope(p, options));
             const sorted = sortPosts(all);
             return { posts: sorted.slice(offset, offset + limit), total: sorted.length };
         }

@@ -25,6 +25,21 @@ interface ExecutionOptionSheetProps {
     exclusiveSectionTitle?: string;
 }
 
+function SheetSectionHeader({
+    title,
+    badge,
+}: {
+    title: string;
+    badge: string;
+}) {
+    return (
+        <div className={ecg.sheetSectionHeader}>
+            <span className={ecg.sheetSectionBadge}>{badge}</span>
+            <p className={ecg.sheetSectionTitle}>{title}</p>
+        </div>
+    );
+}
+
 function ExecutionOptionSheet({
     open,
     onClose,
@@ -41,7 +56,6 @@ function ExecutionOptionSheet({
     if (!open) return null;
 
     const hasExclusive = options.length > 0 || (comingSoonOptions?.length ?? 0) > 0;
-    /** ارتفاع ثابت — max-h وحده يُفشل flex-1 فيُقصّ الأزرار ولا تُستقبل النقرات */
     const sheetHeight = multiSelectPanel
         ? 'h-[min(88vh,720px)] max-h-[min(88vh,720px)]'
         : 'h-[min(56vh,440px)] max-h-[min(56vh,440px)]';
@@ -65,8 +79,8 @@ function ExecutionOptionSheet({
                 </button>
             ))}
             {comingSoonOptions && comingSoonOptions.length > 0 ? (
-                <div className="mt-2 border-t border-white/8 pt-2 space-y-1.5">
-                    <p className="px-2 pb-1 text-[10px] font-bold text-slate-500">{comingSoonCaption}</p>
+                <div className="mt-2 border-t border-white/6 pt-2 space-y-1.5">
+                    <p className="px-1 pb-1 text-[10px] font-bold text-slate-500">{comingSoonCaption}</p>
                     {comingSoonOptions.map((opt) => (
                         <div
                             key={opt.label}
@@ -108,58 +122,80 @@ function ExecutionOptionSheet({
 
                 {multiSelectPanel ? (
                     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                        {hasExclusive ? (
-                            <div className={`${ecg.sheetExclusiveBlock} max-h-[42vh] overflow-y-auto overscroll-contain`}>
-                                {exclusiveSectionTitle ? (
-                                    <p className={ecg.sheetSectionTitle}>{exclusiveSectionTitle}</p>
-                                ) : null}
-                                {exclusiveButtons}
-                            </div>
-                        ) : null}
-                        <div className={`${ecg.multiPanel} min-h-0 flex-1 overflow-y-auto overscroll-contain`}>
-                            {multiSelectPanel.sectionTitle ? (
-                                <p className={ecg.sheetSectionTitle}>{multiSelectPanel.sectionTitle}</p>
-                            ) : null}
-                            <p className={ecg.multiHint}>
-                                {multiSelectPanel.hint ?? 'يمكن اختيار أكثر من مطالبة هنا'}
-                            </p>
-                            <div className={ecg.multiList}>
-                                {multiSelectPanel.options.map((opt) => {
-                                    const checked = draftSet.has(opt.value);
-                                    return (
-                                        <label
-                                            key={opt.value}
-                                            className={`${ecg.multiItem} ${
-                                                checked ? ecg.multiItemChecked : ecg.multiItemIdle
-                                            }`}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={checked}
-                                                onChange={() => multiSelectPanel.onToggleDraft(opt.value)}
-                                                className="sr-only"
+                        <div className={ecg.sheetBodyUnified}>
+                            <div className={ecg.sheetGroupedCard}>
+                                {hasExclusive ? (
+                                    <section className="space-y-2">
+                                        {exclusiveSectionTitle ? (
+                                            <SheetSectionHeader
+                                                title={exclusiveSectionTitle}
+                                                badge="اختيار واحد"
                                             />
-                                            <span className="flex-1 text-sm font-semibold text-slate-50 text-right leading-snug">
-                                                {opt.label}
-                                            </span>
-                                            <span
-                                                aria-hidden="true"
-                                                className={`${ecg.multiToggle} ${
-                                                    checked ? ecg.multiToggleChecked : ecg.multiToggleIdle
-                                                }`}
-                                            >
-                                                {checked ? (
-                                                    <Check
-                                                        size={13}
-                                                        strokeWidth={3}
-                                                        className="text-[#0A0F1C] drop-shadow-sm"
+                                        ) : null}
+                                        <div className="space-y-1.5">{exclusiveButtons}</div>
+                                    </section>
+                                ) : null}
+
+                                {hasExclusive && multiSelectPanel ? (
+                                    <div className={ecg.sheetSectionDivider} aria-hidden="true" />
+                                ) : null}
+
+                                <section className={ecg.multiPanel}>
+                                    {multiSelectPanel.sectionTitle ? (
+                                        <SheetSectionHeader
+                                            title={multiSelectPanel.sectionTitle}
+                                            badge="متعدد"
+                                        />
+                                    ) : null}
+                                    <p className={ecg.multiHint}>
+                                        {multiSelectPanel.hint ?? 'يمكن اختيار أكثر من مطالبة هنا'}
+                                    </p>
+                                    <div className={ecg.multiList}>
+                                        {multiSelectPanel.options.map((opt) => {
+                                            const checked = draftSet.has(opt.value);
+                                            return (
+                                                <label
+                                                    key={opt.value}
+                                                    className={`${ecg.multiItem} ${
+                                                        checked ? ecg.multiItemChecked : ecg.multiItemIdle
+                                                    }`}
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={checked}
+                                                        onChange={() =>
+                                                            multiSelectPanel.onToggleDraft(opt.value)
+                                                        }
+                                                        className="sr-only"
                                                     />
-                                                ) : null}
-                                            </span>
-                                        </label>
-                                    );
-                                })}
+                                                    <span className="flex-1 text-sm font-semibold text-slate-50 text-right leading-snug">
+                                                        {opt.label}
+                                                    </span>
+                                                    <span
+                                                        aria-hidden="true"
+                                                        className={`${ecg.multiToggle} ${
+                                                            checked
+                                                                ? ecg.multiToggleChecked
+                                                                : ecg.multiToggleIdle
+                                                        }`}
+                                                    >
+                                                        {checked ? (
+                                                            <Check
+                                                                size={13}
+                                                                strokeWidth={3}
+                                                                className="text-[#0A0F1C] drop-shadow-sm"
+                                                            />
+                                                        ) : null}
+                                                    </span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </section>
                             </div>
+                        </div>
+
+                        <div className={ecg.sheetFooter}>
                             <button
                                 type="button"
                                 disabled={multiSelectPanel.draftValues.length === 0}

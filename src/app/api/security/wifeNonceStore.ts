@@ -135,14 +135,21 @@ function resolvePrimaryStore(): NonceStore | null {
 export async function consumeNonceWithTtl(nonce: string, ttlMs: number): Promise<boolean> {
   const nowMs = Date.now();
   const primary = resolvePrimaryStore();
-  if (!primary) return false;
+
+  if (!primary) {
+    if (isProduction()) return false;
+    return await memoryStore.consumeNonce(nonce, nowMs, ttlMs);
+  }
 
   try {
     return await primary.consumeNonce(nonce, nowMs, ttlMs);
   } catch {
     if (isProduction()) return false;
-    // Development fallback to keep local workflows usable.
     return await memoryStore.consumeNonce(nonce, nowMs, ttlMs);
   }
 }
 
+/** Test-only: clears in-memory nonce fallback between isolated scenarios. */
+export function resetNonceStoreForTests(): void {
+  IN_MEMORY_NONCE_FALLBACK.clear();
+}

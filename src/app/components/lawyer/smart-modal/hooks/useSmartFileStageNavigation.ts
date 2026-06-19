@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CaseStage } from '../../LawyerShared';
 import {
     getDisplayTimelineFromStage,
@@ -12,13 +12,15 @@ export function useSmartFileStageNavigation(
     file: Record<string, unknown> | null | undefined,
     initialStages: CaseStage[],
 ) {
-    const initialStageIndex = resolveInitialStageIndex(file, initialStages.length);
+    const initialStageIndex = resolveInitialStageIndex(file, initialStages.length, initialStages);
 
     const [stages, setStages] = useState<CaseStage[]>(initialStages);
     const [activeStageIndex, setActiveStageIndex] = useState(initialStageIndex);
     const [viewingStageIndex, setViewingStageIndex] = useState(initialStageIndex);
     const [touchStart, setTouchStart] = useState<number | null>(null);
     const [touchEnd, setTouchEnd] = useState<number | null>(null);
+    const touchStartYRef = useRef<number | null>(null);
+    const touchEndYRef = useRef<number | null>(null);
 
     const currentStage = stages[activeStageIndex];
     const viewedStage = stages[viewingStageIndex];
@@ -35,14 +37,27 @@ export function useSmartFileStageNavigation(
 
     const onTouchStart = useCallback((e: React.TouchEvent) => {
         setTouchEnd(null);
+        touchEndYRef.current = null;
         setTouchStart(e.targetTouches[0].clientX);
+        touchStartYRef.current = e.targetTouches[0].clientY;
     }, []);
 
     const onTouchMove = useCallback((e: React.TouchEvent) => {
         setTouchEnd(e.targetTouches[0].clientX);
+        touchEndYRef.current = e.targetTouches[0].clientY;
     }, []);
 
     const onTouchEnd = useCallback(() => {
+        const startY = touchStartYRef.current;
+        const endY = touchEndYRef.current;
+        if (touchStart !== null && touchEnd !== null && startY !== null && endY !== null) {
+            const dx = Math.abs(touchStart - touchEnd);
+            const dy = Math.abs(startY - endY);
+            if (dy > dx) {
+                return;
+            }
+        }
+
         const next = resolveSwipeViewingIndex(
             viewingStageIndex,
             stages.length,

@@ -148,6 +148,10 @@ export interface Debtor extends Party {
     allocated_debt?: number;
     /** ما دُفِع باسم هذا المدين فقط — افتراضي 0 عند الغياب */
     paid_amount?: number;
+    /** تكافل وتضامن — ذمة موحّدة لهذا المدين مع بقية المدينين المتضامنين */
+    isSolidaryLiability?: boolean;
+    /** مطالبة أتعاب المحاماة لهذا المدين — عند تعدد الدائنين والمدين مستقل */
+    lawyerFeesClaimAmount?: number;
 }
 
 /** دائن إضافي — تعدّد الخصوم (امتداد بلا تغيير البطاقة الأساسية) */
@@ -182,6 +186,10 @@ export interface AdditionalExecutionDebtor {
     status: 'Active' | 'Cleared';
     allocated_debt: number;
     paid_amount: number;
+    /** تكافل وتضامن — ذمة موحّدة لهذا المدين */
+    isSolidaryLiability?: boolean;
+    /** مطالبة أتعاب المحاماة لهذا المدين */
+    lawyerFeesClaimAmount?: number;
 }
 
 /** تعدّد الخصوم + التضامن والتكافل — حقول اختيارية على ملف التنفيذ */
@@ -189,6 +197,10 @@ export interface PartyMultiplicityExtension {
     additionalCreditors: AdditionalExecutionCreditor[];
     additionalDebtors: AdditionalExecutionDebtor[];
     isSolidaryLiability: boolean;
+    /** الباقي من الدين — حصة المدينين المستقلين */
+    independentRemainderDebt?: number;
+    /** @deprecated — الباقي للضامnين (نموذج قديم) */
+    solidaryRemainderDebt?: number;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -966,6 +978,12 @@ export interface ExecutionFile {
     debtor_wanted_arrest_warrant?: boolean;
     /** منع سفر فعّال (بعد موافقة المنفذ) */
     debtor_travel_ban_active?: boolean;
+    /** منع سفر — لكل مدين في الذمة المقسومة */
+    debtor_travel_ban_active_by_debtor?: Record<string, boolean>;
+    /** تراجع عن منع سفر — لكل مدين */
+    travel_ban_withdrawn_at_by_debtor?: Record<string, string>;
+    /** تراجع عن دورة طلب منع سفر — لكل مدين */
+    travel_ban_request_cycle_withdrawn_at_by_debtor?: Record<string, string>;
     /** حبس تنفيذي — تاريخ انتهاء المدة (YYYY-MM-DD) */
     executive_detention_until?: string | null;
     executive_detention_days_total?: number | null;
@@ -1163,7 +1181,13 @@ export interface ExecutionFile {
     visitationSchedule?: import('@/app/types/visitationSchedule').VisitationScheduleBundle;
     /** أثاث زوجية — قائمة القطع المحكوم بها */
     maritalFurnitureItems?: import('@/app/types/maritalFurniture').MaritalFurnitureItem[];
-    /** تسليم حضانة (قيمة المطالبة: تسليم ولد) */
+    /** نزع حضانة (قيمة المطالبة المخزّنة: تسليم ولد) */
+    /** وفاة مستحقي النفقة المستمرة — تتبع جزئي دون إحلال ورثة */
+    alimony_beneficiary_death?: {
+        wife_deceased?: boolean;
+        children_deceased_count?: number;
+        last_report_at?: string;
+    };
     custodyWardNames?: string[];
     /** تسليم شيء معين — وصف المحكوم به */
     specificDeliveryItemName?: string;

@@ -8,6 +8,3 @@ export const LazyLawyerNewCase = lazyWithRetry(() =>
         default: m.LawyerNewCase as unknown as LazyComponent,
     })),
 );
-
-/** توافق مع الاستيرادات القديمة — نفس المكوّن */
-export const LazyCompleteLawsuitSystem = LazyLawyerNewCase;

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
-import type { Transaction } from '@/app/modules/transactionsThreading';
-import { useTransactionsThreadingStore } from '@/app/modules/transactionsThreading';
+import { motion } from 'motion/react';
+import type { Transaction } from '@/app/modules/transactionsThreading/types';
+import { useTransactionsThreadingStore } from '@/app/modules/transactionsThreading/store';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { TransactionsListScreen } from './TransactionsListScreen';
 import { TransactionDetailsScreen } from './TransactionDetailsScreen';
+import { TX_OVERLAY } from './transactionsGlassTheme';
 
 export function TransactionsThreadingSystem({
   onBack,
@@ -18,6 +20,8 @@ export function TransactionsThreadingSystem({
   const setUserId = useTransactionsThreadingStore((s) => s.setUserId);
   const [view, setView] = useState<'list' | 'details'>('list');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  useBodyScrollLock(true);
 
   useEffect(() => {
     (async () => {
@@ -42,26 +46,19 @@ export function TransactionsThreadingSystem({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[200] bg-[#0D0D1A] overflow-y-auto pointer-events-auto"
+      className={TX_OVERLAY}
     >
-      <AnimatePresence mode="wait">
-        {view === 'list' && (
-          <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <TransactionsListScreen onBack={onBack} onOpenDetails={openDetails} />
-          </motion.div>
-        )}
-        {view === 'details' && selectedId && (
-          <motion.div key="details" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <TransactionDetailsScreen
-              transactionId={selectedId}
-              onBack={() => {
-                setView('list');
-                setSelectedId(null);
-              }}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {view === 'list' ? (
+        <TransactionsListScreen onBack={onBack} onOpenDetails={openDetails} />
+      ) : selectedId ? (
+        <TransactionDetailsScreen
+          transactionId={selectedId}
+          onBack={() => {
+            setView('list');
+            setSelectedId(null);
+          }}
+        />
+      ) : null}
     </motion.div>
   );
 }

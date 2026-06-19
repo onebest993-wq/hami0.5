@@ -29,12 +29,16 @@ export const LoginGlassCard = ({
 export const LoginGoldButton = ({
     children,
     onClick,
+    onMouseEnter,
+    onFocus,
     disabled,
     icon: Icon,
     fullWidth,
 }: {
     children: React.ReactNode;
     onClick?: () => void;
+    onMouseEnter?: React.MouseEventHandler<HTMLButtonElement>;
+    onFocus?: React.FocusEventHandler<HTMLButtonElement>;
     disabled?: boolean;
     icon?: LucideIcon;
     fullWidth?: boolean;
@@ -42,6 +46,8 @@ export const LoginGoldButton = ({
     <button
         type="button"
         onClick={onClick}
+        onMouseEnter={onMouseEnter}
+        onFocus={onFocus}
         disabled={disabled}
         className={cn(
             'flex items-center justify-center rounded-full px-6 py-3 font-bold transition-all',

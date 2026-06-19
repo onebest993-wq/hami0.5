@@ -4,6 +4,7 @@ node_modules/.vite/
 
 # Build output
 dist/
+api/_routeManifest.ts
 .next/
 
 # Environment & secrets
@@ -27,3 +28,6 @@ hami/
 .DS_Store
 Thumbs.db
 *.log
+
+# Dev-only local law injection (no service_role)
+data/dev-iraqi-laws.json
