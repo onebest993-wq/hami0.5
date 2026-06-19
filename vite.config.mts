@@ -231,68 +231,8 @@ export default defineConfig(({ command }) => ({
             if (id.includes('@sentry')) return 'vendor-sentry';
             return;
           }
-          if (
-            id.includes('Dashboard_Active_Order_File') ||
-            id.includes('DeferredActiveOrderFile')
-          ) {
-            return 'chunk-active-order-file';
-          }
-          if (
-            id.includes('View_Urgent_And_Orders_Dashboard') ||
-            id.includes('Form_Urgent_Actions')
-          ) {
-            return 'chunk-urgent-orders-view';
-          }
-          // Keep admin/legal tools separate from core lawyer shell
-          if (
-            id.includes('/components/admin/') ||
-            id.includes('\\components\\admin\\') ||
-            id.includes('/app/admin/') ||
-            id.includes('\\app\\admin\\')
-          ) {
-            return 'chunk-admin-tools';
-          }
-          if (
-            id.includes('criminal-system/criminalStore') ||
-            id.includes('criminal-system\\criminalStore')
-          ) {
-            return 'chunk-criminal-store';
-          }
-          if (
-            id.includes('criminal-system/') ||
-            id.includes('criminal-system\\')
-          ) {
-            return 'chunk-criminal-ui';
-          }
-          if (
-            id.includes('SecretaryOrchestrator') ||
-            id.includes('services/lawyer-cloud')
-          ) {
-            return 'chunk-lawyer-cloud-alerts';
-          }
-          if (
-            id.includes('ExecutionDashboard/components/DebtorsSection') ||
-            id.includes('ExecutionDashboard\\components\\DebtorsSection')
-          ) {
-            return 'chunk-execution-debtors';
-          }
-          if (
-            id.includes('ExecutionDashboard/components/SeizureRequestsTab') ||
-            id.includes('ExecutionDashboard\\components\\SeizureRequestsTab')
-          ) {
-            return 'chunk-execution-seizure-tab';
-          }
-          if (
-            id.includes('LawyerDashboardBackgroundServices') ||
-            id.includes('LawyerDashboard.tsx') ||
-            id.includes('lawyerHomeShell') ||
-            id.includes('LawyerHomeHubCard') ||
-            id.includes('NeuralAlertsCard') ||
-            id.includes('UnifiedCommandHub') ||
-            id.includes('LegalCommandCenterDock')
-          ) {
-            return 'chunk-lawyer-dashboard';
-          }
+          // لا تقسيم يدوي لملفات التطبيق — كان يسبب circular chunks
+          // وخطأ "Si is not a function" في الإنتاج (chunk-active-order-file).
         },
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',
