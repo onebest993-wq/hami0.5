@@ -6,6 +6,7 @@ import { supabase } from '../../../lib/supabase';
 import { logAction } from '@/app/utils/auditLog';
 import { prefetchLawyerDashboardEntry } from '@/app/runtime/lawyerDashboardLoader';
 import { LoginGlassCard, LoginGoldButton, LoginInputField } from './loginScreenPrimitives';
+import { isDemoBypassAuthEnabled } from '@/app/utils/demoAuthBypass';
 
 /** شاشة التطوير — دخول التطبيق أو المدير */
 const DevAdminLoginScreen = () => {
@@ -209,4 +210,25 @@ const ProductionLoginScreen = () => {
     );
 };
 
-export const LoginScreen = () => (import.meta.env.DEV ? <DevAdminLoginScreen /> : <ProductionLoginScreen />);
+/** دخول تلقائي للتجربة على Vercel — بدون بريد أو كلمة مرور */
+const DemoAutoEntryScreen = () => {
+    const { devBypassLogin } = useAuth();
+
+    useEffect(() => {
+        prefetchLawyerDashboardEntry();
+        void devBypassLogin();
+    }, [devBypassLogin]);
+
+    return (
+        <div dir="rtl" className="min-h-screen font-['Tajawal'] bg-[#000510] text-white flex items-center justify-center">
+            <p className="text-sm text-white/50">جاري الدخول للتجربة...</p>
+        </div>
+    );
+};
+
+export const LoginScreen = () => {
+    if (isDemoBypassAuthEnabled()) {
+        return import.meta.env.DEV ? <DevAdminLoginScreen /> : <DemoAutoEntryScreen />;
+    }
+    return <ProductionLoginScreen />;
+};

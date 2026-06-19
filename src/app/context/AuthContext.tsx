@@ -16,8 +16,9 @@ import { supabase } from '@/lib/supabase';
 import { UserRole } from '@/app/types/admin-types';
 import { logAction } from '@/app/utils/auditLog';
 import { readPersistedSupabaseAuth, writeDevMockAuth, clearDevMockAuth, clearStaleDevMockFromSupabaseStorage, readDevMockAccessToken, readDevMockUser } from '@/app/utils/authStorage';
+import { isDemoBypassAuthEnabled } from '@/app/utils/demoAuthBypass';
 
-if (import.meta.env.DEV && typeof window !== 'undefined') {
+if (isDemoBypassAuthEnabled() && typeof window !== 'undefined') {
   clearStaleDevMockFromSupabaseStorage();
 }
 
@@ -93,8 +94,8 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const bootAuth = readPersistedSupabaseAuth();
-  const bootDevUser = import.meta.env.DEV ? readDevMockUser() : null;
-  const bootDevToken = import.meta.env.DEV ? readDevMockAccessToken() : null;
+  const bootDevUser = isDemoBypassAuthEnabled() ? readDevMockUser() : null;
+  const bootDevToken = isDemoBypassAuthEnabled() ? readDevMockAccessToken() : null;
   const bootDevSession =
     bootDevUser && bootDevToken
       ? ({
@@ -112,7 +113,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(false);
 
   const restoreDevMockIfPresent = (): boolean => {
-    if (!import.meta.env.DEV) return false;
+    if (!isDemoBypassAuthEnabled()) return false;
     const devUser = readDevMockUser();
     const devToken = readDevMockAccessToken();
     if (!devUser || !devToken) return false;
@@ -270,7 +271,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const devBypassLogin = async (): Promise<void> => {
-    if (!import.meta.env.DEV) return;
+    if (!isDemoBypassAuthEnabled()) return;
     await applyMockSession({
       id: 'dev-user-uuid-1',
       email: 'dev@local',
@@ -281,7 +282,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const adminBypassLogin = async (): Promise<void> => {
-    if (!import.meta.env.DEV) return;
+    if (!isDemoBypassAuthEnabled()) return;
     await applyMockSession({
       id: 'admin-uuid-1',
       email: 'admin@local',

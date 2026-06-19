@@ -25,6 +25,7 @@
 ### للواجهة (Vite — آمنة للحزمة)
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
+- `VITE_DEMO_BYPASS_AUTH=true` — **تجربة بدون تسجيل دخول** (أزلها قبل الإطلاق الرسمي)
 - `VITE_SENTRY_DSN` (اختياري)
 
 ### للخادم (BFF — لا تستخدم بادئة `VITE_`)

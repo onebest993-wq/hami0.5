@@ -4,6 +4,9 @@
   "buildCommand": "npm run build",
   "installCommand": "npm install --legacy-peer-deps",
   "outputDirectory": "dist",
+  "env": {
+    "VITE_DEMO_BYPASS_AUTH": "true"
+  },
   "headers": [
     {
       "source": "/index.html",
