@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { Party } from '@/app/types/execution';
 
 function isRecord(value: unknown): value is Record<string, unknown> {

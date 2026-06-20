@@ -18,6 +18,7 @@ import {
     appealPipelineRowForCard,
     resolveCreditorDecisionEnforcementState,
 } from './appealEngineCore';
+import { DECISION_GLASS_CARD } from './appeal-engine/decisionCardFormatting';
 
 export type { DecisionCardEnforcementVisual } from '../decisionCardGlassShell';
 

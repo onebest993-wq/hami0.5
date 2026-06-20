@@ -22,7 +22,7 @@ export type UseDecisionsAppealsAppealRenderersArgs = {
     commitExecutorSideAppealEntry: (
         decision: Decision,
         stage: 'grievance' | 'cassation',
-        appellants: import('../utils').ManualAppealAppellantActor[]
+        appellants: import('../../utils').ManualAppealAppellantActor[]
     ) => void;
     applyWaiveInitialAppeal: (decision: Decision) => void;
     applyCassationCourtDecision: (

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type React from 'react';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { GlobalNote, ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';

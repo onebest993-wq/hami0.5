@@ -1,4 +1,4 @@
-import type { Party } from '../../../../LawyerShared';
+import type { CaseStage, Party } from '../../../../LawyerShared';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { debug } from '@/app/utils/debug';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
@@ -15,8 +15,6 @@ import {
 } from '../../../smartFile/interpleaderJudgmentEngine';
 import { applyCassationRemand, cassationRemandSuccessMessage, resolveCassationRemandTarget } from '../../../smartFile/appealStageTransition';
 import type { JudgmentConfirmRuntime, JudgmentConfirmScope } from './judgmentConfirmTypes';
-import type { CaseStage, Party } from '../../../../LawyerShared';
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 
 export function applyTransitionScenario(scope: JudgmentConfirmScope, rt: JudgmentConfirmRuntime): void {
     const { currentStage, activeStageIndex, parentData, stages, setStatus, setActiveStageIndex } = scope;

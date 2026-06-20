@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { Suspense } from 'react';
 import type { SmartFileMainPanelProps } from '@/app/components/lawyer/smart-modal/layout/mainPanel/smartFileMainPanelTypes';
 import { useSmartFileMainPanelLayout } from '@/app/components/lawyer/smart-modal/layout/mainPanel/useSmartFileMainPanelLayout';

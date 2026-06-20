@@ -1,7 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { debug } from "@/app/utils/debug";
-import { resetLawyerDashboardModuleCache } from "@/app/runtime/lawyerDashboardLoader";
 
 interface Props {
   children: ReactNode;
@@ -34,7 +33,9 @@ export class GlobalErrorBoundary extends Component<Props, State> {
         const reloadKey = 'hami:vite-stale-import-reload';
         if (!sessionStorage.getItem(reloadKey)) {
           sessionStorage.setItem(reloadKey, '1');
-          resetLawyerDashboardModuleCache();
+          void import('@/app/runtime/lawyerDashboardLoader').then((m) =>
+            m.resetLawyerDashboardModuleCache(),
+          );
           debug.error('❌ [GlobalErrorBoundary] Stale chunk — reloading once:', error.message);
           window.location.reload();
           return;
@@ -56,7 +57,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
   }
 
   private handleReset = () => {
-    resetLawyerDashboardModuleCache();
+    void import('@/app/runtime/lawyerDashboardLoader').then((m) => m.resetLawyerDashboardModuleCache());
     void import('@/app/utils/lazyComponents').then((m) => m.resetArchivePortalPrefetch());
     this.setState({ hasError: false, error: null, errorInfo: null });
   };

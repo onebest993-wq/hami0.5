@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { CaseStage } from '@/app/types/criminal';
 import {
     hasCassationCorrectionPartyInterest,

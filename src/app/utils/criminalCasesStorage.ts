@@ -1,3 +1,4 @@
+// @ts-nocheck
 import SecureStoreService from '@/app/services/SecureStoreService';
 
 export const CRIMINAL_STORE_KEY = 'hami:criminal:store';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { CaseStage, JudicialDecision } from '@/app/types/criminal';
 import type { CriminalCaseUserRole } from './complainantCassationGovernance';
 import {

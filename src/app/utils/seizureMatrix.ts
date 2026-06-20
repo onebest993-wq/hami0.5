@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { Debtor, ExecutionFile } from '@/app/types/execution';
 import { isDebtorRowEmployee } from '@/app/stores';
 

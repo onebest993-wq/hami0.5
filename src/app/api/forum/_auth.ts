@@ -8,7 +8,7 @@ export async function requireForumAuth(request: Request): Promise<
     | { ok: true; userId: string; token: string; isAdmin: boolean }
 > {
     const auth = await requireWifeUser(request);
-    if (!auth.ok) return auth;
+    if (auth.ok === false) return auth;
 
     const userToken = extractUserTokenFromRequest(request) ?? '';
     const isAdmin = await isForumModeratorUserId(auth.userId);

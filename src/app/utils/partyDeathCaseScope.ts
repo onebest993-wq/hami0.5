@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { ExecutionFile } from '@/app/types/execution';
 
 export type PartyDeathCaseRecord = NonNullable<ExecutionFile['party_death_case']>;

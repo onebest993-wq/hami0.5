@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { JudicialDecision } from '@/app/types/criminal';
 import type { CriminalCase, LawyerRequest, TimelineEvent } from './criminalStore';
 

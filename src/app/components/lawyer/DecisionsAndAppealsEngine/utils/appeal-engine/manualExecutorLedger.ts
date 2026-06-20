@@ -27,7 +27,8 @@ import {
 } from '../appealRequestOrigin';
 import { appealWindowsForDecision, todayYmd, appealGrievanceFilingClockPatch, isOpenGrievancePipeline, decisionHasAppealClock } from './appealDates';
 import { buildGrievanceResolutionPatch, inferAppealMethodsUsed } from './appealWorkflowActors';
-import type { CreditorDecisionEnforcementState } from './appealTypes';
+import type { CreditorDecisionEnforcementState, ExecutorDecisionStatusFlag } from './appealTypes';
+import { hasManualExecutorAppealAppellants } from './appealProceedingsTypes';
 import {
     isManualExecutorLedgerDecision,
     resolveExecutorDecisionStatusFlag,

@@ -7,6 +7,9 @@ dist/
 api/_routeManifest.ts
 .next/
 
+# Local / generated artifacts
+.trae/
+
 # Environment & secrets
 .env
 .env.local
@@ -16,9 +19,6 @@ api/_routeManifest.ts
 playwright-report/
 test-results/
 coverage/
-
-# Archived session reports (regenerate not needed)
-docs/archive/
 
 # Flutter mobile stub — not part of the Vite web app
 hami/

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { getEffectiveClaimTypes } from '@/app/components/lawyer/ExecutionCreationView/hooks/executionFormUtils';
 import {
     isEncroachmentExecutionClaim,

@@ -81,7 +81,9 @@ export function useLawyerDashboardWorkspace({
         userId: user?.id,
         authUserId,
         refreshAppAlerts,
-        setActiveFile,
+        setActiveFile: setActiveFile as Dispatch<
+            SetStateAction<FileData | import('@/app/types/execution').ExecutionFile | null>
+        >,
         setArchiveType,
         archiveType,
     });

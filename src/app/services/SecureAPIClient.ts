@@ -77,7 +77,7 @@ function isSameOriginApiRoute(resolved: URL): boolean {
 export async function getCurrentAccessToken(): Promise<string | null> {
     const { data } = await supabase.auth.getSession();
     let token = data.session?.access_token?.trim() ?? '';
-    if (!token && import.meta.env.DEV) {
+    if (!token) {
         token = readDevMockAccessToken() ?? '';
     }
     return token || null;

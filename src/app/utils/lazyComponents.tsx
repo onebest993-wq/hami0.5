@@ -206,9 +206,6 @@ export const LazyLegalCommandCenterDock = lazyWithRetry(() =>
 export const LazyTasksManager = lazyWithRetry(() =>
     import('@/app/components/lawyer/dashboard/TasksManager.tsx').then((m) => ({ default: m.TasksManager as unknown as LazyComponent }))
 );
-export const LazyLawyerAuth = lazyWithRetry(() =>
-    import('@/app/components/lawyer/LawyerAuth').then((m) => ({ default: m.LawyerAuth as unknown as LazyComponent }))
-);
 export const LazyNotificationPanel = lazyWithRetry(() =>
     import('@/app/runtime/notificationPanelLoader').then((m) =>
         m.loadNotificationPanelModule().then((mod) => ({

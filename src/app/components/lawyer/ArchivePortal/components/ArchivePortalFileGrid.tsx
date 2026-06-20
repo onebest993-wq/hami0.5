@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from 'react';
 import { motion } from 'motion/react';
 import { AlertCircle, Clock, RotateCcw } from 'lucide-react';

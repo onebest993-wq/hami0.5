@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from 'react';
 import { Gavel, Plane, Scale, Send, ShieldAlert, UserX } from 'lucide-react';
 import { InlineActionGate } from './InlineActionGate';

@@ -2,17 +2,8 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './styles/index.css';
 import SecureStoreService from '@/app/services/SecureStoreService';
-import { hasPersistedSupabaseSession } from '@/app/utils/authStorage';
-import { PrefetchScheduler } from '@/app/runtime/prefetchScheduler';
 /** Dev: static import — dynamic import('./app/App') breaks with Vite HMR stale modules */
 import App from './app/App';
-
-if (!import.meta.env.DEV && hasPersistedSupabaseSession()) {
-    void import('@/app/runtime/lawyerDashboardLoader').then((m) => m.prefetchLawyerDashboardEntry());
-}
-if (hasPersistedSupabaseSession()) {
-    PrefetchScheduler.planAuthenticatedEntry();
-}
 
 /** Vite dev: إعادة تحميل واحدة عند فشل dynamic import (HMR stale) */
 if (import.meta.env.DEV) {

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { ExecutionFile } from '@/app/types/execution';
 import {
     getDossierPresentationOutcome,

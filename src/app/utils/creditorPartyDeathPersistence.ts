@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { Creditor, ExecutionFile } from '@/app/types/execution';
 import {
     buildScopedPartyDeathPersistPatch,

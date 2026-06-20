@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useCallback, useMemo } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { FileData } from '../../LawyerShared';

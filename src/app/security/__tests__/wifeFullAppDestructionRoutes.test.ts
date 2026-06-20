@@ -46,9 +46,13 @@ vi.mock('@/app/api/security/wifeValidator.ts', () => ({
   wifeUnauthorizedResponse: () => new Response(JSON.stringify({ ok: false }), { status: 401 }),
 }));
 
-vi.mock('@/app/api/security/bffAuth.ts', () => ({
-  requireWifeUser: (...args: unknown[]) => requireWifeUserMock(...args),
-}));
+vi.mock('@/app/api/security/bffAuth.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/app/api/security/bffAuth.ts')>();
+  return {
+    ...actual,
+    requireWifeUser: (...args: unknown[]) => requireWifeUserMock(...args),
+  };
+});
 
 vi.mock('@/app/api/security/kvStoreAdmin.ts', () => ({
   kvGet: (...args: unknown[]) => kvGetMock(...args),

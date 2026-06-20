@@ -20,7 +20,7 @@ import {
 import { EXEC_MODAL_BACKDROP_STRONG, EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
 import { EVICTION_TIMELINE_ACTION_IDS, isSpecificDeliveryClaim } from '@/app/utils/executionModuleStrategies';
 import SecureStoreService from '@/app/services/SecureStoreService';
-import { resolveDebtorDisplayNameForKey } from '@/app/utils/partyDisplayName';
+import { resolveDebtorDisplayNameForKey } from '@/app/utils/coerciveDebtorScope';
 import { normalizeDossierLifecycleStatus } from '@/app/types/execution';
 import { useFollowupModal } from './followupModalContext';
 
@@ -212,7 +212,7 @@ export function ExecutionFollowupModalPortal() {
         viewExecutionData,
         voluntaryAttendanceCount,
         voluntaryEndOptimistic
-    } = useFollowupModal() as Record<string, never>;
+    } = useFollowupModal();
 
     if (typeof document === 'undefined') return null;
 

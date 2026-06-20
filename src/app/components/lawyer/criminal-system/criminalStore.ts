@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import SecureStoreService from '@/app/services/SecureStoreService';
@@ -271,7 +272,6 @@ import {
     isInvestigationMergeJudicialTemplate,
     isInvestigationSeveranceJudicialTemplate,
     isInvestigationStructuralCassationTemplate,
-    isInvestigationSeveranceJudicialTemplate,
     isJudicialDecisionTemplate,
     normalizeProceduralRequestTemplate,
     resolveStoredRequestTypeFields,

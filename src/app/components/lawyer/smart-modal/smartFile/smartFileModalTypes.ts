@@ -1,7 +1,7 @@
 import type { CaseStage } from '../../LawyerShared';
 import type { FileData, IncidentalCase } from '../../LawyerShared';
-import type { IncidentalSpawnContext } from '../incidentalCaseLinking';
-import type { ConsolidationMergeMeta, ConsolidationSpawnContext } from '../caseConsolidationLinking';
+import type { IncidentalSpawnContext } from './incidentalCaseLinking';
+import type { ConsolidationMergeMeta, ConsolidationSpawnContext } from './caseConsolidationLinking';
 
 export function readFileString(file: Record<string, unknown>, key: string, fallback = ''): string {
     const value = file[key];

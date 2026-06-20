@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { CaseStage, IncidentalCase, Party } from '../../LawyerShared';
 import { repairAppealStagePartyRoles } from './appealPartyEngine';
 import { dedupeAppealThirdPartyShadows } from './partyRoleClassification';

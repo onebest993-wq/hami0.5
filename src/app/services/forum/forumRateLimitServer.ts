@@ -22,7 +22,7 @@ export function checkForumActionRateLimit(
     if (!userId) return false;
     switch (action) {
         case 'post':
-            return true;
+            return check(`forum:post:burst:${userId}`, 1, 30_000);
         case 'comment':
             return (
                 check(`forum:comment:burst:${userId}`, 1, 8_000) &&

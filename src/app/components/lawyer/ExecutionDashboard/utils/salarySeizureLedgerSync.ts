@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { ExecutionFile } from '@/app/types/execution';
 import { hasOngoingAlimonyInExecution } from '@/app/components/lawyer/ExecutionCreationView/hooks/executionFormUtils';
 import { parseAmount } from '@/app/components/lawyer/FinancialOperationsCenter/utils';

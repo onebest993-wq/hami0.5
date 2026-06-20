@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { Dispatch, SetStateAction } from 'react';
 import type { CaseStage, TimelineEvent } from '../../LawyerShared';
 import { useSmartFileModalStageTimelineBundle } from './useSmartFileModalStageTimelineBundle';

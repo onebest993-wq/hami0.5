@@ -1,7 +1,5 @@
 import { cleanupDevServiceWorkers } from '@/app/utils/devServiceWorkerCleanup';
 import { initWebVitalsLogging } from '@/app/utils/webVitalsObserver';
-import { PrefetchScheduler } from '@/app/runtime/prefetchScheduler';
-import { hasPersistedSupabaseSession } from '@/app/utils/authStorage';
 
 function installSubmitGuard(): void {
     const w = window as unknown as { __hamiSubmitGuardInstalled?: boolean };
@@ -131,9 +129,11 @@ function initSentryDeferred(): void {
         });
 }
 
-function prefetchAuthenticatedChunks(): void {
-    if (!hasPersistedSupabaseSession()) return;
-    PrefetchScheduler.planAuthenticatedEntry();
+function prefetchDemoChunks(): void {
+    if (import.meta.env.DEV) return;
+    void import('@/app/utils/screenPrefetch').then(({ scheduleDemoPrefetchWaves }) => {
+        scheduleDemoPrefetchWaves();
+    });
 }
 
 /** مهام ما بعد أول إطار — لا تُستدعى قبل ReactDOM.render */
@@ -153,8 +153,7 @@ export function runDeferredBootTasks(): void {
         installIraqDateFormatPatch();
         installArabicDatePickersPatch();
         initSentryDeferred();
-        prefetchAuthenticatedChunks();
-
+        prefetchDemoChunks();
     };
 
     if (typeof requestIdleCallback !== 'undefined') {

@@ -1,5 +1,5 @@
 import { sanitizePayload } from '../../security/sanitizer.ts';
-import { requireWifeUser } from '../../security/bffAuth.ts';
+import { requireWifeUser, unwrapWifeUser } from '../../security/bffAuth.ts';
 import { isAdminRequest } from '../../security/adminCheck.ts';
 import { getSupabaseAdminClient } from '../../security/supabaseAdminClient.ts';
 import { wifeJsonResponse } from '../../security/wifeSecurityHeaders.ts';
@@ -12,10 +12,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const auth = await requireWifeUser(request);
-    if (!auth.ok) return auth.response;
+    const authGate = unwrapWifeUser(await requireWifeUser(request));
+    if ('response' in authGate) return authGate.response;
+    const { userId } = authGate;
 
-    if (!(await isAdminRequest(request, auth.userId))) {
+    if (!(await isAdminRequest(request, userId))) {
       return wifeJsonResponse(403, { ok: false, error: 'Unauthorized Access' });
     }
 
@@ -31,7 +32,7 @@ export async function POST(request: Request): Promise<Response> {
 
     const requesterId = typeof payload.requesterId === 'string' ? payload.requesterId.trim() : '';
     const targetUserId = typeof payload.targetUserId === 'string' ? payload.targetUserId.trim() : '';
-    if (!requesterId || requesterId !== auth.userId) {
+    if (!requesterId || requesterId !== userId) {
       return wifeJsonResponse(403, { ok: false, error: 'requesterId mismatch' });
     }
     if (!targetUserId) {

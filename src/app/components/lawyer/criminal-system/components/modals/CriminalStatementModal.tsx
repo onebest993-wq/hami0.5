@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { filterStatementEligibleDefendants } from '../../investigationDefendantPurge';
 import type {

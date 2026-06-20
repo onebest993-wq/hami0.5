@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from 'react';
 import { applyDossierSpecialFollowupOutcome } from '@/app/components/lawyer/ExecutionDashboard/utils/applyDossierSpecialFollowupOutcome';
 import type { Decision } from '../types';

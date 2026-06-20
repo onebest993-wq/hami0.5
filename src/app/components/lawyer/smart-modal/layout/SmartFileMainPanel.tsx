@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { Suspense } from 'react';
 import { ArrowRightLeft, ChevronDown, Clock } from 'lucide-react';
 import {

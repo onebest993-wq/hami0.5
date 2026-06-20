@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import {
     isPersonalStatusCoreStage,

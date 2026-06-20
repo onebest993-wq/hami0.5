@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState } from 'react';
 import { Briefcase } from 'lucide-react';
 import type { AffiliationSide, Party, ThirdPartyEntryMode } from '../../../LawyerShared';

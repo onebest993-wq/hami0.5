@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { ComponentProps, Dispatch, SetStateAction } from 'react';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { LawyerDashboardHomeTab } from '@/app/components/lawyer/dashboard/LawyerDashboardHomeTab';

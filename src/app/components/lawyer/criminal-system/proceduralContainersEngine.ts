@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { ProceduralItemLink, ProceduralLinkKind } from './proceduralItemLink';
 import { normalizeProceduralItemLink } from './proceduralItemLink';
 

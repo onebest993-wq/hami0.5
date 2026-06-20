@@ -3,6 +3,7 @@ import { sanitizePayload } from '../../security/sanitizer.ts';
 import { getSupabaseAdminClient } from '../../security/supabaseAdminClient.ts';
 import { wifeJsonResponse } from '../../security/wifeSecurityHeaders.ts';
 import { requirePlatformAdmin } from '../lawsAdminAuth.ts';
+import { unwrapWifeUser } from '../../security/bffAuth.ts';
 import { clearIraqiLaws, parseOptionalArticleBound } from '../lawsAdminUtils.ts';
 import {
   devLocalClearLaws,
@@ -20,8 +21,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  */
 export async function POST(request: Request): Promise<Response> {
   try {
-    const auth = await requirePlatformAdmin(request);
-    if (!auth.ok) return auth.response;
+    const authGate = unwrapWifeUser(await requirePlatformAdmin(request));
+    if ('response' in authGate) return authGate.response;
+    const { userId } = authGate;
 
     let payload: unknown = null;
     try {
@@ -52,7 +54,7 @@ export async function POST(request: Request): Promise<Response> {
           articleFrom: parseOptionalArticleBound(payload.article_from),
           articleTo: parseOptionalArticleBound(payload.article_to),
         });
-        if (!result.ok) {
+        if (result.ok === false) {
           return wifeJsonResponse(400, { ok: false, error: result.error });
         }
         return wifeJsonResponse(200, {
@@ -73,7 +75,7 @@ export async function POST(request: Request): Promise<Response> {
       articleTo: parseOptionalArticleBound(payload.article_to),
     });
 
-    if (!result.ok) {
+    if (result.ok === false) {
       return wifeJsonResponse(400, { ok: false, error: result.error });
     }
 

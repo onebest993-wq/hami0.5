@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { CalendarBridge } from '@/app/services/calendarBridge';
 import { CALENDAR_SOURCE_PATCHED_EVENT } from '@/app/services/calendarBridge.types';

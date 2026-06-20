@@ -1,5 +1,5 @@
 import { sanitizePayload } from '../../security/sanitizer.ts';
-import { requireWifeUser } from '../../security/bffAuth.ts';
+import { requireWifeUser, unwrapWifeUser } from '../../security/bffAuth.ts';
 import { getSupabaseAdminClient } from '../../security/supabaseAdminClient.ts';
 import { wifeJsonResponse } from '../../security/wifeSecurityHeaders.ts';
 
@@ -21,8 +21,9 @@ function normalizeEventId(raw: unknown): string | null {
 
 export async function GET(request: Request): Promise<Response> {
   try {
-    const auth = await requireWifeUser(request);
-    if (!auth.ok) return auth.response;
+    const authGate = unwrapWifeUser(await requireWifeUser(request));
+    if ('response' in authGate) return authGate.response;
+    const { userId } = authGate;
 
     const admin = getSupabaseAdminClient();
     if (!admin) {
@@ -32,7 +33,7 @@ export async function GET(request: Request): Promise<Response> {
     const { data, error } = await admin
       .from(TABLE)
       .select('event_id')
-      .eq('user_id', auth.userId);
+      .eq('user_id', userId);
 
     if (error) {
       return wifeJsonResponse(500, { ok: false, error: 'Failed to load tombstones' });
@@ -50,8 +51,9 @@ export async function GET(request: Request): Promise<Response> {
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const auth = await requireWifeUser(request);
-    if (!auth.ok) return auth.response;
+    const authGate = unwrapWifeUser(await requireWifeUser(request));
+    if ('response' in authGate) return authGate.response;
+    const { userId } = authGate;
 
     let payload: unknown = null;
     try {
@@ -75,7 +77,7 @@ export async function POST(request: Request): Promise<Response> {
 
     if (payload.action === 'mark') {
       const { error } = await admin.from(TABLE).upsert(
-        { user_id: auth.userId, event_id: eventId },
+        { user_id: userId, event_id: eventId },
         { onConflict: 'user_id,event_id' },
       );
       if (error) {
@@ -88,7 +90,7 @@ export async function POST(request: Request): Promise<Response> {
       const { error } = await admin
         .from(TABLE)
         .delete()
-        .eq('user_id', auth.userId)
+        .eq('user_id', userId)
         .eq('event_id', eventId);
       if (error) {
         return wifeJsonResponse(500, { ok: false, error: 'Failed to clear tombstone' });

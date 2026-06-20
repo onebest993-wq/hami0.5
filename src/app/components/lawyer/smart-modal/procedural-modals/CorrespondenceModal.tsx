@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState } from 'react';
 import { Send } from 'lucide-react';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';

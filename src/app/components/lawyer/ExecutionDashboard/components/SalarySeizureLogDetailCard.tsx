@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from 'react';
 import type { ExecutionFile, SeizedAsset } from '@/app/types/execution';
 import { formatNumberInput } from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';

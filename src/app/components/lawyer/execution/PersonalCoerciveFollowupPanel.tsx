@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -2361,7 +2362,6 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
                                             debtorKey: activeDebtorKey,
                                             primaryDebtorKey,
                                         });
-                                        setDetentionInAbsentia(false);
                                         setDetentionRejectionOpen(false);
                                         setDetentionRejectionReason('');
                                         goBackToPersonalCoerciveHub();

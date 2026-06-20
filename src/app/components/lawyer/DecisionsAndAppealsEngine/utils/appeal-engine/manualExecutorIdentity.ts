@@ -28,7 +28,10 @@ export function resolveManualExecutorWorkflowPhase(
     if (d.manualExecutorGrievanceOutcome && d.manualExecutorAppealKind !== 'tamyeez') {
         return 'cassation_unlocked';
     }
-    return 'cassation_pending';
+    if (d.manualExecutorAppealKind === 'tamyeez') {
+        return 'cassation_pending';
+    }
+    return 'idle';
 }
 
 export function isAppealDeadlinePerpetuallyEnforced(d: Decision): boolean {

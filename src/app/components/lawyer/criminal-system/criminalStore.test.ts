@@ -347,8 +347,13 @@ describe('criminalStore', () => {
     });
 
     it('misdemeanor to felony referral appends journey, isolates decision node, and records appealable order', () => {
-        seedDraftForNewCase('محكمة الجنح');
+        seedDraftForNewCase('مرحلة التحقيق');
         const caseId = useCriminalStore.getState().createCaseFromDraft();
+        useCriminalStore.getState().referCaseToTrial(
+            caseId,
+            { decisionNumber: '10/إحالة', decisionDate: '2026-06-01' },
+            { stage: 'محكمة الجنح', courtName: 'محكمة جنح الكرخ', caseNumber: '50/ج/2026' },
+        );
         const before = useCriminalStore.getState().casesById[caseId]!;
         const misdNodeId = before.stageJourney?.find((n) => n.status === 'current')?.id ?? '';
 
@@ -1893,7 +1898,7 @@ describe('criminalStore', () => {
         const childId = useCriminalStore.getState().createCaseFromDraft();
 
         expect(() => useCriminalStore.getState().mergeCases(parentId, childId, 'محاولة ضم عابر')).toThrow(
-            'لا يجوز قانوناً توحيد أضابير في مراحل إجرائية مختلفة',
+            'لا يجوز ضم إضبارات في مراحل إجرائية مختلفة',
         );
 
         const parent = useCriminalStore.getState().casesById[parentId] as any;
@@ -1948,16 +1953,22 @@ describe('criminalStore', () => {
         seedDraftForNewCase('محكمة الجنح');
         const caseId = useCriminalStore.getState().createCaseFromDraft();
 
-        useCriminalStore.getState().addTimelineEvent(caseId, {
-            id: 'v1',
+        useCriminalStore.getState().addTrialSession(caseId, {
             date: '2026-05-10',
-            type: 'decision',
-            category: 'نطق بالقرار (إدانة)',
-            title: 'نطق',
-            description: 'تم النطق',
+            sessionNumber: '1',
+            presenceStatus: 'present',
+            sessionNotes: 'جلسة الحكم',
         });
+        const session = useCriminalStore.getState().casesById[caseId]?.trials?.[0];
+        expect(session?.id).toBeTruthy();
 
-        expect((useCriminalStore.getState().casesById[caseId] as any).verdictDate).toBe('2026-05-10');
+        const verdictErr = useCriminalStore.getState().finalizeTrialVerdict(caseId, session!.id, {
+            outcome: 'conviction',
+            date: '2026-05-10',
+        });
+        expect(verdictErr).toBeNull();
+
+        expect(useCriminalStore.getState().casesById[caseId]?.verdictDate).toBe('2026-05-10');
     });
 
     it('sends case to cassation and stores details (no hard freeze)', () => {

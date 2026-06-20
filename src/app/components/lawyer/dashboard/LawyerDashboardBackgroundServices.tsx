@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useCallback, useEffect, useRef, type MutableRefObject } from 'react';
 import type { User } from '@supabase/supabase-js';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';

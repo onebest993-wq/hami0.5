@@ -20,6 +20,7 @@ import {
     repairUnknownDefendantCaseRecord,
     resolveDefendantFullName,
     unknownDefendantDisplayLabel,
+    filterStatementsExcludingUnknown,
 } from './criminalUnknownDefendant';
 
 describe('criminalUnknownDefendant', () => {

@@ -6,7 +6,12 @@ import {
     hubWithInferredAppealOrigin,
     resolveCassationFilerActor,
     isCreditorInitiatedExecutorRequest,
+    isLawyerCassationNaqdResume,
+    newEventId,
 } from '../utils';
+import { dispatchHeirSubstitutionOutcomeIfAny } from '../engine/decisionsEngineTypes';
+import { applyPersonalCoerciveAppealClosure } from '@/app/utils/personalCoerciveAppealSync';
+import { applyEvictionAppealClosure } from '@/app/utils/evictionAppealSync';
 import type { DecisionsAppealsMutationsCoreParams } from './decisionsAppealsMutationsTypes';
 
 export function useDecisionsAppealsCassationMutations(params: DecisionsAppealsMutationsCoreParams) {

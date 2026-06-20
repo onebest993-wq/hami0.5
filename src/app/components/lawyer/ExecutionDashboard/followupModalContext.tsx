@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 
 /** Snapshot passed from ExecutionDashboard while محضر المتابعة is open. */
-export type FollowupModalSnapshot = Record<string, unknown>;
+export type FollowupModalSnapshot = Record<string, any>;
 
 export const FollowupModalContext = createContext<FollowupModalSnapshot | null>(null);
 

@@ -1,5 +1,5 @@
 import { sanitizePayload } from '../../security/sanitizer.ts';
-import { requireWifeUser } from '../../security/bffAuth.ts';
+import { requireWifeUser, unwrapWifeUser } from '../../security/bffAuth.ts';
 import { getSupabaseAdminClient } from '../../security/supabaseAdminClient.ts';
 import { wifeJsonResponse } from '../../security/wifeSecurityHeaders.ts';
 
@@ -19,8 +19,9 @@ function isMissingRelationError(message: string): boolean {
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const auth = await requireWifeUser(request);
-    if (!auth.ok) return auth.response;
+    const authGate = unwrapWifeUser(await requireWifeUser(request));
+    if ('response' in authGate) return authGate.response;
+    const { userId } = authGate;
 
     let payload: unknown = null;
     try {
@@ -43,7 +44,7 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     const { error } = await admin.from(TABLE).insert({
-      user_id: auth.userId,
+      user_id: userId,
       action,
       details: payload.details ?? null,
     });

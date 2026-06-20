@@ -6,7 +6,11 @@ import {
     grievancePetitionGranted,
     hubWithInferredAppealOrigin,
     isCreditorInitiatedExecutorRequest,
+    newEventId,
 } from '../utils';
+import { dispatchHeirSubstitutionOutcomeIfAny } from '../engine/decisionsEngineTypes';
+import { applyPersonalCoerciveAppealClosure } from '@/app/utils/personalCoerciveAppealSync';
+import { applyEvictionAppealClosure } from '@/app/utils/evictionAppealSync';
 import type { DecisionsAppealsMutationsCoreParams } from './decisionsAppealsMutationsTypes';
 
 export function useDecisionsAppealsGrievanceMutations(params: DecisionsAppealsMutationsCoreParams) {
@@ -163,7 +167,7 @@ export function useDecisionsAppealsGrievanceMutations(params: DecisionsAppealsMu
             } else if (!granted) {
                 queueMicrotask(() => {
                     setDecisionsHubTab('appeals');
-                    setAppealsScrollTargetId(
+                    goToAppealsWithScroll(
                         typeof srcId === 'string' && srcId.trim() ? decision.id : mergedRowId
                     );
                 });

@@ -4,6 +4,7 @@ import { getSupabaseAdminClient } from '../../security/supabaseAdminClient.ts';
 import { wifeJsonResponse } from '../../security/wifeSecurityHeaders.ts';
 import { buildIraqiLawInsertRow } from '../lawsAdminUtils.ts';
 import { requirePlatformAdmin } from '../lawsAdminAuth.ts';
+import { unwrapWifeUser } from '../../security/bffAuth.ts';
 import { devLocalImportLawArticles, shouldUseDevLocalLawsStore } from '../devLawsLocalStore.ts';
 
 export const runtime = 'nodejs';
@@ -30,8 +31,9 @@ function normalizeImportArticle(raw: unknown): { article_number: string; content
  */
 export async function POST(request: Request): Promise<Response> {
   try {
-    const auth = await requirePlatformAdmin(request);
-    if (!auth.ok) return auth.response;
+    const authGate = unwrapWifeUser(await requirePlatformAdmin(request));
+    if ('response' in authGate) return authGate.response;
+    const { userId } = authGate;
 
     let payload: unknown = null;
     try {

@@ -14,8 +14,8 @@ export function getTimeBucket(iso: string, now: Date): TimeBucket {
 
 export function groupNotificationsByTime(
     items: NotificationModel[],
+    now: Date = new Date(),
 ): Record<TimeBucket, NotificationModel[]> {
-    const now = new Date();
     const groups: Record<TimeBucket, NotificationModel[]> = {
         today: [],
         yesterday: [],

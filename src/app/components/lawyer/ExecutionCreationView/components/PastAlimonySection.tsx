@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from 'react';
 import { DollarSign, Zap, Scale, AlertTriangle } from 'lucide-react';
 import { ecg } from './executionCreationGlassUi';

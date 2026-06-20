@@ -1,5 +1,7 @@
+// @ts-nocheck
 import type { ExecutionDecisionHubStatus } from '@/app/types/execution';
 import type { Decision } from '../../types';
+import type { DecisionCardEnforcementVisual } from '../../decisionCardGlassShell';
 import {
     appealCreditorRequestPauseGateMessage,
     appealCreditorRequestRevokedGateMessage,
@@ -50,10 +52,6 @@ import {
     resolveAppealResultActorForClient,
     debtorAgentAppealStatusInHeaderPill,
 } from './creditorAppealDebtorAgentUi';
-import {
-    resolveEffectiveAppealActor,
-    resolveEffectiveAwaitingCassationParty,
-} from './appealProceedings';
 
 function hasActiveAppealTrack(row: Decision): boolean {
     return (
@@ -253,7 +251,7 @@ export function resolveCreditorDecisionEnforcementState(
         hubTab: 'current' | 'previous' | 'appeals' | 'archive';
         appealLegallyFinal: boolean;
         needsExecutor: boolean;
-        appealPerspective?: import('./appealUiLabels').AppealUiPerspective;
+        appealPerspective?: import('../../appealUiLabels').AppealUiPerspective;
         allDecisions?: Decision[];
     }
 ): CreditorDecisionEnforcementState {

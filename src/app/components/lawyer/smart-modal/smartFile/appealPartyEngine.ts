@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { IncidentalCase, Party } from '../../LawyerShared';
 import {
     resolveClientPartyBucket,

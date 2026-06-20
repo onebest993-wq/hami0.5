@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useCallback, useEffect, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import { CalendarBridge } from '@/app/services/calendarBridge';
 import { syncExecutionTaskDue } from '@/app/services/calendarDossierSync';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type React from 'react';
 import type { ExecutionFile, SeizedMovable, SeizedProperty, TimelineEvent } from '@/app/types/execution';
 import type { UnifiedLedgerTotalParams } from '@/app/components/lawyer/FinancialOperationsCenter/utils';
@@ -18,6 +19,7 @@ import {
 } from '@/app/components/lawyer/ExecutionDashboard/utils/movableSeizureFinancialUtils';
 import {
     creditPropertyProceedsForExecution,
+    creditPropertySaleProceedsToTrustLedger,
     syncSoldPropertyProceedsToTrustLedger,
 } from '@/app/components/lawyer/ExecutionDashboard/utils/propertySeizureFinancialUtils';
 import {

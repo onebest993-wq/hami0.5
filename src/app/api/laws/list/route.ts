@@ -1,6 +1,6 @@
 import { ALLOWED_IRAQI_LAW_NAMES, isAllowedIraqiLawName } from '@/app/constants/iraqiLawCatalog';
 import { sanitizePayload } from '../../security/sanitizer.ts';
-import { requireWifeUser } from '../../security/bffAuth.ts';
+import { requireWifeUser, unwrapWifeUser } from '../../security/bffAuth.ts';
 import { getSupabaseAdminClient } from '../../security/supabaseAdminClient.ts';
 import { wifeJsonResponse } from '../../security/wifeSecurityHeaders.ts';
 import { devLocalListLaws, shouldUseDevLocalLawsStore } from '../devLawsLocalStore.ts';
@@ -21,8 +21,9 @@ function isMissingRelationError(message: string): boolean {
  */
 export async function POST(request: Request): Promise<Response> {
   try {
-    const auth = await requireWifeUser(request);
-    if (!auth.ok) return auth.response;
+    const authGate = unwrapWifeUser(await requireWifeUser(request));
+    if ('response' in authGate) return authGate.response;
+    const { userId } = authGate;
 
     let payload: unknown = null;
     try {

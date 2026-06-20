@@ -36,6 +36,6 @@ describe('requireWifeUser', () => {
     vi.mocked(verifyWifeSignature).mockResolvedValue(false);
     const res = await requireWifeUser(new Request('http://127.0.0.1/api/test'));
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.response.status).toBe(403);
+    if (res.ok === false) expect(res.response.status).toBe(403);
   });
 });

@@ -52,7 +52,6 @@ import {
     PETITION_VOID_APPEAL_DAYS,
     resolvePetitionVoidMenuLabel,
 } from '../../smartFile/petitionVoidFlow';
-import type { UseSmartFileProceduralActionsOptions } from '../../smartFile/proceduralTypes';
 
 export function useProceduralLifecycleActions(options: UseSmartFileProceduralActionsOptions) {
     const {

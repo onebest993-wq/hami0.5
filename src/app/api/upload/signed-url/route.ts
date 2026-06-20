@@ -6,12 +6,12 @@ import {
   verifyWifeSignature,
   wifeForbiddenResponse, wifeSignatureFailedResponse,
   wifeUnauthorizedResponse,
-} from '../security/wifeValidator.ts';
+} from '../../security/wifeValidator.ts';
 import {
   isStoragePathOwnedByUser,
   resolveUploadBucket,
   SIGNED_URL_TTL_SEC,
-} from './uploadStorageUtils.ts';
+} from '../uploadStorageUtils.ts';
 
 export const runtime = 'nodejs';
 

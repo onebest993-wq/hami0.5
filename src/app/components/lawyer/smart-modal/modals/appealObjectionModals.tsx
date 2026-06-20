@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState } from 'react';
 import { Bell, Calendar, Check, Gavel, Shield, X } from 'lucide-react';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';

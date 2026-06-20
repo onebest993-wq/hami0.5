@@ -16,10 +16,33 @@ import { supabase } from '@/lib/supabase';
 import { UserRole } from '@/app/types/admin-types';
 import { logAction } from '@/app/utils/auditLog';
 import { readPersistedSupabaseAuth, writeDevMockAuth, clearDevMockAuth, clearStaleDevMockFromSupabaseStorage, readDevMockAccessToken, readDevMockUser } from '@/app/utils/authStorage';
-import { isDemoBypassAuthEnabled } from '@/app/utils/demoAuthBypass';
+import { createGuestLawyerSession, GUEST_LAWYER_ID } from '@/app/utils/guestLawyerSession';
 
-if (isDemoBypassAuthEnabled() && typeof window !== 'undefined') {
+if (typeof window !== 'undefined') {
   clearStaleDevMockFromSupabaseStorage();
+}
+
+function resolveBootAuth(): { user: User; session: Session } {
+  const persisted = readPersistedSupabaseAuth();
+  if (persisted.user && persisted.session) {
+    return { user: persisted.user, session: persisted.session };
+  }
+  const devUser = readDevMockUser();
+  const devToken = readDevMockAccessToken();
+  if (devUser && devToken) {
+    return {
+      user: devUser,
+      session: {
+        access_token: devToken,
+        token_type: 'bearer',
+        expires_in: 60 * 60,
+        expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
+        refresh_token: 'DEV_REFRESH_TOKEN',
+        user: devUser,
+      } as Session,
+    };
+  }
+  return createGuestLawyerSession();
 }
 
 async function deriveKeyFromSessionSecret(secret: string): Promise<CryptoKey> {
@@ -93,30 +116,34 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const bootAuth = readPersistedSupabaseAuth();
-  const bootDevUser = isDemoBypassAuthEnabled() ? readDevMockUser() : null;
-  const bootDevToken = isDemoBypassAuthEnabled() ? readDevMockAccessToken() : null;
-  const bootDevSession =
-    bootDevUser && bootDevToken
-      ? ({
-          access_token: bootDevToken,
-          token_type: 'bearer',
-          expires_in: 60 * 60,
-          expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
-          refresh_token: 'DEV_REFRESH_TOKEN',
-          user: bootDevUser,
-        } as Session)
-      : null;
+  const boot = resolveBootAuth();
 
-  const [user, setUser] = useState<User | null>(bootAuth.user ?? bootDevUser);
-  const [session, setSession] = useState<Session | null>(bootAuth.session ?? bootDevSession);
+  const [user, setUser] = useState<User | null>(boot.user);
+  const [session, setSession] = useState<Session | null>(boot.session);
   const [isLoading, setIsLoading] = useState(false);
 
+  useEffect(() => {
+    const persisted = readPersistedSupabaseAuth();
+    if (!persisted.session) {
+      writeDevMockAuth(boot.session);
+    }
+  }, [boot.session]);
+
+  const applyGuestSession = (): void => {
+    const guest = createGuestLawyerSession();
+    setSession(guest.session);
+    setUser(guest.user);
+    writeDevMockAuth(guest.session);
+  };
+
   const restoreDevMockIfPresent = (): boolean => {
-    if (!isDemoBypassAuthEnabled()) return false;
     const devUser = readDevMockUser();
     const devToken = readDevMockAccessToken();
     if (!devUser || !devToken) return false;
+    if (import.meta.env.PROD && devUser.id !== GUEST_LAWYER_ID) {
+      clearDevMockAuth();
+      return false;
+    }
     setSession({
       access_token: devToken,
       token_type: 'bearer',
@@ -147,14 +174,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           return;
         }
         if (!restoreDevMockIfPresent()) {
-          setSession(null);
-          setUser(null);
+          applyGuestSession();
         }
       })
       .catch(() => {
         if (!mounted) return;
-        setSession(null);
-        setUser(null);
+        applyGuestSession();
       })
       .finally(() => {
         window.clearTimeout(timeoutId);
@@ -170,8 +195,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return;
       }
       if (!restoreDevMockIfPresent()) {
-        setSession(null);
-        setUser(null);
+        applyGuestSession();
       }
       setIsLoading(false);
     });
@@ -214,8 +238,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = async () => {
     clearDevMockAuth();
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      /* ignore — نبقى في وضع الضيف */
+    }
+    applyGuestSession();
   };
 
   const hasRole = (role: 'lawyer' | 'client' | 'admin'): boolean => userHasRole(user, role);
@@ -271,7 +299,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const devBypassLogin = async (): Promise<void> => {
-    if (!isDemoBypassAuthEnabled()) return;
     await applyMockSession({
       id: 'dev-user-uuid-1',
       email: 'dev@local',
@@ -282,7 +309,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const adminBypassLogin = async (): Promise<void> => {
-    if (!isDemoBypassAuthEnabled()) return;
     await applyMockSession({
       id: 'admin-uuid-1',
       email: 'admin@local',

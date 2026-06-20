@@ -18,12 +18,12 @@ import {
     isRecord,
 } from '@/app/components/lawyer/LawyerDashboardParts/utils';
 
-type QuantumTask = { id: string; [key: string]: unknown };
+import type { LegalTask } from '@/app/types/TaskEngine';
 
 export type UseLawyerDashboardNavigationParams = {
     files: FileData[];
     executionFiles: ExecutionFile[];
-    quantumTasks: QuantumTask[];
+    quantumTasks: LegalTask[];
     setActiveTab: Dispatch<SetStateAction<LawyerDashboardTab>>;
     setShowCommunity: Dispatch<SetStateAction<boolean>>;
     setCommunityDeepLink: Dispatch<

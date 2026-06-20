@@ -16,6 +16,15 @@ export const ARABIC_WEEKDAY_LABELS = [
     'السبت',
 ] as const;
 
+function escapeVisitationPrintHtml(value: string): string {
+    return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 export const MONTH_WEEK_OPTIONS = [
     { value: 1, label: 'الأسبوع الأول' },
     { value: 2, label: 'الأسبوع الثاني' },
@@ -587,15 +596,26 @@ export type VisitationBreachMemoInput = {
 };
 
 export function buildVisitationBreachMemoHtml(input: VisitationBreachMemoInput): string {
-    const modeLabel = getDecisionModeLabel(input.config.decisionMode);
-    const sessionDate = formatVisitationSessionDateAr(input.session);
+    const modeLabel = escapeVisitationPrintHtml(getDecisionModeLabel(input.config.decisionMode));
+    const sessionDate = escapeVisitationPrintHtml(formatVisitationSessionDateAr(input.session));
     const labels = getVisitationFieldLabels(input.config.decisionMode);
-    const children =
-        input.childNames.length > 0 ? input.childNames.join('، ') : '…………………………';
+    const locationLabel = escapeVisitationPrintHtml(labels.location);
+    const location = escapeVisitationPrintHtml(input.config.location);
+    const children = escapeVisitationPrintHtml(
+        input.childNames.length > 0 ? input.childNames.join('، ') : '…………………………',
+    );
+    const creditorName = escapeVisitationPrintHtml(input.creditorName || '…………');
+    const debtorName = escapeVisitationPrintHtml(input.debtorName || '…………');
+    const absentPartyLabel = escapeVisitationPrintHtml(input.absentPartyLabel);
+    const fileNumber = escapeVisitationPrintHtml(input.fileNumber || '…………');
+    const startTime = escapeVisitationPrintHtml(input.config.startTime);
+    const endTime = escapeVisitationPrintHtml(input.config.endTime);
+    const returnTime = escapeVisitationPrintHtml(input.config.returnTime);
+    const sleepoverNights = escapeVisitationPrintHtml(String(input.config.sleepoverNights ?? ''));
     const timeLine =
         input.config.decisionMode === 'viewing_pickup_sleepover'
-            ? `وقت الاستلام: ${input.config.startTime} — ليالي المبيت: ${input.config.sleepoverNights} — وقت الإرجاع: ${input.config.returnTime}`
-            : `${labels.startTime}: ${input.config.startTime} — ${labels.endTime ?? 'وقت الإرجاع'}: ${input.config.endTime}`;
+            ? `وقت الاستلام: ${startTime} — ليالي المبيت: ${sleepoverNights} — وقت الإرجاع: ${returnTime}`
+            : `${escapeVisitationPrintHtml(labels.startTime)}: ${startTime} — ${escapeVisitationPrintHtml(labels.endTime ?? 'وقت الإرجاع')}: ${endTime}`;
 
     return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -612,16 +632,16 @@ export function buildVisitationBreachMemoHtml(input: VisitationBreachMemoInput):
 </head>
 <body>
 <h1>محضر نكول عن (${modeLabel})</h1>
-<div class="meta"><strong>رقم الإضبارة:</strong> ${input.fileNumber || '…………'}</div>
+<div class="meta"><strong>رقم الإضبارة:</strong> ${fileNumber}</div>
 <div class="meta"><strong>تاريخ الموعد:</strong> ${sessionDate}</div>
-<div class="meta"><strong>${labels.location}:</strong> ${input.config.location}</div>
+<div class="meta"><strong>${locationLabel}:</strong> ${location}</div>
 <div class="meta"><strong>الأوقات:</strong> ${timeLine}</div>
 <div class="meta"><strong>أسماء الأولاد:</strong> ${children}</div>
-<div class="meta"><strong>الدائن:</strong> ${input.creditorName || '…………'}</div>
-<div class="meta"><strong>المدين:</strong> ${input.debtorName || '…………'}</div>
+<div class="meta"><strong>الدائن:</strong> ${creditorName}</div>
+<div class="meta"><strong>المدين:</strong> ${debtorName}</div>
 <div class="box">
-<p>بتاريخ الموعد المذكور أعلاه، حضر المنفذ العدل/ممثل مديرية التنفيذ إلى ${input.config.location} لتنفيذ قرار ${modeLabel}،
-وقد تبيّن <strong>نكول / غياب ${input.absentPartyLabel}</strong> عن الحضور دون عذر مقبول وفق أحكام التنفيذ.</p>
+<p>بتاريخ الموعد المذكور أعلاه، حضر المنفذ العدل/ممثل مديرية التنفيذ إلى ${location} لتنفيذ قرار ${modeLabel}،
+وقد تبيّن <strong>نكول / غياب ${absentPartyLabel}</strong> عن الحضور دون عذر مقبول وفق أحكام التنفيذ.</p>
 <p>وعليه تم تنظيم هذا المحضر للاستفادة منه في الإجراءات القانونية اللاحقة.</p>
 </div>
 <div class="sign">

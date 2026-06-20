@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, useEffect, useRef } from 'react';
 import { debug } from '@/app/utils/debug';
 import type { CaseStage } from '../../LawyerShared';

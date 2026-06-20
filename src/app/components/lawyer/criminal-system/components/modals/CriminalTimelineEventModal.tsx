@@ -13,7 +13,6 @@ import {
     isJuvenileTrialStage,
     isValidCriminalStage,
     isValidJuvenileDetentionPlacement,
-    isInvestigationDetentionCategory,
     resolveInvestigationTimelineEventType,
     resolveTimelineEventTitle,
     type CriminalActionParty,

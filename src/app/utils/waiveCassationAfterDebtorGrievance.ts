@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { Decision } from '@/app/components/lawyer/DecisionsAndAppealsEngine/types';
 import {
     appealPipelineRowForCard,

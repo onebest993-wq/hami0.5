@@ -69,7 +69,7 @@ export function shouldHideDebtorAgentFateLine(
 /** لا تُكرّر شارة نتيجة الطعن — منظور وكيل المدين يكتفي بالشارة العلوية ومسار الطعن */
 export function shouldShowAppealResultChipSeparate(
     _pillLabel: string,
-    perspective: import('./appealUiLabels').AppealUiPerspective
+    perspective: import('../../appealUiLabels').AppealUiPerspective
 ): boolean {
     return perspective !== 'debtor_agent';
 }

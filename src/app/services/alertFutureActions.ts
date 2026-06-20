@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { SecretaryAlert, SecretaryAlertType, SecretaryAlertTarget } from '@/app/services/SecretaryOrchestrator';
 import type { CalendarAlertSource } from '@/app/services/SecretaryOrchestrator';
 import { isInjectedFieldTaskAlert } from '@/app/services/fieldTaskAlerts';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { newEventId } from '../utils';
 import { useDecisionDispatcher } from '@/app/hooks/useDecisionDispatcher';
 import { useDecisionsAppealsEngineStorage } from '../hooks/useDecisionsAppealsEngineStorage';

@@ -96,7 +96,7 @@ function contextFromExecution(file: ExecutionFile): DossierContext {
 function contextFromUrgent(c: UrgentCase): DossierContext {
     return {
         clientName: safeText(c.applicantName) || 'موكل غير محدد',
-        caseNumber: safeText(c.requestNumber) || safeText(c.caseNumber) || '—',
+        caseNumber: safeText(c.requestNumber) || '—',
         courtName: safeText(c.court) || safeText(c.courtName) || '—',
         actionType:
             safeText(c.actionType) || safeText(c.specificActionType) || 'طلب مستعجل',

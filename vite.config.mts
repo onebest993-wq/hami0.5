@@ -170,8 +170,6 @@ export default defineConfig(({ command }) => ({
         './src/app/App.tsx',
         './src/app/components/lawyer/CommunityScreen.tsx',
         './src/app/components/lawyer/LawyerDashboard.tsx',
-        './src/app/components/lawyer/LawyerDashboard.tsx',
-        './src/app/components/auth/LoginScreen.tsx',
         './src/styles/index.css',
       ],
     },
@@ -221,6 +219,14 @@ export default defineConfig(({ command }) => ({
             id.includes('utils/authStorage')
           ) {
             return 'auth-context';
+          }
+          if (
+            id.includes('/runtime/') ||
+            id.includes('\\runtime\\') ||
+            id.includes('/bootstrap/deferredBoot') ||
+            id.includes('\\bootstrap\\deferredBoot')
+          ) {
+            return 'app-runtime';
           }
           if (id.includes('node_modules')) {
             if (id.includes('lucide-react')) return 'vendor-icons';

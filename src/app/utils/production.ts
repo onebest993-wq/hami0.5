@@ -188,26 +188,18 @@ export const validateRequiredAPIs = (): {
  */
 export const initializeProduction = (): void => {
   if (isProduction()) {
-    console.log('🚀 التطبيق يعمل في بيئة الإنتاج');
-    
-    // ✅ تعطيل console logs
     disableConsoleInProduction();
-    
-    // ✅ تحسين الأداء
     optimizeForProduction();
-    
-    // ✅ التحقق من APIs
+
     const apiCheck = validateRequiredAPIs();
-    
+
     if (!apiCheck.valid) {
       console.error('تحذير: مفاتيح API مفقودة:', apiCheck.missing);
     }
-    
+
     if (apiCheck.warnings.length > 0) {
-      apiCheck.warnings.forEach(warning => console.warn(warning));
+      apiCheck.warnings.forEach((warning) => console.warn(warning));
     }
-    
-    console.log('✅ تم تهيئة البيئة الإنتاجية بنجاح');
   }
 };
 

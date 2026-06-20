@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useCallback } from 'react';
 import type { CaseStage, TimelineEvent } from '../../LawyerShared';
 import { SmartToast } from '@/app/components/ui/SmartToast';

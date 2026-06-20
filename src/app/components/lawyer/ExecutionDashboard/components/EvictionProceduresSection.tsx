@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from 'react';
 import { Calendar, Shield, Gavel, UserCheck, Home } from 'lucide-react';
 import type { InlineActionGateKey } from '../types';

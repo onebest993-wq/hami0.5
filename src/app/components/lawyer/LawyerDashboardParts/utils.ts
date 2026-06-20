@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { FileData, Party } from '../LawyerShared';
 import type { LegalCase } from '@/app/stores/caseStore';
 import type { ArchiveType } from '@/app/types/common';

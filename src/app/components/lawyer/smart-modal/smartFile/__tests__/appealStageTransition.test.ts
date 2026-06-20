@@ -78,8 +78,9 @@ describe('appealStageTransition', () => {
     });
 
     it('resolves opponent appellant from lawyer side', () => {
+        expect(resolveOpponentAsAppellant('المدعي', [])).toBe('المدعى عليه');
+        expect(resolveOpponentAsAppellant('المدعى عليه', [])).toBe('المدعي');
         expect(resolveOpponentAsAppellant('المدعي', baseParties)).toBe('المدعى عليه');
-        expect(resolveOpponentAsAppellant('المدعى عليه', baseParties)).toBe('المدعي');
     });
 
     it('locks previous stage with clean appeal timeline and no counterclaim carryover', () => {

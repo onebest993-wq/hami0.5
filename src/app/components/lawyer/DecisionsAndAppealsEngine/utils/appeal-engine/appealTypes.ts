@@ -39,6 +39,7 @@ export type ExecutorRequestFollowupBlock = Exclude<CreditorRequestAppealGate, { 
 export type ExecutorDecisionStatusFlag = 1 | 2 | 3;
 
 export type ManualExecutorWorkflowPhase =
+    | 'idle'
     | 'grievance_pending'
     | 'cassation_unlocked'
     | 'cassation_pending';

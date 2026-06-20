@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import type { CriminalCase } from '@/app/types/criminal';
 

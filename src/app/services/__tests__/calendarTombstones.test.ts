@@ -1,21 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Mock Supabase client
-const upsertSpy = vi.fn().mockResolvedValue({ data: null, error: null });
-const selectEqSpy = vi.fn().mockResolvedValue({ data: [], error: null });
-const deleteEqEqSpy = vi.fn().mockResolvedValue({ data: null, error: null });
+const fetchSecureSpy = vi.fn().mockResolvedValue({ ok: true });
 
-vi.mock('@/lib/supabase', () => ({
-    supabase: {
-        from: () => ({
-            upsert: upsertSpy,
-            select: () => ({ eq: selectEqSpy }),
-            delete: () => ({
-                eq: () => ({
-                    eq: deleteEqEqSpy,
-                }),
-            }),
-        }),
+vi.mock('@/app/services/SecureAPIClient', () => ({
+    SecureAPIClient: {
+        fetchSecure: (...args: unknown[]) => fetchSecureSpy(...args),
     },
 }));
 
@@ -30,47 +19,41 @@ vi.mock('@/app/services/SecureStoreService', () => ({
 
 describe('calendarTombstones', () => {
     beforeEach(async () => {
-        upsertSpy.mockClear();
-        selectEqSpy.mockClear().mockResolvedValue({ data: [], error: null });
-        deleteEqEqSpy.mockClear();
+        fetchSecureSpy.mockClear().mockResolvedValue({ ok: true });
         if (typeof localStorage !== 'undefined') {
             try {
                 localStorage.removeItem('hami:calendar:tombstones:v1');
+                localStorage.removeItem('hami:calendar:tombstones:cloud-disabled:v1');
             } catch {
                 /* ignore */
             }
         }
-        // إفراغ in-memory cache بين الاختبارات
         const { invalidateTombstoneCache, resetCloudTombstoneProbeForTests } = await import('../calendarTombstones');
         invalidateTombstoneCache();
         resetCloudTombstoneProbeForTests();
     });
 
-    it('recordTombstone calls cloud upsert with correct payload', async () => {
+    it('recordTombstone calls cloud API with correct payload', async () => {
         const { recordTombstone } = await import('../calendarTombstones');
         await recordTombstone('user-1', 'event-1');
-        expect(upsertSpy).toHaveBeenCalledTimes(1);
-        const payload = upsertSpy.mock.calls[0][0];
-        expect(payload).toEqual({ user_id: 'user-1', event_id: 'event-1' });
+        expect(fetchSecureSpy).toHaveBeenCalledTimes(1);
+        const [url, init] = fetchSecureSpy.mock.calls[0] as [string, RequestInit];
+        expect(url).toBe('/api/calendar/tombstones');
+        expect(init?.method).toBe('POST');
+        expect(JSON.parse(String(init?.body))).toEqual({ action: 'mark', eventId: 'event-1' });
     });
 
     it('recordTombstone is silent on cloud failure', async () => {
-        upsertSpy.mockRejectedValueOnce(new Error('network'));
+        fetchSecureSpy.mockRejectedValueOnce(new Error('network'));
         const { recordTombstone } = await import('../calendarTombstones');
         await expect(recordTombstone('user-1', 'event-x')).resolves.toBeUndefined();
     });
 
     it('loadTombstoneIds returns Set merged from cloud (after background sync)', async () => {
-        selectEqSpy.mockResolvedValueOnce({
-            data: [{ event_id: 'a' }, { event_id: 'b' }],
-            error: null,
-        });
+        fetchSecureSpy.mockResolvedValueOnce({ ok: true, eventIds: ['a', 'b'] });
         const { loadTombstoneIds } = await import('../calendarTombstones');
-        // الأول: قراءة local-only (فارغ في beforeEach)
         await loadTombstoneIds('user-1');
-        // ننتظر background sync
         await new Promise((r) => setTimeout(r, 30));
-        // الثاني: cache يجب أن يحوي cloud data
         const ids = await loadTombstoneIds('user-1');
         expect(ids.has('a')).toBe(true);
         expect(ids.has('b')).toBe(true);
@@ -84,33 +67,33 @@ describe('calendarTombstones', () => {
     });
 
     it('loadTombstoneIds gracefully handles cloud errors (returns local-only)', async () => {
-        selectEqSpy.mockResolvedValueOnce({ data: null, error: { message: 'rls' } });
+        fetchSecureSpy.mockRejectedValueOnce({ code: '42P01', message: 'relation does not exist', status: 404 });
         const { loadTombstoneIds } = await import('../calendarTombstones');
         const ids = await loadTombstoneIds('user-1');
-        // local فارغ → 0
         expect(ids.size).toBe(0);
     });
 
     it('disables cloud tombstone REST after missing-table error (no repeated calls)', async () => {
-        selectEqSpy.mockResolvedValue({
-            data: null,
-            error: { code: '42P01', message: 'relation does not exist', status: 404 },
-        });
+        fetchSecureSpy.mockRejectedValue({ code: '42P01', message: 'relation does not exist', status: 404 });
         const { loadTombstoneIds, resetCloudTombstoneProbeForTests } = await import('../calendarTombstones');
         resetCloudTombstoneProbeForTests();
-        selectEqSpy.mockClear();
+        fetchSecureSpy.mockClear();
+        fetchSecureSpy.mockRejectedValue({ code: '42P01', message: 'relation does not exist', status: 404 });
         await loadTombstoneIds('user-1');
         await new Promise((r) => setTimeout(r, 30));
-        const callsAfterFirst = selectEqSpy.mock.calls.length;
+        const callsAfterFirst = fetchSecureSpy.mock.calls.length;
         await loadTombstoneIds('user-1');
         await loadTombstoneIds('user-1');
-        expect(selectEqSpy.mock.calls.length).toBe(callsAfterFirst);
+        expect(fetchSecureSpy.mock.calls.length).toBe(callsAfterFirst);
     });
 
-    it('clearTombstone calls cloud delete with both filters', async () => {
+    it('clearTombstone calls cloud delete API', async () => {
         const { clearTombstone } = await import('../calendarTombstones');
         await clearTombstone('user-1', 'event-1');
-        expect(deleteEqEqSpy).toHaveBeenCalledTimes(1);
+        expect(fetchSecureSpy).toHaveBeenCalledTimes(1);
+        const [url, init] = fetchSecureSpy.mock.calls[0] as [string, RequestInit];
+        expect(url).toBe('/api/calendar/tombstones');
+        expect(JSON.parse(String(init?.body))).toEqual({ action: 'clear', eventId: 'event-1' });
     });
 
     it('do nothing for invalid input', async () => {
@@ -118,7 +101,6 @@ describe('calendarTombstones', () => {
         await recordTombstone('', 'evt');
         await recordTombstone('uid', '');
         await clearTombstone('', 'evt');
-        expect(upsertSpy).not.toHaveBeenCalled();
-        expect(deleteEqEqSpy).not.toHaveBeenCalled();
+        expect(fetchSecureSpy).not.toHaveBeenCalled();
     });
 });

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { Suspense } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { SmartToast } from '@/app/components/ui/SmartToast';

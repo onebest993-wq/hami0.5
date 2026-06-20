@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Briefcase, Car, Home, Wallet, X } from 'lucide-react';

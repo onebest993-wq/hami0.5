@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Users, ShieldAlert, BarChart3, Search, UserCheck, UserX, AlertTriangle, LogOut, Lock, PauseCircle, CheckCircle, XCircle, FileText, Filter, User, Library, Flag, Trash2, MessageSquare, type LucideIcon } from 'lucide-react';
+import { Users, ShieldAlert, BarChart3, Search, UserCheck, UserX, AlertTriangle, LogOut, PauseCircle, CheckCircle, XCircle, FileText, Filter, User, Library, Flag, Trash2, MessageSquare, type LucideIcon } from 'lucide-react';
 import { PageWrapper, GlassCard, GoldButton } from './SharedComponents';
 import { cn } from '@/app/components/ui/utils';
 import { SmartToast } from '@/app/components/ui/SmartToast';
@@ -39,63 +39,9 @@ const ALL_USERS = [
 ];
 
 export const AdminDashboard = ({ onLogout, onOpenLawLibrary }: AdminDashboardProps) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [pin, setPin] = useState('');
-  const [error, setError] = useState('');
-  
   const [activeTab, setActiveTab] = useState<'requests' | 'users' | 'monitor' | 'consultations' | 'reports' | 'forum'>('monitor');
   const { courtStats, consultations } = useApp();
 
-  // 1. PIN Authentication
-  if (!isAuthenticated) {
-      return (
-          <PageWrapper>
-              <div className="flex flex-col items-center justify-center min-h-screen p-6">
-                  <GlassCard className="w-full max-w-sm p-8 flex flex-col items-center text-center space-y-6 border-[#D4AF37]">
-                      <div className="w-16 h-16 rounded-full bg-[#D4AF37]/10 flex items-center justify-center border border-[#D4AF37] shadow-[0_0_30px_rgba(212,175,55,0.2)]">
-                          <Lock className="w-8 h-8 text-[#D4AF37]" />
-                      </div>
-                      <div>
-                          <h2 className="text-xl font-bold text-white">منطقة محظورة</h2>
-                          <p className="text-gray-400 text-xs mt-2">يرجى إدخال رمز المرور الخاص بالمدير العام</p>
-                      </div>
-                      
-                      <div className="w-full">
-                          <input 
-                            type="password" 
-                            value={pin}
-                            onChange={(e) => {
-                                setPin(e.target.value);
-                                setError('');
-                            }}
-                            maxLength={4}
-                            className="w-full text-center text-3xl tracking-[1em] bg-[#001830] border border-[#D4AF37]/30 rounded-xl py-4 text-[#D4AF37] focus:border-[#D4AF37] outline-none placeholder:tracking-normal placeholder:text-sm placeholder:text-gray-600"
-                            placeholder="****"
-                          />
-                          {error && <p className="text-red-500 text-xs mt-2 font-bold">{error}</p>}
-                      </div>
-
-                      <GoldButton fullWidth onClick={() => {
-                          if (pin === '0000' || pin === '1234') {
-                              setIsAuthenticated(true);
-                          } else {
-                              setError('رمز المرور غير صحيح');
-                              setPin('');
-                          }
-                      }}>
-                          دخول آمن
-                      </GoldButton>
-                      
-                      <button type="button" onClick={onLogout} className="text-gray-500 text-xs hover:text-white transition">
-                          العودة للقائمة الرئيسية
-                      </button>
-                  </GlassCard>
-              </div>
-          </PageWrapper>
-      );
-  }
-
-  // 2. The Dashboard Content
   return (
     <PageWrapper>
       {/* Admin Header */}

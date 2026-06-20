@@ -8,16 +8,9 @@ import { AuthProvider, useAuth, isSuperAdminUser } from "./context/AuthContext";
 import { GlobalErrorBoundary } from "./components/shared/GlobalErrorBoundary";
 import { debug } from "./utils/debug";
 import { screenTransitions } from "./animations/transitions";
-import { initializeProduction, logBuildInfo, isProduction } from "./utils/production";
-import { PerformanceMonitor } from "./utils/performanceMonitor";
 import { clearCacheIfNeeded } from "./utils/constants";
-import { prefetchSecondaryAppScreens, prefetchLawyerDashboardLazyChunks, prefetchLawyerHeavyDeferredChunks } from "./utils/screenPrefetch";
-import { PrefetchScheduler } from "./runtime/prefetchScheduler";
-import { prefetchLawyerDashboardEntry } from "./runtime/lawyerDashboardLoader";
 import { lazyWithRetry, type LazyComponent } from "./utils/lazy/lazyWithRetry";
-import { LoginScreen } from "./components/auth/LoginScreen";
-import { hasPersistedSupabaseSession } from "./utils/authStorage";
-import { LawyerDashboard as LawyerDashboardEager } from "./components/lawyer/LawyerDashboard";
+import type { LawyerDashboardShellProps } from "./components/lawyer/dashboard/LawyerDashboardQuantumShell";
 import { SmartToast, SmartToastContainer } from "./components/ui/SmartToast";
 import { SmartDialogContainer } from "./components/ui/SmartDialog";
 
@@ -29,23 +22,13 @@ const SecurityInitializer = React.lazy(() =>
   import("./security/SecurityInitializer").then((m) => ({ default: m.SecurityInitializer }))
 );
 
-// --- Lawyer dashboard: static in dev (no dynamic import / HMR stale fetch), lazy in prod ---
-if (typeof window !== 'undefined' && !import.meta.env.DEV && hasPersistedSupabaseSession()) {
-  prefetchLawyerDashboardEntry();
-}
-
 const LawyerDashboardLazy = lazyWithRetry(() =>
   import("./components/lawyer/LawyerDashboard").then((m) => ({
     default: m.LawyerDashboard as unknown as LazyComponent,
   })),
 );
 
-type LawyerDashboardProps = React.ComponentProps<typeof LawyerDashboardEager>;
-
-function LawyerDashboard(props: LawyerDashboardProps) {
-  if (import.meta.env.DEV) {
-    return <LawyerDashboardEager {...props} />;
-  }
+function LawyerDashboard(props: LawyerDashboardShellProps) {
   return <LawyerDashboardLazy {...props} />;
 }
 // --- LAZY: Other heavy screens ---
@@ -60,7 +43,6 @@ const PrivacyPolicyScreen = React.lazy(() => import("./components/SettingsScreen
 const SupportScreen = React.lazy(() => import("./components/SettingsScreens").then(m => ({ default: m.SupportScreen })));
 
 type AppScreen =
-  | 'auth'
   | 'lawyer'
   | 'profile'
   | 'admin'
@@ -113,11 +95,11 @@ export default function App(): ReactElement {
   
   useEffect(() => {
     const runDeferredAppBoot = () => {
-      PerformanceMonitor.start('app-initialization');
-      initializeProduction();
-      logBuildInfo();
-      debug.log("✅ [App] System Ready");
-      PerformanceMonitor.end('app-initialization');
+      void import("./utils/production").then(({ initializeProduction, logBuildInfo }) => {
+        initializeProduction();
+        logBuildInfo();
+        debug.log("✅ [App] System Ready");
+      });
 
       try {
         sessionStorage.removeItem(CHUNK_RELOAD_SESSION_KEY);
@@ -131,23 +113,28 @@ export default function App(): ReactElement {
       }
     };
 
-    if (hasPersistedSupabaseSession()) {
-      PrefetchScheduler.planAuthenticatedEntry();
+    if (typeof requestIdleCallback !== 'undefined') {
+      requestIdleCallback(runDeferredAppBoot, { timeout: 1500 });
+    } else {
+      window.setTimeout(runDeferredAppBoot, 0);
     }
-
-    runDeferredAppBoot();
   }, []);
 
   useEffect(() => {
-    if (!isProduction()) {
+    if (!import.meta.env.DEV) return;
+    let cancelled = false;
+    void import("./utils/performanceMonitor").then(({ PerformanceMonitor }) => {
       const perfTimer = window.setTimeout(() => {
+        if (cancelled) return;
         PerformanceMonitor.logReport();
         const score = PerformanceMonitor.getScore();
         debug.log(`⚡ Performance Score: ${score}/100`);
       }, 2000);
       return () => window.clearTimeout(perfTimer);
-    }
-    return undefined;
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const screenFromPath = React.useCallback((pathname: string): AppScreen | null => {
@@ -157,13 +144,7 @@ export default function App(): ReactElement {
   const [screen, setScreenInternal] = useState<AppScreen>(() => {
     const fromPath = screenFromPathname(window.location.pathname);
     if (fromPath) return fromPath;
-    if (import.meta.env.DEV && !hasPersistedSupabaseSession()) {
-      return 'auth';
-    }
-    if (hasPersistedSupabaseSession()) {
-      return readSavedScreen() ?? 'lawyer';
-    }
-    return 'auth';
+    return readSavedScreen() ?? 'lawyer';
   });
   const [, startScreenTransition] = useTransition();
   const lastNonAdminScreenRef = React.useRef<AppScreen>(
@@ -243,7 +224,7 @@ export default function App(): ReactElement {
   const handleNavigateToAdmin = () => setScreen("admin");
   const handleBackToDashboard = () => setScreen("lawyer");
   const handleLogout = () => {
-    setScreen("auth");
+    setScreen("lawyer");
   };
 
   return (
@@ -265,7 +246,7 @@ export default function App(): ReactElement {
 
 function AppContent(props: {
   screen: string;
-  setScreen: (s: "auth" | "lawyer" | "profile" | "admin" | "adminLawLibrary" | "privacy" | "support") => void;
+  setScreen: (s: "lawyer" | "profile" | "admin" | "adminLawLibrary" | "privacy" | "support") => void;
   role: "lawyer";
   handleNavigateToProfile: () => void;
   handleNavigateToAdmin: () => void;
@@ -284,7 +265,6 @@ function AppContent(props: {
   const adminGuardToastRef = React.useRef(false);
 
   useEffect(() => {
-    if (screen === 'auth') return;
     const screenToPersist = screen === 'adminLawLibrary' ? 'admin' : screen;
     try {
       sessionStorage.setItem(LAST_SCREEN_KEY, screenToPersist);
@@ -297,16 +277,6 @@ function AppContent(props: {
     logout().catch(() => {});
     handleLogout();
   };
-
-  useEffect(() => {
-    if (user && screen === "auth") {
-      if (isSuperAdmin) {
-        setScreen('admin');
-      } else {
-        setScreen("lawyer");
-      }
-    }
-  }, [user, screen, setScreen, isSuperAdmin]);
 
   useEffect(() => {
     if (isLoading || !user) return;
@@ -326,17 +296,16 @@ function AppContent(props: {
   }, [screen]);
 
   useEffect(() => {
-    if (!user) {
-      return;
-    }
-    if (!import.meta.env.DEV) {
-      prefetchLawyerDashboardEntry();
-    }
-    if (screen === "lawyer") {
-      prefetchLawyerDashboardLazyChunks();
-      prefetchLawyerHeavyDeferredChunks();
-      prefetchSecondaryAppScreens();
-    }
+    if (!user || screen !== "lawyer") return;
+
+    const timer = window.setTimeout(() => {
+      void import("./utils/screenPrefetch").then((m) => {
+        m.prefetchLawyerHeavyDeferredChunks();
+        m.prefetchSecondaryAppScreens();
+      });
+    }, import.meta.env.DEV ? 2_000 : 5_000);
+
+    return () => window.clearTimeout(timer);
   }, [screen, user]);
 
   return (
@@ -344,9 +313,6 @@ function AppContent(props: {
             <SmartToastContainer />
             <SmartDialogContainer />
 
-            {!user ? (
-                <LoginScreen />
-              ) : (
         <AppProvider>
             <Suspense fallback={null}>
               <SecurityInitializer />
@@ -357,7 +323,7 @@ function AppContent(props: {
                 <AnimatePresence mode="wait">
                 {/* LAWYER DASHBOARD */}
                 {screen === "lawyer" && (
-                  <Suspense fallback={null}>
+                  <Suspense fallback={SCREEN_LAZY_FALLBACK}>
                     <motion.div
                       key="lawyer"
                       {...screenTransitions.main}
@@ -438,7 +404,6 @@ function AppContent(props: {
 
             </div>
         </AppProvider>
-              )}
         </>
   );
 }

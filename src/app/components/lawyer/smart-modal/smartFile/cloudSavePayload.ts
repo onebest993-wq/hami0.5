@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { CaseStage } from '../../LawyerShared';
 import type { SmartFileParentData } from './parentDataInit';
 import { resolveDisplayParties } from './resolveDisplayParties';

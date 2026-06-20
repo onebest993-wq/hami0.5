@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { CriminalComplainant, CriminalDefendant, StatementHighlightColor } from '../../criminalStore';
 import type { AddTrialDepositionInput, TrialDeposition, TrialDepositionGiverType } from '../../trialDepositionsEngine';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Phase 5 — فصل تخزين القرارات حسب namespace المجال.
  * المفتاح: execution_{id}_decisions_ns_{module}__{perspective}

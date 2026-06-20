@@ -17,7 +17,7 @@ export function taskCompletedAt(task: LegalTask): Date | null {
 }
 
 export function isTaskMarkedDone(task: LegalTask): boolean {
-    return task.completedAt !== null;
+    return task.completedAt != null;
 }
 
 /** يوم المهمة في الأجندة — تاريخ المهمة أو يوم الإنجاز للمهام بلا تاريخ */

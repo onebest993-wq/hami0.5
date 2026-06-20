@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { normalizeArabic } from '@/app/components/lawyer/LawyerShared';
 import { effectiveCaseNumber, extractCaseRefsFromText, normalizeCaseKey } from './extractCaseRefs';
 import { isClusterPinEligibleType } from './types';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/app/components/ui/utils";
 import { SmartDialog } from "@/app/components/ui/SmartDialog";

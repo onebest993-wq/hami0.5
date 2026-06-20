@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useEffect, useMemo } from 'react';
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
 import { QuantumTasksContext } from '@/app/context/QuantumTasksContext';

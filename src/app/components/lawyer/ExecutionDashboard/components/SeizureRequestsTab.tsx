@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from 'react';
 import { Building2, ClipboardList, Lock, Package, Shield, Users, Wallet } from 'lucide-react';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';

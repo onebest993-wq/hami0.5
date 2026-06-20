@@ -51,7 +51,7 @@ export type LawyerDashboardShellProps = {
     appLocked: boolean;
     appUnlocking: boolean;
     requiresBiometricToUnlock: boolean;
-    unlockWithBiometric: () => void | Promise<void>;
+    unlockWithBiometric: () => Promise<boolean>;
     unlockContinue: () => void;
     onLogout: () => void;
     children: React.ReactNode;

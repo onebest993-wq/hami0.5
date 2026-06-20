@@ -1,4 +1,4 @@
-import type { DebtorAgentSeizedItem } from '../components/DebtorAgentFinancialHubPanel';
+import type { DebtorAgentSeizedItem } from './components/DebtorAgentFinancialHubPanel';
 
 function statusAr(raw: unknown): string {
     const s = String(raw || '').trim();

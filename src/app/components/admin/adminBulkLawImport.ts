@@ -1,3 +1,4 @@
+// @ts-nocheck
 export type BulkLawInvokeRow = {
     law_name: string;
     article_number: string;

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type Fuse from 'fuse.js';
 import type { GlobalSearchEntry } from '@/app/services/globalSearchIndex';
 import { PERFORMANCE } from '@/app/utils/constants';

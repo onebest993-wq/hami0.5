@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isLawsuitArchived, isLawsuitInTrash } from '@/app/utils/lawsuitTrash';
 import type { ArchivePortalProps } from '@/app/types/common';

@@ -1,8 +1,10 @@
-export {
+import {
     formatNumberInput,
     parseAmount,
     formatIqdDisplay,
 } from '@/app/components/lawyer/FinancialOperationsCenter/utils';
+
+export { formatNumberInput, parseAmount, formatIqdDisplay };
 
 /** تحويل مبلغ مدخل إلى عدد صحيح (د.ع) */
 export function parseExecutionAmountInt(raw: string): number {

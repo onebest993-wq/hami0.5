@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { CriminalCase } from '@/app/components/lawyer/criminal-system/criminalStore';

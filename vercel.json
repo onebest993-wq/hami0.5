@@ -4,9 +4,6 @@
   "buildCommand": "npm run build",
   "installCommand": "npm install --legacy-peer-deps",
   "outputDirectory": "dist",
-  "env": {
-    "VITE_DEMO_BYPASS_AUTH": "true"
-  },
   "headers": [
     {
       "source": "/index.html",
@@ -15,6 +12,14 @@
     {
       "source": "/assets/(.*)",
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/hami-boot.js",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=3600" }]
+    },
+    {
+      "source": "/favicon.svg",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=604800" }]
     }
   ],
   "rewrites": [

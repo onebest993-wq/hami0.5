@@ -1,5 +1,5 @@
 import { sanitizePayload } from '../security/sanitizer.ts';
-import { requireWifeUser } from '../security/bffAuth.ts';
+import { requireWifeUser, unwrapWifeUser } from '../security/bffAuth.ts';
 import { getSupabaseAdminClient } from '../security/supabaseAdminClient.ts';
 import { wifeJsonResponse } from '../security/wifeSecurityHeaders.ts';
 import type { TimelineEvent } from '@/app/types/execution';
@@ -46,8 +46,9 @@ function buildRow(userId: string, executionFileId: string, event: TimelineEvent,
 
 export async function GET(request: Request): Promise<Response> {
   try {
-    const auth = await requireWifeUser(request);
-    if (!auth.ok) return auth.response;
+    const authGate = unwrapWifeUser(await requireWifeUser(request));
+    if ('response' in authGate) return authGate.response;
+    const { userId } = authGate;
 
     const url = new URL(request.url);
     const executionFileId = normalizeExecutionFileId(url.searchParams.get('executionFileId'));
@@ -66,7 +67,7 @@ export async function GET(request: Request): Promise<Response> {
         'id,user_id,execution_file_id,event_id,title,description,event_type,event_date,event_timestamp,source,metadata,snapshot_data,payload,created_at',
       )
       .eq('execution_file_id', executionFileId)
-      .eq('user_id', auth.userId)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -81,8 +82,9 @@ export async function GET(request: Request): Promise<Response> {
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const auth = await requireWifeUser(request);
-    if (!auth.ok) return auth.response;
+    const authGate = unwrapWifeUser(await requireWifeUser(request));
+    if ('response' in authGate) return authGate.response;
+    const { userId } = authGate;
 
     let payload: unknown = null;
     try {
@@ -109,7 +111,7 @@ export async function POST(request: Request): Promise<Response> {
       return wifeJsonResponse(503, { ok: false, error: 'Database client not configured' });
     }
 
-    const row = buildRow(auth.userId, executionFileId, event, payload.snapshotData);
+    const row = buildRow(userId, executionFileId, event, payload.snapshotData);
     const { error } = await admin.from(TABLE).upsert(row, {
       onConflict: 'execution_file_id,event_id',
     });

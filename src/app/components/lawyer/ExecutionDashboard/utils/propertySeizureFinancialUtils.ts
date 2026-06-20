@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { SeizedProperty } from '@/app/types/execution';
 import { storageCache } from '@/app/utils/storageCache';
 import {

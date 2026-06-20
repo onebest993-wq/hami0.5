@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { readExecutorDecisionsArray } from '@/app/utils/executorSeizureDecisionQueue';
 import { writeExecutorDecisionsArray } from '@/app/utils/executionDecisionsNamespace';

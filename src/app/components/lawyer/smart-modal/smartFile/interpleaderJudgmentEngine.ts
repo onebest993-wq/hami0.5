@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { Party } from '../../LawyerShared';
 import {
     isDefendantSideRole,

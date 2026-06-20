@@ -1,4 +1,4 @@
-# Netlify / static hosts that honor _headers — راجع docs/DEPLOY-CACHE-HINTS.md
+# Netlify / static hosts that honor _headers
 /index.html
   Cache-Control: no-cache
 

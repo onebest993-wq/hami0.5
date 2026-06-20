@@ -76,7 +76,7 @@ export const PrefetchScheduler = {
         if (!pending.length) return;
         for (const job of pending) scheduled.add(job.id);
 
-        const delayMs = options?.delayMs ?? (import.meta.env.DEV ? 2_500 : 800);
+        const delayMs = options?.delayMs ?? (import.meta.env.DEV ? 2_500 : 1_200);
         if (typeof requestIdleCallback !== 'undefined') {
             requestIdleCallback(() => scheduleWave(pending, 0), { timeout: delayMs + 500 });
         } else {
@@ -117,9 +117,7 @@ export const PrefetchScheduler = {
                     ]),
             },
         ];
-        for (const job of homeJobs) {
-            this.enqueue(job);
-        }
+        this.enqueueWave(homeJobs, { delayMs: import.meta.env.DEV ? 3_000 : 8_000 });
     },
 
     planLawyerSecondaryWave(): void {
@@ -142,7 +140,7 @@ export const PrefetchScheduler = {
                     loader: () => import('@/app/components/lawyer/ExecutionDashboard'),
                 },
             ],
-            { delayMs: import.meta.env.DEV ? 2_500 : 5_000 },
+            { delayMs: import.meta.env.DEV ? 2_500 : 10_000 },
         );
     },
 

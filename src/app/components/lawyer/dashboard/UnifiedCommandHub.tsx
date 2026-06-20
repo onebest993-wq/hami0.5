@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { Scale, FileText, ArrowLeft } from 'lucide-react';

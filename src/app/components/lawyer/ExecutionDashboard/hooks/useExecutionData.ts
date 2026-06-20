@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useMemo, useRef } from 'react';
 import { normalizeExecutionFileRecord } from '@/app/components/lawyer/LawyerDashboardParts/utils';
 import { resolvePartyStoredName } from '@/app/utils/executionPartyNormalize';

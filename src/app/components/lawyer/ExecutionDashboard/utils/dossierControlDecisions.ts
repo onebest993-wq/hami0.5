@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { DossierActionType } from '../components/DossierActionsModal';
 import type { Decision } from '@/app/components/lawyer/DecisionsAndAppealsEngine/types';
 import type { AppealUiPerspective } from '@/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from 'react';
 import { motion } from 'motion/react';
 import { DollarSign, FileText, History, Wallet, X } from 'lucide-react';

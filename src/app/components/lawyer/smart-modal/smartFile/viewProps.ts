@@ -101,7 +101,6 @@ export type SmartFileLayoutBuildInput = {
     handleToggleTask: SmartFileMainPanelProps['handleToggleTask'];
     handleAppealBriefFile?: SmartFileMainPanelProps['handleAppealBriefFile'];
     handleAppealBriefOutcome?: SmartFileMainPanelProps['handleAppealBriefOutcome'];
-    handleCorrespondenceResponse?: SmartFileMainPanelProps['handleCorrespondenceResponse'];
     handleDeleteEvent: SmartFileMainPanelProps['handleDeleteEvent'];
     handleEditEvent: SmartFileMainPanelProps['handleEditEvent'];
     handleAddAction: SmartFileMainPanelProps['handleAddAction'];

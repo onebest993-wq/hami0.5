@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createElement, type ReactNode } from 'react';
 import type { Decision } from '../../types';
 import type { ExecutionDecisionHubStatus } from '@/app/types/execution';

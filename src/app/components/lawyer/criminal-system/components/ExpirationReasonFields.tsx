@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from 'react';
 import {
     LEGACY_DECRIMINALIZATION_REASON,

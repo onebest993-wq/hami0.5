@@ -3,10 +3,6 @@
  */
 import { PrefetchScheduler } from '@/app/runtime/prefetchScheduler';
 
-export function prefetchForAuthScreen(): void {
-    PrefetchScheduler.planAuthenticatedEntry();
-}
-
 export function prefetchSecondaryAppScreens(): void {
     PrefetchScheduler.enqueueWave(
         [
@@ -29,15 +25,20 @@ export function prefetchSecondaryAppScreens(): void {
                 loader: () => import('@/app/components/AdminDashboard'),
             },
         ],
-        { delayMs: 3_000 },
+        { delayMs: import.meta.env.DEV ? 3_000 : 6_000 },
     );
 }
 
-/** موجات التحميل المسبق للوحة المحامي — تُستدعى من طبقة الخلفية فقط. */
+/** موجات التحميل المسبق للوحة المحامي — تُستدعى بعد أول عرض للوحة. */
 export function prefetchLawyerDashboardLazyChunks(): void {
     PrefetchScheduler.planLawyerHomeWave();
 }
 
 export function prefetchLawyerHeavyDeferredChunks(): void {
     PrefetchScheduler.planLawyerSecondaryWave();
+}
+
+/** موجّه واحد للتجربة التجريبية — يُستدعى مرة واحدة بعد أول إطار. */
+export function scheduleDemoPrefetchWaves(): void {
+    PrefetchScheduler.planAuthenticatedEntry();
 }

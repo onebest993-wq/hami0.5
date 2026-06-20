@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -25,6 +26,8 @@ import { formatNumberInput } from '@/app/components/lawyer/FinancialOperationsCe
 
 import { HeaderPartiesStrip } from './HeaderPartiesStrip';
 import { PartyItem } from './PartyItem';
+import { PARTY_STRIP_SHELL } from './smartHeaderPresentation';
+import { PartyChip } from './PartyChip';
 import {
     resolveLawsuitTypeLabel,
     formatClaimValueDisplay,

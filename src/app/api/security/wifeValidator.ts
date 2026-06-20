@@ -490,11 +490,21 @@ function decodeJwtPayload(token: string): DecodedJwtPayload | null {
  * Fails closed if verification backend is unavailable.
  */
 const DEV_ACCESS_TOKEN_PREFIX = 'dev-access-token-';
+/** محامٍ ضيف للنشر التجريبي — subject واحد فقط، لا يُستخدم لصلاحيات admin. */
+const DEMO_GUEST_SUBJECT = 'guest-lawyer-1';
 
 function parseDevAccessTokenSubject(userToken: string): string | null {
   if (!userToken.startsWith(DEV_ACCESS_TOKEN_PREFIX)) return null;
   const subject = userToken.slice(DEV_ACCESS_TOKEN_PREFIX.length).trim();
   return subject.length >= 8 ? subject : null;
+}
+
+function cacheVerifiedDevSubject(subject: string): string {
+  verifiedTokenCache.set(subject, {
+    subject,
+    expiresAt: Date.now() + VERIFIED_TOKEN_CACHE_TTL,
+  });
+  return subject;
 }
 
 export async function getVerifiedTokenSubject(userToken: string): Promise<string | null> {
@@ -503,11 +513,12 @@ export async function getVerifiedTokenSubject(userToken: string): Promise<string
   if (!isProductionNodeEnv()) {
     const devSubject = parseDevAccessTokenSubject(userToken);
     if (devSubject) {
-      verifiedTokenCache.set(devSubject, {
-        subject: devSubject,
-        expiresAt: Date.now() + VERIFIED_TOKEN_CACHE_TTL,
-      });
-      return devSubject;
+      return cacheVerifiedDevSubject(devSubject);
+    }
+  } else {
+    const demoGuest = parseDevAccessTokenSubject(userToken);
+    if (demoGuest === DEMO_GUEST_SUBJECT) {
+      return cacheVerifiedDevSubject(demoGuest);
     }
   }
 

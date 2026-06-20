@@ -13,7 +13,7 @@ import {
 } from '@/app/utils/lazyComponents';
 import { TransactionsThreadingSystem } from '@/app/components/lawyer/TransactionsThreading/TransactionsThreadingSystem';
 import { LAWYER_LAZY_FALLBACK } from '@/app/components/lawyer/LawyerDashboardParts/constants';
-import type { LawyerDashboardOverlaysHostProps } from './lawyerDashboardOverlaysHostBundles';
+import type { LawyerDashboardOverlaysHostProps } from '../lawyerDashboardOverlaysHostBundles';
 
 export function LawyerDashboardProductivityOverlays({
     shell,

@@ -68,7 +68,7 @@ describe('timeGrouping', () => {
             makeNotif({ id: 'b', createdAt: '2026-06-12T08:00:00' }),
             makeNotif({ id: 'c', createdAt: '2026-06-01T08:00:00' }),
         ];
-        const groups = groupNotificationsByTime(items);
+        const groups = groupNotificationsByTime(items, now);
         expect(groups.today).toHaveLength(1);
         expect(groups.yesterday).toHaveLength(1);
         expect(groups.older).toHaveLength(1);

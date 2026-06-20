@@ -52,7 +52,6 @@ import {
     PETITION_VOID_APPEAL_DAYS,
     resolvePetitionVoidMenuLabel,
 } from '../smartFile/petitionVoidFlow';
-import type { UseSmartFileProceduralActionsOptions } from '../smartFile/proceduralTypes';
 import { useProceduralTaskActions } from './procedural/useProceduralTaskActions';
 import { useProceduralIncidentalActions } from './procedural/useProceduralIncidentalActions';
 import { useProceduralTimelineActions } from './procedural/useProceduralTimelineActions';
