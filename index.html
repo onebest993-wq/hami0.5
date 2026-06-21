@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ar-IQ" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://wldjvjnodvyodmgbgzab.supabase.co" crossorigin />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;500;700&display=swap"
+      onload="this.onload=null;this.rel='stylesheet'"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;500;700&display=swap"
+      />
+    </noscript>
+    
+    <!-- 🔐 WebAuthn Permissions Policy -->
+    <meta http-equiv="Permissions-Policy" content="publickey-credentials-get=*, publickey-credentials-create=*" />
+    
+    <title>Hami - Lawyer Dashboard</title>
+    <style>
+      body { background-color: #000; color: #E6C673; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; }
+      #root { width: 100%; height: 100%; }
+      #loading-overlay { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s; }
+      .loader { width: 48px; height: 48px; border: 3px solid #E6C673; border-radius: 50%; display: inline-block; position: relative; box-sizing: border-box; animation: rotation 1s linear infinite; }
+      .loader::after { content: ''; box-sizing: border-box; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 40px; height: 40px; border-radius: 50%; border: 3px solid transparent; border-bottom-color: #E6C673; }
+      @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+  </head>
+  <body>
+    <div id="loading-overlay">
+        <span class="loader"></span>
+        <p style="margin-top: 20px; font-family: monospace;">Loading System...</p>
+    </div>
+    <div id="root"></div>
+    <script src="/hami-boot.js" defer></script>
+    <script type="module" src="/src/index.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,55 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    "moduleResolution": "node",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /*
+     * Heavy lawyer/service modules still use `// @ts-nocheck`; `src/app/components/ui` is checked.
+     * Core entry, context, stores, and shared execution types are checked. `noImplicitReturns`
+     * is off to reduce noise in partially-typed areas.
+     */
+    "strict": false,
+    "noImplicitAny": false,
+    "strictNullChecks": false,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": false,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": false,
+    "noUncheckedIndexedAccess": false,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "types": ["vite/client", "vitest/globals"],
+
+    "baseUrl": ".",
+    "paths": {
+      "@/app/bootstrap/LawyerDashboardGate": ["src/app/bootstrap/LawyerDashboardGate.dev.tsx"],
+      "@/app/bootstrap/SecurityInitializerGate": ["src/app/bootstrap/SecurityInitializerGate.dev.tsx"],
+      "@/*": ["src/*"],
+      "@/app/*": ["src/app/*"]
+    }
+  },
+  "include": ["src"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/__tests__/**"
+  ],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}

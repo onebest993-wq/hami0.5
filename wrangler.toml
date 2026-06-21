@@ -1,0 +1,14 @@
+# Hami — Cloudflare static deploy (Vite → dist/)
+#
+# Pages (Git): build = npm run build, output = dist, deploy command = (empty)
+# CLI Workers static assets: npm run build && npx wrangler deploy
+
+name = "hami-app"
+compatibility_date = "2024-06-20"
+
+[assets]
+directory = "./dist"
+not_found_handling = "single-page-application"
+
+[observability]
+enabled = true

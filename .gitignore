@@ -1,0 +1,33 @@
+.vercel
+node_modules
+node_modules/.vite/
+
+# Build output
+dist/
+api/_routeManifest.ts
+.next/
+
+# Local / generated artifacts
+.trae/
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+
+# Test artifacts
+playwright-report/
+test-results/
+coverage/
+
+# Flutter mobile stub — not part of the Vite web app
+hami/
+*.dill
+
+# OS & editor
+.DS_Store
+Thumbs.db
+*.log
+
+# Dev-only local law injection (no service_role)
+data/dev-iraqi-laws.json
