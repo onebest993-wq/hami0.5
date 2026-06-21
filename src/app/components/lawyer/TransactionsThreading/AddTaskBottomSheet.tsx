@@ -5,6 +5,7 @@ import {
     GLASS_BTN,
     GLASS_FIELD,
     TX_DRAWER_SHELL,
+    TX_TEXT_MUTED,
     TxFieldLabel,
     TxGlassDrawerFrame,
 } from './transactionsGlassTheme';
@@ -89,6 +90,11 @@ export function AddTaskBottomSheet({
                             disabled={!!readOnly}
                             className={`${GLASS_FIELD} disabled:opacity-50 [color-scheme:dark]`}
                         />
+                        <p className={`${TX_TEXT_MUTED} text-[10px] mt-1.5 leading-5 font-medium`}>
+                            {deadlineDate
+                                ? 'سيظهر في التقويم كموعد مهلة لهذه المهمة.'
+                                : 'مهلة المهام وتواريخ المصاريف تُزامَن مع التقويم.'}
+                        </p>
                     </div>
                 </TxGlassDrawerFrame>
             </DrawerContent>

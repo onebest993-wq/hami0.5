@@ -34,7 +34,10 @@
     "health:utf8": "node scripts/clean-mojibake.mjs --check",
     "health:security": "node scripts/security-audit.mjs",
     "gate:wife-production": "node scripts/wife-production-gate.mjs",
-    "health": "npm run health:utf8 && npm run health:security && npm run typecheck"
+    "gate:wife-production:env": "node scripts/load-env-and-gate.mjs",
+    "health": "npm run health:utf8 && npm run health:security && npm run typecheck",
+    "deploy:cloudflare": "npm run build && wrangler deploy",
+    "deploy:cloudflare:pages": "npm run build && wrangler pages deploy dist --project-name=hami-app"
   },
   "engines": {
     "node": "20.x"

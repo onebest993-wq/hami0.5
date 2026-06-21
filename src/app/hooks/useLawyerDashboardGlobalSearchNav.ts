@@ -32,7 +32,8 @@ export type UseLawyerDashboardGlobalSearchNavParams = {
     executionFiles: ExecutionFile[];
     setShowGlobalSearch: Dispatch<SetStateAction<boolean>>;
     setGlobalSearchInitialQuery: Dispatch<SetStateAction<string>>;
-    setShowNotifications: Dispatch<SetStateAction<boolean>>;
+    openNotifications: () => void;
+    openProfileTab: () => void;
     setCalendarSearchFocus: Dispatch<SetStateAction<{ date?: string; eventId?: string } | null>>;
     setActiveTab: Dispatch<SetStateAction<LawyerDashboardTab>>;
     openCommunityTab: () => void;
@@ -58,7 +59,8 @@ export function useLawyerDashboardGlobalSearchNav({
     executionFiles,
     setShowGlobalSearch,
     setGlobalSearchInitialQuery,
-    setShowNotifications,
+    openNotifications,
+    openProfileTab,
     setCalendarSearchFocus,
     setActiveTab,
     openCommunityTab,
@@ -85,7 +87,7 @@ export function useLawyerDashboardGlobalSearchNav({
         (nav: GlobalSearchNav) => {
             closeGlobalSearch();
             if (nav.type === 'notifications') {
-                setShowNotifications(true);
+                openNotifications();
                 return;
             }
             if (nav.type === 'calendar') {
@@ -109,7 +111,7 @@ export function useLawyerDashboardGlobalSearchNav({
                 return;
             }
             if (nav.type === 'profile') {
-                setActiveTab('profile');
+                openProfileTab();
                 return;
             }
             if (nav.type === 'urgent') {
@@ -184,6 +186,8 @@ export function useLawyerDashboardGlobalSearchNav({
             onNavigateToCase,
             openCommunityTab,
             openCriminalCase,
+            openNotifications,
+            openProfileTab,
             openTasksManager,
             openTransactionsHub,
             openVaultModal,
@@ -195,7 +199,7 @@ export function useLawyerDashboardGlobalSearchNav({
             setIsNotepadOpen,
             setNotepadFocusNoteId,
             setNotepadMode,
-            setShowNotifications,
+            openNotifications,
             setShowUrgentDashboard,
             setUrgentFocusCaseId,
         ],

@@ -15,6 +15,7 @@ import { NotificationEmptyState } from '@/app/components/lawyer/NotificationPane
 import { NotificationList } from '@/app/components/lawyer/NotificationPanel/components/NotificationList';
 import { NotificationLoadingState } from '@/app/components/lawyer/NotificationPanel/components/NotificationLoadingState';
 import { NotificationErrorBoundary } from '@/app/components/lawyer/NotificationPanel/NotificationErrorBoundary';
+import { CaseShareIncomingSection } from '@/app/components/lawyer/NotificationPanel/components/CaseShareIncomingSection';
 
 export type { NotificationPanelProps } from '@/app/components/lawyer/NotificationPanel/types';
 
@@ -37,6 +38,8 @@ function NotificationPanelInner({
         handleScan,
         handleClientRequest,
         handleMarkAllRead,
+        caseShareIncoming,
+        refreshCaseShares,
     } = useNotificationPanel(isOpen, userId, onClose, onNavigate);
 
     const panelRef = useRef<HTMLDivElement>(null);
@@ -103,6 +106,11 @@ function NotificationPanelInner({
                         />
 
                         <div className="flex-1 overflow-y-auto px-4 py-3 custom-scrollbar min-h-0">
+                            <CaseShareIncomingSection
+                                userId={userId}
+                                shares={caseShareIncoming}
+                                onChanged={refreshCaseShares}
+                            />
                             {showLoading ? (
                                 <NotificationLoadingState />
                             ) : visibleNotifications.length === 0 ? (

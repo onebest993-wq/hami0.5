@@ -885,6 +885,22 @@ export const AuditLog = {
                 dedupeKey: `forum:mark-solved:${p.questionId}`,
             });
         },
+        incomingActivity(p: {
+            postId: string;
+            title: string;
+            message: string;
+            dedupeKey: string;
+            auditType?: 'forum_reply' | 'forum_mention' | 'forum_solved';
+        }) {
+            return publish({
+                type: p.auditType ?? 'forum_reply',
+                category: 'forum',
+                title: p.title,
+                message: p.message,
+                actionPayload: { questionId: p.postId },
+                dedupeKey: p.dedupeKey,
+            });
+        },
     },
 
     // ============================================================

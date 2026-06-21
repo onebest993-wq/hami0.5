@@ -1,6 +1,7 @@
 /** أنواع مستقلة — لا تستورد من schemas الأقسام الأصلية */
 
 export const WORKSPACE_PIN_TYPES = [
+    'hub',
     'lawsuit',
     'criminal',
     'execution',

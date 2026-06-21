@@ -1,10 +1,14 @@
 import SecureStoreService from '@/app/services/SecureStoreService';
+import { persistDossierCollectionSync } from '@/app/services/dossierPersistence/dossierPersistenceService';
+import {
+    EXECUTION_FILES_STORAGE_KEY,
+    EXECUTION_FILES_STORAGE_KEYS_LEGACY,
+} from '@/app/services/dossierPersistence/dossierStorageKeys';
 
-export const EXECUTION_FILES_STORAGE_KEY = 'executionFiles';
-export const EXECUTION_FILES_STORAGE_KEYS_LEGACY = [
-    'hami-execution-files',
-    'execution_files',
-] as const;
+export {
+    EXECUTION_FILES_STORAGE_KEY,
+    EXECUTION_FILES_STORAGE_KEYS_LEGACY,
+} from '@/app/services/dossierPersistence/dossierStorageKeys';
 
 export function loadExecutionFilesRaw(): unknown[] {
     try {
@@ -23,11 +27,7 @@ export function loadExecutionFilesRaw(): unknown[] {
             if (!raw) continue;
             const parsed: unknown = JSON.parse(raw);
             if (!Array.isArray(parsed)) continue;
-            try {
-                SecureStoreService.setItemSync(EXECUTION_FILES_STORAGE_KEY, JSON.stringify(parsed));
-            } catch {
-                /* ignore */
-            }
+            saveExecutionFilesRawImmediate(parsed);
             return parsed;
         } catch {
             /* ignore */
@@ -38,23 +38,7 @@ export function loadExecutionFilesRaw(): unknown[] {
 }
 
 export function saveExecutionFilesRaw(next: unknown[]): void {
-    try {
-        const payload = JSON.stringify(Array.isArray(next) ? next : []);
-        try {
-            SecureStoreService.setItemSync(EXECUTION_FILES_STORAGE_KEY, payload);
-        } catch {
-            /* ignore */
-        }
-        EXECUTION_FILES_STORAGE_KEYS_LEGACY.forEach((k) => {
-            try {
-                SecureStoreService.setItemSync(k, payload);
-            } catch {
-                /* ignore */
-            }
-        });
-    } catch {
-        /* ignore */
-    }
+    saveExecutionFilesRawImmediate(next);
 }
 
 export function mergeExecutionFilesById(primary: unknown[], incoming: unknown[]): unknown[] {
@@ -72,3 +56,7 @@ export function mergeExecutionFilesById(primary: unknown[], incoming: unknown[])
     return out;
 }
 
+/** حفظ فوري متزامn — للاختبارات والترحيل */
+export function saveExecutionFilesRawImmediate(next: unknown[]): void {
+    persistDossierCollectionSync('execution', Array.isArray(next) ? next : []);
+}

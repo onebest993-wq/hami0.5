@@ -5,6 +5,7 @@ vi.mock('../security/wifeValidator.ts', () => ({
   extractUserTokenFromRequest: vi.fn(),
   isTokenAuthorized: vi.fn(),
   verifyWifeSignature: vi.fn(),
+  assertWifeSignatureRequest: vi.fn(async () => null),
   getVerifiedTokenSubject: vi.fn(),
   wifeUnauthorizedResponse: vi.fn(() => new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401 })),
   wifeForbiddenResponse: vi.fn(() => new Response(JSON.stringify({ error: 'forbidden' }), { status: 403 })),
@@ -19,7 +20,9 @@ import {
   extractUserTokenFromRequest,
   isTokenAuthorized,
   verifyWifeSignature,
+  assertWifeSignatureRequest,
   getVerifiedTokenSubject,
+  wifeSignatureFailedResponse,
 } from '../security/wifeValidator.ts';
 
 describe('comms-dispatcher route', () => {
@@ -28,6 +31,7 @@ describe('comms-dispatcher route', () => {
     delete process.env.TWILIO_ACCOUNT_SID;
     delete process.env.TWILIO_AUTH_TOKEN;
     delete process.env.TWILIO_PHONE_NUMBER;
+    vi.mocked(assertWifeSignatureRequest).mockResolvedValue(null);
   });
 
   it('rejects unauthenticated requests', async () => {

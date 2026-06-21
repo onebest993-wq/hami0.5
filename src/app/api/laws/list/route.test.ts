@@ -21,11 +21,17 @@ vi.mock('@supabase/supabase-js', () => ({
   }),
 }));
 
+vi.mock('../../security/bffAuth.ts', () => ({
+  requireWifeUser: vi.fn(async () => ({ userId: 'user-a', token: 'token' })),
+  unwrapWifeUser: (v: unknown) => v,
+}));
+
 vi.mock('../../security/wifeValidator.ts', () => ({
   extractUserTokenFromRequest: vi.fn(),
   getVerifiedTokenSubject: vi.fn(),
   isTokenAuthorized: vi.fn(),
   verifyWifeSignature: vi.fn(),
+  assertWifeSignatureRequest: vi.fn(async () => null),
   wifeForbiddenResponse: () => new Response(null, { status: 403 }),
   wifeUnauthorizedResponse: () => new Response(null, { status: 401 }),
 }));

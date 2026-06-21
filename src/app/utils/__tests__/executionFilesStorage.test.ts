@@ -2,7 +2,7 @@ import {
     EXECUTION_FILES_STORAGE_KEY,
     EXECUTION_FILES_STORAGE_KEYS_LEGACY,
     loadExecutionFilesRaw,
-    saveExecutionFilesRaw,
+    saveExecutionFilesRawImmediate,
 } from '@/app/utils/executionFilesStorage';
 import SecureStoreService from '@/app/services/SecureStoreService';
 
@@ -30,7 +30,7 @@ describe('executionFilesStorage', () => {
 
     it('saves to primary and legacy keys', () => {
         const payload = [{ id: 'z', foo: 1 }];
-        saveExecutionFilesRaw(payload);
+        saveExecutionFilesRawImmediate(payload);
 
         expect(JSON.parse(String(SecureStoreService.getItemSync(EXECUTION_FILES_STORAGE_KEY)))).toEqual(payload);
         EXECUTION_FILES_STORAGE_KEYS_LEGACY.forEach((k) => {

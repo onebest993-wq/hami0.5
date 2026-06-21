@@ -14,6 +14,7 @@ import {
     isSystemNotification,
 } from '@/app/components/lawyer/NotificationPanel/utils/notificationFilters';
 import { groupNotificationsByTime } from '@/app/components/lawyer/NotificationPanel/utils/timeGrouping';
+import { useIncomingCaseShares } from '@/app/hooks/useIncomingCaseShares';
 
 export function useNotificationPanel(
     isOpen: boolean,
@@ -30,6 +31,15 @@ export function useNotificationPanel(
 
     const [activeTab, setActiveTab] = useState<NotificationTab>('forum');
     const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
+
+    const {
+        incoming: caseShareIncoming,
+        shares: caseShareAll,
+        pendingCount: caseSharePendingCount,
+        refresh: refreshCaseShares,
+    } = useIncomingCaseShares(userId, isOpen);
+
+    const combinedUnreadCount = unreadCount + caseSharePendingCount;
 
     useEffect(() => {
         if (!isOpen || !userId) return;
@@ -168,12 +178,14 @@ export function useNotificationPanel(
     return {
         activeTab,
         setActiveTab,
-        unreadCount,
+        unreadCount: combinedUnreadCount,
         isLoading,
         visibleNotifications,
         groupedByTime,
         tabCounts,
         isMarkingAllRead,
+        caseShareIncoming: caseShareAll,
+        refreshCaseShares,
         handleTap,
         handleScan,
         handleClientRequest,

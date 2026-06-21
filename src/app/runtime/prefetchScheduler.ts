@@ -12,6 +12,10 @@ const scheduled = new Set<string>();
 const inflight = new Set<string>();
 let waveTimer: number | undefined;
 
+function devPrefetchDisabled(): boolean {
+    return import.meta.env.DEV;
+}
+
 function canPrefetch(): boolean {
     if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return false;
     if (typeof navigator === 'undefined') return true;
@@ -65,13 +69,14 @@ function scheduleWave(queue: PrefetchJob[], delayMs: number): void {
 /** منسّق وحيد — يمنع تكرار استيراد نفس الـ chunk من عدة مواقع. */
 export const PrefetchScheduler = {
     enqueue(job: PrefetchJob): void {
-        if (!canPrefetch() || !settingsAllowPrefetch()) return;
+        if (devPrefetchDisabled() || !canPrefetch() || !settingsAllowPrefetch()) return;
         if (scheduled.has(job.id)) return;
         scheduled.add(job.id);
         runJob(job);
     },
 
     enqueueWave(jobs: PrefetchJob[], options?: { delayMs?: number }): void {
+        if (devPrefetchDisabled()) return;
         const pending = jobs.filter((j) => !scheduled.has(j.id));
         if (!pending.length) return;
         for (const job of pending) scheduled.add(job.id);
@@ -85,14 +90,6 @@ export const PrefetchScheduler = {
     },
 
     planAuthenticatedEntry(): void {
-        if (!import.meta.env.DEV) {
-            this.enqueue({
-                id: 'lawyer-dashboard',
-                priority: 'critical',
-                loader: () =>
-                    import('@/app/runtime/lawyerDashboardLoader').then((m) => m.loadLawyerDashboardModule()),
-            });
-        }
         this.planLawyerHomeWave();
     },
 
@@ -130,6 +127,11 @@ export const PrefetchScheduler = {
                         import('@/app/runtime/globalSearchLoader').then((m) => m.loadGlobalSearchOverlayModule()),
                 },
                 {
+                    id: 'community-screen',
+                    priority: 'high',
+                    loader: () => import('@/app/components/lawyer/CommunityScreen.tsx'),
+                },
+                {
                     id: 'execution-creation',
                     priority: 'low',
                     loader: () => import('@/app/components/lawyer/ExecutionCreationView'),
@@ -140,7 +142,7 @@ export const PrefetchScheduler = {
                     loader: () => import('@/app/components/lawyer/ExecutionDashboard'),
                 },
             ],
-            { delayMs: import.meta.env.DEV ? 2_500 : 10_000 },
+            { delayMs: import.meta.env.DEV ? 2_500 : 20_000 },
         );
     },
 

@@ -178,7 +178,7 @@ export function TxGlassEmpty({ message }: { message: string }) {
 }
 
 export const TX_DRAWER_SHELL =
-    'bg-[#0E1F26] border-t border-[#2A4550] rounded-t-sm px-5 pb-8 pt-1 overflow-hidden max-h-[92vh] shadow-[0_-8px_32px_rgba(6,16,20,0.55)]';
+    'bg-[#0E1F26] border-t border-[#2A4550] rounded-t-sm px-4 pb-8 pt-1 overflow-hidden max-h-[92vh] shadow-[0_-8px_32px_rgba(6,16,20,0.55)]';
 
 export function TxGlassDrawerFrame({
     title,
@@ -192,7 +192,7 @@ export function TxGlassDrawerFrame({
     footer?: React.ReactNode;
 }) {
     return (
-        <div dir="rtl" className="relative text-right pt-1 pb-2">
+        <div dir="rtl" className="relative text-right pt-1 pb-2 max-w-[520px] mx-auto w-full">
             <div
                 className="absolute top-0 inset-x-8 h-[2px] bg-gradient-to-r from-transparent via-[#C4782F]/50 to-transparent pointer-events-none"
                 aria-hidden
@@ -228,7 +228,7 @@ export function txTabTriggerClass(active: boolean) {
 }
 
 export const TX_TAB_TRIGGER =
-    'flex-1 rounded-[3px] py-2 text-[12px] font-bold border border-transparent ' +
+    'flex-1 rounded-[3px] py-2.5 text-[11px] font-bold border border-transparent min-h-0 ' +
     'data-[state=active]:text-[#D8D4CE] data-[state=active]:bg-[#1A3340] ' +
     'data-[state=active]:border-[#C4782F]/45 ' +
     'data-[state=inactive]:text-[#8A8680]';

@@ -73,7 +73,14 @@ function withLifecycle(entry: Omit<GlobalSearchEntry, 'lifecycle'>, lifecycle: S
     return { ...entry, lifecycle };
 }
 
-type GlobalNoteRow = { id: number | string; title?: string; body?: string; type?: string };
+type GlobalNoteRow = {
+    id: number | string;
+    title?: string;
+    body?: string;
+    type?: string;
+    transcript?: string;
+    voiceDurationSec?: number;
+};
 
 export type PreparedVaultNote = { id: string; content: string; type?: 'text' | 'voice' };
 export type PreparedDocsVaultDoc = { id: string; name: string; caseId?: string; tags?: string[] };
@@ -450,15 +457,16 @@ function docsVaultEntriesFromPrepared(
 function noteRowToEntry(n: GlobalNoteRow, source: string): GlobalSearchEntry {
     const title = n.title?.trim() || 'ملاحظة';
     const body = n.body?.trim() || '';
-    const isVoice = n.type === 'voice' || body.startsWith('data:audio');
+    const isVoice = n.type === 'voice' || body.startsWith('data:audio') || body.startsWith('hami-voice-ref:');
+    const transcript = n.transcript?.trim();
     return withLifecycle(
         {
             id: `gnote-${n.id}-${source}`,
             category: isVoice ? 'voice' : 'note',
-            title: isVoice ? 'تسجيل صوتي' : title,
-            subtitle: isVoice ? title : source,
-            snippet: isVoice ? undefined : body,
-            _searchStr: blob([title, body, isVoice ? 'صوت تسجيل' : '']),
+            title: isVoice ? title || 'تسجيل صوتي' : title,
+            subtitle: isVoice ? (transcript ? source : 'مفكرة — صوت') : source,
+            snippet: isVoice ? transcript || undefined : body,
+            _searchStr: blob([title, body, transcript, isVoice ? 'صوت تسجيل' : '']),
             navigate: isVoice
                 ? { type: 'voice', noteId: String(n.id) }
                 : { type: 'note', noteId: String(n.id) },

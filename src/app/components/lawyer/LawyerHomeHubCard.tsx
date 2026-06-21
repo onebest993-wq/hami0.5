@@ -1,9 +1,24 @@
 // @ts-nocheck
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { SmartToast } from '@/app/components/ui/SmartToast';
+import { isRealSignedIn } from '@/app/services/auth/shellAuth';
+import {
+    buildCalendarAlertIdSet,
+    computeHomeHubAlertsTabCount,
+    filterRadarEventsExcludingCalendarAlerts,
+    formatHomeHubTabBadgeCount,
+    shouldShowHomeHubTabBadge,
+    HOME_HUB_ALERTS_EMPTY_COPY,
+    HOME_HUB_CARD_FEATURE,
+    openHomeHubCardInteraction,
+    resolveDefaultHomeHubPanel,
+    resolveHomeHubAlertsEmptyState,
+} from '@/app/services/alerts/homeHubCardLogic';
 import { pickDefaultHorizonFilter } from '@/app/services/alertTimeClassification';
 import { syncHorizonFilterIfEmpty, useNeuralAlertsStore } from '@/app/stores/neuralAlertsStore';
 import useEmblaCarousel from 'embla-carousel-react';
-import { Bell, CalendarClock, ChevronDown, Pin } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
+import { Bell, CalendarClock, Pin } from 'lucide-react';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import type { AlertTimeHorizon } from '@/app/services/alertTimeClassification';
 import { useNeuralAlertsFromSecretary } from './NeuralAlertsCard/useNeuralAlertsFromSecretary';
@@ -15,9 +30,20 @@ import type { ClusterScanSources } from '@/app/workspace/useClusterScanSources';
 import { useClusterAggregator } from '@/app/workspace/useClusterAggregator';
 import { useWorkspaceStore } from '@/app/stores/workspaceStore';
 import { clusterPinDisplayMeta } from '@/app/workspace/clusterPinDisplay';
+import { workspacePinVisual } from '@/app/workspace/workspacePinVisuals';
+import type { HomeBlockStyleOverride } from '@/app/services/settings/homeLayout';
+import {
+    resolveAlertsMinHeight,
+    resolveHomeBlockClassNames,
+    resolveHomeBlockInlineStyle,
+    shouldShowHomeBlockSheen,
+} from '@/app/services/settings/resolveHomeBlockStyle';
+import { useLawyerSettings } from '@/app/context/LawyerSettingsContext';
+import { HomeBlockPatternOverlay } from './dashboard/HomeBlockPatternOverlay';
 
 export type LawyerHomeHubCardProps = {
     lawyerId: string | null;
+    shellAuthUserId?: string | null;
     clusterScanSources: ClusterScanSources;
     secretaryAlerts: SecretaryAlert[];
     alertsLoading?: boolean;
@@ -27,6 +53,8 @@ export type LawyerHomeHubCardProps = {
     onDismissAlert?: (alertId: string) => void;
     onAcceptedConvertToCase?: (alert: SecretaryAlert) => void;
     onResolved?: (alert: SecretaryAlert) => void;
+    blockOverride?: HomeBlockStyleOverride;
+    themePrimary?: string;
 };
 
 type AlertsCarouselProps = {
@@ -39,25 +67,58 @@ type AlertsCarouselProps = {
     activeFilter: AlertTimeHorizon;
 };
 
-function CollapsedSectionRow({
-    icon: Icon,
-    title,
-    hint,
+function HubPanelTabs({
+    hubPanel,
+    onChange,
+    alertsCount,
+    pinsCount,
 }: {
-    icon: React.ComponentType<{ size?: number; className?: string; 'aria-hidden'?: boolean }>;
-    title: string;
-    hint: string;
+    hubPanel: 'alerts' | 'pins';
+    onChange: (panel: 'alerts' | 'pins') => void;
+    alertsCount: number;
+    pinsCount: number;
 }) {
     return (
-        <div className="flex items-center justify-between gap-2 py-1.5 min-h-[36px]">
-            <div className="flex items-center gap-2 min-w-0">
-                <div className="w-7 h-7 rounded-lg hami-home-accent-chip flex items-center justify-center shrink-0 opacity-70">
-                    <Icon size={13} className="hami-home-accent-text opacity-80" aria-hidden />
-                </div>
-                <span className="text-[#F5F0E6]/75 font-bold text-[12px] leading-none">{title}</span>
-                <span className="text-[9px] text-white/30 truncate">{hint}</span>
-            </div>
-            <ChevronDown size={14} className="text-white/25 shrink-0 -rotate-90" aria-hidden />
+        <div
+            className="relative z-[2] flex rounded-full border border-white/[0.08] bg-white/[0.04] p-0.5 mb-2"
+            role="tablist"
+            aria-label="التنبيهات والتثبيت"
+        >
+            {(['alerts', 'pins'] as const).map((panel) => {
+                const active = hubPanel === panel;
+                const count = panel === 'alerts' ? alertsCount : pinsCount;
+                return (
+                    <button
+                        key={panel}
+                        type="button"
+                        role="tab"
+                        aria-selected={active}
+                        onClick={() => onChange(panel)}
+                        className={`relative flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-full text-[10px] font-bold transition-colors ${
+                            active ? 'text-[#F5F0E6]' : 'text-white/45'
+                        }`}
+                    >
+                        {active ? (
+                            <motion.span
+                                layoutId="hub-panel-pill"
+                                className="absolute inset-0 rounded-full border border-[#E6C673]/25 bg-[#E6C673]/12"
+                                transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+                            />
+                        ) : null}
+                        {panel === 'alerts' ? (
+                            <Bell size={12} className="relative z-[1]" aria-hidden />
+                        ) : (
+                            <Pin size={12} className="relative z-[1]" aria-hidden />
+                        )}
+                        <span className="relative z-[1]">{panel === 'alerts' ? 'التنبيهات' : 'التثبيت'}</span>
+                        {shouldShowHomeHubTabBadge(count) ? (
+                            <span className="relative z-[1] min-w-[1rem] h-4 px-1 rounded-full bg-black/25 text-[9px] font-bold tabular-nums">
+                                {formatHomeHubTabBadgeCount(count)}
+                            </span>
+                        ) : null}
+                    </button>
+                );
+            })}
         </div>
     );
 }
@@ -70,9 +131,19 @@ function AlertsCarousel({
     onAcceptedConvertToCase,
     onResolved,
     activeFilter,
-}: AlertsCarouselProps) {
+    layoutKey,
+}: AlertsCarouselProps & { layoutKey?: string }) {
     const [emblaRef, emblaApi] = useEmblaCarousel({ direction: 'rtl', loop: false });
     const [activeIndex, setActiveIndex] = useState(0);
+    const viewportRef = useRef<HTMLDivElement | null>(null);
+
+    const setRefs = useCallback(
+        (node: HTMLDivElement | null) => {
+            viewportRef.current = node;
+            emblaRef(node);
+        },
+        [emblaRef],
+    );
 
     const onSelect = useCallback((api: { selectedScrollSnap: () => number }) => {
         setActiveIndex(api.selectedScrollSnap());
@@ -105,9 +176,28 @@ function AlertsCarousel({
         emblaApi.scrollTo(0, true);
     }, [activeFilter, emblaApi]);
 
+    useEffect(() => {
+        if (!emblaApi) return undefined;
+        emblaApi.reInit();
+    }, [emblaApi, layoutKey]);
+
+    useEffect(() => {
+        const node = viewportRef.current;
+        if (!node || !emblaApi) return undefined;
+        const ro = new ResizeObserver(() => {
+            emblaApi.reInit();
+        });
+        ro.observe(node);
+        return () => ro.disconnect();
+    }, [emblaApi]);
+
     return (
-        <div className="w-full overflow-hidden relative pb-6 min-h-[128px]" ref={emblaRef}>
-            <div className="flex touch-pan-y">
+        <div
+            className="w-full overflow-hidden relative pb-6 min-h-0 flex-1"
+            style={{ minHeight: `calc(112px * var(--hami-content-scale, 1))` }}
+            ref={setRefs}
+        >
+            <div className="flex">
                 {carouselAlerts.map((alert) => {
                     const source = sourceById.get(alert.id)!;
                     return (
@@ -130,6 +220,7 @@ function AlertsCarousel({
 
 export const LawyerHomeHubCard: React.FC<LawyerHomeHubCardProps> = ({
     lawyerId,
+    shellAuthUserId,
     clusterScanSources,
     secretaryAlerts,
     alertsLoading = false,
@@ -139,7 +230,10 @@ export const LawyerHomeHubCard: React.FC<LawyerHomeHubCardProps> = ({
     onDismissAlert,
     onAcceptedConvertToCase,
     onResolved,
+    blockOverride,
+    themePrimary = '#E6C673',
 }) => {
+    const { settings } = useLawyerSettings();
     const {
         counts: horizonCounts,
         carouselTotal,
@@ -154,6 +248,19 @@ export const LawyerHomeHubCard: React.FC<LawyerHomeHubCardProps> = ({
 
     const pinnedItems = useWorkspaceStore((s) => s.pinnedItems);
     const unpinItem = useWorkspaceStore((s) => s.unpinItem);
+    const signedIn = isRealSignedIn(shellAuthUserId ?? lawyerId);
+
+    const guardInteraction = useCallback(
+        (onProceed: () => void) => {
+            openHomeHubCardInteraction({
+                signedIn,
+                onProceed,
+                onSignedOut: () =>
+                    SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${HOME_HUB_CARD_FEATURE}`),
+            });
+        },
+        [signedIn],
+    );
 
     const clusterViews = useClusterAggregator({
         pinnedItems,
@@ -202,17 +309,12 @@ export const LawyerHomeHubCard: React.FC<LawyerHomeHubCardProps> = ({
     const { events: radarEvents } = useCalendarRadar48h(lawyerId);
 
     const alertCalendarIds = useMemo(
-        () =>
-            new Set(
-                secretaryAlerts
-                    .filter((a) => a.id.startsWith('calendar:'))
-                    .map((a) => a.id.replace('calendar:', '')),
-            ),
+        () => buildCalendarAlertIdSet(secretaryAlerts),
         [secretaryAlerts],
     );
 
     const radarFiltered = useMemo(
-        () => radarEvents.filter((ev) => !alertCalendarIds.has(ev.id)),
+        () => filterRadarEventsExcludingCalendarAlerts(radarEvents, alertCalendarIds),
         [radarEvents, alertCalendarIds],
     );
 
@@ -221,154 +323,278 @@ export const LawyerHomeHubCard: React.FC<LawyerHomeHubCardProps> = ({
     const showInitialLoad = alertsLoading && !hasCarouselAlerts && !alertsError;
     const hasRadar = radarFiltered.length > 0;
     const hasPins = clusterViews.length > 0;
+    const alertsTabCount = computeHomeHubAlertsTabCount(
+        carouselTotal,
+        hasCarouselAlerts,
+        radarFiltered.length,
+    );
+    const alertsEmptyState = resolveHomeHubAlertsEmptyState({
+        alertsError,
+        showInitialLoad,
+        hasAlerts,
+        hasCarouselAlerts,
+        hasRadar,
+    });
 
-    const alertsSectionExpanded =
-        Boolean(alertsError) || showInitialLoad || hasCarouselAlerts || hasRadar;
-    const pinsSectionExpanded = hasPins;
-    const isFullyCompact = !alertsSectionExpanded && !pinsSectionExpanded;
+    const [hubPanel, setHubPanel] = useState<'alerts' | 'pins'>('alerts');
+    const panelInitRef = useRef(false);
+
+    useEffect(() => {
+        if (panelInitRef.current) return;
+        if (alertsTabCount === 0 && clusterViews.length === 0) return;
+        panelInitRef.current = true;
+        setHubPanel(resolveDefaultHomeHubPanel(alertsTabCount, clusterViews.length));
+    }, [alertsTabCount, clusterViews.length]);
+
+    const blockClasses = resolveHomeBlockClassNames(blockOverride);
+    const blockStyle: React.CSSProperties = {
+        ...resolveHomeBlockInlineStyle(
+            blockOverride ? { ...blockOverride, heightPx: undefined } : undefined,
+            themePrimary,
+            {
+                baseMinHeightPx: 240,
+                skipHeightPx: true,
+                skipContentScale: true,
+                defaultGlassOpacity: settings.appearance.glassOpacity,
+            },
+        ),
+        padding: `calc(1rem * var(--hami-content-scale, 1))`,
+    };
+    const alertsMinH = resolveAlertsMinHeight(blockOverride?.size ?? 'normal');
+    const alertsLayoutKey = `${blockOverride?.size ?? 'normal'}-${blockOverride?.shape ?? 'rounded'}-${blockOverride?.span ?? 2}`;
 
     return (
         <section
-            className={`relative overflow-hidden flex flex-col rounded-[1.625rem] hami-sovereign-glass hami-sovereign-rim hami-home-themed-border ${
-                isFullyCompact ? 'p-3 gap-1' : 'p-4 gap-3 min-h-[240px]'
-            }`}
+            data-hami-block="alerts"
+            className={`relative flex flex-col border ${blockClasses} ${alertsMinH} min-h-0 gap-3`}
+            style={blockStyle}
             dir="rtl"
             aria-label="التنبيهات والتثبيت"
         >
-            <div className="hami-sovereign-shine absolute inset-0 rounded-[inherit] pointer-events-none" aria-hidden />
+            <HomeBlockPatternOverlay override={blockOverride} themePrimary={themePrimary} />
+            {shouldShowHomeBlockSheen(blockOverride?.pattern) ? (
+                <div className="hami-sovereign-shine absolute inset-0 rounded-[inherit] pointer-events-none z-[1]" aria-hidden />
+            ) : null}
 
-            {alertsSectionExpanded ? (
-                <div className="relative z-[1] flex flex-col">
-                    <div className="flex items-center justify-between gap-3 mb-3">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="relative w-8 h-8 rounded-lg hami-home-accent-chip flex items-center justify-center shrink-0">
-                                {hasCarouselAlerts ? (
-                                    <span
-                                        className="absolute inset-0 rounded-lg hami-sovereign-breathe hami-home-accent-chip pointer-events-none"
+            <HubPanelTabs
+                hubPanel={hubPanel}
+                onChange={setHubPanel}
+                alertsCount={alertsTabCount}
+                pinsCount={clusterViews.length}
+            />
+
+            <AnimatePresence mode="wait" initial={false}>
+                {hubPanel === 'alerts' ? (
+                    <motion.div
+                        key="alerts-panel"
+                        className="relative z-[2] flex flex-col min-h-0 flex-1"
+                        initial={{ opacity: 0, x: 14 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -10 }}
+                        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                    >
+                        <div
+                            className="flex items-center justify-between gap-3"
+                            style={{ marginBottom: `calc(0.75rem * var(--hami-content-scale, 1))` }}
+                        >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                                <div
+                                    className="relative rounded-lg hami-home-accent-chip flex items-center justify-center shrink-0"
+                                    style={{
+                                        width: `calc(2rem * var(--hami-content-scale, 1))`,
+                                        height: `calc(2rem * var(--hami-content-scale, 1))`,
+                                    }}
+                                >
+                                    {hasCarouselAlerts ? (
+                                        <span
+                                            className="absolute inset-0 rounded-lg hami-sovereign-breathe hami-home-accent-chip pointer-events-none"
+                                            aria-hidden
+                                        />
+                                    ) : null}
+                                    <Bell
+                                        className="hami-home-accent-text opacity-90"
                                         aria-hidden
+                                        style={{
+                                            width: `calc(14px * var(--hami-content-scale, 1))`,
+                                            height: `calc(14px * var(--hami-content-scale, 1))`,
+                                        }}
                                     />
-                                ) : (
-                                    <span
-                                        className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-emerald-400/70"
-                                        aria-hidden
-                                    />
-                                )}
-                                <Bell size={14} className="hami-home-accent-text opacity-90" aria-hidden />
-                            </div>
-                            <h2 className="text-[#F5F0E6] font-bold text-[13px] leading-none">التنبيهات</h2>
-                        </div>
-                        {hasCarouselAlerts ? (
-                            <HorizonFilterTabs
-                                counts={horizonCounts}
-                                activeFilter={activeFilter}
-                                onChange={setActiveFilter}
-                            />
-                        ) : null}
-                    </div>
-
-                    <div className="flex-1 flex flex-col min-h-[160px]">
-                        {alertsError ? (
-                            <p className="text-[10px] text-red-300/90 leading-relaxed flex-1 flex items-center">
-                                {alertsError}
-                            </p>
-                        ) : showInitialLoad ? (
-                            <p className="text-[10px] text-white/35 flex-1 flex items-center">جاري التحميل...</p>
-                        ) : hasAlerts ? (
-                            <AlertsCarousel
-                                carouselAlerts={carouselAlerts}
-                                sourceById={sourceById}
-                                onDismissAlert={onDismissAlert}
-                                onOpenEntity={onOpenEntity}
-                                onAcceptedConvertToCase={onAcceptedConvertToCase}
-                                onResolved={onResolved}
-                                activeFilter={activeFilter}
-                            />
-                        ) : hasCarouselAlerts ? (
-                            <p className="text-[10px] text-white/35 leading-relaxed flex-1 flex items-center">
-                                لا مواعيد في هذا التصنيف — جرّب تبويباً آخر.
-                            </p>
-                        ) : null}
-
-                        {hasRadar ? (
-                            <div className={`${hasAlerts || hasCarouselAlerts ? 'pt-3 mt-2 border-t border-white/[0.06]' : ''}`}>
-                                <div className="flex items-center gap-1.5 mb-2">
-                                    <CalendarClock size={12} className="text-[#E6C673]/60" aria-hidden />
-                                    <span className="text-[10px] font-bold text-white/45 tracking-wide">رادار 48 ساعة</span>
                                 </div>
-                                <ul className="space-y-0.5">
-                                    {radarFiltered.slice(0, 4).map((ev) => (
-                                        <li key={ev.id}>
-                                            <button
-                                                type="button"
-                                                onClick={() => onNavigateRoute(ev.routePath)}
-                                                className="w-full text-right flex justify-between gap-2 text-[10px] py-1 hover:text-[#E6C673]/80 transition-colors"
-                                            >
-                                                <span className="truncate text-white/65">{ev.title}</span>
-                                                <span className="shrink-0 text-[#E6C673]/65">{ev.whenLabel}</span>
-                                            </button>
-                                        </li>
-                                    ))}
-                                </ul>
+                                <h2
+                                    className="text-[#F5F0E6] font-bold leading-none"
+                                    style={{ fontSize: `calc(13px * var(--hami-content-scale, 1))` }}
+                                >
+                                    التنبيهات والمواعيد
+                                </h2>
                             </div>
-                        ) : null}
-                    </div>
-                </div>
-            ) : (
-                <CollapsedSectionRow icon={Bell} title="التنبيهات" hint="— لا تنبيهات حالياً" />
-            )}
-
-            {pinsSectionExpanded ? (
-                <div
-                    className={`relative z-[1] flex flex-col ${
-                        alertsSectionExpanded ? 'pt-3 border-t border-white/[0.06]' : ''
-                    }`}
-                >
-                    <div className="flex items-center gap-2 mb-2">
-                        <div className="w-8 h-8 rounded-lg hami-home-accent-chip flex items-center justify-center shrink-0">
-                            <Pin size={14} className="hami-home-accent-text opacity-90" aria-hidden />
+                            {hasCarouselAlerts ? (
+                                <HorizonFilterTabs
+                                    counts={horizonCounts}
+                                    activeFilter={activeFilter}
+                                    onChange={setActiveFilter}
+                                />
+                            ) : null}
                         </div>
-                        <h2 className="text-[#F5F0E6] font-bold text-[13px] leading-none">التثبيت</h2>
-                        <span className="text-[9px] font-bold text-[#E6C673]/70 tabular-nums">{clusterViews.length}</span>
-                    </div>
-                    <ul className="space-y-1">
-                        {clusterViews.slice(0, 6).map(({ pin, related }) => {
-                            const meta = clusterPinDisplayMeta(pin);
-                            return (
-                                <li key={`${pin.type}:${pin.id}`}>
-                                    <div className="flex items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1.5">
-                                        <button
-                                            type="button"
-                                            onClick={() => onNavigateRoute(pin.routePath)}
-                                            className="flex-1 min-w-0 text-right"
-                                        >
-                                            <p className="text-[11px] font-bold text-white/85 truncate">{meta.headline}</p>
-                                            <p className="text-[9px] text-white/40 truncate">
-                                                {meta.sectionLabel}
-                                                {meta.clientLine ? ` · ${meta.clientLine.replace('الموكل: ', '')}` : ''}
-                                                {related.length > 0 ? ` · ${related.length} ارتباط` : ''}
-                                            </p>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                unpinItem(pin.id, pin.type);
-                                            }}
-                                            className="w-7 h-7 rounded-lg flex items-center justify-center border border-amber-400/40 bg-amber-500/15 text-amber-300 shrink-0"
-                                            title="إلغاء التثبيت"
-                                            aria-label="إلغاء التثبيت"
-                                        >
-                                            <Pin size={11} className="fill-current" />
-                                        </button>
+
+                        <div className="flex-1 flex flex-col min-h-0">
+                            {alertsEmptyState === 'error' ? (
+                                <p className="text-[10px] text-red-300/90 leading-relaxed flex-1 flex items-center py-6">
+                                    {alertsError}
+                                </p>
+                            ) : alertsEmptyState === 'loading' ? (
+                                <p className="text-[10px] text-white/35 flex-1 flex items-center py-6">
+                                    {HOME_HUB_ALERTS_EMPTY_COPY.loading}
+                                </p>
+                            ) : alertsEmptyState === 'content' && hasAlerts ? (
+                                <AlertsCarousel
+                                    carouselAlerts={carouselAlerts}
+                                    sourceById={sourceById}
+                                    onDismissAlert={
+                                        onDismissAlert
+                                            ? (id) => guardInteraction(() => onDismissAlert(id))
+                                            : undefined
+                                    }
+                                    onOpenEntity={(alert) => guardInteraction(() => onOpenEntity(alert))}
+                                    onAcceptedConvertToCase={
+                                        onAcceptedConvertToCase
+                                            ? (alert) =>
+                                                  guardInteraction(() => onAcceptedConvertToCase(alert))
+                                            : undefined
+                                    }
+                                    onResolved={
+                                        onResolved
+                                            ? (alert) => guardInteraction(() => onResolved(alert))
+                                            : undefined
+                                    }
+                                    activeFilter={activeFilter}
+                                    layoutKey={alertsLayoutKey}
+                                />
+                            ) : alertsEmptyState === 'empty-filter' ? (
+                                <p className="text-[10px] text-white/35 leading-relaxed flex-1 flex items-center py-6">
+                                    {HOME_HUB_ALERTS_EMPTY_COPY['empty-filter']}
+                                </p>
+                            ) : alertsEmptyState === 'empty' ? (
+                                <p className="text-[10px] text-white/35 leading-relaxed flex-1 flex items-center py-6">
+                                    {HOME_HUB_ALERTS_EMPTY_COPY.empty}
+                                </p>
+                            ) : null}
+
+                            {hasRadar ? (
+                                <div className={`${hasAlerts || hasCarouselAlerts ? 'pt-3 mt-2 border-t border-white/[0.06]' : ''}`}>
+                                    <div className="flex items-center gap-1.5 mb-2">
+                                        <CalendarClock size={12} className="text-[#E6C673]/60" aria-hidden />
+                                        <span className="text-[10px] font-bold text-white/45 tracking-wide">رادار 48 ساعة</span>
                                     </div>
-                                </li>
-                            );
-                        })}
-                    </ul>
-                </div>
-            ) : (
-                <CollapsedSectionRow icon={Pin} title="التثبيت" hint="— لا عناصر مثبّتة" />
-            )}
+                                    <ul className="space-y-0.5">
+                                        {radarFiltered.slice(0, 4).map((ev) => (
+                                            <li key={ev.id}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        guardInteraction(() => onNavigateRoute(ev.routePath))
+                                                    }
+                                                    className="w-full text-right flex justify-between gap-2 text-[10px] py-1 hover:text-[#E6C673]/80 transition-colors"
+                                                >
+                                                    <span className="truncate text-white/65">{ev.title}</span>
+                                                    <span className="shrink-0 text-[#E6C673]/65">{ev.whenLabel}</span>
+                                                </button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ) : null}
+                        </div>
+                    </motion.div>
+                ) : (
+                    <motion.div
+                        key="pins-panel"
+                        className="relative z-[2] flex flex-col min-h-0 flex-1"
+                        initial={{ opacity: 0, x: -14 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 10 }}
+                        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                    >
+                        <div className="flex items-center gap-2 mb-2">
+                            <div
+                                className="rounded-lg hami-home-accent-chip flex items-center justify-center shrink-0"
+                                style={{
+                                    width: `calc(2rem * var(--hami-content-scale, 1))`,
+                                    height: `calc(2rem * var(--hami-content-scale, 1))`,
+                                }}
+                            >
+                                <Pin
+                                    className="hami-home-accent-text opacity-90"
+                                    aria-hidden
+                                    style={{
+                                        width: `calc(14px * var(--hami-content-scale, 1))`,
+                                        height: `calc(14px * var(--hami-content-scale, 1))`,
+                                    }}
+                                />
+                            </div>
+                            <h2
+                                className="text-[#F5F0E6] font-bold leading-none"
+                                style={{ fontSize: `calc(13px * var(--hami-content-scale, 1))` }}
+                            >
+                                التثبيت السريع
+                            </h2>
+                            <span
+                                className="font-bold text-[#E6C673]/70 tabular-nums mr-auto"
+                                style={{ fontSize: `calc(9px * var(--hami-content-scale, 1))` }}
+                            >
+                                {clusterViews.length}
+                            </span>
+                        </div>
+
+                        {hasPins ? (
+                            <ul className="space-y-1">
+                                {clusterViews.slice(0, 6).map(({ pin, related }) => {
+                                    const meta = clusterPinDisplayMeta(pin);
+                                    const visual = workspacePinVisual(pin.type);
+                                    return (
+                                        <li key={`${pin.type}:${pin.id}`}>
+                                            <div className={`flex items-center gap-1.5 border border-white/[0.06] bg-white/[0.03] px-2 py-1.5 ${visual.shell}`}>
+                                                <span className={`shrink-0 inline-flex items-center justify-center min-w-[1.35rem] h-5 px-1 text-[9px] font-extrabold border ${visual.chip}`}>
+                                                    {visual.shortLabel}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        guardInteraction(() => onNavigateRoute(pin.routePath))
+                                                    }
+                                                    className="flex-1 min-w-0 text-right"
+                                                >
+                                                    <p className="text-[11px] font-bold text-white/85 truncate">{meta.headline}</p>
+                                                    <p className="text-[9px] text-white/40 truncate">
+                                                        {meta.sectionLabel}
+                                                        {meta.clientLine ? ` · ${meta.clientLine.replace('الموكل: ', '')}` : ''}
+                                                        {related.length > 0 ? ` · ${related.length} ارتباط` : ''}
+                                                    </p>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        guardInteraction(() => unpinItem(pin.id, pin.type));
+                                                    }}
+                                                    className={`w-7 h-7 flex items-center justify-center border shrink-0 ${visual.button} ${visual.accent}`}
+                                                    title="إلغاء التثبيت"
+                                                    aria-label="إلغاء التثبيت"
+                                                >
+                                                    <Pin size={11} className="fill-current" />
+                                                </button>
+                                            </div>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        ) : (
+                            <p className="text-[10px] text-white/35 leading-relaxed py-6">
+                                لا عناصر مثبّتة — استخدم زر التثبيت على الإضبارات.
+                            </p>
+                        )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </section>
     );
 };

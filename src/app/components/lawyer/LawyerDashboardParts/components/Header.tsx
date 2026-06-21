@@ -1,8 +1,8 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Settings, type LucideIcon } from 'lucide-react';
 import { HeaderSearchTrigger } from './HeaderSearchTrigger';
 import { HeaderNotificationsTrigger } from './HeaderNotificationsTrigger';
+import { HeaderSettingsTrigger } from './HeaderSettingsTrigger';
 import { HeaderProfileTrigger } from './HeaderProfileTrigger';
 import { useAuthUser } from '@/app/context/AuthContext';
 import { useLawyerProfileHeader } from '@/app/hooks/useLawyerProfileHeader';
@@ -18,32 +18,7 @@ interface HeaderProps {
     onNotificationsClick: () => void;
     onNotificationsPointerEnter?: () => void;
     onSettingsClick: () => void;
-}
-
-type HeaderIconButtonProps = {
-    icon: LucideIcon;
-    label: string;
-    onClick: () => void;
-    onPointerEnter?: () => void;
-    badge?: boolean;
-};
-
-function HeaderIconButton({ icon: Icon, label, onClick, onPointerEnter, badge }: HeaderIconButtonProps) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            onPointerEnter={onPointerEnter}
-            aria-label={label}
-            title={label}
-            className="relative w-10 h-10 rounded-xl flex items-center justify-center text-white/90 border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.07] hover:border-[#E6C673]/25 transition-all duration-200 active:scale-95"
-        >
-            <Icon size={20} strokeWidth={1.5} aria-hidden />
-            {badge ? (
-                <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-[#0F172A]" />
-            ) : null}
-        </button>
-    );
+    onSettingsPointerEnter?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -56,6 +31,7 @@ export const Header: React.FC<HeaderProps> = ({
     onNotificationsClick,
     onNotificationsPointerEnter,
     onSettingsClick,
+    onSettingsPointerEnter,
 }) => {
     const user = useAuthUser();
     const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
@@ -68,11 +44,11 @@ export const Header: React.FC<HeaderProps> = ({
         <AnimatePresence>
             {shouldShow && (
                 <motion.header
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.2 }}
-                    className="fixed top-0 left-0 right-0 z-50 h-[84px] flex items-center justify-between px-4 sm:px-5 pointer-events-none border-b border-white/[0.06] bg-[#050508]/72 backdrop-blur-xl"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.22 }}
+                    className="fixed top-0 left-0 right-0 z-50 h-[84px] flex items-center justify-between px-4 sm:px-5 pointer-events-none"
                 >
                     <HeaderProfileTrigger
                         displayName={displayName}
@@ -82,14 +58,22 @@ export const Header: React.FC<HeaderProps> = ({
                         onPointerEnter={onProfilePointerEnter}
                     />
 
-                    <nav className="flex items-center gap-3 pointer-events-auto" aria-label="أدوات اللوحة">
+                    <nav
+                        className="pointer-events-auto flex items-center gap-2 px-2.5 py-2 rounded-[1.35rem] hami-sovereign-glass hami-sovereign-rim hami-home-themed-border border border-white/[0.08] shadow-[0_12px_40px_rgba(0,0,0,0.35)]"
+                        aria-label="أدوات اللوحة"
+                    >
                         <HeaderSearchTrigger onClick={onSearchClick} onPointerEnter={onSearchPointerEnter} />
+                        <span className="w-px h-7 bg-white/[0.08] shrink-0" aria-hidden />
                         <HeaderNotificationsTrigger
                             unreadCount={unreadCount}
                             onClick={onNotificationsClick}
                             onPointerEnter={onNotificationsPointerEnter}
                         />
-                        <HeaderIconButton icon={Settings} label="الإعدادات" onClick={onSettingsClick} />
+                        <span className="w-px h-7 bg-white/[0.08] shrink-0" aria-hidden />
+                        <HeaderSettingsTrigger
+                            onClick={onSettingsClick}
+                            onPointerEnter={onSettingsPointerEnter}
+                        />
                     </nav>
                 </motion.header>
             )}

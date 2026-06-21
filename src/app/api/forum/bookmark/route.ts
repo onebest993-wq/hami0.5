@@ -2,7 +2,7 @@ import { sanitizePayload } from '../../security/sanitizer.ts';
 import { ForumRepository } from '../../../services/forum/forumRepository.ts';
 // ملاحظة: الحفظ الشخصي (Bookmark) لا يحتاج فحص الحظر —
 // المحظور يستطيع القراءة فمن المنطقي أن يحتفظ بقائمة شخصية.
-import { requireForumAuth, jsonResponse } from '../_auth.ts';
+import { requireForumAuth, assertForumWriteAllowed, jsonResponse } from '../_auth.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === 'object';
@@ -25,6 +25,9 @@ export async function POST(request: Request): Promise<Response> {
     try {
         const auth = await requireForumAuth(request);
         if ('response' in auth) return auth.response;
+
+        const writeOk = assertForumWriteAllowed(auth.userId, request);
+        if (writeOk.ok === false) return writeOk.response;
 
         let payload: unknown = null;
         try {

@@ -17,6 +17,7 @@ const AccountSection = lazy(() =>
 
 export interface HamiSettingsProps {
     onClose: () => void;
+    onEnterHomeLayoutEdit?: () => void;
     onLogout?: () => void;
     onOpenProfile?: () => void;
     onOpenPrivacy?: () => void;
@@ -34,15 +35,17 @@ function SectionFallback() {
 function SettingsSectionRouter({
     activeSection,
     onClose,
+    onEnterHomeLayoutEdit,
     accountProps,
 }: {
     activeSection: SettingsSectionId;
     onClose: () => void;
+    onEnterHomeLayoutEdit?: () => void;
     accountProps: Pick<HamiSettingsProps, 'onLogout' | 'onOpenProfile' | 'onOpenPrivacy' | 'onOpenSupport'>;
 }) {
     switch (activeSection) {
         case 'appearance':
-            return <AppearanceSection />;
+            return <AppearanceSection onEnterHomeLayoutEdit={onEnterHomeLayoutEdit} />;
         case 'security':
             return <SecuritySection />;
         case 'data':
@@ -64,6 +67,7 @@ function SettingsSectionRouter({
 
 export const HamiSettings = ({
     onClose,
+    onEnterHomeLayoutEdit,
     onLogout,
     onOpenProfile,
     onOpenPrivacy,
@@ -85,6 +89,7 @@ export const HamiSettings = ({
                         <SettingsSectionRouter
                             activeSection={activeSection}
                             onClose={onClose}
+                            onEnterHomeLayoutEdit={onEnterHomeLayoutEdit}
                             accountProps={{ onLogout, onOpenProfile, onOpenPrivacy, onOpenSupport }}
                         />
                     </Suspense>

@@ -6,6 +6,9 @@ import {
   ArrowUpCircle, Flag, ArrowDownUp, VolumeX
 } from 'lucide-react';
 import type { CommunityPost, CommunityComment } from '@/app/services/lawyer-cloud';
+import type { MentionCandidate } from '@/app/hooks/useForumMentionAutocomplete';
+import { useForumMentionAutocomplete } from '@/app/hooks/useForumMentionAutocomplete';
+import { ForumMentionSuggestions } from './ForumMentionSuggestions';
 import { formatRelativeTime } from '../utils';
 import {
     FORUM_ACCENT_CHIP,
@@ -47,6 +50,7 @@ export interface CommentBottomSheetProps {
   onReportComment?: (commentId: string) => void;
   onMuteUser?: (userId: string) => void;
   mutedUserIds?: Set<string>;
+  mentionCandidates?: MentionCandidate[];
 }
 
 export const CommentBottomSheet = ({
@@ -65,8 +69,10 @@ export const CommentBottomSheet = ({
   onReportComment,
   onMuteUser,
   mutedUserIds,
+  mentionCandidates = [],
 }: CommentBottomSheetProps) => {
   const [comment, setComment] = useState('');
+  const mention = useForumMentionAutocomplete(comment, setComment, mentionCandidates);
   const [submittingComment, setSubmittingComment] = useState(false);
   const [sortMode, setSortMode] = useState<CommentSortMode>('oldest');
   const bestCommentId = post.bestCommentId ?? null;
@@ -459,11 +465,27 @@ export const CommentBottomSheet = ({
               </div>
             )}
             <div className="flex gap-3 items-end">
-              <div className={`flex-1 rounded-2xl p-3 ${FORUM_SURFACE_INPUT}`}>
+              <div className={`flex-1 rounded-2xl p-3 ${FORUM_SURFACE_INPUT} relative`}>
+                {mention.showSuggestions ? (
+                  <ForumMentionSuggestions
+                    suggestions={mention.suggestions}
+                    activeIndex={mention.activeIndex}
+                    onSelect={mention.insertMention}
+                    onHover={mention.setActiveIndex}
+                  />
+                ) : null}
                 <textarea
+                  ref={mention.textareaRef}
                   value={comment}
-                  onChange={(e) => setComment(e.target.value.slice(0, COMMENT_MAX_LENGTH))}
-                  placeholder={isLocked ? 'النقاش مقفل' : 'اكتب تعليقك هنا...'}
+                  onChange={(e) =>
+                    mention.handleValueChange(
+                      e.target.value.slice(0, COMMENT_MAX_LENGTH),
+                      e.target.selectionStart,
+                    )
+                  }
+                  onKeyDown={mention.handleKeyDown}
+                  onBlur={() => window.setTimeout(() => mention.closeSuggestions(), 120)}
+                  placeholder={isLocked ? 'النقاش مقفل' : 'اكتب تعليقك هنا... (@ لإشارة زميل)'}
                   className="w-full bg-transparent text-white text-sm placeholder-white/30 outline-none resize-none max-h-24 custom-scrollbar disabled:cursor-not-allowed"
                   rows={1}
                   style={{ minHeight: '40px' }}

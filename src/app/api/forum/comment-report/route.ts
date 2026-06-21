@@ -37,6 +37,16 @@ export async function POST(request: Request): Promise<Response> {
             payload.reason,
             auth.userId,
         );
+        if (result.ok) {
+            void import('../../../services/forum/forumNotificationDispatch').then(({ dispatchForumReportSubmitted }) =>
+                dispatchForumReportSubmitted({
+                    postId: payload.commentId as string,
+                    reporterId: auth.userId,
+                    reason: payload.reason as string,
+                    targetLabel: 'تعليق',
+                }),
+            );
+        }
         return jsonResponse(200, { ok: true, result });
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Internal server error';

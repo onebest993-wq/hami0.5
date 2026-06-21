@@ -61,7 +61,7 @@ export function TransactionsListScreen({
     return (
         <TxGlassPage>
             <TxGlassHeader>
-                <TxHeaderRow title="إدارة المعاملات" subtitle="متابعة مسارات الموكلين" onBack={onBack} />
+                <TxHeaderRow title="إدارة المعاملات" onBack={onBack} />
 
                 <div className="mt-4 relative">
                     <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8A8680]/60 pointer-events-none" />

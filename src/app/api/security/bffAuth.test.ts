@@ -4,8 +4,9 @@ vi.mock('./wifeValidator.ts', () => ({
   extractUserTokenFromRequest: vi.fn(),
   getVerifiedTokenSubject: vi.fn(),
   isTokenAuthorized: vi.fn(),
-  verifyWifeSignature: vi.fn(),
-  wifeForbiddenResponse: () => new Response(null, { status: 403 }),
+  verifyWifeSignatureStatus: vi.fn(),
+  wifeRateLimitedResponse: () => new Response(null, { status: 429 }),
+  wifeSignatureFailedResponse: () => new Response(null, { status: 403 }),
   wifeUnauthorizedResponse: () => new Response(null, { status: 401 }),
 }));
 
@@ -14,7 +15,7 @@ import {
   extractUserTokenFromRequest,
   getVerifiedTokenSubject,
   isTokenAuthorized,
-  verifyWifeSignature,
+  verifyWifeSignatureStatus,
 } from './wifeValidator.ts';
 
 describe('requireWifeUser', () => {
@@ -22,7 +23,7 @@ describe('requireWifeUser', () => {
     vi.clearAllMocks();
     vi.mocked(extractUserTokenFromRequest).mockReturnValue('token');
     vi.mocked(isTokenAuthorized).mockResolvedValue(true);
-    vi.mocked(verifyWifeSignature).mockResolvedValue(true);
+    vi.mocked(verifyWifeSignatureStatus).mockResolvedValue('valid');
     vi.mocked(getVerifiedTokenSubject).mockResolvedValue('user-a');
   });
 
@@ -33,9 +34,16 @@ describe('requireWifeUser', () => {
   });
 
   it('returns 403 when signature fails', async () => {
-    vi.mocked(verifyWifeSignature).mockResolvedValue(false);
+    vi.mocked(verifyWifeSignatureStatus).mockResolvedValue('invalid');
     const res = await requireWifeUser(new Request('http://127.0.0.1/api/test'));
     expect(res.ok).toBe(false);
     if (res.ok === false) expect(res.response.status).toBe(403);
+  });
+
+  it('returns 429 when rate limited', async () => {
+    vi.mocked(verifyWifeSignatureStatus).mockResolvedValue('rate_limited');
+    const res = await requireWifeUser(new Request('http://127.0.0.1/api/test'));
+    expect(res.ok).toBe(false);
+    if (res.ok === false) expect(res.response.status).toBe(429);
   });
 });

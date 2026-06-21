@@ -210,58 +210,58 @@ export function TransactionDetailsScreen({
 
   return (
     <TxGlassPage>
-      <TxGlassHeader>
-        <TxHeaderRow
-          title={tx.title}
-          subtitle={tx.clientName}
-          onBack={onBack}
-          trailing={
-            <div className={`px-2.5 py-0.5 rounded-[3px] border text-[10px] font-bold shrink-0 ${txStatusBadgeClass(tx.status)}`}>
-              {txStatusLabelAr(tx.status)}
-            </div>
-          }
-        />
+      <Tabs dir="rtl" value={tab} onValueChange={(v) => setTab(v as 'path' | 'docs' | 'fin')} className="w-full">
+        <TxGlassHeader>
+          <TxHeaderRow
+            title={tx.title}
+            subtitle={tx.clientName}
+            onBack={onBack}
+            trailing={
+              <div className={`px-2.5 py-0.5 rounded-[3px] border text-[10px] font-bold shrink-0 ${txStatusBadgeClass(tx.status)}`}>
+                {txStatusLabelAr(tx.status)}
+              </div>
+            }
+          />
 
-        <div className="mt-3 flex items-center gap-2 flex-wrap justify-end">
-          {isReadOnly ? (
-            <button type="button" onClick={reopenTransaction} className={TX_GOLD_BTN}>
-              إعادة فتح
-            </button>
-          ) : (
-            <button type="button" onClick={() => setCompleteOpen(true)} className={TX_OCHRE_BTN}>
-              إنهاء المعاملة
-            </button>
-          )}
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button type="button" className={TX_ICON_BTN} aria-label="قائمة المعاملة">
-                <MoreVertical className="w-5 h-5" />
+          <div className="mt-3 flex items-center gap-2 flex-wrap justify-end">
+            {isReadOnly ? (
+              <button type="button" onClick={reopenTransaction} className={TX_GOLD_BTN}>
+                إعادة فتح
               </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className={TX_DROPDOWN_CONTENT}>
-              <DropdownMenuItem
-                disabled={!canSaveTemplate}
-                onSelect={() => {
-                  setTemplateName(tx.title);
-                  setSaveTemplateOpen(true);
-                }}
-                className={TX_DROPDOWN_FOCUS}
-              >
-                حفظ المسار كقالب
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            ) : (
+              <button type="button" onClick={() => setCompleteOpen(true)} className={TX_OCHRE_BTN}>
+                إنهاء المعاملة
+              </button>
+            )}
 
-          <button type="button" onClick={() => setReportOpen(true)} className={TX_ICON_BTN} aria-label="مشاركة تحديث الموكل">
-            <Share2 className="w-5 h-5" />
-          </button>
-        </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button type="button" className={TX_ICON_BTN} aria-label="قائمة المعاملة">
+                  <MoreVertical className="w-5 h-5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className={TX_DROPDOWN_CONTENT}>
+                <DropdownMenuItem
+                  disabled={!canSaveTemplate}
+                  onSelect={() => {
+                    setTemplateName(tx.title);
+                    setSaveTemplateOpen(true);
+                  }}
+                  className={TX_DROPDOWN_FOCUS}
+                >
+                  حفظ المسار كقالب
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-        <div className="mt-4">
-          <Tabs value={tab} onValueChange={(v) => setTab(v as 'path' | 'docs' | 'fin')} className="w-full">
+            <button type="button" onClick={() => setReportOpen(true)} className={TX_ICON_BTN} aria-label="مشاركة تحديث الموكل">
+              <Share2 className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="mt-4">
             <TxGlassTabsList>
-              <TabsList className="w-full h-auto p-0 bg-transparent border-0 flex gap-1">
+              <TabsList className="w-full h-auto p-0 bg-transparent border-0 grid grid-cols-3 gap-1">
                 <TabsTrigger value="path" className={TX_TAB_TRIGGER}>
                   المسار
                 </TabsTrigger>
@@ -274,39 +274,39 @@ export function TransactionDetailsScreen({
               </TabsList>
             </TxGlassTabsList>
 
-            {isReadOnly && (
-              <TxGlassPanel className="mt-3 px-4 py-3">
-                <div className="flex items-start gap-3">
-                  <div className={`w-9 h-9 rounded-[3px] ${TX_ACCENT_SURFACE} flex items-center justify-center ${TX_TEXT_OCHRE} shrink-0`}>
-                    <CheckCircle2 className="w-5 h-5" />
+            {isReadOnly ? (
+              <TxGlassPanel className="mt-3 px-3.5 py-2.5">
+                <div className="flex items-start gap-2.5">
+                  <div className={`w-8 h-8 rounded-[3px] ${TX_ACCENT_SURFACE} flex items-center justify-center ${TX_TEXT_OCHRE} shrink-0`}>
+                    <CheckCircle2 className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <div className={`${TX_TEXT_OCHRE} font-extrabold text-sm`}>تمت أرشفة المعاملة</div>
-                    <div className={`${TX_TEXT_MUTED} text-xs mt-1 font-medium`}>وضع للقراءة فقط — تم قفل جميع إجراءات التعديل</div>
+                    <div className={`${TX_TEXT_OCHRE} font-bold text-xs`}>تمت أرشفة المعاملة</div>
+                    <div className={`${TX_TEXT_MUTED} text-[10px] mt-0.5 font-medium`}>وضع للقراءة فقط</div>
                   </div>
                 </div>
               </TxGlassPanel>
-            )}
+            ) : null}
+          </div>
+        </TxGlassHeader>
 
-            <div className="mt-3 max-w-[520px] mx-auto px-0">
-              <TabsContent value="path" className="mt-0">
-                <TaskThreadView
-                  transactionId={transactionId}
-                  onRequestAddTask={requestAddTask}
-                  onImportFromMyTemplates={() => setTemplatesOpen(true)}
-                  readOnly={isReadOnly}
-                />
-              </TabsContent>
-              <TabsContent value="docs" className="mt-0">
-                <DocumentsTabView transaction={tx as Transaction} readOnly={isReadOnly} />
-              </TabsContent>
-              <TabsContent value="fin" className="mt-0">
-                <FinancesTabView transaction={tx as Transaction} readOnly={isReadOnly} />
-              </TabsContent>
-            </div>
-          </Tabs>
+        <div className="max-w-[520px] mx-auto px-4 sm:px-5 pb-28 w-full">
+          <TabsContent value="path" className="mt-0 focus-visible:outline-none w-full">
+            <TaskThreadView
+              transactionId={transactionId}
+              onRequestAddTask={requestAddTask}
+              onImportFromMyTemplates={() => setTemplatesOpen(true)}
+              readOnly={isReadOnly}
+            />
+          </TabsContent>
+          <TabsContent value="docs" className="mt-0 focus-visible:outline-none">
+            <DocumentsTabView transaction={tx as Transaction} readOnly={isReadOnly} />
+          </TabsContent>
+          <TabsContent value="fin" className="mt-0 focus-visible:outline-none">
+            <FinancesTabView transaction={tx as Transaction} readOnly={isReadOnly} />
+          </TabsContent>
         </div>
-      </TxGlassHeader>
+      </Tabs>
 
       {tab === 'path' && !isReadOnly && (
         <TxGlassFab label="إضافة مهمة" extended onClick={() => requestAddTask(null)} />

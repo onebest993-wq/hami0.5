@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import SecureStoreService from '@/app/services/SecureStoreService';
-import { createSecureJSONStorage } from '@/app/services/securePersistStorage';
+import { createCriminalShardedJSONStorage } from '@/app/services/criminalShardedPersistStorage';
 import {
     CRIMINAL_STORAGE_PATCHED_EVENT,
     loadCriminalCasesRaw,
@@ -4040,7 +4040,7 @@ function mapDecisionStatusToDefendantStatus(status: StageConclusion['defendantSt
     return 'مكفل';
 }
 
-const criminalPersistStorage = createSecureJSONStorage<CriminalStoreState>();
+const criminalPersistStorage = createCriminalShardedJSONStorage<CriminalStoreState>();
 
 export const useCriminalStore = create<CriminalStoreState>()(
     persist(

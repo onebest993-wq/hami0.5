@@ -2,7 +2,7 @@ import {
   extractUserTokenFromRequest,
   getVerifiedTokenSubject,
   isTokenAuthorized,
-  verifyWifeSignature,
+  assertWifeSignatureRequest,
   wifeForbiddenResponse, wifeSignatureFailedResponse,
   wifeUnauthorizedResponse,
 } from '../../security/wifeValidator.ts';
@@ -17,7 +17,8 @@ export async function GET(request: Request): Promise<Response> {
   try {
     const userToken = extractUserTokenFromRequest(request);
     if (!userToken || !(await isTokenAuthorized(userToken))) return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
-    if (!(await verifyWifeSignature(request, userToken))) return wifeSignatureFailedResponse(request);
+        const wifeBlock = await assertWifeSignatureRequest(request, userToken);
+    if (wifeBlock) return wifeBlock;
 
     const userId = await getVerifiedTokenSubject(userToken);
     if (!userId) return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
@@ -39,7 +40,8 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const userToken = extractUserTokenFromRequest(request);
     if (!userToken || !(await isTokenAuthorized(userToken))) return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
-    if (!(await verifyWifeSignature(request, userToken))) return wifeSignatureFailedResponse(request);
+        const wifeBlock = await assertWifeSignatureRequest(request, userToken);
+    if (wifeBlock) return wifeBlock;
 
     const userId = await getVerifiedTokenSubject(userToken);
     if (!userId) return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });

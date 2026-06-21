@@ -4,7 +4,7 @@ import type {
     LegalTask,
     TaskExpenseEntry,
 } from '@/app/types/TaskEngine';
-import { isTaskOnFieldCurtain } from '@/app/utils/fieldCurtain';
+import { countActiveFieldCurtainTasks } from '@/app/services/tasks/fieldCurtainTasks';
 
 export const QUANTUM_TASKS_STORAGE_KEY = 'hami_quantum_legal_tasks_v1';
 
@@ -127,7 +127,7 @@ export function serializeQuantumTasks(tasks: LegalTask[]): { tasks: Record<strin
     };
 }
 
-/** عداد شارة الدوك — مهام مثبتة على ستارة الميدان فقط. */
+/** عداد شارة الدوك — مهام مثبتة على ستارة الميدان وغير منجزة. */
 export function countPendingFieldTasks(pendingTasks: LegalTask[]): number {
-    return pendingTasks.filter(isTaskOnFieldCurtain).length;
+    return countActiveFieldCurtainTasks(pendingTasks);
 }

@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, memo } from 'react';
 import { LawyerDashboardShell } from '@/app/components/lawyer/dashboard/LawyerDashboardShell';
 import { LawyerDashboardOverlaysHost } from '@/app/components/lawyer/dashboard/LawyerDashboardOverlaysHost';
 import { LawyerDashboardHomeTab } from '@/app/components/lawyer/dashboard/LawyerDashboardHomeTab';
@@ -18,7 +18,9 @@ type LawyerDashboardMainViewProps = {
     model: Extract<LawyerDashboardCoreViewModel, { status: 'ready' }>;
 };
 
-export function LawyerDashboardMainView({ model }: LawyerDashboardMainViewProps) {
+export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
+    model,
+}: LawyerDashboardMainViewProps) {
     const {
         shellProps,
         notificationPanel,
@@ -52,12 +54,12 @@ export function LawyerDashboardMainView({ model }: LawyerDashboardMainViewProps)
             />
 
             <div className={tabStackHidden ? 'hidden' : 'flex-1 relative min-h-screen'}>
-                <LawyerDashboardHomeTab {...homeTabProps} />
-                <LawyerDashboardScheduleTab {...scheduleTabProps} />
+                {homeTabProps.visible ? <LawyerDashboardHomeTab {...homeTabProps} /> : null}
+                {scheduleTabProps.visible ? <LawyerDashboardScheduleTab {...scheduleTabProps} /> : null}
                 <LawyerDashboardProfileTab visible={profileTabVisible} onBack={onProfileBack} />
             </div>
 
             <LawyerDashboardOverlaysHost {...overlaysHostProps} />
         </LawyerDashboardShell>
     );
-}
+});

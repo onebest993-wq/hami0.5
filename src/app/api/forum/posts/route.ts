@@ -92,6 +92,13 @@ export async function POST(request: Request): Promise<Response> {
                 }
             }
             const saved = await ForumRepository.savePost({ ...post, groupId });
+            void import('../../../services/forum/forumNotificationDispatch').then(({ dispatchFollowedUserNewPost }) =>
+                dispatchFollowedUserNewPost({
+                    authorId: auth.userId,
+                    authorName: saved.authorName,
+                    post: saved,
+                }),
+            );
             return jsonResponse(200, {
                 ok: true,
                 action: 'create',
@@ -137,6 +144,21 @@ export async function POST(request: Request): Promise<Response> {
                 updatedAt: new Date().toISOString(),
             };
             const saved = await ForumRepository.savePost(merged);
+
+            if (upvoteChanged && post.upvoterIds?.includes(auth.userId)) {
+                void import('../../../services/forum/forumNotificationDispatch').then(({ dispatchPostUpvoteNotification }) =>
+                    dispatchPostUpvoteNotification({ post: saved, voterId: auth.userId }),
+                );
+            }
+            if (bestChanged && saved.bestCommentId) {
+                const bestComment = saved.comments.find((c) => c.id === saved.bestCommentId);
+                if (bestComment) {
+                    void import('../../../services/forum/forumNotificationDispatch').then(({ dispatchBestAnswerNotification }) =>
+                        dispatchBestAnswerNotification({ post: saved, comment: bestComment }),
+                    );
+                }
+            }
+
             return jsonResponse(200, {
                 ok: true,
                 action: 'sync',

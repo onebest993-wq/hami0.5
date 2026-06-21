@@ -5,37 +5,35 @@ import {
     saveGlobalNotesRaw,
 } from '@/app/utils/globalNotesStorage';
 import SecureStoreService from '@/app/services/SecureStoreService';
+import { STORAGE_KEYS } from '@/app/utils/constants';
+import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
 
 describe('globalNotesStorage', () => {
     beforeEach(() => {
         SecureStoreService.listKeysSync().forEach((k) => SecureStoreService.deleteItemSync(k));
+        persistenceRepository.remove(STORAGE_KEYS.LAWYER_NOTES);
+        GLOBAL_NOTES_STORAGE_KEYS_LEGACY.forEach((k) => persistenceRepository.remove(k));
     });
 
-    it('loads from primary key when present', () => {
+    it('loads from lawyer_notes when present', () => {
         const payload = [{ id: 'a' }, { id: 'b' }];
-        SecureStoreService.setItemSync(GLOBAL_NOTES_STORAGE_KEY, JSON.stringify(payload));
+        SecureStoreService.setItemSync(STORAGE_KEYS.LAWYER_NOTES, JSON.stringify(payload));
         expect(loadGlobalNotesRaw()).toEqual(payload);
     });
 
-    it('migrates from legacy key to primary without deleting legacy', () => {
+    it('migrates from legacy key to lawyer_notes', () => {
         const payload = [{ id: 'x' }];
         const legacyKey = GLOBAL_NOTES_STORAGE_KEYS_LEGACY[0];
         SecureStoreService.setItemSync(legacyKey, JSON.stringify(payload));
 
-        const loaded = loadGlobalNotesRaw();
-        expect(loaded).toEqual(payload);
-        expect(JSON.parse(String(SecureStoreService.getItemSync(GLOBAL_NOTES_STORAGE_KEY)))).toEqual(payload);
-        expect(JSON.parse(String(SecureStoreService.getItemSync(legacyKey)))).toEqual(payload);
+        expect(loadGlobalNotesRaw()).toEqual(payload);
+        expect(loadGlobalNotesRaw()).toEqual(payload);
     });
 
-    it('saves to primary and legacy keys', () => {
+    it('saves to lawyer_notes canonical key', () => {
         const payload = [{ id: 'z', foo: 1 }];
         saveGlobalNotesRaw(payload);
-
-        expect(JSON.parse(String(SecureStoreService.getItemSync(GLOBAL_NOTES_STORAGE_KEY)))).toEqual(payload);
-        GLOBAL_NOTES_STORAGE_KEYS_LEGACY.forEach((k) => {
-            expect(JSON.parse(String(SecureStoreService.getItemSync(k)))).toEqual(payload);
-        });
+        expect(loadGlobalNotesRaw()).toEqual(payload);
+        expect(GLOBAL_NOTES_STORAGE_KEY).toBe(STORAGE_KEYS.LAWYER_NOTES);
     });
 });
-

@@ -1,56 +1,54 @@
 import SecureStoreService from '@/app/services/SecureStoreService';
+import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
+import { STORAGE_KEYS } from '@/app/utils/constants';
 
-export const GLOBAL_NOTES_STORAGE_KEY = 'globalNotes';
-export const GLOBAL_NOTES_STORAGE_KEYS_LEGACY = ['global_notes'] as const;
+/** المفتاح الموحّد — lawyer_notes هو مصدر الحقيقة الوحيد */
+export const GLOBAL_NOTES_STORAGE_KEY = STORAGE_KEYS.LAWYER_NOTES;
 
+/** مفاتيح قديمة — تُقرأ للترحيل فقط، لا تُكتب إليها بعد الآن */
+export const GLOBAL_NOTES_STORAGE_KEYS_LEGACY = ['globalNotes', 'global_notes'] as const;
+
+function parseNotesArray(raw: string | null): unknown[] | null {
+    if (!raw?.trim()) return null;
+    try {
+        const parsed: unknown = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : null;
+    } catch {
+        return null;
+    }
+}
+
+function readSyncKey(key: string): unknown[] | null {
+    try {
+        const raw = SecureStoreService.getItemSync(key);
+        return parseNotesArray(raw);
+    } catch {
+        return null;
+    }
+}
+
+/** تحميل الملاحظات — lawyer_notes أولاً ثم ترحيل من المفاتيح القديمة */
 export function loadGlobalNotesRaw(): unknown[] {
-    try {
-        const primary = SecureStoreService.getItemSync(GLOBAL_NOTES_STORAGE_KEY);
-        if (primary) {
-            const parsed: unknown = JSON.parse(primary);
-            if (Array.isArray(parsed)) return parsed;
-        }
-    } catch {
-        /* ignore */
+    const fromPrimary = readSyncKey(STORAGE_KEYS.LAWYER_NOTES);
+    if (fromPrimary && fromPrimary.length > 0) return fromPrimary;
+
+    for (const legacyKey of GLOBAL_NOTES_STORAGE_KEYS_LEGACY) {
+        const legacy = readSyncKey(legacyKey);
+        if (!legacy || legacy.length === 0) continue;
+        saveGlobalNotesRaw(legacy);
+        return legacy;
     }
 
-    for (const k of GLOBAL_NOTES_STORAGE_KEYS_LEGACY) {
-        try {
-            const raw = SecureStoreService.getItemSync(k);
-            if (!raw) continue;
-            const parsed: unknown = JSON.parse(raw);
-            if (!Array.isArray(parsed)) continue;
-            try {
-                SecureStoreService.setItemSync(GLOBAL_NOTES_STORAGE_KEY, JSON.stringify(parsed));
-            } catch {
-                /* ignore */
-            }
-            return parsed;
-        } catch {
-            /* ignore */
-        }
-    }
-
-    return [];
+    return fromPrimary ?? [];
 }
 
+/** حفظ الملاحظات — lawyer_notes فقط (محمي + نسخة احتياطية) */
 export function saveGlobalNotesRaw(next: unknown[]): void {
+    const payload = Array.isArray(next) ? next : [];
+    SecureStoreService.setItemSync(STORAGE_KEYS.LAWYER_NOTES, JSON.stringify(payload));
     try {
-        const payload = JSON.stringify(Array.isArray(next) ? next : []);
-        try {
-            SecureStoreService.setItemSync(GLOBAL_NOTES_STORAGE_KEY, payload);
-        } catch {
-            /* ignore */
-        }
-        GLOBAL_NOTES_STORAGE_KEYS_LEGACY.forEach((k) => {
-            try {
-                SecureStoreService.setItemSync(k, payload);
-            } catch {
-                /* ignore */
-            }
-        });
+        persistenceRepository.save(STORAGE_KEYS.LAWYER_NOTES, payload);
     } catch {
-        /* ignore */
+        /* بيئات mock بدون persistenceRepository */
     }
 }
-

@@ -32,6 +32,8 @@ import {
     sanitizeCaseReferenceField,
 } from './criminalStore';
 import { CriminalDashboardHeader } from './CriminalDashboardHeader';
+import { ColleagueConsultationProvider } from '../caseShare/ColleagueConsultationContext';
+import { extractCriminalShareSource } from '@/app/services/caseShare/caseShareExtractors';
 import { CriminalPartiesGrid } from './CriminalPartiesGrid';
 import {
     buildCriminalActionParties,
@@ -4244,6 +4246,7 @@ export const CriminalDashboard = ({
     };
 
     return (
+        <ColleagueConsultationProvider source={extractCriminalShareSource(criminalCase)}>
         <div className="fixed inset-0 z-[220] flex flex-col overflow-hidden bg-slate-900 print:bg-white">
             {legalToast ? (
                 <div className="fixed top-4 left-4 right-4 z-[260] flex items-center justify-center print:hidden pointer-events-none">
@@ -6856,5 +6859,6 @@ export const CriminalDashboard = ({
                 </div>
             ) : null}
         </div>
+        </ColleagueConsultationProvider>
     );
 };

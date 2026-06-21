@@ -27,6 +27,27 @@ export async function POST(request: Request): Promise<Response> {
             return jsonResponse(400, { ok: false, error: 'commentId مطلوب' });
         }
         const result = await ForumRepository.toggleCommentUpvote(payload.commentId, auth.userId);
+        if (result.upvoted) {
+            void import('../../../services/forum/forumNotificationDispatch').then(
+                async ({ dispatchCommentUpvoteNotification }) => {
+                    const admin = (await import('../../../services/forum/supabaseAdmin')).getForumSupabaseAdmin();
+                    if (!admin) return;
+                    const { data } = await admin
+                        .from('forum_comments')
+                        .select('author_id, content, post_id')
+                        .eq('id', payload.commentId)
+                        .maybeSingle();
+                    if (!data) return;
+                    const row = data as { author_id: string; content: string; post_id: string };
+                    await dispatchCommentUpvoteNotification({
+                        postId: row.post_id,
+                        commentAuthorId: row.author_id,
+                        commentSnippet: row.content,
+                        voterId: auth.userId,
+                    });
+                },
+            );
+        }
         return jsonResponse(200, { ok: true, ...result });
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Internal server error';

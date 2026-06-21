@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Plus, Briefcase } from 'lucide-react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import { useVisibilityAwareInterval } from '@/app/hooks/useVisibilityAwareInterval';
 import { useAuthSafe, userHasRole } from '@/app/context/AuthContext';
 import {
-    FollowDB,
-    notifyFollowers,
     getUserPostCount,
     type CommunityPost,
     type CommunityComment,
@@ -13,6 +12,7 @@ import {
     type RepositoryDocument,
 } from '@/app/services/lawyer-cloud';
 import { ForumApiService } from '@/app/services/forumApiService';
+import type { ForumFollowRecord } from '@/app/services/forum/forumFollowTypes';
 import { mergeCommunityPostsById, sortCommunityPosts } from '@/app/services/lawyer-cloud';
 import { readPersistedSupabaseAuth } from '@/app/utils/authStorage';
 import { checkForumRateLimit } from './CommunityScreen/forumRateLimit';
@@ -22,12 +22,18 @@ import {
     readPersistedCommunitySection,
     type CommunitySection,
 } from './CommunityScreen/communitySectionState';
+import {
+    saveForumAttachmentToVault,
+    saveForumPostToNotepad,
+} from '@/app/services/forum/forumPostPersistActions';
 import { cacheForumAttachmentFile } from '@/app/services/forumAttachmentService';
 import { buildForumEditPatch } from '@/app/services/forum/forumEditUtils';
 import { repositoryDocMatchesTag, communityTagMatchesFilter, resolveCommunityPostTags, resolveRepositoryDocTags, repositoryDocMatchesSearch, formatRepositoryTag } from './CommunityScreen/repositoryTagUtils';
 import type { RepositorySortKey } from './CommunityScreen/repositoryListFilters';
 import { getRepositoryMediaKind } from './CommunityScreen/components/repositoryMedia';
 import { applyAutoRedaction } from './CommunityScreen/utils';
+import { useForumNotificationStream } from '@/app/hooks/useForumNotificationStream';
+import { collectForumParticipants } from '@/app/services/forum/forumMentionUtils';
 import { useMutedUsers } from './CommunityScreen/useMutedUsers';
 import { CommentBottomSheet } from './CommunityScreen/components/CommentBottomSheet';
 import { LegalRepository } from './CommunityScreen/components/LegalRepository';
@@ -39,6 +45,7 @@ import {
     hasAnyActiveUrgentConsultation,
 } from '@/app/services/forum/forumUrgentConsultation';
 import { ForumPostList } from './CommunityScreen/components/ForumPostList';
+import { ForumFollowingPanel } from './CommunityScreen/components/ForumFollowingPanel';
 import { EditPostModal } from './CommunityScreen/components/EditPostModal';
 import { SearchOverlay } from './CommunityScreen/components/SearchOverlay';
 import { AddQuestionSheet } from './CommunityScreen/components/AddQuestionSheet';
@@ -103,8 +110,9 @@ export const CommunityScreen = ({
         (authUser != null && hasRole('lawyer')) ||
         (persistedUser != null && userHasRole(persistedUser, 'lawyer'));
     const currentUserId = authUser?.id ?? fallbackUserId ?? persistedUser?.id ?? null;
+    const forumStreamConnected = useForumNotificationStream(currentUserId, Boolean(currentUserId));
     const [posts, setPosts] = useState<CommunityPost[]>([]);
-    const [loadingPosts, setLoadingPosts] = useState(true);
+    const [loadingPosts, setLoadingPosts] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(true);
     const PAGE_SIZE = 20;
@@ -145,6 +153,11 @@ export const CommunityScreen = ({
     const [leavingGroup, setLeavingGroup] = useState(false);
     const isAdmin = hasRole('admin');
     const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
+    const [followingRecords, setFollowingRecords] = useState<ForumFollowRecord[]>([]);
+    const [followerRecords, setFollowerRecords] = useState<Array<{ followerId: string; createdAt: string }>>([]);
+    const [threadFollowingIds, setThreadFollowingIds] = useState<Set<string>>(new Set());
+    const [showFollowingPanel, setShowFollowingPanel] = useState(false);
+    const [forumFeedScope, setForumFeedScope] = useState<'all' | 'following'>('all');
     const [userStats, setUserStats] = useState<Record<string, { followerCount: number; postCount: number }>>({});
     const userStatsCache = useRef<Record<string, { followerCount: number; postCount: number }>>({});
     // Bookmarks (server-backed) + Muted users (local-only)
@@ -223,36 +236,57 @@ export const CommunityScreen = ({
     }, []);
 
     useEffect(() => {
-        if (authIsLoading) return;
         if (postsBootstrappedRef.current) return;
         let cancelled = false;
-        (async () => {
-            setLoadingPosts(true);
+
+        const mergePage = (page: CommunityPost[]) =>
+            page.map((p) => ({ ...p, tags: resolveCommunityPostTags(p.content, p.tags) }));
+
+        const hydrateLocal = async () => {
             try {
-                const { posts: page } = await ForumApiService.listPostsPaginated(PAGE_SIZE, 0);
+                const { CommunityDB } = await import('@/app/services/lawyer-cloud');
+                const local = sortCommunityPosts(await CommunityDB.listPosts()).filter((p) => !p.groupId);
+                if (cancelled || local.length === 0) return;
+                setPosts((prev) => sortCommunityPosts(mergeCommunityPostsById(prev, mergePage(local))));
+            } catch {
+                /* ignore local hydrate */
+            }
+        };
+
+        const bootstrapRemote = async () => {
+            const showBlockingLoad = postsRef.current.length === 0;
+            if (showBlockingLoad) setLoadingPosts(true);
+            try {
+                const timeoutMs = 6_000;
+                const fetchPromise = ForumApiService.listPostsPaginated(PAGE_SIZE, 0);
+                const timeoutPromise = new Promise<never>((_, reject) => {
+                    window.setTimeout(() => reject(new Error('forum-bootstrap-timeout')), timeoutMs);
+                });
+                const { posts: page } = await Promise.race([fetchPromise, timeoutPromise]);
                 if (cancelled) return;
                 postsBootstrappedRef.current = true;
                 setPosts((prev) =>
-                    sortCommunityPosts(
-                        mergeCommunityPostsById(
-                            prev,
-                            page.map((p) => ({ ...p, tags: resolveCommunityPostTags(p.content, p.tags) })),
-                        ),
-                    ),
+                    sortCommunityPosts(mergeCommunityPostsById(prev, mergePage(page))),
                 );
                 setHasMore(page.length === PAGE_SIZE);
             } catch {
-                if (!cancelled) {
-                    SmartToast.error('تعذّر جلب منشورات المنتدى');
+                if (!cancelled && !postsBootstrappedRef.current) {
+                    postsBootstrappedRef.current = true;
+                    if (postsRef.current.length === 0) {
+                        SmartToast.error('تعذّر جلب منشورات المنتدى');
+                    }
                 }
             } finally {
                 if (!cancelled) setLoadingPosts(false);
             }
-        })();
+        };
+
+        void hydrateLocal();
+        void bootstrapRemote();
         return () => {
             cancelled = true;
         };
-    }, [authIsLoading]);
+    }, []);
 
     const refreshPosts = useCallback(async (silent = false) => {
         try {
@@ -274,13 +308,10 @@ export const CommunityScreen = ({
         }
     }, []);
 
-    useEffect(() => {
-        if (authIsLoading || activeSection !== 'forum') return;
-        const interval = window.setInterval(() => {
-            void refreshPosts(true);
-        }, 90_000);
-        return () => window.clearInterval(interval);
-    }, [authIsLoading, activeSection, refreshPosts]);
+    const forumPollEnabled = !authIsLoading && activeSection === 'forum';
+    useVisibilityAwareInterval(() => {
+        void refreshPosts(true);
+    }, 90_000, forumPollEnabled);
 
     useEffect(() => {
         if (authIsLoading || activeSection !== 'groups' || activeGroupId) return;
@@ -486,7 +517,7 @@ export const CommunityScreen = ({
         const results = await Promise.allSettled(
             uncached.map(async (id) => {
                 const [followerCount, postCount] = await Promise.all([
-                    FollowDB.getFollowerCount(id),
+                    ForumApiService.getFollowerCount(id),
                     getUserPostCount(id),
                 ]);
                 userStatsCache.current[id] = { followerCount, postCount };
@@ -514,11 +545,67 @@ export const CommunityScreen = ({
     }, [currentUserId]);
 
     useEffect(() => {
-        if (!currentUserId) { setFollowingIds(new Set()); return; }
-        FollowDB.getFollowing(currentUserId).then((records) => {
-            setFollowingIds(new Set(records.map((r) => r.followingId)));
-        }).catch(() => {});
+        if (!currentUserId) {
+            setFollowingIds(new Set());
+            setFollowingRecords([]);
+            return;
+        }
+        let cancelled = false;
+        void ForumApiService.listFollowing(currentUserId)
+            .then((records) => {
+                if (cancelled) return;
+                setFollowingRecords(records);
+                setFollowingIds(new Set(records.map((r) => r.followingId)));
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setFollowingRecords([]);
+                    setFollowingIds(new Set());
+                }
+            });
+        return () => {
+            cancelled = true;
+        };
     }, [currentUserId]);
+
+    useEffect(() => {
+        if (!currentUserId) {
+            setFollowerRecords([]);
+            setThreadFollowingIds(new Set());
+            return;
+        }
+        let cancelled = false;
+        void ForumApiService.listFollowers(currentUserId, currentUserId).then((rows) => {
+            if (!cancelled) {
+                setFollowerRecords(rows.map((r) => ({ followerId: r.followerId, createdAt: r.createdAt })));
+            }
+        });
+        void ForumApiService.listPostSubscriptions(currentUserId).then((ids) => {
+            if (!cancelled) setThreadFollowingIds(new Set(ids));
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [currentUserId]);
+
+    useEffect(() => {
+        if (!showFollowingPanel || !currentUserId) return;
+        let cancelled = false;
+        void ForumApiService.listFollowers(currentUserId, currentUserId).then((rows) => {
+            if (!cancelled) {
+                setFollowerRecords(rows.map((r) => ({ followerId: r.followerId, createdAt: r.createdAt })));
+            }
+        });
+        void ForumApiService.listFollowing(currentUserId).then((rows) => {
+            if (!cancelled) {
+                setFollowingRecords(rows);
+                setFollowingIds(new Set(rows.map((r) => r.followingId)));
+            }
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [showFollowingPanel, currentUserId]);
 
     // تحميل قائمة المنشورات المحفوظة (Bookmarks) للمستخدم الحالي
     useEffect(() => {
@@ -636,7 +723,8 @@ export const CommunityScreen = ({
         const baseList = posts.filter(
             (p) =>
                 !p.groupId &&
-                (!mutedIds.has(p.authorId) || p.authorId === currentUserId),
+                (!mutedIds.has(p.authorId) || p.authorId === currentUserId) &&
+                (forumFeedScope === 'all' || followingIds.has(p.authorId)),
         );
         const list = baseList.slice();
         if (selectedFilterIndex === 1) {
@@ -652,7 +740,7 @@ export const CommunityScreen = ({
                 .sort((a, b) => compareCommunityPostsForFeed(a, b));
         }
         return list.sort((a, b) => compareCommunityPostsForFeed(a, b));
-    }, [posts, selectedFilterIndex, filters, mutedIds, currentUserId, urgentPriorityTick]);
+    }, [posts, selectedFilterIndex, filters, mutedIds, currentUserId, urgentPriorityTick, forumFeedScope, followingIds]);
 
     // ⚡ لا نحسب نتائج البحث إلا عند فتح شاشة البحث فعلياً
     const filteredPosts = useMemo(() => {
@@ -773,6 +861,7 @@ export const CommunityScreen = ({
         try {
             const saved = await ForumApiService.addComment(postId, newComment);
             updatePostList(postId, (prev) => prev.map((p) => (p.id === postId ? saved : p)));
+            setThreadFollowingIds((prev) => new Set(prev).add(postId));
             SmartToast.success('تم نشر التعليق');
             return true;
         } catch {
@@ -1214,9 +1303,6 @@ export const CommunityScreen = ({
                 );
             }
             SmartToast.success(activeGroupId ? 'تم نشر المنشور في المجموعة' : 'تم نشر الاستشارة');
-            if (currentUserId && !activeGroupId) {
-                notifyFollowers(currentUserId, 'new_post', 'منشور جديد من متابَع', `نشر ${post.authorName} استشارة جديدة`, saved.id);
-            }
         } catch (err) {
             const message =
                 err instanceof Error && err.message.trim()
@@ -1378,6 +1464,40 @@ export const CommunityScreen = ({
         }
     };
 
+    const handleSavePostToNotes = async (postId: string) => {
+        const post = findPostById(postId);
+        if (!post) return;
+        try {
+            await saveForumPostToNotepad(post);
+            SmartToast.success('تم حفظ المنشور في الملاحظات');
+        } catch {
+            SmartToast.error('تعذّر حفظ المنشور في الملاحظات');
+        }
+    };
+
+    const handleSavePostToVault = async (postId: string) => {
+        if (!currentUserId) {
+            SmartToast.warning('سجّل الدخول لحفظ الملف في المخزن');
+            return;
+        }
+        const post = findPostById(postId);
+        if (!post?.attachment) {
+            SmartToast.info('لا يوجد مرفق لحفظه');
+            return;
+        }
+        const authorName =
+            authUser?.user_metadata?.fullName ||
+            authUser?.email ||
+            persistedUser?.email ||
+            'محامي';
+        try {
+            await saveForumAttachmentToVault(post, currentUserId, String(authorName));
+            SmartToast.success('تم حفظ المرفق في المخزن');
+        } catch {
+            SmartToast.error('تعذّر حفظ المرفق في المخزن');
+        }
+    };
+
     const handleToggleCommentUpvote = async (commentId: string) => {
         if (!currentUserId || !commentingPostId) return;
         // تحديث متفائل: نُبدّل عضوية المستخدم في upvoterIds للتعليق
@@ -1500,16 +1620,93 @@ export const CommunityScreen = ({
         const isFollowed = followingIds.has(targetUserId);
         try {
             if (isFollowed) {
-                await FollowDB.unfollow(currentUserId, targetUserId);
-                setFollowingIds((prev) => { const n = new Set(prev); n.delete(targetUserId); return n; });
+                await ForumApiService.unfollowUser(targetUserId, currentUserId);
+                setFollowingIds((prev) => {
+                    const n = new Set(prev);
+                    n.delete(targetUserId);
+                    return n;
+                });
+                setFollowingRecords((prev) => prev.filter((r) => r.followingId !== targetUserId));
                 SmartToast.success('تم إلغاء المتابعة');
             } else {
-                await FollowDB.follow(currentUserId, targetUserId);
-                setFollowingIds((prev) => { const n = new Set(prev); n.add(targetUserId); return n; });
-                SmartToast.success('تمت المتابعة');
+                const followerName =
+                    authUser?.user_metadata?.fullName || authUser?.email?.split('@')[0] || 'محامٍ';
+                await ForumApiService.followUser(targetUserId, {
+                    requesterId: currentUserId,
+                    followerName,
+                });
+                const record: ForumFollowRecord = {
+                    followerId: currentUserId,
+                    followingId: targetUserId,
+                    createdAt: new Date().toISOString(),
+                    notifyPosts: true,
+                    notifyComments: true,
+                    notifyReplies: true,
+                };
+                setFollowingIds((prev) => new Set(prev).add(targetUserId));
+                setFollowingRecords((prev) => [record, ...prev.filter((r) => r.followingId !== targetUserId)]);
+                SmartToast.success('تمت المتابعة — ستصلك تنبيهات نشاطه');
             }
         } catch {
             SmartToast.error('تعذّر تحديث حالة المتابعة');
+        }
+    };
+
+    const handleUpdateFollowPrefs = async (
+        targetUserId: string,
+        prefs: Partial<Pick<ForumFollowRecord, 'notifyPosts' | 'notifyComments' | 'notifyReplies'>>,
+    ) => {
+        if (!currentUserId) return;
+        try {
+            await ForumApiService.updateFollowPreferences(targetUserId, prefs, currentUserId);
+            setFollowingRecords((prev) =>
+                prev.map((r) => (r.followingId === targetUserId ? { ...r, ...prefs } : r)),
+            );
+            SmartToast.success('تم حفظ تفضيلات التنبيه');
+        } catch {
+            SmartToast.error('تعذّر حفظ التفضيلات');
+        }
+    };
+
+    const followingAuthorNames = useMemo(() => {
+        const map: Record<string, string> = {};
+        for (const p of posts) {
+            if (p.authorId && p.authorName) map[p.authorId] = p.authorName;
+        }
+        for (const row of followerRecords) {
+            if (!map[row.followerId]) map[row.followerId] = 'محامٍ';
+        }
+        return map;
+    }, [posts, followerRecords]);
+
+    const forumMentionCandidates = useMemo(() => {
+        const map = new Map<string, string>();
+        for (const p of posts) {
+            for (const part of collectForumParticipants(p)) {
+                map.set(part.id, part.name);
+            }
+        }
+        for (const row of followingRecords) {
+            const id = row.followingId;
+            if (!map.has(id)) map.set(id, followingAuthorNames[id] ?? 'محامٍ');
+        }
+        if (currentUserId) map.delete(currentUserId);
+        return [...map.entries()].map(([id, name]) => ({ id, name }));
+    }, [posts, followingRecords, followingAuthorNames, currentUserId]);
+
+    const handleToggleThreadFollow = async (postId: string) => {
+        if (!currentUserId) return;
+        try {
+            const next = await ForumApiService.togglePostSubscription(postId, currentUserId);
+            setThreadFollowingIds((prev) => {
+                const n = new Set(prev);
+                if (next) n.add(postId);
+                else n.delete(postId);
+                return n;
+            });
+            SmartToast.success(next ? 'ستصلك تنبيهات هذا النقاش' : 'أُلغيت متابعة النقاش');
+        } catch {
+            SmartToast.error('تعذّر تحديث متابعة النقاش');
         }
     };
 
@@ -1537,7 +1734,14 @@ export const CommunityScreen = ({
     const openFullscreenImage = useCallback((url: string) => setFullscreenImage(url), []);
     const openCommentSheet = useCallback((id: string) => setCommentingPostId(id), []);
 
-    if (authIsLoading && !authUser && !FORUM_DEV_OPEN && !hadAuthenticatedUserRef.current && !lawyerShellAccess) {
+    if (
+        authIsLoading &&
+        !authUser &&
+        !persistedUser &&
+        !FORUM_DEV_OPEN &&
+        !hadAuthenticatedUserRef.current &&
+        !lawyerShellAccess
+    ) {
         return <div dir="rtl" className="w-full h-full" style={{ backgroundColor: FORUM_PLUM_DEEP }} />;
     }
     if (!canAccessLawyerForum) {
@@ -1573,16 +1777,52 @@ export const CommunityScreen = ({
                 onRepositoryTypeChange={setRepositorySelectedType}
                 repositorySelectedTag={repositorySelectedTag}
                 onRepositoryTagChange={setRepositorySelectedTag}
+                followingCount={followingRecords.length}
+                onOpenFollowing={() => setShowFollowingPanel(true)}
+                forumFeedScope={forumFeedScope}
+                onForumFeedScopeChange={setForumFeedScope}
+                notificationStreamActive={forumStreamConnected}
+            />
+
+            <ForumFollowingPanel
+                open={showFollowingPanel}
+                onClose={() => setShowFollowingPanel(false)}
+                following={followingRecords}
+                followers={followerRecords}
+                authorNames={followingAuthorNames}
+                onUnfollow={(id) => void handleFollow(id)}
+                onFollowBack={(id) => void handleFollow(id)}
+                onUpdatePrefs={(id, prefs) => void handleUpdateFollowPrefs(id, prefs)}
+                onOpenFollowingFeed={() => setForumFeedScope('following')}
             />
 
             {/* Content Body */}
             <div className="flex-1 overflow-y-auto scrollbar-hide pb-36">
                 <div className={activeSection === 'forum' ? 'block' : 'hidden'} aria-hidden={activeSection !== 'forum'}>
+                    {forumFeedScope === 'following' ? (
+                        <div className="px-4 pt-2 pb-1 flex items-center justify-between gap-2">
+                            <p className="text-[#F0B896]/80 text-[11px] font-bold">عرض منشورات المحامين الذين تتابعهم</p>
+                            <button
+                                type="button"
+                                onClick={() => setForumFeedScope('all')}
+                                className="text-[10px] text-white/45 hover:text-[#F0B896] font-bold"
+                            >
+                                الكل
+                            </button>
+                        </div>
+                    ) : null}
                     <ForumPostList
                         loadingPosts={loadingPosts}
                         hasMore={hasMore}
                         loadingMore={loadingMore}
                         visiblePosts={visiblePosts}
+                        emptyHint={
+                            forumFeedScope === 'following'
+                                ? followingRecords.length === 0
+                                    ? 'تابع محامياً لعرض منشوراته هنا'
+                                    : 'لا منشورات جديدة من المحامين الذين تتابعهم'
+                                : undefined
+                        }
                         currentUserId={currentUserId}
                         onToggleUpvote={handleToggleUpvote}
                         onImageClick={openFullscreenImage}
@@ -1598,9 +1838,13 @@ export const CommunityScreen = ({
                         followingIds={followingIds}
                         bookmarkedIds={bookmarkedIds}
                         onToggleBookmark={handleToggleBookmark}
+                        onSaveToNotes={handleSavePostToNotes}
+                        onSaveToVault={handleSavePostToVault}
                         onToggleLock={handleToggleLock}
                         onMuteUser={handleMuteUser}
                         userStats={userStats}
+                        threadFollowingIds={threadFollowingIds}
+                        onToggleThreadFollow={(id) => void handleToggleThreadFollow(id)}
                     />
                 </div>
                 <div className={activeSection === 'repository' ? 'block' : 'hidden'} aria-hidden={activeSection !== 'repository'}>
@@ -1637,9 +1881,13 @@ export const CommunityScreen = ({
                             followingIds={followingIds}
                             bookmarkedIds={bookmarkedIds}
                             onToggleBookmark={handleToggleBookmark}
+                        onSaveToNotes={handleSavePostToNotes}
+                        onSaveToVault={handleSavePostToVault}
                             onToggleLock={handleToggleLock}
                             onMuteUser={handleMuteUser}
                             userStats={userStats}
+                            threadFollowingIds={threadFollowingIds}
+                            onToggleThreadFollow={(id) => void handleToggleThreadFollow(id)}
                         />
                     ) : (
                         <ForumGroupsDirectory
@@ -1752,6 +2000,7 @@ export const CommunityScreen = ({
                     onReportComment={handleReportComment}
                     onMuteUser={handleMuteUser}
                     mutedUserIds={mutedIds}
+                    mentionCandidates={forumMentionCandidates}
                 />
             )}
 
@@ -1796,6 +2045,7 @@ export const CommunityScreen = ({
                 onDocUpload={(file) => handleUploadAttachment(file, 'document')}
                 onSubmit={handleAddPost}
                 onClose={() => setIsAddQuestionOpen(false)}
+                mentionCandidates={forumMentionCandidates}
             />
 
             <FullscreenImageOverlay

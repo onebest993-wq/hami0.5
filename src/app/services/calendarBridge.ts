@@ -599,6 +599,30 @@ export const CalendarBridge = {
             sourceLabel: 'معاملة إدارية — مهمة',
         });
     },
+    syncThreadingFinance: (p: {
+        userId?: string | null;
+        transactionId: string;
+        recordId: string;
+        title: string;
+        date: string;
+        clientName?: string;
+        financeType: 'expense' | 'advance';
+    }) => {
+        const ymd = normalizeDateToYmd(p.date);
+        if (!ymd) return;
+        const kind = p.financeType === 'advance' ? 'مقبوض' : 'مصروف';
+        fireAndForgetCalendarSync({
+            userId: p.userId,
+            sourceModule: 'threading',
+            sourceEntityId: p.transactionId,
+            sourceEventId: `finance_${p.recordId}`,
+            date: ymd,
+            title: `${kind}: ${p.title}`,
+            type: 'consultation',
+            clientName: p.clientName,
+            sourceLabel: 'معاملة إدارية — حركة مالية',
+        });
+    },
     syncNoteReminder: (p: {
         userId?: string | null;
         noteId: string;

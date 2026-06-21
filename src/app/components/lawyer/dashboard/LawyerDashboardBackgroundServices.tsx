@@ -74,7 +74,7 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
 
     const { syncNow: syncNotesNow } = useCloudSync({
         localKey: STORAGE_KEYS.LAWYER_NOTES,
-        syncInterval: 120_000,
+        syncInterval: 180_000,
         enabled: !!user && syncNotesOn,
         onSyncSuccess: () => {
             const synced = persistenceRepository.load<unknown[]>(STORAGE_KEYS.LAWYER_NOTES);
@@ -86,7 +86,7 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
 
     const { syncNow: syncLawsuitFilesNow } = useCloudSync({
         localKey: STORAGE_KEYS.LAWYER_FILES,
-        syncInterval: 150_000,
+        syncInterval: 240_000,
         enabled: !!user && syncFilesOn,
         onSyncSuccess: () => {
             const merged = persistenceRepository.load<FileData[]>(STORAGE_KEYS.LAWYER_FILES);
@@ -97,12 +97,12 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
 
     const { syncNow: syncExecutionFilesNow } = useCloudSync({
         localKey: EXECUTION_FILES_STORAGE_KEY,
-        syncInterval: 180_000,
+        syncInterval: 300_000,
         enabled: !!user && syncExecutionOn,
         onSyncError: (error) => debug.error('[LawyerDashboard] ❌ فشلت مزامنة ملفات التنفيذ:', error),
     });
 
-    const { alerts, loading, error, refresh } = useAppAlerts({
+    const { alerts, loading, error, refresh, refreshLight } = useAppAlerts({
         lawyerId,
         files,
         executionFiles,
@@ -112,9 +112,28 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
         deferUntilIdle: true,
     });
 
+    const onAlertsRef = useRef(onAlerts);
+    onAlertsRef.current = onAlerts;
+    const lastAlertsPayloadRef = useRef<{
+        alerts: SecretaryAlert[];
+        loading: boolean;
+        error: string | null;
+    } | null>(null);
+
     useEffect(() => {
-        onAlerts({ alerts, loading, error, refresh });
-    }, [alerts, loading, error, refresh, onAlerts]);
+        const prev = lastAlertsPayloadRef.current;
+        if (
+            prev &&
+            prev.loading === loading &&
+            prev.error === error &&
+            prev.alerts.length === alerts.length &&
+            prev.alerts.every((a, i) => a.id === alerts[i]?.id)
+        ) {
+            return;
+        }
+        lastAlertsPayloadRef.current = { alerts, loading, error };
+        onAlertsRef.current({ alerts, loading, error, refresh });
+    }, [alerts, loading, error, refresh]);
 
     syncExecutionFilesNowRef.current = () => void syncExecutionFilesNow();
     syncLawsuitFilesNowRef.current = () => void syncLawsuitFilesNow();
@@ -131,7 +150,7 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
             realtimeSyncTimersRef.current[bucket] = window.setTimeout(() => {
                 delete realtimeSyncTimersRef.current[bucket];
                 fn();
-            }, 2_500);
+            }, 4_000);
         },
         [syncNotesOn, syncFilesOn, syncExecutionOn],
     );
@@ -143,7 +162,7 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
         onExecutionUpdate: async (payload) => {
             scheduleRealtimeSync('execution', () => {
                 void syncExecutionFilesNow();
-                void refresh();
+                void refreshLight();
             });
             if (payload.eventType === 'INSERT' && payload.new) {
                 await PushNotificationService.notifyNewExecution(payload.new.case_no || 'جديد');
@@ -152,7 +171,7 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
         onLawsuitUpdate: async (payload) => {
             scheduleRealtimeSync('lawsuit', () => {
                 void syncLawsuitFilesNow();
-                void refresh();
+                void refreshLight();
             });
             if (payload.eventType === 'INSERT' && payload.new) {
                 await PushNotificationService.notifyNewLawsuit(payload.new.case_no || 'جديد');
@@ -161,10 +180,19 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
         onNoteUpdate: async () => {
             scheduleRealtimeSync('notes', () => {
                 void syncNotesNow();
-                void refresh();
+                void refreshLight();
             });
         },
     });
+
+    useEffect(() => {
+        return () => {
+            for (const id of Object.values(realtimeSyncTimersRef.current)) {
+                if (id !== undefined) window.clearTimeout(id);
+            }
+            realtimeSyncTimersRef.current = {};
+        };
+    }, []);
 
     useEffect(() => {
         if (!user) return;
@@ -186,8 +214,14 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
 
     useEffect(() => {
         if (prefetchOnceRef.current) return;
-        prefetchOnceRef.current = true;
-        PrefetchScheduler.planLawyerSecondaryWave();
+        const run = () => {
+            if (prefetchOnceRef.current) return;
+            prefetchOnceRef.current = true;
+            PrefetchScheduler.planLawyerSecondaryWave();
+        };
+        const delayMs = import.meta.env.DEV ? 4_000 : 18_000;
+        const t = window.setTimeout(run, delayMs);
+        return () => window.clearTimeout(t);
     }, []);
 
     return null;

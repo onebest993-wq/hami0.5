@@ -7,6 +7,7 @@ import { assertNetworkAllowed } from '@/app/services/settings/localOnlyGuard';
 import {
     readDevMockAccessToken,
 } from '@/app/utils/authStorage';
+import { isBffAuthEnabled, fetchBffWifeSignedHeaders } from '@/app/utils/bffAuthClient';
 
 type NativeFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
@@ -188,7 +189,13 @@ export class SecureAPIClient {
 
         if (shouldSign) {
             const token = await getCurrentAccessToken();
-            if (!token?.trim() || isAuthPaused()) {
+            const bffMode = isBffAuthEnabled();
+            const hasClientToken = Boolean(token?.trim()) && !isAuthPaused();
+
+            if (!bffMode && !hasClientToken) {
+                throw new SecureFetchError('unauthenticated', 401, '', resolved.toString());
+            }
+            if (bffMode && !hasClientToken && isAuthPaused()) {
                 throw new SecureFetchError('unauthenticated', 401, '', resolved.toString());
             }
 
@@ -207,16 +214,27 @@ export class SecureAPIClient {
             } else {
                 signingPayload = await bodyToSign(wireBody);
             }
-            const signedHeaders = await RequestSigningService.createSignedHeaders(
-                method,
-                resolved.toString(),
-                signingPayload,
-                token,
-                contentHash,
-            );
+
+            let signedHeaders: Record<string, string>;
+            if (bffMode && !hasClientToken) {
+                signedHeaders = await fetchBffWifeSignedHeaders({
+                    method,
+                    url: resolved.toString(),
+                    body: signingPayload,
+                    contentHash,
+                });
+            } else {
+                signedHeaders = await RequestSigningService.createSignedHeaders(
+                    method,
+                    resolved.toString(),
+                    signingPayload,
+                    token!,
+                    contentHash,
+                );
+            }
 
             const merged = new Headers(nextHeaders);
-            if (!merged.has('Authorization') && !merged.has('authorization')) {
+            if (hasClientToken && !merged.has('Authorization') && !merged.has('authorization')) {
                 merged.set('Authorization', `Bearer ${token}`);
             }
             Object.entries(signedHeaders).forEach(([k, v]) => merged.set(k, v));
@@ -237,6 +255,7 @@ export class SecureAPIClient {
             ...options,
             body: wireBody,
             headers: nextHeaders,
+            credentials: shouldSign ? 'include' : options.credentials,
         };
 
         const FETCH_TIMEOUT_MS = resolveFetchTimeoutMs(wireBody);
@@ -290,6 +309,9 @@ export class SecureAPIClient {
         if (!response.ok) {
             if (response.status === 401) {
                 markAuthFailure();
+            }
+            if (response.status === 429) {
+                throw new SecureFetchError('تم تجاوز حد الطلبات. انتظر قليلاً ثم أعد المحاولة.', 429, text, resolved.toString());
             }
             throw new SecureFetchError(`HTTP ${response.status}`, response.status, text, resolved.toString());
         }

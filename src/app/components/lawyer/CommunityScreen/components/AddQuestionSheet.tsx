@@ -1,6 +1,9 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ImageIcon, Paperclip, FileText, Mic, Square, Loader2, EyeOff, Zap } from 'lucide-react';
+import type { MentionCandidate } from '@/app/hooks/useForumMentionAutocomplete';
+import { useForumMentionAutocomplete } from '@/app/hooks/useForumMentionAutocomplete';
+import { ForumMentionSuggestions } from './ForumMentionSuggestions';
 import {
     URGENT_CONSULTATION_BADGE,
     URGENT_CONSULTATION_HINT,
@@ -49,6 +52,7 @@ interface AddQuestionSheetProps {
     onDocUpload: (file: File) => void;
     onSubmit: () => void;
     onClose: () => void;
+    mentionCandidates?: MentionCandidate[];
 }
 
 export const AddQuestionSheet = ({
@@ -61,7 +65,10 @@ export const AddQuestionSheet = ({
     imageInputRef, docInputRef,
     onToggleVoiceRecording,
     onImageUpload, onDocUpload, onSubmit, onClose,
+    mentionCandidates = [],
 }: AddQuestionSheetProps) => {
+    const mention = useForumMentionAutocomplete(newPostText, onNewPostTextChange, mentionCandidates);
+
     return (
         <AnimatePresence>
             {isOpen && (
@@ -83,15 +90,28 @@ export const AddQuestionSheet = ({
                         <div className="w-full flex justify-center mb-6"><div className="w-12 h-1.5 bg-white/20 rounded-full" /></div>
                         <h2 className="text-white text-lg font-bold mb-4">طرح استشارة قانونية جديدة</h2>
 
-                        <div className="mb-4">
+                        <div className="mb-4 relative">
+                            {mention.showSuggestions ? (
+                                <ForumMentionSuggestions
+                                    suggestions={mention.suggestions}
+                                    activeIndex={mention.activeIndex}
+                                    onSelect={mention.insertMention}
+                                    onHover={mention.setActiveIndex}
+                                />
+                            ) : null}
                             <textarea
+                                ref={mention.textareaRef}
                                 value={newPostText}
                                 onChange={(e) => {
-                                    // قص الإدخال لمنع تجاوز حد السيرفر
-                                    onNewPostTextChange(e.target.value.slice(0, POST_MAX_LENGTH));
+                                    mention.handleValueChange(
+                                        e.target.value.slice(0, POST_MAX_LENGTH),
+                                        e.target.selectionStart,
+                                    );
                                 }}
+                                onKeyDown={mention.handleKeyDown}
+                                onBlur={() => window.setTimeout(() => mention.closeSuggestions(), 120)}
                                 className={`w-full h-32 ${FORUM_SURFACE_INPUT} rounded-xl p-4 resize-none text-sm`}
-                                placeholder="اكتب تفاصيل استشارتك هنا بوضوح..."
+                                placeholder="اكتب تفاصيل استشارتك هنا... (@ لإشارة زميل)"
                                 maxLength={POST_MAX_LENGTH}
                             />
                             {newPostText.length > POST_MAX_LENGTH * 0.7 && (

@@ -3,7 +3,8 @@
  */
 
 const DEFAULT_WINDOW_MS = 60_000;
-const DEFAULT_MAX_REQUESTS = 100;
+/** Default WIFE verify budget — overridden per scope in wifeValidator.checkRateLimit */
+export const DEFAULT_MAX_REQUESTS = 250;
 
 type WindowCounter = { count: number; resetAt: number };
 

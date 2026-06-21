@@ -303,7 +303,7 @@ export type CommunityPost = {
     groupId?: string | null;
 };
 
-export type NotificationType = 'comment' | 'upvote' | 'best_answer' | 'report_update' | 'system' | 'new_post' | 'new_document';
+export type NotificationType = 'comment' | 'reply' | 'upvote' | 'best_answer' | 'report_update' | 'system' | 'new_post' | 'new_document' | 'follow' | 'mention';
 
 export type ForumNotification = {
     id: string;
@@ -314,6 +314,9 @@ export type ForumNotification = {
     postId?: string;
     read: boolean;
     createdAt: string;
+    dedupeKey?: string;
+    /** عدد الأحداث المدمجة (تعليقات/ردود متتالية) */
+    activityCount?: number;
 };
 
 export type BanRecord = {
@@ -919,19 +922,6 @@ export async function addCommunityComment(postId: string, comment: CommunityComm
     if (!post) throw new Error('المنشور غير موجود');
     const updated: CommunityPost = { ...post, comments: [...post.comments, comment], updatedAt: new Date().toISOString() };
     await CommunityDB.savePost(updated);
-
-    if (comment.authorId !== post.authorId) {
-        await NotificationDB.addNotification({
-            id: uuidv4(),
-            userId: post.authorId,
-            type: 'comment',
-            title: 'تعليق جديد على منشورك',
-            message: `علق ${comment.authorName} على منشورك "${post.content.slice(0, 50)}..."`,
-            postId: post.id,
-            read: false,
-            createdAt: new Date().toISOString(),
-        });
-    }
     return updated;
 }
 
@@ -1260,9 +1250,16 @@ export async function getUserPostCount(userId: string): Promise<number> {
 
 export async function notifyFollowers(userId: string, type: 'new_post' | 'new_document', title: string, message: string, postId?: string): Promise<void> {
     try {
-        const followers = await FollowDB.getFollowers(userId);
+        if (type === 'new_document') {
+            const { dispatchFollowedUserNewDocument } = await import('./forum/forumNotificationDispatch');
+            await dispatchFollowedUserNewDocument({ authorId: userId, title, message, docId: postId });
+            return;
+        }
+        const { ForumFollowRepository } = await import('./forum/forumFollowRepository');
+        const followers = await ForumFollowRepository.getFollowers(userId);
         for (const f of followers) {
-            const notif: ForumNotification = {
+            if (!f.notifyPosts) continue;
+            await NotificationDB.addNotification({
                 id: uuidv4(),
                 userId: f.followerId,
                 type,
@@ -1271,8 +1268,8 @@ export async function notifyFollowers(userId: string, type: 'new_post' | 'new_do
                 postId,
                 read: false,
                 createdAt: new Date().toISOString(),
-            };
-            await NotificationDB.addNotification(notif);
+                dedupeKey: postId ? `forum:legacy-post:${postId}:${f.followerId}` : undefined,
+            });
         }
     } catch {
         // silent
@@ -1308,6 +1305,24 @@ export const NotificationDB = {
         try {
             await kv.set(`notifications:${notif.userId}:${notif.id}`, notif);
         } catch { /* silent — local fallback */ }
+    },
+
+    async updateNotification(
+        userId: string,
+        notificationId: string,
+        patch: Partial<Pick<ForumNotification, 'title' | 'message' | 'read' | 'createdAt' | 'activityCount' | 'dedupeKey'>>,
+    ): Promise<void> {
+        const local = (await loadLocalNotifications()).map((n) =>
+            n.id === notificationId && n.userId === userId ? { ...n, ...patch } : n,
+        );
+        await saveLocalNotifications(local);
+        try {
+            const raw = await kv.get(`notifications:${userId}:${notificationId}`);
+            if (raw && typeof raw === 'object') {
+                const notif = { ...(raw as ForumNotification), ...patch };
+                await kv.set(`notifications:${userId}:${notificationId}`, notif);
+            }
+        } catch { /* silent */ }
     },
 
     async getNotifications(userId: string): Promise<ForumNotification[]> {
@@ -1738,15 +1753,7 @@ async function loadLocalVaultDocs(): Promise<SmartVaultDoc[]> {
         if (!Array.isArray(parsed)) return [];
         return parsed as SmartVaultDoc[];
     } catch {
-        try {
-            const raw = localStorage.getItem(VAULT_LOCAL_KEY);
-            if (!raw) return [];
-            const parsed = JSON.parse(raw);
-            if (!Array.isArray(parsed)) return [];
-            return parsed as SmartVaultDoc[];
-        } catch {
-            return [];
-        }
+        return [];
     }
 }
 
@@ -1754,15 +1761,9 @@ async function saveLocalVaultDocs(docs: SmartVaultDoc[]): Promise<void> {
     const payload = JSON.stringify(docs);
     try {
         await SecureStoreService.setItem(VAULT_LOCAL_KEY, payload);
-        return;
-    } catch {
-        try {
-            localStorage.setItem(VAULT_LOCAL_KEY, payload);
-            return;
-        } catch (e) {
-            console.error('[Vault] Failed to persist vault docs:', e);
-            throw new Error('vault persist failed');
-        }
+    } catch (e) {
+        console.error('[Vault] Failed to persist vault docs:', e);
+        throw new Error('vault persist failed');
     }
 }
 

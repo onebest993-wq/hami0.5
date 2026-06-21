@@ -13,14 +13,27 @@ import { lazyWithRetry, type LazyComponent } from "./utils/lazy/lazyWithRetry";
 import type { LawyerDashboardShellProps } from "./components/lawyer/dashboard/LawyerDashboardQuantumShell";
 import { SmartToast, SmartToastContainer } from "./components/ui/SmartToast";
 import { SmartDialogContainer } from "./components/ui/SmartDialog";
+import { LawyerDashboard as LawyerDashboardEager } from "./components/lawyer/LawyerDashboard";
+import { SecurityInitializer as SecurityInitializerEager } from "./security/SecurityInitializer";
 
 const CHUNK_RELOAD_SESSION_KEY = "hami:chunk-reload-once";
 const VITE_STALE_IMPORT_RELOAD_KEY = "hami:vite-stale-import-reload";
 
-// --- LAZY: Defer security barrel + first-screen payloads from index chunk ---
-const SecurityInitializer = React.lazy(() =>
+// --- LAZY: Defer security barrel + first-screen payloads from index chunk (prod only) ---
+const SecurityInitializerLazy = React.lazy(() =>
   import("./security/SecurityInitializer").then((m) => ({ default: m.SecurityInitializer }))
 );
+
+function AppSecurityInitializer() {
+  if (import.meta.env.DEV) {
+    return <SecurityInitializerEager />;
+  }
+  return (
+    <Suspense fallback={null}>
+      <SecurityInitializerLazy />
+    </Suspense>
+  );
+}
 
 const LawyerDashboardLazy = lazyWithRetry(() =>
   import("./components/lawyer/LawyerDashboard").then((m) => ({
@@ -29,6 +42,9 @@ const LawyerDashboardLazy = lazyWithRetry(() =>
 );
 
 function LawyerDashboard(props: LawyerDashboardShellProps) {
+  if (import.meta.env.DEV) {
+    return <LawyerDashboardEager {...props} />;
+  }
   return <LawyerDashboardLazy {...props} />;
 }
 // --- LAZY: Other heavy screens ---
@@ -118,23 +134,6 @@ export default function App(): ReactElement {
     } else {
       window.setTimeout(runDeferredAppBoot, 0);
     }
-  }, []);
-
-  useEffect(() => {
-    if (!import.meta.env.DEV) return;
-    let cancelled = false;
-    void import("./utils/performanceMonitor").then(({ PerformanceMonitor }) => {
-      const perfTimer = window.setTimeout(() => {
-        if (cancelled) return;
-        PerformanceMonitor.logReport();
-        const score = PerformanceMonitor.getScore();
-        debug.log(`⚡ Performance Score: ${score}/100`);
-      }, 2000);
-      return () => window.clearTimeout(perfTimer);
-    });
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   const screenFromPath = React.useCallback((pathname: string): AppScreen | null => {
@@ -296,6 +295,7 @@ function AppContent(props: {
   }, [screen]);
 
   useEffect(() => {
+    if (import.meta.env.DEV) return;
     if (!user || screen !== "lawyer") return;
 
     const timer = window.setTimeout(() => {
@@ -303,7 +303,7 @@ function AppContent(props: {
         m.prefetchLawyerHeavyDeferredChunks();
         m.prefetchSecondaryAppScreens();
       });
-    }, import.meta.env.DEV ? 2_000 : 5_000);
+    }, 8_000);
 
     return () => window.clearTimeout(timer);
   }, [screen, user]);
@@ -314,9 +314,7 @@ function AppContent(props: {
             <SmartDialogContainer />
 
         <AppProvider>
-            <Suspense fallback={null}>
-              <SecurityInitializer />
-            </Suspense>
+            <AppSecurityInitializer />
             <FontInjector />
             
             <div className="min-h-screen bg-[#000000] text-white overflow-x-hidden">

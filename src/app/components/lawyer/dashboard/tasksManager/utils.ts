@@ -93,11 +93,17 @@ export function releaseExpiredFieldCurtainPins(tasks: LegalTask[], now = new Dat
     });
 }
 
-export function prepareAgendaTasks(tasks: LegalTask[], now = new Date()): LegalTask[] {
-    return purgeExpiredCompletedTasks(
-        finalizePastWeekTasks(releaseExpiredFieldCurtainPins(tasks, now), now),
-        now,
-    );
+export function prepareAgendaTasks(
+    tasks: LegalTask[],
+    now = new Date(),
+    options?: { skipRetentionPurge?: boolean },
+): LegalTask[] {
+    let result = releaseExpiredFieldCurtainPins(tasks, now);
+    result = finalizePastWeekTasks(result, now);
+    if (!options?.skipRetentionPurge) {
+        result = purgeExpiredCompletedTasks(result, now);
+    }
+    return result;
 }
 
 export function getArchivedTasks(tasks: LegalTask[], now = new Date()): LegalTask[] {

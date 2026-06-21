@@ -50,15 +50,18 @@ export function TransactionCard({
                             {transaction.clientName}
                         </div>
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                        {clusterPin ? (
-                            <WorkspacePinButton item={clusterPin} className="!w-8 !h-8" size={14} />
-                        ) : null}
+                    <div
+                        className="flex items-center gap-1.5 shrink-0"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <span
                             className={`px-2.5 py-0.5 rounded-[3px] border text-[10px] font-bold ${statusBadgeClass(transaction.status)}`}
                         >
                             {statusLabelAr(transaction.status)}
                         </span>
+                        {clusterPin ? (
+                            <WorkspacePinButton item={clusterPin} className="!w-8 !h-8" size={14} />
+                        ) : null}
                     </div>
                 </div>
 

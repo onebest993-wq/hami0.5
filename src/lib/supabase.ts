@@ -11,8 +11,8 @@ const supabaseKey =
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
-    persistSession: true,
-    autoRefreshToken: true,
+    persistSession: import.meta.env.VITE_BFF_AUTH !== 'true',
+    autoRefreshToken: import.meta.env.VITE_BFF_AUTH !== 'true',
     detectSessionInUrl: true,
   },
 });

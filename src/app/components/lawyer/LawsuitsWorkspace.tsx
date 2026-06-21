@@ -1,14 +1,15 @@
-import React, { Suspense, useMemo, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { X } from 'lucide-react';
 import {
-    LazyArchivePortal,
-    LazyViewUrgentAndOrdersDashboard,
     prefetchUrgentOrdersView,
     resetUrgentOrdersViewPrefetch,
+    prefetchArchivePortal,
+    resetArchivePortalPrefetch,
 } from '@/app/utils/lazyComponents';
 import { resetActiveOrderFilePanelCache } from '@/app/components/lawyer/DeferredActiveOrderFile';
 import { ErrorBoundary } from '@/app/components/ui/ErrorBoundary';
+import { lazyWithRetry, type LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
 import type { ThemeConfig } from '@/app/types/common';
 import type { FileData } from './LawyerShared';
 import type { ArchiveType } from '@/app/types/common';
@@ -19,6 +20,51 @@ import type { LawsuitJurisdictionTab } from '@/app/domain/lawsuit/lawsuitJurisdi
 import { CIVIL_LAWSUIT_TEST_IDS } from '@/app/components/lawyer/smart-modal/smartFile/civilLawsuitTestIds';
 
 type TabKey = 'civil' | 'urgent';
+
+function createCivilPanelLoader() {
+    return lazyWithRetry(() =>
+        import('@/app/components/lawyer/ArchivePortal.tsx').then((m) => ({
+            default: m.ArchivePortal as unknown as LazyComponent,
+        })),
+    );
+}
+
+function createUrgentPanelLoader() {
+    return lazyWithRetry(() =>
+        import('@/app/components/lawyer/View_Urgent_And_Orders_Dashboard.tsx').then((m) => ({
+            default: m.View_Urgent_And_Orders_Dashboard as unknown as LazyComponent,
+        })),
+    );
+}
+
+type TabLoadErrorFallbackProps = {
+    onRetry: () => void;
+};
+
+function TabLoadErrorFallback({ onRetry }: TabLoadErrorFallbackProps) {
+    return (
+        <motion.div className="h-full flex flex-col items-center justify-center gap-3 p-6 text-center">
+            <p className="text-red-400 font-bold text-sm">تعذّر تحميل هذا القسم</p>
+            <p className="text-white/40 text-xs">تحقق من الاتصال ثم أعد المحاولة</p>
+            <div className="flex flex-wrap gap-2 justify-center">
+                <button
+                    type="button"
+                    onClick={onRetry}
+                    className="text-xs font-bold rounded-xl px-4 py-2 border border-[#E6C673]/40 text-[#E6C673] hover:bg-[#E6C673]/10"
+                >
+                    إعادة المحاولة
+                </button>
+                <button
+                    type="button"
+                    onClick={() => window.location.reload()}
+                    className="text-xs font-bold rounded-xl px-4 py-2 border border-white/20 text-white/80 hover:bg-white/10"
+                >
+                    إعادة تحميل التطبيق
+                </button>
+            </div>
+        </motion.div>
+    );
+}
 
 type Props = {
     files: FileData[];
@@ -59,39 +105,31 @@ export const LawsuitsWorkspace: React.FC<Props> = ({
     onPermanentlyDeleteLawsuits,
 }) => {
     const [tab, setTab] = useState<TabKey>(defaultTab);
-    const [urgentPanelKey, setUrgentPanelKey] = useState(0);
+    const [civilLoadKey, setCivilLoadKey] = useState(0);
+    const [urgentLoadKey, setUrgentLoadKey] = useState(0);
+
+    useEffect(() => {
+        setTab(defaultTab);
+    }, [defaultTab]);
+
+    const LazyCivilPanel = useMemo(() => createCivilPanelLoader(), [civilLoadKey]);
+    const LazyUrgentPanel = useMemo(() => createUrgentPanelLoader(), [urgentLoadKey]);
+
+    const retryCivilLoad = useCallback(() => {
+        resetArchivePortalPrefetch();
+        setCivilLoadKey((k) => k + 1);
+    }, []);
+
+    const retryUrgentLoad = useCallback(() => {
+        resetUrgentOrdersViewPrefetch();
+        resetActiveOrderFilePanelCache();
+        setUrgentLoadKey((k) => k + 1);
+    }, []);
 
     const lawsuitArchiveFiles = useMemo(() => allLawsuitFilesForArchive(files), [files]);
     const archiveRows = lawsuitArchiveFiles;
 
     const archiveType: ArchiveType = 'lawsuits';
-
-    const tabLoadErrorFallback = (
-        <motion.div className="h-full flex flex-col items-center justify-center gap-3 p-6 text-center">
-            <p className="text-red-400 font-bold text-sm">تعذّر تحميل هذا القسم</p>
-            <p className="text-white/40 text-xs">تحقق من الاتصال ثم أعد المحاولة</p>
-            <div className="flex flex-wrap gap-2 justify-center">
-                <button
-                    type="button"
-                    onClick={() => {
-                        resetUrgentOrdersViewPrefetch();
-                        resetActiveOrderFilePanelCache();
-                        setUrgentPanelKey((k) => k + 1);
-                    }}
-                    className="text-xs font-bold rounded-xl px-4 py-2 border border-[#E6C673]/40 text-[#E6C673] hover:bg-[#E6C673]/10"
-                >
-                    إعادة المحاولة
-                </button>
-                <button
-                    type="button"
-                    onClick={() => window.location.reload()}
-                    className="text-xs font-bold rounded-xl px-4 py-2 border border-white/20 text-white/80 hover:bg-white/10"
-                >
-                    إعادة تحميل التطبيق
-                </button>
-            </div>
-        </motion.div>
-    );
 
     return (
         <div
@@ -119,14 +157,17 @@ export const LawsuitsWorkspace: React.FC<Props> = ({
                         <button
                             type="button"
                             data-testid={CIVIL_LAWSUIT_TEST_IDS.tabCivil}
-                            onClick={() => setTab('civil')}
+                            onClick={() => {
+                                setTab('civil');
+                                prefetchArchivePortal();
+                            }}
                             className={`h-11 rounded-xl text-xs font-bold transition-all ${
                                 tab === 'civil'
                                     ? 'bg-[#E6C673] text-[#0B1021]'
                                     : 'bg-transparent text-white/70 hover:bg-white/10 hover:text-white'
                             }`}
                         >
-                            ⚖️ الدعاوى
+                            الدعاوى
                         </button>
                         <button
                             type="button"
@@ -140,7 +181,7 @@ export const LawsuitsWorkspace: React.FC<Props> = ({
                                     : 'bg-transparent text-white/70 hover:bg-white/10 hover:text-white'
                             }`}
                         >
-                            ⚡ مستعجل
+                            مستعجل
                         </button>
                     </div>
                 </div>
@@ -149,7 +190,10 @@ export const LawsuitsWorkspace: React.FC<Props> = ({
             <div className="flex-1 min-h-0 overflow-hidden">
                 {tab === 'civil' && (
                     <div className="h-full overflow-hidden">
-                        <ErrorBoundary fallback={tabLoadErrorFallback}>
+                        <ErrorBoundary
+                            key={`civil-${civilLoadKey}`}
+                            fallback={<TabLoadErrorFallback onRetry={retryCivilLoad} />}
+                        >
                             <Suspense
                                 fallback={
                                     <div className="h-full flex items-center justify-center">
@@ -159,7 +203,7 @@ export const LawsuitsWorkspace: React.FC<Props> = ({
                                     </div>
                                 }
                             >
-                                <LazyArchivePortal
+                                <LazyCivilPanel
                                     type={archiveType}
                                     files={archiveRows}
                                     criminalCases={criminalCases}
@@ -187,7 +231,10 @@ export const LawsuitsWorkspace: React.FC<Props> = ({
 
                 {tab === 'urgent' && (
                     <div className="h-full overflow-y-auto">
-                        <ErrorBoundary fallback={tabLoadErrorFallback}>
+                        <ErrorBoundary
+                            key={`urgent-${urgentLoadKey}`}
+                            fallback={<TabLoadErrorFallback onRetry={retryUrgentLoad} />}
+                        >
                             <Suspense
                                 fallback={
                                     <div className="h-full flex items-center justify-center">
@@ -197,11 +244,7 @@ export const LawsuitsWorkspace: React.FC<Props> = ({
                                     </div>
                                 }
                             >
-                                <LazyViewUrgentAndOrdersDashboard
-                                    key={urgentPanelKey}
-                                    onBack={onClose}
-                                    embeddedInWorkspace
-                                />
+                                <LazyUrgentPanel embeddedInWorkspace />
                             </Suspense>
                         </ErrorBoundary>
                     </div>

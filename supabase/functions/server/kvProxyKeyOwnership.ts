@@ -15,6 +15,7 @@ export function isKeyOwnedBy(rawKey: unknown, userId: string, op: 'read' | 'writ
   if (k.startsWith(`vault:docs:${u}:`)) return true;
   if (k === `hami:push:${u}`) return true;
   if (k === `hami:calendar:events:${u}:v1`) return true;
+  if (k === `profile:${u}`) return true;
   if (k.startsWith(`follow:${u}:`)) return true;
 
   if (op === 'read') {

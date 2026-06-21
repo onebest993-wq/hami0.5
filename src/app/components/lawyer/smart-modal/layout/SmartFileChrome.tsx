@@ -3,7 +3,6 @@ import { Fragment } from 'react';
 import type { CaseStage } from '../../LawyerShared';
 import {
     X,
-    Check,
     Edit2,
     Trash2,
     Lock,
@@ -11,6 +10,7 @@ import {
 import { buildChromeStageStripItems } from '../smartFile/stepperPipeline';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../smartFile/civilLawsuitTestIds';
 import { CaseFlowActionsPanel } from '../parts/CaseFlowActionsPanel';
+import { ColleagueConsultationHeaderButton } from '@/app/components/lawyer/caseShare/ColleagueConsultationHeaderButton';
 
 export type SmartFileChromeProps = {
     onClose: () => void;
@@ -94,6 +94,7 @@ export function SmartFileChrome({
                         <h2 className="font-bold text-lg text-white/90 tracking-wide whitespace-nowrap">
                             اضبارة الدعوى
                         </h2>
+                        <ColleagueConsultationHeaderButton />
                         {!isViewingArchived && !hideCaseFlowActions && (
                             <CaseFlowActionsPanel
                                 onInterrupt={onInterrupt}
@@ -138,50 +139,11 @@ export function SmartFileChrome({
             <div className="sticky top-[72px] z-40 w-full bg-[#0A0F1C]/55 backdrop-blur-xl border-b border-[#E6C673]/10 print:hidden">
                 <div className="px-3 py-2">
                     <div className="flex items-center overflow-x-auto scrollbar-hide">
-                        {isEditingStageName && !isViewingArchived ? (
-                            <div className="inline-flex items-center gap-1 rounded-xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-md p-1 animate-in fade-in duration-200">
-                                <input
-                                    type="text"
-                                    value={tempStageName}
-                                    onChange={(e) => setTempStageName(e.target.value)}
-                                    className="bg-transparent text-white border-0 rounded-lg px-2 py-1 text-xs font-bold outline-none w-28 focus:bg-white/[0.04] transition-all"
-                                    autoFocus
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') onSaveStageName(e);
-                                        if (e.key === 'Escape') setIsEditingStageName(false);
-                                    }}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={onSaveStageName}
-                                    className="p-1 rounded-lg hover:bg-emerald-500/15 transition-all"
-                                    title="حفظ"
-                                >
-                                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setIsEditingStageName(false)}
-                                    className="p-1 rounded-lg hover:bg-rose-500/15 transition-all"
-                                    title="إلغاء"
-                                >
-                                    <X className="w-3.5 h-3.5 text-rose-400" />
-                                </button>
-                            </div>
-                        ) : (
                             <div className="inline-flex items-stretch rounded-xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-md p-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
                                 {stageStripItems.map((item, idx) => {
                                     const isCurrentlyViewing = item.isViewing;
-                                    const isActive = item.isActive;
                                     const isPast = item.isPast;
                                     const stageId = item.realIndex !== null ? `stg_${item.realIndex + 1}` : '';
-                                    const canRename =
-                                        item.realIndex !== null
-                                        && isCurrentlyViewing
-                                        && isActive
-                                        && !isViewingArchived;
-                                    const renameBtnClass =
-                                        'hidden group-hover/stageBtn:inline-flex items-center justify-center p-0.5 rounded-md text-[#E6C673]/55 hover:text-[#E6C673] hover:bg-[#E6C673]/10 transition-colors';
 
                                     return (
                                         <Fragment key={item.key}>
@@ -203,14 +165,14 @@ export function SmartFileChrome({
                                                 <button
                                                     type="button"
                                                     onClick={() => onStageSelect(stageId)}
-                                                    className={`group/stageBtn relative inline-flex items-center gap-1 px-2.5 py-1 rounded-[10px] text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
+                                                    className={`relative inline-flex items-center gap-1 px-2.5 py-1 rounded-[10px] text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
                                                         isCurrentlyViewing
                                                             ? 'bg-gradient-to-br from-[#E6C673]/16 to-[#E6C673]/[0.06] text-[#E6C673] shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]'
                                                             : isPast
                                                               ? 'text-white/40 hover:text-white/60 hover:bg-white/[0.04]'
                                                               : item.postCassationRemand
                                                                 ? 'text-violet-300/75 hover:text-violet-200 hover:bg-violet-500/[0.08]'
-                                                                : isActive
+                                                                : item.isActive
                                                                   ? 'text-[#E6C673]/70 hover:text-[#E6C673] hover:bg-[#E6C673]/[0.06]'
                                                                   : 'text-white/28 hover:text-white/45 hover:bg-white/[0.03]'
                                                     }`}
@@ -225,38 +187,12 @@ export function SmartFileChrome({
                                                             بعد النقض
                                                         </span>
                                                     ) : null}
-                                                    {canRename ? (
-                                                        <span
-                                                            role="button"
-                                                            tabIndex={0}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                const stage = stages[item.realIndex!];
-                                                                setTempStageName(stage?.stageName ?? '');
-                                                                setIsEditingStageName(true);
-                                                            }}
-                                                            onKeyDown={(e) => {
-                                                                if (e.key === 'Enter' || e.key === ' ') {
-                                                                    e.preventDefault();
-                                                                    e.stopPropagation();
-                                                                    const stage = stages[item.realIndex!];
-                                                                    setTempStageName(stage?.stageName ?? '');
-                                                                    setIsEditingStageName(true);
-                                                                }
-                                                            }}
-                                                            className={renameBtnClass}
-                                                            title="تعديل اسم المرحلة"
-                                                        >
-                                                            <Edit2 size={11} />
-                                                        </span>
-                                                    ) : null}
                                                 </button>
                                             )}
                                         </Fragment>
                                     );
                                 })}
                             </div>
-                        )}
                     </div>
                 </div>
             </div>

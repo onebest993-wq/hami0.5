@@ -8,10 +8,12 @@ import type { LawyerArchiveOverlay } from '@/app/hooks/useLawyerExecutionFiles';
 import type { useLawyerDashboardNavigation } from '@/app/hooks/useLawyerDashboardNavigation';
 import type { LawyerDashboardTab } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
-import { BUILTIN_HOME_SECTION_ORDER } from '@/app/services/settings';
 import { coerceExecutionFilePreserveId } from '@/app/components/lawyer/LawyerDashboardParts/utils';
 import { CalendarBridge, resolveCalendarUserId } from '@/app/services/calendarBridge';
-import { prefetchArchivePortal } from '@/app/utils/lazyComponents';
+import { quickNoteTitle } from '@/app/components/lawyer/dashboard/quickNoteUtils';
+import { voiceNoteTitleFromMeta } from '@/app/services/voice/voiceNoteCodec';
+import { prefetchArchivePortal, prefetchGlobalSearchOverlay, prefetchHamiSettings, prefetchRoyalLawyerProfile, prefetchSmartLegalRadar } from '@/app/utils/lazyComponents';
+import { resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
 import type { ClusterScanSources } from '@/app/workspace/useClusterScanSources';
 
 export type LawyerDashboardTabBundleParams = {
@@ -19,13 +21,16 @@ export type LawyerDashboardTabBundleParams = {
     authUserId?: string;
     calendarUserId: string;
     clusterScanSources: ClusterScanSources;
-    calendarSearchFocus: string | null;
+    calendarSearchFocus: { date?: string; eventId?: string } | null;
     onClearCalendarSearchFocus: () => void;
     activeTab: LawyerDashboardTab;
     activeFile: FileData | null;
     archiveType: LawyerArchiveOverlay;
     isCriminalDossierOpen: boolean;
     showSettings: boolean;
+    homeLayoutEditMode: boolean;
+    enterHomeLayoutEdit: () => void;
+    exitHomeLayoutEdit: () => void;
     isNewCaseModalOpen: boolean;
     isNotepadOpen: boolean;
     showCommunity: boolean;
@@ -33,6 +38,8 @@ export type LawyerDashboardTabBundleParams = {
     showUrgentDashboard: boolean;
     showDocs: boolean;
     showContractGenerator: boolean;
+    showGlobalSearch: boolean;
+    showNotifications: boolean;
     notificationsUnreadCount: number;
     pendingFieldTasksCount: number;
     visibleAppAlerts: SecretaryAlert[];
@@ -43,7 +50,8 @@ export type LawyerDashboardTabBundleParams = {
     files: ComponentProps<typeof LawyerDashboardScheduleTab>['files'];
     executionFiles: ComponentProps<typeof LawyerDashboardScheduleTab>['executionFiles'];
     setActiveTab: Dispatch<SetStateAction<LawyerDashboardTab>>;
-    setShowSettings: (open: boolean) => void;
+    openProfileTab: () => void;
+    openSettings: () => void;
     openGlobalSearch: () => void;
     openNotifications: () => void;
     navigateWorkspaceRoute: ReturnType<typeof useLawyerDashboardNavigation>['navigateWorkspaceRoute'];
@@ -95,21 +103,27 @@ export function buildLawyerDashboardTabBundle(
         params.showLawsuitsWorkspace ||
         params.showUrgentDashboard ||
         params.showDocs ||
-        params.showContractGenerator;
+        params.showContractGenerator ||
+        params.showGlobalSearch ||
+        params.showNotifications;
 
     return {
         shouldHideHeader,
         headerProps: {
             shouldShow: !shouldHideHeader && params.activeTab === 'home' && !params.isCriminalDossierOpen,
             unreadCount: params.notificationsUnreadCount,
-            onProfileClick: () => params.setActiveTab('profile'),
+            onProfileClick: () => params.openProfileTab(),
+            onProfilePointerEnter: () => prefetchRoyalLawyerProfile(),
             onSearchClick: () => params.openGlobalSearch(),
+            onSearchPointerEnter: () => prefetchGlobalSearchOverlay(),
             onNotificationsClick: params.openNotifications,
-            onSettingsClick: () => params.setShowSettings(true),
+            onSettingsClick: () => params.openSettings(),
+            onSettingsPointerEnter: () => prefetchHamiSettings(),
         },
         homeTabProps: {
             visible: params.activeTab === 'home',
-            homeSectionOrder: BUILTIN_HOME_SECTION_ORDER,
+            homeLayoutEditMode: params.homeLayoutEditMode,
+            onExitHomeLayoutEdit: params.exitHomeLayoutEdit,
             calendarUserId: params.calendarUserId,
             clusterScanSources: params.clusterScanSources,
             secretaryAlerts: params.visibleAppAlerts,
@@ -139,8 +153,9 @@ export function buildLawyerDashboardTabBundle(
                 }
             },
             userId: params.user?.id || '',
+            shellAuthUserId: resolveShellAuthUserId(params.authUserId, params.user?.id),
             onOpenCalendar: () => {
-                void import('@/app/components/lawyer/SmartLegalRadar');
+                prefetchSmartLegalRadar();
                 params.setActiveTab('schedule');
             },
             onOpenFieldTasksSheet: params.openFieldTasksSheet,
@@ -151,7 +166,7 @@ export function buildLawyerDashboardTabBundle(
                 params.setIsNotepadOpen(true);
             },
             onAddNote: (note) => {
-                const id = Date.now();
+                const id = note.id;
                 if (note.type === 'schedule') {
                     CalendarBridge.syncNoteReminder({
                         userId: resolveCalendarUserId(params.user?.id),
@@ -161,13 +176,27 @@ export function buildLawyerDashboardTabBundle(
                         body: note.content,
                     });
                 }
+                const title =
+                    note.type === 'voice'
+                        ? voiceNoteTitleFromMeta({
+                              transcript: note.transcript,
+                              durationSec: note.durationSeconds,
+                              fallback: quickNoteTitle('voice'),
+                          })
+                        : quickNoteTitle(note.type);
                 void params.handleSaveNote({
                     id,
-                    title: 'ملاحظة سريعة',
+                    title,
                     body: note.content,
                     isPinned: false,
                     date: new Date().toISOString(),
                     type: note.type,
+                    ...(note.type === 'voice'
+                        ? {
+                              transcript: note.transcript,
+                              voiceDurationSec: note.durationSeconds,
+                          }
+                        : {}),
                 });
             },
         },

@@ -159,6 +159,10 @@ export const LazyCriminalDashboard = lazyWithRetry(() =>
 export const LazyHamiSettings = lazyWithRetry(() =>
     import('@/app/components/lawyer/HamiSettings/index').then((m) => ({ default: m.HamiSettings as unknown as LazyComponent }))
 );
+export function prefetchHamiSettings(): void {
+    if (typeof window === 'undefined') return;
+    void import('@/app/components/lawyer/HamiSettings/index');
+}
 export const LazyRoyalLawyerProfile = lazyWithRetry(() =>
     import('@/app/runtime/royalLawyerProfileLoader').then((m) =>
         m.loadRoyalLawyerProfileModule().then((mod) => ({
@@ -173,6 +177,10 @@ export function prefetchRoyalLawyerProfile(): void {
 export const LazySmartLegalRadar = lazyWithRetry(() =>
     import('@/app/components/lawyer/SmartLegalRadar.tsx').then((m) => ({ default: m.SmartLegalRadar as unknown as LazyComponent }))
 );
+export function prefetchSmartLegalRadar(): void {
+    if (typeof window === 'undefined') return;
+    void import('@/app/components/lawyer/SmartLegalRadar.tsx');
+}
 export const LazyExecutionCreationView = lazyWithRetry(() =>
     import('@/app/components/lawyer/ExecutionCreationView.tsx').then((m) => ({ default: m.ExecutionCreationView as unknown as LazyComponent }))
 );
@@ -191,7 +199,7 @@ export const LazyUnifiedCommandHub = lazyWithRetry(() =>
     import('@/app/components/lawyer/dashboard/UnifiedCommandHub').then((m) => ({ default: m.UnifiedCommandHub as unknown as LazyComponent }))
 );
 export function prefetchLawyerHomeHubCard(): void {
-    if (typeof window === 'undefined') return;
+    if (import.meta.env.DEV || typeof window === 'undefined') return;
     void import('@/app/runtime/lawyerDashboardLoader').then((m) => m.prefetchLawyerDashboardEntry());
 }
 
@@ -222,6 +230,16 @@ export const LazyCommunityScreen = lazyWithRetry(() =>
         default: m.CommunityScreen as unknown as LazyComponent,
     }))
 );
+
+export function prefetchCommunityScreen(): void {
+    if (typeof window === 'undefined') return;
+    void import('@/app/components/lawyer/CommunityScreen.tsx');
+    void import('@/app/services/forumApiService').then(({ ForumApiService }) =>
+        ForumApiService.listPostsPaginated(20, 0).catch(() => {
+            /* prefetch اختياري */
+        }),
+    );
+}
 // ═══════════════════════════════════════════════════════════════════════════
 // LOADING FALLBACKS
 // ═══════════════════════════════════════════════════════════════════════════

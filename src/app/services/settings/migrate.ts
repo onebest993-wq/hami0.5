@@ -12,8 +12,8 @@ import {
 } from './surfaceAppearance';
 
 import type { AppSettingsState } from './types';
-
 import { SETTINGS_SCHEMA_VERSION } from './types';
+import { normalizeHomeLayout } from './homeLayout';
 
 
 
@@ -148,6 +148,8 @@ function normalizeAppSettings(merged: AppSettingsState): AppSettingsState {
         data: { ...merged.data },
 
         performance: { ...merged.performance },
+
+        homeLayout: normalizeHomeLayout(merged.homeLayout),
 
     };
 

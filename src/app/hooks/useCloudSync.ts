@@ -24,9 +24,12 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { SupabaseService } from '@/app/services/SupabaseService';
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
 import { debug } from '@/app/utils/debug';
+import SecureStoreService from '@/app/services/SecureStoreService';
 import { isLocalOnlyModeEnabled } from '@/app/services/settings/localOnlyGuard';
 import { EXECUTION_FILES_STORAGE_KEY } from '@/app/utils/executionFilesStorage';
 import { STORAGE_KEYS } from '@/app/utils/constants';
+import { useVisibilityAwareInterval } from '@/app/hooks/useVisibilityAwareInterval';
+import { isCloudPollingPausedByRealtime } from '@/app/services/realtimeSyncGate';
 
 // =====================================================
 // Types
@@ -180,7 +183,6 @@ export function useCloudSync(options: CloudSyncOptions): CloudSyncState & {
   });
   
   // Refs
-  const syncIntervalRef = useRef<number | null>(null);
   const isMountedRef = useRef(true);
   const isSyncingRef = useRef(false); // حماية من التكرار دون إعادة إنشاء performSync
   const disabledLoggedRef = useRef(false);
@@ -198,6 +200,10 @@ export function useCloudSync(options: CloudSyncOptions): CloudSyncState & {
    */
   const performSync = useCallback(async () => {
     if (!enabled) return;
+    if (isCloudPollingPausedByRealtime()) {
+      debug.log('[CloudSync] تخطي المزامنة — Realtime نشط');
+      return;
+    }
     if (isLocalOnlyModeEnabled()) return;
     const cloudNetworkEnabled = import.meta.env.VITE_ENABLE_CLOUD_SYNC === 'true';
     if (!cloudNetworkEnabled) {
@@ -230,6 +236,8 @@ export function useCloudSync(options: CloudSyncOptions): CloudSyncState & {
     
     isSyncingRef.current = true;
     try {
+      await SecureStoreService.ensurePersistedReady();
+
       setState(prev => ({
         ...prev,
         isSyncing: true,
@@ -247,10 +255,10 @@ export function useCloudSync(options: CloudSyncOptions): CloudSyncState & {
       if (bucket === 'execution') {
         // ملفات التنفيذ
         cloudDataRaw = await SupabaseService.getExecutionFiles();
-        localDataRaw = persistenceRepository.load(localKey) || [];
+        localDataRaw = (await persistenceRepository.loadAsync(localKey)) ?? [];
       } else if (bucket === 'lawsuit') {
         // ملفات الدعاوى — محلي فقط (لا شبكة، لا دمج ثقيل يجمّد الواجهة)
-        localDataRaw = persistenceRepository.load(localKey) || [];
+        localDataRaw = (await persistenceRepository.loadAsync(localKey)) ?? [];
         if (isMountedRef.current) {
           setState((prev) => ({
             ...prev,
@@ -265,7 +273,7 @@ export function useCloudSync(options: CloudSyncOptions): CloudSyncState & {
       } else if (bucket === 'notes') {
         // الملاحظات
         cloudDataRaw = await SupabaseService.getGlobalNotes();
-        localDataRaw = persistenceRepository.load(localKey) || [];
+        localDataRaw = (await persistenceRepository.loadAsync(localKey)) ?? [];
       } else {
         debug.warn(`[CloudSync] نوع غير مدعوم: ${localKey}`);
         if (isMountedRef.current) {
@@ -281,9 +289,17 @@ export function useCloudSync(options: CloudSyncOptions): CloudSyncState & {
       
       // دمج البيانات
       const { merged, conflictsResolved } = mergeWithConflictResolution(cloudDataRaw, localDataRaw);
-      
-      // حفظ البيانات المدمجة محلياً
-      persistenceRepository.save(localKey, merged);
+
+      const mergedItems = normalizeArray(merged);
+      const localItems = normalizeArray(localDataRaw);
+      const cloudItems = normalizeArray(cloudDataRaw);
+
+      // لا نُ persist مصفوفة فارغة فوق بيانات غير محمّلة أو مفقودة
+      if (mergedItems.length === 0 && localItems.length === 0 && cloudItems.length === 0) {
+        debug.log(`[CloudSync] تخطي الحفظ — لا بيانات في ${localKey}`);
+      } else {
+        persistenceRepository.save(localKey, merged);
+      }
       
       // تحديث الحالة
       if (isMountedRef.current) {
@@ -296,12 +312,10 @@ export function useCloudSync(options: CloudSyncOptions): CloudSyncState & {
         }));
       }
       
-      const cloudItems = normalizeArray(cloudDataRaw).length;
-      const localItems = normalizeArray(localDataRaw).length;
       debug.log(`[CloudSync] ✅ المزامنة مكتملة:`, {
-        cloudItems,
-        localItems,
-        mergedItems: merged.length,
+        cloudItems: cloudItems.length,
+        localItems: localItems.length,
+        mergedItems: mergedItems.length,
         conflictsResolved,
       });
       
@@ -377,20 +391,18 @@ export function useCloudSync(options: CloudSyncOptions): CloudSyncState & {
     }
     initialTimer = window.setTimeout(runInitialSyncOnce, 4_000);
 
-    syncIntervalRef.current = window.setInterval(() => {
-      void performSync();
-    }, syncInterval);
-
     return () => {
       if (initialTimer !== null) window.clearTimeout(initialTimer);
       if (idleId !== null && typeof cancelIdleCallback !== 'undefined') {
         cancelIdleCallback(idleId);
       }
-      if (syncIntervalRef.current !== null) {
-        window.clearInterval(syncIntervalRef.current);
-      }
     };
-  }, [enabled, syncInterval, performSync]);
+  }, [enabled, performSync]);
+
+  useVisibilityAwareInterval(() => {
+    if (isCloudPollingPausedByRealtime()) return;
+    void performSync();
+  }, syncInterval, enabled);
   
   /**
    * مراقبة حالة الاتصال بالإنترنت

@@ -170,4 +170,17 @@ export const ForumGroupRepository = {
         if (error) return false;
         return Boolean(data);
     },
+
+    async listMemberIds(groupId: string): Promise<string[]> {
+        const admin = getForumSupabaseAdmin();
+        if (!admin) {
+            return ForumGroupLocalStore.listMemberIds(groupId);
+        }
+        const { data, error } = await admin
+            .from('forum_group_members')
+            .select('lawyer_id')
+            .eq('group_id', groupId);
+        if (error || !data) return ForumGroupLocalStore.listMemberIds(groupId);
+        return (data as Array<{ lawyer_id: string }>).map((r) => r.lawyer_id);
+    },
 };

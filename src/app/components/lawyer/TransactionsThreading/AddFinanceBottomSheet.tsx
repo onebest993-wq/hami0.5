@@ -9,10 +9,19 @@ import {
     GLASS_CHIP_ACTIVE,
     GLASS_FIELD,
     TX_DRAWER_SHELL,
+    TX_TEXT_MUTED,
     TxFieldLabel,
     TxGlassDrawerFrame,
     TX_TEXT_OCHRE,
 } from './transactionsGlassTheme';
+
+function todayDateInput(): string {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
 
 export function AddFinanceBottomSheet({
     open,
@@ -33,12 +42,21 @@ export function AddFinanceBottomSheet({
     const [type, setType] = useState<FinanceRecordType>(FinanceRecordType.Expense);
     const [amount, setAmount] = useState<string>('');
     const [description, setDescription] = useState('');
+    const [financeDate, setFinanceDate] = useState('');
 
     const parsedAmount = useMemo(() => Number(amount), [amount]);
     const canSubmit = useMemo(
-        () => Number.isFinite(parsedAmount) && parsedAmount > 0 && description.trim().length > 0,
-        [parsedAmount, description],
+        () => Number.isFinite(parsedAmount) && parsedAmount > 0 && description.trim().length > 0 && financeDate.trim().length > 0,
+        [parsedAmount, description, financeDate],
     );
+
+    const dateIso = useMemo(() => {
+        const v = financeDate.trim();
+        if (!v) return null;
+        const d = new Date(`${v}T00:00:00`);
+        if (Number.isNaN(d.getTime())) return null;
+        return d.toISOString();
+    }, [financeDate]);
 
     useEffect(() => {
         if (!open) return;
@@ -46,23 +64,31 @@ export function AddFinanceBottomSheet({
             setType(FinanceRecordType.Expense);
             setAmount('');
             setDescription('');
+            setFinanceDate(todayDateInput());
             return;
         }
         setType(record.type);
         setAmount(String(record.amount));
         setDescription(record.description);
+        setFinanceDate(record.date ? record.date.slice(0, 10) : todayDateInput());
     }, [open, record]);
 
     const submit = async () => {
-        if (!canSubmit || readOnly) return;
+        if (!canSubmit || readOnly || !dateIso) return;
         if (record) {
-            await updateFinanceRecord(record.id, { type, amount: parsedAmount, description: description.trim() });
+            await updateFinanceRecord(record.id, {
+                type,
+                amount: parsedAmount,
+                description: description.trim(),
+                date: dateIso,
+            });
         } else {
             await addFinanceRecord({
                 transactionId,
                 type,
                 amount: parsedAmount,
                 description: description.trim(),
+                date: dateIso,
             });
         }
         onOpenChange(false);
@@ -105,6 +131,19 @@ export function AddFinanceBottomSheet({
                         >
                             مصروف
                         </button>
+                    </div>
+                    <div>
+                        <TxFieldLabel>تاريخ الحركة</TxFieldLabel>
+                        <input
+                            value={financeDate}
+                            onChange={(e) => setFinanceDate(e.target.value)}
+                            type="date"
+                            disabled={!!readOnly}
+                            className={`${GLASS_FIELD} disabled:opacity-50 [color-scheme:dark]`}
+                        />
+                        <p className={`${TX_TEXT_MUTED} text-[10px] mt-1.5 leading-5 font-medium`}>
+                            يُزامَن تلقائياً مع التقويم (معاملات إدارية).
+                        </p>
                     </div>
                     <div>
                         <TxFieldLabel>المبلغ</TxFieldLabel>

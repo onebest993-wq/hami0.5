@@ -28,6 +28,30 @@ export const ArchivePortalFallback: React.ReactNode = (
 
 export { ArchivePortalFallback as ARCHIVE_PORTAL_FALLBACK };
 
+/** المنتدى القانوني — واجهة plum فورية أثناء lazy load (بدون شاشة سوداء عامة) */
+export const CommunityScreenFallback: React.ReactNode = (
+    <div
+        className="fixed inset-0 z-[95] h-[100dvh] flex flex-col font-['Tajawal','Cairo',sans-serif] text-right"
+        style={{ background: 'linear-gradient(155deg, #0E0812 0%, #140A18 48%, #1A1020 100%)' }}
+        role="dialog"
+        aria-label="المنتدى القانوني"
+        aria-busy="true"
+        dir="rtl"
+    >
+        <div className="bg-[#140A18] border-b border-[#4A3D52]/40 sticky top-0 z-10 px-4 py-3 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-[#342C3A] animate-pulse shrink-0" aria-hidden />
+            <div className="flex-1 h-5 rounded-lg bg-[#342C3A]/80 animate-pulse" aria-hidden />
+            <div className="w-9 h-9 rounded-full bg-[#342C3A] animate-pulse shrink-0" aria-hidden />
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6">
+            <div className="w-16 h-16 rounded-2xl bg-[#38303E] border border-[#4A3D52]/50 animate-pulse" aria-hidden />
+            <p className="text-[#F0B896]/55 text-sm font-bold animate-pulse">جاري فتح المنتدى...</p>
+        </div>
+    </div>
+);
+
+export { CommunityScreenFallback as COMMUNITY_SCREEN_FALLBACK };
+
 /** مؤشر تحميل كامل الشاشة — للتبويبات والنوافذ فقط */
 export const LawyerLazyFallback: React.ReactNode = (
     <div className="min-h-screen bg-[#0B1021] flex items-center justify-center">

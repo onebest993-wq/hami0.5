@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { X } from 'lucide-react';
 import { useTransactionsThreadingStore } from '@/app/modules/transactionsThreading/store';
 import { buildTaskTree } from '@/app/modules/transactionsThreading/service';
 import { TransactionTaskStatus, type TransactionTask, type TransactionTaskNode } from '@/app/modules/transactionsThreading/types';
@@ -23,6 +24,54 @@ import {
 
 const EMPTY_TASKS: TransactionTask[] = [];
 
+function emptyPathDismissKey(transactionId: string) {
+  return `hami:tx:path-empty-dismiss:${transactionId}`;
+}
+
+function PathEmptyHint({
+  transactionId,
+  onImportFromMyTemplates,
+  readOnly,
+}: {
+  transactionId: string;
+  onImportFromMyTemplates?: () => void;
+  readOnly?: boolean;
+}) {
+  const [dismissed, setDismissed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem(emptyPathDismissKey(transactionId)) === '1';
+  });
+
+  if (dismissed) return null;
+
+  return (
+    <TxGlassPanel className="p-4 relative">
+      {!readOnly ? (
+        <button
+          type="button"
+          onClick={() => {
+            localStorage.setItem(emptyPathDismissKey(transactionId), '1');
+            setDismissed(true);
+          }}
+          className="absolute top-2.5 left-2.5 w-8 h-8 rounded-[3px] border border-[#2A4550] bg-[#1A3340] text-[#8A8680] hover:text-[#D8D4CE] flex items-center justify-center transition-colors"
+          aria-label="إخفاء التلميح"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      ) : null}
+      <div className={`${TX_TEXT_PRIMARY} font-extrabold text-sm pr-1`}>لا يوجد مسار بعد</div>
+      <div className={`${TX_TEXT_MUTED} text-xs mt-1.5 leading-6 font-medium`}>
+        أضف مهمة من الزر السفلي أو استورد قالباً جاهزاً.
+      </div>
+      {!readOnly && onImportFromMyTemplates ? (
+        <button type="button" onClick={onImportFromMyTemplates} className={`${GLASS_BTN} mt-3 !h-10 !text-xs`}>
+          استيراد من قوالبي
+        </button>
+      ) : null}
+    </TxGlassPanel>
+  );
+}
+
 const STATUS_CYCLE: TransactionTaskStatus[] = [
   TransactionTaskStatus.Pending,
   TransactionTaskStatus.InProgress,
@@ -35,15 +84,7 @@ function nextStatus(current: TransactionTaskStatus) {
   return STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length];
 }
 
-function nodeDotClass(status: TransactionTaskStatus) {
-  if (status === TransactionTaskStatus.Done) return 'bg-[#C4782F] shadow-[0_0_0_4px_rgba(196,120,47,0.18)]';
-  if (status === TransactionTaskStatus.InProgress) return 'bg-[#D49248] shadow-[0_0_0_4px_rgba(212,146,72,0.16)]';
-  if (status === TransactionTaskStatus.Blocked) return 'bg-[#8A8680] shadow-[0_0_0_4px_rgba(138,134,128,0.14)]';
-  return 'bg-[#2A4550] shadow-[0_0_0_4px_rgba(42,69,80,0.2)]';
-}
-
-const TREE_INDENT = 20;
-const TREE_GUTTER_BASE = 14;
+const CHILD_NEST_CLASS = 'mt-3 space-y-3 w-full border-r-2 border-[#2A4550]/50 pr-3';
 
 function NodeRenderer({
   node,
@@ -70,54 +111,25 @@ function NodeRenderer({
   onDelete: (task: TransactionTask) => void;
   readOnly?: boolean;
 }) {
-  const laneRight = 8 + depth * TREE_INDENT;
-  const gutterWidth = TREE_GUTTER_BASE + depth * TREE_INDENT;
-  const showBottomLine = node.children.length > 0 || index < siblingsCount - 1;
-  const branchLineClass = depth === 0 ? 'bg-[#C4782F]/35' : 'bg-[#2A4550]/70';
+  void index;
+  void siblingsCount;
 
   return (
-    <div className="relative w-full">
-      {showBottomLine ? (
-        <div
-          className={`absolute w-px pointer-events-none ${branchLineClass}`}
-          style={{ right: laneRight, top: 26, bottom: -12, opacity: 0.85 }}
-        />
-      ) : (
-        <div
-          className={`absolute w-px pointer-events-none ${branchLineClass}`}
-          style={{ right: laneRight, top: 0, height: 26, opacity: 0.85 }}
-        />
-      )}
-      {depth > 0 && (
-        <div
-          className={`absolute h-px pointer-events-none ${branchLineClass}`}
-          style={{ right: 8 + (depth - 1) * TREE_INDENT, top: 26, width: TREE_INDENT, opacity: 0.85 }}
-        />
-      )}
-      <div
-        className={`absolute w-4 h-4 rounded-[2px] pointer-events-none ${nodeDotClass(node.status)}`}
-        style={{ right: laneRight - 7, top: 18 }}
+    <div className="w-full min-w-0">
+      <TaskNodeCard
+        task={node}
+        taskNumber={taskNumber}
+        depth={depth}
+        onToggleStatus={onToggleStatus}
+        onMarkDone={onMarkDone}
+        onAddSubTask={onAddSubTask}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        readOnly={readOnly}
       />
 
-      <div className="flex w-full items-stretch gap-2">
-        <div className="shrink-0" style={{ width: gutterWidth }} aria-hidden />
-        <div className="flex-1 min-w-0">
-          <TaskNodeCard
-            task={node}
-            taskNumber={taskNumber}
-            depth={depth}
-            onToggleStatus={onToggleStatus}
-            onMarkDone={onMarkDone}
-            onAddSubTask={onAddSubTask}
-            onEdit={onEdit}
-            onDelete={onDelete}
-            readOnly={readOnly}
-          />
-        </div>
-      </div>
-
-      {node.children.length > 0 && (
-        <div className="mt-3 space-y-3">
+      {node.children.length > 0 ? (
+        <div className={CHILD_NEST_CLASS}>
           {node.children.map((child, i) => (
             <NodeRenderer
               key={child.id}
@@ -135,7 +147,7 @@ function NodeRenderer({
             />
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -174,6 +186,12 @@ export function TaskThreadView({
   }, [refreshTransactionData, transactionId]);
 
   const tree = useMemo(() => buildTaskTree(tasks), [tasks]);
+
+  useEffect(() => {
+    if (tree.length === 0) return;
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem(emptyPathDismissKey(transactionId));
+  }, [tree.length, transactionId]);
 
   const onToggleStatus = async (task: TransactionTask) => {
     if (readOnly) return;
@@ -259,54 +277,70 @@ export function TaskThreadView({
   }, [tasks]);
 
   return (
-    <div dir="rtl" className="py-4 space-y-3 pb-28 w-full">
-      <TxGlassPanel className="px-4 py-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className={`${TX_TEXT_PRIMARY} font-extrabold text-sm`}>نسبة الإنجاز</div>
-          <div className={`${TX_TEXT_OCHRE} font-extrabold text-sm`}>{progress.percent}%</div>
-        </div>
-        <div className="mt-3 h-2 rounded-[2px] bg-[#0A171D] border border-[#2A4550]/80 overflow-hidden">
+    <div dir="rtl" className="py-4 space-y-4 pb-4 w-full max-w-full">
+      <TxGlassPanel className="p-4 sm:p-5">
+        <div className="flex items-center gap-4">
           <div
-            className="h-full rounded-[1px] bg-gradient-to-r from-[#9A6024] via-[#C4782F] to-[#D49248]"
-            style={{ width: `${progress.percent}%` }}
-          />
-        </div>
-        <div className={`mt-2 ${TX_TEXT_MUTED} text-xs font-medium`}>
-          {progress.done} من {progress.total} مهمة منجزة
+            className="relative shrink-0 w-[4.25rem] h-[4.25rem] rounded-full border-2 border-[#2A4550] flex items-center justify-center bg-[#0A171D]"
+            aria-hidden
+          >
+            <div
+              className="absolute inset-1 rounded-full"
+              style={{
+                background: `conic-gradient(#C4782F ${progress.percent * 3.6}deg, #1A3340 0deg)`,
+              }}
+            />
+            <div className="absolute inset-[5px] rounded-full bg-[#152A32] flex items-center justify-center">
+              <span className={`${TX_TEXT_OCHRE} font-extrabold text-lg tabular-nums leading-none`}>
+                {progress.percent}%
+              </span>
+            </div>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <div className={`${TX_TEXT_PRIMARY} font-extrabold text-sm`}>نسبة الإنجاز</div>
+              <div className={`${TX_TEXT_MUTED} text-xs font-medium tabular-nums`}>
+                {progress.done}/{progress.total}
+              </div>
+            </div>
+            <div className="mt-3 h-2.5 rounded-[3px] bg-[#0A171D] border border-[#2A4550]/80 overflow-hidden">
+              <div
+                className="h-full rounded-[2px] bg-gradient-to-r from-[#9A6024] via-[#C4782F] to-[#D49248] transition-[width] duration-500"
+                style={{ width: `${Math.max(progress.percent, progress.total > 0 ? 4 : 0)}%` }}
+              />
+            </div>
+            <div className={`mt-2.5 ${TX_TEXT_MUTED} text-xs font-medium`}>
+              {progress.done} من {progress.total} مهمة منجزة
+            </div>
+          </div>
         </div>
       </TxGlassPanel>
 
       {tree.length === 0 ? (
-        <div className="pt-6">
-          <TxGlassPanel className="p-5">
-            <div className={`${TX_TEXT_PRIMARY} font-extrabold text-base`}>لا يوجد مسار بعد</div>
-            <div className={`${TX_TEXT_MUTED} text-sm mt-2 leading-7 font-medium`}>
-              يمكنك إضافة مهام يدوياً أو الاستيراد من قوالبك لتوفير الوقت.
-            </div>
-            {!readOnly && onImportFromMyTemplates && (
-              <button type="button" onClick={onImportFromMyTemplates} className={`${GLASS_BTN} mt-4`}>
-                استيراد من قوالبي
-              </button>
-            )}
-          </TxGlassPanel>
-        </div>
+        <PathEmptyHint
+          transactionId={transactionId}
+          onImportFromMyTemplates={onImportFromMyTemplates}
+          readOnly={readOnly}
+        />
       ) : (
-        tree.map((node, i) => (
-          <NodeRenderer
-            key={node.id}
-            node={node}
-            depth={0}
-            index={i}
-            siblingsCount={tree.length}
-            taskNumber={String(i + 1)}
-            onToggleStatus={onToggleStatus}
-            onMarkDone={onMarkDone}
-            onAddSubTask={(t) => onRequestAddTask(t)}
-            onEdit={openEdit}
-            onDelete={openDelete}
-            readOnly={readOnly}
-          />
-        ))
+        <div className="space-y-3 w-full">
+          {tree.map((node, i) => (
+            <NodeRenderer
+              key={node.id}
+              node={node}
+              depth={0}
+              index={i}
+              siblingsCount={tree.length}
+              taskNumber={String(i + 1)}
+              onToggleStatus={onToggleStatus}
+              onMarkDone={onMarkDone}
+              onAddSubTask={(t) => onRequestAddTask(t)}
+              onEdit={openEdit}
+              onDelete={openDelete}
+              readOnly={readOnly}
+            />
+          ))}
+        </div>
       )}
 
       <Dialog
@@ -340,8 +374,11 @@ export function TaskThreadView({
                 value={editDeadlineDate}
                 onChange={(e) => setEditDeadlineDate(e.target.value)}
                 type="date"
-                className={GLASS_FIELD}
+                className={`${GLASS_FIELD} [color-scheme:dark]`}
               />
+              <p className={`${TX_TEXT_MUTED} text-[10px] mt-1.5 leading-5 font-medium`}>
+                يُربط تلقائياً بالتقويم للمهام غير المنجزة.
+              </p>
             </div>
           </div>
           <DialogFooter className="sm:justify-start gap-2">

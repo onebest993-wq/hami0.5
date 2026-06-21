@@ -4,7 +4,7 @@ import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import { resolveAlertNavigation } from '@/app/services/alertNavigation';
 import { parseWorkspaceRoute } from '@/app/workspace/workspaceRoutes';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { prefetchExecutionDashboard } from '@/app/utils/lazyComponents';
+import { prefetchArchivePortal, prefetchExecutionDashboard } from '@/app/utils/lazyComponents';
 import { markAlertSeenForPush } from '@/app/services/appAlertPushSync';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
@@ -227,6 +227,15 @@ export function useLawyerDashboardNavigation({
             const parsed = parseWorkspaceRoute(routePath);
             if (!parsed) return;
             switch (parsed.type) {
+                case 'hub': {
+                    const section = parsed.id as 'lawsuit' | 'execution' | 'transaction';
+                    if (section === 'execution' || section === 'lawsuit' || section === 'transaction') {
+                        prefetchArchivePortal();
+                        if (section === 'execution') prefetchExecutionDashboard();
+                        setArchiveType(section);
+                    }
+                    return;
+                }
                 case 'lawsuit': {
                     const f = files.find((file) => String(file.id) === parsed.id);
                     if (f && isFileData(f)) {

@@ -50,7 +50,6 @@ class PerformanceMonitorClass {
     end(name: string, metadata?: Record<string, unknown>): number {
         const startTime = this.marks.get(name);
         if (!startTime) {
-            console.warn(`[Performance] No start mark found for: ${name}`);
             return 0;
         }
 
@@ -159,16 +158,17 @@ class PerformanceMonitorClass {
      */
     logReport(): void {
         const report = this.getReport();
-        
+        if (report.metrics.length === 0) return;
+
         console.group('📊 Performance Report');
         console.log('Total Metrics:', report.metrics.length);
-        
+
         console.group('⚡ Averages');
         Object.entries(report.averages).forEach(([name, avg]) => {
             console.log(`${name}: ${avg.toFixed(2)}ms`);
         });
         console.groupEnd();
-        
+
         if (report.slowest.length > 0) {
             console.group('🐌 Slowest Operations');
             report.slowest.forEach((m, i) => {
@@ -176,7 +176,7 @@ class PerformanceMonitorClass {
             });
             console.groupEnd();
         }
-        
+
         if (report.fastest.length > 0) {
             console.group('🚀 Fastest Operations');
             report.fastest.forEach((m, i) => {
@@ -184,7 +184,7 @@ class PerformanceMonitorClass {
             });
             console.groupEnd();
         }
-        
+
         console.groupEnd();
     }
 

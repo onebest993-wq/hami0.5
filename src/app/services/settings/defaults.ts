@@ -1,6 +1,7 @@
 import type { AppSettingsState } from './types';
 
 import { SETTINGS_SCHEMA_VERSION } from './types';
+import { HOME_LAYOUT_DEFAULTS } from './homeLayout';
 
 
 
@@ -77,6 +78,8 @@ export const LAWYER_SETTINGS_V2_DEFAULTS: AppSettingsState = {
         prefetchScreens: true,
 
     },
+
+    homeLayout: { ...HOME_LAYOUT_DEFAULTS, overrides: {} },
 
 };
 

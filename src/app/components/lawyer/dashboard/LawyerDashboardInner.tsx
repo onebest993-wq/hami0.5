@@ -5,14 +5,12 @@ import {
     CriminalDashboardBridgeProvider,
 } from '@/app/components/lawyer/criminal-system/criminalDashboardBridge';
 import { resolveCalendarUserId } from '@/app/services/calendarBridge';
-import type { QuantumTasksContextValue } from '@/app/context/QuantumTasksContext';
 import type { LawyerDashboardShellProps } from './LawyerDashboardQuantumShell';
+import { useQuantumTasksContext } from '@/app/hooks/useQuantumTasksContext';
 import { useLawyerDashboardCore } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCore';
 import { LawyerDashboardMainView } from './LawyerDashboardMainView';
 
-export type LawyerDashboardInnerProps = LawyerDashboardShellProps & {
-    quantum: QuantumTasksContextValue;
-};
+export type LawyerDashboardInnerProps = LawyerDashboardShellProps;
 
 export function LawyerDashboardInner(props: LawyerDashboardInnerProps) {
     const runtimePhase = useRuntimePhase();
@@ -31,7 +29,8 @@ function LawyerDashboardCore({
     backgroundRuntimeEnabled,
     ...shellProps
 }: LawyerDashboardInnerProps & { backgroundRuntimeEnabled: boolean }) {
-    const model = useLawyerDashboardCore({ ...shellProps, backgroundRuntimeEnabled });
+    const quantum = useQuantumTasksContext();
+    const model = useLawyerDashboardCore({ ...shellProps, quantum, backgroundRuntimeEnabled });
 
     if (model.status === 'gate') return <>{model.node}</>;
     if (model.status === 'empty') return null;

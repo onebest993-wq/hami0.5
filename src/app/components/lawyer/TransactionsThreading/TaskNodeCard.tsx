@@ -23,12 +23,12 @@ function deadlineBadge(deadlineIso: string | null) {
   const dayMs = 24 * 60 * 60 * 1000;
   const daysLeft = Math.ceil((deadline.getTime() - now.getTime()) / dayMs);
   if (daysLeft < 0) {
-    return { label: '🔴 نافذ الصلاحية', className: 'bg-[#C4782F]/12 text-[#D49248] border-[#C4782F]/40' };
+    return { label: 'نافذ الصلاحية', className: 'bg-[#C4782F]/12 text-[#D49248] border-[#C4782F]/40' };
   }
   if (daysLeft <= 3) {
-    return { label: '⚠️ ينتهي قريباً!', className: TX_ACCENT_SURFACE + ' text-[#D49248]' };
+    return { label: `ينتهي خلال ${daysLeft} ي`, className: TX_ACCENT_SURFACE + ' text-[#D49248]' };
   }
-  return { label: `⏳ متبقي ${daysLeft} أيام`, className: 'bg-[#1A3340] text-[#B4B0AA] border-[#2A4550]/80' };
+  return { label: `متبقي ${daysLeft} ي`, className: 'bg-[#1A3340] text-[#B4B0AA] border-[#2A4550]/80' };
 }
 
 function statusLabelAr(status: TransactionTaskStatus) {
@@ -36,6 +36,13 @@ function statusLabelAr(status: TransactionTaskStatus) {
   if (status === TaskStatus.InProgress) return 'قيد التنفيذ';
   if (status === TaskStatus.Blocked) return 'معطّل';
   return 'منجز';
+}
+
+function statusToneClass(status: TransactionTaskStatus) {
+  if (status === TaskStatus.InProgress) return 'bg-[#C4782F]/14 text-[#D49248] border-[#C4782F]/35';
+  if (status === TaskStatus.Blocked) return 'bg-[#1A3340] text-[#8A8680] border-[#2A4550]';
+  if (status === TaskStatus.Done) return 'bg-emerald-950/40 text-emerald-300/90 border-emerald-500/30';
+  return 'bg-[#152A32] text-[#B4B0AA] border-[#2A4550]/80';
 }
 
 export function TaskNodeCard({
@@ -66,122 +73,125 @@ export function TaskNodeCard({
   return (
     <div
       dir="rtl"
-      role="button"
-      tabIndex={readOnly ? -1 : 0}
-      onClick={() => {
-        if (!readOnly) onToggleStatus(task);
-      }}
-      onKeyDown={(e) => {
-        if (!readOnly && (e.key === 'Enter' || e.key === ' ')) onToggleStatus(task);
-      }}
-      className={`w-full text-right rounded-sm border transition px-4 py-3 ${
-        hierarchy.cardClass
-      } ${readOnly ? 'opacity-85' : 'cursor-pointer'}`}
+      className={`relative w-full min-w-0 overflow-hidden rounded-sm border transition ${hierarchy.cardClass} ${
+        readOnly ? 'opacity-85' : ''
+      }`}
     >
-      <div className="flex flex-col gap-2.5">
+      <div
+        className="absolute top-0 left-0 bottom-0 w-[3px] bg-[#C4782F]/55 pointer-events-none"
+        aria-hidden
+      />
+
+      <div
+        role="button"
+        tabIndex={readOnly ? -1 : 0}
+        onClick={() => {
+          if (!readOnly) onToggleStatus(task);
+        }}
+        onKeyDown={(e) => {
+          if (!readOnly && (e.key === 'Enter' || e.key === ' ')) onToggleStatus(task);
+        }}
+        className={`w-full text-right px-4 pt-4 pb-3 ${readOnly ? '' : 'cursor-pointer'}`}
+      >
         <div className="flex items-start gap-3 min-w-0">
           <div
-            className={`shrink-0 min-w-9 h-9 px-2 rounded-[3px] border flex items-center justify-center font-extrabold text-sm tabular-nums ${hierarchy.numberBadgeClass}`}
+            className={`shrink-0 w-11 h-11 rounded-[4px] border flex items-center justify-center font-extrabold text-base tabular-nums ${hierarchy.numberBadgeClass}`}
             aria-label={`رقم ${hierarchy.levelLabel} ${taskNumber}`}
           >
             {taskNumber}
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="mb-1.5 flex items-center gap-2 flex-wrap">
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <div
+                className={`${TX_TEXT_PRIMARY} font-extrabold text-[15px] leading-6 break-words min-w-0 flex-1 ${
+                  isDone ? 'line-through opacity-70' : ''
+                }`}
+                title={task.title}
+              >
+                {task.title}
+              </div>
               <span
-                className={`inline-flex items-center h-6 px-2.5 rounded-[3px] border text-[10px] font-bold ${hierarchy.levelBadgeClass}`}
+                className={`shrink-0 inline-flex items-center h-6 px-2 rounded-[3px] border text-[10px] font-bold ${hierarchy.levelBadgeClass}`}
               >
                 {hierarchy.levelLabel}
               </span>
             </div>
-            <div
-              className={`${TX_TEXT_PRIMARY} font-extrabold text-sm leading-6 break-words ${isDone ? 'line-through opacity-70' : ''}`}
-              title={task.title}
-            >
-              {task.title}
-            </div>
-            <div className="mt-1 flex items-center gap-2 flex-wrap">
-              <div className={`${TX_TEXT_MUTED} text-xs font-medium`}>{statusLabelAr(task.status)}</div>
-              {dBadge && (
-                <div className={`inline-flex items-center h-7 px-3 rounded-[3px] border text-xs font-bold ${dBadge.className}`}>
+
+            <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+              <span
+                className={`inline-flex items-center h-7 px-2.5 rounded-[3px] border text-[11px] font-bold ${statusToneClass(task.status)}`}
+              >
+                {statusLabelAr(task.status)}
+              </span>
+              {dBadge ? (
+                <span className={`inline-flex items-center h-7 px-2.5 rounded-[3px] border text-[11px] font-bold ${dBadge.className}`}>
                   {dBadge.label}
-                </div>
-              )}
+                </span>
+              ) : null}
             </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-2 flex-wrap">
-          {!readOnly && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  onClick={(e) => e.stopPropagation()}
-                  className={TX_ICON_BTN + ' !w-9 !h-9'}
-                  aria-label="خيارات المهمة"
-                >
-                  <MoreVertical className="w-4 h-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className={TX_DROPDOWN_CONTENT}>
-                <DropdownMenuItem onSelect={() => onEdit(task)} className={TX_DROPDOWN_FOCUS}>
-                  <span className="inline-flex items-center gap-2">
-                    <Pencil className="w-4 h-4" />
-                    تعديل
-                  </span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={() => onDelete(task)}
-                  className={`${TX_DROPDOWN_FOCUS} text-[#D49248] focus:text-[#D49248]`}
-                >
-                  <span className="inline-flex items-center gap-2">
-                    <Trash2 className="w-4 h-4" />
-                    حذف
-                  </span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-
-          <button
-            type="button"
-            disabled={!!readOnly || isDone}
-            onClick={(e) => {
-              e.stopPropagation();
-              onMarkDone(task);
-            }}
-            className={`${TX_OCHRE_BTN} !w-9 !h-9 !p-0 flex items-center justify-center disabled:opacity-40`}
-            aria-label="وضع علامة منجز"
-          >
-            <Check className="w-5 h-5" />
-          </button>
-
-          <button
-            type="button"
-            disabled={!!readOnly}
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddSubTask(task);
-            }}
-            className={`${TX_GOLD_BTN} !h-9 !px-2.5 sm:!px-3 !text-xs disabled:opacity-40 inline-flex items-center gap-1.5`}
-            aria-label="إضافة إجراء متفرع"
-            title="إضافة إجراء متفرع"
-          >
-            <GitBranch className="w-4 h-4 shrink-0" />
-            <span className="hidden sm:inline">إضافة إجراء متفرع</span>
-            <span className="sm:hidden">متفرع</span>
-          </button>
-        </div>
+        {isDone && task.officialReference ? (
+          <div className="mt-3 mr-14">
+            <div className={`inline-flex items-center min-h-8 px-3 rounded-[3px] ${TX_ACCENT_SURFACE} ${TX_TEXT_OCHRE} text-[11px] font-bold`}>
+              الصادر/الوارد: {task.officialReference}
+            </div>
+          </div>
+        ) : null}
       </div>
 
-      {isDone && task.officialReference && (
-        <div className="mt-3">
-          <div className={`inline-flex items-center h-8 px-3 rounded-[3px] ${TX_ACCENT_SURFACE} ${TX_TEXT_OCHRE} text-xs font-extrabold`}>
-            🏷️ الصادر/الوارد: {task.officialReference}
-          </div>
+      {!readOnly ? (
+        <div
+          className="flex items-center justify-end gap-2 px-3 py-2.5 border-t border-[#2A4550]/70 bg-[#0A171D]/35"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button type="button" className={TX_ICON_BTN + ' !w-10 !h-10'} aria-label="خيارات المهمة">
+                <MoreVertical className="w-4 h-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className={TX_DROPDOWN_CONTENT}>
+              <DropdownMenuItem onSelect={() => onEdit(task)} className={TX_DROPDOWN_FOCUS}>
+                <span className="inline-flex items-center gap-2">
+                  <Pencil className="w-4 h-4" />
+                  تعديل
+                </span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => onDelete(task)}
+                className={`${TX_DROPDOWN_FOCUS} text-[#D49248] focus:text-[#D49248]`}
+              >
+                <span className="inline-flex items-center gap-2">
+                  <Trash2 className="w-4 h-4" />
+                  حذف
+                </span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <button
+            type="button"
+            disabled={isDone}
+            onClick={() => onMarkDone(task)}
+            className={`${TX_OCHRE_BTN} !h-10 !px-3 !text-[11px] inline-flex items-center gap-1.5 disabled:opacity-40`}
+          >
+            <Check className="w-4 h-4" />
+            منجز
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onAddSubTask(task)}
+            className={`${TX_GOLD_BTN} !h-10 !px-3 !text-[11px] inline-flex items-center gap-1.5`}
+          >
+            <GitBranch className="w-4 h-4" />
+            متفرع
+          </button>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

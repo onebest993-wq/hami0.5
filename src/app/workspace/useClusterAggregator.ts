@@ -43,8 +43,9 @@ export function useClusterAggregator(input: ClusterAggregatorInput): ClusterPinV
     );
 
     return useMemo(() => {
-        if (pinnedItems.length === 0) return [];
-        return pinnedItems.map((pin) => {
+        const dossierPins = pinnedItems.filter((p) => p.type !== 'hub');
+        if (dossierPins.length === 0) return [];
+        return dossierPins.map((pin) => {
             const enriched = enrichPinFromScan(pin, scanIndex);
             return {
                 pin: enriched,

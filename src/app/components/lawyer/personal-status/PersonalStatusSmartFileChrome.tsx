@@ -17,6 +17,7 @@ import {
 import {
     PersonalStatusMoroccanDivider,
 } from './PersonalStatusMoroccanGlass';
+import { ColleagueConsultationHeaderButton } from '@/app/components/lawyer/caseShare/ColleagueConsultationHeaderButton';
 
 export function PersonalStatusSmartFileChrome(props: SmartFileChromeProps) {
     const {
@@ -46,9 +47,15 @@ export function PersonalStatusSmartFileChrome(props: SmartFileChromeProps) {
                         رجوع
                     </button>
 
-                    <h2 className={`flex-1 text-center text-xs font-bold ${PS_TEXT} truncate px-2`}>
-                        إضبارة الأحوال الشخصية
-                    </h2>
+                    <div className="flex flex-1 items-center justify-center gap-1.5 min-w-0 px-1">
+                        <h2 className={`text-center text-xs font-bold ${PS_TEXT} truncate`}>
+                            إضبارة الأحوال الشخصية
+                        </h2>
+                        <ColleagueConsultationHeaderButton
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#E6C673]/10 border border-[#E6C673]/30 text-[#E6C673] hover:bg-[#E6C673]/16 transition-all shrink-0"
+                            iconSize={12}
+                        />
+                    </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
                         <button

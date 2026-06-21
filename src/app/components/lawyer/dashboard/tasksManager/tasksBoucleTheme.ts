@@ -5,7 +5,7 @@ export const TASKS_BRONZE = '#A67C52';
 export const TASKS_IVORY = '#E8F5F0';
 
 export const TASKS_PAGE =
-    "fixed inset-0 z-[230] flex flex-col font-['Tajawal','Cairo',sans-serif] " +
+    "relative flex flex-col w-full h-full min-h-[100dvh] font-['Tajawal','Cairo',sans-serif] " +
     'bg-gradient-to-b from-[#061612] via-[#0A2E25] to-[#051410]';
 
 export const TASKS_HEADER =

@@ -1,6 +1,7 @@
 import type { ClusterRelatedLink, WorkspacePinnedItem, WorkspacePinType } from './types';
 
 export const CLUSTER_TYPE_LABEL: Record<WorkspacePinType, string> = {
+    hub: 'اختصار',
     lawsuit: 'مدني',
     criminal: 'جزائي',
     execution: 'تنفيذ',

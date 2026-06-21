@@ -12,37 +12,18 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
 import { UserRole } from '@/app/types/admin-types';
 import { logAction } from '@/app/utils/auditLog';
-import { readPersistedSupabaseAuth, writeDevMockAuth, clearDevMockAuth, clearStaleDevMockFromSupabaseStorage, readDevMockAccessToken, readDevMockUser } from '@/app/utils/authStorage';
+import { readPersistedSupabaseAuth, writeDevMockAuth, clearDevMockAuth, clearStaleDevMockFromSupabaseStorage, readDevMockAccessToken, readDevMockUser, hasPersistedSupabaseSession } from '@/app/utils/authStorage';
+import { attachSupabaseAuthListener, signInWithPassword, signOutSupabase, signUpWithPassword } from '@/app/utils/authSupabaseLazy';
 import { createGuestLawyerSession, GUEST_LAWYER_ID } from '@/app/utils/guestLawyerSession';
+import { bffLogin, bffLogout, bootstrapBffCsrfSession, fetchBffSession, isBffAuthEnabled, runBffLocalAuthMigration, startBffSessionKeeper } from '@/app/utils/bffAuthClient';
+import { clearCsrfSessionToken } from '@/app/security/csrfSession';
+import { resolveInitialAuthState, shouldApplyGuestFallbackSession } from '@/app/context/authBoot';
 
-if (typeof window !== 'undefined') {
-  clearStaleDevMockFromSupabaseStorage();
-}
 
-function resolveBootAuth(): { user: User; session: Session } {
-  const persisted = readPersistedSupabaseAuth();
-  if (persisted.user && persisted.session) {
-    return { user: persisted.user, session: persisted.session };
-  }
-  const devUser = readDevMockUser();
-  const devToken = readDevMockAccessToken();
-  if (devUser && devToken) {
-    return {
-      user: devUser,
-      session: {
-        access_token: devToken,
-        token_type: 'bearer',
-        expires_in: 60 * 60,
-        expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
-        refresh_token: 'DEV_REFRESH_TOKEN',
-        user: devUser,
-      } as Session,
-    };
-  }
-  return createGuestLawyerSession();
+function resolveBootAuth() {
+  return resolveInitialAuthState();
 }
 
 async function deriveKeyFromSessionSecret(secret: string): Promise<CryptoKey> {
@@ -123,6 +104,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
+    if (!boot.session) return;
     const persisted = readPersistedSupabaseAuth();
     if (!persisted.session) {
       writeDevMockAuth(boot.session);
@@ -136,11 +118,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     writeDevMockAuth(guest.session);
   };
 
+  const applySignedOutState = (): void => {
+    setSession(null);
+    setUser(null);
+    clearDevMockAuth();
+  };
+
+  const applyGuestOrSignedOut = (): void => {
+    if (shouldApplyGuestFallbackSession()) {
+      applyGuestSession();
+      return;
+    }
+    applySignedOutState();
+  };
+
   const restoreDevMockIfPresent = (): boolean => {
     const devUser = readDevMockUser();
     const devToken = readDevMockAccessToken();
     if (!devUser || !devToken) return false;
-    if (import.meta.env.PROD && devUser.id !== GUEST_LAWYER_ID) {
+    if (import.meta.env.PROD && !shouldApplyGuestFallbackSession()) {
       clearDevMockAuth();
       return false;
     }
@@ -157,59 +153,117 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   useEffect(() => {
+    clearStaleDevMockFromSupabaseStorage();
+  }, []);
+
+  useEffect(() => {
     let mounted = true;
+    let detach: (() => void) | undefined;
+
+    const applySession = (next: Session | null) => {
+      if (!mounted) return;
+      if (next) {
+        setSession(next);
+        setUser(next.user ?? null);
+        setIsLoading(false);
+        return;
+      }
+      if (!restoreDevMockIfPresent()) {
+        applyGuestOrSignedOut();
+      }
+      setIsLoading(false);
+    };
+
+    if (isBffAuthEnabled()) {
+      setIsLoading(true);
+      let stopKeeper: (() => void) | undefined;
+      void runBffLocalAuthMigration()
+        .then(() => fetchBffSession())
+        .then(async (bffUser) => {
+          if (!mounted) return;
+          if (bffUser) {
+            setUser(bffUser);
+            setSession(null);
+            stopKeeper = startBffSessionKeeper();
+            await bootstrapBffCsrfSession();
+          } else if (!restoreDevMockIfPresent()) {
+            applyGuestOrSignedOut();
+          }
+        })
+        .catch(() => {
+          if (!mounted) return;
+          if (!restoreDevMockIfPresent()) {
+            applyGuestOrSignedOut();
+          }
+        })
+        .finally(() => {
+          if (mounted) setIsLoading(false);
+        });
+      return () => {
+        mounted = false;
+        stopKeeper?.();
+      };
+    }
+
+    if (!hasPersistedSupabaseSession()) {
+      return () => {
+        mounted = false;
+        detach?.();
+      };
+    }
 
     const AUTH_BOOT_TIMEOUT_MS = 8_000;
     const timeoutId = window.setTimeout(() => {
       if (mounted) setIsLoading(false);
     }, AUTH_BOOT_TIMEOUT_MS);
 
-    supabase.auth
-      .getSession()
-      .then(({ data }) => {
-        if (!mounted) return;
-        if (data.session) {
-          setSession(data.session);
-          setUser(data.session.user ?? null);
-          return;
-        }
-        if (!restoreDevMockIfPresent()) {
-          applyGuestSession();
-        }
-      })
-      .catch(() => {
-        if (!mounted) return;
-        applyGuestSession();
-      })
-      .finally(() => {
+    void attachSupabaseAuthListener({
+      onSession: applySession,
+      onReady: () => {
         window.clearTimeout(timeoutId);
         if (mounted) setIsLoading(false);
-      });
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      if (!mounted) return;
-      if (nextSession) {
-        setSession(nextSession);
-        setUser(nextSession.user ?? null);
+      },
+    })
+      .then((unsub) => {
+        detach = unsub;
+      })
+      .catch(() => {
+        window.clearTimeout(timeoutId);
+        if (!mounted) return;
+        if (!restoreDevMockIfPresent()) {
+          applyGuestOrSignedOut();
+        }
         setIsLoading(false);
-        return;
-      }
-      if (!restoreDevMockIfPresent()) {
-        applyGuestSession();
-      }
-      setIsLoading(false);
-    });
+      });
 
     return () => {
       mounted = false;
       window.clearTimeout(timeoutId);
-      sub.subscription.unsubscribe();
+      detach?.();
     };
   }, []);
 
   const login = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (isBffAuthEnabled()) {
+      await runBffLocalAuthMigration();
+      await signOutSupabase().catch(() => undefined);
+      const bffUser = await bffLogin(email, password);
+      setUser(bffUser);
+      setSession(null);
+      await bootstrapBffCsrfSession();
+      await logAction('login_success', {
+        source: 'AuthContext',
+        email,
+        mode: 'bff',
+      });
+      return;
+    }
+    const { session, error } = await signInWithPassword(email, password);
     if (error) throw error;
+    if (session) {
+      setSession(session);
+      setUser(session.user ?? null);
+    }
     await logAction('login_success', {
       source: 'AuthContext',
       email,
@@ -222,15 +276,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     options?: { fullName?: string; accountType?: 'lawyer' | 'client'; phone?: string },
   ) => {
     const accountType = options?.accountType ?? 'lawyer';
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          fullName: options?.fullName ?? '',
-          phone: options?.phone ?? '',
-          accountType,
-        },
+    const { error } = await signUpWithPassword(email, password, {
+      data: {
+        fullName: options?.fullName ?? '',
+        phone: options?.phone ?? '',
+        accountType,
       },
     });
     if (error) throw error;
@@ -238,12 +288,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = async () => {
     clearDevMockAuth();
-    try {
-      await supabase.auth.signOut();
-    } catch {
-      /* ignore — نبقى في وضع الضيف */
+    if (isBffAuthEnabled()) {
+      try {
+        const { SecureAPIClient } = await import('@/app/services/SecureAPIClient');
+        await SecureAPIClient.fetchSecure('/api/security/csrf', { method: 'DELETE' });
+      } catch {
+        /* best effort */
+      }
+      clearCsrfSessionToken();
+      await bffLogout();
+      applyGuestOrSignedOut();
+      return;
     }
-    applyGuestSession();
+    await signOutSupabase();
+    applyGuestOrSignedOut();
   };
 
   const hasRole = (role: 'lawyer' | 'client' | 'admin'): boolean => userHasRole(user, role);
@@ -292,7 +350,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsLoading(false);
     writeDevMockAuth(mockSession);
 
-    if (params.role === 'lawyer') {
+    if (params.role === 'lawyer' && !import.meta.env.DEV) {
       void import('@/app/runtime/lawyerDashboardLoader').then((m) => m.prefetchLawyerDashboardEntry());
     }
     

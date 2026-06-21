@@ -5,8 +5,8 @@
 type InFlightEntry = { promise: Promise<Response>; startedAt: number };
 
 const WINDOW_MS = import.meta.env.DEV ? 10_000 : 12_000;
-const MAX_REQUESTS_PER_WINDOW = import.meta.env.DEV ? 24 : 16;
-const MAX_IN_FLIGHT = import.meta.env.DEV ? 4 : 6;
+const MAX_REQUESTS_PER_WINDOW = import.meta.env.DEV ? 48 : 16;
+const MAX_IN_FLIGHT = import.meta.env.DEV ? 8 : 6;
 const DEV_RATE_LIMIT_WAIT_MS = 2_000;
 
 let windowStart = 0;

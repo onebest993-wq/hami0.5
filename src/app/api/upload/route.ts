@@ -3,7 +3,7 @@ import {
   extractUserTokenFromRequest,
   getVerifiedTokenSubject,
   isTokenAuthorized,
-  verifyWifeSignature,
+  assertWifeSignatureRequest,
   wifeForbiddenResponse, wifeSignatureFailedResponse,
   wifeUnauthorizedResponse,
 } from '../security/wifeValidator.ts';
@@ -55,9 +55,8 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     // 2) WIFE tamper/replay checkpoint.
-    if (!(await verifyWifeSignature(request, userToken))) {
-      return wifeSignatureFailedResponse(request);
-    }
+        const wifeBlock = await assertWifeSignatureRequest(request, userToken);
+    if (wifeBlock) return wifeBlock;
 
     const contentHashHeader =
       request.headers.get('x-wife-content-hash') ??

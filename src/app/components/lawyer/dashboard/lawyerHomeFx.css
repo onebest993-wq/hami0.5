@@ -92,8 +92,7 @@
     transition:
         background 0.5s ease,
         border-color 0.5s ease,
-        box-shadow 0.5s ease,
-        backdrop-filter 0.5s ease;
+        box-shadow 0.5s ease;
     backdrop-filter: blur(calc(4px + var(--glass-opacity, 0.88) * 18px))
         saturate(calc(105% + var(--glass-opacity, 0.88) * 45%));
     -webkit-backdrop-filter: blur(calc(4px + var(--glass-opacity, 0.88) * 18px))
@@ -181,6 +180,34 @@ html[data-hami-home-container-border='0'] [data-hami-lawyer-dashboard] .hami-sov
     box-shadow: none;
 }
 
+/* تجاوز إطار الحاوية لكل بطاقة */
+html[data-hami-home-container-border='0'] [data-hami-lawyer-dashboard] [data-hami-block-border='1'] .hami-home-themed-border {
+    border: 1px solid color-mix(
+        in srgb,
+        var(--hami-primary, #e6c673) 34%,
+        rgba(255, 255, 255, 0.14)
+    );
+}
+
+html[data-hami-home-container-border='0'] [data-hami-lawyer-dashboard] [data-hami-block-border='1'] .hami-sovereign-rim {
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, var(--hami-primary, #e6c673) 28%, rgba(255, 255, 255, 0.1)),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.24),
+        0 0 0 1px color-mix(in srgb, var(--hami-primary, #e6c673) 14%, transparent),
+        0 12px 36px rgba(0, 0, 0, 0.3);
+}
+
+html[data-hami-home-container-border='1'] [data-hami-lawyer-dashboard] [data-hami-block-border='0'] .hami-home-themed-border {
+    border-color: transparent;
+}
+
+html[data-hami-home-container-border='1'] [data-hami-lawyer-dashboard] [data-hami-block-border='0'] .hami-sovereign-rim {
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+        0 24px 64px rgba(0, 0, 0, 0.45);
+}
+
 .hami-sovereign-rim {
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.12),
@@ -195,6 +222,21 @@ html[data-hami-home-container-border='0'] [data-hami-lawyer-dashboard] .hami-sov
     .hami-sovereign-float {
         animation: none !important;
     }
+}
+
+html.reduce-motion .hami-sovereign-aurora,
+html.reduce-motion .hami-sovereign-shine::after,
+html.reduce-motion .hami-sovereign-breathe,
+html.reduce-motion .hami-sovereign-float,
+html.reduce-motion .hami-home-shimmer::after,
+html.reduce-motion .hami-home-pulse-ring,
+[data-hami-reduce-motion='1'] .hami-sovereign-aurora,
+[data-hami-reduce-motion='1'] .hami-sovereign-shine::after,
+[data-hami-reduce-motion='1'] .hami-sovereign-breathe,
+[data-hami-reduce-motion='1'] .hami-sovereign-float,
+[data-hami-reduce-motion='1'] .hami-home-shimmer::after,
+[data-hami-reduce-motion='1'] .hami-home-pulse-ring {
+    animation: none !important;
 }
 
 /* Legacy class aliases */
@@ -217,4 +259,268 @@ html[data-hami-home-container-border='0'] [data-hami-lawyer-dashboard] .hami-sov
 
 .hami-home-pulse-ring {
     animation: hami-sovereign-breathe 4s ease-in-out infinite;
+}
+
+/* ── تخصيص حاويات لوحة القيادة ── */
+[data-hami-lawyer-dashboard] [data-hami-block] {
+    --hami-block-accent: var(--hami-primary, #e6c673);
+}
+
+[data-hami-lawyer-dashboard] [data-hami-block].hami-sovereign-glass {
+    background:
+        linear-gradient(
+            158deg,
+            color-mix(in srgb, var(--hami-block-accent) calc(var(--glass-opacity, 0.88) * 16%), transparent) 0%,
+            transparent 42%,
+            color-mix(in srgb, var(--hami-block-accent) calc(var(--glass-opacity, 0.88) * 8%), transparent) 100%
+        ),
+        color-mix(
+            in srgb,
+            var(--hami-surface-bg, #0b1021) calc(var(--glass-opacity, 0.88) * 72%),
+            transparent
+        );
+}
+
+[data-hami-lawyer-dashboard] [data-hami-block].hami-home-themed-border {
+    border-color: color-mix(in srgb, var(--hami-block-accent) calc(var(--glass-opacity, 0.88) * 38%), transparent);
+}
+
+[data-hami-lawyer-dashboard] [data-hami-block].hami-sovereign-rim {
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, var(--hami-block-accent) calc(var(--glass-opacity, 0.88) * 40%), transparent),
+        inset 0 -1px 0 color-mix(in srgb, #000 calc(var(--glass-opacity, 0.88) * 38%), transparent),
+        0 0 0 1px color-mix(in srgb, var(--hami-block-accent) calc(var(--glass-opacity, 0.88) * 6%), transparent),
+        0 18px 52px rgba(0, 0, 0, calc(var(--glass-opacity, 0.88) * 0.5));
+}
+
+[data-hami-lawyer-dashboard] [data-hami-block] .hami-home-accent-text {
+    color: var(--hami-block-accent);
+}
+
+[data-hami-lawyer-dashboard] [data-hami-block] .hami-home-accent-chip {
+    background: color-mix(in srgb, var(--hami-block-accent) calc(var(--glass-opacity, 0.88) * 22%), transparent);
+    border-color: color-mix(in srgb, var(--hami-block-accent) calc(var(--glass-opacity, 0.88) * 28%), transparent);
+    color: var(--hami-block-accent);
+}
+
+html[data-hami-home-container-border='1'] [data-hami-lawyer-dashboard] [data-hami-block].hami-home-themed-border {
+    border-color: color-mix(in srgb, var(--hami-block-accent) 34%, rgba(255, 255, 255, 0.14));
+}
+
+html[data-hami-home-container-border='1'] [data-hami-lawyer-dashboard] [data-hami-block].hami-sovereign-rim {
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, var(--hami-block-accent) 28%, rgba(255, 255, 255, 0.1)),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.24),
+        0 0 0 1px color-mix(in srgb, var(--hami-block-accent) 14%, transparent),
+        0 12px 36px rgba(0, 0, 0, 0.3);
+}
+
+html[data-hami-home-container-border='0'] [data-hami-lawyer-dashboard] [data-hami-block-border='1'].hami-home-themed-border,
+html[data-hami-home-container-border='0'] [data-hami-lawyer-dashboard] [data-hami-block-border='1'] .hami-home-themed-border {
+    border-color: color-mix(in srgb, var(--hami-block-accent) 34%, rgba(255, 255, 255, 0.14));
+}
+
+html[data-hami-home-container-border='0'] [data-hami-lawyer-dashboard] [data-hami-block-border='1'].hami-sovereign-rim,
+html[data-hami-home-container-border='0'] [data-hami-lawyer-dashboard] [data-hami-block-border='1'] .hami-sovereign-rim {
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, var(--hami-block-accent) 28%, rgba(255, 255, 255, 0.1)),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.24),
+        0 0 0 1px color-mix(in srgb, var(--hami-block-accent) 14%, transparent),
+        0 12px 36px rgba(0, 0, 0, 0.3);
+}
+
+[data-hami-lawyer-dashboard] .hami-home-block-solid {
+    background: color-mix(
+        in srgb,
+        var(--hami-block-accent) calc(var(--glass-opacity, 0.92) * 11%),
+        rgba(8, 10, 18, calc(var(--glass-opacity, 0.92) * 0.95))
+    );
+    border-color: color-mix(in srgb, var(--hami-block-accent) calc(var(--glass-opacity, 0.92) * 30%), transparent);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+[data-hami-lawyer-dashboard] .hami-home-block-gradient {
+    background: linear-gradient(
+        145deg,
+        color-mix(in srgb, var(--hami-block-accent) calc(var(--glass-opacity, 0.92) * 24%), rgba(255, 255, 255, 0.04)) 0%,
+        rgba(0, 0, 0, calc(var(--glass-opacity, 0.92) * 0.6)) 55%,
+        color-mix(in srgb, var(--hami-block-accent) calc(var(--glass-opacity, 0.92) * 9%), transparent) 100%
+    );
+    border-color: color-mix(in srgb, var(--hami-block-accent) calc(var(--glass-opacity, 0.92) * 35%), transparent);
+}
+
+[data-hami-lawyer-dashboard] .hami-home-block-minimal {
+    background: rgba(255, 255, 255, calc(var(--glass-opacity, 0.92) * 0.028));
+    border-color: rgba(255, 255, 255, calc(var(--glass-opacity, 0.92) * 0.08));
+    backdrop-filter: blur(calc(4px + var(--glass-opacity, 0.92) * 10px));
+    -webkit-backdrop-filter: blur(calc(4px + var(--glass-opacity, 0.92) * 10px));
+    box-shadow: none;
+}
+
+[data-hami-lawyer-dashboard] .hami-home-block-compact {
+    --hami-block-pad: 0.75rem;
+}
+
+[data-hami-lawyer-dashboard] .hami-home-block-large {
+    --hami-block-pad: 1.5rem;
+}
+
+[data-hami-lawyer-dashboard] [data-hami-block].hami-home-block-compact .hami-block-pad-target {
+    padding: var(--hami-block-pad, 0.75rem);
+}
+
+[data-hami-lawyer-dashboard] [data-hami-block].hami-home-block-large .hami-block-pad-target {
+    padding: var(--hami-block-pad, 1.5rem);
+}
+
+/* ── عرض عمود الرئيسية / الدوك (هاتف → تابلت) ── */
+[data-hami-lawyer-dashboard] {
+    --hami-shell-max-width: min(440px, calc(100vw - 2.5rem));
+    --hami-shell-gutter: 1.25rem;
+    --hami-dock-ui-scale: 1;
+    --hami-prompt-track-height: 3.25rem;
+    --hami-prompt-mic-size: 3.35rem;
+    --hami-home-dock-scroll-pad: 13rem;
+}
+
+@media (min-width: 600px) {
+    [data-hami-lawyer-dashboard] {
+        --hami-shell-max-width: min(520px, calc(100vw - 3rem));
+        --hami-shell-gutter: 1.5rem;
+        --hami-dock-ui-scale: 1.04;
+    }
+}
+
+@media (min-width: 768px) {
+    [data-hami-lawyer-dashboard] {
+        --hami-shell-max-width: min(580px, calc(100vw - 3.5rem));
+        --hami-shell-gutter: 1.75rem;
+        --hami-dock-ui-scale: 1.06;
+        --hami-prompt-track-height: 3.375rem;
+        --hami-prompt-mic-size: 3.5rem;
+        --hami-home-dock-scroll-pad: 13.25rem;
+    }
+}
+
+@media (min-width: 1024px) {
+    [data-hami-lawyer-dashboard] {
+        --hami-shell-max-width: min(640px, calc(100vw - 4rem));
+        --hami-shell-gutter: 2rem;
+        --hami-dock-ui-scale: 1.08;
+        --hami-prompt-track-height: 3.5rem;
+        --hami-prompt-mic-size: 3.625rem;
+    }
+}
+
+.hami-shell-container {
+    width: 100%;
+    max-width: var(--hami-shell-max-width);
+    margin-inline: auto;
+}
+
+.hami-shell-gutter-x {
+    padding-left: max(var(--hami-shell-gutter), env(safe-area-inset-left, 0px));
+    padding-right: max(var(--hami-shell-gutter), env(safe-area-inset-right, 0px));
+}
+
+.hami-home-dock-scroll-pad {
+    padding-bottom: var(--hami-home-dock-scroll-pad);
+    scroll-padding-bottom: var(--hami-home-dock-scroll-pad);
+}
+
+/* ── شريط الأمر السيادي (تحدث / اكتب) ── */
+.hami-sovereign-prompt-track {
+    height: var(--hami-prompt-track-height);
+    isolation: isolate;
+    background:
+        linear-gradient(
+            165deg,
+            rgba(255, 255, 255, 0.07) 0%,
+            rgba(8, 12, 22, 0.55) 38%,
+            rgba(4, 8, 16, 0.82) 100%
+        );
+    border-color: color-mix(in srgb, var(--hami-primary, #c4a075) 38%, rgba(255, 255, 255, 0.08));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+        0 0 0 1px color-mix(in srgb, var(--hami-primary, #c4a075) 12%, transparent),
+        0 12px 40px rgba(0, 0, 0, 0.45),
+        0 0 32px color-mix(in srgb, var(--hami-primary, #c4a075) 14%, transparent);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+}
+
+.hami-sovereign-prompt-track::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.1) 0%,
+        transparent 42%,
+        rgba(0, 0, 0, 0.18) 100%
+    );
+    pointer-events: none;
+}
+
+.hami-sovereign-prompt-track::after {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: 50%;
+    width: 4.5rem;
+    height: 1.35rem;
+    transform: translateX(-50%);
+    border-radius: 0 0 2rem 2rem;
+    background: rgba(4, 8, 16, 0.92);
+    box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--hami-primary, #c4a075) 22%, transparent);
+    pointer-events: none;
+}
+
+.hami-sovereign-prompt-mic {
+    width: var(--hami-prompt-mic-size);
+    height: var(--hami-prompt-mic-size);
+    animation: hami-sovereign-float 5s ease-in-out infinite;
+}
+
+html.reduce-motion .hami-sovereign-prompt-mic,
+[data-hami-reduce-motion='1'] .hami-sovereign-prompt-mic {
+    animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hami-sovereign-prompt-mic {
+        animation: none !important;
+    }
+}
+
+/* ── Dock shell: أيقونات متساوية حسب العدد ── */
+[data-hami-block='dockShell'] .hami-dock-shell-row {
+    align-items: end;
+    padding-bottom: 0.125rem;
+}
+
+[data-hami-block='dockShell'] .hami-dock-item {
+    touch-action: manipulation;
+}
+
+[data-hami-block='dockShell'] .hami-dock-item-label {
+    max-width: 100%;
+    letter-spacing: 0.02em;
+    line-height: 1.25;
+    min-height: 1.1em;
+    padding-bottom: 1px;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    word-break: break-word;
+}
+
+[data-hami-block='dockShell'][data-hami-dock-count='4'] .hami-dock-item-label,
+[data-hami-block='dockShell'][data-hami-dock-count='5'] .hami-dock-item-label,
+[data-hami-block='dockShell'][data-hami-dock-count='6'] .hami-dock-item-label {
+    letter-spacing: 0.01em;
 }

@@ -1,6 +1,5 @@
 import { UserRole } from '@/app/types/admin-types';
 import type { BanRecord, CommunityComment, CommunityPost, CommunityReport } from '@/app/services/lawyer-cloud';
-import { NotificationDB } from '@/app/services/lawyer-cloud';
 import {
     communityPostToInsertRow,
     postRowToCommunity,
@@ -255,6 +254,15 @@ export const ForumRepository = {
             await addCommunityComment(postId, comment);
             const post = await this.getPostById(postId);
             if (!post) throw new Error('المنشور غير موجود');
+            const parentComment = comment.parentId
+                ? post.comments.find((c) => c.id === comment.parentId) ?? null
+                : null;
+            const {
+                autoSubscribeCommenterToThread,
+                dispatchCommentNotifications,
+            } = await import('./forumNotificationDispatch');
+            await autoSubscribeCommenterToThread(comment.authorId, postId);
+            await dispatchCommentNotifications({ post, comment, parentComment });
             return post;
         }
 
@@ -277,18 +285,12 @@ export const ForumRepository = {
         const post = await this.getPostById(postId);
         if (!post) throw new Error('المنشور غير موجود');
 
-        if (comment.authorId !== post.authorId) {
-            await NotificationDB.addNotification({
-                id: createId(),
-                userId: post.authorId,
-                type: 'comment',
-                title: 'تعليق جديد على منشورك',
-                message: `علق ${comment.authorName} على منشورك "${post.content.slice(0, 50)}..."`,
-                postId: post.id,
-                read: false,
-                createdAt: new Date().toISOString(),
-            });
-        }
+        const parentComment = comment.parentId
+            ? post.comments.find((c) => c.id === comment.parentId) ?? null
+            : null;
+        const { dispatchCommentNotifications, autoSubscribeCommenterToThread } = await import('./forumNotificationDispatch');
+        await autoSubscribeCommenterToThread(comment.authorId, postId);
+        await dispatchCommentNotifications({ post, comment, parentComment });
 
         return post;
     },
@@ -448,13 +450,22 @@ export const ForumRepository = {
         }));
     },
 
-    async dismissReport(reportId: string, reviewerId: string): Promise<void> {
+    async dismissReport(
+        reportId: string,
+        reviewerId: string,
+        notifyOutcome: 'dismissed' | 'removed' | false = 'dismissed',
+    ): Promise<void> {
         const admin = getForumSupabaseAdmin();
         if (!admin) {
             const { dismissCommunityReport } = await import('@/app/services/lawyer-cloud');
             await dismissCommunityReport(reportId, reviewerId);
             return;
         }
+        const { data: reportRow } = await admin
+            .from('forum_reports')
+            .select('reporter_id, post_id')
+            .eq('id', reportId)
+            .maybeSingle();
         await admin
             .from('forum_reports')
             .update({
@@ -463,6 +474,16 @@ export const ForumRepository = {
                 reviewed_at: new Date().toISOString(),
             })
             .eq('id', reportId);
+        if (notifyOutcome && reportRow) {
+            const row = reportRow as { reporter_id: string; post_id: string };
+            void import('./forumNotificationDispatch').then(({ dispatchReportOutcomeNotification }) =>
+                dispatchReportOutcomeNotification({
+                    reporterId: row.reporter_id,
+                    postId: row.post_id,
+                    outcome: notifyOutcome,
+                }),
+            );
+        }
     },
 
     async isBanned(userId: string): Promise<BanRecord | null> {

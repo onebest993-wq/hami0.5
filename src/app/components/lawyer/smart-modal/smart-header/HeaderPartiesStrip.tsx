@@ -2,7 +2,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import type { Party } from '../../LawyerShared';
 import { PartySidePane } from './PartySidePane';
 import { InterpleaderPartiesPane } from './InterpleaderPartiesPane';
-import { PARTY_STRIP_SHELL } from './smartHeaderPresentation';
 
 export interface HeaderPartiesStripProps {
     plaintiffs: Party[];
@@ -44,10 +43,10 @@ export function HeaderPartiesStrip({
     const hasMainParties = plaintiffs.length > 0 || defendants.length > 0;
 
     return (
-        <div className="space-y-2" dir="rtl">
+        <div className="space-y-3" dir="rtl">
             {hasMainParties ? (
-                <div className={`${PARTY_STRIP_SHELL} p-2`}>
-                    <div className="flex items-start gap-2 min-w-0">
+                <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
                         <PartySidePane
                             label={p1Role}
                             labelClassName="text-emerald-400/95"
@@ -58,12 +57,6 @@ export function HeaderPartiesStrip({
                             onToggleParty={onToggleParty}
                         />
 
-                        {plaintiffs.length > 0 && defendants.length > 0 ? (
-                            <div className="flex items-center self-stretch shrink-0 px-0.5 pt-4" aria-hidden>
-                                <div className="w-px h-full min-h-[1.75rem] bg-gradient-to-b from-transparent via-white/15 to-transparent" />
-                            </div>
-                        ) : null}
-
                         <PartySidePane
                             label={p2Role}
                             labelClassName="text-rose-400/95"
@@ -73,7 +66,7 @@ export function HeaderPartiesStrip({
                             openPartyKey={openPartyKey}
                             onToggleParty={onToggleParty}
                         />
-                    </div>
+                </div>
 
                     <AnimatePresence initial={false}>
                         {addressLine && openPartyKey?.startsWith('p') ? (
@@ -82,13 +75,13 @@ export function HeaderPartiesStrip({
                                 initial={{ opacity: 0, height: 0 }}
                                 animate={{ opacity: 1, height: 'auto' }}
                                 exit={{ opacity: 0, height: 0 }}
-                                className="mt-1.5 pt-1 border-t border-white/[0.04] text-[10px] text-white/38 truncate px-0.5"
+                                className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-2.5 py-1.5 text-[10px] text-white/45 truncate"
                             >
                                 {addressLine}
                             </motion.p>
                         ) : null}
                     </AnimatePresence>
-                </div>
+                </>
             ) : null}
 
             {interpleaders.length > 0 ? (

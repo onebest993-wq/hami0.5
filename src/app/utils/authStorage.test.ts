@@ -5,6 +5,9 @@ import {
   clearStaleDevMockFromSupabaseStorage,
   hasPersistedSupabaseSession,
   isDevMockAccessToken,
+  listSupabaseJwtStorageKeys,
+  purgeLegacyCryptoWrapSession,
+  purgePersistedSupabaseJwtFromLocalStorage,
   readDevMockAccessToken,
   readPersistedSupabaseAuth,
   writeDevMockAuth,
@@ -58,5 +61,33 @@ describe('authStorage dev mock', () => {
     writeDevMockAuth(mockSession('dev-access-token-admin-uuid-1', mockUser('admin-uuid-1')));
     clearDevMockAuth();
     expect(readDevMockAccessToken()).toBeNull();
+  });
+
+  it('purgePersistedSupabaseJwtFromLocalStorage removes sb auth keys', () => {
+    const key = `sb-${projectId}-auth-token`;
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        access_token: 'eyJhbGciOiJIUzI1NiJ9.real',
+        refresh_token: 'refresh',
+        user: mockUser('user-1'),
+      }),
+    );
+    localStorage.setItem('sb-other-project-auth-token', '{"access_token":"x"}');
+
+    expect(listSupabaseJwtStorageKeys().length).toBe(2);
+
+    const purged = purgePersistedSupabaseJwtFromLocalStorage();
+    expect(purged).toBe(true);
+    expect(localStorage.getItem(key)).toBeNull();
+    expect(localStorage.getItem('sb-other-project-auth-token')).toBeNull();
+    expect(purgePersistedSupabaseJwtFromLocalStorage()).toBe(false);
+  });
+
+  it('purgeLegacyCryptoWrapSession clears sessionStorage wrap key', () => {
+    sessionStorage.setItem('hami-crypto-session-key', '{"wrapped":"abc"}');
+    expect(purgeLegacyCryptoWrapSession()).toBe(true);
+    expect(sessionStorage.getItem('hami-crypto-session-key')).toBeNull();
+    expect(purgeLegacyCryptoWrapSession()).toBe(false);
   });
 });

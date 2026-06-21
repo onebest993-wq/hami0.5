@@ -22,7 +22,42 @@ type RawNote = {
 };
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+const CALENDAR_REPOPULATE_INTERVAL_MS = 25 * 60 * 1000;
 const DEBOUNCE_MS = 350;
+const DATA_CHANGE_DEBOUNCE_MS = 2_500;
+
+/** بصمة خفيفة — تجنّب join لآلاف المعرفات على كل تغيير */
+function fingerprintIds(items: Array<{ id?: unknown }>): number {
+    let h = items.length;
+    const step = items.length > 48 ? Math.ceil(items.length / 48) : 1;
+    for (let i = 0; i < items.length; i += step) {
+        const id = String(items[i]?.id ?? i);
+        h = (Math.imul(h, 31) + id.charCodeAt(0)) | 0;
+        if (id.length > 1) h = (Math.imul(h, 31) + id.charCodeAt(id.length - 1)) | 0;
+    }
+    return h;
+}
+
+function buildAlertsDataSignature(params: {
+    files: FileData[];
+    executionFiles: unknown[];
+    criminalCases?: unknown[];
+    notes: RawNote[];
+    fieldTasks?: LegalTask[];
+}): string {
+    return [
+        params.files.length,
+        params.executionFiles.length,
+        params.criminalCases?.length ?? 0,
+        params.notes.length,
+        params.fieldTasks?.length ?? 0,
+        fingerprintIds(params.files),
+        fingerprintIds(params.executionFiles as Array<{ id?: unknown }>),
+        fingerprintIds((params.criminalCases ?? []) as Array<{ id?: unknown }>),
+        fingerprintIds(params.notes),
+        fingerprintIds(params.fieldTasks ?? []),
+    ].join('|');
+}
 
 export function useAppAlerts(params: {
     lawyerId?: string | null;
@@ -46,6 +81,7 @@ export function useAppAlerts(params: {
     const generationRef = useRef(0);
     const debounceRef = useRef<number | null>(null);
     const hasLoadedOnceRef = useRef(false);
+    const dataSignatureRef = useRef('');
 
     filesRef.current = params.files;
     executionRef.current = params.executionFiles;
@@ -53,20 +89,26 @@ export function useAppAlerts(params: {
     fieldTasksRef.current = params.fieldTasks ?? [];
     criminalRef.current = params.criminalCases ?? [];
 
-    const refresh = useCallback(async () => {
+    const refresh = useCallback(async (options?: { syncCalendar?: boolean }) => {
+        const syncCalendar = options?.syncCalendar === true;
         const uid = resolveCalendarUserId(params.lawyerId ?? null);
         const gen = ++generationRef.current;
         if (!hasLoadedOnceRef.current) setLoading(true);
         setError(null);
         try {
-            await ensureCalendarPopulatedFromLiveDossiers({
-                lawyerId: uid,
-                lawsuitFiles: filesRef.current,
-                executionFiles: executionRef.current,
-                criminalCases: criminalRef.current,
-                globalNotes: notesRef.current,
-                fieldTasks: fieldTasksRef.current,
-            }, { emitUpdated: false });
+            if (syncCalendar) {
+                await ensureCalendarPopulatedFromLiveDossiers(
+                    {
+                        lawyerId: uid,
+                        lawsuitFiles: filesRef.current,
+                        executionFiles: executionRef.current,
+                        criminalCases: criminalRef.current,
+                        globalNotes: notesRef.current,
+                        fieldTasks: fieldTasksRef.current,
+                    },
+                    { emitUpdated: false },
+                );
+            }
 
             const rawList = await SecretaryOrchestrator.getUnifiedAlerts({
                 lawyerId: uid,
@@ -108,16 +150,20 @@ export function useAppAlerts(params: {
         setError(null);
     }, [params.lawyerId]);
 
-    const scheduleRefresh = useCallback(() => {
-        if (debounceRef.current !== null) window.clearTimeout(debounceRef.current);
-        debounceRef.current = window.setTimeout(() => {
-            debounceRef.current = null;
-            void refresh();
-        }, DEBOUNCE_MS);
-    }, [refresh]);
+    const scheduleRefresh = useCallback(
+        (options?: { syncCalendar?: boolean; debounceMs?: number }) => {
+            const debounceMs = options?.debounceMs ?? DEBOUNCE_MS;
+            if (debounceRef.current !== null) window.clearTimeout(debounceRef.current);
+            debounceRef.current = window.setTimeout(() => {
+                debounceRef.current = null;
+                void refresh({ syncCalendar: options?.syncCalendar });
+            }, debounceMs);
+        },
+        [refresh],
+    );
 
     useEffect(() => {
-        const runInitial = () => scheduleRefresh();
+        const runInitial = () => scheduleRefresh({ syncCalendar: true });
         let cancelDefer: (() => void) | undefined;
         if (params.deferUntilIdle) {
             if (typeof requestIdleCallback !== 'undefined') {
@@ -131,24 +177,36 @@ export function useAppAlerts(params: {
             runInitial();
         }
         let interval: number | null = null;
+        let calendarInterval: number | null = null;
         const startInterval = () => {
             if (interval != null) return;
-            interval = window.setInterval(() => void refresh(), REFRESH_INTERVAL_MS);
+            interval = window.setInterval(
+                () => void refresh({ syncCalendar: false }),
+                REFRESH_INTERVAL_MS,
+            );
+            calendarInterval = window.setInterval(
+                () => void refresh({ syncCalendar: true }),
+                CALENDAR_REPOPULATE_INTERVAL_MS,
+            );
         };
         const stopInterval = () => {
             if (interval != null) {
                 window.clearInterval(interval);
                 interval = null;
             }
+            if (calendarInterval != null) {
+                window.clearInterval(calendarInterval);
+                calendarInterval = null;
+            }
         };
         const isVisible = () =>
             typeof document === 'undefined' || document.visibilityState !== 'hidden';
         if (isVisible()) startInterval();
 
-        const onCalendar = () => scheduleRefresh();
+        const onCalendar = () => scheduleRefresh({ syncCalendar: true });
         const onVisibilityChange = () => {
             if (isVisible()) {
-                scheduleRefresh();
+                scheduleRefresh({ syncCalendar: false });
                 startInterval();
             } else {
                 stopInterval();
@@ -168,16 +226,27 @@ export function useAppAlerts(params: {
             }
             generationRef.current += 1;
         };
+    }, [scheduleRefresh, refresh, params.deferUntilIdle, params.lawyerId]);
+
+    useEffect(() => {
+        const signature = buildAlertsDataSignature(params);
+        if (signature === dataSignatureRef.current) return;
+        dataSignatureRef.current = signature;
+        scheduleRefresh({ syncCalendar: false, debounceMs: DATA_CHANGE_DEBOUNCE_MS });
     }, [
-        scheduleRefresh,
-        refresh,
-        params.deferUntilIdle,
         params.files,
         params.executionFiles,
         params.criminalCases,
         params.notes,
         params.fieldTasks,
+        scheduleRefresh,
     ]);
 
-    return { alerts, loading, error, refresh };
+    return {
+        alerts,
+        loading,
+        error,
+        refresh: () => refresh({ syncCalendar: true }),
+        refreshLight: () => refresh({ syncCalendar: false }),
+    };
 }

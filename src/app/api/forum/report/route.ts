@@ -36,6 +36,16 @@ export async function POST(request: Request): Promise<Response> {
         }
 
         const result = await ForumRepository.reportPost(payload.postId, payload.reason, auth.userId);
+        if (result.ok) {
+            void import('../../../services/forum/forumNotificationDispatch').then(({ dispatchForumReportSubmitted }) =>
+                dispatchForumReportSubmitted({
+                    postId: payload.postId as string,
+                    reporterId: auth.userId,
+                    reason: payload.reason as string,
+                    targetLabel: 'منشور',
+                }),
+            );
+        }
 
         return jsonResponse(200, { ok: true, action: 'forum_report', result });
     } catch {

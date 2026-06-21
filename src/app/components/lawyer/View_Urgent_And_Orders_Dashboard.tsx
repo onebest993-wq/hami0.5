@@ -343,9 +343,9 @@ export const View_Urgent_And_Orders_Dashboard: React.FC<Props> = ({
     };
 
     return (
-        <div className="min-h-screen bg-[#0B1021] font-['Tajawal'] p-6">
-            <div className="mb-8">
-                <div className="flex items-center justify-between mb-6">
+        <div className={embeddedInWorkspace ? 'h-full min-h-0 bg-[#0B1021] font-[\'Tajawal\'] px-4 py-4' : 'min-h-screen bg-[#0B1021] font-[\'Tajawal\'] p-6'}>
+            <div className={embeddedInWorkspace ? 'mb-4' : 'mb-8'}>
+                <div className={`flex items-center justify-between ${embeddedInWorkspace ? 'mb-4' : 'mb-6'}`}>
                     <div className="flex items-center gap-4">
                         {onBack && (
                             <button type="button"
@@ -355,21 +355,23 @@ export const View_Urgent_And_Orders_Dashboard: React.FC<Props> = ({
                                 <ArrowLeft className="text-white" size={20} />
                             </button>
                         )}
-                        <div>
-                            <h1 className="text-3xl font-bold text-white mb-2">
-                                لوحة القضاء المستعجل
-                            </h1>
-                        </div>
+                        {!embeddedInWorkspace ? (
+                            <div>
+                                <h1 className="text-3xl font-bold text-white mb-2">
+                                    لوحة القضاء المستعجل
+                                </h1>
+                            </div>
+                        ) : null}
                     </div>
 
                     {showWorkspaceControls && (
-                        <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl p-1">
+                        <div className="flex flex-wrap items-center gap-2 justify-end">
+                            <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-[#0B1021]/70 p-1">
                                 <button
                                     type="button"
                                     onClick={() => setScope('active')}
-                                    className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                                        scope === 'active' ? 'bg-[#E6C673] text-[#0B1021]' : 'text-white/70 hover:text-white hover:bg-white/10'
+                                    className={`h-9 px-3 rounded-xl text-xs font-bold transition-all ${
+                                        scope === 'active' ? 'bg-[#E6C673] text-[#0B1021]' : 'text-white/65 hover:text-white hover:bg-white/[0.08]'
                                     }`}
                                 >
                                     الفعّالة
@@ -377,8 +379,8 @@ export const View_Urgent_And_Orders_Dashboard: React.FC<Props> = ({
                                 <button
                                     type="button"
                                     onClick={() => setScope('archive')}
-                                    className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                                        scope === 'archive' ? 'bg-[#E6C673] text-[#0B1021]' : 'text-white/70 hover:text-white hover:bg-white/10'
+                                    className={`h-9 px-3 rounded-xl text-xs font-bold transition-all ${
+                                        scope === 'archive' ? 'bg-amber-950/45 text-amber-100 border border-amber-500/25' : 'text-white/65 hover:text-white hover:bg-white/[0.08]'
                                     }`}
                                 >
                                     الأرشيف
@@ -386,19 +388,20 @@ export const View_Urgent_And_Orders_Dashboard: React.FC<Props> = ({
                                 <button
                                     type="button"
                                     onClick={() => setScope('trash')}
-                                    className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                                        scope === 'trash' ? 'bg-[#E6C673] text-[#0B1021]' : 'text-white/70 hover:text-white hover:bg-white/10'
+                                    className={`h-9 px-3 rounded-xl text-xs font-bold transition-all ${
+                                        scope === 'trash' ? 'bg-rose-950/50 text-rose-100 border border-rose-500/25' : 'text-white/65 hover:text-white hover:bg-white/[0.08]'
                                     }`}
                                 >
                                     سلة المهملات
                                 </button>
                             </div>
 
-                            <button type="button"
+                            <button
+                                type="button"
                                 onClick={() => setShowFormModal(true)}
-                                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#E6C673] to-[#D4AF37] text-[#0B1021] font-bold hover:opacity-90 transition-all shadow-lg"
+                                className="flex items-center gap-2 h-9 px-4 rounded-xl bg-gradient-to-r from-[#E6C673] to-[#D4AF37] text-[#0B1021] text-xs font-bold hover:opacity-90 transition-all"
                             >
-                                <Plus size={18} />
+                                <Plus size={16} />
                                 <span>إضافة جديد</span>
                             </button>
                         </div>

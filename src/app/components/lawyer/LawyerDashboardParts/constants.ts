@@ -2,6 +2,7 @@ export const CAIRO_FONT_STYLE = { fontFamily: 'Cairo, sans-serif' } as const;
 
 export {
     ArchivePortalFallback as ARCHIVE_PORTAL_FALLBACK,
+    CommunityScreenFallback as COMMUNITY_SCREEN_FALLBACK,
     LawyerLazyFallback as LAWYER_LAZY_FALLBACK,
     LawyerHomeAlertsFallback as LAWYER_HOME_ALERTS_FALLBACK,
     LawyerHomeHubFallback as LAWYER_HOME_HUB_FALLBACK,

@@ -96,6 +96,19 @@ describe('countPendingFieldTasks', () => {
         expect(countPendingFieldTasks(pending)).toBe(1);
     });
 
+    it('excludes completed pinned tasks from badge count', () => {
+        const pending = [
+            task({ id: '1', title: 'مثبت', pinnedToFieldCurtain: true }),
+            task({
+                id: '2',
+                title: 'منجز',
+                pinnedToFieldCurtain: true,
+                completedAt: new Date(),
+            }),
+        ];
+        expect(countPendingFieldTasks(pending)).toBe(1);
+    });
+
     it('ignores unpinned tasks even with locations', () => {
         const pending = [
             task({ id: '1', title: 'فرع منجز', subTasks: [{ id: 's1', title: 'x', location: 'بابل', isCompleted: true }] }),

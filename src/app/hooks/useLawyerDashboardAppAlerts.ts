@@ -5,10 +5,27 @@ import { filterVisibleAlerts } from '@/app/services/appAlertDismiss';
 import { markAlertSeenForPush } from '@/app/services/appAlertPushSync';
 import { useNotificationStore } from '@/app/stores/notificationStore';
 
+type AlertsSlice = {
+    alerts: SecretaryAlert[];
+    loading: boolean;
+    error: string | null;
+};
+
+function alertsSliceEqual(a: AlertsSlice, b: AlertsSlice): boolean {
+    return (
+        a.loading === b.loading &&
+        a.error === b.error &&
+        a.alerts.length === b.alerts.length &&
+        a.alerts.every((item, i) => item.id === b.alerts[i]?.id)
+    );
+}
+
 export function useLawyerDashboardAppAlerts(userId: string | undefined) {
-    const [appAlerts, setAppAlerts] = useState<SecretaryAlert[]>([]);
-    const [appAlertsLoading, setAppAlertsLoading] = useState(false);
-    const [appAlertsError, setAppAlertsError] = useState<string | null>(null);
+    const [alertsSlice, setAlertsSlice] = useState<AlertsSlice>({
+        alerts: [],
+        loading: false,
+        error: null,
+    });
     const refreshAppAlertsRef = useRef<() => void>(() => {});
 
     const refreshAppAlerts = useCallback(() => {
@@ -22,10 +39,15 @@ export function useLawyerDashboardAppAlerts(userId: string | undefined) {
             error: string | null;
             refresh: () => void;
         }) => {
-            setAppAlerts(payload.alerts);
-            setAppAlertsLoading(payload.loading);
-            setAppAlertsError(payload.error);
             refreshAppAlertsRef.current = payload.refresh;
+            setAlertsSlice((prev) => {
+                const next: AlertsSlice = {
+                    alerts: payload.alerts,
+                    loading: payload.loading,
+                    error: payload.error,
+                };
+                return alertsSliceEqual(prev, next) ? prev : next;
+            });
         },
         [],
     );
@@ -46,8 +68,8 @@ export function useLawyerDashboardAppAlerts(userId: string | undefined) {
     );
 
     const visibleAppAlerts = useMemo(
-        () => filterVisibleAlerts(appAlerts, dismissedIds),
-        [appAlerts, dismissedIds],
+        () => filterVisibleAlerts(alertsSlice.alerts, dismissedIds),
+        [alertsSlice.alerts, dismissedIds],
     );
 
     const handleAlertResolved = useCallback(
@@ -59,9 +81,9 @@ export function useLawyerDashboardAppAlerts(userId: string | undefined) {
     );
 
     return {
-        appAlerts,
-        appAlertsLoading,
-        appAlertsError,
+        appAlerts: alertsSlice.alerts,
+        appAlertsLoading: alertsSlice.loading,
+        appAlertsError: alertsSlice.error,
         refreshAppAlertsRef,
         refreshAppAlerts,
         handleAlertsFromBackground,

@@ -5,8 +5,8 @@ export function taskHierarchyVisuals(depth: number) {
         isRoot,
         levelLabel: isRoot ? 'مهمة رئيسية' : 'إجراء متفرع',
         cardClass: isRoot
-            ? 'bg-[#1A3340] border-[#C4782F]/35 hover:border-[#C4782F]/50'
-            : 'bg-[#152A32] border-[#2A4550]/90 hover:border-[#2A4550]',
+            ? 'bg-[#1A3340] border-[#C4782F]/40 shadow-[0_4px_24px_rgba(196,120,47,0.08)]'
+            : 'bg-[#152A32] border-[#2A4550]/90 hover:border-[#C4782F]/25',
         numberBadgeClass: isRoot
             ? 'bg-[#C4782F]/14 border-[#C4782F]/40 text-[#D49248]'
             : 'bg-[#1A3340] border-[#2A4550] text-[#B4B0AA]',

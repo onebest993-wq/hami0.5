@@ -1,6 +1,7 @@
 import type { LawyerDashboardOverlaysHostProps } from '@/app/components/lawyer/dashboard/lawyerDashboardOverlaysHostBundles';
 import { pickLawyerDashboardWorkspaceOverlayBundles } from '@/app/hooks/lawyerDashboard/pickLawyerDashboardWorkspaceOverlayBundles';
 import type { BuildLawyerDashboardOverlaysHostParams } from '@/app/hooks/lawyerDashboard/buildLawyerDashboardOverlaysHostProps.types';
+import { readPersistedSupabaseAuth } from '@/app/utils/authStorage';
 
 export function buildLawyerDashboardOverlaysHostProps({
     onLogout,
@@ -33,7 +34,7 @@ export function buildLawyerDashboardOverlaysHostProps({
             authUserId: authUser?.id,
             shapeClass,
             theme,
-            lawyerShellAccess: Boolean(user ?? authUser),
+            lawyerShellAccess: Boolean(user ?? authUser ?? readPersistedSupabaseAuth().user),
         },
         data: {
             files,

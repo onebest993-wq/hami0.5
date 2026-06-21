@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { CheckCircle2, ChevronDown, MapPin, PanelBottom, X, ClipboardList } from 'lucide-react';
@@ -6,7 +6,7 @@ import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
 import { buildTaskWorkspacePin } from '@/app/workspace/workspacePinBuilders';
 import type { LegalTask } from '@/app/types/TaskEngine';
-import { isTaskOnFieldCurtain } from '@/app/utils/fieldCurtain';
+import { listActiveFieldCurtainTasks } from '@/app/services/tasks/fieldCurtainTasks';
 import { useQuantumTasksContext } from '@/app/hooks/useQuantumTasksContext';
 import { useFatalTaskComplete } from '@/app/hooks/useFatalTaskComplete';
 import { isTaskAgendaReadOnly, isTaskMarkedDone } from '@/app/components/lawyer/dashboard/tasksManager/utils';
@@ -211,20 +211,18 @@ export const FieldTasksBottomSheet: React.FC<FieldTasksBottomSheetProps> = ({
     const { fatalOpen, requestComplete, confirmFatalComplete, cancelFatalComplete } =
         useFatalTaskComplete(completeTask);
 
-    const curtainTasks = useMemo(
-        () =>
-            pendingTasks
-                .filter(isTaskOnFieldCurtain)
-                .sort((a, b) => {
-                    if (a.pinnedToFieldCurtain !== b.pinnedToFieldCurtain) {
-                        return a.pinnedToFieldCurtain ? -1 : 1;
-                    }
-                    return a.title.localeCompare(b.title, 'ar');
-                }),
-        [pendingTasks],
-    );
+    const curtainTasks = useMemo(() => listActiveFieldCurtainTasks(pendingTasks), [pendingTasks]);
 
     useBodyScrollLock(open);
+
+    useEffect(() => {
+        if (!open) return;
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [open, onClose]);
 
     if (typeof document === 'undefined') return null;
 

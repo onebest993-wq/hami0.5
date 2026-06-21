@@ -1,4 +1,5 @@
 import React from 'react';
+import { MapPinned } from 'lucide-react';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { WORK_WEEK } from './constants';
 import type { WeekAddState } from './types';
@@ -42,7 +43,7 @@ export function WeeklyAgendaSection({
             {weeklyDayBlocks.map((block) => (
                 <article key={block.key} className={TASKS_DAY_PANEL}>
                     <div className="absolute top-3 left-4 right-4 h-px bg-gradient-to-r from-transparent via-[#A67C52]/25 to-transparent pointer-events-none" />
-                    <header className="flex flex-row-reverse items-center justify-between gap-3 mb-5 flex-wrap relative">
+                    <header className="flex flex-row-reverse items-center justify-between gap-3 mb-3 flex-wrap relative">
                         <div className="text-right">
                             <h3 className="text-[#E8F5F0] font-extrabold text-lg tracking-tight">{block.label}</h3>
                             <p className="text-[#6BC4A8]/55 text-xs font-semibold mt-1.5">{formatShortDate(block.dayDate)}</p>
@@ -53,10 +54,10 @@ export function WeeklyAgendaSection({
                     </header>
 
                     {weekAdd?.dayKey === block.key ? (
-                        <div className={`mb-5 ${TASKS_GLASS_PANEL} p-4 space-y-4`}>
+                        <div className={`mb-3 ${TASKS_GLASS_PANEL} p-3 space-y-2.5`}>
                             {weekAdd.step === 'location' ? (
                                 <>
-                                    <p className="text-[11px] font-bold text-[#B8956A]/90 text-right leading-relaxed">
+                                    <p className="text-xs font-bold text-[#B8956A]/90 text-right leading-snug">
                                         حدد المحكمة أو الدائرة أولاً
                                     </p>
                                     <input
@@ -72,7 +73,7 @@ export function WeeklyAgendaSection({
                                         }
                                         className={TASKS_INPUT}
                                     />
-                                    <div className="flex flex-row-reverse gap-2 justify-end">
+                                    <div className="flex flex-row-reverse gap-2 justify-end pt-0.5">
                                         <button type="button" onClick={() => setWeekAdd(null)} className={TASKS_BTN_GHOST}>
                                             إلغاء
                                         </button>
@@ -92,26 +93,33 @@ export function WeeklyAgendaSection({
                                 </>
                             ) : (
                                 <>
-                                    <p className="text-[10px] font-bold text-[#A67C52]/60 text-right">
-                                        المكان:{' '}
-                                        <span className="text-[#6BC4A8]">{weekAdd.location.trim()}</span>
-                                    </p>
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            setWeekAdd((w) =>
-                                                w && w.dayKey === block.key ? { ...w, step: 'location' } : w,
-                                            )
-                                        }
-                                        className="text-[10px] font-bold text-[#B8956A]/90 underline-offset-4 hover:underline"
-                                    >
-                                        تعديل الموقع
-                                    </button>
-                                    <ul className="max-h-36 overflow-y-auto space-y-2 pr-1 text-right">
+                                    <div className="flex flex-row-reverse items-center justify-between gap-2 rounded-xl border border-[#A67C52]/22 bg-[#0c0c0e]/38 px-3 py-2">
+                                        <div className="min-w-0 flex-1 text-right">
+                                            <p className="text-[11px] font-bold text-[#A67C52]/75 leading-none mb-1">
+                                                المكان
+                                            </p>
+                                            <p className="text-sm sm:text-base font-extrabold text-[#6BC4A8] flex flex-row-reverse items-center gap-1.5 justify-end leading-snug break-words">
+                                                <MapPinned className="size-4 shrink-0 opacity-85" aria-hidden />
+                                                <span>{weekAdd.location.trim()}</span>
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setWeekAdd((w) =>
+                                                    w && w.dayKey === block.key ? { ...w, step: 'location' } : w,
+                                                )
+                                            }
+                                            className="shrink-0 text-[11px] font-bold text-[#B8956A] px-2 py-1 rounded-lg border border-[#A67C52]/25 hover:bg-[#A67C52]/10 transition-colors"
+                                        >
+                                            تعديل
+                                        </button>
+                                    </div>
+                                    <ul className="max-h-32 overflow-y-auto space-y-1.5 pr-0.5 text-right">
                                         {weekAdd.actionLines.map((line, idx) => (
                                             <li
                                                 key={`${idx}-${line}`}
-                                                className={`flex flex-row-reverse items-center justify-between gap-2 rounded-lg border border-[#A67C52]/15 ${TASKS_GLASS_PANEL} px-3 py-2 text-sm text-[#E8F5F0]`}
+                                                className={`flex flex-row-reverse items-center justify-between gap-2 rounded-lg border border-[#A67C52]/15 bg-[#0c0c0e]/35 px-2.5 py-1.5 text-sm text-[#E8F5F0]`}
                                             >
                                                 <span className="tabular-nums text-[#A67C52]/50 text-[11px] font-bold">{idx + 1}.</span>
                                                 <span className="flex-1 font-semibold">{line}</span>
@@ -132,7 +140,7 @@ export function WeeklyAgendaSection({
                                             </li>
                                         ))}
                                     </ul>
-                                    <div className="flex flex-row-reverse gap-2 flex-wrap">
+                                    <div className="flex flex-row-reverse gap-2 flex-wrap items-center">
                                         <input
                                             dir="rtl"
                                             type="text"
@@ -157,7 +165,7 @@ export function WeeklyAgendaSection({
                                                     };
                                                 });
                                             }}
-                                            className={`flex-1 min-w-[10rem] ${TASKS_INPUT}`}
+                                            className={`flex-1 min-w-[8rem] ${TASKS_INPUT}`}
                                         />
                                         <button
                                             type="button"
@@ -178,7 +186,7 @@ export function WeeklyAgendaSection({
                                             إضافة
                                         </button>
                                     </div>
-                                    <div className="flex flex-row-reverse gap-2 justify-end pt-1">
+                                    <div className="flex flex-row-reverse gap-2 justify-end">
                                         <button type="button" onClick={() => setWeekAdd(null)} className={TASKS_BTN_GHOST}>
                                             إلغاء
                                         </button>
@@ -196,7 +204,7 @@ export function WeeklyAgendaSection({
                         </div>
                     ) : null}
 
-                    <ul className="space-y-4">{block.tasks.map((t) => renderTaskCard(t, false))}</ul>
+                    <ul className="space-y-3">{block.tasks.map((t) => renderTaskCard(t, false))}</ul>
                 </article>
             ))}
         </>

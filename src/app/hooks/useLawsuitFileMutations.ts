@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import {
@@ -18,10 +18,6 @@ import {
     syncLawsuitFileToCalendar,
 } from '@/app/services/calendarDossierSync';
 import { resolveCalendarUserId } from '@/app/services/calendarBridge';
-import {
-    purgeExpiredLawsuitsFromTrash,
-    shouldAutoPurgeLawsuitFromTrash,
-} from '@/app/utils/lawsuitTrash';
 
 type ActiveFile = FileData | ExecutionFile | null;
 
@@ -43,7 +39,6 @@ export function useLawsuitFileMutations({
     userId,
     authUserId,
     refreshAppAlerts,
-    showLawsuitsWorkspace,
     unpinWorkspaceForDeletedFile,
 }: UseLawsuitFileMutationsOptions) {
     const calendarUid = resolveCalendarUserId(userId ?? authUserId ?? null);
@@ -67,6 +62,7 @@ export function useLawsuitFileMutations({
         (fileId: string | number) => {
             setFiles((prev) => {
                 const next = applyLawsuitRestoreFromTrash(prev, fileId);
+                persistLawsuitFiles(next);
                 const restored = findLawsuitFile(next, fileId);
                 if (restored) {
                     syncLawsuitFileToCalendar(restored as unknown as Record<string, unknown>, userId);
@@ -93,6 +89,7 @@ export function useLawsuitFileMutations({
         (fileId: string | number) => {
             setFiles((prev) => {
                 const next = applyLawsuitRestoreFromArchive(prev, fileId);
+                persistLawsuitFiles(next);
                 const restored = findLawsuitFile(next, fileId);
                 if (restored) {
                     syncLawsuitFileToCalendar(restored as unknown as Record<string, unknown>, userId);
@@ -116,23 +113,7 @@ export function useLawsuitFileMutations({
         [setActiveFile, setFiles, userId],
     );
 
-    useEffect(() => {
-        if (!showLawsuitsWorkspace) return;
-        setFiles((prev) => {
-            const purged = purgeExpiredLawsuitsFromTrash(prev);
-            const expiredIds = prev
-                .filter((f) => shouldAutoPurgeLawsuitFromTrash(f))
-                .map((f) => f.id);
-            if (purged.length === prev.length && expiredIds.length === 0) return prev;
-            expiredIds.forEach((id) => {
-                void removeAllBridgedEventsForEntity('lawsuit', id, userId);
-            });
-            if (expiredIds.length > 0) {
-                void pruneOrphanedBridgeEvents(userId);
-            }
-            return purged;
-        });
-    }, [showLawsuitsWorkspace, setFiles, userId]);
+    /** لا حذف تلقائي من سلة المهملات — فقط حذف دائم بقرار المستخدم */
 
     const handleDeleteFile = useCallback(
         (fileToDelete: FileData) => {

@@ -31,8 +31,13 @@ interface ForumPostListProps {
     userStats: Record<string, { followerCount: number; postCount: number }>;
     bookmarkedIds?: Set<string>;
     onToggleBookmark?: (postId: string) => void;
+    onSaveToNotes?: (postId: string) => void;
+    onSaveToVault?: (postId: string) => void;
     onToggleLock?: (postId: string) => void;
     onMuteUser?: (userId: string) => void;
+    emptyHint?: string;
+    threadFollowingIds?: Set<string>;
+    onToggleThreadFollow?: (postId: string) => void;
 }
 
 export const ForumPostList = memo(function ForumPostList({
@@ -41,31 +46,32 @@ export const ForumPostList = memo(function ForumPostList({
     onDelete, onEdit, onReport, onShare,
     onLoadMore,
     isAdmin, onTogglePin, onFollow, followingIds, userStats,
-    bookmarkedIds, onToggleBookmark, onToggleLock, onMuteUser,
+    bookmarkedIds, onToggleBookmark, onSaveToNotes, onSaveToVault, onToggleLock, onMuteUser,
+    emptyHint,
+    threadFollowingIds,
+    onToggleThreadFollow,
 }: ForumPostListProps) {
-    if (loadingPosts) {
-        return (
-            <div className="px-4 pb-4 space-y-4">
-                {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={`sk-${i}`} className="rounded-xl p-4 bg-[#38303E] border border-[#4A3D52]/50">
-                        <div className="h-4 w-40 bg-[#4A3D52]/40 rounded mb-3 animate-pulse" />
-                        <div className="h-4 w-full bg-[#4A3D52]/30 rounded mb-2 animate-pulse" />
-                        <div className="h-4 w-2/3 bg-[#4A3D52]/30 rounded animate-pulse" />
-                    </div>
-                ))}
-            </div>
-        );
-    }
-
     if (visiblePosts.length === 0) {
         return (
             <div className="px-4 pb-4 space-y-4">
                 <div className="py-14 text-center">
-                    <div className="w-20 h-20 rounded-full bg-[#342C3A] border border-[#4A3D52]/40 flex items-center justify-center mx-auto mb-4">
-                        <MessageSquare size={36} className="text-[#F0B896]/30" />
-                    </div>
-                    <h3 className={`${FORUM_TEXT_PRIMARY} font-bold text-lg mb-2`}>لا توجد استشارات حالياً</h3>
-                    <p className={`${FORUM_TEXT_MUTED} text-sm`}>كُن أول من يطرح نقاشاً قانونياً!</p>
+                    {loadingPosts ? (
+                        <>
+                            <Loader2 size={36} className="text-[#F0B896]/40 animate-spin mx-auto mb-4" aria-hidden />
+                            <h3 className={`${FORUM_TEXT_PRIMARY} font-bold text-lg mb-2`}>جاري تحميل المنشورات...</h3>
+                            <p className={`${FORUM_TEXT_MUTED} text-sm`}>سيظهر المنتدى خلال لحظات</p>
+                        </>
+                    ) : (
+                        <>
+                            <div className="w-20 h-20 rounded-full bg-[#342C3A] border border-[#4A3D52]/40 flex items-center justify-center mx-auto mb-4">
+                                <MessageSquare size={36} className="text-[#F0B896]/30" />
+                            </div>
+                            <h3 className={`${FORUM_TEXT_PRIMARY} font-bold text-lg mb-2`}>لا توجد استشارات حالياً</h3>
+                            <p className={`${FORUM_TEXT_MUTED} text-sm`}>
+                                {emptyHint ?? 'كُن أول من يطرح نقاشاً قانونياً!'}
+                            </p>
+                        </>
+                    )}
                 </div>
             </div>
         );
@@ -73,6 +79,12 @@ export const ForumPostList = memo(function ForumPostList({
 
     return (
         <div className="px-4 pb-4 space-y-4">
+            {loadingPosts ? (
+                <div className="flex items-center justify-center gap-2 py-1 text-[#F0B896]/50 text-[11px] font-bold">
+                    <Loader2 size={14} className="animate-spin shrink-0" aria-hidden />
+                    <span>جاري التحديث...</span>
+                </div>
+            ) : null}
             {visiblePosts.map((post) => (
                 <QuestionCard
                     key={post.id}
@@ -92,8 +104,12 @@ export const ForumPostList = memo(function ForumPostList({
                     userStats={userStats}
                     isBookmarked={bookmarkedIds?.has(post.id) ?? false}
                     onToggleBookmark={onToggleBookmark}
+                    onSaveToNotes={onSaveToNotes}
+                    onSaveToVault={onSaveToVault}
                     onToggleLock={onToggleLock}
                     onMuteUser={onMuteUser}
+                    isThreadFollowing={threadFollowingIds?.has(post.id) ?? false}
+                    onToggleThreadFollow={onToggleThreadFollow}
                 />
             ))}
 

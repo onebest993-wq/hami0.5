@@ -52,7 +52,6 @@ export function initWebVitalsLogging(): () => void {
         const e = entry as PerformanceEntry & { hadRecentInput?: boolean; value?: number };
         if (e.hadRecentInput) return;
         clsScore += e.value ?? 0;
-        console.debug('[WebVitals] CLS (cumulative)', clsScore.toFixed(4));
     });
     if (clsObs) observers.push(clsObs);
 
@@ -62,7 +61,7 @@ export function initWebVitalsLogging(): () => void {
                 { name: 'LCP_ms', value: Math.round(lastLcp) },
                 { name: 'CLS', value: Number(clsScore.toFixed(4)) },
             ];
-            console.table(summary);
+            console.debug('[WebVitals] session summary', summary);
         }
     };
     window.addEventListener('visibilitychange', onVisibility);

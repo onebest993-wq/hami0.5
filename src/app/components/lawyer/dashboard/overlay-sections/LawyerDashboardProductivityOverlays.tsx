@@ -58,6 +58,8 @@ export function LawyerDashboardProductivityOverlays({
     const {
         showSettings,
         setShowSettings,
+        enterHomeLayoutEdit,
+        openProfileTab,
         showDocs,
         setShowDocs,
         vaultOpenScanner,
@@ -106,10 +108,11 @@ export function LawyerDashboardProductivityOverlays({
                     <Suspense key="hami-settings" fallback={LAWYER_LAZY_FALLBACK}>
                         <LazyHamiSettings
                             onClose={() => setShowSettings(false)}
+                            onEnterHomeLayoutEdit={enterHomeLayoutEdit}
                             onLogout={onLogout}
                             onOpenProfile={() => {
                                 setShowSettings(false);
-                                setActiveTab('profile');
+                                openProfileTab();
                             }}
                             onOpenPrivacy={() => {
                                 setShowSettings(false);

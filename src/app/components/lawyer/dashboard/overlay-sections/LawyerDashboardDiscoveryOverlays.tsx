@@ -9,8 +9,8 @@ import {
 } from '@/app/utils/lazyComponents';
 import DossierOpeningFallbackComponent from '@/app/components/lawyer/LawyerDashboardParts/components/DossierOpeningFallback';
 import {
+    COMMUNITY_SCREEN_FALLBACK,
     GLOBAL_SEARCH_OVERLAY_FALLBACK,
-    LAWYER_LAZY_FALLBACK,
 } from '@/app/components/lawyer/LawyerDashboardParts/constants';
 import type { LawyerDashboardOverlaysHostProps } from '../lawyerDashboardOverlaysHostBundles';
 
@@ -81,7 +81,7 @@ export function LawyerDashboardDiscoveryOverlays({
             {showCommunity ? (
                 <div className={FORUM_LAYER}>
                     <CommunityErrorBoundary onReset={handleCommunityBack}>
-                        <Suspense fallback={LAWYER_LAZY_FALLBACK}>
+                        <Suspense fallback={COMMUNITY_SCREEN_FALLBACK}>
                             <LazyCommunityScreen
                                 onBack={handleCommunityBack}
                                 initialPostId={communityDeepLink?.postId ?? null}

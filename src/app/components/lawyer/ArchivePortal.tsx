@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React from 'react';
-import { X, Plus, Scale } from 'lucide-react';
+import { X, Plus } from 'lucide-react';
 import { executionTrashDaysRemaining } from '@/app/utils/executionTrash';
 import type { ArchivePortalProps } from '@/app/types/common';
 import {
@@ -120,16 +120,10 @@ export const ArchivePortal = ({
             }
         >
             {!hideHeader && (
-                <div className="px-8 py-5 border-b border-white/10 flex justify-between items-center bg-[#0A0F1C]/75 backdrop-blur-xl shrink-0">
-                    <div className="flex items-center gap-4 min-w-0">
-                        {type === 'executions' ? (
-                            <div className="shrink-0 w-12 h-12 rounded-2xl border border-[#E6C673]/35 bg-[#E6C673]/10 flex items-center justify-center text-[#E6C673]">
-                                <Scale size={22} />
-                            </div>
-                        ) : null}
-                        <div className="min-w-0">
-                            <h2 className="text-2xl font-bold text-white truncate">{getTitle()}</h2>
-                            <p className="text-white/40 text-sm">
+                <div className="px-5 sm:px-6 py-4 border-b border-white/[0.06] flex justify-between items-center gap-4 bg-[#0A0F1C]/80 backdrop-blur-xl shrink-0">
+                    <div className="min-w-0 flex-1">
+                        <h2 className="text-xl sm:text-2xl font-bold text-white truncate">{getTitle()}</h2>
+                        <p className="text-white/40 text-sm mt-0.5 leading-relaxed">
                                 {type === 'executions' ? (
                                     <>
                                         {executionTrashView ? (
@@ -168,7 +162,6 @@ export const ArchivePortal = ({
                                     </>
                                 )}
                             </p>
-                        </div>
                     </div>
                     <button
                         type="button"

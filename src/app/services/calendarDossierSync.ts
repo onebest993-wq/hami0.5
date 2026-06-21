@@ -982,6 +982,7 @@ export function syncThreadingCalendarSnapshot(
     userId: string | null | undefined,
     transactions: unknown[],
     tasks: unknown[],
+    financeRecords: unknown[] = [],
 ): void {
     const uid = resolveCalendarUserId(userId);
     const stats = EMPTY_STATS();
@@ -1015,6 +1016,29 @@ export function syncThreadingCalendarSnapshot(
             clientName: tx ? readStr(tx, 'clientName') || undefined : undefined,
         });
         stats.threadingTasks++;
+    }
+    for (const rec of financeRecords) {
+        if (!isRecord(rec)) continue;
+        const recordId = String(rec.id ?? '').trim();
+        const txId = String(rec.transactionId ?? '').trim();
+        if (!recordId || !txId) continue;
+        const ymd = normalizeDateToYmd(typeof rec.date === 'string' ? rec.date : undefined);
+        if (!ymd) {
+            CalendarBridge.remove('threading', txId, `finance_${recordId}`, uid);
+            continue;
+        }
+        const tx = txById.get(txId);
+        const financeType =
+            String(rec.type ?? '') === 'AdvancePayment' ? 'advance' : 'expense';
+        CalendarBridge.syncThreadingFinance({
+            userId: uid,
+            transactionId: txId,
+            recordId,
+            title: readStr(rec, 'description') || 'حركة مالية',
+            date: ymd,
+            clientName: tx ? readStr(tx, 'clientName') || undefined : undefined,
+            financeType,
+        });
     }
     void flushPendingCalendarSyncs();
 }
@@ -1095,33 +1119,9 @@ async function syncThreadingTasks(userId: string, stats: DossierSyncStats): Prom
         const state = await TransactionsThreadingDB.getState(userId);
         const transactions = Array.isArray(state?.transactions) ? state.transactions : [];
         const tasks = Array.isArray(state?.tasks) ? state.tasks : [];
-        const txById = new Map<string, Record<string, unknown>>();
-        for (const tx of transactions) {
-            if (tx && typeof tx === 'object') txById.set(String((tx as { id?: string }).id ?? ''), tx as Record<string, unknown>);
-        }
-        for (const task of tasks) {
-            if (!isRecord(task)) continue;
-            const taskId = String(task.id ?? '').trim();
-            const txId = String(task.transactionId ?? '').trim();
-            if (!taskId || !txId) continue;
-            if (String(task.status ?? '') === TransactionTaskStatus.Done) continue;
-            const deadline = normalizeDateToYmd(
-                typeof task.deadline === 'string' ? task.deadline : undefined,
-            );
-            if (!deadline) continue;
-            const tx = txById.get(txId);
-            const clientName = tx ? readStr(tx, 'clientName') || undefined : undefined;
-            const txTitle = tx ? readStr(tx, 'title') : '';
-            CalendarBridge.syncThreadingTask({
-                userId,
-                transactionId: txId,
-                taskId,
-                title: readStr(task, 'title') || txTitle || 'مهمة',
-                dueDate: deadline,
-                clientName,
-            });
-            stats.threadingTasks++;
-        }
+        const financeRecords = Array.isArray(state?.financeRecords) ? state.financeRecords : [];
+        syncThreadingCalendarSnapshot(userId, transactions, tasks, financeRecords);
+        stats.threadingTasks += tasks.length;
     } catch (err) {
         debug.warn('[calendarDossierSync] threading scan failed:', err);
     }
@@ -1417,6 +1417,15 @@ async function collectValidBridgeIdsAsync(userId: string, options?: PruneOptions
             if (!normalizeDateToYmd(typeof task.deadline === 'string' ? task.deadline : undefined)) continue;
             ids.add(buildStableBridgeId('threading', txId, `task_${taskId}`));
         }
+        const financeRecords = Array.isArray(threading?.financeRecords) ? threading.financeRecords : [];
+        for (const rec of financeRecords) {
+            if (!isRecord(rec)) continue;
+            const recordId = String(rec.id ?? '').trim();
+            const txId = String(rec.transactionId ?? '').trim();
+            if (!recordId || !txId) continue;
+            if (!normalizeDateToYmd(typeof rec.date === 'string' ? rec.date : undefined)) continue;
+            ids.add(buildStableBridgeId('threading', txId, `finance_${recordId}`));
+        }
     } catch {
         /* ignore */
     }
@@ -1524,6 +1533,7 @@ async function runLiveCalendarPopulate(
             uid,
             Array.isArray(threading?.transactions) ? threading.transactions : [],
             Array.isArray(threading?.tasks) ? threading.tasks : [],
+            Array.isArray(threading?.financeRecords) ? threading.financeRecords : [],
         );
     } catch (err) {
         debug.warn('[calendarDossierSync] threading live sync failed:', err);
@@ -1730,6 +1740,15 @@ export async function purgeInauthenticBridgedEvents(userId?: string | null): Pro
 }
 
 export async function cleanupCalendarForUser(userId?: string | null): Promise<DossierSyncStats> {
+    const { shouldSkipDossierDependentCalendarPurge } = await import(
+        '@/app/services/dossierPersistence/storageHydrationGuard'
+    );
+    const SecureStoreService = (await import('@/app/services/SecureStoreService')).default;
+    await SecureStoreService.ensurePersistedReady();
+    if (await shouldSkipDossierDependentCalendarPurge()) {
+        return EMPTY_STATS();
+    }
+
     const uid = resolveCalendarUserId(userId);
     const preStats = EMPTY_STATS();
     preStats.prunedOrphans = await purgeInauthenticBridgedEvents(uid);
@@ -1818,7 +1837,7 @@ export const CALENDAR_SYNC_RULES = {
         'trials.nextSessionDate',
         'location.nextHearingDate',
     ],
-    threading: ['tasks.deadline للمهام غير المكتملة'],
+    threading: ['tasks.deadline للمهام غير المكتملة', 'financeRecords.date للحركات المالية'],
     note: ['globalNotes apptDate / reminder_at / date'],
     task: ['quantum field tasks parsedDate / reminderAt'],
     /**

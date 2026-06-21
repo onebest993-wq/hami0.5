@@ -2,7 +2,7 @@ import {
     LAWSUIT_FILES_STORAGE_KEY,
     LAWSUIT_FILES_STORAGE_KEYS_LEGACY,
     loadLawsuitFilesRaw,
-    saveLawsuitFilesRaw,
+    saveLawsuitFilesRawImmediate,
 } from '@/app/utils/lawsuitFilesStorage';
 import { STORAGE_KEYS } from '@/app/utils/constants';
 import SecureStoreService from '@/app/services/SecureStoreService';
@@ -45,7 +45,7 @@ describe('lawsuitFilesStorage', () => {
 
     it('saves to primary and legacy mirror keys', () => {
         const payload = [{ id: 'z', foo: 1 }];
-        saveLawsuitFilesRaw(payload);
+        saveLawsuitFilesRawImmediate(payload);
 
         expect(JSON.parse(String(SecureStoreService.getItemSync(LAWSUIT_FILES_STORAGE_KEY)))).toEqual(
             payload,

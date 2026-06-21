@@ -1,7 +1,6 @@
-import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import { loadLawsuitFilesRaw, saveLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
-import { STORAGE_KEYS } from '@/app/utils/constants';
+import { loadDossierCollectionAsync } from '@/app/services/dossierPersistence/dossierPersistenceService';
 
 const STALE_MOCK_CASE_NO = '2025/ب/522';
 
@@ -14,7 +13,17 @@ export function stripStaleMockLawsuitFile(files: FileData[]): FileData[] {
 }
 
 export function loadInitialLawsuitFiles(): FileData[] {
-    const loaded = persistenceRepository.load<FileData[]>(STORAGE_KEYS.LAWYER_FILES) || [];
+    const loaded = loadLawsuitFilesRaw() as FileData[];
+    const stripped = stripStaleMockLawsuitFile(loaded);
+    if (stripped.length !== loaded.length) {
+        persistLawsuitFiles(stripped);
+    }
+    return stripped;
+}
+
+/** تحميل غير متزامn بعد جاهزية IndexedDB — يستعيد من النسخة الاحتياطية عند الحاجة */
+export async function loadInitialLawsuitFilesAsync(): Promise<FileData[]> {
+    const loaded = (await loadDossierCollectionAsync('lawsuit')) as FileData[];
     const stripped = stripStaleMockLawsuitFile(loaded);
     if (stripped.length !== loaded.length) {
         persistLawsuitFiles(stripped);
@@ -31,11 +40,6 @@ export function reloadLawsuitFilesFromStorage(): FileData[] {
 export function persistLawsuitFiles(next: FileData[]): FileData[] {
     const payload = Array.isArray(next) ? next : [];
     saveLawsuitFilesRaw(payload as unknown[]);
-    try {
-        persistenceRepository.save(STORAGE_KEYS.LAWYER_FILES, payload);
-    } catch {
-        /* persistence may be mocked in tests */
-    }
     return payload;
 }
 

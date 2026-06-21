@@ -1,11 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowRight, Search, Bell, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { ArrowRight, Search, Bell, ChevronDown, Users } from 'lucide-react';
 import { AnimatePresence } from 'motion/react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { NotificationDB, type ForumNotification } from '@/app/services/lawyer-cloud';
+import type { ForumNotification } from '@/app/services/lawyer-cloud';
+import { ForumApiService } from '@/app/services/forumApiService';
+import { FORUM_UNREAD_CHANGED_EVENT } from '@/app/services/forum/forumNotificationBridge';
+import { useVisibilityAwareInterval } from '@/app/hooks/useVisibilityAwareInterval';
 import { ForumCategoryPanel } from './ForumCategoryPanel';
 import { RepositoryFilterPanel } from './RepositoryFilterPanel';
 import { ForumSectionSwitch, type ForumSectionId } from './ForumSectionSwitch';
+import { ForumNotificationRow } from './ForumNotificationRow';
 import { FORUM_FILTER_LABELS } from '../forumFilters';
 import {
     FORUM_APP_BAR,
@@ -38,6 +42,11 @@ interface ForumAppBarProps {
     onRepositoryTypeChange: (value: string) => void;
     repositorySelectedTag: string | null;
     onRepositoryTagChange: (tag: string | null) => void;
+    followingCount?: number;
+    onOpenFollowing?: () => void;
+    forumFeedScope?: 'all' | 'following';
+    onForumFeedScopeChange?: (scope: 'all' | 'following') => void;
+    notificationStreamActive?: boolean;
 }
 
 export const ForumAppBar = ({
@@ -57,9 +66,16 @@ export const ForumAppBar = ({
     onRepositoryTypeChange,
     repositorySelectedTag,
     onRepositoryTagChange,
+    followingCount = 0,
+    onOpenFollowing,
+    forumFeedScope = 'all',
+    onForumFeedScopeChange,
+    notificationStreamActive = false,
 }: ForumAppBarProps) => {
     const [notifications, setNotifications] = useState<ForumNotification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
+    const lastUnreadRef = useRef(0);
+    const seenNotifIdsRef = useRef<Set<string>>(new Set());
     const [showNotifPanel, setShowNotifPanel] = useState(false);
     const [showForumFilterPanel, setShowForumFilterPanel] = useState(false);
     const [showRepositoryFilterPanel, setShowRepositoryFilterPanel] = useState(false);
@@ -90,9 +106,23 @@ export const ForumAppBar = ({
         }
         setLoadingNotifs(true);
         try {
-            const list = await NotificationDB.getNotifications(userId);
-            setNotifications(list.slice(0, 20));
-            setUnreadCount(list.filter((n) => !n.read).length);
+            const { notifications: list, unreadCount: unread } = await ForumApiService.listForumNotifications(userId);
+            const slice = list.slice(0, 25);
+            setNotifications(slice);
+            setUnreadCount(unread);
+
+            if (lastUnreadRef.current > 0 && unread > lastUnreadRef.current) {
+                const fresh = slice.find((n) => !n.read && !seenNotifIdsRef.current.has(n.id));
+                if (fresh) {
+                    SmartToast.show(fresh.title, {
+                        type: 'info',
+                        description: fresh.message,
+                        duration: 4500,
+                    });
+                }
+            }
+            lastUnreadRef.current = unread;
+            for (const n of slice) seenNotifIdsRef.current.add(n.id);
         } catch {
             SmartToast.error('تعذّر تحميل التنبيهات');
         } finally {
@@ -102,17 +132,32 @@ export const ForumAppBar = ({
 
     useEffect(() => {
         void fetchNotifications();
-        if (!userId) return;
-        const interval = setInterval(() => void fetchNotifications(), 30000);
-        return () => clearInterval(interval);
-    }, [userId, fetchNotifications]);
+    }, [fetchNotifications]);
+
+    useVisibilityAwareInterval(() => {
+        void fetchNotifications();
+    }, notificationStreamActive ? 45_000 : 5_000, Boolean(userId));
+
+    useEffect(() => {
+        const onExternal = (e: Event) => {
+            const detail = (e as CustomEvent<{ count: number; refresh?: boolean }>).detail;
+            if (typeof detail?.count === 'number') {
+                setUnreadCount(detail.count);
+                lastUnreadRef.current = detail.count;
+            }
+            if (detail?.refresh) void fetchNotifications();
+        };
+        window.addEventListener(FORUM_UNREAD_CHANGED_EVENT, onExternal);
+        return () => window.removeEventListener(FORUM_UNREAD_CHANGED_EVENT, onExternal);
+    }, [fetchNotifications]);
 
     const handleMarkAllRead = async () => {
         if (!userId) return;
         try {
-            await NotificationDB.markAllAsRead(userId);
+            await ForumApiService.markAllForumNotificationsRead(userId);
             setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
             setUnreadCount(0);
+            lastUnreadRef.current = 0;
             SmartToast.success('تم تحديد جميع التنبيهات كمقروءة');
         } catch {
             SmartToast.error('تعذّر تحديث التنبيهات');
@@ -123,11 +168,12 @@ export const ForumAppBar = ({
         if (!userId) return;
         try {
             if (!notif.read) {
-                await NotificationDB.markAsRead(notif.id, userId);
+                await ForumApiService.markForumNotificationRead(notif.id, userId);
                 setNotifications((prev) =>
                     prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n)),
                 );
                 setUnreadCount((c) => Math.max(0, c - 1));
+                lastUnreadRef.current = Math.max(0, lastUnreadRef.current - 1);
             }
             setShowNotifPanel(false);
             if (notif.postId) {
@@ -190,6 +236,25 @@ export const ForumAppBar = ({
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
+                    {activeSection === 'forum' && onOpenFollowing ? (
+                        <button
+                            type="button"
+                            onClick={onOpenFollowing}
+                            aria-label="المتابَعون"
+                            className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors relative ${
+                                forumFeedScope === 'following'
+                                    ? 'bg-[#F0B896]/14 text-[#F0B896] border border-[#F0B896]/30'
+                                    : 'bg-[#2C2434] text-[#9A9098] hover:text-[#F0B896] hover:bg-[#342C3E]'
+                            }`}
+                        >
+                            <Users size={18} />
+                            {followingCount > 0 ? (
+                                <span className="absolute -bottom-0.5 -left-0.5 min-w-[16px] h-4 px-0.5 flex items-center justify-center bg-[#F0B896] text-[#2A1520] text-[9px] font-bold rounded-full">
+                                    {followingCount > 9 ? '9+' : followingCount}
+                                </span>
+                            ) : null}
+                        </button>
+                    ) : null}
                     <div className="relative">
                         <button
                             type="button"
@@ -229,17 +294,11 @@ export const ForumAppBar = ({
                                             <p className="text-gray-500 text-xs text-center py-6">لا توجد تنبيهات</p>
                                         ) : (
                                             notifications.map((n) => (
-                                                <button
+                                                <ForumNotificationRow
                                                     key={n.id}
-                                                    type="button"
+                                                    notification={n}
                                                     onClick={() => void handleNotificationClick(n)}
-                                                    className={`w-full text-right px-4 py-3 border-b border-[#4A3D52]/30 last:border-0 transition hover:bg-[#342C3E] hover:shadow-[inset_0_0_16px_rgba(240,184,150,0.06)] ${
-                                                        !n.read ? 'bg-[#F0B896]/6' : ''
-                                                    }`}
-                                                >
-                                                    <p className="text-white text-xs font-bold">{n.title}</p>
-                                                    <p className="text-white/50 text-[11px] mt-0.5 line-clamp-2">{n.message}</p>
-                                                </button>
+                                                />
                                             ))
                                         )}
                                     </div>

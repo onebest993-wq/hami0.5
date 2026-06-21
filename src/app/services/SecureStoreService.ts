@@ -21,6 +21,41 @@ let webReady = false;
 
 const webFallbackStore = new Map<string, string>();
 const decryptedCache = new Map<string, string>();
+const decryptedCacheOrder: string[] = [];
+const MAX_DECRYPTED_CACHE_ENTRIES = 64;
+const HEAVY_PERSIST_DEBOUNCE_MS = 1_200;
+const heavyPersistTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const heavyPersistPending = new Map<string, string>();
+let heavyPersistVisibilityHook = false;
+
+const HEAVY_PERSIST_EXACT_KEYS = new Set([
+  'executionFiles',
+  'lawyer_files',
+  'lawyer_notes',
+  'hami:criminal:meta',
+  'hami_quantum_legal_tasks_v1',
+]);
+const HEAVY_PERSIST_PREFIXES = ['hami:criminal:case:'];
+
+function isHeavyPersistKey(key: string): boolean {
+  return HEAVY_PERSIST_EXACT_KEYS.has(key) || HEAVY_PERSIST_PREFIXES.some((p) => key.startsWith(p));
+}
+
+function installHeavyPersistFlushHook(): void {
+  if (heavyPersistVisibilityHook || typeof document === 'undefined') return;
+  heavyPersistVisibilityHook = true;
+  const flush = () => {
+    if (document.visibilityState !== 'hidden') return;
+    for (const timer of heavyPersistTimers.values()) clearTimeout(timer);
+    heavyPersistTimers.clear();
+    for (const [key, value] of heavyPersistPending.entries()) {
+      heavyPersistPending.delete(key);
+      void SecureStoreService.setItem(key, value);
+    }
+  };
+  document.addEventListener('visibilitychange', flush);
+  window.addEventListener('pagehide', flush);
+}
 const WEB_DB_NAME = 'hami-secure-store';
 const WEB_DB_VERSION = 1;
 const WEB_STORE = 'secure_kv';
@@ -41,15 +76,47 @@ const WEB_MIGRATION_PREFIXES = [
 const isWebEnvironment = (): boolean =>
   typeof window !== 'undefined' && typeof document !== 'undefined';
 
-/** تحديد ما إذا كان المفتاح حساساً ويحتاج تشفير */
-function isSensitiveKey(key: string): boolean {
-  const sensitivePrefixes = ['auth_', 'token_', 'session_'];
-  return sensitivePrefixes.some((p) => key.startsWith(p));
+import { isSensitiveStorageKey, shouldEncryptValue } from './secureStorageKeys';
+import { shouldRejectDossierWipe } from '@/app/services/dossierPersistence/dossierWipeGuard';
+import { PROTECTED_WARM_KEYS } from '@/app/services/dossierPersistence/protectedStorageKeys';
+import { scheduleProtectedBackupFromRaw } from '@/app/services/dossierPersistence/protectedBackupService';
+import { recoverPlaintextAfterDecryptFailure } from '@/app/services/secureStoreRecovery';
+
+const decryptFailureWarned = new Set<string>();
+
+export class StorageEncryptionError extends Error {
+  constructor(key: string, cause?: unknown) {
+    super(`Refused to persist sensitive key "${key}" without encryption`);
+    this.name = 'StorageEncryptionError';
+    if (cause !== undefined) (this as { cause?: unknown }).cause = cause;
+  }
 }
 
-/** تشفير القيمة إذا كان المفتاح حساساً */
+/** تحديد ما إذا كان المفتاح حساساً ويحتاج تشفير */
+function isSensitiveKey(key: string): boolean {
+  return isSensitiveStorageKey(key);
+}
+
+function touchDecryptedCache(key: string, value: string): void {
+  decryptedCache.set(key, value);
+  const existingIdx = decryptedCacheOrder.indexOf(key);
+  if (existingIdx >= 0) decryptedCacheOrder.splice(existingIdx, 1);
+  decryptedCacheOrder.push(key);
+  while (decryptedCacheOrder.length > MAX_DECRYPTED_CACHE_ENTRIES) {
+    const evictKey = decryptedCacheOrder.shift();
+    if (evictKey) decryptedCache.delete(evictKey);
+  }
+}
+
+function deleteDecryptedCacheKey(key: string): void {
+  decryptedCache.delete(key);
+  const idx = decryptedCacheOrder.indexOf(key);
+  if (idx >= 0) decryptedCacheOrder.splice(idx, 1);
+}
+
+/** تشفير القيمة — لا plaintext fallback للمفاتيح الحساسة */
 async function encryptIfSensitive(key: string, value: string): Promise<string> {
-  if (!isSensitiveKey(key)) return value;
+  if (!shouldEncryptValue(key, value)) return value;
   if (value.startsWith(ENCRYPTED_PREFIX)) return value;
   try {
     const { CryptoService } = await import('./CryptoService');
@@ -57,13 +124,13 @@ async function encryptIfSensitive(key: string, value: string): Promise<string> {
     const encrypted = await CryptoService.encryptData(value);
     return `${ENCRYPTED_PREFIX}${encrypted}`;
   } catch (error) {
-    _warn(`Encryption failed for key "${key}", storing raw:`, error);
-    return value;
+    _err(`Encryption failed for sensitive key "${key}" — write rejected:`, error);
+    throw new StorageEncryptionError(key, error);
   }
 }
 
-/** فك تشفير القيمة إذا كانت مشفرة */
-async function decryptIfSensitive(key: string, value: string): Promise<string> {
+/** فك تشفير — مع استعادة من نسخة احتياطية/localStorage عند فشل المفتاح */
+async function decryptIfSensitive(key: string, value: string): Promise<string | null> {
   if (!value.startsWith(ENCRYPTED_PREFIX)) return value;
   const encryptedPart = value.slice(ENCRYPTED_PREFIX.length);
   try {
@@ -71,8 +138,19 @@ async function decryptIfSensitive(key: string, value: string): Promise<string> {
     await CryptoService.initialize();
     return await CryptoService.decryptData(encryptedPart);
   } catch (error) {
-    _warn(`Decryption failed for key "${key}", returning raw:`, error);
-    return value;
+    const recovered = await recoverPlaintextAfterDecryptFailure(key);
+    if (recovered !== null) {
+      if (!decryptFailureWarned.has(key)) {
+        decryptFailureWarned.add(key);
+        _warn(`Decryption failed for "${key}" — data restored from backup/legacy store.`);
+      }
+      return recovered;
+    }
+    if (!decryptFailureWarned.has(key)) {
+      decryptFailureWarned.add(key);
+      _warn(`Decryption failed for key "${key}":`, error);
+    }
+    return null;
   }
 }
 
@@ -104,6 +182,24 @@ class SecureStoreService {
     });
   }
 
+  private static async webDbGetAllKeys(): Promise<string[]> {
+    const db = await this.openWebDatabase();
+    if (!db) return [];
+    return new Promise((resolve) => {
+      const tx = db.transaction(WEB_STORE, 'readonly');
+      const req = tx.objectStore(WEB_STORE).getAllKeys();
+      req.onsuccess = () => {
+        const keys = (req.result as unknown[]).filter((k): k is string => typeof k === 'string');
+        resolve(keys);
+      };
+      req.onerror = () => resolve([]);
+      tx.oncomplete = () => db.close();
+      tx.onabort = () => db.close();
+      tx.onerror = () => db.close();
+    });
+  }
+
+  /** @deprecated — تحميل كامل؛ يُستخدم فقط عند الحاجة لترحيل قديم */
   private static async webDbLoadAllIntoCache(): Promise<void> {
     const db = await this.openWebDatabase();
     if (!db) return;
@@ -224,10 +320,20 @@ class SecureStoreService {
 
   private static async ensureWebReady(): Promise<void> {
     if (!isWebEnvironment() || webReady) return;
+    if (import.meta.env.VITEST) {
+      webReady = true;
+      return;
+    }
     if (webReadyPromise) return webReadyPromise;
     webReadyPromise = (async () => {
-      await this.webDbLoadAllIntoCache();
       await this.ensureWebMigration();
+      try {
+        const { CryptoService } = await import('./CryptoService');
+        await CryptoService.initialize();
+      } catch {
+        /* crypto init best-effort before dossier warm */
+      }
+      await this.warmDossierKeysFromPersistedStore();
       webReady = true;
     })();
     await webReadyPromise;
@@ -251,7 +357,8 @@ class SecureStoreService {
   private static async readIndex(): Promise<Set<string>> {
     if (isWebEnvironment()) {
       await this.ensureWebReady();
-      return new Set(webFallbackStore.keys());
+      const idbKeys = await this.webDbGetAllKeys();
+      return new Set([...webFallbackStore.keys(), ...idbKeys]);
     }
     const secureStore = await this.getSecureStoreModule();
     if (!secureStore) {
@@ -336,9 +443,30 @@ class SecureStoreService {
       const trimmed = incoming.trim();
       if (trimmed === '' || trimmed === '{}' || trimmed === 'null') return true;
     }
+    if (shouldRejectDossierWipe(key, incoming, existing)) return true;
     const trimmed = incoming.trim();
     if (trimmed === '' || trimmed === '{}' || trimmed === 'null') return true;
     return false;
+  }
+
+  /** تحميل مفاتيح البيانات المحمية من IndexedDB وفك التشفير — بدون getItem (يتجنّب deadlock مع ensureWebReady) */
+  private static async warmDossierKeysFromPersistedStore(): Promise<void> {
+    if (!isWebEnvironment()) return;
+    for (const key of PROTECTED_WARM_KEYS) {
+      if (decryptedCache.has(key)) continue;
+      try {
+        let raw: string | null = webFallbackStore.get(key) ?? null;
+        if (raw === null) {
+          raw = await this.webDbGetItem(key);
+          if (raw !== null) webFallbackStore.set(key, raw);
+        }
+        if (raw === null) continue;
+        const decrypted = await decryptIfSensitive(key, raw);
+        if (decrypted !== null) touchDecryptedCache(key, decrypted);
+      } catch {
+        /* ignore per-key warm failures */
+      }
+    }
   }
 
   static async setItem(key: string, value: string): Promise<void> {
@@ -357,12 +485,13 @@ class SecureStoreService {
       }
     }
 
-    decryptedCache.set(key, value);
+    touchDecryptedCache(key, value);
     const encrypted = await encryptIfSensitive(key, value);
     if (isWebEnvironment()) {
       await this.ensureWebReady();
       webFallbackStore.set(key, encrypted);
       await this.webDbSetItem(key, encrypted);
+      scheduleProtectedBackupFromRaw(key, value);
       return;
     }
 
@@ -400,7 +529,8 @@ class SecureStoreService {
     }
     if (raw === null) return null;
     const decrypted = await decryptIfSensitive(key, raw);
-    decryptedCache.set(key, decrypted);
+    if (decrypted === null) return null;
+    touchDecryptedCache(key, decrypted);
     if (raw.startsWith(ENCRYPTED_PREFIX) && !isSensitiveKey(key)) {
       void this.setItem(key, decrypted);
     }
@@ -408,7 +538,7 @@ class SecureStoreService {
   }
 
   static async deleteItem(key: string): Promise<void> {
-    decryptedCache.delete(key);
+    deleteDecryptedCacheKey(key);
     if (isWebEnvironment()) {
       await this.ensureWebReady();
       webFallbackStore.delete(key);
@@ -433,6 +563,36 @@ class SecureStoreService {
     return Array.from(index);
   }
 
+  /** flush فوري لكتابات IDB المؤجّلة (عند إخفاء التبويب) */
+  static flushHeavyPersistPending(): void {
+    for (const timer of heavyPersistTimers.values()) {
+      clearTimeout(timer);
+    }
+    heavyPersistTimers.clear();
+    for (const [key, value] of heavyPersistPending.entries()) {
+      heavyPersistPending.delete(key);
+      void this.setItem(key, value);
+    }
+  }
+
+  private static scheduleHeavyPersist(key: string, value: string): void {
+    installHeavyPersistFlushHook();
+    heavyPersistPending.set(key, value);
+    const existing = heavyPersistTimers.get(key);
+    if (existing) clearTimeout(existing);
+    heavyPersistTimers.set(
+      key,
+      setTimeout(() => {
+        heavyPersistTimers.delete(key);
+        const pending = heavyPersistPending.get(key);
+        if (pending !== undefined) {
+          heavyPersistPending.delete(key);
+          void this.setItem(key, pending);
+        }
+      }, HEAVY_PERSIST_DEBOUNCE_MS),
+    );
+  }
+
   static getItemSync(key: string): SecureStoreValue {
     if (!isWebEnvironment()) return null;
     this.ensureWebMigrationSync();
@@ -448,8 +608,16 @@ class SecureStoreService {
     if (isWebEnvironment()) {
       this.ensureWebMigrationSync();
       this.ensureWebReadySyncKickoff();
-      decryptedCache.set(key, value);
+      const existing = this.getItemSync(key) ?? webFallbackStore.get(key) ?? null;
+      if (existing && this.shouldRejectEmptyOverwrite(key, value, existing)) {
+        return;
+      }
+      touchDecryptedCache(key, value);
       webFallbackStore.set(key, value);
+      if (isHeavyPersistKey(key)) {
+        this.scheduleHeavyPersist(key, value);
+        return;
+      }
     }
     void this.setItem(key, value);
   }

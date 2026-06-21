@@ -56,7 +56,7 @@ interface TransactionsThreadingState {
     description: string;
     date?: string;
   }) => Promise<FinanceRecord>;
-  updateFinanceRecord: (recordId: string, updates: { type: FinanceRecordType; amount: number; description: string }) => Promise<FinanceRecord>;
+  updateFinanceRecord: (recordId: string, updates: { type: FinanceRecordType; amount: number; description: string; date?: string }) => Promise<FinanceRecord>;
   deleteFinanceRecord: (recordId: string) => Promise<void>;
 
   addDocument: (input: {
@@ -215,12 +215,14 @@ export const useTransactionsThreadingStore = create<TransactionsThreadingState>(
         });
       }
     } catch { /* silent */ }
+    syncThreadingToCalendar();
     return record;
   },
 
   updateFinanceRecord: async (recordId, updates) => {
     const record = await service.updateFinanceRecord(recordId, updates);
     await get().refreshTransactionData(record.transactionId);
+    syncThreadingToCalendar();
     return record;
   },
 
@@ -228,6 +230,7 @@ export const useTransactionsThreadingStore = create<TransactionsThreadingState>(
     const existing = await repo.getFinanceRecord(recordId);
     await service.deleteFinanceRecord(recordId);
     if (existing) await get().refreshTransactionData(existing.transactionId);
+    syncThreadingToCalendar();
   },
 
   addDocument: async (input) => {

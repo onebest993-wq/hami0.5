@@ -17,6 +17,7 @@ vi.mock('../../security/wifeValidator.ts', () => ({
   getVerifiedTokenSubject: vi.fn(),
   isTokenAuthorized: vi.fn(),
   verifyWifeSignature: vi.fn(),
+  assertWifeSignatureRequest: vi.fn(async () => null),
   wifeForbiddenResponse: () =>
     new Response(JSON.stringify({ ok: false, error: 'Cryptographic verification failed' }), {
       status: 403,

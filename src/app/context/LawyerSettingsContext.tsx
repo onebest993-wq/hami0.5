@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
+import SecureStoreService from '@/app/services/SecureStoreService';
 import { useAutoSave } from '@/app/hooks/useAutoSave';
 import type { ShapeKey, ThemeKey } from '@/app/types/common';
 import {
@@ -14,6 +15,7 @@ import {
     normalizeBackgroundPatternOpacity,
     type AppSettingsState,
 } from '@/app/services/settings';
+import { PERSIST_DEBOUNCE_MS } from '@/app/utils/constants';
 import { LAWYER_THEME_TOKENS } from '@/app/services/settings/lawyerThemeTokens';
 import { clearStoredBiometricCredential } from '@/app/services/security/webAuthnLock';
 
@@ -57,33 +59,81 @@ function stripWallpaperForStorage(state: AppSettingsState): AppSettingsState {
 }
 
 export function LawyerSettingsProvider({ children }: { children: React.ReactNode }) {
-    const [settings, setSettings] = useState<AppSettingsState>(loadInitialSettings);
+    const [settingsHydrated, setSettingsHydrated] = useState(false);
+    const [settings, setSettings] = useState<AppSettingsState>(() => migrateLawyerSettings(null));
     const [currentTheme, setCurrentThemeState] = useState<ThemeKey>(() => settings.appearance.theme);
     const [currentShape, setCurrentShapeState] = useState<ShapeKey>(() => settings.appearance.shape);
+
+    useEffect(() => {
+        let cancelled = false;
+        void (async () => {
+            await SecureStoreService.ensurePersistedReady();
+            if (cancelled) return;
+            const loaded = loadInitialSettings();
+            setSettings(loaded);
+            setCurrentThemeState(loaded.appearance.theme);
+            setCurrentShapeState(loaded.appearance.shape);
+            setSettingsHydrated(true);
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const autoSaveOn = settings.data.autoSave;
     const settingsForPersistence = useMemo(() => stripWallpaperForStorage(settings), [settings]);
     const settingsForPersistenceRef = useRef(settingsForPersistence);
     settingsForPersistenceRef.current = settingsForPersistence;
 
-    useAutoSave('lawyer_settings', settingsForPersistence, 2_000, autoSaveOn);
-    useAutoSave('lawyer_theme', currentTheme, 2_000, autoSaveOn);
-    useAutoSave('lawyer_shape', currentShape, 2_000, autoSaveOn);
+    useAutoSave(
+        'lawyer_settings',
+        settingsForPersistence,
+        PERSIST_DEBOUNCE_MS.LIGHT,
+        autoSaveOn,
+        settingsHydrated,
+    );
+    useAutoSave('lawyer_theme', currentTheme, PERSIST_DEBOUNCE_MS.LIGHT, autoSaveOn, settingsHydrated);
+    useAutoSave('lawyer_shape', currentShape, PERSIST_DEBOUNCE_MS.LIGHT, autoSaveOn, settingsHydrated);
 
-    // تفضيلات البيانات تُحفظ فوراً — حتى مع إيقاف الحفظ التلقائي
+    // تفضيلات البيانات — debounce لتجنّب stringify متكرر على المسار الحرج
     useEffect(() => {
-        persistenceRepository.save('lawyer_settings', settingsForPersistenceRef.current);
-        invalidateLawyerSettingsCache();
-    }, [settings.data]);
+        if (!settingsHydrated) return;
+        const timer = window.setTimeout(() => {
+            persistenceRepository.save('lawyer_settings', settingsForPersistenceRef.current);
+            invalidateLawyerSettingsCache();
+        }, PERSIST_DEBOUNCE_MS.LIGHT);
+        return () => window.clearTimeout(timer);
+    }, [settings.data, settingsHydrated]);
 
     useEffect(() => {
-        window.dispatchEvent(new CustomEvent('hami:settings-updated', { detail: settings }));
-    }, [settings]);
+        if (!settingsHydrated) return;
+        const timer = window.setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('hami:settings-updated', { detail: settings }));
+        }, 120);
+        return () => window.clearTimeout(timer);
+    }, [settings, settingsHydrated]);
+
+    const appearanceSignature = useMemo(
+        () =>
+            JSON.stringify({
+                theme: settings.appearance.theme,
+                shape: settings.appearance.shape,
+                brandColor: settings.appearance.brandColor,
+                glassOpacity: settings.appearance.glassOpacity,
+                reduceMotion: settings.appearance.reduceMotion,
+                wallpaper: settings.appearance.wallpaper ? '1' : '0',
+                backgroundPreset: settings.appearance.backgroundPreset,
+                backgroundPatternOpacity: settings.appearance.backgroundPatternOpacity,
+                backgroundPatternBlur: settings.appearance.backgroundPatternBlur,
+                homeContainerBorder: settings.appearance.homeContainerBorder,
+            }),
+        [settings.appearance],
+    );
 
     useEffect(() => {
         invalidateLawyerSettingsCache();
         applySettingsToDom(settings);
-    }, [settings]);
+    }, [appearanceSignature, settings.security]);
 
     const setCurrentTheme = useCallback((theme: ThemeKey) => {
         setCurrentThemeState(theme);

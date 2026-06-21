@@ -8,8 +8,17 @@ import type {
 import {
     EXECUTION_JURISDICTION_TAB_DEFS,
     EXECUTION_PERSPECTIVE_TAB_DEFS,
-    isLegalEntityPerspectiveAllowed,
 } from '../executionArchiveFilterUtils';
+import {
+    ARCHIVE_FILTER_DECK,
+    ARCHIVE_SEARCH_INPUT,
+    ARCHIVE_SEGMENT_BTN_ACTIVE,
+    ARCHIVE_SEGMENT_BTN_BASE,
+    ARCHIVE_SEGMENT_BTN_INACTIVE,
+    ARCHIVE_SEGMENT_SHELL,
+    ARCHIVE_TOOLBAR_LABEL,
+    ARCHIVE_TOOLBAR_SECTION,
+} from '../archiveToolbarStyles';
 
 export type ExecutionArchiveFilter = ExecutionJurisdictionFilter;
 
@@ -40,11 +49,7 @@ function FilterTabList<T extends string>({
     counts?: Partial<Record<T, number>>;
 }) {
     return (
-        <div
-            className="flex flex-wrap items-center gap-1 rounded-xl border border-white/10 bg-white/5 p-1"
-            role="tablist"
-            aria-label={ariaLabel}
-        >
+        <div className={`${ARCHIVE_SEGMENT_SHELL} w-full`} role="tablist" aria-label={ariaLabel}>
             {tabs.map((tab) => {
                 const isActive = activeId === tab.id;
                 return (
@@ -55,19 +60,15 @@ function FilterTabList<T extends string>({
                         aria-selected={isActive}
                         data-testid={`${testIdPrefix}-${tab.id}`}
                         onClick={() => onChange(tab.id)}
-                        className={`h-9 min-w-[4.25rem] rounded-lg px-3 text-xs font-bold transition-all whitespace-nowrap inline-flex items-center justify-center gap-1 ${
-                            isActive
-                                ? 'bg-[#E6C673] text-[#0B1021] shadow-[0_2px_12px_rgba(230,198,115,0.25)]'
-                                : 'bg-transparent text-white/70 hover:bg-white/10 hover:text-white'
+                        className={`${ARCHIVE_SEGMENT_BTN_BASE} inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 min-w-[4.25rem] shrink-0 ${
+                            isActive ? ARCHIVE_SEGMENT_BTN_ACTIVE : ARCHIVE_SEGMENT_BTN_INACTIVE
                         }`}
                     >
                         <span>{tab.label}</span>
                         {typeof counts?.[tab.id] === 'number' ? (
                             <span
-                                className={`mr-1.5 min-w-[1.1rem] h-4 px-1 rounded-full text-[10px] font-bold inline-flex items-center justify-center ${
-                                    isActive
-                                        ? 'bg-[#0B1021]/15 text-[#0B1021]'
-                                        : 'bg-white/10 text-white/55'
+                                className={`min-w-[1.15rem] h-4 px-1 rounded-full text-[10px] font-bold inline-flex items-center justify-center tabular-nums ${
+                                    isActive ? 'bg-[#0B1021]/15 text-[#0B1021]' : 'bg-white/10 text-white/55'
                                 }`}
                             >
                                 {counts[tab.id]! > 99 ? '99+' : counts[tab.id]}
@@ -76,6 +77,15 @@ function FilterTabList<T extends string>({
                     </button>
                 );
             })}
+        </div>
+    );
+}
+
+function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div className="grid grid-cols-1 sm:grid-cols-[4.5rem_minmax(0,1fr)] items-center gap-2 sm:gap-3">
+            <span className={`${ARCHIVE_TOOLBAR_LABEL} sm:text-left`}>{label}</span>
+            <div className="min-w-0">{children}</div>
         </div>
     );
 }
@@ -91,35 +101,13 @@ export const ExecutionArchiveToolbar: React.FC<ExecutionArchiveToolbarProps> = (
     jurisdictionCounts,
 }) => {
     const isTrash = lifecycleMode === 'trash';
-    const perspectiveTabs = EXECUTION_PERSPECTIVE_TAB_DEFS.filter(
-        (tab) => tab.id !== 'legal_entity' || isLegalEntityPerspectiveAllowed(filterType)
-    );
 
     return (
-        <div className="px-8 pt-4 pb-3 border-b border-white/5 space-y-3" dir="rtl">
-            <div className="flex flex-wrap items-center gap-2">
-                <FilterTabList
-                    tabs={EXECUTION_JURISDICTION_TAB_DEFS}
-                    activeId={filterType}
-                    onChange={onFilterTypeChange}
-                    ariaLabel={
-                        isTrash ? 'فلترة اختصاص سلة المهملات' : 'فلترة اختصاص الإضبارة'
-                    }
-                    testIdPrefix="execution-archive-filter"
-                    counts={jurisdictionCounts}
-                />
-                <FilterTabList
-                    tabs={perspectiveTabs}
-                    activeId={perspectiveFilter}
-                    onChange={onPerspectiveFilterChange}
-                    ariaLabel={isTrash ? 'فلترة تمثيل سلة المهملات' : 'فلترة تمثيل المحامي'}
-                    testIdPrefix="execution-archive-perspective"
-                />
-            </div>
+        <div className={`${ARCHIVE_TOOLBAR_SECTION} space-y-3`} dir="rtl">
             <div className="relative">
                 <Search
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none"
-                    size={18}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/35 pointer-events-none"
+                    size={17}
                 />
                 <input
                     type="search"
@@ -130,12 +118,33 @@ export const ExecutionArchiveToolbar: React.FC<ExecutionArchiveToolbarProps> = (
                             ? 'ابحث في سلة المهملات…'
                             : 'ابحث برقم الإضبارة، اسم الدائن، المدين، أو نوع المطالبة…'
                     }
-                    className={`w-full h-11 pr-12 pl-4 rounded-xl border text-sm text-white placeholder:text-white/40 backdrop-blur-md transition-all focus:outline-none ${
-                        isTrash
-                            ? 'border-white/10 bg-white/[0.04] focus:border-rose-400/40'
-                            : 'border-white/10 bg-white/5 focus:border-[#E6C673]/50'
+                    className={`${ARCHIVE_SEARCH_INPUT} ${
+                        isTrash ? 'focus:border-rose-400/40 focus:ring-rose-400/10' : ''
                     }`}
                 />
+            </div>
+
+            <div className={ARCHIVE_FILTER_DECK}>
+                <FilterGroup label="الاختصاص">
+                    <FilterTabList
+                        tabs={EXECUTION_JURISDICTION_TAB_DEFS}
+                        activeId={filterType}
+                        onChange={onFilterTypeChange}
+                        ariaLabel={isTrash ? 'فلترة اختصاص سلة المهملات' : 'فلترة اختصاص الإضبارة'}
+                        testIdPrefix="execution-archive-filter"
+                        counts={jurisdictionCounts}
+                    />
+                </FilterGroup>
+                <div className="h-px bg-white/[0.05]" aria-hidden />
+                <FilterGroup label="التمثيل">
+                    <FilterTabList
+                        tabs={EXECUTION_PERSPECTIVE_TAB_DEFS}
+                        activeId={perspectiveFilter}
+                        onChange={onPerspectiveFilterChange}
+                        ariaLabel={isTrash ? 'فلترة تمثيل سلة المهملات' : 'فلترة تمثيل المحامي'}
+                        testIdPrefix="execution-archive-perspective"
+                    />
+                </FilterGroup>
             </div>
         </div>
     );

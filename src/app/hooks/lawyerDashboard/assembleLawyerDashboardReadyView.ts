@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { buildLawyerDashboardTabBundle } from '@/app/hooks/lawyerDashboard/buildLawyerDashboardTabBundle';
+import { isRealSignedIn, resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
 import { buildLawyerDashboardShellProps } from '@/app/hooks/lawyerDashboard/buildLawyerDashboardShellProps';
 import { buildLawyerDashboardOverlaysHostProps } from '@/app/hooks/lawyerDashboard/buildLawyerDashboardOverlaysHostProps';
 import { buildLawyerDashboardSurface } from '@/app/hooks/lawyerDashboard/lawyerDashboardSurfaceUtils';
@@ -89,6 +90,9 @@ export function assembleLawyerDashboardReadyView({
         archiveType: archiveAndSync.archiveType,
         isCriminalDossierOpen: overlays.isCriminalDossierOpen,
         showSettings: overlays.showSettings,
+        homeLayoutEditMode: overlays.homeLayoutEditMode,
+        enterHomeLayoutEdit: overlays.enterHomeLayoutEdit,
+        exitHomeLayoutEdit: overlays.exitHomeLayoutEdit,
         isNewCaseModalOpen: workspace.isNewCaseModalOpen,
         isNotepadOpen: workspace.isNotepadOpen,
         showCommunity: overlays.showCommunity,
@@ -96,6 +100,8 @@ export function assembleLawyerDashboardReadyView({
         showUrgentDashboard: urgent.showUrgentDashboard,
         showDocs: overlays.showDocs,
         showContractGenerator: overlays.showContractGenerator,
+        showGlobalSearch: overlays.showGlobalSearch,
+        showNotifications: notifications.showNotifications,
         notificationsUnreadCount: notifications.notificationsUnreadCount,
         pendingFieldTasksCount,
         visibleAppAlerts: appAlerts.visibleAppAlerts,
@@ -106,7 +112,8 @@ export function assembleLawyerDashboardReadyView({
         files: workspace.files,
         executionFiles: workspace.executionFiles,
         setActiveTab: overlays.setActiveTab,
-        setShowSettings: overlays.setShowSettings,
+        openProfileTab: overlays.openProfileTab,
+        openSettings: overlays.openSettings,
         openGlobalSearch: overlays.openGlobalSearch,
         openNotifications: notifications.openNotifications,
         navigateWorkspaceRoute: navigation.navigateWorkspaceRoute,
@@ -170,7 +177,10 @@ export function assembleLawyerDashboardReadyView({
         notificationPanel: {
             mounted: notifications.notificationPanelMounted,
             isOpen: notifications.showNotifications,
-            userId: user?.id || 'demo_user',
+            userId: (() => {
+                const uid = resolveShellAuthUserId(authUser?.id, user?.id);
+                return isRealSignedIn(uid) ? uid! : '';
+            })(),
             onClose: () => notifications.setShowNotifications(false),
             onNavigate: navigation.handleNotificationRouting,
         },

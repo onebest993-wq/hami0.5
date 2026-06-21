@@ -85,7 +85,6 @@ export const CaseFlowActionsPanel = memo(({
     const pearlFlow = personalPearlModalTheme();
     const isDock = variant === 'dock';
     const needsPearlConfirm = isDock || T.variant === 'personal-pearl';
-
     const closeAnd = (fn: () => void, confirm?: Omit<FlowConfirmState, 'onConfirm'>) => () => {
         setIsOpen(false);
         if (needsPearlConfirm && confirm) {

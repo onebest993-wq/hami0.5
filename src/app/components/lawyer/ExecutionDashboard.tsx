@@ -153,6 +153,8 @@ import {
     patchParentInabaCorrespondenceLog,
 } from './ExecutionDashboard/utils/inabaCorrespondenceLog';
 import { LinkedDossierTimelineModal } from './ExecutionDashboard/components/LinkedDossierTimelineModal';
+import { ColleagueConsultationProvider } from './caseShare/ColleagueConsultationContext';
+import { extractExecutionShareSource } from '@/app/services/caseShare/caseShareExtractors';
 import { SeizureRequestSubjectModal } from './ExecutionDashboard/components/SeizureRequestSubjectModal';
 
 // 🆕 V10.5: ENHANCED UTILITIES
@@ -13718,6 +13720,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
     }
     
     return (
+        <ColleagueConsultationProvider source={extractExecutionShareSource(viewExecutionData)}>
         <div
             className="fixed inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 backdrop-blur-3xl z-[100] flex items-center justify-center p-0"
             dir="rtl"
@@ -16004,6 +16007,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 />
             )}
         </div>
-    </div>
+        </div>
+        </ColleagueConsultationProvider>
     );
 });

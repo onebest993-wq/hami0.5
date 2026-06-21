@@ -22,10 +22,10 @@ export const PartySidePane = ({
 
     return (
         <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-            <span className={`text-[10px] font-bold tracking-wide truncate px-0.5 ${labelClassName}`} title={label}>
+            <span className={`text-[10px] font-bold tracking-wide truncate px-0.5 uppercase ${labelClassName}`} title={label}>
                 {label}
             </span>
-            <div className="flex flex-col gap-1 min-w-0">
+            <div className="flex flex-col gap-1.5 min-w-0">
                 {orderedParties.map((party, idx) => {
                     const role = String(party.role ?? '');
                     const affiliative = isAffiliativeThirdPartyRole(role);

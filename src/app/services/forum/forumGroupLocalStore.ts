@@ -151,4 +151,10 @@ export const ForumGroupLocalStore = {
             (m) => m.group_id === groupId && m.lawyer_id === lawyerId,
         );
     },
+
+    listMemberIds(groupId: string): string[] {
+        return readJson<ForumGroupMemberRow>(MEMBERS_KEY)
+            .filter((m) => m.group_id === groupId)
+            .map((m) => m.lawyer_id);
+    },
 };

@@ -79,6 +79,13 @@ export const STORAGE_KEYS = {
     THEME_PREFERENCE: 'theme_preference',
 } as const;
 
+/** debounce للحفظ المحلي — ملفات ثقيلة vs إعدادات خفيفة */
+export const PERSIST_DEBOUNCE_MS = {
+    LIGHT: 2_000,
+    HEAVY: 5_000,
+    SECURE_STORE_HEAVY: 1_200,
+} as const;
+
 // === CACHE VERSION SYSTEM ===
 export const CACHE_VERSION = 'v10.5';
 export const CACHE_KEY = 'hami_cache_version';

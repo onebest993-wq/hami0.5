@@ -168,8 +168,6 @@ export default defineConfig(({ command }) => ({
       clientFiles: [
         './src/index.tsx',
         './src/app/App.tsx',
-        './src/app/components/lawyer/CommunityScreen.tsx',
-        './src/app/components/lawyer/LawyerDashboard.tsx',
         './src/styles/index.css',
       ],
     },

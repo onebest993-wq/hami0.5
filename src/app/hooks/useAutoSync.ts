@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { debug } from '@/app/utils/debug';
 import SecureStoreService from '@/app/services/SecureStoreService';
+import { useVisibilityAwareInterval } from '@/app/hooks/useVisibilityAwareInterval';
 
 /**
  * Auto-Sync Hook
@@ -86,7 +87,6 @@ export function useAutoSync(
     const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
     const [failureCount, setFailureCount] = useState(0);
     const isSyncingRef = useRef(false);
-    const intervalIdRef = useRef<NodeJS.Timeout | null>(null);
     const previousDataRef = useRef<string>('');
 
     const dataRef = useRef(data);
@@ -157,19 +157,12 @@ export function useAutoSync(
 
     useEffect(() => {
         if (!enabled) return;
-
         performSync();
+    }, [enabled, performSync]);
 
-        intervalIdRef.current = setInterval(() => {
-            performSync();
-        }, interval);
-
-        return () => {
-            if (intervalIdRef.current) {
-                clearInterval(intervalIdRef.current);
-            }
-        };
-    }, [enabled, interval, performSync]);
+    useVisibilityAwareInterval(() => {
+        performSync();
+    }, interval, enabled);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;

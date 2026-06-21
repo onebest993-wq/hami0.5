@@ -15,15 +15,20 @@ import {
     type VaultDocViewerKind,
 } from '@/app/services/vaultUploadService';
 import { useAuthUser } from '@/app/context/AuthContext';
+import { isShellAuthBypassed } from '@/app/services/auth/shellAuth';
+import { GUEST_LAWYER_ID } from '@/app/utils/guestLawyerSession';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { loadPersistedViewMode, persistViewMode } from '@/app/services/settings/builtInBehavior';
 import {
     addCustomCategory,
     countDocsInCategory,
-    docMatchesCategoryFilter,
-    mergeCustomCategoriesFromDocs,
     removeCustomCategory,
+    mergeCustomCategoriesFromDocs,
 } from '@/app/services/vaultCustomCategories';
+import {
+    filterVaultDocs,
+    revokeBlobUrlIfNeeded,
+} from '@/app/services/vault/vaultDocUtils';
 
 // --- Types ---
 export type ViewMode = 'grid' | 'list';
@@ -34,59 +39,14 @@ export type PendingUploadItem = { file: File; previewUrl?: string; kind: VaultUp
 
 const MAX_FILE_SIZE = VAULT_MAX_FILE_SIZE;
 
-/** @deprecated use docMatchesCategoryFilter */
+/** @deprecated use docMatchesCategoryFilter from vaultCustomCategories */
 export type FilterTag = string;
 /** @deprecated */
 export const FILTERS: FilterTag[] = ['الكل'];
 
-export function matchesFilter(doc: SmartVaultDoc, filter: string): boolean {
-    return docMatchesCategoryFilter(doc, filter);
-}
-
-export function formatFileSize(bytes: number): string {
-    if (!bytes || bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-}
-
-export function formatDate(dateStr: string): string {
-    try {
-        const d = new Date(dateStr);
-        const now = new Date();
-        const diff = now.getTime() - d.getTime();
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        if (days === 0) return 'اليوم';
-        if (days === 1) return 'أمس';
-        if (days < 7) return `منذ ${days} أيام`;
-        return d.toLocaleDateString('ar-IQ', { month: 'short', day: 'numeric' });
-    } catch {
-        return dateStr;
-    }
-}
-
-export function inferDocType(mimeType: string, fileName?: string): 'pdf' | 'image' {
-    const mime = (mimeType || '').toLowerCase();
-    const name = fileName || '';
-    if (mime.startsWith('image/')) return 'image';
-    if (/\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(name)) return 'image';
-    if (mime === 'application/pdf' || /\.pdf$/i.test(name)) return 'pdf';
-    return 'pdf';
-}
-
-export function inferTags(title: string): string[] {
-    const tags: string[] = [];
-    if (/عقد|إيجار/.test(title)) tags.push('عقود');
-    if (/طابو|تمليك/.test(title)) tags.push('طابو');
-    if (/عريضة|عرائض|مرافعات|تعويض/.test(title)) tags.push('عرائض');
-    if (tags.length === 0) {
-        if (/بحث|مذكرة|دراسة/.test(title)) tags.push('بحث قانوني');
-        else if (/حكم|قرار|تمييز/.test(title)) tags.push('قرار حكم');
-        else tags.push('أخرى');
-    }
-    return tags;
-}
+export { inferDocType, inferTags, formatFileSize } from '@/app/services/vault/vaultDocUtils';
+export { formatVaultDate as formatDate } from '@/app/services/vault/vaultDocUtils';
+export { docMatchesCategoryFilter as matchesFilter } from '@/app/services/vaultCustomCategories';
 
 interface UseSmartVaultReturn {
     // State
@@ -143,7 +103,8 @@ interface UseSmartVaultReturn {
 
 export const useSmartVault = (onClose: () => void, propUserId?: string): UseSmartVaultReturn => {
     const authUser = useAuthUser();
-    const currentUserId = propUserId || authUser?.id || '';
+    const currentUserId =
+        propUserId?.trim() || authUser?.id?.trim() || (isShellAuthBypassed() ? GUEST_LAWYER_ID : '');
 
     const [docs, setDocs] = useState<SmartVaultDoc[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -173,21 +134,20 @@ export const useSmartVault = (onClose: () => void, propUserId?: string): UseSmar
     const searchInputRef = useRef<HTMLInputElement>(null);
     const docsRef = useRef(docs);
     docsRef.current = docs;
+    const fileViewerUrlRef = useRef<string | null>(null);
+    fileViewerUrlRef.current = fileViewer?.url ?? null;
 
-    const filteredDocs = useMemo(() => {
-        const q = searchQuery.trim().toLowerCase();
-        return docs.filter((doc) => {
-            if (!matchesFilter(doc, activeFilter)) return false;
-            if (!q) return true;
-            return (
-                doc.title.toLowerCase().includes(q) ||
-                (doc.customCategory?.toLowerCase().includes(q) ?? false) ||
-                doc.tags.some((t) => t.toLowerCase().includes(q)) ||
-                (doc.lawyerNote?.toLowerCase().includes(q) ?? false) ||
-                (doc.aiSummary?.toLowerCase().includes(q) ?? false)
-            );
-        });
-    }, [docs, activeFilter, searchQuery]);
+    useEffect(
+        () => () => {
+            revokeBlobUrlIfNeeded(fileViewerUrlRef.current);
+        },
+        [],
+    );
+
+    const filteredDocs = useMemo(
+        () => filterVaultDocs(docs, activeFilter, searchQuery),
+        [docs, activeFilter, searchQuery],
+    );
 
     const loadDocs = useCallback(async () => {
         try {
@@ -267,6 +227,12 @@ export const useSmartVault = (onClose: () => void, propUserId?: string): UseSmar
         setMounted(true);
         return () => setOpenDropdownId(null);
     }, []);
+
+    useEffect(() => {
+        if (!mounted || currentUserId) return;
+        SmartToast.error('يرجى تسجيل الدخول أولاً لاستخدام المخزن');
+        onClose();
+    }, [mounted, currentUserId, onClose]);
 
     const beginNextPendingUpload = useCallback(async (files: File[], kind: VaultUploadKind) => {
         if (files.length === 0) {
@@ -470,7 +436,12 @@ export const useSmartVault = (onClose: () => void, propUserId?: string): UseSmar
         }
     };
 
-    const closeFileViewer = () => setFileViewer(null);
+    const closeFileViewer = useCallback(() => {
+        setFileViewer((prev) => {
+            revokeBlobUrlIfNeeded(prev?.url);
+            return null;
+        });
+    }, []);
 
     const handleAISearch = async () => {
         if (!searchQuery.trim()) return;

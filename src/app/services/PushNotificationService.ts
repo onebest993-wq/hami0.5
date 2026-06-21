@@ -253,6 +253,24 @@ export class PushNotificationService {
     );
   }
 
+  static async notifyForumActivity(notif: {
+    title: string;
+    message: string;
+    postId?: string;
+    type?: string;
+  }): Promise<void> {
+    const settings = getLawyerSettingsSnapshot();
+    if (!canSendPushNotifications(settings) || !isNotificationChannelAllowed('community')) return;
+    await this.showNotification(
+      pushNotificationOptionsFromSettings(settings, {
+        title: notif.title,
+        body: notif.message,
+        tag: `forum-${notif.type ?? 'activity'}-${notif.postId ?? 'general'}`,
+        data: { type: 'forum', postId: notif.postId, forumType: notif.type },
+      }),
+    );
+  }
+
   /**
    * مسح جميع الإشعارات
    */

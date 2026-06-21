@@ -27,4 +27,8 @@ export function displayCaseNo(caseNo: unknown): string {
 export const PARTY_STRIP_SHELL =
     'rounded-2xl border border-white/[0.07] bg-gradient-to-br from-white/[0.045] to-white/[0.015] backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ring-1 ring-inset ring-white/[0.04]';
 
+/** بطاقة الأطراف المنفصلة عن ترويسة القضية */
+export const PARTIES_CARD_SHELL =
+    'rounded-2xl mb-2 backdrop-blur-xl bg-[#0A0F1C]/48 border border-[#E6C673]/12 shadow-[0_10px_36px_rgba(0,0,0,0.28)] overflow-hidden';
+
 export const CLIENT_MARKER_SLOT = 'shrink-0 w-10 flex items-center justify-center';

@@ -10,12 +10,26 @@ import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import type { AppearanceSettings } from '@/app/services/settings/types';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { lazyWithRetry, type LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
+import LawyerDashboardBackgroundServices, {
+    type LawyerDashboardBackgroundServicesProps,
+} from '@/app/components/lawyer/dashboard/LawyerDashboardBackgroundServices';
 
 const LazyLawyerDashboardBackgroundServices = lazyWithRetry(() =>
     import('@/app/components/lawyer/dashboard/LawyerDashboardBackgroundServices.tsx').then((m) => ({
         default: m.default as unknown as LazyComponent,
     })),
 );
+
+function DashboardBackgroundServices(props: LawyerDashboardBackgroundServicesProps) {
+    if (import.meta.env.DEV) {
+        return <LawyerDashboardBackgroundServices {...props} />;
+    }
+    return (
+        <Suspense fallback={null}>
+            <LazyLawyerDashboardBackgroundServices {...props} />
+        </Suspense>
+    );
+}
 
 export type LawyerDashboardShellProps = {
     dashboardSurfaceStyle: React.CSSProperties;
@@ -102,8 +116,7 @@ export function LawyerDashboardShell({
             <DashboardPatternOverlay appearance={appearance} enabled={!hasWallpaper} />
             <div className="relative z-[1] min-h-screen">
                 {backgroundRuntimeEnabled && calendarUserId ? (
-                    <Suspense fallback={null}>
-                        <LazyLawyerDashboardBackgroundServices
+                    <DashboardBackgroundServices
                             user={user}
                             syncNotesOn={syncNotesOn}
                             syncFilesOn={syncFilesOn}
@@ -116,15 +129,14 @@ export function LawyerDashboardShell({
                             fieldTasks={fieldTasks}
                             lawyerId={calendarUserId}
                             onAlerts={onAlerts}
-                            onNotesSynced={onNotesSynced}
+                            onNotesSynced={onNotesSynced as LawyerDashboardBackgroundServicesProps['onNotesSynced']}
                             onLawsuitFilesSynced={onLawsuitFilesSynced}
-                            mergeNotesStores={mergeNotesStores}
+                            mergeNotesStores={mergeNotesStores as LawyerDashboardBackgroundServicesProps['mergeNotesStores']}
                             syncExecutionFilesNowRef={syncExecutionFilesNowRef}
                             syncLawsuitFilesNowRef={syncLawsuitFilesNowRef}
                             syncNotesNowRef={syncNotesNowRef}
                             refreshAppAlertsRef={refreshAppAlertsRef}
                         />
-                    </Suspense>
                 ) : null}
                 {appLocked ? (
                     <AppLockOverlay

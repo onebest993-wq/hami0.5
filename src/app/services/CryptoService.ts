@@ -4,10 +4,16 @@ const _warn = (...a: unknown[]) => { if (__DEV__) console.warn(...a); };
 const _err = (...a: unknown[]) => { if (__DEV__) console.error(...a); };
 
 const SESSION_KEY_STORAGE_KEY = 'hami-crypto-session-key';
+const DEVICE_KEY_STORAGE_KEY = 'hami-crypto-device-wrapped-key';
 const KEY_SALT = 'hami-crypto-key-salt-v2';
+const DEVICE_WRAP_PREFIX = 'hami-crypto-device:';
 
-async function getToken(): Promise<string | null> {
+async function getWrapCredential(): Promise<string | null> {
   try {
+    const { getBffCryptoWrapCredential } = await import('@/app/utils/bffCryptoSession');
+    const bffCredential = getBffCryptoWrapCredential();
+    if (bffCredential) return bffCredential;
+
     const { supabase } = await import('@/app/lib/supabase-client');
     const { data } = await supabase.auth.getSession();
     return data.session?.access_token?.trim() ?? null;
@@ -16,10 +22,13 @@ async function getToken(): Promise<string | null> {
   }
 }
 
-async function deriveWrappingKey(token: string): Promise<CryptoKey> {
+async function deriveWrappingKey(credential: string): Promise<CryptoKey> {
+  const wrapInput = credential.startsWith('bff:')
+    ? credential
+    : `hami-crypto-wrap:${credential}`;
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
-    new TextEncoder().encode(`hami-crypto-wrap:${token}`),
+    new TextEncoder().encode(wrapInput),
     { name: 'PBKDF2' },
     false,
     ['deriveKey']
@@ -81,17 +90,97 @@ export class CryptoService {
   static async initialize(_userCredential?: string): Promise<void> {
     if (this.isInitialized && this.masterKey) return;
 
-    const restored = await this.tryRestoreKeyFromSession();
-    if (restored) return;
+    const restoredSession = await this.tryRestoreKeyFromSession();
+    if (restoredSession) {
+      await this.persistKeyToDevice();
+      return;
+    }
+
+    const restoredDevice = await this.tryRestoreKeyFromDevice();
+    if (restoredDevice) return;
 
     await this.generateMasterKey();
     await this.persistKeyToSession();
+    await this.persistKeyToDevice();
+  }
+
+  private static async tryRestoreKeyFromDevice(): Promise<boolean> {
+    if (typeof window === 'undefined') return false;
+    try {
+      const { getOrCreateDeviceId } = await import('@/app/security/deviceId');
+      const deviceId = getOrCreateDeviceId();
+      if (!deviceId) return false;
+
+      const stored = localStorage.getItem(DEVICE_KEY_STORAGE_KEY);
+      if (!stored) return false;
+
+      let parsed: { wrapped?: string };
+      try {
+        parsed = JSON.parse(stored) as { wrapped?: string };
+      } catch {
+        localStorage.removeItem(DEVICE_KEY_STORAGE_KEY);
+        return false;
+      }
+
+      if (!parsed.wrapped) {
+        localStorage.removeItem(DEVICE_KEY_STORAGE_KEY);
+        return false;
+      }
+
+      const wrappingKey = await deriveWrappingKey(`${DEVICE_WRAP_PREFIX}${deviceId}`);
+      const wrappedKeyBuffer = fromBase64Url(parsed.wrapped);
+      const unwrapped = await crypto.subtle.unwrapKey(
+        'raw',
+        wrappedKeyBuffer,
+        wrappingKey,
+        { name: 'AES-KW' },
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt', 'decrypt'],
+      );
+
+      this.masterKey = unwrapped;
+      this.isInitialized = true;
+      return true;
+    } catch (error) {
+      _warn('[CryptoService] Device key restore failed, will try session/generate:', error);
+      try {
+        localStorage.removeItem(DEVICE_KEY_STORAGE_KEY);
+      } catch {
+        /* ignore */
+      }
+      return false;
+    }
+  }
+
+  private static async persistKeyToDevice(): Promise<void> {
+    if (typeof window === 'undefined' || !this.masterKey) return;
+    try {
+      const { getOrCreateDeviceId } = await import('@/app/security/deviceId');
+      const deviceId = getOrCreateDeviceId();
+      if (!deviceId) return;
+
+      const wrappingKey = await deriveWrappingKey(`${DEVICE_WRAP_PREFIX}${deviceId}`);
+      const wrapped = await crypto.subtle.wrapKey(
+        'raw',
+        this.masterKey,
+        wrappingKey,
+        { name: 'AES-KW' },
+      );
+
+      localStorage.setItem(
+        DEVICE_KEY_STORAGE_KEY,
+        JSON.stringify({ wrapped: toBase64Url(wrapped), v: 1 }),
+      );
+    } catch (error) {
+      _warn('[CryptoService] Device key persist failed:', error);
+    }
   }
 
   private static async tryRestoreKeyFromSession(): Promise<boolean> {
     try {
-      const token = await getToken();
-      if (!token) return false;
+      const credential = await getWrapCredential();
+      if (!credential) return false;
 
       const sessionData = sessionStorage.getItem(SESSION_KEY_STORAGE_KEY);
       if (!sessionData) return false;
@@ -109,7 +198,7 @@ export class CryptoService {
         return false;
       }
 
-      const wrappingKey = await deriveWrappingKey(token);
+      const wrappingKey = await deriveWrappingKey(credential);
       const wrappedKeyBuffer = fromBase64Url(parsed.wrapped);
 
       const unwrapped = await crypto.subtle.unwrapKey(
@@ -124,9 +213,10 @@ export class CryptoService {
 
       this.masterKey = unwrapped;
       this.isInitialized = true;
+      void this.persistKeyToDevice();
       return true;
     } catch (error) {
-      _warn('[CryptoService] Session key restore failed, will generate new key:', error);
+      _warn('[CryptoService] Session key restore failed, will try device key:', error);
       sessionStorage.removeItem(SESSION_KEY_STORAGE_KEY);
       return false;
     }
@@ -135,10 +225,10 @@ export class CryptoService {
   private static async persistKeyToSession(): Promise<void> {
     try {
       if (!this.masterKey) return;
-      const token = await getToken();
-      if (!token) return;
+      const credential = await getWrapCredential();
+      if (!credential) return;
 
-      const wrappingKey = await deriveWrappingKey(token);
+      const wrappingKey = await deriveWrappingKey(credential);
       const wrapped = await crypto.subtle.wrapKey(
         'raw',
         this.masterKey,

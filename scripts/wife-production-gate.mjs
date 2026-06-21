@@ -160,6 +160,19 @@ if (isProd && env('ADMIN_UUID') === '') {
   record('env:ADMIN_UUID', true, 'set');
 }
 
+if (isProd && env('VITE_BFF_AUTH') !== 'true') {
+  record(
+    'env:VITE_BFF_AUTH',
+    false,
+    'must be "true" — otherwise JWT remains in localStorage',
+    true,
+  );
+} else if (env('VITE_BFF_AUTH') === 'true') {
+  record('env:VITE_BFF_AUTH', true, 'HttpOnly BFF auth enabled');
+} else {
+  record('env:VITE_BFF_AUTH', false, 'not true — enable for production HttpOnly sessions', false);
+}
+
 // ─── 2. Migrations present locally ──────────────────────────────────────────
 const migrations = [
   'supabase/migrations/20260423000000_create_wife_nonce_store.sql',
@@ -180,13 +193,24 @@ record(
 );
 
 // ─── 3. All BFF routes call WIFE ────────────────────────────────────────────
+/** Bootstrap routes — session cookie + WIFE signing proxy (no WIFE on self) */
+const WIFE_EXEMPT_ROUTES = new Set([
+  'src/app/api/auth/login/route.ts',
+  'src/app/api/auth/logout/route.ts',
+  'src/app/api/auth/refresh/route.ts',
+  'src/app/api/auth/session/route.ts',
+  'src/app/api/security/wife-sign/route.ts',
+]);
+
 const routes = walkRoutes(path.join(SRC, 'app', 'api'));
 const unprotected = [];
 for (const routePath of routes) {
   const rel = path.relative(ROOT, routePath).replace(/\\/g, '/');
+  if (WIFE_EXEMPT_ROUTES.has(rel)) continue;
   const text = fs.readFileSync(routePath, 'utf8');
   const protected_ =
     text.includes('verifyWifeSignature') ||
+    text.includes('assertWifeSignatureRequest') ||
     text.includes('requireWifeUser') ||
     text.includes('requirePlatformAdmin') ||
     text.includes('requireForumAuth') ||

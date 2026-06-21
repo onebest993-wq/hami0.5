@@ -9,7 +9,6 @@ import {
     buildExecutionJurisdictionCounts,
     filterExecutionArchiveFiles,
     getExecutionArchiveBasePool,
-    isLegalEntityPerspectiveAllowed,
     type ExecutionPerspectiveFilter,
 } from '../executionArchiveFilterUtils';
 import type { ArchiveDossierViewMode } from '../components/ArchiveDossierToolbar';
@@ -143,10 +142,10 @@ export function useArchivePortalController({
     }, [executionTrashView]);
 
     useEffect(() => {
-        if (!isLegalEntityPerspectiveAllowed(filterType) && perspectiveFilter === 'legal_entity') {
+        if (perspectiveFilter === 'legal_entity') {
             setPerspectiveFilter('all');
         }
-    }, [filterType, perspectiveFilter]);
+    }, [perspectiveFilter]);
 
     useEffect(() => {
         if (lawsuitViewMode !== 'trash') setSelectedTrashIds(new Set());

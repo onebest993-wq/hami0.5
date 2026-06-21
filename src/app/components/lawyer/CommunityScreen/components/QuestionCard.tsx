@@ -3,7 +3,7 @@ import {
   User, ArrowUp, MessageCircle,
   FileText, ZoomIn, EyeOff, Loader2, Sparkles,
   Trash2, Pencil, Flag, Link2, X, Eye, Pin, UserPlus, UserCheck,
-  Bookmark, Lock, Unlock, VolumeX, Zap
+  Bookmark, Lock, Unlock, VolumeX, Zap, Book, FolderOpen, BellRing
 } from 'lucide-react';
 import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
@@ -48,10 +48,15 @@ export interface QuestionCardProps {
   /** Bookmark/Save (اختياري) */
   isBookmarked?: boolean;
   onToggleBookmark?: (postId: string) => void;
+  onSaveToNotes?: (postId: string) => void;
+  onSaveToVault?: (postId: string) => void;
   /** قفل/فتح النقاش (للمالك أو الأدمن) */
   onToggleLock?: (postId: string) => void;
   /** كتم مستخدم */
   onMuteUser?: (userId: string) => void;
+  /** متابعة النقاش — تنبيهات التعليقات على هذا المنشور */
+  isThreadFollowing?: boolean;
+  onToggleThreadFollow?: (postId: string) => void;
 }
 
 export const QuestionCard = memo(function QuestionCard({
@@ -71,8 +76,12 @@ export const QuestionCard = memo(function QuestionCard({
   userStats,
   isBookmarked = false,
   onToggleBookmark,
+  onSaveToNotes,
+  onSaveToVault,
   onToggleLock,
   onMuteUser,
+  isThreadFollowing = false,
+  onToggleThreadFollow,
 }: QuestionCardProps) {
   const [showUserPopup, setShowUserPopup] = useState(false);
   const [showEditInfo, setShowEditInfo] = useState(false);
@@ -241,6 +250,24 @@ export const QuestionCard = memo(function QuestionCard({
             {isLocked ? <Lock size={15} /> : <Unlock size={15} />}
           </button>
         )}
+        {onSaveToNotes && currentUserId ? (
+          <button type="button"
+            onClick={() => onSaveToNotes(post.id)}
+            className={`w-8 h-8 ${FORUM_ICON_BTN}`}
+            title="حفظ في الملاحظات"
+          >
+            <Book size={15} />
+          </button>
+        ) : null}
+        {onSaveToVault && currentUserId && post.attachment ? (
+          <button type="button"
+            onClick={() => onSaveToVault(post.id)}
+            className={`w-8 h-8 ${FORUM_ICON_BTN}`}
+            title="حفظ المرفق في المخزن"
+          >
+            <FolderOpen size={15} />
+          </button>
+        ) : null}
         {/* Bookmark — يتطلب تسجيل دخول، يظهر لو لم يكن المنشور للمالك */}
         {onToggleBookmark && currentUserId && (
           <button type="button"
@@ -253,6 +280,19 @@ export const QuestionCard = memo(function QuestionCard({
             title={isBookmarked ? 'إلغاء الحفظ' : 'حفظ للقراءة لاحقاً'}
           >
             <Bookmark size={15} fill={isBookmarked ? 'currentColor' : 'none'} />
+          </button>
+        )}
+        {onToggleThreadFollow && currentUserId && (
+          <button type="button"
+            onClick={() => onToggleThreadFollow(post.id)}
+            className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+              isThreadFollowing
+                ? `${FORUM_ACCENT_CHIP} ${FORUM_TEXT_APRICOT}`
+                : 'bg-[#342C3E] hover:bg-[#3A3040] text-[#9A9098] hover:text-[#E6E0E4]'
+            }`}
+            title={isThreadFollowing ? 'إلغاء متابعة النقاش' : 'متابعة النقاش — تنبيهات التعليقات'}
+          >
+            <BellRing size={15} />
           </button>
         )}
         {/* Mute — لا يظهر للمالك ولا للمنشور المجهول */}

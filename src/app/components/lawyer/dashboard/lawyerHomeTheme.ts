@@ -6,7 +6,7 @@ export const SOV_COPPER = '#C4782F';
 export const SOV_VOID = '#030305';
 
 export const HOME_SCROLL =
-    'relative z-[1] flex flex-col flex-1 min-h-0 overflow-y-auto overflow-x-hidden gap-6 px-5 sm:px-6 pt-2 pb-56 max-w-[440px] mx-auto w-full scroll-smooth';
+    'relative z-[1] flex flex-col flex-1 min-h-0 overflow-y-auto overflow-x-hidden hami-shell-gutter-x pt-2 scroll-smooth';
 
 export const HOME_GLASS =
     'relative overflow-hidden rounded-[1.625rem] border hami-sovereign-glass hami-sovereign-rim hami-home-themed-border';

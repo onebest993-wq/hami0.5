@@ -2,7 +2,7 @@ import {
   extractUserTokenFromRequest,
   getVerifiedTokenSubject,
   isTokenAuthorized,
-  verifyWifeSignature,
+  assertWifeSignatureRequest,
   wifeForbiddenResponse, wifeSignatureFailedResponse,
   wifeUnauthorizedResponse,
 } from '../../security/wifeValidator.ts';
@@ -20,9 +20,8 @@ export async function GET(request: Request): Promise<Response> {
     if (!userToken || !(await isTokenAuthorized(userToken))) {
       return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
     }
-    if (!(await verifyWifeSignature(request, userToken))) {
-      return wifeSignatureFailedResponse(request);
-    }
+        const wifeBlock = await assertWifeSignatureRequest(request, userToken);
+    if (wifeBlock) return wifeBlock;
 
     const requesterId = await getVerifiedTokenSubject(userToken);
     if (!requesterId) {
@@ -63,9 +62,8 @@ export async function POST(request: Request): Promise<Response> {
     if (!userToken || !(await isTokenAuthorized(userToken))) {
       return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
     }
-    if (!(await verifyWifeSignature(request, userToken))) {
-      return wifeSignatureFailedResponse(request);
-    }
+        const wifeBlock = await assertWifeSignatureRequest(request, userToken);
+    if (wifeBlock) return wifeBlock;
 
     const requesterId = await getVerifiedTokenSubject(userToken);
     if (!requesterId) {
@@ -118,6 +116,14 @@ export async function POST(request: Request): Promise<Response> {
           { status: 400, headers: { 'Content-Type': 'application/json; charset=utf-8' } },
         );
       }
+
+      let reporterId: string | null = null;
+      if (typeof payload.reportId === 'string' && payload.reportId.trim()) {
+        const reports = await ForumRepository.listReports();
+        const match = reports.find((r) => r.id === payload.reportId);
+        reporterId = match?.reporterId ?? null;
+      }
+
       await ForumRepository.deletePostAuthorized(
         payload.postId,
         requesterId,
@@ -125,7 +131,15 @@ export async function POST(request: Request): Promise<Response> {
       );
 
       if (typeof payload.reportId === 'string' && payload.reportId.trim()) {
-        await ForumRepository.dismissReport(payload.reportId, requesterId);
+        await ForumRepository.dismissReport(payload.reportId, requesterId, 'removed');
+      } else if (reporterId) {
+        void import('../../../services/forum/forumNotificationDispatch').then(({ dispatchReportOutcomeNotification }) =>
+          dispatchReportOutcomeNotification({
+            reporterId,
+            postId: payload.postId as string,
+            outcome: 'removed',
+          }),
+        );
       }
 
       return new Response(

@@ -20,6 +20,7 @@ vi.mock('../security/wifeValidator.ts', () => ({
   getVerifiedTokenSubject: vi.fn(),
   isTokenAuthorized: vi.fn(),
   verifyWifeSignature: vi.fn(),
+  assertWifeSignatureRequest: vi.fn(async () => null),
   wifeForbiddenResponse: () =>
     new Response(JSON.stringify({ ok: false, error: 'Cryptographic verification failed' }), {
       status: 403,
@@ -52,6 +53,8 @@ import {
   getVerifiedTokenSubject,
   isTokenAuthorized,
   verifyWifeSignature,
+  assertWifeSignatureRequest,
+  wifeSignatureFailedResponse,
 } from '../security/wifeValidator.ts';
 import { validateFileBuffer, verifyFileContentHash } from '../security/fileValidator.ts';
 
@@ -91,6 +94,7 @@ describe('upload route security checkpoints', () => {
     (extractUserTokenFromRequest as unknown as ReturnType<typeof vi.fn>).mockReturnValue('token');
     (isTokenAuthorized as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(true);
     (verifyWifeSignature as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(true);
+    vi.mocked(assertWifeSignatureRequest).mockResolvedValue(null);
     (getVerifiedTokenSubject as unknown as ReturnType<typeof vi.fn>).mockResolvedValue('user-1');
     (verifyFileContentHash as unknown as ReturnType<typeof vi.fn>).mockReturnValue(true);
     (validateFileBuffer as unknown as ReturnType<typeof vi.fn>).mockReturnValue(true);
@@ -105,7 +109,9 @@ describe('upload route security checkpoints', () => {
   });
 
   it('returns 403 on failed WIFE signature', async () => {
-    (verifyWifeSignature as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(false);
+    vi.mocked(assertWifeSignatureRequest).mockResolvedValue(
+      wifeSignatureFailedResponse({ method: 'POST', url: 'http://127.0.0.1/api/upload' } as Request),
+    );
     const res = await POST(buildUploadRequest());
     expect(res.status).toBe(403);
   });

@@ -10,15 +10,26 @@
  * @date 2026-03-06
  */
 
-const CACHE_VERSION = 'v1.0.2';
+const CACHE_VERSION = 'v1.0.3';
 const CACHE_NAME = `legal-system-${CACHE_VERSION}`;
 
-// الملفات المهمة للتخزين المؤقت
-const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json'
-];
+/** مسارات آمنة للتخزين المؤقت — لا API ولا استجابات ديناميكية */
+const CACHEABLE_PATHS = new Set(['/', '/index.html', '/manifest.json', '/favicon.svg', '/icon-192.png', '/badge-72.png']);
+
+function shouldCacheRequest(request) {
+  try {
+    const u = new URL(request.url);
+    if (u.origin !== self.location.origin) return false;
+    if (u.pathname.startsWith('/api/')) return false;
+    if (CACHEABLE_PATHS.has(u.pathname)) return true;
+    if (u.pathname.startsWith('/assets/') && /\.(woff2?|png|svg|ico|webp)(\?|$)/i.test(u.pathname)) {
+      return true;
+    }
+  } catch (_) {
+    return false;
+  }
+  return false;
+}
 
 // =====================================================
 // Install Event
@@ -31,7 +42,7 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log('[Service Worker] Caching static assets');
-        return cache.addAll(STATIC_ASSETS);
+        return cache.addAll(['/', '/index.html', '/manifest.json']);
       })
       .then(() => {
         console.log('[Service Worker] ✅ Installed successfully');
@@ -113,13 +124,11 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        // حفظ الاستجابة في الـ Cache
-        if (response && response.status === 200) {
+        if (response && response.status === 200 && shouldCacheRequest(event.request)) {
           const responseClone = response.clone();
-          caches.open(CACHE_NAME)
-            .then((cache) => {
-              cache.put(event.request, responseClone);
-            });
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseClone);
+          });
         }
         return response;
       })

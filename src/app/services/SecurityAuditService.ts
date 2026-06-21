@@ -5,9 +5,7 @@
  */
 
 import SecureStoreService from './SecureStoreService';
-
-const __DEV__ = import.meta.env.DEV;
-const _err = (...a: unknown[]) => { if (__DEV__) console.error(...a); };
+import { debug } from '@/app/utils/debug';
 
 interface SecurityEvent {
   id: string;
@@ -63,13 +61,14 @@ class SecurityAuditService {
     // إشعار المستمعين
     this.notifyListeners(event);
 
-    // تسجيل الأحداث الحرجة — فقط في DEV
+    // تسجيل الأحداث الحرجة — بدون ازدواجية error في الكونسول أثناء التطوير
     if (severity === 'critical' || severity === 'high') {
-      if (__DEV__) {
-        console.error(`[Security ${severity.toUpperCase()}]`, message, details);
+      if (severity === 'critical') {
+        debug.error(`[Security CRITICAL]`, message, details);
+      } else {
+        debug.warn(`[Security]`, message, details);
       }
-      
-      // إرسال إلى Sentry (في الإنتاج و DEV)
+
       if (typeof window !== 'undefined') {
         const w = window as unknown as { Sentry?: { captureException?: (e: unknown, ctx?: Record<string, unknown>) => void } };
         w.Sentry?.captureException?.(new Error(message), {
@@ -102,7 +101,7 @@ class SecurityAuditService {
       try {
         listener(event);
       } catch (error) {
-        _err('[SecurityAudit] Listener error:', error);
+        debug.warn('[SecurityAudit] Listener error:', error);
       }
     });
   }
@@ -354,6 +353,8 @@ if (typeof window !== 'undefined') {
   }
 
   const onCsp = (e: SecurityPolicyViolationEvent) => {
+    if (e.violatedDirective?.includes('script-src-attr')) return;
+    if (import.meta.env.DEV && e.violatedDirective?.includes('style-src')) return;
     securityAudit.logEvent('violation', 'high', 'Content Security Policy violation', {
       violatedDirective: e.violatedDirective,
       blockedURI: e.blockedURI,
@@ -362,12 +363,7 @@ if (typeof window !== 'undefined') {
   };
 
   const onLoad = () => {
-    void (async () => {
-      const health = await securityAudit.performHealthCheck();
-      if (!health.healthy) {
-        securityAudit.logEvent('data', 'high', 'System health check failed', { issues: health.issues });
-      }
-    })();
+    /* health check handled once by SecurityInitializer — avoid duplicate audit noise */
   };
 
   document.addEventListener('securitypolicyviolation', onCsp);

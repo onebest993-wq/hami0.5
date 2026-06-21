@@ -1,8 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
+import { SmartToast } from '@/app/components/ui/SmartToast';
 import { parseCommunityDeepLinkFromLocation } from '@/app/components/lawyer/CommunityScreen/communityDeepLink';
-import { prefetchCriminalDashboard, prefetchGlobalSearchOverlay } from '@/app/utils/lazyComponents';
-import { PrefetchScheduler } from '@/app/runtime/prefetchScheduler';
+import {
+    GLOBAL_SEARCH_SHELL_FEATURE,
+    openGlobalSearchFromShell,
+} from '@/app/services/search/globalSearchShellNavigation';
+import { isRealSignedIn } from '@/app/services/auth/shellAuth';
+import {
+    openProfileFromShell,
+    PROFILE_SHELL_FEATURE,
+} from '@/app/services/profile/profileShellNavigation';
+import {
+    openSettingsFromShell,
+    SETTINGS_SHELL_FEATURE,
+} from '@/app/services/settings/settingsShellNavigation';
+import {
+    prefetchCommunityScreen,
+    prefetchCriminalDashboard,
+    prefetchGlobalSearchOverlay,
+    prefetchHamiSettings,
+    prefetchRoyalLawyerProfile,
+} from '@/app/utils/lazyComponents';
 import {
     dismissTransientOverlays,
     HAMI_DISMISS_OVERLAYS_EVENT,
@@ -20,12 +39,14 @@ import {
 
 export type UseLawyerDashboardOverlaysParams = {
     setArchiveType: Dispatch<SetStateAction<LawyerArchiveOverlay>>;
+    userId?: string | null;
 };
 
-export function useLawyerDashboardOverlays({ setArchiveType }: UseLawyerDashboardOverlaysParams) {
+export function useLawyerDashboardOverlays({ setArchiveType, userId }: UseLawyerDashboardOverlaysParams) {
     const [showContractGenerator, setShowContractGenerator] = useState(false);
     const [vaultOpenScanner, setVaultOpenScanner] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
+    const [homeLayoutEditMode, setHomeLayoutEditMode] = useState(false);
     const [showGlobalSearch, setShowGlobalSearch] = useState(false);
     const [globalSearchInitialQuery, setGlobalSearchInitialQuery] = useState('');
     const [searchIndexVersion, setSearchIndexVersion] = useState(0);
@@ -61,11 +82,50 @@ export function useLawyerDashboardOverlays({ setArchiveType }: UseLawyerDashboar
 
     const isCriminalDossierOpen = Boolean(criminalDashboardCaseId);
 
-    const openGlobalSearch = useCallback((seed = '') => {
-        prefetchGlobalSearchOverlay();
-        setGlobalSearchInitialQuery(seed);
-        setShowGlobalSearch(true);
-    }, []);
+    const openGlobalSearch = useCallback(
+        (seed = '') => {
+            openGlobalSearchFromShell({
+                signedIn: isRealSignedIn(userId),
+                seed,
+                onSignedOut: () =>
+                    SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${GLOBAL_SEARCH_SHELL_FEATURE}`),
+                onOpen: (querySeed) => {
+                    dismissTransientOverlays();
+                    prefetchGlobalSearchOverlay();
+                    setGlobalSearchInitialQuery(querySeed);
+                    setShowGlobalSearch(true);
+                },
+            });
+        },
+        [userId],
+    );
+
+    const openSettings = useCallback(() => {
+        openSettingsFromShell({
+            signedIn: isRealSignedIn(userId),
+            onSignedOut: () =>
+                SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${SETTINGS_SHELL_FEATURE}`),
+            onOpen: () => {
+                dismissTransientOverlays();
+                prefetchHamiSettings();
+                setShowSettings(true);
+            },
+        });
+    }, [userId]);
+
+    const openProfileTab = useCallback(() => {
+        openProfileFromShell({
+            signedIn: isRealSignedIn(userId),
+            onSignedOut: () =>
+                SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${PROFILE_SHELL_FEATURE}`),
+            onOpen: () => {
+                dismissTransientOverlays();
+                prefetchRoyalLawyerProfile();
+                setShowCommunity(false);
+                setActiveTab('profile');
+            },
+        });
+    }, [userId]);
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
@@ -80,6 +140,8 @@ export function useLawyerDashboardOverlays({ setArchiveType }: UseLawyerDashboar
 
     const openFieldTasksSheet = useCallback(() => {
         dismissTransientOverlays('field-tasks');
+        setTasksManagerFocusTaskId(undefined);
+        setShowTasksManager(false);
         setFieldTasksSheetOpen(true);
     }, []);
 
@@ -137,6 +199,8 @@ export function useLawyerDashboardOverlays({ setArchiveType }: UseLawyerDashboar
     }, [activeTab, showCommunity]);
 
     const openCommunityTab = useCallback(() => {
+        dismissTransientOverlays();
+        prefetchCommunityScreen();
         setShowCommunity(true);
     }, []);
 
@@ -182,10 +246,7 @@ export function useLawyerDashboardOverlays({ setArchiveType }: UseLawyerDashboar
         }
     }, []);
 
-    useEffect(() => {
-        PrefetchScheduler.planLawyerSecondaryWave();
-    }, []);
-
+    // prefetch ثانوي — يُنسَّق من LawyerDashboardBackgroundServices بعد idle (تجنّب التكرار)
     useEffect(() => {
         const syncCommunityHash = () => {
             const target = parseCommunityDeepLinkFromLocation(window.location);
@@ -203,6 +264,16 @@ export function useLawyerDashboardOverlays({ setArchiveType }: UseLawyerDashboar
         return () => window.removeEventListener('hashchange', syncCommunityHash);
     }, [openCommunityTab]);
 
+    const enterHomeLayoutEdit = useCallback(() => {
+        setShowSettings(false);
+        setActiveTab('home');
+        setHomeLayoutEditMode(true);
+    }, []);
+
+    const exitHomeLayoutEdit = useCallback(() => {
+        setHomeLayoutEditMode(false);
+    }, []);
+
     return {
         showContractGenerator,
         setShowContractGenerator,
@@ -210,6 +281,12 @@ export function useLawyerDashboardOverlays({ setArchiveType }: UseLawyerDashboar
         setVaultOpenScanner,
         showSettings,
         setShowSettings,
+        openSettings,
+        openProfileTab,
+        homeLayoutEditMode,
+        setHomeLayoutEditMode,
+        enterHomeLayoutEdit,
+        exitHomeLayoutEdit,
         showGlobalSearch,
         setShowGlobalSearch,
         globalSearchInitialQuery,

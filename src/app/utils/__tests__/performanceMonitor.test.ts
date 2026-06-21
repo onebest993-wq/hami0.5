@@ -50,15 +50,9 @@ describe('PerformanceMonitor', () => {
             expect(metrics).toHaveLength(2);
         });
 
-        it('should warn when ending without start', () => {
-            const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-            
+        it('should return 0 when ending without start', () => {
             const duration = PerformanceMonitor.end('non-existent');
-            
             expect(duration).toBe(0);
-            expect(consoleWarnSpy).toHaveBeenCalled();
-            
-            consoleWarnSpy.mockRestore();
         });
     });
 

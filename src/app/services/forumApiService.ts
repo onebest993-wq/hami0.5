@@ -63,13 +63,16 @@ function isBannedForumError(err: SecureFetchError): boolean {
 function parseForumApiError(err: unknown): string {
     if (err instanceof SecureFetchError) {
         try {
-            const body = JSON.parse(err.bodyText) as { error?: string };
+            const body = JSON.parse(err.bodyText) as { error?: string; code?: string };
+            if (body.code === 'FORUM_AUTH_REQUIRED' && body.error?.trim()) {
+                return body.error.trim();
+            }
             if (typeof body.error === 'string' && body.error.trim()) return body.error.trim();
         } catch {
             /* ignore */
         }
         if (err.status === 403) return 'تعذّر تنفيذ العملية — تحقق من الصلاحيات أو أعد المحاولة';
-        if (err.status === 401) return 'يجب تسجيل الدخول';
+        if (err.status === 401) return 'يجب تسجيل الدخول بحساب حقيقي للمشاركة في المنتدى';
     }
     if (err instanceof Error && err.message.trim()) return err.message.trim();
     return 'تعذّر تنفيذ العملية';
@@ -342,7 +345,19 @@ export class ForumApiService {
             }
         } catch (err) {
             if (this.shouldRethrowMutationError(err)) throw err;
-            /* التعليق محفوظ محلياً */
+            const parentComment = comment.parentId
+                ? result.comments.find((c) => c.id === comment.parentId) ?? null
+                : null;
+            try {
+                const {
+                    autoSubscribeCommenterToThread,
+                    dispatchCommentNotifications,
+                } = await import('@/app/services/forum/forumNotificationDispatch');
+                await autoSubscribeCommenterToThread(comment.authorId, postId);
+                await dispatchCommentNotifications({ post: result, comment, parentComment });
+            } catch {
+                /* offline dispatch optional */
+            }
         }
 
         try {
@@ -598,5 +613,278 @@ export class ForumApiService {
                 ForumGroupLocalStore.leaveGroup(groupId, lawyerId);
             },
         );
+    }
+
+    // ============== المتابعة والتنبيهات ==============
+
+    static async listFollowing(requesterId?: string | null) {
+        const userId = await getSessionUserId(requesterId);
+        if (!userId) return [];
+
+        const { FollowDB } = await import('@/app/services/lawyer-cloud');
+        const localRecords = await FollowDB.getFollowing(userId);
+
+        const { getCurrentAccessToken } = await import('./SecureAPIClient');
+        if (!(await getCurrentAccessToken())) {
+            return localRecords.map((r) => ({
+                ...r,
+                notifyPosts: true,
+                notifyComments: true,
+                notifyReplies: true,
+            }));
+        }
+
+        try {
+            const res = await SecureAPIClient.fetchSecure<{
+                ok: boolean;
+                follows: Array<{
+                    followerId: string;
+                    followingId: string;
+                    createdAt: string;
+                    notifyPosts: boolean;
+                    notifyComments: boolean;
+                    notifyReplies: boolean;
+                }>;
+            }>('/api/forum/follow?mode=following', { method: 'GET' });
+            return Array.isArray(res.follows) ? res.follows : [];
+        } catch {
+            return localRecords.map((r) => ({
+                ...r,
+                notifyPosts: true,
+                notifyComments: true,
+                notifyReplies: true,
+            }));
+        }
+    }
+
+    static async followUser(
+        followingId: string,
+        options?: {
+            requesterId?: string | null;
+            followerName?: string;
+            notifyPosts?: boolean;
+            notifyComments?: boolean;
+            notifyReplies?: boolean;
+        },
+    ): Promise<boolean> {
+        const userId = await getSessionUserId(options?.requesterId);
+        if (!userId) throw new Error('يجب تسجيل الدخول');
+
+        const { FollowDB } = await import('@/app/services/lawyer-cloud');
+        await FollowDB.follow(userId, followingId);
+
+        try {
+            await postJson<ApiOk<{ follow: unknown }>>('/api/forum/follow', {
+                action: 'follow',
+                followingId,
+                followerName: options?.followerName,
+                notifyPosts: options?.notifyPosts !== false,
+                notifyComments: options?.notifyComments !== false,
+                notifyReplies: options?.notifyReplies !== false,
+            });
+            return true;
+        } catch {
+            return true;
+        }
+    }
+
+    static async unfollowUser(followingId: string, requesterId?: string | null): Promise<void> {
+        const userId = await getSessionUserId(requesterId);
+        if (!userId) throw new Error('يجب تسجيل الدخول');
+
+        const { FollowDB } = await import('@/app/services/lawyer-cloud');
+        await FollowDB.unfollow(userId, followingId);
+
+        try {
+            await postJson<ApiOk<Record<string, never>>>('/api/forum/follow', {
+                action: 'unfollow',
+                followingId,
+            });
+        } catch {
+            /* local fallback ok */
+        }
+    }
+
+    static async updateFollowPreferences(
+        followingId: string,
+        prefs: { notifyPosts?: boolean; notifyComments?: boolean; notifyReplies?: boolean },
+        requesterId?: string | null,
+    ): Promise<void> {
+        const userId = await getSessionUserId(requesterId);
+        if (!userId) throw new Error('يجب تسجيل الدخول');
+        await postJson<ApiOk<{ follow: unknown }>>('/api/forum/follow', {
+            action: 'update_prefs',
+            followingId,
+            ...prefs,
+        });
+    }
+
+    static async getFollowerCount(userId: string): Promise<number> {
+        const { FollowDB } = await import('@/app/services/lawyer-cloud');
+        try {
+            const res = await SecureAPIClient.fetchSecure<{ ok: boolean; count: number }>(
+                `/api/forum/follow?mode=followers&userId=${encodeURIComponent(userId)}`,
+                { method: 'GET' },
+            );
+            if (typeof res.count === 'number') return res.count;
+        } catch {
+            /* fallback */
+        }
+        return FollowDB.getFollowerCount(userId);
+    }
+
+    static async listFollowers(targetUserId: string, requesterId?: string | null) {
+        const userId = await getSessionUserId(requesterId);
+        if (!userId) return [];
+
+        try {
+            const res = await SecureAPIClient.fetchSecure<{
+                ok: boolean;
+                follows: Array<{
+                    followerId: string;
+                    followingId: string;
+                    createdAt: string;
+                }>;
+            }>(`/api/forum/follow?mode=followers&userId=${encodeURIComponent(targetUserId)}`, {
+                method: 'GET',
+            });
+            return Array.isArray(res.follows) ? res.follows : [];
+        } catch {
+            return [];
+        }
+    }
+
+    static async listPostSubscriptions(requesterId?: string | null): Promise<string[]> {
+        const userId = await getSessionUserId(requesterId);
+        if (!userId) return [];
+
+        const { getCurrentAccessToken } = await import('./SecureAPIClient');
+        if (!(await getCurrentAccessToken())) {
+            const { ForumPostFollowRepository } = await import('@/app/services/forum/forumPostFollowRepository');
+            return ForumPostFollowRepository.listPostIdsForUser(userId);
+        }
+
+        try {
+            const res = await SecureAPIClient.fetchSecure<{ ok: boolean; postIds: string[] }>(
+                '/api/forum/post-follow',
+                { method: 'GET' },
+            );
+            return Array.isArray(res.postIds) ? res.postIds : [];
+        } catch {
+            const { ForumPostFollowRepository } = await import('@/app/services/forum/forumPostFollowRepository');
+            return ForumPostFollowRepository.listPostIdsForUser(userId);
+        }
+    }
+
+    static async togglePostSubscription(postId: string, requesterId?: string | null): Promise<boolean> {
+        const userId = await getSessionUserId(requesterId);
+        if (!userId) throw new Error('يجب تسجيل الدخول');
+
+        try {
+            const res = await postJson<ApiOk<{ subscribed: boolean }>>('/api/forum/post-follow', {
+                postId,
+                action: 'toggle',
+            });
+            return Boolean(res.subscribed);
+        } catch {
+            const { ForumPostFollowRepository } = await import('@/app/services/forum/forumPostFollowRepository');
+            const sub = await ForumPostFollowRepository.isSubscribed(userId, postId);
+            if (sub) {
+                await ForumPostFollowRepository.unsubscribe(userId, postId);
+                return false;
+            }
+            await ForumPostFollowRepository.subscribe(userId, postId);
+            return true;
+        }
+    }
+
+    static async listForumNotifications(requesterId?: string | null): Promise<{
+        notifications: import('@/app/services/lawyer-cloud').ForumNotification[];
+        unreadCount: number;
+    }> {
+        const userId = await getSessionUserId(requesterId);
+        if (!userId) return { notifications: [], unreadCount: 0 };
+
+        const { NotificationDB } = await import('@/app/services/lawyer-cloud');
+        const local = await NotificationDB.getNotifications(userId);
+
+        const { getCurrentAccessToken } = await import('./SecureAPIClient');
+        if (!(await getCurrentAccessToken())) {
+            return {
+                notifications: local,
+                unreadCount: local.filter((n) => !n.read).length,
+            };
+        }
+
+        try {
+            const res = await SecureAPIClient.fetchSecure<{
+                ok: boolean;
+                notifications: import('@/app/services/lawyer-cloud').ForumNotification[];
+                unreadCount: number;
+            }>('/api/forum/notifications', { method: 'GET' });
+            const notifications = Array.isArray(res.notifications) ? res.notifications : local;
+            const unreadCount =
+                typeof res.unreadCount === 'number'
+                    ? res.unreadCount
+                    : notifications.filter((n) => !n.read).length;
+
+            if (typeof window !== 'undefined') {
+                const { syncForumNotificationsToAppStore, emitForumUnreadCount } = await import(
+                    '@/app/services/forum/forumNotificationBridge'
+                );
+                syncForumNotificationsToAppStore(userId, notifications);
+                emitForumUnreadCount(unreadCount, { refresh: true });
+            }
+
+            return { notifications, unreadCount };
+        } catch {
+            const unreadCount = local.filter((n) => !n.read).length;
+            if (typeof window !== 'undefined') {
+                const { emitForumUnreadCount } = await import('@/app/services/forum/forumNotificationBridge');
+                emitForumUnreadCount(unreadCount, { refresh: true });
+            }
+            return {
+                notifications: local,
+                unreadCount,
+            };
+        }
+    }
+
+    static async markForumNotificationRead(notificationId: string, requesterId?: string | null): Promise<void> {
+        const userId = await getSessionUserId(requesterId);
+        if (!userId) return;
+        const { NotificationDB } = await import('@/app/services/lawyer-cloud');
+        await NotificationDB.markAsRead(notificationId, userId);
+        try {
+            await postJson<ApiOk<Record<string, never>>>('/api/forum/notifications', {
+                action: 'mark_read',
+                notificationId,
+            });
+        } catch {
+            /* local ok */
+        }
+        if (typeof window !== 'undefined') {
+            const remaining = (await NotificationDB.getNotifications(userId)).filter((n) => !n.read).length;
+            const { emitForumUnreadCount } = await import('@/app/services/forum/forumNotificationBridge');
+            emitForumUnreadCount(remaining);
+        }
+    }
+
+    static async markAllForumNotificationsRead(requesterId?: string | null): Promise<void> {
+        const userId = await getSessionUserId(requesterId);
+        if (!userId) return;
+        const { NotificationDB } = await import('@/app/services/lawyer-cloud');
+        await NotificationDB.markAllAsRead(userId);
+        try {
+            await postJson<ApiOk<Record<string, never>>>('/api/forum/notifications', {
+                action: 'mark_all_read',
+            });
+        } catch {
+            /* local ok */
+        }
+        if (typeof window !== 'undefined') {
+            const { emitForumUnreadCount } = await import('@/app/services/forum/forumNotificationBridge');
+            emitForumUnreadCount(0);
+        }
     }
 }

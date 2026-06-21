@@ -27,6 +27,10 @@
 import { supabase } from '@/app/lib/supabase-client';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { debug } from '@/app/utils/debug';
+import {
+  notifyRealtimeChannelClosed,
+  notifyRealtimeChannelSubscribed,
+} from '@/app/services/realtimeSyncGate';
 
 // =====================================================
 // Types
@@ -120,9 +124,12 @@ export class RealtimeService {
         )
         .subscribe((status) => {
           debug.log('[RealtimeService] حالة الاشتراك:', status);
-          
+
           if (status === 'SUBSCRIBED') {
+            notifyRealtimeChannelSubscribed();
             debug.log('[RealtimeService] ✅ تم الاشتراك بنجاح في ملفات الدعاوى');
+          } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+            notifyRealtimeChannelClosed();
           }
         });
 
@@ -178,9 +185,12 @@ export class RealtimeService {
         )
         .subscribe((status) => {
           debug.log('[RealtimeService] حالة الاشتراك:', status);
-          
+
           if (status === 'SUBSCRIBED') {
+            notifyRealtimeChannelSubscribed();
             debug.log('[RealtimeService] ✅ تم الاشتراك بنجاح في الملاحظات');
+          } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+            notifyRealtimeChannelClosed();
           }
         });
 
@@ -235,6 +245,7 @@ export class RealtimeService {
     if (channel) {
       await supabase.removeChannel(channel);
       this.channels.delete(channelId);
+      notifyRealtimeChannelClosed();
       debug.log('[RealtimeService] ✅ تم إلغاء الاشتراك:', channelId);
     } else if (channelId.startsWith('execution-files-')) {
       // execution-files channels are phantom (LocalStorage mode)

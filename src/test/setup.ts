@@ -15,13 +15,18 @@ afterEach(() => {
 // Mock environment variables
 process.env.NODE_ENV = 'test';
 vi.stubEnv('VITE_ENABLE_CLOUD_SYNC', 'true');
+vi.stubEnv('VITE_SHELL_AUTH_OPEN', 'false');
 
 // Mock localStorage
 const localStorageMock = (() => {
   let store: Record<string, string> = {};
 
   return {
-    getItem: (key: string) => store[key] || null,
+    get length() {
+      return Object.keys(store).length;
+    },
+    key: (index: number) => Object.keys(store)[index] ?? null,
+    getItem: (key: string) => store[key] ?? null,
     setItem: (key: string, value: string) => {
       store[key] = value.toString();
     },
@@ -30,7 +35,7 @@ const localStorageMock = (() => {
     },
     clear: () => {
       store = {};
-    }
+    },
   };
 })();
 

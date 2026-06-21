@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { X, Plus, Trash2, Save, FileText, ArrowRight, Pin } from 'lucide-react';
-import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
-import { buildNoteWorkspacePin } from '@/app/workspace/workspacePinBuilders';
+import { X, Plus, Save, FileText, ArrowRight, Pin, Mic, Trash2 } from 'lucide-react';
+import { isVoiceNote } from '@/app/components/lawyer/dashboard/notepadNoteUtils';
+import { VoiceNoteAudio } from '@/app/components/lawyer/dashboard/VoiceNoteAudio';
 
 type NotepadNote = {
     id: string | number;
@@ -14,6 +14,8 @@ type NotepadNote = {
     reminder_at?: string;
     createdAt?: string;
     isPinned?: boolean;
+    type?: string;
+    transcript?: string;
 };
 
 type NotepadSaveNote = {
@@ -24,6 +26,7 @@ type NotepadSaveNote = {
     apptDate?: string;
     reminder_at?: string;
     isPinned: boolean;
+    type?: string;
 };
 
 interface NotepadModalProps {
@@ -74,6 +77,7 @@ export const NotepadModal = ({
         startMode === 'create' ? 'create' : 'list',
     );
     const [editingId, setEditingId] = useState<string | number | null>(null);
+    const [editingIsVoice, setEditingIsVoice] = useState(false);
     const [currentNote, setCurrentNote] = useState({
         title: '',
         body: '',
@@ -95,31 +99,49 @@ export const NotepadModal = ({
 
     const openCreate = () => {
         setEditingId(null);
+        setEditingIsVoice(false);
         setCurrentNote({ title: '', body: '', isPinned: false });
         setMode('create');
     };
 
     const openEdit = (note: NotepadNote) => {
+        const body = note.body || note.text || '';
         setEditingId(note.id);
+        setEditingIsVoice(isVoiceNote(note));
         setCurrentNote({
             title: note.title || '',
-            body: note.body || note.text || '',
+            body,
             isPinned: Boolean(note.isPinned),
         });
         setMode('create');
     };
 
     const handleSave = () => {
-        if (!currentNote.body.trim()) return;
+        if (editingIsVoice) {
+            if (!currentNote.body.trim()) return;
+        } else if (!currentNote.body.trim()) {
+            return;
+        }
         onSave({
             id: editingId ?? Date.now(),
-            title: currentNote.title.trim() || 'ملاحظة جديدة',
+            title: currentNote.title.trim() || (editingIsVoice ? 'تسجيل صوتي' : 'ملاحظة جديدة'),
             body: currentNote.body.trim(),
             date: new Date().toLocaleDateString('ar-EG'),
             isPinned: currentNote.isPinned,
+            ...(editingIsVoice ? { type: 'voice' } : {}),
         });
         setCurrentNote({ title: '', body: '', isPinned: false });
         setEditingId(null);
+        setEditingIsVoice(false);
+        setMode('list');
+    };
+
+    const handleDelete = () => {
+        if (editingId == null) return;
+        onDelete(editingId);
+        setCurrentNote({ title: '', body: '', isPinned: false });
+        setEditingId(null);
+        setEditingIsVoice(false);
         setMode('list');
     };
 
@@ -179,7 +201,10 @@ export const NotepadModal = ({
                                 <div className="text-center py-10 text-white/30 text-sm">لا توجد ملاحظات محفوظة</div>
                             )}
 
-                            {notes.map((note) => (
+                            {notes.map((note) => {
+                                const voice = isVoiceNote(note);
+                                const previewBody = note.body || note.text || '';
+                                return (
                                 <button
                                     type="button"
                                     key={note.id}
@@ -193,48 +218,33 @@ export const NotepadModal = ({
                                 >
                                     <div className="flex justify-between items-start mb-2 gap-2">
                                         <div className="flex items-center gap-2 min-w-0">
-                                            {note.isPinned ? (
+                                            {voice ? (
+                                                <Mic size={12} className="text-[#E6C673] shrink-0" aria-hidden />
+                                            ) : note.isPinned ? (
                                                 <Pin size={12} className="text-[#E6C673] shrink-0" />
                                             ) : null}
                                             <h3 className="font-bold text-white/90 truncate">{note.title || 'ملاحظة'}</h3>
                                         </div>
                                         <span className="text-[10px] text-white/35 shrink-0">{note.date}</span>
                                     </div>
-                                    <p className="text-white/60 text-sm line-clamp-3 leading-relaxed">
-                                        {note.body || note.text}
-                                    </p>
-
-                                    <div
-                                        className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 flex gap-2 items-center transition-opacity"
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        {(() => {
-                                            const pin = buildNoteWorkspacePin(note);
-                                            return pin ? (
-                                                <WorkspacePinButton item={pin} className="!w-7 !h-7" size={14} />
-                                            ) : null;
-                                        })()}
-                                        <button
-                                            type="button"
-                                            onClick={() => onDelete(note.id)}
-                                            className="p-1.5 rounded-lg bg-rose-500/15 border border-rose-500/25 text-rose-300 hover:bg-rose-500/30"
+                                    {voice ? (
+                                        <div
+                                            className="mt-1 space-y-2"
+                                            onClick={(e) => e.stopPropagation()}
+                                            onKeyDown={(e) => e.stopPropagation()}
                                         >
-                                            <Trash2 size={14} />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                const text = note.body || note.text || '';
-                                                onConvert?.({ text });
-                                            }}
-                                            className="p-1.5 rounded-lg bg-[#E6C673]/15 border border-[#E6C673]/25 text-[#E6C673] hover:bg-[#E6C673]/25"
-                                            title="تحويل لقضية"
-                                        >
-                                            <ArrowRight size={14} />
-                                        </button>
-                                    </div>
+                                            {note.transcript ? (
+                                                <p className="text-white/55 text-xs line-clamp-2">{note.transcript}</p>
+                                            ) : null}
+                                            <VoiceNoteAudio body={previewBody} />
+                                        </div>
+                                    ) : (
+                                        <p className="text-white/60 text-sm line-clamp-3 leading-relaxed">
+                                            {previewBody}
+                                        </p>
+                                    )}
                                 </button>
-                            ))}
+                            );})}
                         </div>
                     ) : (
                         <div className="flex-1 p-5 flex flex-col gap-4 overflow-y-auto">
@@ -258,12 +268,19 @@ export const NotepadModal = ({
                                 className={`${PEARL_INPUT} text-lg font-bold`}
                             />
 
-                            <textarea
-                                placeholder="اكتب تفاصيل الملاحظة هنا..."
-                                value={currentNote.body}
-                                onChange={(e) => setCurrentNote({ ...currentNote, body: e.target.value })}
-                                className={`${PEARL_INPUT} flex-1 min-h-[160px] resize-none leading-relaxed`}
-                            />
+                            {!editingIsVoice ? (
+                                <textarea
+                                    placeholder="اكتب تفاصيل الملاحظة هنا..."
+                                    value={currentNote.body}
+                                    onChange={(e) => setCurrentNote({ ...currentNote, body: e.target.value })}
+                                    className={`${PEARL_INPUT} flex-1 min-h-[160px] resize-none leading-relaxed`}
+                                />
+                            ) : (
+                                <div className={`${PEARL_INPUT} p-4 space-y-2 flex-1`}>
+                                    <p className="text-xs text-white/45">تسجيل صوتي — يمكنك تغيير العنوان أو التثبيت</p>
+                                    <VoiceNoteAudio body={currentNote.body} preload="metadata" className="w-full" />
+                                </div>
+                            )}
 
                             <button
                                 type="button"
@@ -298,7 +315,18 @@ export const NotepadModal = ({
                                 </span>
                             </button>
 
-                            <div className="flex justify-end pt-1">
+                            <div className="flex justify-between pt-1 gap-2">
+                                {editingId != null ? (
+                                    <button
+                                        type="button"
+                                        onClick={handleDelete}
+                                        className="px-4 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 text-red-300/90 border border-red-400/25 bg-red-500/10 hover:bg-red-500/15 transition-all"
+                                    >
+                                        <Trash2 size={16} /> حذف
+                                    </button>
+                                ) : (
+                                    <span />
+                                )}
                                 <button type="button" onClick={handleSave} className={PEARL_BTN_GOLD}>
                                     <Save size={17} /> حفظ
                                 </button>

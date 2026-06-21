@@ -13,6 +13,7 @@ export type WifeRejectReason =
   | 'cloned_token'
   | 'actor_binding_failed'
   | 'forum_banned'
+  | 'forum_guest_write_denied'
   | 'csrf_store_unavailable';
 
 export type WifeRejectMeta = {

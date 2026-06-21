@@ -13,6 +13,8 @@ export type GlobalNote = {
     tags?: string[];
     linkedFileId?: number;
     type?: string;
+    transcript?: string;
+    voiceDurationSec?: number;
 };
 
 export type ExecutionFile = FileData & {

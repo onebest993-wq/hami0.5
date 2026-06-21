@@ -1,5 +1,6 @@
 import type { Session, User } from '@supabase/supabase-js';
 import { projectId } from '@/utils/supabase/info';
+import { hasBffCryptoSession } from '@/app/utils/bffCryptoSession';
 
 const DEV_ACCESS_TOKEN_KEY = 'hami:dev-mock-access-token';
 const DEV_ACCESS_USER_KEY = 'hami:dev-mock-user';
@@ -15,8 +16,9 @@ export function isDevMockAccessToken(token: string): boolean {
     return token.startsWith('dev-access-token-');
 }
 
-/** جلسات التطوير المحلية — لا تُرسل إلى BFF /api (تجنّب 401 في الكونسول). */
+/** جلسات BFF (HttpOnly) أو Supabase الحقيقية — لا dev mock */
 export function shouldUseServerSignedAuth(token: string | null | undefined): boolean {
+    if (hasBffCryptoSession()) return true;
     const normalized = token?.trim() ?? '';
     return Boolean(normalized) && !isDevMockAccessToken(normalized);
 }
@@ -111,4 +113,40 @@ export function clearStaleDevMockFromSupabaseStorage(): void {
     } catch {
         /* ignore */
     }
+}
+
+const LEGACY_CRYPTO_WRAP_SESSION_KEY = 'hami-crypto-session-key';
+
+/** مفاتيح Supabase JWT في localStorage (sb-*-auth-token). */
+export function listSupabaseJwtStorageKeys(): string[] {
+    if (typeof localStorage === 'undefined') return [];
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i += 1) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('sb-') && key.includes('-auth-token')) {
+            keys.push(key);
+        }
+    }
+    return keys;
+}
+
+/**
+ * يمسح JWT/refresh من localStorage — مطلوب عند تفعيل BFF HttpOnly.
+ * @returns true إذا أُزيلت مفاتيح JWT فعلياً
+ */
+export function purgePersistedSupabaseJwtFromLocalStorage(): boolean {
+    const keys = listSupabaseJwtStorageKeys();
+    if (keys.length === 0) return false;
+    for (const key of keys) {
+        localStorage.removeItem(key);
+    }
+    return true;
+}
+
+/** يمسح master key ملفوف بـ JWT قديم — BFF يستخدم wrap credential مختلف. */
+export function purgeLegacyCryptoWrapSession(): boolean {
+    if (typeof sessionStorage === 'undefined') return false;
+    if (!sessionStorage.getItem(LEGACY_CRYPTO_WRAP_SESSION_KEY)) return false;
+    sessionStorage.removeItem(LEGACY_CRYPTO_WRAP_SESSION_KEY);
+    return true;
 }

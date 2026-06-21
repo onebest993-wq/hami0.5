@@ -41,6 +41,7 @@ vi.mock('@/app/api/security/wifeValidator.ts', () => ({
   getVerifiedTokenSubject: vi.fn(async () => 'attacker-user-id'),
   isTokenAuthorized: vi.fn(async () => true),
   verifyWifeSignature: vi.fn(async () => true),
+  assertWifeSignatureRequest: vi.fn(async () => null),
   enforceTokenActorBinding: vi.fn(async () => true),
   wifeForbiddenResponse: () => new Response(JSON.stringify({ ok: false }), { status: 403 }),
   wifeUnauthorizedResponse: () => new Response(JSON.stringify({ ok: false }), { status: 401 }),

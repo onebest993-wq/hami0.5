@@ -1,16 +1,18 @@
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
 import SecureStoreService from '@/app/services/SecureStoreService';
-import { STORAGE_KEYS } from '@/app/utils/constants';
+import {
+    loadDossierCollectionSync,
+    persistDossierCollectionSync,
+} from '@/app/services/dossierPersistence/dossierPersistenceService';
+import {
+    LAWSUIT_FILES_STORAGE_KEY,
+    LAWSUIT_FILES_STORAGE_KEYS_LEGACY,
+} from '@/app/services/dossierPersistence/dossierStorageKeys';
 
-/** المفتاح الموحّد — نفس مصدر LawyerDashboard (`lawyer_files`). */
-export const LAWSUIT_FILES_STORAGE_KEY = STORAGE_KEYS.LAWYER_FILES;
-
-/** مفاتيح قديمة تُدمَج تلقائياً عند القراءة. */
-export const LAWSUIT_FILES_STORAGE_KEYS_LEGACY = [
-    'lawsuitFiles',
-    'hami-lawsuit-files',
-    'lawsuit_files',
-] as const;
+export {
+    LAWSUIT_FILES_STORAGE_KEY,
+    LAWSUIT_FILES_STORAGE_KEYS_LEGACY,
+} from '@/app/services/dossierPersistence/dossierStorageKeys';
 
 function readJsonArray(key: string): unknown[] | null {
     try {
@@ -23,61 +25,49 @@ function readJsonArray(key: string): unknown[] | null {
     }
 }
 
-function persistPrimary(next: unknown[]): void {
-    const serialized = JSON.stringify(next);
-    try {
-        persistenceRepository.save(LAWSUIT_FILES_STORAGE_KEY, next);
-    } catch {
-        /* persistence may be mocked in tests */
+/** تحميل ملفات الدعاوى — يفضّل `lawyer_files` ثم يدمج المفاتيح القديمة. */
+export function loadLawsuitFilesRaw(): unknown[] {
+    const fromDossier = loadDossierCollectionSync('lawsuit');
+    if (fromDossier.length > 0) {
+        const primaryOnly = readJsonArray(LAWSUIT_FILES_STORAGE_KEY);
+        if (primaryOnly === null || primaryOnly.length === 0) {
+            saveLawsuitFilesRawImmediate(fromDossier);
+        }
+        return fromDossier;
     }
-    try {
-        SecureStoreService.setItemSync(LAWSUIT_FILES_STORAGE_KEY, serialized);
-    } catch {
-        /* ignore */
-    }
-}
 
-function loadFromPrimary(): unknown[] | null {
     try {
         const fromRepo = persistenceRepository.load<unknown[]>(LAWSUIT_FILES_STORAGE_KEY);
-        if (Array.isArray(fromRepo)) {
+        if (Array.isArray(fromRepo) && fromRepo.length > 0) {
             return fromRepo;
         }
     } catch {
         /* persistence may be mocked in tests */
     }
-    return readJsonArray(LAWSUIT_FILES_STORAGE_KEY);
-}
-
-/** تحميل ملفات الدعاوى — يفضّل `lawyer_files` ثم يدمج المفاتيح القديمة. */
-export function loadLawsuitFilesRaw(): unknown[] {
-    const primary = loadFromPrimary();
-    if (primary !== null) {
-        return primary;
-    }
 
     for (const legacyKey of LAWSUIT_FILES_STORAGE_KEYS_LEGACY) {
         const legacy = readJsonArray(legacyKey);
-        if (legacy !== null) {
-            persistPrimary(legacy);
+        if (legacy !== null && legacy.length > 0) {
+            saveLawsuitFilesRawImmediate(legacy);
             return legacy;
         }
     }
 
-    return [];
+    return fromDossier;
 }
 
 /** حفظ ملفات الدعاوى — مصدر واحد + مرآة للمفاتيح القديمة لتوافق الإصدارات السابقة. */
 export function saveLawsuitFilesRaw(next: unknown[]): void {
-    const payload = Array.isArray(next) ? next : [];
-    persistPrimary(payload);
+    saveLawsuitFilesRawImmediate(next);
+}
 
-    const serialized = JSON.stringify(payload);
-    LAWSUIT_FILES_STORAGE_KEYS_LEGACY.forEach((k) => {
-        try {
-            SecureStoreService.setItemSync(k, serialized);
-        } catch {
-            /* ignore */
-        }
-    });
+/** حفظ فوري متزامn — للاختبارات والترحيل */
+export function saveLawsuitFilesRawImmediate(next: unknown[]): void {
+    const payload = Array.isArray(next) ? next : [];
+    persistDossierCollectionSync('lawsuit', payload);
+    try {
+        persistenceRepository.save(LAWSUIT_FILES_STORAGE_KEY, payload);
+    } catch {
+        /* persistence may be mocked in tests */
+    }
 }

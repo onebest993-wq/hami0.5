@@ -2,6 +2,8 @@ import React, { Fragment, useEffect, useState } from 'react';
 import { ChevronDown, Gavel, GitMerge, MapPin, Pencil, Scissors, Trash2, Unlock, Zap } from 'lucide-react';
 import type { PhysicalLocation, StageConclusion } from './criminalStore';
 import { isInvestigationStoredStage } from './criminalStageUtils';
+import { useColleagueConsultation } from '@/app/components/lawyer/caseShare/ColleagueConsultationContext';
+import { ColleagueConsultationHeaderButton } from '@/app/components/lawyer/caseShare/ColleagueConsultationHeaderButton';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -136,6 +138,7 @@ export const CriminalDashboardHeader = ({
     showEndTemporaryClosureAction = false,
     onEndTemporaryClosure,
 }: CriminalDashboardHeaderProps) => {
+    const consultation = useColleagueConsultation();
     const [locationLocal, setLocationLocal] = useState<PhysicalLocation>(physicalLocation);
     const [customNameLocal, setCustomNameLocal] = useState<string>(String(physicalLocationCustomName ?? ''));
 
@@ -244,7 +247,8 @@ export const CriminalDashboardHeader = ({
         hasAdminMenu ||
         (showEditHeaderInfo && onEditHeaderInfo) ||
         isInvestigationStage ||
-        Boolean(onOpenTrash);
+        Boolean(onOpenTrash) ||
+        Boolean(consultation);
     const showHeaderToolbarRow = hasHeaderToolbar || showFinalDecisionButton || showFrozenBadge;
     const hasPills =
         isUnifiedParentDossier ||
@@ -260,6 +264,12 @@ export const CriminalDashboardHeader = ({
 
     const renderHeaderToolbar = () => (
         <>
+            {consultation ? (
+                <ColleagueConsultationHeaderButton
+                    className={`${glassHeaderButtonClass} border-[#E6C673]/30 text-[#E6C673] hover:bg-[#E6C673]/10`}
+                    iconSize={16}
+                />
+            ) : null}
             {hasAdminMenu ? (
                 <DropdownMenu modal={false}>
                     <DropdownMenuTrigger asChild>

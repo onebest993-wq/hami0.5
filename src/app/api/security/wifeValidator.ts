@@ -178,6 +178,15 @@ function extractTokenFromSupabaseCookies(cookieHeader: string | null): string | 
   if (!cookieHeader) return null;
   const cookies = parseCookieHeader(cookieHeader);
 
+  const hamiAccess = cookies.hami_access_token?.trim();
+  if (hamiAccess) {
+    try {
+      return decodeURIComponent(hamiAccess);
+    } catch {
+      return hamiAccess;
+    }
+  }
+
   const directToken = cookies['sb-access-token']?.trim();
   if (directToken) return decodeURIComponent(directToken);
 
@@ -315,9 +324,51 @@ export function wifeUnauthorizedResponse(meta?: WifeRejectMeta): Response {
   );
 }
 
+/** 429 — too many WIFE-verified requests (distinct from signature failure). */
+export function wifeRateLimitedResponse(meta?: WifeRejectMeta): Response {
+  if (meta) recordWifeRejection(meta);
+  return applyWifeSecurityHeaders(
+    new Response(
+      JSON.stringify({
+        ok: false,
+        error: 'Too many requests',
+        code: 'WIFE_RATE_LIMITED',
+        message: 'تم تجاوز حد الطلبات. انتظر قليلاً ثم أعد المحاولة.',
+      }),
+      {
+        status: 429,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Retry-After': '60',
+        },
+      },
+    ),
+  );
+}
+
 /** After verifyWifeSignature returns false — records signature_failed telemetry. */
 export function wifeSignatureFailedResponse(request: Request): Response {
   return wifeForbiddenResponse({ request, reason: 'signature_failed' });
+}
+
+export type WifeSignatureStatus = 'valid' | 'rate_limited' | 'invalid';
+
+/**
+ * Returns detailed WIFE verification status (use for correct 429 vs 403).
+ */
+export async function verifyWifeSignatureStatus(req: Request, userToken: string): Promise<WifeSignatureStatus> {
+  const ok = await verifyWifeSignatureInternal(req, userToken);
+  if (ok === true) return 'valid';
+  if (ok === 'rate_limited') return 'rate_limited';
+  return 'invalid';
+}
+
+/** Returns blocking Response when invalid/rate-limited; null when valid. */
+export async function assertWifeSignatureRequest(req: Request, userToken: string): Promise<Response | null> {
+  const status = await verifyWifeSignatureStatus(req, userToken);
+  if (status === 'valid') return null;
+  if (status === 'rate_limited') return wifeRateLimitedResponse({ request: req, reason: 'rate_limited' });
+  return wifeSignatureFailedResponse(req);
 }
 
 function readStringField(input: Record<string, unknown> | null, key: string): string | null {
@@ -603,41 +654,43 @@ export async function enforceTokenActorBinding(userToken: string, payload: unkno
 }
 
 // Server-side Rate Limiting (distributed when Redis configured)
-async function checkRateLimit(userToken: string): Promise<boolean> {
+/** GET/HEAD/OPTIONS: قراءة متكررة — حد أعلى. POST/PUT/DELETE: 250/min */
+export const WIFE_RATE_READ_MAX = 400;
+export const WIFE_RATE_WRITE_MAX = 250;
+
+async function checkRateLimit(req: Request, userToken: string): Promise<boolean> {
+  const method = normalizeMethod(req.method);
+  const isSafeRead = ['GET', 'HEAD', 'OPTIONS'].includes(method);
   return consumeRateLimitSlot(userToken, {
-    scope: 'wife',
-    maxRequests: 100,
+    scope: isSafeRead ? 'wife-read' : 'wife-write',
+    maxRequests: isSafeRead ? WIFE_RATE_READ_MAX : WIFE_RATE_WRITE_MAX,
     windowMs: 60_000,
   });
 }
 
 /**
- * Server-side WIFE verification.
- *
- * Validation checks:
- * 1) Required headers exist.
- * 2) Timestamp is not older than 2 minutes.
- * 3) Canonical payload reconstruction matches client format.
- * 4) HMAC signature (derived from user token hash) matches exactly.
- *
- * Returns:
- * - true: valid signature
- * - false: missing headers / expired timestamp / tampered payload / bad signature
+ * Server-side WIFE verification (boolean — rate limit returns false).
  */
 export async function verifyWifeSignature(req: Request, userToken: string): Promise<boolean> {
+  const result = await verifyWifeSignatureInternal(req, userToken);
+  return result === true;
+}
+
+async function verifyWifeSignatureInternal(
+  req: Request,
+  userToken: string,
+): Promise<true | false | 'rate_limited'> {
   try {
     if (!userToken || !userToken.trim()) return false;
 
-    // Server-side Rate Limiting
-    if (!(await checkRateLimit(userToken))) {
+    if (!(await checkRateLimit(req, userToken))) {
       recordWifeRejection({ reason: 'rate_limited', request: req });
-      return false;
+      return 'rate_limited';
     }
 
     const verifiedSubject = await getVerifiedTokenSubject(userToken);
     if (!verifiedSubject) return false;
 
-    // CSRF check for state-changing methods
     const csrfValid = await verifyCsrfToken(req, userToken);
     if (!csrfValid) return false;
 
@@ -650,7 +703,6 @@ export async function verifyWifeSignature(req: Request, userToken: string): Prom
       }
     }
 
-    // Headers are case-insensitive; keep lowercase names per hardening spec.
     const incomingSignature = req.headers.get('x-wife-signature') ?? req.headers.get('X-WIFE-Signature');
     const incomingTimestamp = req.headers.get('x-wife-timestamp') ?? req.headers.get('X-WIFE-Timestamp');
     const incomingNonce = req.headers.get('x-wife-nonce') ?? req.headers.get('X-WIFE-Nonce');
@@ -670,14 +722,9 @@ export async function verifyWifeSignature(req: Request, userToken: string): Prom
     if (timestampMs === null) return false;
 
     const now = Date.now();
-    if (now - timestampMs > MAX_TIMESTAMP_SKEW_MS) {
-      // Reject requests older than 2 minutes.
-      return false;
-    }
-    if (timestampMs - now > MAX_TIMESTAMP_SKEW_MS) {
-      // Reject unreasonable future timestamps.
-      return false;
-    }
+    if (now - timestampMs > MAX_TIMESTAMP_SKEW_MS) return false;
+    if (timestampMs - now > MAX_TIMESTAMP_SKEW_MS) return false;
+
     const multipart = isMultipartContentType(req.headers.get('content-type') ?? req.headers.get('Content-Type'));
     let body = '';
     if (multipart) {
@@ -686,7 +733,6 @@ export async function verifyWifeSignature(req: Request, userToken: string): Prom
       if (!SHA256_HEX_RE.test(normalizedHash)) return false;
       body = normalizedHash;
     } else {
-      // Clone request so callers can still consume body later.
       body = await req.clone().text();
     }
     const payload = canonicalPayload(
@@ -701,11 +747,6 @@ export async function verifyWifeSignature(req: Request, userToken: string): Prom
     const isSignatureValid = timingSafeEqual(expectedSignature, signature);
     if (!isSignatureValid) return false;
 
-    const nonceAccepted = await consumeNonceWithTtl(nonce, NONCE_TTL_MS);
-    if (!nonceAccepted) {
-      return false;
-    }
-
     const stolenCheck = await detectStolenTokenServer(userToken, deviceId);
     if (stolenCheck.status === 'stolen' || stolenCheck.status === 'cloned') {
       recordWifeRejection({
@@ -716,9 +757,43 @@ export async function verifyWifeSignature(req: Request, userToken: string): Prom
       return false;
     }
 
+    const nonceAccepted = await consumeNonceWithTtl(nonce, NONCE_TTL_MS);
+    if (!nonceAccepted) {
+      return false;
+    }
+
     await registerTokenSessionServer(userToken, deviceId);
     return true;
   } catch {
     return false;
   }
+}
+
+function randomWifeNonce(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return toBase64Url(bytes);
+}
+
+/** Server-side WIFE header builder — used by /api/security/wife-sign (HttpOnly BFF). */
+export async function createWifeSignedHeaders(
+  method: string,
+  url: string,
+  body: string,
+  userToken: string,
+  contentHash?: string,
+): Promise<Record<string, string>> {
+  const timestamp = String(Date.now());
+  const nonce = randomWifeNonce();
+  const payload = canonicalPayload(method, canonicalPathAndQuery(url), timestamp, nonce, body);
+  const signature = await createHmacSignature(payload, userToken);
+  const headers: Record<string, string> = {
+    'X-WIFE-Signature': signature,
+    'X-WIFE-Timestamp': timestamp,
+    'X-WIFE-Nonce': nonce,
+  };
+  if (contentHash) {
+    headers['X-WIFE-Content-Hash'] = contentHash;
+  }
+  return headers;
 }

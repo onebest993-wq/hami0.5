@@ -1,9 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './styles/index.css';
-import SecureStoreService from '@/app/services/SecureStoreService';
 /** Dev: static import — dynamic import('./app/App') breaks with Vite HMR stale modules */
 import App from './app/App';
+import SecureStoreService from '@/app/services/SecureStoreService';
+import { runDeferredBootTasks } from '@/app/bootstrap/deferredBoot';
 
 /** Vite dev: إعادة تحميل واحدة عند فشل dynamic import (HMR stale) */
 if (import.meta.env.DEV) {
@@ -87,13 +88,7 @@ function renderFatalBootError(e: unknown): void {
     document.body.appendChild(wrap);
 }
 
-async function bootApp(): Promise<void> {
-    void SecureStoreService.ensurePersistedReady().catch((e) => {
-        console.error('[Boot] فشل تهيئة التخزين المحلي:', e);
-    });
-
-    const { runDeferredBootTasks } = await import('@/app/bootstrap/deferredBoot');
-
+function bootApp(): void {
     const rootElement = document.getElementById('root');
     if (!rootElement) throw new Error('Root element missing');
 
@@ -116,7 +111,16 @@ async function bootApp(): Promise<void> {
 
     removeBootLoader();
     requestAnimationFrame(removeBootLoader);
+
+    void SecureStoreService.ensurePersistedReady().catch((e) => {
+        console.error('[Boot] فشل تهيئة التخزين المحلي:', e);
+    });
+
     runDeferredBootTasks();
 }
 
-void bootApp().catch(renderFatalBootError);
+try {
+    bootApp();
+} catch (e) {
+    renderFatalBootError(e);
+}

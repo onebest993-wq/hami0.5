@@ -16,6 +16,7 @@ import {
 } from '@/app/security/csrfSession';
 import { shouldUseServerSignedAuth } from '@/app/utils/authStorage';
 import { debug } from '@/app/utils/debug';
+import { isBffAuthEnabled, runBffLocalAuthMigration } from '@/app/utils/bffAuthClient';
 
 async function revokeCsrfSession(): Promise<void> {
   try {
@@ -70,6 +71,9 @@ async function bootstrapCsrfSession(): Promise<void> {
 export function SecurityInitializer(): null {
   useEffect(() => {
     installWifeFetchGuard();
+    if (isBffAuthEnabled()) {
+      void runBffLocalAuthMigration();
+    }
     void bootstrapCsrfSession();
 
     rateLimitService.configure('api', {
@@ -85,8 +89,10 @@ export function SecurityInitializer(): null {
     });
 
     const unsubscribeAudit = securityAudit.subscribe((event) => {
-      if (event.severity === 'critical' || event.severity === 'high') {
-        console.error('[Security Alert]', event.message, event.details);
+      if (event.severity === 'critical') {
+        debug.error('[Security Alert]', event.message, event.details);
+      } else if (event.severity === 'high') {
+        debug.warn('[Security Alert]', event.message, event.details);
       }
     });
 
@@ -112,14 +118,8 @@ export function SecurityInitializer(): null {
 
     const runDeferredBoot = () => {
       securityAudit.performHealthCheck().then((health) => {
-        if (!health.healthy) {
+        if (!health.healthy && import.meta.env.DEV) {
           debug.warn('[Security] System health issues:', health.issues);
-          securityAudit.logEvent(
-            'data',
-            'high',
-            'System health check failed',
-            { issues: health.issues }
-          );
         } else if (import.meta.env.DEV) {
           debug.log('[Security] System health check passed ✅');
         }

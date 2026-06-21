@@ -4,6 +4,7 @@ import { Clock, MapPin, MessageCircle, Navigation, CheckCircle2, Trash2, Externa
 import { TYPE_STYLES } from './utils';
 import { RADAR_GLASS_PANEL, RADAR_ICON_NAVY } from './radarTheme';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
+import { calendarModuleVisual } from '@/app/services/calendarModuleVisuals';
 
 interface EventCardProps {
     event: UnifiedEvent;
@@ -24,6 +25,7 @@ export const EventCard = React.memo(function EventCard({
 }: EventCardProps) {
     const style = TYPE_STYLES[event.type] || TYPE_STYLES.custom;
     const Icon = style.icon;
+    const moduleVisual = calendarModuleVisual(event.bridge?.sourceModule);
     const isDiscovered = Boolean(event.bridge?.sourceEventId?.startsWith('field_'));
     const canOpenSource = Boolean(event.isBridged && onOpenSource);
 
@@ -39,7 +41,7 @@ export const EventCard = React.memo(function EventCard({
                     : 'hover:border-[#64748b]/35'
             }`}
         >
-            <div className="absolute top-0 right-0 bottom-0 w-1 bg-gradient-to-b from-[#C9A227] via-[#64748b]/60 to-[#1e3a5f]" />
+            <div className={`absolute top-0 right-0 bottom-0 w-1 bg-gradient-to-b ${moduleVisual.rail}`} />
             <div className="p-4 pr-5">
                 <div className="flex justify-between items-start mb-2">
                     <div className="flex-1">
@@ -50,6 +52,11 @@ export const EventCard = React.memo(function EventCard({
                             >
                                 {style.label}
                             </span>
+                            {event.isBridged ? (
+                                <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${moduleVisual.badge}`}>
+                                    {moduleVisual.label}
+                                </span>
+                            ) : null}
                             {event.time && (
                                 <span className="text-[#93c5fd] font-bold font-mono text-xs flex items-center gap-1">
                                     <Clock size={12} />

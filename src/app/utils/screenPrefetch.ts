@@ -4,6 +4,7 @@
 import { PrefetchScheduler } from '@/app/runtime/prefetchScheduler';
 
 export function prefetchSecondaryAppScreens(): void {
+    if (import.meta.env.DEV) return;
     PrefetchScheduler.enqueueWave(
         [
             {
@@ -31,14 +32,17 @@ export function prefetchSecondaryAppScreens(): void {
 
 /** موجات التحميل المسبق للوحة المحامي — تُستدعى بعد أول عرض للوحة. */
 export function prefetchLawyerDashboardLazyChunks(): void {
+    if (import.meta.env.DEV) return;
     PrefetchScheduler.planLawyerHomeWave();
 }
 
 export function prefetchLawyerHeavyDeferredChunks(): void {
+    if (import.meta.env.DEV) return;
     PrefetchScheduler.planLawyerSecondaryWave();
 }
 
 /** موجّه واحد للتجربة التجريبية — يُستدعى مرة واحدة بعد أول إطار. */
 export function scheduleDemoPrefetchWaves(): void {
+    if (import.meta.env.DEV) return;
     PrefetchScheduler.planAuthenticatedEntry();
 }

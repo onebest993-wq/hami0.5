@@ -34,7 +34,14 @@ export function parseVaultIdbPath(path: string): { userId: string; docId: string
     return { userId, docId };
 }
 
+const testBlobStore = new Map<string, VaultBlobRow>();
+
+function useMemoryStore(): boolean {
+    return import.meta.env.MODE === 'test' || import.meta.env.VITEST === true;
+}
+
 function openDb(): Promise<IDBDatabase | null> {
+    if (useMemoryStore()) return Promise.resolve(null);
     if (typeof indexedDB === 'undefined') return Promise.resolve(null);
     return new Promise((resolve) => {
         try {
@@ -59,9 +66,6 @@ export async function putVaultBlob(
     blob: Blob,
     mimeType: string,
 ): Promise<void> {
-    const db = await openDb();
-    if (!db) throw new Error('vault blob store unavailable');
-
     const key = rowKey(authorId, docId);
     const row: VaultBlobRow = {
         key,
@@ -73,6 +77,14 @@ export async function putVaultBlob(
         updatedAt: new Date().toISOString(),
     };
 
+    if (useMemoryStore()) {
+        testBlobStore.set(key, row);
+        return;
+    }
+
+    const db = await openDb();
+    if (!db) throw new Error('vault blob store unavailable');
+
     await new Promise<void>((resolve, reject) => {
         const tx = db.transaction(STORE, 'readwrite');
         tx.oncomplete = () => resolve();
@@ -82,10 +94,14 @@ export async function putVaultBlob(
 }
 
 export async function getVaultBlob(authorId: string, docId: string): Promise<Blob | null> {
+    const key = rowKey(authorId, docId);
+    if (useMemoryStore()) {
+        return testBlobStore.get(key)?.blob ?? null;
+    }
+
     const db = await openDb();
     if (!db) return null;
 
-    const key = rowKey(authorId, docId);
     return new Promise((resolve) => {
         const tx = db.transaction(STORE, 'readonly');
         const req = tx.objectStore(STORE).get(key);
@@ -104,10 +120,15 @@ export async function getVaultBlobObjectUrl(authorId: string, docId: string): Pr
 }
 
 export async function deleteVaultBlob(authorId: string, docId: string): Promise<void> {
+    const key = rowKey(authorId, docId);
+    if (useMemoryStore()) {
+        testBlobStore.delete(key);
+        return;
+    }
+
     const db = await openDb();
     if (!db) return;
 
-    const key = rowKey(authorId, docId);
     await new Promise<void>((resolve) => {
         const tx = db.transaction(STORE, 'readwrite');
         tx.oncomplete = () => resolve();
@@ -123,6 +144,11 @@ export async function deleteVaultBlobByPath(storagePath: string | undefined | nu
 }
 
 export async function clearAllVaultBlobs(): Promise<void> {
+    if (useMemoryStore()) {
+        testBlobStore.clear();
+        return;
+    }
+
     const db = await openDb();
     if (!db) return;
 
@@ -132,4 +158,8 @@ export async function clearAllVaultBlobs(): Promise<void> {
         tx.onerror = () => resolve();
         tx.objectStore(STORE).clear();
     });
+}
+
+export function clearVaultBlobTestStore(): void {
+    testBlobStore.clear();
 }

@@ -11,7 +11,7 @@ const TAB_META: Record<
         idleClass: 'border-white/10 bg-white/5 text-white/50 hover:text-red-200/90',
     },
     near: {
-        label: 'قريبة',
+        label: '3–4 أيام',
         activeClass: 'border-amber-500/40 bg-amber-500/15 text-amber-200',
         idleClass: 'border-white/10 bg-white/5 text-white/50 hover:text-amber-200/90',
     },

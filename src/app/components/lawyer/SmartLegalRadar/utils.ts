@@ -1,6 +1,7 @@
 import { Clock, Gavel, Scale, DollarSign, AlertTriangle } from 'lucide-react';
 import type { CalendarEventType } from '@/app/services/lawyer-cloud';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
+import { calendarModuleVisual } from '@/app/services/calendarModuleVisuals';
 
 export const WEEK_DAYS = ['أحد', 'اثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'];
 
@@ -82,8 +83,13 @@ export function dotColorsForDate(events: UnifiedEvent[]): string[] {
     const colors: string[] = [];
     const seen = new Set<string>();
     for (const e of events) {
-        if (seen.has(e.type)) continue;
-        seen.add(e.type);
+        const key = e.bridge?.sourceModule ?? e.type;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        if (e.bridge?.sourceModule) {
+            colors.push(calendarModuleVisual(e.bridge.sourceModule).dot);
+            continue;
+        }
         switch (e.type) {
             case 'hearing': colors.push('bg-[#C9A227]'); break;
             case 'deadline': colors.push('bg-rose-400'); break;

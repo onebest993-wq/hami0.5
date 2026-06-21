@@ -32,10 +32,10 @@ describe('kvProxyGuard', () => {
         expect(r2.status).toBe(200);
     });
 
-    it('returns 429 when window limit exceeded (dev: 24)', async () => {
+    it('returns 429 when window limit exceeded (dev: 48)', async () => {
         const native = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }));
 
-        for (let i = 0; i < 24; i++) {
+        for (let i = 0; i < 48; i++) {
             const res = await fetchKvProxyGuarded(
                 KV_URL,
                 { method: 'POST', body: `{"i":${i}}` },
@@ -50,6 +50,6 @@ describe('kvProxyGuard', () => {
             native,
         );
         expect(blocked.status).toBe(429);
-        expect(native).toHaveBeenCalledTimes(24);
+        expect(native).toHaveBeenCalledTimes(48);
     });
 });

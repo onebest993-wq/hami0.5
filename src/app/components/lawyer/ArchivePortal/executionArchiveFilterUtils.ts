@@ -227,7 +227,6 @@ export const EXECUTION_PERSPECTIVE_TAB_DEFS: { id: ExecutionPerspectiveFilter; l
     { id: 'all', label: EXECUTION_PERSPECTIVE_LABELS.all },
     { id: 'creditor_agent', label: EXECUTION_PERSPECTIVE_LABELS.creditor_agent },
     { id: 'debtor_agent', label: EXECUTION_PERSPECTIVE_LABELS.debtor_agent },
-    { id: 'legal_entity', label: EXECUTION_PERSPECTIVE_LABELS.legal_entity },
 ];
 
 function resolveArchiveCourtHaystack(file: LooseArchiveFile): string {

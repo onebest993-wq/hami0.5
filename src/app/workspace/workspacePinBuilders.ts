@@ -41,6 +41,20 @@ function recordFromParts(
     };
 }
 
+export type HubSectionId = 'lawsuit' | 'execution' | 'transaction';
+
+const HUB_SECTION_LABELS: Record<HubSectionId, string> = {
+    lawsuit: 'دعاوى',
+    execution: 'تنفيذ',
+    transaction: 'معاملات',
+};
+
+/** تثبيت اختصار قسم من بطاقات الواجهة الرئيسية */
+export function buildHubSectionPin(section: HubSectionId): WorkspacePinnedItem {
+    const label = HUB_SECTION_LABELS[section];
+    return recordFromParts('hub', section, label, '', '');
+}
+
 /** استخراج حقول التثبيت من كائنات الأقسام دون استيراد أنواعها */
 export function buildLawsuitWorkspacePin(file: unknown): WorkspacePinnedItem | null {
     if (!file || typeof file !== 'object') return null;

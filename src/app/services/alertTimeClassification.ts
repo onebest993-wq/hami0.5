@@ -10,7 +10,7 @@ function dueMs(alert: SecretaryAlert): number | null {
 
 const HOUR_MS = 60 * 60 * 1000;
 const URGENT_MAX_HOURS = 24;
-const NEAR_MAX_HOURS = 72;
+const NEAR_MAX_HOURS = 96;
 const UPCOMING_MAX_HOURS = 7 * 24;
 
 export type AlertTimeHorizon = 'urgent' | 'near' | 'upcoming';

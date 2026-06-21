@@ -1,6 +1,6 @@
 import { SmartVaultDB, SmartVaultDoc, LawyerStorage, uuidv4 } from '@/app/services/lawyer-cloud';
 import { compressImageToDataUrl } from '@/app/services/profileMediaService';
-import { inferDocType, inferTags } from '@/app/components/lawyer/hooks/useSmartVault';
+import { inferDocType, inferTags } from '@/app/services/vault/vaultDocUtils';
 import {
     buildVaultIdbPath,
     getVaultBlobObjectUrl,

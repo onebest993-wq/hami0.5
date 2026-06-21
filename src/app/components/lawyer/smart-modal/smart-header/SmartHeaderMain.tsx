@@ -26,7 +26,7 @@ import { formatNumberInput } from '@/app/components/lawyer/FinancialOperationsCe
 
 import { HeaderPartiesStrip } from './HeaderPartiesStrip';
 import { PartyItem } from './PartyItem';
-import { PARTY_STRIP_SHELL } from './smartHeaderPresentation';
+import { PARTY_STRIP_SHELL, PARTIES_CARD_SHELL } from './smartHeaderPresentation';
 import { PartyChip } from './PartyChip';
 import {
     resolveLawsuitTypeLabel,
@@ -157,10 +157,14 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
         ? 'rounded-3xl mb-2 relative group/card transition-all backdrop-blur-xl bg-[#0A0F1C]/50 border border-rose-500/20 shadow-[0_8px_40px_rgba(244,63,94,0.1)]'
         : 'rounded-3xl mb-2 relative group/card transition-all backdrop-blur-xl bg-[#0A0F1C]/50 border border-[#E6C673]/15 shadow-[0_8px_40px_rgba(0,0,0,0.35)] hover:border-[#E6C673]/25 hover:shadow-[0_12px_48px_rgba(230,198,115,0.08)]';
 
+    const hasPartiesSection =
+        plaintiffs.length > 0 || defendants.length > 0 || interpleaders.length > 0
+        || (thirdParties && thirdParties.length > 0)
+        || activeThirdPartyCases.length > 0;
+
     return (
-        <div className={containerStyle}>
-            <div className="overflow-hidden rounded-t-3xl">
-            {/* HEADER CONTENT - Reduced Padding */}
+        <>
+            <div className={containerStyle}>
             <div className="px-3 py-2 relative z-10">
                 <div className="flex items-start justify-between gap-2 border-b border-white/[0.06] pb-1.5 mb-1.5">
                     <div className="min-w-0 flex-1">
@@ -395,8 +399,12 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
             </div>
             </div>
 
-            {/* PARTIES — شريط أفقي زجاجي مدمج */}
-            <div className="w-full px-3 py-1.5 relative z-20 border-t border-white/[0.06] rounded-b-3xl overflow-hidden" dir="rtl">
+            {hasPartiesSection ? (
+            <div className={`${PARTIES_CARD_SHELL} mt-2.5`} dir="rtl">
+                <div className="px-3 py-2.5 border-b border-[#E6C673]/10">
+                    <p className="text-[10px] font-bold text-[#E6C673]/80 tracking-wide">أطراف الدعوى</p>
+                </div>
+                <div className="px-3 py-2.5">
                 <HeaderPartiesStrip
                     plaintiffs={plaintiffs}
                     defendants={defendants}
@@ -406,10 +414,10 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
                     openPartyKey={openPartyKey}
                     onToggleParty={(key) => setOpenPartyKey(key || null)}
                 />
-            </div>
+                </div>
 
             {activeThirdPartyCases.length > 0 ? (
-                <div className="w-full px-3 pb-2 border-t border-white/[0.05] space-y-1.5" dir="rtl">
+                <div className="w-full px-3 pb-2.5 border-t border-white/[0.05] space-y-1.5" dir="rtl">
                     {affiliativeThirdParties.map((c) => (
                         <div
                             key={c.id}
@@ -448,8 +456,8 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
 
             {/* legacy thirdParties prop — only when not already in parties strip */}
             {thirdParties && thirdParties.length > 0 && interpleaders.length === 0 && plaintiffs.length === 0 && defendants.length === 0 ? (
-                <div className="w-full px-3 pb-2 border-t border-white/[0.05]">
-                    <div className={`${PARTY_STRIP_SHELL} p-2 flex flex-wrap gap-1`}>
+                <div className="w-full px-3 pb-2.5 border-t border-white/[0.05]">
+                    <div className="flex flex-wrap gap-1.5">
                         {thirdParties.map((party: { name?: string; role?: string; roleLabel?: string }, index: number) => (
                             <PartyChip
                                 key={index}
@@ -461,6 +469,8 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
                         ))}
                     </div>
                 </div>
+            ) : null}
+            </div>
             ) : null}
 
                             {/* 3. CROSS-APPEAL SECTION (Dedicated Card) */}
@@ -498,7 +508,7 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
                     </div>
                 </div>
             )}
-        </div>
+        </>
     );
 };
 

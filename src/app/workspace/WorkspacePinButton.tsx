@@ -2,6 +2,7 @@ import React from 'react';
 import { Pin } from 'lucide-react';
 import { useWorkspaceStore } from '@/app/stores/workspaceStore';
 import { isClusterPinEligibleType, type WorkspacePinnedItem } from './types';
+import { workspacePinVisual } from './workspacePinVisuals';
 
 type WorkspacePinButtonProps = {
     item: WorkspacePinnedItem;
@@ -18,32 +19,34 @@ export const WorkspacePinButton: React.FC<WorkspacePinButtonProps> = ({
     className = '',
     size = 16,
 }) => {
+    const pinned = useWorkspaceStore((s) => s.isPinned(item.id, item.type));
+    const togglePin = useWorkspaceStore((s) => s.togglePin);
+
     if (!isClusterPinEligibleType(item.type)) {
         return null;
     }
 
-    const pinned = useWorkspaceStore((s) => s.isPinned(item.id, item.type));
-    const togglePin = useWorkspaceStore((s) => s.togglePin);
+    const visual = workspacePinVisual(item.type);
 
     const pinTitle = pinned
-        ? 'إلغاء التثبيت من بطاقة الواجهة الرئيسية'
+        ? 'إلغاء التثبيت'
         : relatedLinkCount && relatedLinkCount > 0
-          ? `تثبيت في بطاقة الواجهة — ${relatedLinkCount} ارتباط`
-          : 'تثبيت في بطاقة الواجهة الرئيسية (ليس ستارة الميدان)';
+          ? `تثبيت — ${relatedLinkCount} ارتباط`
+          : 'تثبيت الإضبارة في الواجهة';
 
     return (
         <button
             type="button"
             title={pinTitle}
-            aria-label={pinned ? 'إلغاء تثبيت البطاقة' : 'تثبيت في بطاقة الواجهة'}
+            aria-label={pinned ? 'إلغاء تثبيت البطاقة' : 'تثبيت الإضبارة'}
             onClick={(e) => {
                 e.stopPropagation();
                 togglePin(item);
             }}
-            className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center border transition-colors ${
+            className={`shrink-0 w-8 h-8 flex items-center justify-center border transition-colors ${
                 pinned
-                    ? 'border-amber-400/50 bg-amber-500/20 text-amber-300'
-                    : 'border-white/10 bg-white/5 text-white/60 hover:text-white hover:bg-white/10'
+                    ? `${visual.button} ${visual.accent}`
+                    : `${visual.button} opacity-80 hover:opacity-100 text-white/60 hover:text-white`
             } ${className}`}
         >
             <Pin size={size} className={pinned ? 'fill-current' : undefined} />

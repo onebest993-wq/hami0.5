@@ -423,6 +423,7 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
 
                             {/* 6. To-Do List - CRITICAL: Display viewedStage tasks - Hide in Cassation OR Pleadings Closed */}
                             {!isViewingArchived && !isCassationStage && !displayStage?.isPleadingsClosed && (
+                                <div className="mt-4 pt-1">
                                 <Suspense fallback={null}>
                                 <LazyToDoList 
                                     tasks={displayStage?.tasks || []} 
@@ -435,6 +436,7 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                                     onEditTask={(task) => setEditingTask(task)}
                                 />
                                 </Suspense>
+                                </div>
                             )}
 
                             {/* 6. Timeline - collapsible */}

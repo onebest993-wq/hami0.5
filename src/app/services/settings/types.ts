@@ -1,5 +1,6 @@
 import type { FontSize, Language, ShapeKey, ThemeKey, ThemeMode } from '@/app/types/common';
 import type { BackgroundPresetId } from './backgroundPresets';
+import type { HomeLayoutSettings } from './homeLayout';
 
 export const SETTINGS_SCHEMA_VERSION = 2 as const;
 
@@ -59,6 +60,7 @@ export interface AppSettingsState {
     security: SecuritySettings;
     data: DataSettings;
     performance: PerformanceSettings;
+    homeLayout: HomeLayoutSettings;
 }
 
 export type SettingsSectionId = 'appearance' | 'security' | 'data' | 'account';

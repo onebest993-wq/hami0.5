@@ -2,53 +2,59 @@ import { useEffect, useRef, useCallback } from 'react';
 import { persistenceRepository } from '../infrastructure/persistence/LocalStorageRepository';
 import { debug } from '@/app/utils/debug';
 
+function stableSerialize(data: unknown): string | null {
+    try {
+        return JSON.stringify(data);
+    } catch {
+        return null;
+    }
+}
+
 /**
  * 💾 useAutoSave Hook
- * 
+ *
  * Automatically saves state to local storage on changes and app lifecycle events.
- * 
- * @param key Unique key for storage
- * @param data The data state to save
- * @param delay Debounce delay in ms (default 1000ms)
+ * Skips write when serialized payload unchanged (saves CPU + flash wear).
  */
-export function useAutoSave<T>(key: string, data: T, delay: number = 2_000, enabled: boolean = true) {
+export function useAutoSave<T>(
+    key: string,
+    data: T,
+    delay: number = 2_000,
+    enabled: boolean = true,
+    storageHydrated: boolean = true,
+) {
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
     const dataRef = useRef(data);
+    const lastSavedSerializedRef = useRef<string | null>(null);
 
-    // Update ref when data changes
     useEffect(() => {
         dataRef.current = data;
     }, [data]);
 
-    // Save function
     const saveImmediately = useCallback(() => {
-        if (!enabled) return;
-        if (dataRef.current) {
-            debug.log(`[AutoSave] ${key}`);
-            persistenceRepository.save(key, dataRef.current);
-        }
-    }, [key, enabled]);
+        if (!enabled || !storageHydrated) return;
+        if (dataRef.current === undefined || dataRef.current === null) return;
+        const serialized = stableSerialize(dataRef.current);
+        if (serialized === null) return;
+        if (serialized === lastSavedSerializedRef.current) return;
+        lastSavedSerializedRef.current = serialized;
+        debug.log(`[AutoSave] ${key}`);
+        persistenceRepository.save(key, dataRef.current);
+    }, [key, enabled, storageHydrated]);
 
-    // Debounced save on data change
-    // Debounced save on data change
     useEffect(() => {
         if (!enabled) return;
-        if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-        }
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
 
         timeoutRef.current = setTimeout(() => {
             saveImmediately();
         }, delay);
 
         return () => {
-            if (timeoutRef.current) {
-                clearTimeout(timeoutRef.current);
-            }
+            if (timeoutRef.current) clearTimeout(timeoutRef.current);
         };
     }, [data, delay, saveImmediately, enabled]);
 
-    // عند إيقاف الحفظ التلقائي — احفظ آخر حالة فوراً (مثل autoSave: false)
     const prevEnabledRef = useRef(enabled);
     useEffect(() => {
         if (prevEnabledRef.current && !enabled) {
@@ -57,7 +63,6 @@ export function useAutoSave<T>(key: string, data: T, delay: number = 2_000, enab
         prevEnabledRef.current = enabled;
     }, [enabled, saveImmediately]);
 
-    // لا حفظ متزامن على beforeunload — كان يجمّد F5/إعادة التحميل مع بيانات كبيرة
     useEffect(() => {
         if (!enabled) return;
         let idleSaveId: number | null = null;
@@ -99,15 +104,13 @@ export function useAutoSave<T>(key: string, data: T, delay: number = 2_000, enab
 
 /**
  * 🛡️ usePreventUnsavedChanges Hook
- * 
- * Prompts the user before leaving if there are unsaved changes.
  */
 export function usePreventUnsavedChanges(isDirty: boolean) {
     useEffect(() => {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
             if (isDirty) {
                 e.preventDefault();
-                e.returnValue = ''; // Standard for modern browsers
+                e.returnValue = '';
             }
         };
 

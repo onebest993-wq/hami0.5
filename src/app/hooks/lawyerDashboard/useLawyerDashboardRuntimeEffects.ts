@@ -6,6 +6,8 @@ import { CALENDAR_SOURCE_PATCHED_EVENT } from '@/app/services/calendarBridge.typ
 import type { CalendarSourcePatchDetail } from '@/app/services/calendarBridgePersistence';
 import { cleanupCalendarForUser } from '@/app/services/calendarDossierSync';
 import { resolveCalendarUserId } from '@/app/services/calendarBridge';
+import { isRealSignedIn, resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
+import SecureStoreService from '@/app/services/SecureStoreService';
 import { STORAGE_KEYS } from '@/app/utils/constants';
 import {
     prefetchCriminalDashboard,
@@ -70,18 +72,34 @@ export function useLawyerDashboardRuntimeEffects({
     setShowLawsuitsWorkspace,
 }: UseLawyerDashboardRuntimeEffectsParams) {
     const calendarCleanedOnceRef = useRef(false);
+    const warmDataRef = useRef({
+        files,
+        executionFiles,
+        globalNotes,
+        searchNotifications,
+        criminalCasesForCluster,
+    });
+    warmDataRef.current = {
+        files,
+        executionFiles,
+        globalNotes,
+        searchNotifications,
+        criminalCasesForCluster,
+    };
+    const dataFootprint = `${files.length}|${executionFiles.length}|${globalNotes.length}|${criminalCasesForCluster.length}`;
     const fetchNotifications = useNotificationStore((s) => s.fetchNotifications);
     const setNotificationUserId = useNotificationStore((s) => s.setUserId);
 
     useEffect(() => {
-        const uid = user?.id || authUser?.id || 'demo_user';
+        const uid = resolveShellAuthUserId(authUser?.id, user?.id);
+        if (!uid) return;
         setNotificationUserId(uid);
     }, [user?.id, authUser?.id, setNotificationUserId]);
 
     useEffect(() => {
-        const uid = user?.id || authUser?.id;
-        if (!uid) return;
-        void fetchNotifications(uid);
+        const uid = resolveShellAuthUserId(authUser?.id, user?.id);
+        if (!isRealSignedIn(uid)) return;
+        void fetchNotifications(uid!);
     }, [user?.id, authUser?.id, fetchNotifications]);
 
     useEffect(() => {
@@ -91,9 +109,12 @@ export function useLawyerDashboardRuntimeEffects({
 
     useEffect(() => {
         if (calendarCleanedOnceRef.current) return;
-        const uid = resolveCalendarUserId(user?.id ?? authUser?.id ?? null);
         calendarCleanedOnceRef.current = true;
-        void cleanupCalendarForUser(uid);
+        void (async () => {
+            await SecureStoreService.ensurePersistedReady();
+            const uid = resolveCalendarUserId(user?.id ?? authUser?.id ?? null);
+            await cleanupCalendarForUser(uid);
+        })();
     }, [user?.id, authUser?.id]);
 
     useEffect(() => {
@@ -121,29 +142,35 @@ export function useLawyerDashboardRuntimeEffects({
         prefetchRoyalLawyerProfile();
         warmGlobalSearchExtras(uid);
 
-        const debounceMs = import.meta.env.DEV ? 1_200 : 600;
-        const timer = window.setTimeout(() => {
+        let cancelled = false;
+        const runWarm = () => {
+            if (cancelled) return;
+            const data = warmDataRef.current;
             warmGlobalSearchPipeline({
                 userId: uid,
-                files,
-                executionFiles,
-                globalNotes,
-                notifications: searchNotifications,
-                criminalCases: criminalCasesForCluster,
+                files: data.files,
+                executionFiles: data.executionFiles,
+                globalNotes: data.globalNotes,
+                notifications: data.searchNotifications,
+                criminalCases: data.criminalCasesForCluster,
                 cacheGeneration: searchIndexVersion,
             });
-        }, debounceMs);
+        };
 
-        return () => window.clearTimeout(timer);
-    }, [
-        user?.id,
-        files,
-        executionFiles,
-        globalNotes,
-        searchNotifications,
-        criminalCasesForCluster,
-        searchIndexVersion,
-    ]);
+        if (typeof requestIdleCallback !== 'undefined') {
+            const idleId = requestIdleCallback(runWarm, { timeout: 8_000 });
+            return () => {
+                cancelled = true;
+                cancelIdleCallback(idleId);
+            };
+        }
+
+        const timer = window.setTimeout(runWarm, import.meta.env.DEV ? 2_000 : 4_000);
+        return () => {
+            cancelled = true;
+            window.clearTimeout(timer);
+        };
+    }, [user?.id, searchIndexVersion, dataFootprint]);
 
     useEffect(() => {
         const reloadFromStorage = (opts?: { clear?: boolean }) => {
@@ -186,27 +213,26 @@ export function useLawyerDashboardRuntimeEffects({
     }, [showLawsuitsWorkspace]);
 
     useEffect(() => {
-        if (files.length > 0 && storeCases.length === 0) {
-            files.forEach((f) => {
-                const clientName = f.parties?.find((p: Party) => p.isClient)?.name || 'Unknown';
-                const opponentName = f.parties?.find((p: Party) => !p.isClient)?.name || 'Unknown';
-                const mappedCase: LegalCase = {
-                    id: f.id.toString(),
-                    caseNo: f.caseNo,
-                    title: f.docType || f.caseNo,
-                    type: f.type,
-                    court: f.court,
-                    clientName,
-                    opponentName,
-                    linkedDocuments: [],
-                    deadlines: [],
-                    timeline: [],
-                    createdAt: f.date,
-                    updatedAt: f.date,
-                    status: mapFileStatusToCaseStatus(f.status),
-                };
-                addCase(mappedCase);
-            });
+        if (files.length === 0 || storeCases.length > 0) return;
+        for (const f of files) {
+            const clientName = f.parties?.find((p: Party) => p.isClient)?.name || 'Unknown';
+            const opponentName = f.parties?.find((p: Party) => !p.isClient)?.name || 'Unknown';
+            const mappedCase: LegalCase = {
+                id: f.id.toString(),
+                caseNo: f.caseNo,
+                title: f.docType || f.caseNo,
+                type: f.type,
+                court: f.court,
+                clientName,
+                opponentName,
+                linkedDocuments: [],
+                deadlines: [],
+                timeline: [],
+                createdAt: f.date,
+                updatedAt: f.date,
+                status: mapFileStatusToCaseStatus(f.status),
+            };
+            addCase(mappedCase);
         }
     }, [addCase, files, storeCases.length]);
 }

@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useLawyerDashboardOverlays } from '@/app/hooks/useLawyerDashboardOverlays';
 import { useLawyerDashboardAppAlerts } from '@/app/hooks/useLawyerDashboardAppAlerts';
 import { useLawyerDashboardNavigation } from '@/app/hooks/useLawyerDashboardNavigation';
@@ -18,6 +18,7 @@ import { useCriminalDashboardBridge } from '@/app/components/lawyer/criminal-sys
 import { useLawyerSettings } from '@/app/context/LawyerSettingsContext';
 import { countPendingFieldTasks } from '@/app/utils/quantumTasksStorage';
 import { useAppLock } from '@/app/hooks/useAppLock';
+import { isRealSignedIn, resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
 import type { UseLawyerDashboardCoreParams } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCore.types';
 
 export function useLawyerDashboardCoreOrchestration({
@@ -38,12 +39,17 @@ export function useLawyerDashboardCoreOrchestration({
         weeklyBackupReminder: settings.data.weeklyBackupReminder,
     });
 
-    const notifications = useLawyerDashboardNotifications();
+    const shellAuthUserId = resolveShellAuthUserId(authUser?.id, user?.id);
+
+    const notifications = useLawyerDashboardNotifications(shellAuthUserId);
     const { urgent, client } = useLawyerDashboardAuxiliaryState();
     const appAlerts = useLawyerDashboardAppAlerts(user?.id);
     const archiveAndSync = useLawyerDashboardArchiveAndSyncRefs();
 
-    const overlays = useLawyerDashboardOverlays({ setArchiveType: archiveAndSync.setArchiveType });
+    const overlays = useLawyerDashboardOverlays({
+        setArchiveType: archiveAndSync.setArchiveType,
+        userId: shellAuthUserId,
+    });
     const { theme, shapeClass } = useThemeStyles(currentTheme, settings.appearance.shape);
 
     const addCase = useCaseStore((s) => s.addCase);
@@ -100,12 +106,50 @@ export function useLawyerDashboardCoreOrchestration({
         criminalCasesForCluster,
     });
 
+    const pendingFieldTasksCount = useMemo(
+        () => countPendingFieldTasks(quantumPendingForField),
+        [quantumPendingForField],
+    );
+
+    const openNotifications = useCallback(() => {
+        overlays.setShowGlobalSearch(false);
+        overlays.setGlobalSearchInitialQuery('');
+        overlays.setShowSettings(false);
+        notifications.openNotifications();
+    }, [notifications, overlays]);
+
+    const openGlobalSearch = useCallback(
+        (seed = '') => {
+            notifications.setShowNotifications(false);
+            overlays.setShowSettings(false);
+            overlays.openGlobalSearch(seed);
+        },
+        [notifications, overlays],
+    );
+
+    const openSettings = useCallback(() => {
+        overlays.setShowGlobalSearch(false);
+        overlays.setGlobalSearchInitialQuery('');
+        notifications.setShowNotifications(false);
+        overlays.setActiveTab('home');
+        overlays.openSettings();
+    }, [notifications, overlays]);
+
+    const openProfileTab = useCallback(() => {
+        overlays.setShowGlobalSearch(false);
+        overlays.setGlobalSearchInitialQuery('');
+        notifications.setShowNotifications(false);
+        overlays.setShowSettings(false);
+        overlays.openProfileTab();
+    }, [notifications, overlays]);
+
     const globalSearchNav = useLawyerDashboardGlobalSearchNav({
         files: workspace.files,
         executionFiles: workspace.executionFiles,
         setShowGlobalSearch: overlays.setShowGlobalSearch,
         setGlobalSearchInitialQuery: overlays.setGlobalSearchInitialQuery,
-        setShowNotifications: notifications.setShowNotifications,
+        openNotifications,
+        openProfileTab,
         setCalendarSearchFocus: overlays.setCalendarSearchFocus,
         setActiveTab: overlays.setActiveTab,
         openCommunityTab: overlays.openCommunityTab,
@@ -147,11 +191,6 @@ export function useLawyerDashboardCoreOrchestration({
         setShowLawsuitsWorkspace: overlays.setShowLawsuitsWorkspace,
     });
 
-    const pendingFieldTasksCount = useMemo(
-        () => countPendingFieldTasks(quantumPendingForField),
-        [quantumPendingForField],
-    );
-
     return {
         authGate,
         user,
@@ -164,12 +203,12 @@ export function useLawyerDashboardCoreOrchestration({
         syncFilesOn,
         syncExecutionOn,
         appLock,
-        notifications,
+        notifications: { ...notifications, openNotifications },
         urgent,
         client,
         appAlerts,
         archiveAndSync,
-        overlays,
+        overlays: { ...overlays, openGlobalSearch, openSettings, openProfileTab },
         workspace,
         navigation,
         calendarUserId,

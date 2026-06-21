@@ -2,8 +2,9 @@ import {
   extractUserTokenFromRequest,
   getVerifiedTokenSubject,
   isTokenAuthorized,
-  verifyWifeSignature,
-  wifeForbiddenResponse,
+  verifyWifeSignatureStatus,
+  wifeRateLimitedResponse,
+  wifeSignatureFailedResponse,
   wifeUnauthorizedResponse,
 } from './wifeValidator.ts';
 
@@ -32,10 +33,17 @@ export async function requireWifeUser(request: Request): Promise<WifeAuthResult>
       response: wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' }),
     };
   }
-  if (!(await verifyWifeSignature(request, userToken))) {
+  const signatureStatus = await verifyWifeSignatureStatus(request, userToken);
+  if (signatureStatus === 'rate_limited') {
     return {
       ok: false as const,
-      response: wifeForbiddenResponse({ request, reason: 'signature_failed' }),
+      response: wifeRateLimitedResponse({ request, reason: 'rate_limited' }),
+    };
+  }
+  if (signatureStatus !== 'valid') {
+    return {
+      ok: false as const,
+      response: wifeSignatureFailedResponse(request),
     };
   }
   const userId = await getVerifiedTokenSubject(userToken);
