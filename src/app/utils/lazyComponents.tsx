@@ -33,8 +33,12 @@ export const LazyClientRequestsHub = lazyWithRetry(() =>
 // DASHBOARD COMPONENTS (Lazy Loaded)
 // ═══════════════════════════════════════════════════════════════════════════
 
-export const LazyExecutionDashboard = lazyWithRetry(
-    () => import('@/app/components/lawyer/ExecutionDashboard.tsx').then((m) => ({ default: m.ExecutionDashboard as unknown as LazyComponent }))
+export const LazyExecutionDashboard = lazyWithRetry(() =>
+    import('@/app/runtime/executionDashboardLoader').then((m) =>
+        m.loadExecutionDashboardModule().then((mod) => ({
+            default: mod.ExecutionDashboard as unknown as LazyComponent,
+        })),
+    ),
 );
 
 export const LazySmartContractGenerator = lazyWithRetry(() =>
@@ -95,18 +99,14 @@ export const LazyViewUrgentAndOrdersDashboard = lazyWithRetry(() =>
 export const LazySmartVaultModal = lazyWithRetry(() =>
     import('@/app/components/lawyer/SmartVaultModal.tsx').then((m) => ({ default: m.SmartVaultModal as unknown as LazyComponent }))
 );
-let criminalDashboardPrefetch: Promise<unknown> | null = null;
 let smartFileModalPrefetch: Promise<unknown> | null = null;
 
-/** تحميل مسبق لوحة الإضبارة الجزائية + المتجر قبل النقر */
+/** تحميل مسبق لوحة الإضبارة الجزائية — store ثم dashboard */
 export function prefetchCriminalDashboard(): void {
     if (typeof window === 'undefined') return;
-    if (!criminalDashboardPrefetch) {
-        criminalDashboardPrefetch = Promise.all([
-            import('@/app/components/lawyer/criminal-system/criminalStore'),
-            import('@/app/components/lawyer/criminal-system/CriminalDashboard'),
-        ]);
-    }
+    void import('@/app/runtime/criminalDashboardLoader').then((m) => {
+        m.prefetchCriminalDashboardPhased();
+    });
 }
 
 /** تحميل مسبق إضبارة المدني قبل النقر */
@@ -120,18 +120,12 @@ export function prefetchSmartFileModal(): void {
     }
 }
 
-let executionDashboardPrefetch: Promise<unknown> | null = null;
-
-/** تحميل مسبق إضبارة التنفيذ (chunk ثقيل ~750KB) */
+/** تحميل مسبق إضبارة التنفيذ — مرحلي (shell → body → modals) */
 export function prefetchExecutionDashboard(): void {
     if (typeof window === 'undefined') return;
-    if (!executionDashboardPrefetch) {
-        executionDashboardPrefetch = import('@/app/components/lawyer/ExecutionDashboard.tsx');
-    }
-    void import('@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShell').then((m) => {
-        m.prefetchExecutionDashboardShell();
-        m.prefetchExecutionFollowupDefaultTab();
-    }).catch(() => {});
+    void import('@/app/runtime/executionDashboardLoader').then((m) => {
+        m.prefetchExecutionDashboardPhased();
+    });
 }
 
 /** تحميل مسبق كل أنواع الإضابير (مدني + جزائي + تنفيذ) */
@@ -143,7 +137,9 @@ export function prefetchDossierShells(): void {
 }
 
 export function resetCriminalDashboardPrefetch(): void {
-    criminalDashboardPrefetch = null;
+    void import('@/app/runtime/criminalDashboardLoader').then((m) => {
+        m.resetCriminalDashboardModuleCache();
+    });
 }
 
 export function resetSmartFileModalPrefetch(): void {
@@ -152,9 +148,11 @@ export function resetSmartFileModalPrefetch(): void {
 
 /** النظام الجزائي — chunk منفصل (CriminalDashboard + store ثقيل) */
 export const LazyCriminalDashboard = lazyWithRetry(() =>
-    import('@/app/components/lawyer/criminal-system/CriminalDashboard').then((m) => ({
-        default: m.CriminalDashboard as unknown as LazyComponent,
-    })),
+    import('@/app/runtime/criminalDashboardLoader').then((m) =>
+        m.loadCriminalDashboardModule().then((mod) => ({
+            default: mod.CriminalDashboard as unknown as LazyComponent,
+        })),
+    ),
 );
 export const LazyHamiSettings = lazyWithRetry(() =>
     import('@/app/components/lawyer/HamiSettings/index').then((m) => ({ default: m.HamiSettings as unknown as LazyComponent }))

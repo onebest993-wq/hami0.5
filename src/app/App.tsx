@@ -9,44 +9,13 @@ import { GlobalErrorBoundary } from "./components/shared/GlobalErrorBoundary";
 import { debug } from "./utils/debug";
 import { screenTransitions } from "./animations/transitions";
 import { clearCacheIfNeeded } from "./utils/constants";
-import { lazyWithRetry, type LazyComponent } from "./utils/lazy/lazyWithRetry";
-import type { LawyerDashboardShellProps } from "./components/lawyer/dashboard/LawyerDashboardQuantumShell";
+import { LawyerDashboardGate as LawyerDashboard } from "@/app/bootstrap/LawyerDashboardGate";
+import { SecurityInitializerGate as AppSecurityInitializer } from "@/app/bootstrap/SecurityInitializerGate";
 import { SmartToast, SmartToastContainer } from "./components/ui/SmartToast";
 import { SmartDialogContainer } from "./components/ui/SmartDialog";
-import { LawyerDashboard as LawyerDashboardEager } from "./components/lawyer/LawyerDashboard";
-import { SecurityInitializer as SecurityInitializerEager } from "./security/SecurityInitializer";
 
 const CHUNK_RELOAD_SESSION_KEY = "hami:chunk-reload-once";
 const VITE_STALE_IMPORT_RELOAD_KEY = "hami:vite-stale-import-reload";
-
-// --- LAZY: Defer security barrel + first-screen payloads from index chunk (prod only) ---
-const SecurityInitializerLazy = React.lazy(() =>
-  import("./security/SecurityInitializer").then((m) => ({ default: m.SecurityInitializer }))
-);
-
-function AppSecurityInitializer() {
-  if (import.meta.env.DEV) {
-    return <SecurityInitializerEager />;
-  }
-  return (
-    <Suspense fallback={null}>
-      <SecurityInitializerLazy />
-    </Suspense>
-  );
-}
-
-const LawyerDashboardLazy = lazyWithRetry(() =>
-  import("./components/lawyer/LawyerDashboard").then((m) => ({
-    default: m.LawyerDashboard as unknown as LazyComponent,
-  })),
-);
-
-function LawyerDashboard(props: LawyerDashboardShellProps) {
-  if (import.meta.env.DEV) {
-    return <LawyerDashboardEager {...props} />;
-  }
-  return <LawyerDashboardLazy {...props} />;
-}
 // --- LAZY: Other heavy screens ---
 const AdminDashboard = React.lazy(() => import("./components/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
 const AdminLawLibraryPage = React.lazy(() => import("./admin/page"));

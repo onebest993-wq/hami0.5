@@ -324,6 +324,49 @@ export function prefetchExecutionFollowupModalPortal(): void {
     void executionFollowupModalPortalImport().catch(() => {});
 }
 
+const executionTrashModalImport = () =>
+    import('./components/ExecutionTrashModal').then((m) => ({ default: m.ExecutionTrashModal }));
+const timelineEditModalImport = () =>
+    import('./components/TimelineEditModal').then((m) => ({ default: m.TimelineEditModal }));
+const executionHeirsQuickViewModalImport = () =>
+    import('./components/ExecutionHeirsQuickViewModal').then((m) => ({
+        default: m.ExecutionHeirsQuickViewModal,
+    }));
+const executionTransferFileNumberModalImport = () =>
+    import('./components/ExecutionTransferFileNumberModal').then((m) => ({
+        default: m.ExecutionTransferFileNumberModal,
+    }));
+const dossierActionsModalImport = () =>
+    import('./components/DossierActionsModal').then((m) => ({ default: m.DossierActionsModal }));
+const linkedDossierTimelineModalImport = () =>
+    import('./components/LinkedDossierTimelineModal').then((m) => ({
+        default: m.LinkedDossierTimelineModal,
+    }));
+const seizureRequestSubjectModalImport = () =>
+    import('./components/SeizureRequestSubjectModal').then((m) => ({
+        default: m.SeizureRequestSubjectModal,
+    }));
+const alimonyBeneficiaryDeathModalImport = () =>
+    import('../execution/AlimonyBeneficiaryDeathModal').then((m) => ({
+        default: m.AlimonyBeneficiaryDeathModal,
+    }));
+
+export const LazyExecutionTrashModal = lazy(executionTrashModalImport);
+export const LazyTimelineEditModal = lazy(timelineEditModalImport);
+export const LazyExecutionHeirsQuickViewModal = lazy(executionHeirsQuickViewModalImport);
+export const LazyExecutionTransferFileNumberModal = lazy(executionTransferFileNumberModalImport);
+export const LazyDossierActionsModal = lazy(dossierActionsModalImport);
+export const LazyLinkedDossierTimelineModal = lazy(linkedDossierTimelineModalImport);
+export const LazySeizureRequestSubjectModal = lazy(seizureRequestSubjectModalImport);
+export const LazyAlimonyBeneficiaryDeathModal = lazy(alimonyBeneficiaryDeathModalImport);
+
+/** تحميل مسبق للنوافذ الأكثر استخداماً بعد فتح الإضبارة */
+export function prefetchExecutionOverlayModals(): void {
+    void executionTrashModalImport().catch(() => {});
+    void dossierActionsModalImport().catch(() => {});
+    void timelineEditModalImport().catch(() => {});
+}
+
 export function formatUnifiedLedgerDate(iso: string | undefined): string {
     if (!iso) return '—';
     const d = new Date(iso);

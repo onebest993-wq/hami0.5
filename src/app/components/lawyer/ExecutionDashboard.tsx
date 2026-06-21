@@ -79,12 +79,10 @@ import {
 // MODULAR COMPONENTS - مكونات معيارية
 // ═══════════════════════════════════════════════════════════════════════════
 import { ExecutionToast } from './ExecutionDashboard/components/ExecutionToast';
-import { ExecutionTrashModal } from './ExecutionDashboard/components/ExecutionTrashModal';
 import type { DebtorsSectionHandle } from './ExecutionDashboard/components/DebtorsSection';
 import { GuarantorExternalHub } from './ExecutionDashboard/components/GuarantorExternalHub';
 import { shouldShowGuarantorExternalHub } from './ExecutionDashboard/components/guarantorExternalUtils';
 import { DossierSwitcher } from './ExecutionDashboard/components/DossierSwitcher';
-import { TimelineEditModal } from './ExecutionDashboard/components/TimelineEditModal';
 import { InlineActionGate } from './ExecutionDashboard/components/InlineActionGate';
 import {
     useDossierMeta,
@@ -142,20 +140,15 @@ import {
     type FollowupModalTabId,
 } from './ExecutionDashboard/utils/followupModalPersistUtils';
 import { SPECIAL_REQUEST_MANUAL_MODE } from './ExecutionDashboard/components/requestsTabConstants';
-import { ExecutionHeirsQuickViewModal } from './ExecutionDashboard/components/ExecutionHeirsQuickViewModal';
-import { ExecutionTransferFileNumberModal } from './ExecutionDashboard/components/ExecutionTransferFileNumberModal';
 import type { PartyEditDraft } from './ExecutionDashboard/components/PartyEditModal';
-import { DossierActionsModal } from './ExecutionDashboard/components/DossierActionsModal';
 import type { DossierActionType, DossierActionPayload } from './ExecutionDashboard/components/DossierActionsModal';
 import {
     createInabaCorrespondenceLogEntry,
     getInabaCorrespondenceLog,
     patchParentInabaCorrespondenceLog,
 } from './ExecutionDashboard/utils/inabaCorrespondenceLog';
-import { LinkedDossierTimelineModal } from './ExecutionDashboard/components/LinkedDossierTimelineModal';
 import { ColleagueConsultationProvider } from './caseShare/ColleagueConsultationContext';
 import { extractExecutionShareSource } from '@/app/services/caseShare/caseShareExtractors';
-import { SeizureRequestSubjectModal } from './ExecutionDashboard/components/SeizureRequestSubjectModal';
 
 // 🆕 V10.5: ENHANCED UTILITIES
 import { storageCache } from '@/app/utils/storageCache';
@@ -285,7 +278,6 @@ import {
     resolveCreditorOtherPartyTrackDecision,
     submitCreditorOtherPartyTrackToDecisions,
 } from '@/app/utils/otherPartyCreditorTrackDecisionUtils';
-import { AlimonyBeneficiaryDeathModal } from '@/app/components/lawyer/execution/AlimonyBeneficiaryDeathModal';
 import {
     buildAlimonyBeneficiaryDeathMerge,
     buildSoleSurvivorDeathInput,
@@ -445,6 +437,15 @@ import {
     prefetchExecutionFollowupModalPortal,
     LazyExecutionFollowupModalPortal,
     LazyExecutionCoerciveActionsModalContainer,
+    LazyExecutionTrashModal,
+    LazyTimelineEditModal,
+    LazyExecutionHeirsQuickViewModal,
+    LazyExecutionTransferFileNumberModal,
+    LazyDossierActionsModal,
+    LazyLinkedDossierTimelineModal,
+    LazySeizureRequestSubjectModal,
+    LazyAlimonyBeneficiaryDeathModal,
+    prefetchExecutionOverlayModals,
 } from './ExecutionDashboard/executionDashboardLazyShell';
 import { FollowupModalContext } from './ExecutionDashboard/followupModalContext';
 import { buildFollowupModalSnapshot } from './ExecutionDashboard/followupModalSnapshot';
@@ -794,6 +795,11 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
         prefetchExecutionDashboardShell();
         prefetchExecutionFollowupDefaultTab();
         prefetchExecutionModalContainers();
+        if (typeof requestIdleCallback !== 'undefined') {
+            requestIdleCallback(() => prefetchExecutionOverlayModals(), { timeout: 2500 });
+        } else {
+            window.setTimeout(() => prefetchExecutionOverlayModals(), 800);
+        }
     }, []);
     /** عند >2 دائن/مدين: إظهار أول اثنين فقط حتى يضغط المستخدم لعرض الباقي */
     const [showExtraCreditors, setShowExtraCreditors] = useState(false);
@@ -13736,7 +13742,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             />
 
             {/* MODALS */}
-            <ExecutionTrashModal
+            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+            <LazyExecutionTrashModal
                 visible={showExecutionTrashModal}
                 trashedTimelineEvents={trashedTimelineEvents}
                 trashedCaseNotes={trashedCaseNotes}
@@ -13749,8 +13756,10 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 onRestoreCaseTask={restoreCaseTaskFromTrash}
                 onPermanentDeleteCaseTask={permanentlyDeleteCaseTask}
             />
+            </Suspense>
 
-            <TimelineEditModal
+            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+            <LazyTimelineEditModal
                 visible={!!timelineEditDraft}
                 timelineEvent={timelineEditDraft}
                 onClose={() => setTimelineEditDraft(null)}
@@ -13759,6 +13768,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     if (timelineEditDraft) moveTimelineEventToTrash(timelineEditDraft);
                 }}
             />
+            </Suspense>
 
             <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
             <LazyDossierMetaEditSection
@@ -13786,11 +13796,13 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             />
             </Suspense>
 
-            <ExecutionHeirsQuickViewModal
+            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+            <LazyExecutionHeirsQuickViewModal
                 heirsQuickView={heirsQuickView}
                 setHeirsQuickView={setHeirsQuickView}
                 X={X}
             />
+            </Suspense>
 
             <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
             <LazyPermanentDeleteConfirmDialog
@@ -14323,7 +14335,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 />
                     </Suspense>
 
-                    <DossierActionsModal
+                    <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                    <LazyDossierActionsModal
                         open={dossierActionModalOpen}
                         actionType={dossierActionModalType}
                         onClose={() => {
@@ -14338,6 +14351,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                         currentFileId={currentFileId}
                         inabaTargets={inabaTargets}
                     />
+                    </Suspense>
 
                     {/* Parties / Creditors */}
                     <Suspense fallback={EXEC_SECTION_LAZY_FALLBACK}>
@@ -14955,7 +14969,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 </Suspense>
 
 
-                <SeizureRequestSubjectModal
+                <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                <LazySeizureRequestSubjectModal
                     open={propertySeizureRequestModalOpen}
                     title="طلب حجز عقار"
                     placeholder="اكتب موضوع طلب حجز العقار"
@@ -14965,8 +14980,10 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     onSubjectDraftChange={setPropertySeizureSubjectDraft}
                     onSubmit={submitPropertySeizureRequest}
                 />
+                </Suspense>
 
-                <SeizureRequestSubjectModal
+                <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                <LazySeizureRequestSubjectModal
                     open={movableSeizureRequestModalOpen}
                     title="طلب حجز مال منقول"
                     placeholder="اكتب موضوع طلب حجز المال المنقول"
@@ -14976,6 +14993,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     onSubjectDraftChange={setMovableSeizureSubjectDraft}
                     onSubmit={submitMovableSeizureRequest}
                 />
+                </Suspense>
 
                 {seizedPropertyStepModalOpen &&
                 seizedPropertyStepEntityKind !== 'movable' &&
@@ -15841,7 +15859,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             </Suspense>
             ) : null}
 
-            <AlimonyBeneficiaryDeathModal
+            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+            <LazyAlimonyBeneficiaryDeathModal
                 open={alimonyBeneficiaryDeathModalOpen}
                 onClose={() => {
                     setAlimonyBeneficiaryDeathModalOpen(false);
@@ -15850,6 +15869,7 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                 profile={alimonyBeneficiaryDeathModalProfile ?? alimonyBeneficiaryProfile}
                 onConfirm={handleAlimonyBeneficiaryDeathConfirm}
             />
+            </Suspense>
             
             {showUnifiedSummonsModal ? (
             <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
@@ -15986,7 +16006,8 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
             </Suspense>
             )}
 
-            <ExecutionTransferFileNumberModal
+            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+            <LazyExecutionTransferFileNumberModal
                 open={showTransferFileNumberChangeModal}
                 initialFileNumber={String(executionData?.fileNumber || '').trim()}
                 onClose={() => setShowTransferFileNumberChangeModal(false)}
@@ -15999,12 +16020,15 @@ export const ExecutionDashboard: React.FC<ExecutionDashboardProps> = React.memo(
                     setShowTransferFileNumberChangeModal(false);
                 }}
             />
+            </Suspense>
 
             {showLinkedDossierTimeline && linkedDossierToView && (
-                <LinkedDossierTimelineModal
+                <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                <LazyLinkedDossierTimelineModal
                     dossier={linkedDossierToView}
                     onClose={() => { setShowLinkedDossierTimeline(false); setLinkedDossierToView(null); }}
                 />
+                </Suspense>
             )}
         </div>
         </div>

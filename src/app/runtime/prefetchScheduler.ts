@@ -139,7 +139,10 @@ export const PrefetchScheduler = {
                 {
                     id: 'execution-dashboard',
                     priority: 'low',
-                    loader: () => import('@/app/components/lawyer/ExecutionDashboard'),
+                    loader: () =>
+                        import('@/app/runtime/executionDashboardLoader').then((m) =>
+                            m.loadExecutionDashboardModule(),
+                        ),
                 },
             ],
             { delayMs: import.meta.env.DEV ? 2_500 : 20_000 },

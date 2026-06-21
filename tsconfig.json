@@ -37,6 +37,8 @@
 
     "baseUrl": ".",
     "paths": {
+      "@/app/bootstrap/LawyerDashboardGate": ["src/app/bootstrap/LawyerDashboardGate.dev.tsx"],
+      "@/app/bootstrap/SecurityInitializerGate": ["src/app/bootstrap/SecurityInitializerGate.dev.tsx"],
       "@/*": ["src/*"],
       "@/app/*": ["src/app/*"]
     }

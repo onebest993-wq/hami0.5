@@ -37,7 +37,7 @@ function dashboardViewFingerprint(o: Orchestration): string {
         o.pendingFieldTasksCount,
         o.theme.primary,
         o.shapeClass,
-        o.appLock.appLocked ? '1' : '0',
+        o.appLock.locked ? '1' : '0',
     ].join('|');
 }
 

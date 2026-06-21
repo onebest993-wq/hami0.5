@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React from 'react';
-import { QuantumTasksProvider } from '@/app/context/QuantumTasksContext';
+import { QuantumTasksProvider } from '@/app/context/QuantumTasksProvider';
 import { LawyerDashboardInner } from './LawyerDashboardInner';
 
 export type LawyerDashboardShellProps = {

@@ -2,7 +2,7 @@ import { useLawyerDashboardNavigation } from '@/app/hooks/useLawyerDashboardNavi
 import type { LawyerDashboardShellProps } from '@/app/components/lawyer/dashboard/LawyerDashboardQuantumShell';
 import type { LawyerDashboardOverlaysHostProps } from '@/app/components/lawyer/dashboard/lawyerDashboardOverlaysHostBundles';
 import type { LawyerDashboardShellPropsWithoutChildren } from '@/app/hooks/lawyerDashboard/buildLawyerDashboardShellProps';
-import type { QuantumTasksContextValue } from '@/app/context/QuantumTasksContext';
+import type { QuantumTasksContextValue } from '@/app/context/quantumTasksContext';
 import type { ComponentProps, ReactNode } from 'react';
 import type { LawyerDashboardHomeTab } from '@/app/components/lawyer/dashboard/LawyerDashboardHomeTab';
 import type { LawyerDashboardScheduleTab } from '@/app/components/lawyer/dashboard/LawyerDashboardScheduleTab';

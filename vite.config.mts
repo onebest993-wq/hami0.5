@@ -139,6 +139,11 @@ function legalAnalysisDevApiPlugin() {
 
 // Stable Standard Config - Optimized for performance (Vite + Vitest merged)
 // Uses .mts extension to force ESM loading (fixes require() of ESM modules)
+function bootstrapGatePath(relative: string, command: string): string {
+  const useProdGate = command === 'build'
+  return path.resolve(projectRoot, useProdGate ? relative.replace('.dev.', '.prod.') : relative)
+}
+
 export default defineConfig(({ command }) => ({
   plugins: [
     preferFileOverDirectory(projectRoot),
@@ -152,10 +157,18 @@ export default defineConfig(({ command }) => ({
     drop: command === 'build' ? ['console', 'debugger'] : [],
   },
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-      '@/app': path.resolve(__dirname, './src/app'),
-    },
+    alias: [
+      {
+        find: '@/app/bootstrap/LawyerDashboardGate',
+        replacement: bootstrapGatePath('src/app/bootstrap/LawyerDashboardGate.dev.tsx', command),
+      },
+      {
+        find: '@/app/bootstrap/SecurityInitializerGate',
+        replacement: bootstrapGatePath('src/app/bootstrap/SecurityInitializerGate.dev.tsx', command),
+      },
+      { find: '@/app', replacement: path.resolve(__dirname, './src/app') },
+      { find: '@', replacement: path.resolve(__dirname, './src') },
+    ],
   },
   server: {
     host: true,
@@ -204,6 +217,16 @@ export default defineConfig(({ command }) => ({
     // Smaller dist + faster builds; set VITE_SOURCEMAP=true when you need .map files (e.g. Sentry upload)
     sourcemap: process.env.VITE_SOURCEMAP === 'true',
     assetsInlineLimit: 4096,
+    modulePreload: {
+      /** لا تُحمَّل مسبقاً حزم الشاشات الثقيلة — تُجلب عند أول lazy import فقط */
+      resolveDependencies: (_filename, deps) =>
+        deps.filter(
+          (dep) =>
+            !/(lawyer-dashboard|execution-dashboard|execution-hooks|execution-helpers|criminal-dashboard|criminal-store|smart-file-modal|iraqi-law-loader|ExecutionDashboard|CriminalDashboard)/i.test(
+              dep,
+            ),
+        ),
+    },
     rollupOptions: {
       external:
         command === 'build'
@@ -235,8 +258,16 @@ export default defineConfig(({ command }) => ({
             if (id.includes('@sentry')) return 'vendor-sentry';
             return;
           }
-          // لا تقسيم يدوي لملفات التطبيق — كان يسبب circular chunks
-          // وخطأ "Si is not a function" في الإنتاج (chunk-active-order-file).
+          if (id.includes('ExecutionDashboard/hooks/') || id.includes('ExecutionDashboard\\hooks\\')) {
+            return 'execution-hooks';
+          }
+          if (id.includes('ExecutionDashboard/helpers/') || id.includes('ExecutionDashboard\\helpers\\')) {
+            return 'execution-helpers';
+          }
+          if (id.includes('criminal-system/criminalStore') || id.includes('criminal-system\\criminalStore')) {
+            return 'criminal-store';
+          }
+          // لا تقسيم يدوي أوسع — يسبب circular chunks أو modulepreload لحزم lazy.
         },
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',
