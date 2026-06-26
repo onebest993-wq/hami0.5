@@ -1,7 +1,8 @@
 // @ts-nocheck
 /** مهلة قانونية + إحضار جبري + رسوم التحصيل — تجميع hooks موجودة */
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import type { Debtor, ExecutionFile } from '@/app/types/execution';
+import { meetsEarnerPersonalCoerciveFinancialThreshold } from '@/app/utils/earnerPersonalCoerciveFinancialGate';
 import { useGracePeriodCalculations } from '../useGracePeriodCalculations';
 import { useForcedSummoningAndFees } from '../useForcedSummoningAndFees';
 
@@ -36,6 +37,8 @@ export type UseExecutionDashboardGraceAndSummoningParams = {
     paidCourtFees: number;
     paidDirectorateFees: number;
     paidClientFees: number;
+    /** مدين المتابعة النشط — لحساب حدّ الكاسب المالي */
+    earnerGateIsEmployee?: boolean;
 };
 
 export function useExecutionDashboardGraceAndSummoning(params: UseExecutionDashboardGraceAndSummoningParams) {
@@ -69,6 +72,7 @@ export function useExecutionDashboardGraceAndSummoning(params: UseExecutionDashb
         paidCourtFees,
         paidDirectorateFees,
         paidClientFees,
+        earnerGateIsEmployee = false,
     } = params;
 
     const gracePeriod = useGracePeriodCalculations(
@@ -94,6 +98,38 @@ export function useExecutionDashboardGraceAndSummoning(params: UseExecutionDashb
             setNoticeVoluntaryPeriodEndOptimistic(false);
         }
     }, [executionData?.notice_voluntary_period_end_declared, setNoticeVoluntaryPeriodEndOptimistic]);
+
+    const earnerPersonalCoerciveFinancialThresholdMet = useMemo(() => {
+        if (earnerGateIsEmployee) return false;
+        const shouldCalculateExecutionFeeBase =
+            initiator === 'الدائن' &&
+            gracePeriod.daysSinceNoticeCalculated > 7 &&
+            paidDebt < totalOwed;
+        const shouldCalculateExecutionFee =
+            shouldCalculateExecutionFeeBase &&
+            (!isEvictionExecutionModule || Boolean(executionData?.eviction_lawyer_fee_requested));
+        const calculatedExecutionFee = shouldCalculateExecutionFee
+            ? (financialPrincipalAmount + parsedCourtFees) * 0.03
+            : 0;
+        const totalWithExecutionFee = totalOwed + calculatedExecutionFee;
+        const provisionalRemaining =
+            totalWithExecutionFee -
+            (paidDebt + paidCourtFees + paidDirectorateFees + paidClientFees);
+        return meetsEarnerPersonalCoerciveFinancialThreshold(provisionalRemaining);
+    }, [
+        earnerGateIsEmployee,
+        initiator,
+        gracePeriod.daysSinceNoticeCalculated,
+        paidDebt,
+        totalOwed,
+        isEvictionExecutionModule,
+        executionData?.eviction_lawyer_fee_requested,
+        financialPrincipalAmount,
+        parsedCourtFees,
+        paidCourtFees,
+        paidDirectorateFees,
+        paidClientFees,
+    ]);
 
     const summoningAndFees = useForcedSummoningAndFees(
         executionData,
@@ -122,6 +158,7 @@ export function useExecutionDashboardGraceAndSummoning(params: UseExecutionDashb
         paidCourtFees,
         paidDirectorateFees,
         paidClientFees,
+        earnerPersonalCoerciveFinancialThresholdMet,
     );
 
     return {

@@ -1,20 +1,9 @@
-import {
-    createContext,
-    useContext,
-    useRef,
-    useSyncExternalStore,
-    type ReactNode,
-} from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 
 /** Snapshot passed from ExecutionDashboard while محضر المتابعة is open. */
 export type FollowupModalSnapshot = Record<string, any>;
 
-type FollowupModalStore = {
-    subscribe: (onStoreChange: () => void) => () => void;
-    getSnapshot: () => FollowupModalSnapshot;
-};
-
-const FollowupModalStoreContext = createContext<FollowupModalStore | null>(null);
+const FollowupModalStoreContext = createContext<FollowupModalSnapshot | null>(null);
 
 /** @deprecated Alias — scope wiring only; provider is FollowupModalStoreProvider */
 export const FollowupModalContext = FollowupModalStoreContext;
@@ -26,34 +15,17 @@ export function FollowupModalStoreProvider({
     snapshot: FollowupModalSnapshot;
     children: ReactNode;
 }) {
-    const snapshotRef = useRef(snapshot);
-    snapshotRef.current = snapshot;
-    const listenersRef = useRef(new Set<() => void>());
-
-    const storeRef = useRef<FollowupModalStore | null>(null);
-    if (!storeRef.current) {
-        storeRef.current = {
-            getSnapshot: () => snapshotRef.current,
-            subscribe: (listener) => {
-                listenersRef.current.add(listener);
-                return () => {
-                    listenersRef.current.delete(listener);
-                };
-            },
-        };
-    }
-
     return (
-        <FollowupModalStoreContext.Provider value={storeRef.current}>
+        <FollowupModalStoreContext.Provider value={snapshot}>
             {children}
         </FollowupModalStoreContext.Provider>
     );
 }
 
 export function useFollowupModal(): FollowupModalSnapshot {
-    const store = useContext(FollowupModalStoreContext);
-    if (!store) {
+    const snapshot = useContext(FollowupModalStoreContext);
+    if (!snapshot) {
         throw new Error('useFollowupModal must run inside FollowupModalStoreProvider');
     }
-    return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+    return snapshot;
 }

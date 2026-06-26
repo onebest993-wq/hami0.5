@@ -1,7 +1,11 @@
 /**
- * تحميل مرحلي لإضبارة التنفيذ — shell أولاً ثم الجسم الثقيل.
+ * تحميل مرحلي لإضبارة التنفيذ — chunk رئيسي أولاً، ثم shell عند الخمول أو النية.
  */
+import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
+
 type ExecutionDashboardModule = typeof import('@/app/components/lawyer/ExecutionDashboard');
+
+export type ExecutionDashboardPrefetchMode = 'deferred' | 'intent' | 'urgent';
 
 let executionModulePromise: Promise<ExecutionDashboardModule> | null = null;
 
@@ -23,42 +27,66 @@ export function loadExecutionDashboardModule(): Promise<ExecutionDashboardModule
     return executionModulePromise;
 }
 
-/** مرحلة 1: الهيكل + تبويبات؛ مرحلة 2: الجسم الكامل عند الخمول */
-export function prefetchExecutionDashboardPhased(): void {
-    if (typeof window === 'undefined') return;
-
+function prefetchExecutionShellChunks(urgent: boolean): void {
     void import('@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShell')
         .then((shell) => {
             shell.prefetchExecutionDashboardShell();
             shell.prefetchExecutionFollowupDefaultTab();
+            if (urgent) {
+                shell.prefetchExecutionDashboardPhoneBody();
+                shell.prefetchExecutionModalContainers();
+                const scheduleSecondary = () => {
+                    shell.prefetchExecutionOverlayModals();
+                };
+                if (typeof requestIdleCallback !== 'undefined') {
+                    requestIdleCallback(scheduleSecondary, { timeout: 400 });
+                } else {
+                    window.setTimeout(scheduleSecondary, 100);
+                }
+            }
         })
         .catch(() => undefined);
+}
 
-    const scheduleBody = () => {
-        if (!executionModulePromise) {
-            executionModulePromise = createExecutionModuleImport();
-        }
-        void executionModulePromise
-            .then(() =>
-                import('@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShell').then((shell) => {
-                    shell.prefetchExecutionOverlayModals();
-                    shell.prefetchExecutionModalContainers();
-                }),
-            )
-            .catch(() => {
-                executionModulePromise = null;
-            });
-    };
+/** يبدأ تحميل الـ chunk الرئيسي فقط — بدون منافسة أرشيف التنفيذ */
+export function prefetchExecutionDashboardCore(): void {
+    if (typeof window === 'undefined') return;
+    void loadExecutionDashboardModule().catch(() => {
+        executionModulePromise = null;
+    });
+}
 
-    if (typeof requestIdleCallback !== 'undefined') {
-        requestIdleCallback(scheduleBody, { timeout: 4000 });
-    } else {
-        window.setTimeout(scheduleBody, 1200);
+/**
+ * deferred: بعد فتح قسم التنفيذ — لا يُشغَّل على مسار الفتح المباشر
+ * intent: hover على بطاقة/الهَب — chunk رئيسي فوراً، shell عند الخمول
+ * urgent: نقرة فتح إضبارة — chunk + shell الحرجة فوراً
+ */
+export function prefetchExecutionDashboardByMode(mode: ExecutionDashboardPrefetchMode): void {
+    if (typeof window === 'undefined') return;
+
+    switch (mode) {
+        case 'deferred':
+            scheduleIdleWork(() => {
+                prefetchExecutionDashboardCore();
+                void loadExecutionDashboardModule()
+                    .then(() => scheduleIdleWork(() => prefetchExecutionShellChunks(false), 1_200))
+                    .catch(() => undefined);
+            }, 2_000);
+            break;
+        case 'intent':
+            prefetchExecutionDashboardCore();
+            scheduleIdleWork(() => prefetchExecutionShellChunks(false), 700);
+            break;
+        case 'urgent':
+            prefetchExecutionDashboardCore();
+            prefetchExecutionShellChunks(true);
+            break;
+        default:
+            break;
     }
 }
 
-if (import.meta.hot) {
-    import.meta.hot.dispose(() => {
-        executionModulePromise = null;
-    });
+/** @deprecated استخدم prefetchExecutionDashboardByMode — للتوافق مع الاستدعاءات القديمة */
+export function prefetchExecutionDashboardPhased(): void {
+    prefetchExecutionDashboardByMode('urgent');
 }

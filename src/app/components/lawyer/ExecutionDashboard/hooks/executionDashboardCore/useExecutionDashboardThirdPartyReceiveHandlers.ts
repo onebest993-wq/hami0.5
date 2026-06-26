@@ -2,9 +2,14 @@ import { useCallback, type Dispatch, type MutableRefObject, type RefObject, type
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import type { ExecutionFile, ThirdPartySeizureAsset } from '@/app/types/execution';
 import type { TimelineEvent } from '@/app/types/execution';
-import { formatNumberInput, parseAmount } from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
+import { formatNumberInput } from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
 import { creditThirdPartySeizureFunds } from '@/app/components/lawyer/ExecutionDashboard/utils/thirdPartyFundsReceivedOutcomeUtils';
 import type { UnifiedLedgerTotalParams } from '@/app/components/lawyer/FinancialOperationsCenter/utils';
+import {
+    buildThirdPartyReceiveTimelineDescription,
+    mapThirdPartyAssetToReceived,
+    validateThirdPartyReceiveAmount,
+} from './executionDashboardThirdPartyReceive';
 
 export type UseExecutionDashboardThirdPartyReceiveHandlersParams = {
     thirdPartySeizureSnapshotRef: RefObject<ThirdPartySeizureAsset[]>;
@@ -81,31 +86,16 @@ export function useExecutionDashboardThirdPartyReceiveHandlers({
         (asset: ThirdPartySeizureAsset) => {
             const row = thirdPartySeizureSnapshotRef.current.find((a) => a.id === asset.id) ?? asset;
             if (row.record_locked) return;
-            const amtRaw = String(row.receive_amount_draft || '').trim();
-            if (!amtRaw) {
-                showToast('أدخل المبلغ الفعلي المستلم', 'warning');
+            const validation = validateThirdPartyReceiveAmount(String(row.receive_amount_draft || ''));
+            if (!validation.ok) {
+                showToast(validation.message, 'warning');
                 return;
             }
-            const parsed = parseAmount(amtRaw);
-            if (!Number.isFinite(parsed) || parsed <= 0) {
-                showToast('أدخل مبلغاً صحيحاً', 'warning');
-                return;
-            }
+            const parsed = validation.amountIqd;
             const today = getLocalTodayYmd();
             const now = new Date().toISOString();
             const nextAssets = thirdPartySeizureSnapshotRef.current.map((a) =>
-                a.id === row.id
-                    ? {
-                          ...a,
-                          status: 'received' as const,
-                          record_locked: true,
-                          actualReceivedAmountIqd: parsed,
-                          received_at_iso: now,
-                          archived_at_ymd: today,
-                          awaiting_receive: false,
-                          receive_amount_draft: '',
-                      }
-                    : a,
+                a.id === row.id ? mapThirdPartyAssetToReceived(row, parsed, today, now) : a,
             );
             setThirdPartySeizureAssets(nextAssets);
             const exId = String(decisionsStorageExecutionId ?? executionData?.id ?? executionId ?? '').trim();
@@ -125,11 +115,11 @@ export function useExecutionDashboardThirdPartyReceiveHandlers({
                     date: today,
                     timestamp: now,
                     title: '💰 استلام أموال محجوزة لدى الغير',
-                    description: `الجهة: ${row.thirdPartyName}\nالمبلغ المستلم: ${parsed.toLocaleString('ar-IQ')} د.ع${
-                        trustCredit.ok
-                            ? `\n\nتم إيداع ${parsed.toLocaleString('ar-IQ')} د.ع في الأمانات — ويُخصم من المتبقي.`
-                            : ''
-                    }`,
+                    description: buildThirdPartyReceiveTimelineDescription(
+                        row.thirdPartyName,
+                        parsed,
+                        trustCredit.ok,
+                    ),
                     type: 'payment',
                     source: 'المركز المالي — حجز لدى الغير',
                     metadata: {

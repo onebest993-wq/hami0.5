@@ -13,6 +13,13 @@ import React from 'react';
 import { X, Trash2, CheckCircle } from 'lucide-react';
 import type { TimelineEvent } from '@/app/types/execution';
 import type { ExecutionFile } from '@/app/types/execution';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
+import {
+    EXEC_MODAL_BACKDROP_SAFE_PAD,
+    EXEC_MODAL_CLOSE_BTN_CLASS,
+    EXEC_MODAL_HEADER_SAFE_TOP,
+    EXEC_MODAL_TRASH_SHELL_MAX,
+} from '../executionModalMobileShell';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -63,6 +70,8 @@ export const ExecutionTrashModal: React.FC<ExecutionTrashModalProps> = ({
     onRestoreCaseTask,
     onPermanentDeleteCaseTask,
 }) => {
+    useBodyScrollLock(visible);
+
     if (!visible) return null;
 
     const hasTrashedItems = 
@@ -72,23 +81,25 @@ export const ExecutionTrashModal: React.FC<ExecutionTrashModalProps> = ({
 
     return (
         <div
-            className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md"
+            className={`fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
             dir="rtl"
             onClick={onClose}
             role="presentation"
         >
             <div
-                className="flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0B1120] shadow-2xl shadow-black/50"
+                className={`flex w-full max-w-md flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0B1120] shadow-2xl shadow-black/50 ${EXEC_MODAL_TRASH_SHELL_MAX}`}
                 onClick={(e) => e.stopPropagation()}
                 role="dialog"
                 aria-label="سلة مهملات الإضبارة"
             >
                 {/* Header */}
-                <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-2 border-b border-white/10 bg-gradient-to-l from-slate-950/90 to-[#0B1120] p-3">
+                <div
+                    className={`sticky top-0 z-10 flex shrink-0 items-center justify-between gap-2 border-b border-white/10 bg-gradient-to-l from-slate-950/90 to-[#0B1120] p-3 ${EXEC_MODAL_HEADER_SAFE_TOP}`}
+                >
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded-lg border border-white/10 bg-white/[0.03] p-2 text-slate-300 transition-all hover:bg-white/[0.06] hover:text-white"
+                        className={EXEC_MODAL_CLOSE_BTN_CLASS}
                         aria-label="إغلاق"
                     >
                         <X size={18} />

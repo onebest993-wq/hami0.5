@@ -23,7 +23,12 @@ export function useExecutionDashboardLazyChunkGates(
                     modals.showPaymentModal ||
                     modals.showSeizedAssetsModal ||
                     modals.showNotesModal ||
-                    modals.showAppointmentModal,
+                    modals.showAppointmentModal ||
+                    modals.showEditDossierMetaModal ||
+                    modals.showLedgerModal ||
+                    modals.showPauseModal ||
+                    modals.showPaymentCalculator ||
+                    modals.showSettlementCalculator,
             ),
         [modals],
     );

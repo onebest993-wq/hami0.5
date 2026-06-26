@@ -2,6 +2,11 @@ import React, { Suspense } from 'react';
 
 import { FollowupModalStoreProvider, type FollowupModalSnapshot } from '../followupModalContext';
 import { EXEC_MODAL_BACKDROP_STRONG, EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
+import {
+    EXEC_MODAL_BACKDROP_SAFE_PAD,
+    EXEC_MODAL_HEADER_SAFE_TOP,
+    EXEC_MODAL_SHELL_HEIGHT_CLASS,
+} from '../executionModalMobileShell';
 
 import { prefetchExecutionFollowupTab } from '../executionFollowupTabPrefetch';
 import { LazyExecutionFollowupModalPortal } from '../executionFollowupModalLazy';
@@ -15,15 +20,15 @@ type ExecutionFollowupModalHostProps = {
 function ExecutionFollowupModalPortalShellFallback() {
     return (
         <div
-            className={`fixed inset-0 ${EXEC_MODAL_BACKDROP_STRONG}`}
+            className={`fixed inset-0 ${EXEC_MODAL_BACKDROP_STRONG} ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
             style={{ zIndex: EXEC_MODAL_Z.unifiedFollowUp }}
             role="presentation"
             aria-busy="true"
             aria-label="جاري تحميل محضر المتابعة"
         >
             <div className="w-full">
-                <div className="relative mx-auto flex h-[min(90vh,920px)] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-900/40 shadow-[0_8px_32px_rgba(0,0,0,0.5)] ring-1 ring-white/5 backdrop-blur-3xl">
-                    <div className="flex shrink-0 items-center justify-between border-b border-white/10 bg-white/[0.02] px-4 py-3 backdrop-blur-3xl">
+                <div className={`relative mx-auto flex w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-900/40 shadow-[0_8px_32px_rgba(0,0,0,0.5)] ring-1 ring-white/5 backdrop-blur-3xl ${EXEC_MODAL_SHELL_HEIGHT_CLASS}`}>
+                    <div className={`flex shrink-0 items-center justify-between border-b border-white/10 bg-white/[0.02] px-4 py-3 backdrop-blur-3xl ${EXEC_MODAL_HEADER_SAFE_TOP}`}>
                         <span className="w-9" aria-hidden />
                         <h2 className="text-lg font-bold tracking-wide text-amber-200">محضر المتابعة</h2>
                         <span className="w-9" aria-hidden />

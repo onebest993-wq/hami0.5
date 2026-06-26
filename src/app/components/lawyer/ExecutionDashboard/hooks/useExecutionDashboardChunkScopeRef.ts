@@ -11,12 +11,11 @@ export function useExecutionDashboardChunkScopeRef(
     const getSourcesRef = useRef(getSources);
     getSourcesRef.current = getSources;
 
-    if (syncPhoneBody || syncShellOverlays) {
-        assignExecutionDashboardChunkScope(scopeRef.current, getSourcesRef.current(), {
-            phoneBody: syncPhoneBody,
-            shellOverlays: syncShellOverlays,
-        });
-    }
+    // محضر المتابعة يُزامَن دائماً — حتى قبل جاهزية lazy chunks (بدون ذلك تبقى المعالجات undefined)
+    assignExecutionDashboardChunkScope(scopeRef.current, getSourcesRef.current(), {
+        phoneBody: syncPhoneBody,
+        shellOverlays: syncShellOverlays,
+    });
 
     return scopeRef;
 }

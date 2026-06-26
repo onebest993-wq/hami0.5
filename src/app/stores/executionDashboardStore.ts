@@ -264,23 +264,9 @@ function persistParentExecutionFile(parentId: string, file: ExecutionFile) {
     if (!pid) return;
     try {
         storageCache.set(executionStorageKey(pid), file);
-        const allFiles: any[] = loadExecutionFilesRaw() as any[];
-        const idx = allFiles.findIndex((f: any) => String(f?.id || '').trim() === pid);
-        if (idx >= 0) {
-            allFiles[idx] = { ...allFiles[idx], ...file, id: pid };
-        } else {
-            allFiles.push({ ...file, id: pid });
-        }
-        saveExecutionFilesRaw(allFiles);
-        const cache = storageCache.get(EXECUTION_FILES_STORAGE_KEY);
-        if (Array.isArray(cache)) {
-            const cacheArr = cache as any[];
-            const cIdx = cacheArr.findIndex((f: any) => String(f?.id || '').trim() === pid);
-            if (cIdx >= 0) cacheArr[cIdx] = { ...cacheArr[cIdx], ...file, id: pid };
-            else cacheArr.push({ ...file, id: pid });
-            storageCache.set(EXECUTION_FILES_STORAGE_KEY, cacheArr);
-        }
-    } catch {}
+    } catch {
+        /* ignore */
+    }
 }
 
 export interface SubExecutionFile {
@@ -321,6 +307,8 @@ interface ModalStates {
     showUnifiedSummonsModal: boolean;
     showLedgerModal: boolean;
     showPauseModal: boolean;
+    /** لوحة مرجع قانون التنفيذ — جانبية، لا تُغلق النوافذ الرئيسية */
+    showLawReferencePanel: boolean;
 }
 
 interface NoteFormData {
@@ -422,6 +410,7 @@ const initialModalStates: ModalStates = {
     showUnifiedSummonsModal: false,
     showLedgerModal: false,
     showPauseModal: false,
+    showLawReferencePanel: false,
 };
 
 const EXECUTION_EXCLUSIVE_MAIN_MODALS: (keyof ModalStates)[] = [

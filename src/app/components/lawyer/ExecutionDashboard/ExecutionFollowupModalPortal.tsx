@@ -17,6 +17,13 @@ import {
 } from './executionDashboardLazyRegistry';
 import { EXEC_SECTION_LAZY_FALLBACK } from './executionDashboardLazyShellUi';
 import { EXEC_MODAL_BACKDROP_STRONG, EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
+import {
+    EXEC_MODAL_BACKDROP_SAFE_PAD,
+    EXEC_MODAL_CLOSE_BTN_CLASS,
+    EXEC_MODAL_HEADER_SAFE_TOP,
+    EXEC_MODAL_SHELL_HEIGHT_CLASS,
+} from './executionModalMobileShell';
 import { EVICTION_TIMELINE_ACTION_IDS, isSpecificDeliveryClaim } from '@/app/utils/executionModuleStrategies';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { resolveDebtorDisplayNameForKey } from '@/app/utils/coerciveDebtorScope';
@@ -253,11 +260,13 @@ export function ExecutionFollowupModalPortal() {
         prefetchExecutionFollowupTab(activePanelKey);
     }, [activePanelKey]);
 
+    useBodyScrollLock(true);
+
     if (typeof document === 'undefined') return null;
 
     return createPortal(
                         <div
-                            className={`fixed inset-0 ${EXEC_MODAL_BACKDROP_STRONG}`}
+                            className={`fixed inset-0 ${EXEC_MODAL_BACKDROP_STRONG} ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
                             style={{ zIndex: EXEC_MODAL_Z.unifiedFollowUp }}
                             role="presentation"
                             onClick={(e) => {
@@ -265,15 +274,15 @@ export function ExecutionFollowupModalPortal() {
                             }}
                         >
 						<div className="w-full" onClick={(e) => e.stopPropagation()}>
-							<div className="relative mx-auto flex h-[min(90vh,920px)] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-900/40 shadow-[0_8px_32px_rgba(0,0,0,0.5)] ring-1 ring-white/5 backdrop-blur-3xl">
-								<div className="flex shrink-0 items-center justify-between border-b border-white/10 bg-white/[0.02] px-4 py-3 backdrop-blur-3xl">
+							<div className={`relative mx-auto flex w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-900/40 shadow-[0_8px_32px_rgba(0,0,0,0.5)] ring-1 ring-white/5 backdrop-blur-3xl ${EXEC_MODAL_SHELL_HEIGHT_CLASS}`}>
+								<div className={`flex shrink-0 items-center justify-between border-b border-white/10 bg-white/[0.02] px-4 py-3 backdrop-blur-3xl ${EXEC_MODAL_HEADER_SAFE_TOP}`}>
 									<button
                                     type="button"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         closeFollowupModalPersisted();
                                     }}
-										className="rounded-full p-2 text-slate-200/90 transition-all hover:bg-white/10 hover:text-white"
+										className={`rounded-full text-slate-200/90 transition-all hover:bg-white/10 hover:text-white ${EXEC_MODAL_CLOSE_BTN_CLASS}`}
                                     aria-label="إغلاق محضر المتابعة"
                                 >
                                     <X size={20} className="text-white" />

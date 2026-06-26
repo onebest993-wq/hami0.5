@@ -13,6 +13,11 @@ export type ExecutionShellOverlayModalFlags = {
     showSeizedAssetsModal?: boolean;
     showNotesModal?: boolean;
     showAppointmentModal?: boolean;
+    showEditDossierMetaModal?: boolean;
+    showLedgerModal?: boolean;
+    showPauseModal?: boolean;
+    showPaymentCalculator?: boolean;
+    showSettlementCalculator?: boolean;
 };
 
 /** يؤجّل تركيب overlays حتى idle — أو فوراً عند فتح modal */

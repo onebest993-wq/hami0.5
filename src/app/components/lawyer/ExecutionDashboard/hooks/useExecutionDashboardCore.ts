@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 /** منطق ExecutionDashboard — chunk execution-dashboard-core */
 // ✅ PERFORMANCE OPTIMIZED - v11.1 - Zustand modals + useCallback + optimized useEffect
 import React, {
@@ -23,7 +23,6 @@ import {
     isGracePeriodExpired,
     parseLocalNotificationDate,
 } from '@/app/utils/executionStateMachine';
-import { buildCreditorDebtRows, distributePaymentProRata } from '@/app/utils/creditorPaymentProRata';
 import {
     buildDebtorLiabilityGroups,
     isPerDebtorSolidarySplitMode,
@@ -54,7 +53,6 @@ import {
     heirRowCompletenessScore,
     heirRowHasAnyText,
     // Dossier Lifecycle Utilities
-    dossierLifecycleLabelAr,
     dossierLifecycleTriggerTextClass,
     dossierLifecycleTriggerDotClass,
 } from '../helpers';
@@ -112,14 +110,8 @@ import { useOpenFinancialHubLedger } from './useOpenFinancialHubLedger';
 import { useCaseTasksAndNotes } from './useCaseTasksAndNotes';
 import { useExecutionTrashAndPins } from './useExecutionTrashAndPins';
 import { usePartyEditWorkflow } from './usePartyEditWorkflow';
-import { SPECIAL_REQUEST_MANUAL_MODE } from '../components/requestsTabConstants';
 import type { PartyEditDraft } from '../components/PartyEditModal';
-import type { DossierActionType, DossierActionPayload } from '../components/DossierActionsModal';
-import {
-    createInabaCorrespondenceLogEntry,
-    getInabaCorrespondenceLog,
-    patchParentInabaCorrespondenceLog,
-} from '../utils/inabaCorrespondenceLog';
+import { getInabaCorrespondenceLog } from '../utils/inabaCorrespondenceLog';
 import { extractExecutionShareSource } from '@/app/services/caseShare/caseShareExtractors';
 
 // 🆕 V10.5: ENHANCED UTILITIES
@@ -175,16 +167,11 @@ import {
 import {
     appendGuarantorFollowupRequest,
     appendTrustDisburseRequest,
-    appendCreditorPartyDeathRequest,
     appendPersonalCoerciveExecutorRequest,
     appendPendingExecutorSeizureDecision,
     appendSpecialFollowupRequest,
-    appendDebtorHeirSubstitutionRequest,
     computeGuarantorApprovalMergePatch,
-    getCreditorHeirSubstitutionRequestStatus,
-    getDebtorHeirSubstitutionRequestStatus,
     hasApprovedUnifiedCollection,
-    findLatestHeirSubstitutionDecisionNeedingEntry,
     patchExecutorDecisionRow,
     patchExecutorDecisionRowEverywhere,
     patchExecutorDecisionRowReliable,
@@ -197,7 +184,6 @@ import {
     supersedeGuarantorRequestDecisionsForExecution,
 } from '@/app/utils/executorSeizureDecisionQueue';
 
-import { buildExecutionMergeForCreditorPartyDeath } from '@/app/utils/creditorPartyDeathPersistence';
 import {
     getExecutionModuleStrategy,
     isEvictionClaim,
@@ -211,29 +197,13 @@ import {
 import type { EvictionTimelineActionId } from '@/app/utils/executionModuleStrategies';
 import { isPersonalStatusCourtDecisionsDossier } from '@/app/utils/followupSpecializationVisibility';
 import {
-    dispatchDomainIsolationBlocked,
-    isFollowupRequestKindAllowed,
     resolveExecutionDomainContext,
 } from '@/app/utils/executionDomainIsolation';
 import { ensureDecisionsNamespaceMigrated } from '@/app/utils/executionDecisionsNamespace';
 import { resolveDecisionsModalBootState } from '@/app/utils/decisionsModalBoot';
 import { reconcileDomainViolatingDecisions } from '@/app/utils/executionDomainReconcile';
 import {
-    resolveCreditorOtherPartyTrackDecision,
-    submitCreditorOtherPartyTrackToDecisions,
-} from '@/app/utils/otherPartyCreditorTrackDecisionUtils';
-import {
-    buildAlimonyBeneficiaryDeathMerge,
-    buildSoleSurvivorDeathInput,
-    resolveAlimonyBeneficiaryProfile,
-    shouldShowAlimonyBeneficiaryDeathPicker,
-    type AlimonyBeneficiaryProfile,
-} from '@/app/utils/alimonyBeneficiaryDeathUtils';
-import {
     applyDebtorDeathFollowupOverlay,
-    buildDossierAutoFinishPatch,
-    isHeirSubstitutionAllowedForClaim,
-    shouldAutoFinishDossierOnDeathReport,
 } from '@/app/utils/partyDeathClaimPolicy';
 import { resolveFollowupSpecializationFromExecution } from '@/app/utils/followupSpecializationVisibility';
 import {
@@ -258,7 +228,6 @@ import {
     normalizeExecutionTimelineFilter,
     resolveExecutionTimelineFilterOptions,
 } from '@/app/utils/timelineCategoryFilter';
-import { buildTimelineEventsFromOtherPartyActionLog } from '@/app/utils/otherPartyActionLogTimeline';
 import { computeSeizureMatrix, resolveSeizureMatrixFromExecution } from '@/app/utils/seizureMatrix';
 import type { UnifiedLedgerTotalParams } from '@/app/components/lawyer/FinancialOperationsCenter/utils';
 import {
@@ -272,7 +241,6 @@ import {
     type EarnerFeeSmAction,
     type EvictionEarnerFeeCollectionSM,
 } from '@/app/utils/evictionEarnerFeeCollectionMachine';
-import type { PartyDeathSavePayload } from '@/app/components/lawyer/execution/PartyDeathReportModal';
 import type { PropertyInlineSaveContext } from '@/app/components/lawyer/ExecutionDashboard/utils/propertySeizureInlinePersistence';
 import {
     isSalarySeizureLaneOccupied,
@@ -312,10 +280,6 @@ import {
     getExecutionPartyDisplayName,
 } from '@/app/utils/partyDisplayName';
 import {
-    buildScopedPartyDeathPersistPatch,
-    getPartyDeathCaseForRole,
-} from '@/app/utils/partyDeathCaseScope';
-import {
     readUnifiedFundsLedger,
     filterUnifiedLawyerFeesHideFileDuplicate,
     filterUnifiedExpensesHideFileDuplicate,
@@ -326,9 +290,7 @@ import {
     computeTaklifDeadlineYmd,
     daysRemainingUntilDeadline,
     getEmployeeAssignmentForDebtorKey,
-    mergeInvestigationOutcomesIntoEmployeeAssignments,
     isAssignmentDeadlinePassed,
-    type ExecutorDecisionRowLite,
 } from '@/app/utils/employeeSummonsAssignment';
 import {
     buildPublicationNoticePatchForDebtorKey,
@@ -386,6 +348,7 @@ import { useExecutionDashboardOtherPartyMirror } from './executionDashboardCore/
 import { buildExecutionCoerciveUiFlags } from './executionDashboardCore/executionDashboardCoerciveUi';
 import { useExecutionDashboardSalarySeizureTabRows } from './executionDashboardCore/useExecutionDashboardSalarySeizureTabRows';
 import { useExecutionDashboardCoerciveActionBridge } from './executionDashboardCore/useExecutionDashboardCoerciveActionBridge';
+import { useExecutionDashboardCoerciveActionHandlers } from './executionDashboardCore/useExecutionDashboardCoerciveActionHandlers';
 import { useExecutionDashboardSeizureReleaseHandlers } from './executionDashboardCore/useExecutionDashboardSeizureReleaseHandlers';
 import { useExecutionDashboardThirdPartyReceiveHandlers } from './executionDashboardCore/useExecutionDashboardThirdPartyReceiveHandlers';
 import { useExecutionDashboardStandaloneMarkHandlers } from './executionDashboardCore/useExecutionDashboardStandaloneMarkHandlers';
@@ -395,8 +358,21 @@ import { useExecutionDashboardPoliceAssistanceHandlers } from './executionDashbo
 import { useExecutionDashboardThirdPartySeizureHandlers } from './executionDashboardCore/useExecutionDashboardThirdPartySeizureHandlers';
 import { useExecutionDashboardBreakInventoryHandlers } from './executionDashboardCore/useExecutionDashboardBreakInventoryHandlers';
 import { useExecutionDashboardEmployeeAssignmentHandlers } from './executionDashboardCore/useExecutionDashboardEmployeeAssignmentHandlers';
+import { useExecutionDashboardPartyDeathHandlers } from './executionDashboardCore/useExecutionDashboardPartyDeathHandlers';
+import { useExecutionDashboardEmployeeInvestigationSync } from './executionDashboardCore/useExecutionDashboardEmployeeInvestigationSync';
+import { useExecutionDashboardEmployeeAssignmentCoerciveState } from './executionDashboardCore/useExecutionDashboardEmployeeAssignmentCoerciveState';
+import { useExecutionDashboardPublicationNoticeHandlers } from './executionDashboardCore/useExecutionDashboardPublicationNoticeHandlers';
+import { useExecutionDashboardPaymentHandlers } from './executionDashboardCore/useExecutionDashboardPaymentHandlers';
+import { useExecutionDashboardStayHandlers } from './executionDashboardCore/useExecutionDashboardStayHandlers';
+import { useExecutionDashboardDossierFollowupHandlers } from './executionDashboardCore/useExecutionDashboardDossierFollowupHandlers';
 
 import { pickExecutionFollowupScopeSlice } from './pickExecutionFollowupScopeSlice';
+import { useEarnerFinancialPersonalCoerciveFlags } from './executionDashboardEarnerFinancialCoerciveGate';
+import { applyEarnerFinancialPersonalCoerciveOverlay } from '@/app/utils/earnerPersonalCoerciveFinancialGate';
+import {
+    markSpecificDeliveryItemDeclaredDestroyed,
+    readSpecificDeliveryItems,
+} from '@/app/utils/specificDeliveryItemsUtils';
 import {
     buildEndGracePeriodMergePatch,
     buildGracePeriodEndedTimelineEvent,
@@ -418,6 +394,7 @@ import {
     useExecutionDecisionsOrchestrator,
     useExecutionFollowupOrchestrator,
     useExecutionSeizureOrchestrator,
+    useExecutionDossierLifecycleActionsOrchestrator,
     useExecutionDossierLifecyclePanelOrchestrator,
     useExecutionDossierTabOrchestrator,
     useExecutionFinancialOrchestrator,
@@ -753,6 +730,7 @@ export function useExecutionDashboardCore({
     const [taskDueDate, setTaskDueDate] = useState<string>('');
     const [taskStatus, setTaskStatus] = useState<'pending' | 'done'>('pending');
     const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+    const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
 	const [savedNotesView, setSavedNotesView] = useState<'notes' | 'tasks_done'>('notes');
     
     // NEW: Unified Execution & Assets Modal with Tabs
@@ -1167,11 +1145,6 @@ export function useExecutionDashboardCore({
     );
     /** لقطات الملف لدمج قائمة الحراس دون إغلاق قديم على `executionData` */
     const executionFileSnapshotRef = useRef<ExecutionFile | null>(null);
-    /** يمنع تكرار دمج مفاتحة التكليف + التنبيه عند تشغيل الـ effect مرتين (React Strict Mode) */
-    const employeeInvestigationSyncSigRef = useRef<string>('');
-    useEffect(() => {
-        employeeInvestigationSyncSigRef.current = '';
-    }, [executionData?.id]);
     const [earnerFeeCollectionSm, setEarnerFeeCollectionSm] = useState<EvictionEarnerFeeCollectionSM>(() =>
         defaultEvictionEarnerFeeCollectionSM()
     );
@@ -2199,31 +2172,20 @@ export function useExecutionDashboardCore({
         : activeDebtorIsDeceased;
     const modalKasabTerminationEmphasis = !followupModalDebtorIsEmployee;
 
-    const modalResolvedEmployeeSummonsAssignment = useMemo(() => {
-        if (!executionData) return null;
-        return getEmployeeAssignmentForDebtorKey(
-            executionData,
-            followupAssignmentWorkspaceCtx.activeDebtorKey,
-            primaryDebtorKeyResolved,
-        );
-    }, [
+    const {
+        modalResolvedEmployeeSummonsAssignment,
+        modalShowEmployeeAssignmentCoerciveBlock,
+        employeeAssignmentPhaseForCoercive,
+        employeeUnlocksPersonalCoerciveFromAssignment,
+    } = useExecutionDashboardEmployeeAssignmentCoerciveState({
         executionData,
-        executionData?.employee_summons_assignments_by_debtor,
-        executionData?.employee_summons_assignment,
-        followupAssignmentWorkspaceCtx.activeDebtorKey,
+        assignmentWorkspaceActiveDebtorKey: assignmentWorkspaceCtx.activeDebtorKey,
+        followupAssignmentWorkspaceActiveDebtorKey:
+            followupAssignmentWorkspaceCtx.activeDebtorKey,
         primaryDebtorKeyResolved,
-    ]);
-
-    const modalShowEmployeeAssignmentCoerciveBlock = useMemo(() => {
-        if (!followupModalDebtorIsEmployee) return false;
-        const a = modalResolvedEmployeeSummonsAssignment;
-        if (!a) return false;
-        return (
-            a.phase === 'absent_declared' ||
-            a.phase === 'investigation_pending' ||
-            a.phase === 'warrant_ui'
-        );
-    }, [followupModalDebtorIsEmployee, modalResolvedEmployeeSummonsAssignment]);
+        activeDebtorIsEmployee,
+        followupModalDebtorIsEmployee,
+    });
 
     const followupModalEntityKind = useMemo((): DebtorEntityKind => {
         const prim = executionData?.debtors?.[0] as Debtor | undefined;
@@ -2323,28 +2285,6 @@ export function useExecutionDashboardCore({
         const row = allDebtorsUnified[executionDebtorTabIndex];
         return String(row?.name || debtors?.[0]?.name || 'المدين').trim();
     }, [allDebtorsUnified, executionDebtorTabIndex, debtors]);
-
-    const employeeAssignmentPhaseForCoercive = useMemo(() => {
-        if (!executionData) return null;
-        const a = getEmployeeAssignmentForDebtorKey(
-            executionData,
-            assignmentWorkspaceCtx.activeDebtorKey,
-            primaryDebtorKeyResolved
-        );
-        return a?.phase ?? null;
-    }, [
-        executionData,
-        executionData?.employee_summons_assignments_by_debtor,
-        executionData?.employee_summons_assignment,
-        assignmentWorkspaceCtx.activeDebtorKey,
-        primaryDebtorKeyResolved,
-    ]);
-
-    const employeeUnlocksPersonalCoerciveFromAssignment =
-        activeDebtorIsEmployee &&
-        (employeeAssignmentPhaseForCoercive === 'absent_declared' ||
-            employeeAssignmentPhaseForCoercive === 'investigation_pending' ||
-            employeeAssignmentPhaseForCoercive === 'warrant_ui');
 
     /** مسار الإنشاء للمدين النشط في التبويب — لنفس نص زر ⋮ في محضر المتابعة */
     const activeDebtorInitialWasEmployee = useMemo(() => {
@@ -2995,7 +2935,31 @@ export function useExecutionDashboardCore({
         paidCourtFees,
         paidDirectorateFees,
         paidClientFees,
+        earnerGateIsEmployee: Boolean(activeDebtorIsEmployee),
     });
+
+    const {
+        earnerFinancialPersonalCoerciveActive,
+        hideExecutiveDetentionJudgeCard,
+    } = useEarnerFinancialPersonalCoerciveFlags(Boolean(activeDebtorIsEmployee), remaining);
+
+    const followupSpecializationWithEarnerGate = useMemo(
+        () =>
+            applyEarnerFinancialPersonalCoerciveOverlay(followupSpecializationEffective, {
+                isEmployee: Boolean(activeDebtorIsEmployee),
+                financialCenterTotalIqd: remaining,
+            }),
+        [followupSpecializationEffective, activeDebtorIsEmployee, remaining],
+    );
+
+    const followupModalSpecializationEffectiveWithEarnerGate = useMemo(
+        () =>
+            applyEarnerFinancialPersonalCoerciveOverlay(followupModalSpecializationEffective, {
+                isEmployee: Boolean(followupModalDebtorIsEmployee),
+                financialCenterTotalIqd: remaining,
+            }),
+        [followupModalSpecializationEffective, followupModalDebtorIsEmployee, remaining],
+    );
 
     const unifiedCollectionApproved = useMemo(
         () => hasApprovedUnifiedCollection(String(executionData?.id ?? executionId ?? '')),
@@ -4509,131 +4473,32 @@ export function useExecutionDashboardCore({
         ]
     );
 
-    const applyDossierLifecycleToFileAndTimeline = useCallback(
-        (status: DossierLifecycleStatus, reason: string, date: string) => {
-            const r = reason.trim();
-            const d = date.trim();
-            const persistKey = String(executionData?.id ?? executionId ?? '');
-            if (!persistKey || persistKey === 'undefined') return false;
-            if (status !== 'active' && (!r || !d)) {
-                showToast('أدخل السبب والتاريخ لاعتماد الحالة.', 'warning');
-                return false;
-            }
-            const label = dossierLifecycleLabelAr(status);
-            const iso = new Date().toISOString();
-            const day = iso.slice(0, 10);
-            const baseEx = executionDataRef.current;
-            const lifecycleSnap = buildExecutionTimelineSnapshot({
-                executionData: baseEx
-                    ? {
-                          ...baseEx,
-                          dossier_lifecycle_status: status,
-                          dossier_status_reason: status === 'active' ? '' : r,
-                          dossier_status_date: status === 'active' ? '' : d,
-                      }
-                    : null,
-                financialLedger: financialLedgerRef.current,
-                seizedAssets: seizedAssetsSnapshotRef.current,
-            });
-            const ev: TimelineEvent = {
-                id: nextTimelineId(),
-                date: day,
-                timestamp: iso,
-                title: `📋 حالة الإضبارة: ${label}`,
-                description:
-                    status === 'active'
-                        ? 'أُعيدت الإضبارة إلى الحالة النشطة.'
-                        : `السبب:\n${r}\n\nالتاريخ: ${d}`,
-                type: 'procedure',
-                source: 'رأس الإضبارة',
-                snapshot: lifecycleSnap,
-            };
-            setTimelineEvents((prev) => {
-                const next = [ev, ...prev];
-                queueMicrotask(() => {
-                    persistExecutionMerge({
-                        dossier_lifecycle_status: status,
-                        dossier_status_reason: status === 'active' ? '' : r,
-                        dossier_status_date: status === 'active' ? '' : d,
-                        timelineEvents: next,
-                    });
-                    const execId = String(baseEx?.id ?? executionId ?? '');
-                    if (execId && execId !== 'undefined') {
-                        void import('@/app/services/timelineEventsSupabase')
-                            .then(({ insertTimelineEventToSupabase }) =>
-                                insertTimelineEventToSupabase({
-                                    executionFileId: execId,
-                                    event: ev,
-                                    snapshotData: lifecycleSnap,
-                                })
-                            )
-                            .catch(() => {});
-                    }
-                });
-                return next;
-            });
-            if (dossierFileKey && dossierFileKey !== 'undefined') {
-                reconcileDossierLifecycle(dossierFileKey, {
-                    ...(executionData ?? {}),
-                    dossier_lifecycle_status: status,
-                    dossier_status_reason: status === 'active' ? '' : r,
-                    dossier_status_date: status === 'active' ? '' : d,
-                } as ExecutionFile);
-            }
-            if (status === 'active') {
-                setDossierReasonDraft('');
-                setDossierDateDraft('');
-            }
-            showToast('تم حفظ الحالة وتسجيلها في السجل الزمني.', 'success');
-            return true;
-        },
-        [
-            dossierFileKey,
-            executionData,
-            executionId,
-            nextTimelineId,
-            persistExecutionMerge,
-            reconcileDossierLifecycle,
-            showToast,
-        ]
-    );
 
-    const handleDossierLifecyclePick = useCallback(
-        (picked: DossierLifecycleStatus) => {
-            if (picked === 'active') {
-                const ok = applyDossierLifecycleToFileAndTimeline('active', '', '');
-                if (ok) closeDossierLifecyclePanel();
-                return;
-            }
-            const committed = normalizeDossierLifecycleStatus(executionData?.dossier_lifecycle_status);
-            setDossierPendingStatus(picked);
-            setDossierLifecyclePanelPhase('details');
-            if (picked === committed) {
-                setDossierReasonDraft(String(executionData?.dossier_status_reason ?? '').trim());
-                setDossierDateDraft(String(executionData?.dossier_status_date ?? '').slice(0, 10));
-            } else {
-                setDossierReasonDraft('');
-                setDossierDateDraft('');
-            }
-        },
-        [applyDossierLifecycleToFileAndTimeline, closeDossierLifecyclePanel, executionData]
-    );
-
-    const handleDossierLifecycleConfirmDetails = useCallback(() => {
-        if (!dossierPendingStatus || dossierPendingStatus === 'active') return;
-        const ok = applyDossierLifecycleToFileAndTimeline(
-            dossierPendingStatus,
-            dossierReasonDraft,
-            dossierDateDraft
-        );
-        if (ok) closeDossierLifecyclePanel();
-    }, [
+    const {
         applyDossierLifecycleToFileAndTimeline,
-        closeDossierLifecyclePanel,
-        dossierDateDraft,
+        handleDossierLifecyclePick,
+        handleDossierLifecycleConfirmDetails,
+    } = useExecutionDossierLifecycleActionsOrchestrator({
+        executionData,
+        executionId,
+        executionDataRef,
+        dossierFileKey,
+        financialLedgerRef,
+        seizedAssetsSnapshotRef,
+        setTimelineEvents,
+        nextTimelineId,
+        persistExecutionMerge,
+        reconcileDossierLifecycle,
+        showToast,
         dossierPendingStatus,
         dossierReasonDraft,
-    ]);
+        dossierDateDraft,
+        setDossierReasonDraft,
+        setDossierDateDraft,
+        setDossierPendingStatus,
+        setDossierLifecyclePanelPhase,
+        closeDossierLifecyclePanel,
+    });
 
     const {
         showEditDossierMetaModal,
@@ -4713,429 +4578,41 @@ export function useExecutionDashboardCore({
         return (debtors || []) as Debtor[];
     }, [executionData?.debtors, debtors]);
 
-    const ACTION_TITLE_MAP: Record<DossierActionType, string> = {
-        delegation: 'طلب الإنابة التنفيذية',
-        unify: 'طلب توحيد الأضابير',
-        transfer: 'طلب نقل الإضبارة',
-        renew: 'طلب تجديد الإضبارة',
-        inaba_correspondence: 'طلب مخاطبة مديرية الانابة',
-    };
-
-    const handleDossierAction = useCallback((payload: DossierActionPayload): boolean => {
-        const today = getLocalTodayYmd();
-        const title = ACTION_TITLE_MAP[payload.actionType];
-        const contentParts: string[] = [];
-
-        if (payload.actionType === 'delegation') {
-            contentParts.push(`الدائرة المناب إليها: ${payload.delegationTargetDirectorate}`);
-            contentParts.push(`الغاية من الإنابة: ${payload.delegationPurpose}`);
-        } else if (payload.actionType === 'inaba_correspondence') {
-            contentParts.push(`مديرية الإنابة: ${payload.inabaCorrespondenceDirectorate}`);
-            contentParts.push(`موضوع المخاطبة: ${payload.inabaCorrespondenceSubject}`);
-        } else if (payload.actionType === 'unify') {
-            contentParts.push(`معرف الإضبارة: ${payload.unificationTargetId}`);
-            if (payload.unificationTargetMeta?.fileNumber) {
-                contentParts.push(`رقم الإضبارة: ${payload.unificationTargetMeta.fileNumber}`);
-            }
-            if (payload.unificationTargetMeta?.fileYear) {
-                contentParts.push(`السنة: ${payload.unificationTargetMeta.fileYear}`);
-            }
-            if (payload.unificationTargetMeta?.directorate) {
-                contentParts.push(`المديرية: ${payload.unificationTargetMeta.directorate}`);
-            }
-        } else if (payload.actionType === 'transfer') {
-            contentParts.push(`الدائرة المراد النقل إليها: ${payload.transferTargetDirectorate}`);
-        } else if (payload.actionType === 'renew') {
-            contentParts.push(`سبب التجديد: ${payload.renewalReason}`);
-        }
-
-        const fullContent = `${title}\n${contentParts.join('\n')}`;
-        if (payload.actionType === 'inaba_correspondence') {
-            if (!String(payload.inabaCorrespondenceSubFileId || '').trim()) {
-                showToast('تعذر إرسال الطلب: لا توجد إنابة نشطة لهذه الإضبارة.', 'warning');
-                setDossierActionModalSaving(false);
-                return false;
-            }
-            if (!String(payload.inabaCorrespondenceSubject || '').trim()) {
-                showToast('أدخل موضوع المخاطبة', 'warning');
-                setDossierActionModalSaving(false);
-                return false;
-            }
-        }
-        if (payload.actionType === 'transfer') {
-            if (!String(payload.transferTargetDirectorate || '').trim()) {
-                showToast('أدخل اسم المديرية المراد نقل الإضبارة إليها', 'warning');
-                setDossierActionModalSaving(false);
-                return false;
-            }
-        }
-        if (payload.actionType === 'unify') {
-            if (!String(payload.unificationTargetId || '').trim()) {
-                showToast('اختر الإضبارة المراد دمجها', 'warning');
-                setDossierActionModalSaving(false);
-                return false;
-            }
-        }
-
-        const payloadJson =
-            payload.actionType === 'unify'
-                ? JSON.stringify({
-                      kind: 'unification',
-                      v: 1,
-                      targetType: 'own',
-                      targetId: payload.unificationTargetId,
-                      targetMeta: payload.unificationTargetMeta,
-                  })
-                : payload.actionType === 'inaba_correspondence'
-                  ? JSON.stringify({
-                        kind: 'inaba_correspondence',
-                        v: 1,
-                        inabaSubFileId: payload.inabaCorrespondenceSubFileId,
-                        directorate: payload.inabaCorrespondenceDirectorate,
-                        subject: payload.inabaCorrespondenceSubject,
-                    })
-                  : payload.actionType === 'transfer'
-                    ? JSON.stringify({
-                          kind: 'transfer',
-                          v: 1,
-                          targetDirectorate: payload.transferTargetDirectorate,
-                      })
-                  : undefined;
-
-        const decisionId = appendSpecialFollowupRequest({
-            executionId: decisionsStorageExecutionId,
-            requestDate: today,
-            content: fullContent,
-            decisionTitle: title,
-            ...(payloadJson ? { payloadJson } : {}),
-        });
-        if (!decisionId) {
-            showToast(`يوجد طلب "${title}" مماثل قيد البت لدى المنفذ.`, 'warning', { decisionsLink: true });
-            setDossierActionModalOpen(false);
-            setDossierActionModalSaving(false);
-            return false;
-        }
-        if (payload.actionType === 'inaba_correspondence') {
-            const entry = createInabaCorrespondenceLogEntry({
-                subFileId: String(payload.inabaCorrespondenceSubFileId || ''),
-                directorate: String(payload.inabaCorrespondenceDirectorate || ''),
-                subject: String(payload.inabaCorrespondenceSubject || ''),
-                requestDate: today,
-                decisionRowId: decisionId,
-            });
-            const prev = getInabaCorrespondenceLog(
-                isInabaActive && parentExecutionFile
-                    ? parentExecutionFile
-                    : (executionData as ExecutionFile | null)
-            );
-            const next = [entry, ...prev];
-            if (isInabaActive || isUnifiedTabActive) {
-                patchParentInabaCorrespondenceLog(decisionsStorageExecutionId, () => next);
-            } else {
-                persistExecutionMerge({ inaba_correspondence_log: next });
-            }
-            setExecutionStorageTick((t) => t + 1);
-        }
-        const now = new Date().toISOString();
-        pushTimelineEvent({
-            id: nextTimelineId(),
-            date: today,
-            timestamp: now,
-            title: `${title} — قيد البت`,
-            description: `بتاريخ ${today}:\n\n${fullContent}`,
-            type: 'coercive',
-            source: 'محضر المتابعة',
-            metadata: {
-                timelineThreadKey: `executor_decision:${decisionId}`,
-                decisionRowId: decisionId,
-                dossierActionPayload: payload,
-            },
-        });
-        setDossierActionModalOpen(false);
-        setDossierActionModalSaving(false);
-        showToast(`تم إرسال "${title}" إلى القرارات والطعون بانتظار الموافقة.`, 'success');
-        return true;
-    }, [
+    const {
+        handleDossierAction,
+        handleOpenDossierAction,
+        runSpecialFollowupSubmit,
+        creditorOtherPartyTrackHandlers,
+        otherPartyTabSubmitHandler,
+        openOtherPartyAppealsModal,
+    } = useExecutionDashboardDossierFollowupHandlers({
+        executionDataRef,
+        executionData,
+        executionId,
         decisionsStorageExecutionId,
-        pushTimelineEvent,
+        parentExecutionFile,
+        isInabaActive,
+        isUnifiedTabActive,
+        isRepresentingDebtor,
+        timelineEvents,
+        specialRequestDate,
+        specialRequestManualTitle,
+        specialRequestContent,
         nextTimelineId,
+        pushTimelineEvent,
+        persistExecutionMerge,
         showToast,
+        openDecisionsModalWithBoot,
         setDossierActionModalOpen,
         setDossierActionModalSaving,
-        isInabaActive,
-        parentExecutionFile,
-        executionData,
-        isUnifiedTabActive,
-        persistExecutionMerge,
-    ]);
-
-    const handleOpenDossierAction = useCallback((actionType: DossierActionType) => {
-        setDossierActionModalType(actionType);
-        setDossierActionModalOpen(true);
-    }, []);
-
-    const { runSubmit: runSpecialFollowupSubmit } = useStandardSubmit({
-        validate: () => {
-            const followupGate = isFollowupRequestKindAllowed(
-                executionData as Record<string, unknown> | null | undefined,
-                decisionsStorageExecutionId,
-                'special_followup'
-            );
-            if (!followupGate.allowed) {
-                dispatchDomainIsolationBlocked(followupGate.reasonAr, 'special_followup');
-                return false;
-            }
-            const d = specialRequestDate.trim();
-            if (!d) return false;
-            return Boolean(specialRequestManualTitle.trim()) && Boolean(specialRequestContent.trim());
-        },
-        validationMessage: 'أكمل موضوع الطلب والتاريخ والتفاصيل',
-        submit: () => {
-            const d = specialRequestDate.trim();
-            const content = specialRequestContent.trim();
-            const title = specialRequestManualTitle.trim() || 'طلب يدوي';
-            const decisionId = appendSpecialFollowupRequest({
-                executionId: decisionsStorageExecutionId,
-                requestDate: d,
-                content: content || title,
-                decisionTitle: title,
-                payloadJson: JSON.stringify({
-                    kind: 'manual_followup',
-                    v: 1,
-                }),
-            });
-            if (!decisionId) {
-                showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', { decisionsLink: true });
-                return false;
-            }
-            const now = new Date().toISOString();
-            const fullBody = `بتاريخ ${d}:\n\n${content || title}`;
-            pushTimelineEvent({
-                id: nextTimelineId(),
-                date: d,
-                timestamp: now,
-                title: `${title} — قيد البت`,
-                description: fullBody,
-                type: 'coercive',
-                source: 'محضر المتابعة',
-                metadata: { timelineThreadKey: `executor_decision:${decisionId}`, decisionRowId: decisionId },
-            });
-            setSpecialRequestTemplatePick(SPECIAL_REQUEST_MANUAL_MODE);
-            setSpecialRequestContent('');
-            setSpecialRequestManualTitle('');
-            setSpecialRequestDate(getLocalTodayYmd());
-        },
-        onClose: () => {},
-        successMessage:
-            'تم حفظ الطلب بنجاح وتحويله إلى مركز القرارات بانتظار موافقة المنفذ — افتح «القرارات والطعون» من الشريط عند الحاجة',
-        showToast,
-        successToastOptions: { decisionsLink: true },
+        setDossierActionModalType,
+        setExecutionStorageTick,
+        setSpecialRequestTemplatePick,
+        setSpecialRequestContent,
+        setSpecialRequestManualTitle,
+        setSpecialRequestDate,
+        setTimelineEvents,
     });
-
-    const handleOtherPartyActionLogOnly = useCallback(
-        (input: { date: string; content: string }): { ok: boolean } => {
-            const d = String(input.date || '').trim();
-            const content = String(input.content || '').trim();
-            if (!d || !content) {
-                showToast('أدخل تاريخ التحرك ومضمون الطلب', 'warning');
-                return { ok: false };
-            }
-            const now = new Date().toISOString();
-            pushTimelineEvent({
-                id: nextTimelineId(),
-                date: d,
-                timestamp: now,
-                title: 'تحرك الطرف الآخر',
-                description: content,
-                type: 'other_party',
-                source: 'تحركات الطرف الآخر',
-            });
-            showToast('تم تسجيل التحرك في السجل الزمني.', 'success');
-            return { ok: true };
-        },
-        [nextTimelineId, pushTimelineEvent, showToast]
-    );
-
-    const handleOtherPartyActionSubmitToDecisions = useCallback(
-        (input: { date: string; content: string }): { ok: boolean; decisionId?: string } => {
-            const d = String(input.date || '').trim();
-            const content = String(input.content || '').trim();
-            if (!d || !content) {
-                showToast('أدخل تاريخ التحرك ومضمون الطلب', 'warning');
-                return { ok: false };
-            }
-            const decisionId = appendSpecialFollowupRequest({
-                executionId: decisionsStorageExecutionId,
-                requestDate: d,
-                content,
-                appealRequestOrigin: 'debtor_side',
-                decisionTitle: 'تحرك الطرف الآخر — قيد البت',
-            });
-            if (!decisionId) {
-                showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', { decisionsLink: true });
-                return { ok: false };
-            }
-            const now = new Date().toISOString();
-            pushTimelineEvent({
-                id: nextTimelineId(),
-                date: d,
-                timestamp: now,
-                title: 'تحرك الطرف الآخر — قيد البت',
-                description: `بتاريخ ${d}:\n\n${content}`,
-                type: 'decision',
-                source: 'محضر المتابعة',
-                metadata: { timelineThreadKey: `executor_decision:${decisionId}`, decisionRowId: decisionId },
-            });
-            showToast('تم حفظ التحرك في السجل.', 'success');
-            return { ok: true, decisionId };
-        },
-        [
-            decisionsStorageExecutionId,
-            nextTimelineId,
-            pushTimelineEvent,
-            showToast,
-        ]
-    );
-
-    const handleCreditorTrackSubmit = useCallback(
-        (input: { optionId: string; label: string; date: string }): { ok: boolean; decisionId?: string } => {
-            const storageId = String(
-                decisionsStorageExecutionId ||
-                    executionId ||
-                    executionDataRef.current?.id ||
-                    ''
-            ).trim();
-            const res = submitCreditorOtherPartyTrackToDecisions({
-                executionId: storageId || undefined,
-                optionId: input.optionId,
-                label: input.label,
-                requestDate: input.date,
-            });
-            if (!res.ok) {
-                showToast('تعذّر إنشاء البطاقة — قد يوجد طلب مماثل قيد البت.', 'warning', {
-                    decisionsLink: true,
-                });
-                return { ok: false };
-            }
-            pushTimelineEvent({
-                id: nextTimelineId(),
-                date: input.date,
-                timestamp: new Date().toISOString(),
-                title: `${input.label} — قيد البت`,
-                description: `تقدّم وكيل الدائن — متابعة من جانب موكّل المدين.`,
-                type: 'other_party',
-                source: 'تحركات الطرف الآخر',
-                metadata: {
-                    timelineThreadKey: `executor_decision:${res.decisionId}`,
-                    decisionRowId: res.decisionId,
-                    otherPartyTrackOptionId: input.optionId,
-                },
-            });
-            showToast('تم إنشاء بطاقة في القرارات والطعون.', 'success', { decisionsLink: true });
-            return res;
-        },
-        [decisionsStorageExecutionId, executionId, nextTimelineId, pushTimelineEvent, showToast]
-    );
-
-    const handleCreditorTrackResolve = useCallback(
-        (input: { decisionId: string; resolution: 'approved' | 'rejected' }): boolean => {
-            const ok = resolveCreditorOtherPartyTrackDecision({
-                executionId: decisionsStorageExecutionId,
-                decisionId: input.decisionId,
-                resolution: input.resolution,
-            });
-            if (!ok) {
-                showToast('تعذّر تحديث بطاقة القرار.', 'warning');
-                return false;
-            }
-            showToast(
-                input.resolution === 'approved' ? 'سُجّلت موافقة المنفذ.' : 'سُجّل رفض المنفذ.',
-                'success'
-            );
-            return true;
-        },
-        [decisionsStorageExecutionId, showToast]
-    );
-
-    const handleCreditorTrackOpenDecision = useCallback(
-        (decisionId: string) => {
-            openDecisionsModalWithBoot({
-                tab: 'current',
-                decisionId: String(decisionId || '').trim() || null,
-            });
-        },
-        [openDecisionsModalWithBoot]
-    );
-
-    const creditorOtherPartyTrackHandlers = useMemo(
-        () => ({
-            onSubmitCreditorRequest: handleCreditorTrackSubmit,
-            onResolveCreditorDecision: handleCreditorTrackResolve,
-            showMessage: (message: string, type?: 'warning' | 'success') =>
-                showToast(message, type ?? 'info'),
-            onOpenDecision: handleCreditorTrackOpenDecision,
-        }),
-        [
-            handleCreditorTrackSubmit,
-            handleCreditorTrackResolve,
-            handleCreditorTrackOpenDecision,
-            showToast,
-        ]
-    );
-
-    const otherPartyTabSubmitHandler = useMemo(
-        () =>
-            isRepresentingDebtor
-                ? handleOtherPartyActionLogOnly
-                : handleOtherPartyActionSubmitToDecisions,
-        [isRepresentingDebtor, handleOtherPartyActionLogOnly, handleOtherPartyActionSubmitToDecisions]
-    );
-
-    const otherPartyLogMigratedRef = useRef(false);
-    useEffect(() => {
-        if (!isRepresentingDebtor || otherPartyLogMigratedRef.current) return;
-        const log = executionData?.other_party_actions_log;
-        if (!Array.isArray(log) || log.length === 0) return;
-        otherPartyLogMigratedRef.current = true;
-        const { events: migrated, migratedIds } = buildTimelineEventsFromOtherPartyActionLog(
-            log,
-            timelineEvents,
-            nextTimelineId
-        );
-        if (migrated.length === 0) {
-            persistExecutionMerge({ other_party_actions_log: [] });
-            return;
-        }
-        const nextTimeline = [...migrated, ...timelineEvents];
-        persistExecutionMerge({
-            timelineEvents: nextTimeline,
-            other_party_actions_log: [],
-        });
-        setTimelineEvents(nextTimeline);
-        if (migratedIds.length > 0) {
-            showToast(
-                `نُقل ${migratedIds.length} سجل إلى السجل الزمني (تبويب تحركات الطرف الآخر).`,
-                'info'
-            );
-        }
-    }, [
-        isRepresentingDebtor,
-        executionData?.other_party_actions_log,
-        timelineEvents,
-        nextTimelineId,
-        persistExecutionMerge,
-        showToast,
-    ]);
-
-    const openOtherPartyAppealsModal = useCallback(
-        (decisionId?: string) => {
-            openDecisionsModalWithBoot({
-                tab: 'previous',
-                decisionId: String(decisionId || '').trim() || null,
-            });
-        },
-        [openDecisionsModalWithBoot]
-    );
 
     /** تبديل موظف ↔ كاسب — `useExecutionDashboardStore.toggleDebtorEmploymentStatus` + دمج الملف */
     const handleDebtorEmploymentToggle = useCallback(
@@ -5227,58 +4704,14 @@ export function useExecutionDashboardCore({
         persistExecutionMerge,
     ]);
 
-    /** مزامنة نتيجة منفذ العدل على طلب مفاتحة التحقيق (تكليف حضور موظف — يدعم أكثر من مدين) */
-    useEffect(() => {
-        const d = executionData;
-        if (!d || !exIdForPersonalDecisions) return;
-        const rows = readExecutorDecisionsArray(exIdForPersonalDecisions) as ExecutorDecisionRowLite[];
-        const merged = mergeInvestigationOutcomesIntoEmployeeAssignments(
-            d,
-            primaryDebtorKeyResolved,
-            rows
-        );
-        if (!merged) return;
-        const syncSig = [
-            String(d.id),
-            String(merged.approvedCount),
-            String(merged.rejectedCount),
-            ...Object.entries(merged.patch.employee_summons_assignments_by_debtor)
-                .map(
-                    ([k, st]) =>
-                        `${k}:${st.phase}:${String(st.investigationDecisionId ?? '')}:${String(st.arrestOrderRecorded ?? '')}`
-                )
-                .sort(),
-        ].join('|');
-        if (employeeInvestigationSyncSigRef.current === syncSig) return;
-        employeeInvestigationSyncSigRef.current = syncSig;
-        persistExecutionMerge(merged.patch);
-        const { approvedCount, rejectedCount } = merged;
-        if (approvedCount > 0 && rejectedCount === 0) {
-            showToast('تمت موافقة المنفذ على طلب المفاتحة.', 'success');
-        } else if (rejectedCount > 0 && approvedCount === 0) {
-            showToast('صدر رفض الطلب — يمكن إنهاء التكليف أو إعادة المحاولة.', 'info', {
-                decisionsLink: true,
-            });
-        } else {
-            showToast(
-                `تم تحديث طلبات المفاتحة: ${approvedCount} موافقة، ${rejectedCount} رفض.`,
-                'info',
-                { decisionsLink: true }
-            );
-        }
-    }, [
-        decisionsReloadEpoch,
-        exIdForPersonalDecisions,
+    useExecutionDashboardEmployeeInvestigationSync({
         executionData,
-        executionData?.employee_summons_assignment,
-        executionData?.employee_summons_assignments_by_debtor,
-        hideToast,
-        persistExecutionMerge,
+        executionId: exIdForPersonalDecisions,
+        decisionsReloadEpoch,
         primaryDebtorKeyResolved,
-        setShowUnifiedExecutionModal,
-        setUnifiedModalTab,
+        persistExecutionMerge,
         showToast,
-    ]);
+    });
 
     useEffect(() => {
         if (!exIdForPersonalDecisions) return;
@@ -5382,904 +4815,55 @@ export function useExecutionDashboardCore({
         showToast,
     ]);
 
-    const handleLiftStayOfExecution = useCallback(() => {
-        const now = new Date().toISOString();
-        const te: TimelineEvent = {
-            id: nextTimelineId(),
-            date: now.slice(0, 10),
-            timestamp: now,
-            title: '✅ رفع الاستئخار',
-            description: 'عادت أدوات التنفيذ للعمل وفق وضع الإيقاف العام للإضبارة.',
-            type: 'decision',
-            source: 'التنفيذ',
-        };
-        setTimelineEvents((prev) => {
-            const next = [te, ...prev];
-            queueMicrotask(() =>
-                persistExecutionMerge({
-                    stay_of_execution: {
-                        active: false,
-                        decision_number: '',
-                        court_name: '',
-                        next_hearing_date: '',
-                    },
-                    timelineEvents: next,
-                })
-            );
-            return next;
-        });
-        showToast('تم رفع الاستئخار', 'success');
-    }, [nextTimelineId, persistExecutionMerge, showToast]);
 
-    const handleSpecialCasesStay = useCallback(
-        (input: { decision_number: string; court_name: string; next_hearing_date: string }): boolean => {
-            const court_name = input.court_name.trim();
-            const next_hearing_date = input.next_hearing_date.trim();
-            if (!court_name || !next_hearing_date) {
-                showToast('أدخل اسم المحكمة وتاريخ الجلسة', 'warning');
-                return false;
-            }
-            const decision_number = input.decision_number.trim();
-            const taskId = nextTimelineId();
-            const teId = nextTimelineId();
-            const now = new Date().toISOString();
-            const task = {
-                id: taskId,
-                title: 'متابعة استئخار التنفيذ',
-                body: `محكمة: ${court_name}${decision_number ? ` — قرار: ${decision_number}` : ''}`,
-                dueDate: next_hearing_date,
-                createdAt: now,
-            };
-            const te: TimelineEvent = {
-                id: teId,
-                date: now.slice(0, 10),
-                timestamp: now,
-                title: '⚠️ تفعيل استئخار التنفيذ',
-                description: `محكمة: ${court_name}${decision_number ? `\nرقم القرار: ${decision_number}` : ''}\nجلسة/متابعة: ${next_hearing_date}\n— تُعطَّل أدوات الإضبارة حتى رفع الاستئخار.`,
-                type: 'decision',
-                source: 'استئخار التنفيذ',
-            };
-            setCaseTasksPending((prev) => {
-                const nextTasks = [...prev, task];
-                setTimelineEvents((prevTl) => {
-                    const nextTl = [te, ...prevTl];
-                    queueMicrotask(() => {
-                        persistExecutionMerge({
-                            stay_of_execution: {
-                                active: true,
-                                decision_number,
-                                court_name,
-                                next_hearing_date,
-                            },
-                            timelineEvents: nextTl,
-                            caseTasksPending: nextTasks,
-                        });
-                        syncExecutionTaskDue({
-                            executionId: currentFileId,
-                            task,
-                            caseNo:
-                                String(
-                                    executionData?.fileNumber ??
-                                        executionData?.caseNo ??
-                                        file?.fileNumber ??
-                                        '',
-                                ).trim() || undefined,
-                            clientName:
-                                String(
-                                    executionData?.creditors?.[0]?.name ??
-                                        executionData?.clientName ??
-                                        file?.creditors?.[0]?.name ??
-                                        '',
-                                ).trim() || undefined,
-                        });
-                    });
-                    return nextTl;
-                });
-                return nextTasks;
-            });
-            showToast('تم تفعيل الاستئخار وتسجيل المهمة.', 'success');
-            return true;
-        },
-        [nextTimelineId, persistExecutionMerge, showToast, currentFileId, executionData, file]
-    );
-
-    const handlePartyDeathSave = useCallback(
-        (payload: PartyDeathSavePayload): boolean => {
-            const base = executionDataRef.current ?? executionData;
-            if (
-                (payload.action === 'heir_substitution' ||
-                    payload.action === 'seek_heir' ||
-                    payload.action === 'no_heirs') &&
-                !isHeirSubstitutionAllowedForClaim(base as Record<string, unknown>, claimType)
-            ) {
-                showToast('لا يوجد مسار ورثة لهذا النوع من المطالبة.', 'info');
-                return false;
-            }
-            const partyLabelAr = payload.deceased_party === 'debtor' ? 'المدين' : 'الدائن';
-            const mergeHeirNames = (existing: string[], incoming: string[]) => {
-                const out: string[] = [];
-                [...existing, ...incoming].forEach((n) => {
-                    const name = String(n || '').trim();
-                    if (!name) return;
-                    if (!out.some((x) => x === name)) out.push(name);
-                });
-                return out;
-            };
-            const mergeHeirDetails = (
-                existing: Array<{ name?: string; phone?: string; address?: string; isClient?: boolean }>,
-                incoming: Array<{ name?: string; phone?: string; address?: string; isClient?: boolean }>
-            ) => {
-                const map = new Map<string, { name: string; phone: string; address: string; isClient?: boolean }>();
-                [...existing, ...incoming].forEach((h) => {
-                    const name = String(h?.name || '').trim();
-                    if (!name) return;
-                    const phone = String(h?.phone || '').trim();
-                    const address = String(h?.address || '').trim();
-                    const ic = Boolean(h?.isClient);
-                    const key = `${name.toLowerCase()}|${phone}`;
-                    const prev = map.get(key);
-                    if (!prev) {
-                        map.set(key, { name, phone, address, ...(ic ? { isClient: true } : {}) });
-                        return;
-                    }
-                    map.set(key, {
-                        name: name || prev.name,
-                        phone: phone || prev.phone,
-                        address: address || prev.address,
-                        isClient: Boolean(prev.isClient || ic),
-                    });
-                });
-                return [...map.values()];
-            };
-
-            if (payload.deceased_party === 'creditor') {
-                const creditorsList = [...(base?.creditors || creditors)];
-                const debtorsSnapshot = [...(base?.debtors || debtors)];
-                const nameSnapshot = String(creditorsList[0]?.name || '').trim();
-                const heirNamesResolved =
-                    payload.action === 'heir_substitution' || payload.action === 'seek_heir'
-                        ? payload.heir_names.filter((s) => /\S/.test(String(s)))
-                        : [];
-                const heirDetailsResolved =
-                    payload.action === 'heir_substitution' || payload.action === 'seek_heir'
-                        ? (payload.heir_details || [])
-                              .map((h) => ({
-                                  name: String(h?.name || '').trim(),
-                                  phone: String(h?.phone || '').trim(),
-                                  address: String(h?.address || '').trim(),
-                                  isClient: Boolean((h as { isClient?: boolean }).isClient),
-                              }))
-                              .filter((h) => /\S/.test(h.name))
-                        : [];
-                if (payload.action === 'death_only') {
-                    if (hasOngoingAlimonyInExecution(base as Record<string, unknown>, claimType)) {
-                        showToast(
-                            'نفقة مستمرة — حدّد المستحق المتوفى من قائمة الدائن (نافذة مستحقي النفقة).',
-                            'warning'
-                        );
-                        return false;
-                    }
-                    const autoFinishCreditor = shouldAutoFinishDossierOnDeathReport(
-                        base as Record<string, unknown>,
-                        claimType,
-                        'creditor'
-                    );
-                    if (creditorsList[0]) {
-                        creditorsList[0] = {
-                            ...creditorsList[0],
-                            type: 'creditor',
-                            isDeceased: true,
-                            heirs: [],
-                            heirs_details: [],
-                        } as Creditor;
-                    }
-                    const now = new Date().toISOString();
-                    const te: TimelineEvent = {
-                        id: nextTimelineId(),
-                        date: now.slice(0, 10),
-                        timestamp: now,
-                        title: 'تسجيل الإبلاغ عن الوفاة',
-                        description: `تم تسجيل الإبلاغ عن وفاة ${nameSnapshot || 'الدائن'} في الإضبارة.`,
-                        type: 'procedure',
-                        source: 'بطاقة الخصوم',
-                    };
-                    setTimelineEvents((prev) => {
-                        const next = [te, ...prev];
-                        persistExecutionMerge({
-                            ...buildScopedPartyDeathPersistPatch(base, 'creditor', {
-                                deceased_party: 'creditor',
-                                heir_names: [],
-                                heir_details: [],
-                                flow: 'death_only',
-                                heir_certificate_file_name: null,
-                            }),
-                            creditors: creditorsList,
-                            debtors: debtorsSnapshot,
-                            is_creditor_deceased: true,
-                            deceased_creditor_legal_name_snapshot:
-                                nameSnapshot || base?.deceased_creditor_legal_name_snapshot,
-                            timelineEvents: next,
-                            ...(autoFinishCreditor
-                                ? buildDossierAutoFinishPatch('وفاة الدائن — إغلاق الإضبارة')
-                                : {}),
-                        });
-                        return next;
-                    });
-                    showToast(
-                        autoFinishCreditor
-                            ? 'تم تسجيل وفاة الدائن وإغلاق الإضبارة.'
-                            : 'تم تسجيل الإبلاغ عن وفاة الدائن.',
-                        'success'
-                    );
-                    return true;
-                }
-                if (
-                    payload.action === 'heir_substitution' &&
-                    (getCreditorHeirSubstitutionRequestStatus(decisionsStorageExecutionId) === 'approved' ||
-                        getCreditorHeirSubstitutionRequestStatus(decisionsStorageExecutionId) === 'alternative')
-                ) {
-                    const existingNames = (base?.creditors?.[0]?.heirs || []).filter((s) =>
-                        /\S/.test(String(s))
-                    );
-                    const existingCaseNames = (
-                        getPartyDeathCaseForRole(base, 'creditor')?.heir_names || []
-                    ).filter((s) => /\S/.test(String(s)));
-                    const mergedHeirNames = mergeHeirNames(
-                        mergeHeirNames(existingNames, existingCaseNames),
-                        heirNamesResolved
-                    );
-                    const existingDetails = Array.isArray(base?.creditors?.[0]?.heirs_details)
-                        ? base.creditors[0].heirs_details
-                        : [];
-                    const creditorDeathCase = getPartyDeathCaseForRole(base, 'creditor');
-                    const existingCaseDetails = Array.isArray(creditorDeathCase?.heir_details)
-                        ? (creditorDeathCase.heir_details as Array<{
-                              name?: string;
-                              phone?: string;
-                              address?: string;
-                          }>)
-                        : [];
-                    const mergedHeirDetails = mergeHeirDetails(
-                        mergeHeirDetails(existingDetails, existingCaseDetails),
-                        heirDetailsResolved
-                    );
-                    const merge = buildExecutionMergeForCreditorPartyDeath(base, {
-                        action: 'heir_substitution',
-                        creditorNameSnapshot: nameSnapshot,
-                        heir_names: mergedHeirNames,
-                    });
-                    const now = new Date().toISOString();
-                    const te: TimelineEvent = {
-                        id: nextTimelineId(),
-                        date: now.slice(0, 10),
-                        timestamp: now,
-                        title: 'تثبيت إحلال ورثة الدائن',
-                        description: `تم تثبيت إحلال ورثة الدائن في الإضبارة بعد موافقة المنفذ.\nأسماء الورثة: ${heirNamesResolved.join('، ') || '—'}`,
-                        type: 'procedure',
-                        source: 'بطاقة الخصوم',
-                    };
-                    setTimelineEvents((prev) => {
-                        const next = [te, ...prev];
-                        const mergeRec = merge as Record<string, unknown>;
-                        const mergedCreditors = Array.isArray(mergeRec.creditors)
-                            ? ([...(mergeRec.creditors as Creditor[])] as Creditor[])
-                            : creditorsList;
-                        if (mergedCreditors[0]) {
-                            mergedCreditors[0] = {
-                                ...mergedCreditors[0],
-                                heirs: mergedHeirNames,
-                                heirs_details: mergedHeirDetails,
-                            } as Creditor;
-                        }
-                        persistExecutionMerge({
-                            ...merge,
-                            ...buildScopedPartyDeathPersistPatch(base, 'creditor', {
-                                deceased_party: 'creditor',
-                                heir_names: mergedHeirNames,
-                                heir_details: mergedHeirDetails,
-                                flow: 'heir_substitution',
-                                heir_certificate_file_name: null,
-                            }),
-                            creditors: mergedCreditors,
-                            timelineEvents: next,
-                        });
-                        return next;
-                    });
-                    showToast('تم تثبيت إحلال ورثة الدائن بعد موافقة المنفذ.', 'success');
-                    if (partyDeathModalDecisionId) {
-                        patchExecutorDecisionRow(decisionsStorageExecutionId, partyDeathModalDecisionId, {
-                            heirSubstitutionCompletedAt: now,
-                        });
-                    }
-                    return true;
-                }
-                const req = appendCreditorPartyDeathRequest({
-                    executionId: decisionsStorageExecutionId,
-                    action: payload.action,
-                    creditorNameSnapshot: nameSnapshot,
-                    heirNames: payload.action === 'no_heirs' ? [] : heirNamesResolved,
-                });
-                if (!req.ok) {
-                    showToast(
-                        'يوجد طلب بخصوص وفاة الدائن قيد البت لدى المنفذ. أكمل بتّه من «القرارات والطعون».',
-                        'warning'
-                    );
-                    return false;
-                }
-                const now = new Date().toISOString();
-                const teId = nextTimelineId();
-                let teTitle = 'طلب — وفاة الدائن / إحلال الورثة';
-                let teDesc = `أُحيل الطلب إلى «القرارات والطعون» بانتظار موافقة منفذ العدل أو رفض الطلب أو قرار بديل.\nالدائن: ${nameSnapshot || 'الدائن'}.`;
-                if (payload.action === 'no_heirs') {
-                    teTitle = 'طلب — وفاة الدائن دون ورثة وإغلاق الإضبارة';
-                    teDesc = `قيد البت لدى المنفذ.\n${nameSnapshot || 'الدائن'}`;
-                } else if (payload.action === 'seek_heir') {
-                    teTitle = 'طلب — تسجيل وريث بعد مسار دون ورثة';
-                    teDesc = `قيد البت لدى المنفذ.\nأسماء مقترحة: ${heirNamesResolved.join('، ') || '—'}`;
-                } else if (payload.action === 'heir_substitution') {
-                    teTitle = 'طلب — إحلال الورثة محل الدائن المتوفى';
-                    teDesc = `قيد البت لدى المنفذ.\nأسماء الورثة المقترحة: ${heirNamesResolved.join('، ')}`;
-                }
-                const te: TimelineEvent = {
-                    id: teId,
-                    date: now.slice(0, 10),
-                    timestamp: now,
-                    title: teTitle,
-                    description: teDesc,
-                    type: 'decision',
-                    source: 'بطاقة الخصوم',
-                    metadata: req.decisionId
-                        ? {
-                              timelineThreadKey: `executor_decision:${req.decisionId}`,
-                              decisionRowId: req.decisionId,
-                          }
-                        : undefined,
-                };
-                setTimelineEvents((prev) => {
-                    const next = [te, ...prev];
-                    persistExecutionMerge({ timelineEvents: next });
-                    return next;
-                });
-                showToast('تم تقديم الطلب إلى «القرارات والطعون» بانتظار موافقة المنفذ.', 'success', {
-                    decisionsLink: true,
-                });
-                return true;
-            } else {
-
-            const creditorsList = [...(base?.creditors || creditors)];
-            const debtorsList = [...(base?.debtors || debtors)];
-            const nameSnapshot = String(debtorsList[0]?.name || '').trim();
-
-            if (payload.action === 'heir_substitution') {
-                const st = getDebtorHeirSubstitutionRequestStatus(decisionsStorageExecutionId);
-                if (st !== 'approved' && st !== 'alternative') {
-                    showToast('لا يمكن إدراج الورثة قبل موافقة المنفذ على طلب الإحلال.', 'warning');
-                    return false;
-                }
-            }
-
-            const heirNamesResolved =
-                payload.action === 'heir_substitution' || payload.action === 'seek_heir'
-                    ? payload.heir_names.filter((s) => /\S/.test(String(s)))
-                    : [];
-            const heirDetailsResolved =
-                payload.action === 'heir_substitution' || payload.action === 'seek_heir'
-                    ? (payload.heir_details || [])
-                          .map((h) => ({
-                              name: String(h?.name || '').trim(),
-                              phone: String(h?.phone || '').trim(),
-                              address: String(h?.address || '').trim(),
-                              isClient: Boolean((h as { isClient?: boolean }).isClient),
-                          }))
-                          .filter((h) => /\S/.test(h.name))
-                    : [];
-            const existingPrimaryHeirs = debtorsList[0]?.heirs || [];
-            const existingCaseHeirs = (
-                getPartyDeathCaseForRole(base, 'debtor')?.heir_names || []
-            ).filter((s) => /\S/.test(String(s)));
-            const mergedHeirNames = mergeHeirNames(
-                mergeHeirNames(existingPrimaryHeirs as string[], existingCaseHeirs),
-                heirNamesResolved
-            );
-            const primaryParty = debtorsList[0];
-            const existingPrimaryDetails = Array.isArray(primaryParty?.heirs_details)
-                ? primaryParty.heirs_details
-                : [];
-            const debtorDeathCaseRead = getPartyDeathCaseForRole(base, 'debtor');
-            const existingCaseDetails = Array.isArray(debtorDeathCaseRead?.heir_details)
-                ? (debtorDeathCaseRead.heir_details as Array<{
-                      name?: string;
-                      phone?: string;
-                      address?: string;
-                  }>)
-                : [];
-            const mergedHeirDetails = mergeHeirDetails(
-                mergeHeirDetails(existingPrimaryDetails, existingCaseDetails),
-                heirDetailsResolved
-            );
-
-            const applyHeirsToParty = (
-                heirs: string[],
-                heirDetails: Array<{ name: string; phone?: string; address?: string; isClient?: boolean }>
-            ) => {
-                if (debtorsList[0]) {
-                    debtorsList[0] = {
-                        ...debtorsList[0],
-                        type: 'debtor',
-                        isDeceased: true,
-                        heirs,
-                        heirs_details: heirDetails,
-                    } as Debtor;
-                }
-            };
-
-            const deceasedFlags = {
-                is_debtor_deceased: true,
-                is_creditor_deceased: executionData?.is_creditor_deceased,
-                deceased_debtor_legal_name_snapshot:
-                    nameSnapshot || executionData?.deceased_debtor_legal_name_snapshot,
-                deceased_creditor_legal_name_snapshot: executionData?.deceased_creditor_legal_name_snapshot,
-            };
-
-            const now = new Date().toISOString();
-            const teId = nextTimelineId();
-            const closedReason = 'وفاة المدين دون ورثة — إغلاق الإضبارة';
-
-            let te: TimelineEvent;
-            let flow: 'no_heirs' | 'heir_substitution' | 'death_only';
-            let storedHeirNames: string[];
-            let mergeExtra: Record<string, unknown> = {};
-
-            if (payload.action === 'death_only') {
-                applyHeirsToParty([], []);
-                flow = 'death_only';
-                storedHeirNames = [];
-                const autoFinishDebtor = shouldAutoFinishDossierOnDeathReport(
-                    base as Record<string, unknown>,
-                    claimType,
-                    'debtor'
-                );
-                if (autoFinishDebtor) {
-                    mergeExtra = buildDossierAutoFinishPatch('وفاة المدين — إغلاق الإضبارة');
-                }
-                te = {
-                    id: teId,
-                    date: now.slice(0, 10),
-                    timestamp: now,
-                    title: autoFinishDebtor
-                        ? 'تسجيل وفاة المدين — إغلاق الإضبارة'
-                        : 'تسجيل الإبلاغ عن الوفاة',
-                    description: autoFinishDebtor
-                        ? `تم تسجيل وفاة ${nameSnapshot || partyLabelAr} وإغلاق الإضبارة آلياً.`
-                        : `تم تسجيل الإبلاغ عن وفاة ${nameSnapshot || partyLabelAr} في الإضبارة.`,
-                    type: 'procedure',
-                    source: 'بطاقة الخصوم',
-                };
-            } else if (payload.action === 'no_heirs') {
-                applyHeirsToParty([], []);
-                flow = 'no_heirs';
-                storedHeirNames = [];
-                te = {
-                    id: teId,
-                    date: now.slice(0, 10),
-                    timestamp: now,
-                    title: 'تسجيل وفاة — إغلاق الإضبارة',
-                    description: `تم تسجيل وفاة ${nameSnapshot || partyLabelAr} دون ورثة؛ أُغلقت الإضبارة آلياً وفق المسار المختار.`,
-                    type: 'procedure',
-                    source: 'بطاقة الخصوم',
-                };
-                mergeExtra = {
-                    dossier_lifecycle_status: 'finished' as const,
-                    dossier_status_reason: closedReason,
-                    dossier_status_date: now.slice(0, 10),
-                };
-            } else if (payload.action === 'seek_heir') {
-                applyHeirsToParty(mergedHeirNames, mergedHeirDetails);
-                flow = 'heir_substitution';
-                storedHeirNames = mergedHeirNames;
-                const heirsLine =
-                    mergedHeirNames.length > 0 ? `\nأسماء الورثة: ${mergedHeirNames.join('، ')}` : '';
-                te = {
-                    id: teId,
-                    date: now.slice(0, 10),
-                    timestamp: now,
-                    title: 'العثور على وريث — إعادة فتح الإضبارة',
-                    description: `بعد مسار «بلا ورثة» تم تسجيل وريث لـ${nameSnapshot || partyLabelAr} وإعادة تفعيل الإضبارة.${heirsLine}`,
-                    type: 'procedure',
-                    source: 'بطاقة الخصوم',
-                };
-                mergeExtra = {
-                    dossier_lifecycle_status: 'active' as const,
-                    dossier_status_reason: '',
-                    dossier_status_date: '',
-                };
-            } else {
-                applyHeirsToParty(mergedHeirNames, mergedHeirDetails);
-                flow = 'heir_substitution';
-                storedHeirNames = mergedHeirNames;
-                const heirsLine =
-                    mergedHeirNames.length > 0 ? `\nأسماء الورثة: ${mergedHeirNames.join('، ')}` : '';
-                te = {
-                    id: teId,
-                    date: now.slice(0, 10),
-                    timestamp: now,
-                    title: 'تسجيل وفاة وإحلال الورثة',
-                    description: `تم تسجيل وفاة ${nameSnapshot || partyLabelAr} وإحلال ورثته محله في الإضبارة.${heirsLine}`,
-                    type: 'procedure',
-                    source: 'بطاقة الخصوم',
-                };
-            }
-
-            const mergeBase: Record<string, unknown> = {
-                ...buildScopedPartyDeathPersistPatch(base, 'debtor', {
-                    deceased_party: 'debtor',
-                    heir_names: storedHeirNames,
-                    heir_details: flow === 'heir_substitution' ? mergedHeirDetails : [],
-                    flow,
-                    heir_certificate_file_name: null,
-                }),
-                creditors: creditorsList,
-                debtors: debtorsList,
-                ...deceasedFlags,
-                ...mergeExtra,
-            };
-
-            setTimelineEvents((prev) => {
-                const next = [te, ...prev];
-                persistExecutionMerge({
-                    ...mergeBase,
-                    timelineEvents: next,
-                });
-                return next;
-            });
-
-            if (payload.action === 'death_only') {
-                showToast(
-                    mergeExtra.dossier_lifecycle_status === 'finished'
-                        ? 'تم تسجيل وفاة المدين وإغلاق الإضبارة.'
-                        : 'تم تسجيل الإبلاغ عن الوفاة.',
-                    'success'
-                );
-            } else if (payload.action === 'no_heirs') {
-                showToast('تم تسجيل الوفاة وإغلاق الإضبارة (لا ورثة).', 'success');
-            } else if (payload.action === 'seek_heir') {
-                showToast('تم تسجيل الوريث وإعادة تفعيل الإضبارة.', 'success');
-            } else {
-                showToast('تم تسجيل الوفاة وإحلال الورثة.', 'success');
-                if (partyDeathModalDecisionId) {
-                    patchExecutorDecisionRow(decisionsStorageExecutionId, partyDeathModalDecisionId, {
-                        heirSubstitutionCompletedAt: now,
-                    });
-                }
-            }
-            return true;
-            }
-        },
-        [
-            creditors,
-            debtors,
-            decisionsStorageExecutionId,
-            executionData?.is_debtor_deceased,
-            executionData?.is_creditor_deceased,
-            executionData?.deceased_debtor_legal_name_snapshot,
-            executionData?.deceased_creditor_legal_name_snapshot,
+    const { handleLiftStayOfExecution, handleSpecialCasesStay, handleResumeExecution } =
+        useExecutionDashboardStayHandlers({
+            executionData,
+            file,
+            currentFileId,
             nextTimelineId,
             persistExecutionMerge,
-            partyDeathModalDecisionId,
-            patchExecutorDecisionRow,
             showToast,
-            claimType,
-        ]
-    );
-
-    const handleAlimonyBeneficiaryDeathConfirm = useCallback(
-        (input: { wifeDeceased: boolean; childrenDiedCount: number }): boolean => {
-            const base = executionDataRef.current ?? executionData;
-            const merge = buildAlimonyBeneficiaryDeathMerge(base, input);
-            if (!merge) {
-                showToast('تعذّر تطبيق الإبلاغ — راجع بيانات النفقة المستمرة.', 'warning');
-                return false;
-            }
-            const now = new Date().toISOString();
-            const parts: string[] = [];
-            if (input.wifeDeceased) parts.push('الزوجة');
-            if (input.childrenDiedCount > 0) {
-                parts.push(
-                    input.childrenDiedCount === 1
-                        ? 'طفل واحد'
-                        : `${input.childrenDiedCount} من الأولاد`
-                );
-            }
-            const te: TimelineEvent = {
-                id: nextTimelineId(),
-                date: now.slice(0, 10),
-                timestamp: now,
-                title: 'إبلاغ وفاة مستحقي النفقة',
-                description: `تم تسجيل وفاة: ${parts.join(' و')} — وتحديث المركز المالي.${
-                    merge.dossier_lifecycle_status === 'finished'
-                        ? '\nأُغلقت الإضبارة لوفاة جميع المستحقين.'
-                        : ''
-                }`,
-                type: 'procedure',
-                source: 'بطاقة الخصوم',
-            };
-            setTimelineEvents((prev) => {
-                const next = [te, ...prev];
-                const mergedFile = {
-                    ...(base as Record<string, unknown>),
-                    ...merge,
-                    timelineEvents: next,
-                };
-                persistExecutionMerge({ ...merge, timelineEvents: next });
-                executionDataRef.current = mergedFile as ExecutionFile;
-                setAlimonyBeneficiaryDeathModalProfile(
-                    resolveAlimonyBeneficiaryProfile(mergedFile)
-                );
-                return next;
-            });
-            showToast(
-                merge.dossier_lifecycle_status === 'finished'
-                    ? 'تم الإبلاغ وإغلاق الإضبارة — لا مستحقين متبقين.'
-                    : 'تم الإبلاغ وتحديث مبالغ النفقة في المركز المالي.',
-                'success'
-            );
-            return true;
-        },
-        [executionData, nextTimelineId, persistExecutionMerge, showToast]
-    );
-
-    const debtorSubstitutionRequestStatus = useMemo(
-        () => getDebtorHeirSubstitutionRequestStatus(decisionsStorageExecutionId),
-        [decisionsStorageExecutionId, decisionsReloadEpoch]
-    );
-    const creditorSubstitutionRequestStatus = useMemo(
-        () => getCreditorHeirSubstitutionRequestStatus(decisionsStorageExecutionId),
-        [decisionsStorageExecutionId, decisionsReloadEpoch]
-    );
-
-    const handleRequestDebtorSubstitution = useCallback((): boolean => {
-        if (!isHeirSubstitutionAllowedForClaim(executionData, claimType)) {
-            showToast('لا يوجد مسار إحلال ورثة لهذا النوع من المطالبة.', 'info');
-            return false;
-        }
-        if (debtorSubstitutionRequestStatus === 'pending') {
-            showToast('الطلب مُرسل مسبقاً وقيد البت لدى المنفذ.', 'warning');
-            return false;
-        }
-        const nowMs = Date.now();
-        if (nowMs - lastHeirSubRequestAtRef.current.debtor < 1200) {
-            showToast('تم تجاهل النقر المتكرر. انتظر لحظة ثم أعد المحاولة.', 'info');
-            return false;
-        }
-        lastHeirSubRequestAtRef.current.debtor = nowMs;
-        const debtorName = String(
-            executionDataRef.current?.debtors?.[0]?.name ?? debtors?.[0]?.name ?? ''
-        ).trim();
-        const req = appendDebtorHeirSubstitutionRequest({
-            executionId: decisionsStorageExecutionId,
-            debtorNameSnapshot: debtorName,
+            setTimelineEvents,
+            setCaseTasksPending,
+            setExecutionPaused,
         });
-        if (!req.ok) {
-            showToast('يوجد طلب إحلال مدين قيد البت لدى المنفذ.', 'warning');
-            return false;
-        }
-        const now = new Date().toISOString();
-        const te: TimelineEvent = {
-            id: nextTimelineId(),
-            date: now.slice(0, 10),
-            timestamp: now,
-            title: 'طلب — إحلال الورثة محل المدين المتوفى',
-            description: `تم إرسال الطلب إلى «القرارات والطعون» بانتظار بتّ المنفذ.\nالمدين: ${debtorName || 'المدين'}.`,
-            type: 'decision',
-            source: 'بطاقة الخصوم',
-            metadata: req.decisionId
-                ? {
-                      timelineThreadKey: `executor_decision:${req.decisionId}`,
-                      decisionRowId: req.decisionId,
-                  }
-                : undefined,
-        };
-        setTimelineEvents((prev) => {
-            const next = [te, ...prev];
-            persistExecutionMerge({ timelineEvents: next });
-            return next;
-        });
-        showToast('تم إرسال طلب إحلال المدين إلى قرارات المنفذ.', 'success', { decisionsLink: true });
-        return true;
-    }, [
+
+    const {
+        handlePartyDeathSave,
+        handleAlimonyBeneficiaryDeathConfirm,
+        handleRequestDebtorSubstitution,
+        handleRequestCreditorSubstitution,
+        handleCreditorDeathMenuAction,
+        handleDebtorDeathMenuAction,
         debtorSubstitutionRequestStatus,
+        creditorSubstitutionRequestStatus,
+    } = useExecutionDashboardPartyDeathHandlers({
+        executionDataRef,
+        executionData,
+        executionId,
+        claimType,
+        creditors,
         debtors,
         decisionsStorageExecutionId,
-        nextTimelineId,
-        persistExecutionMerge,
-        showToast,
-    ]);
-
-    const handleRequestCreditorSubstitution = useCallback((): boolean => {
-        if (!isHeirSubstitutionAllowedForClaim(executionData, claimType)) {
-            showToast('لا يوجد مسار إحلال ورثة لهذا النوع من المطالبة.', 'info');
-            return false;
-        }
-        if (creditorSubstitutionRequestStatus === 'pending') {
-            showToast('الطلب مُرسل مسبقاً وقيد البت لدى المنفذ.', 'warning');
-            return false;
-        }
-        const nowMs = Date.now();
-        if (nowMs - lastHeirSubRequestAtRef.current.creditor < 1200) {
-            showToast('تم تجاهل النقر المتكرر. انتظر لحظة ثم أعد المحاولة.', 'info');
-            return false;
-        }
-        lastHeirSubRequestAtRef.current.creditor = nowMs;
-        const creditorName = String(creditors?.[0]?.name || '').trim();
-        const req = appendCreditorPartyDeathRequest({
-            executionId: decisionsStorageExecutionId,
-            action: 'heir_substitution',
-            creditorNameSnapshot: creditorName,
-            heirNames: [],
-        });
-        if (!req.ok) {
-            showToast('يوجد طلب إحلال ورثة للدائن قيد البت لدى المنفذ.', 'warning');
-            return false;
-        }
-        const now = new Date().toISOString();
-        const te: TimelineEvent = {
-            id: nextTimelineId(),
-            date: now.slice(0, 10),
-            timestamp: now,
-            title: 'طلب — إحلال الورثة محل الدائن المتوفى',
-            description: `تم إرسال الطلب إلى «القرارات والطعون» بانتظار بتّ المنفذ.\nالدائن: ${creditorName || 'الدائن'}.`,
-            type: 'decision',
-            source: 'بطاقة الخصوم',
-            metadata: req.decisionId
-                ? {
-                      timelineThreadKey: `executor_decision:${req.decisionId}`,
-                      decisionRowId: req.decisionId,
-                  }
-                : undefined,
-        };
-        setTimelineEvents((prev) => {
-            const next = [te, ...prev];
-            persistExecutionMerge({ timelineEvents: next });
-            return next;
-        });
-        showToast('تم إرسال طلب إحلال ورثة الدائن إلى قرارات المنفذ.', 'success', { decisionsLink: true });
-        return true;
-    }, [
-        creditorSubstitutionRequestStatus,
-        creditors,
-        decisionsStorageExecutionId,
-        nextTimelineId,
-        persistExecutionMerge,
-        showToast,
-    ]);
-
-    const handleCreditorDeathMenuAction = useCallback(() => {
-        if (ongoingAlimonyClaim) {
-            const profileNow = resolveAlimonyBeneficiaryProfile(
-                executionDataRef.current ?? executionData
-            );
-            if (!profileNow) {
-                showToast(
-                    'لا تتوفر بيانات مستحقي النفقة في الإضبارة. راجع مبالغ الزوجة/الأولاد عند الإنشاء.',
-                    'warning'
-                );
-                return;
-            }
-            if (!profileNow.anyBeneficiaryAlive) {
-                showToast('جميع مستحقي النفقة مُسجَّلون متوفين.', 'info');
-                return;
-            }
-            if (shouldShowAlimonyBeneficiaryDeathPicker(profileNow)) {
-                setAlimonyBeneficiaryDeathModalProfile(profileNow);
-                setAlimonyBeneficiaryDeathModalOpen(true);
-                return;
-            }
-            const soleInput = buildSoleSurvivorDeathInput(profileNow);
-            if (soleInput) {
-                handleAlimonyBeneficiaryDeathConfirm(soleInput);
-                return;
-            }
-            showToast('تعذّر تحديد مستحق النفقة المتبقي.', 'warning');
-            return;
-        }
-        if (!heirSubstitutionAllowed) {
-            handlePartyDeathSave({ action: 'death_only', deceased_party: 'creditor' });
-            return;
-        }
-        if (!creditorDeathMarked) {
-            handlePartyDeathSave({ action: 'death_only', deceased_party: 'creditor' });
-            return;
-        }
-        const openId = findLatestHeirSubstitutionDecisionNeedingEntry(decisionsStorageExecutionId, 'creditor');
-        if (openId) {
-            setPartyDeathModalParty('creditor');
-            setPartyDeathModalDecisionId(openId);
-            return;
-        }
-        const st = creditorSubstitutionRequestStatus;
-        if (st === 'pending') {
-            showToast('الطلب مُرسل مسبقاً وقيد البت لدى المنفذ.', 'warning');
-            return;
-        }
-        handleRequestCreditorSubstitution();
-    }, [
-        alimonyBeneficiaryProfile?.anyBeneficiaryAlive,
+        decisionsReloadEpoch,
+        partyDeathModalParty,
+        setPartyDeathModalParty,
+        partyDeathModalDecisionId,
+        setPartyDeathModalDecisionId,
+        setAlimonyBeneficiaryDeathModalProfile,
+        setAlimonyBeneficiaryDeathModalOpen,
+        lastHeirSubRequestAtRef,
         creditorDeathMarked,
-        creditorSubstitutionRequestStatus,
-        decisionsStorageExecutionId,
-        executionData,
-        findLatestHeirSubstitutionDecisionNeedingEntry,
-        handleAlimonyBeneficiaryDeathConfirm,
-        handlePartyDeathSave,
-        handleRequestCreditorSubstitution,
+        debtorDeathMarked,
         heirSubstitutionAllowed,
         ongoingAlimonyClaim,
+        alimonyBeneficiaryProfile,
+        nextTimelineId,
+        persistExecutionMerge,
         showToast,
-    ]);
-
-    const handleDebtorDeathMenuAction = useCallback(() => {
-        if (!debtorDeathMarked) {
-            handlePartyDeathSave({ action: 'death_only', deceased_party: 'debtor' });
-            return;
-        }
-        if (!heirSubstitutionAllowed) {
-            showToast('تم تسجيل وفاة المدين مسبقاً — لا إجراء إضافي في هذا النوع من المطالبة.', 'info');
-            return;
-        }
-        const openId = findLatestHeirSubstitutionDecisionNeedingEntry(decisionsStorageExecutionId, 'debtor');
-        if (openId) {
-            setPartyDeathModalParty('debtor');
-            setPartyDeathModalDecisionId(openId);
-            return;
-        }
-        const st = debtorSubstitutionRequestStatus;
-        if (st === 'pending') {
-            showToast('الطلب مُرسل مسبقاً وقيد البت لدى المنفذ.', 'warning');
-            return;
-        }
-        handleRequestDebtorSubstitution();
-    }, [
-        debtorDeathMarked,
-        debtorSubstitutionRequestStatus,
-        decisionsStorageExecutionId,
-        findLatestHeirSubstitutionDecisionNeedingEntry,
-        handlePartyDeathSave,
-        handleRequestDebtorSubstitution,
-        heirSubstitutionAllowed,
-        showToast,
-    ]);
-
-    useEffect(() => {
-        const openHandler = (e: Event) => {
-            const ce = e as CustomEvent<{ executionId?: string; party?: 'creditor' | 'debtor'; decisionId?: string }>;
-            if (String(ce.detail?.executionId ?? '') !== String(executionData?.id ?? executionId ?? '')) return;
-            const p = ce.detail?.party;
-            if (p !== 'creditor' && p !== 'debtor') return;
-            setPartyDeathModalParty(p);
-            const did = String(ce.detail?.decisionId ?? '').trim();
-            setPartyDeathModalDecisionId(did || null);
-        };
-        window.addEventListener('hami-open-party-death-modal', openHandler as EventListener);
-        return () =>
-            window.removeEventListener('hami-open-party-death-modal', openHandler as EventListener);
-    }, [executionData?.id, executionId]);
-
-    useEffect(() => {
-        if (!partyDeathModalParty) return;
-        if (partyDeathModalDecisionId) return;
-        const st =
-            partyDeathModalParty === 'creditor' ? creditorSubstitutionRequestStatus : debtorSubstitutionRequestStatus;
-        if (st !== 'approved' && st !== 'alternative') return;
-        const id = findLatestHeirSubstitutionDecisionNeedingEntry(decisionsStorageExecutionId, partyDeathModalParty);
-        if (id) setPartyDeathModalDecisionId(id);
-    }, [
-        creditorSubstitutionRequestStatus,
-        debtorSubstitutionRequestStatus,
-        decisionsStorageExecutionId,
-        findLatestHeirSubstitutionDecisionNeedingEntry,
-        partyDeathModalDecisionId,
-        partyDeathModalParty,
-    ]);
+        setTimelineEvents,
+    });
 
     const dismissDebtorAbsenceBadge = useCallback(() => {
         if (executionData) {
@@ -6574,148 +5158,20 @@ export function useExecutionDashboardCore({
         employeeForcedBringAwaitingPersonalOutcome,
     });
 
-    const handlePublicationNoticeRegister = useCallback(
-        (p: { publicationDateYmd: string; newspaper1: string; newspaper2: string }) => {
-            if (executionActionsGridLocked) {
-                showToast(
-                    '⚠️ الإضبارة مستأخرة — ارفع الاستئخار من الشريط التنبيهي أعلى الصفحة عند انقضاء السبب.',
-                    'warning'
-                );
-                return;
-            }
-            const d = executionData;
-            if (!d?.id) return;
-            const dk = unifiedSummonsTargetDebtorKey;
-            const existing = getPublicationNoticeForDebtorKey(d, dk);
-            if (existing) {
-                showToast('يوجد تبليغ بالنشر سارٍ لهذا المدين.', 'warning');
-                return;
-            }
-            const ts = new Date().toISOString();
-            const deadline = publicationNoticeDeadlineYmd(p.publicationDateYmd);
-            const state = {
-                publicationDateYmd: p.publicationDateYmd,
-                newspaper1: p.newspaper1,
-                newspaper2: p.newspaper2,
-                recordedAt: ts,
-            };
-            setTimelineEvents((prev) => {
-                const ev: TimelineEvent = {
-                    id: nextTimelineId(),
-                    date: p.publicationDateYmd,
-                    timestamp: ts,
-                    title: '📰 تسجيل التبليغ بالنشر',
-                    description: `تاريخ النشر: ${p.publicationDateYmd}\nالجريدة ١: ${p.newspaper1}\nالجريدة ٢: ${p.newspaper2}\nمدة ${PUBLICATION_NOTICE_DURATION_DAYS} يوماً تقويمياً حتى ${deadline} (يبدأ الاحتساب من اليوم التالي لتاريخ النشر).`,
-                    type: 'notification',
-                    source: 'التبليغ',
-                    metadata: timelineDebtorMetadata(dk),
-                };
-                const next = [ev, ...prev];
-                persistExecutionMerge({
-                    ...buildPublicationNoticePatchForDebtorKey(d, dk, state),
-                    ...buildEmployeeAssignmentPatchForDebtorKey(d, dk, null, primaryDebtorKeyResolved),
-                    ...buildDebtorSummonsMarkerPatchForKey(d, dk, primaryDebtorKeyResolved, null),
-                    timelineEvents: next,
-                });
-                return next;
-            });
-            showToast('تم تسجيل التبليغ بالنشر', 'success');
-        },
-        [
-            executionActionsGridLocked,
-            unifiedSummonsTargetDebtorKey,
-            executionData,
-            executionData?.id,
-            primaryDebtorKeyResolved,
-            nextTimelineId,
-            persistExecutionMerge,
-            showToast,
-        ]
-    );
-
-    const handlePublicationNoticeTerminate = useCallback(() => {
-        if (executionActionsGridLocked) {
-            showToast(
-                '⚠️ الإضبارة مستأخرة — ارفع الاستئخار من الشريط التنبيهي أعلى الصفحة عند انقضاء السبب.',
-                'warning'
-            );
-            return;
-        }
-        const d = executionData;
-        if (!d) return;
-        const dk = unifiedSummonsTargetDebtorKey;
-        const cur = getPublicationNoticeForDebtorKey(d, dk);
-        if (!cur) return;
-        const ts = new Date().toISOString();
-        setTimelineEvents((prev) => {
-            const ev: TimelineEvent = {
-                id: nextTimelineId(),
-                date: ts.slice(0, 10),
-                timestamp: ts,
-                title: '⏹ إنهاء التبليغ بالنشر',
-                description: 'أُنهي مسار التبليغ بالنشر يدوياً.',
-                type: 'notification',
-                source: 'التبليغ',
-                metadata: timelineDebtorMetadata(dk),
-            };
-            const next = [ev, ...prev];
-            persistExecutionMerge({
-                ...buildPublicationNoticePatchForDebtorKey(d, dk, { ...cur, periodEndedAt: ts }),
-                timelineEvents: next,
-            });
-            return next;
-        });
-        showToast('تم إنهاء التبليغ بالنشر', 'info');
-    }, [
+const {
+        handlePublicationNoticeRegister,
+        handlePublicationNoticeTerminate,
+        handlePublicationNoticeDebtorAttended,
+    } = useExecutionDashboardPublicationNoticeHandlers({
         executionActionsGridLocked,
-        unifiedSummonsTargetDebtorKey,
         executionData,
+        unifiedSummonsTargetDebtorKey,
+        primaryDebtorKeyResolved,
         nextTimelineId,
         persistExecutionMerge,
         showToast,
-    ]);
-
-    const handlePublicationNoticeDebtorAttended = useCallback(() => {
-        if (executionActionsGridLocked) {
-            showToast(
-                '⚠️ الإضبارة مستأخرة — ارفع الاستئخار من الشريط التنبيهي أعلى الصفحة عند انقضاء السبب.',
-                'warning'
-            );
-            return;
-        }
-        const d = executionData;
-        if (!d) return;
-        const dk = unifiedSummonsTargetDebtorKey;
-        const cur = getPublicationNoticeForDebtorKey(d, dk);
-        if (!cur) return;
-        const ts = new Date().toISOString();
-        setTimelineEvents((prev) => {
-            const ev: TimelineEvent = {
-                id: nextTimelineId(),
-                date: ts.slice(0, 10),
-                timestamp: ts,
-                title: '🟢 حضور المدين — تبليغ بالنشر',
-                description: 'سُجّل حضور المدين أثناء مدة التبليغ بالنشر.',
-                type: 'notification',
-                source: 'التبليغ',
-                metadata: timelineDebtorMetadata(dk),
-            };
-            const next = [ev, ...prev];
-            persistExecutionMerge({
-                ...buildPublicationNoticePatchForDebtorKey(d, dk, null),
-                timelineEvents: next,
-            });
-            return next;
-        });
-        showToast('تم تسجيل الحضور وإنهاء دورة التبليغ بالنشر', 'success');
-    }, [
-        executionActionsGridLocked,
-        unifiedSummonsTargetDebtorKey,
-        executionData,
-        nextTimelineId,
-        persistExecutionMerge,
-        showToast,
-    ]);
+        setTimelineEvents,
+    });
 
     const noteSuccessMsgRef = useRef('');
     const noteSuccessVariantRef = useRef<'success' | 'info' | 'warning'>('success');
@@ -6839,6 +5295,76 @@ export function useExecutionDashboardCore({
     const handleSaveNote = useCallback(async () => {
         await runSaveNoteSubmit();
     }, [runSaveNoteSubmit]);
+
+    const voiceUserId = useMemo(() => resolveCalendarUserId(null), []);
+
+    const commitDossierNote = useCallback(
+        async (payload: { title: string; bodyHtml: string; noteId?: string }) => {
+            const titleTrim = String(payload.title || '').trim();
+            const bodyTrim = String(payload.bodyHtml || '').trim();
+            if (!titleTrim || !bodyTrim) {
+                showToast('يرجى تعبئة عنوان الملاحظة والتفاصيل', 'warning');
+                return;
+            }
+            const now = new Date().toISOString();
+            const sourceLabel = 'سجل الملاحظات والمهام';
+            const curNotes = caseNotesLogRef.current;
+            const curTimeline = timelineEventsRef.current;
+            const noteId = String(payload.noteId ?? '').trim();
+
+            if (noteId) {
+                if (!curNotes.some((n) => n.id === noteId)) {
+                    showToast('تعذر العثور على الملاحظة للتعديل', 'error');
+                    return;
+                }
+                const nextNotes = curNotes.map((n) =>
+                    n.id === noteId ? { ...n, title: titleTrim, body: bodyTrim } : n,
+                );
+                const nextTimeline = [
+                    {
+                        id: nextTimelineId(),
+                        type: 'other' as const,
+                        date: now,
+                        timestamp: now,
+                        title: `✏️ تعديل ملاحظة: ${titleTrim}`,
+                        description: bodyTrim,
+                        source: sourceLabel,
+                    },
+                    ...curTimeline,
+                ];
+                setCaseNotesLog(nextNotes);
+                setTimelineEvents(nextTimeline);
+                persistExecutionMerge({ caseNotesLog: nextNotes, timelineEvents: nextTimeline });
+                showToast('تم حفظ التعديل بنجاح', 'success');
+            } else {
+                const entryId = nextTimelineId();
+                const nextNotes = [
+                    { id: entryId, title: titleTrim, body: bodyTrim, createdAt: now },
+                    ...curNotes,
+                ];
+                const nextTimeline = [
+                    {
+                        id: nextTimelineId(),
+                        type: 'other' as const,
+                        date: now,
+                        timestamp: now,
+                        title: `📝 إضافة ملاحظة: ${titleTrim}`,
+                        description: bodyTrim,
+                        source: sourceLabel,
+                    },
+                    ...curTimeline,
+                ];
+                setCaseNotesLog(nextNotes);
+                setTimelineEvents(nextTimeline);
+                persistExecutionMerge({ caseNotesLog: nextNotes, timelineEvents: nextTimeline });
+                showToast('تم حفظ الملاحظة بنجاح', 'success');
+            }
+            setNoteTitle('');
+            setNoteBody('');
+            setEditingNoteId(null);
+        },
+        [nextTimelineId, persistExecutionMerge, showToast],
+    );
     
     const completePendingTask = useCallback((taskId: string) => {
         const task = caseTasksPending.find(t => t.id === taskId);
@@ -7057,426 +5583,40 @@ export function useExecutionDashboardCore({
     ]);
     
     // ✅ OPTIMIZED: useCallback
-    const handlePayment = useCallback(() => {
-        const normalized = String(paymentAmount || '')
-            .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
-                    .replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
-            .replace(/[^\d.]/g, '');
-        const amount = Math.max(0, Math.round(parseFloat(normalized) || 0));
-        if (!Number.isFinite(amount) || amount <= 0) {
-            showToast('يرجى إدخال مبلغ صحيح', 'warning');
-            return;
-        }
-        if (amount > remaining) {
-            showToast(
-                `لا يمكن تسديد مبلغ يتجاوز المتبقي (${remaining.toLocaleString('ar-IQ')} د.ع)`,
-                'warning'
-            );
-            return;
-        }
-
-        const fileSnap = executionDataRef.current as Record<string, unknown> | null;
-        const debtRows = buildCreditorDebtRows(fileSnap);
-        const distribution = distributePaymentProRata(amount, debtRows);
-
-        const creditorsList = [...(fileSnap?.creditors as Array<Record<string, unknown>> | undefined ?? [])];
-        const pmBase = (fileSnap?.party_multiplicity as Record<string, unknown> | undefined) ?? {};
-        const additionalCreditorsList = [
-            ...((pmBase.additionalCreditors as Array<Record<string, unknown>> | undefined) ?? []),
-        ];
-
-        for (const alloc of distribution.allocations) {
-            if (alloc.isAdditional) {
-                const idx = additionalCreditorsList.findIndex(
-                    (c) => String(c.id) === alloc.creditorId
-                );
-                if (idx >= 0) {
-                    const prevPaid = Number(additionalCreditorsList[idx].paid_amount) || 0;
-                    additionalCreditorsList[idx] = {
-                        ...additionalCreditorsList[idx],
-                        paid_amount: prevPaid + alloc.amount,
-                    };
-                }
-            } else {
-                const idx = creditorsList.findIndex((c) => String(c.id) === alloc.creditorId);
-                if (idx >= 0) {
-                    const prevPaid = Number(creditorsList[idx].paid_amount) || 0;
-                    creditorsList[idx] = {
-                        ...creditorsList[idx],
-                        paid_amount: prevPaid + alloc.amount,
-                    };
-                }
-            }
-        }
-
-        const payYmd = paymentDate?.trim() || getLocalTodayYmd();
-        const payTs = `${payYmd}T12:00:00.000Z`;
-        const splitSummary =
-            distribution.allocations.length > 1
-                ? distribution.allocations
-                      .map(
-                          (a) =>
-                              `${a.creditorName}: ${a.amount.toLocaleString('ar-IQ')} د.ع${
-                                  a.isClient ? ' (موكلي → المركز المالي)' : ''
-                              }`
-                      )
-                      .join(' · ')
-                : '';
-
-        const nextPaid = paidDebt + amount;
-        const newBalance = Math.max(0, remaining - amount);
-        const ledgerEntry = {
-            id: Date.now().toString(),
-            date: payTs,
-            type: 'payment' as const,
-            amount,
-            description: splitSummary
-                ? `تسديد إجمالي — توزيع تلقائي: ${splitSummary}`
-                : 'تسديد إجمالي للإضبارة',
-            balance: newBalance,
-        };
-        const nextLedger = [ledgerEntry, ...financialLedger];
-
-        const partyMultiplicityPatch =
-            additionalCreditorsList.length > 0 || pmBase.isSolidaryLiability != null
-                ? {
-                      party_multiplicity: {
-                          ...pmBase,
-                          additionalCreditors: additionalCreditorsList,
-                      },
-                  }
-                : {};
-
-        const mergePatch: Record<string, unknown> = {
-            paidDebt: nextPaid,
-            financialLedger: nextLedger,
-            creditors: creditorsList,
-            creditor: creditorsList[0] ?? fileSnap?.creditor,
-            ...partyMultiplicityPatch,
-        };
-
-        const paySnap = buildExecutionTimelineSnapshot({
-            executionData: executionDataRef.current
-                ? { ...executionDataRef.current, ...mergePatch }
-                : null,
-            financialLedger: nextLedger,
-            seizedAssets: seizedAssetsSnapshotRef.current,
-        });
-
-        const clientNote =
-            distribution.clientCreditorTotal > 0
-                ? ` — مبلغ موكلي المُرحَّل للمركز المالي: ${distribution.clientCreditorTotal.toLocaleString('ar-IQ')} د.ع`
-                : '';
-
-        pushTimelineEvent(
-            {
-                id: nextTimelineId(),
-                date: payYmd,
-                timestamp: payTs,
-                title: newBalance === 0 ? '✅ تسديد كامل للمديونية' : '💰 تسديد للمديونية',
-                description: `تم تسجيل تسديد بمبلغ ${amount.toLocaleString('ar-IQ')} د.ع.${splitSummary ? `\n${splitSummary}` : ''}\nالمتبقي: ${newBalance.toLocaleString('ar-IQ')} د.ع${clientNote}`,
-                type: 'payment',
-                source: 'تسديد الإضبارة',
-                snapshot: paySnap,
-            },
-            { mergePatch }
-        );
-        setPaidDebt(nextPaid);
-        setFinancialLedger(nextLedger);
-
-        const exId = String(executionId ?? executionDataRef.current?.id ?? '').trim();
-        if (distribution.clientCreditorTotal > 0 && exId) {
-            const clientPaymentRow = {
-                id: `pay-client-creditor-${Date.now()}`,
-                amount: distribution.clientCreditorTotal,
-                at: payTs,
-                kind: 'partial' as const,
-                entryType: 'collect' as const,
-            };
-            try {
-                window.dispatchEvent(
-                    new CustomEvent('hami-unified-ledger-external-collect', {
-                        detail: { executionId: exId, payment: clientPaymentRow },
-                    })
-                );
-            } catch {
-                /* ignore */
-            }
-        }
-
-        showToast(`✅ تم تسجيل التسديد: ${amount.toLocaleString('ar-IQ')} د.ع`, 'success');
-        setPaymentAmount('');
-        setPaymentDate(getLocalTodayYmd());
-        setShowPaymentModal(false);
-    }, [
-        paymentAmount,
-        paymentDate,
-        remaining,
-        paidDebt,
-        financialLedger,
-        executionId,
-        nextTimelineId,
-        pushTimelineEvent,
-        showToast,
-    ]);
-    
-    // 🆕 V9: PAYMENT CALCULATOR HANDLER
-    // ✅ OPTIMIZED: useCallback
-    const handlePaymentFromCalculator = useCallback(
-        (amount: number) => {
-            const newPaidDebt = paidDebt + amount;
-            if (executionId) {
-                const current = storageCache.get(executionStorageKey(executionId));
-                if (current && typeof current === 'object') {
-                    storageCache.set(executionStorageKey(executionId), {
-                        ...current,
-                        paidDebt: newPaidDebt,
-                    });
-                }
-            }
-
-            // Audit log: تسجيل الدفعة (dedupe key يمنع التكرار عند re-renders سريعة)
-            if (executionId && amount > 0) {
-                try {
-                    void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                        const data = executionDataRef.current as Record<string, unknown> | undefined;
-                        const caseNo =
-                            (data?.executionCaseNumber as string | undefined) ||
-                            (data?.caseNo as string | undefined) ||
-                            String(executionId);
-                        AuditLog.execution.paymentReceived({
-                            executionId,
-                            amount,
-                            caseNo,
-                        });
-                    });
-                } catch { /* silent */ }
-            }
-
-            const newRemaining = totalOwed - newPaidDebt;
-            const ledgerEntry = {
-                id: Date.now().toString(),
-                date: new Date().toISOString(),
-                type: 'payment' as const,
-                amount: amount,
-                description: `سداد دفعة نقدية`,
-                balance: newRemaining,
-            };
-            const nextLedger = [ledgerEntry, ...financialLedger];
-            const ts = new Date().toISOString();
-            const calcSnap = buildExecutionTimelineSnapshot({
-                executionData: executionDataRef.current
-                    ? { ...executionDataRef.current, paidDebt: newPaidDebt, financialLedger: nextLedger }
-                    : null,
-                financialLedger: nextLedger,
-                seizedAssets: seizedAssetsSnapshotRef.current,
-            });
-            pushTimelineEvent(
-                {
-                    id: nextTimelineId(),
-                    date: ts.slice(0, 10),
-                    timestamp: ts,
-                    title: '💵 تم سداد دفعة نقدية',
-                    description: `تم سداد دفعة نقدية بقيمة ${amount.toLocaleString('ar-IQ')} دينار. المتبقي: ${newRemaining.toLocaleString('ar-IQ')} دينار.`,
-                    type: 'payment',
-                    source: 'حاسبة السداد',
-                    snapshot: calcSnap,
-                },
-                { mergePatch: { paidDebt: newPaidDebt, financialLedger: nextLedger } }
-            );
-            setPaidDebt(newPaidDebt);
-            setFinancialLedger(nextLedger);
-
-            showToast(`✅ تم تسجيل السداد: ${amount.toLocaleString('ar-IQ')} د.ع`, 'success');
-        },
-        [
+    const {
+        handlePayment,
+        handlePaymentFromCalculator,
+        handleFundsLedgerPayment,
+        handleSettlementFromCalculator,
+    } =
+        useExecutionDashboardPaymentHandlers({
+            executionDataRef,
             executionId,
-            totalOwed,
+            executionData,
+            paymentAmount,
+            paymentDate,
+            remaining,
             paidDebt,
-            financialLedger,
-            nextTimelineId,
-            pushTimelineEvent,
-            showToast,
-        ]
-    );
-
-    const handleFundsLedgerPayment = useCallback(
-        ({
-            amount,
-            kind,
-            description,
-        }: {
-            amount: number;
-            kind: 'full' | 'partial';
-            description: string;
-        }) => {
-            if (!amount || amount <= 0) return;
-            const newPaid = paidDebtRef.current + amount;
-            paidDebtRef.current = newPaid;
-            setPaidDebt(newPaid);
-            if (executionId) {
-                const current = storageCache.get(executionStorageKey(executionId));
-                if (current && typeof current === 'object') {
-                    storageCache.set(executionStorageKey(executionId), {
-                        ...current,
-                        paidDebt: newPaid,
-                    });
-                }
-            }
-            const newRemaining =
-                totalWithExecutionFee -
-                (newPaid + paidCourtFees + paidDirectorateFees + paidClientFees);
-            const ledgerEntry = {
-                id: nextTimelineId(),
-                date: new Date().toISOString(),
-                type: 'payment' as const,
-                amount,
-                description: `${description} (${kind === 'full' ? 'تسديد كامل' : 'جزئي'})`,
-                balance: newRemaining,
-            };
-            const nextLedger = [ledgerEntry, ...financialLedgerRef.current];
-            const ts = new Date().toISOString();
-            const evId = nextTimelineId();
-            const fundsSnap = buildExecutionTimelineSnapshot({
-                executionData: executionDataRef.current
-                    ? { ...executionDataRef.current, paidDebt: newPaid, financialLedger: nextLedger }
-                    : null,
-                financialLedger: nextLedger,
-                seizedAssets: seizedAssetsSnapshotRef.current,
-            });
-            pushTimelineEvent(
-                {
-                    id: evId,
-                    date: ts.slice(0, 10),
-                    timestamp: ts,
-                    title: kind === 'full' ? '✅ إغلاق الوعاء المالي الموحّد' : '💰 تسديد من الوعاء الموحّد',
-                    description: `${description}. المبلغ: ${amount.toLocaleString('ar-IQ')} د.ع. المتبقي في اللوحة: ${newRemaining.toLocaleString('ar-IQ')} د.ع`,
-                    type: 'payment',
-                    source: 'إدارة الأموال والمصاريف',
-                    snapshot: fundsSnap,
-                },
-                { mergePatch: { paidDebt: newPaid, financialLedger: nextLedger } }
-            );
-            setFinancialLedger(nextLedger);
-            showToast(
-                kind === 'full'
-                    ? `✅ تم تسجيل التسديد الكامل للوعاء الموحّد`
-                    : `✅ تم تسجيل دفعة ${amount.toLocaleString('ar-IQ')} د.ع`,
-                'success'
-            );
-        },
-        [
-            executionId,
+            totalOwed,
             totalWithExecutionFee,
             paidCourtFees,
             paidDirectorateFees,
             paidClientFees,
-            showToast,
-            nextTimelineId,
-            pushTimelineEvent,
-        ]
-    );
-
-    useEffect(() => {
-        const handler = (e: Event) => {
-            const ce = e as CustomEvent<{ executionId?: string; amount?: number }>;
-            const evId = String(ce.detail?.executionId ?? '').trim();
-            const myId = String(executionData?.id ?? executionId ?? '').trim();
-            if (!evId || evId !== myId) return;
-            const amt = Number(ce.detail?.amount ?? 0);
-            if (!Number.isFinite(amt) || amt <= 0) return;
-            const newPaid = Math.max(0, paidDebtRef.current - amt);
-            paidDebtRef.current = newPaid;
-            setPaidDebt(newPaid);
-            if (executionId) {
-                const current = storageCache.get(executionStorageKey(executionId));
-                if (current && typeof current === 'object') {
-                    storageCache.set(executionStorageKey(executionId), {
-                        ...current,
-                        paidDebt: newPaid,
-                    });
-                }
-            }
-            setFinancialLedger((prev) => {
-                const next = prev.length > 0 ? prev.slice(1) : prev;
-                queueMicrotask(() =>
-                    persistExecutionMerge({ paidDebt: newPaid, financialLedger: next })
-                );
-                return next;
-            });
-        };
-        window.addEventListener('hami-unified-ledger-payment-undo', handler as EventListener);
-        return () =>
-            window.removeEventListener('hami-unified-ledger-payment-undo', handler as EventListener);
-    }, [executionData?.id, executionId, persistExecutionMerge]);
-    
-    // 🆕 V9: SETTLEMENT CALCULATOR HANDLER — لقطة زمنية + دمج ملف كمسار الدفع
-    // ✅ OPTIMIZED: useCallback
-    const handleSettlementFromCalculator = useCallback(
-        (downPayment: number, monthlyInstallment: number) => {
-            const newPaidDebt = paidDebt + downPayment;
-            if (executionId) {
-                const current = storageCache.get(executionStorageKey(executionId));
-                if (current && typeof current === 'object') {
-                    storageCache.set(executionStorageKey(executionId), {
-                        ...current,
-                        paidDebt: newPaidDebt,
-                    });
-                }
-            }
-
-            const newRemaining = totalOwed - newPaidDebt;
-            const months =
-                monthlyInstallment > 0 && newRemaining > 0
-                    ? Math.ceil(newRemaining / monthlyInstallment)
-                    : 0;
-
-            const ledgerEntry = {
-                id: Date.now().toString(),
-                date: new Date().toISOString(),
-                type: 'settlement' as const,
-                amount: downPayment,
-                description: `تسوية قانونية — دفعة مقدمة. القسط الشهري: ${monthlyInstallment.toLocaleString('ar-IQ')} د.ع؛ الأقساط المتوقعة: ${months} شهر`,
-                balance: newRemaining,
-            };
-            const nextLedger = [ledgerEntry, ...financialLedger];
-            const ts = new Date().toISOString();
-            const settlementSnap = buildExecutionTimelineSnapshot({
-                executionData: executionDataRef.current
-                    ? { ...executionDataRef.current, paidDebt: newPaidDebt, financialLedger: nextLedger }
-                    : null,
-                financialLedger: nextLedger,
-                seizedAssets: seizedAssetsSnapshotRef.current,
-            });
-            pushTimelineEvent(
-                {
-                    id: nextTimelineId(),
-                    date: ts.slice(0, 10),
-                    timestamp: ts,
-                    title: '📅 تم إبرام تسوية قانونية',
-                    description: `تم إبرام تسوية قانونية. الدفعة المقدمة: ${downPayment.toLocaleString('ar-IQ')} دينار، القسط الشهري: ${monthlyInstallment.toLocaleString('ar-IQ')} دينار، عدد الأقساط المتوقعة: ${months} شهر. المتبقي: ${newRemaining.toLocaleString('ar-IQ')} د.ع`,
-                    type: 'settlement',
-                    source: 'حاسبة التسوية',
-                    snapshot: settlementSnap,
-                },
-                { mergePatch: { paidDebt: newPaidDebt, financialLedger: nextLedger } }
-            );
-            setPaidDebt(newPaidDebt);
-            setFinancialLedger(nextLedger);
-
-            showToast(`✅ تم إبرام التسوية بنجاح`, 'success');
-        },
-        [
-            executionId,
-            totalOwed,
-            paidDebt,
             financialLedger,
+            financialLedgerRef,
+            paidDebtRef,
+            seizedAssetsSnapshotRef,
             nextTimelineId,
             pushTimelineEvent,
+            persistExecutionMerge,
             showToast,
-        ]
-    );
-    
+            setPaidDebt,
+            setFinancialLedger,
+            setPaymentAmount,
+            setPaymentDate,
+            setShowPaymentModal,
+        });
+
     const handleNotifyDebtor = (
         explicitNotificationDate?: string | null,
         evictionSubsequentMeta?: EvictionSubsequentSummonsMeta,
@@ -8455,20 +6595,6 @@ export function useExecutionDashboardCore({
         };
         setTimelineEvents(prev => [newEvent, ...prev]);
         showToast('تم تسجيل مفاتحة محكمة التحقيق', 'success');
-    };
-    
-    // 🆕 V8: RESUME EXECUTION HANDLER (استئناف التنفيذ)
-    const handleResumeExecution = () => {
-        setExecutionPaused(false);
-        const newEvent = {
-            id: Date.now().toString(),
-            date: new Date().toISOString(),
-            title: '▶️ استئناف التنفيذ',
-            description: 'تم استئناف التنفيذ بعد مراجعة الدائن',
-            type: 'decision'
-        };
-        setTimelineEvents(prev => [newEvent, ...prev]);
-        showToast('تم استئناف التنفيذ', 'success');
     };
     
     /** مهلة الرضا من آلة الحالة (تاريخ إخبار فعلي + 7 أيام تقويمية ± تمديد يدوي) */
@@ -9452,6 +7578,22 @@ export function useExecutionDashboardCore({
         [executionData, nextTimelineId, persistExecutionMerge, timelineEvents]
     );
 
+    const handleSpecificDeliveryItemDeclaredDestroyed = useCallback(
+        (itemId: string) => {
+            const ed = executionData as {
+                specificDeliveryItemName?: string;
+                specificDeliveryItems?: import('@/app/utils/specificDeliveryItemsUtils').SpecificDeliveryItem[];
+            } | null | undefined;
+            const currentItems = readSpecificDeliveryItems({
+                specificDeliveryItemName: ed?.specificDeliveryItemName,
+                specificDeliveryItems: ed?.specificDeliveryItems,
+            });
+            const nextItems = markSpecificDeliveryItemDeclaredDestroyed(currentItems, itemId);
+            persistExecutionMerge({ specificDeliveryItems: nextItems });
+        },
+        [executionData, persistExecutionMerge],
+    );
+
     useEvictionLawyerFeeOutcome({
         executionDataId: executionData?.id,
         executionId,
@@ -9463,110 +7605,6 @@ export function useExecutionDashboardCore({
         persistExecutionMerge,
         showToast,
     });
-
-    // 🆕 V7: COERCIVE ACTION HANDLERS — تعدّد الخصوم + تضامن (توجيه الإجراء)
-    const handleCoerciveAction = (actionType: string) => {
-        if (coerciveUiLocked) {
-            showToast('⏸️ الإضبارة موقوفة قانونياً. يجب استئناف التنفيذ أولاً.', 'warning');
-            return;
-        }
-        if (actionType === 'salary' && !activeDebtorIsEmployee) {
-            showToast('حجز الراتب متاح للمدين الموظف فقط.', 'info');
-            return;
-        }
-
-        if (actionType === 'salary' || actionType === 'property' || actionType === 'vehicle') {
-            const exId = String(decisionsStorageExecutionId ?? '').trim();
-            if (exId && exId !== 'undefined') {
-                const wantedSubtype = actionType === 'vehicle' ? 'movable_auction' : actionType;
-                const rows = readExecutorDecisionsArray(exId) as Array<Record<string, unknown>>;
-                const awaiting = rows.find((r) => {
-                    if (String(r.requestKind || '') !== 'seizure') return false;
-                    if (String((r as any).seizureRequestSavedAt || '').trim()) return false;
-                    const o = String((r as any).executorOutcome || '').trim();
-                    const appealStatus = String((r as any).appealStatus || '').trim();
-                    const appealResult = String((r as any).appealResult || '').trim();
-                    const appealWorkflowState = String((r as any).appealWorkflowState || '').trim();
-                    const approved =
-                        o === 'approved' ||
-                        o === 'alternative' ||
-                        (o === 'rejected' &&
-                            (appealStatus === 'overturned' ||
-                                appealResult === 'نقض القرار' ||
-                                appealWorkflowState === 'REVOKED_BY_APPEAL'));
-                    if (!approved) return false;
-                    let subtype = String((r as any).seizureSubtype || '').trim();
-                    if (!subtype) {
-                        const t = `${String((r as any).title || '')}\n${String((r as any).body || '')}`;
-                        if (/لدى الغير/i.test(t)) subtype = 'third_party';
-                        else if (/إشارة|اشارة/i.test(t)) subtype = 'notice';
-                        else if (/راتب|مخصصات|مكاف/i.test(t)) subtype = 'salary';
-                        else if (/مال منقول|منقول|مركبة/i.test(t)) subtype = 'movable_auction';
-                        else if (/عقار/i.test(t)) subtype = 'property';
-                        else subtype = 'property';
-                    }
-                    return subtype === wantedSubtype;
-                });
-
-                const decisionId = String((awaiting as any)?.id || '').trim();
-                if (decisionId) {
-                    setShowUnifiedExecutionModal(true);
-                    openSeizureRequestsTabRef.current();
-                    showToast('يوجد طلب حجز موافق عليه يحتاج إكمال البيانات داخل محضر المتابعة.', 'info', {
-                        decisionsLink: true,
-                        decisionId,
-                        decisionsTab: 'current',
-                    });
-                    return;
-                }
-            }
-        }
-
-        const multi = allDebtorsUnified.length > 1;
-        const activeRow = allDebtorsUnified[executionDebtorTabIndex];
-        const activeSolidary = activeRow ? resolveDebtorSolidaryFlag(activeRow) : isSolidaryLiability;
-
-        if (activeSolidary && multi) {
-            const selectable = allDebtorsUnified.filter(
-                (r) => !r.cleared && resolveDebtorSolidaryFlag(r),
-            );
-            if (selectable.length === 0) {
-                showToast('لا يوجد مدين نشط لتوجيه الإجراء ضده.', 'warning');
-                return;
-            }
-            const preferred = allDebtorsUnified[executionDebtorTabIndex];
-            const picked =
-                preferred && !preferred.cleared && resolveDebtorSolidaryFlag(preferred)
-                    ? preferred
-                    : selectable[0];
-            coerciveSubjectRef.current = { id: picked.id, name: picked.name };
-            saveCoerciveAction(actionType, buildInitialExecutorSeizureDetails(actionType, activeDebtorIsDeceased));
-            return;
-        }
-
-        if (!activeSolidary && multi) {
-            const row = allDebtorsUnified[executionDebtorTabIndex];
-            if (!row || row.cleared) {
-                showToast(
-                    'براءة ذمة هذا المدين — الإجراءات الجبرية معطّلة له في هذا التبويب.',
-                    'warning'
-                );
-                return;
-            }
-            coerciveSubjectRef.current = { id: row.id, name: row.name };
-            saveCoerciveAction(actionType, buildInitialExecutorSeizureDetails(actionType, activeDebtorIsDeceased));
-            return;
-        }
-
-        const sole = allDebtorsUnified[0];
-        coerciveSubjectRef.current = sole
-            ? { id: sole.id, name: sole.name }
-            : {
-                  id: '',
-                  name: String((effectiveDebtors[0] as Debtor | undefined)?.name || 'المدين'),
-              };
-        saveCoerciveAction(actionType, buildInitialExecutorSeizureDetails(actionType, activeDebtorIsDeceased));
-    };
 
     const {
         submitPropertySeizureRequest,
@@ -9951,6 +7989,23 @@ export function useExecutionDashboardCore({
         setUnifiedLedgerRevision,
     });
 
+    const { handleCoerciveAction } = useExecutionDashboardCoerciveActionHandlers({
+        coerciveUiLocked,
+        activeDebtorIsEmployee,
+        activeDebtorIsDeceased,
+        decisionsStorageExecutionId,
+        allDebtorsUnified,
+        executionDebtorTabIndex,
+        isSolidaryLiability,
+        resolveDebtorSolidaryFlag,
+        effectiveDebtors,
+        coerciveSubjectRef,
+        openSeizureRequestsTabRef,
+        setShowUnifiedExecutionModal,
+        showToast,
+        saveCoerciveAction,
+    });
+
     const { patchSeizedRowAndTimeline, releaseSeizureAssetRow } =
         useExecutionDashboardSeizureReleaseHandlers({
             seizedAssets,
@@ -10084,11 +8139,11 @@ export function useExecutionDashboardCore({
         followupModalDebtorIsEmployee,
         followupModalDebtorTabsRef,
         followupModalSectionTabsRef,
-        followupModalSpecializationEffective,
+        followupModalSpecializationEffective: followupModalSpecializationEffectiveWithEarnerGate,
         followupMonetaryCoerciveLimitedOnly,
         followupSalarySeizureLabel,
         followupSolidaryDebtorIndex,
-        followupSpecialization,
+        followupSpecialization: followupSpecializationWithEarnerGate,
         forcedBringDecisionState,
         forcedSummoningAnalysis,
         getLocalTodayYmd,
@@ -10109,8 +8164,11 @@ export function useExecutionDashboardCore({
         handleIssueHeirsExecutionNoticeMemo,
         handleSpecificDeliveryExpenseRecorded,
         handleSpecificDeliveryFinancialized,
+        handleSpecificDeliveryItemDeclaredDestroyed,
         headerFields,
         hideCoerciveTabsForDebtorAgent,
+        hideExecutiveDetentionJudgeCard,
+        earnerFinancialPersonalCoerciveActive,
         inabaCorrespondenceLog,
         inabaTargets,
         inlineActionGateKey,
@@ -10222,6 +8280,37 @@ export function useExecutionDashboardCore({
         voluntaryEndOptimistic,
     };
 
+    const syncSeizedAssets = useCallback((next: SeizedAsset[]) => setSeizedAssets(next), []);
+    const syncSeizureDrafts = useCallback(
+        (next: typeof seizureDraftsByDecisionId) => setSeizureDraftsByDecisionId(next),
+        [],
+    );
+    const syncActiveCoerciveActions = useCallback(
+        (next: typeof activeCoerciveActions) => setActiveCoerciveActions(next),
+        [],
+    );
+    const evictionExecutorWorkflow = useMemo(
+        () =>
+            isEvictionExecutionModule
+                ? {
+                      dossierId: String(
+                          executionData?.id ?? executionId ?? file?.id ?? 'default',
+                      ),
+                      actions: executorApprovalActions,
+                  }
+                : undefined,
+        [
+            isEvictionExecutionModule,
+            executionData?.id,
+            executionId,
+            file?.id,
+            executorApprovalActions,
+        ],
+    );
+    const seizedAssetsModalExecutionId = executionId || file?.id;
+    const totalExecutionExpenses = total_execution_expenses;
+    const initialFileNumber = String(executionData?.fileNumber || '').trim();
+
     const executionModalFlags = {
         showUnifiedExecutionModal,
         showDecisionsModal,
@@ -10234,6 +8323,51 @@ export function useExecutionDashboardCore({
         showSeizedAssetsModal,
         showNotesModal,
         showAppointmentModal,
+        showPaymentCalculator,
+        showSettlementCalculator,
+        showPauseModal,
+        showLedgerModal,
+        showEditDossierMetaModal,
+        showEvictionExpenseModal,
+        showEvictionLawyerFeeModal,
+        showEvictionResidentialGraceModal,
+        showGuarantorDetailsModal,
+        showHeirsNotificationModal,
+        showLinkedDossierTimeline,
+        showRealEstateSeizureModal,
+        showSolidaryCoerciveTargetModal,
+        showStayOfExecutionModal,
+        showTransferFileNumberChangeModal,
+    };
+
+    const executionModalSetters = {
+        setShowUnifiedExecutionModal,
+        setShowDecisionsModal,
+        setShowDocumentsModal,
+        setShowTimelineModal,
+        setShowCoerciveModal,
+        setShowNotificationModal,
+        setShowUnifiedSummonsModal,
+        setShowPaymentModal,
+        setShowSeizedAssetsModal,
+        setShowNotesModal,
+        setShowAppointmentModal,
+        setShowPaymentCalculator,
+        setShowSettlementCalculator,
+        setShowPauseModal,
+        setShowLedgerModal,
+        setShowEditDossierMetaModal,
+        setShowEvictionExpenseModal,
+        setShowEvictionLawyerFeeModal,
+        setShowEvictionResidentialGraceModal,
+        setShowGuarantorDetailsModal,
+        setShowHeirsNotificationModal,
+        setShowLinkedDossierTimeline,
+        setShowRealEstateSeizureModal,
+        setShowSolidaryCoerciveTargetModal,
+        setShowStayOfExecutionModal,
+        setShowTransferFileNumberChangeModal,
+        setEditingNoteId,
     };
 
     const {
@@ -10249,16 +8383,314 @@ export function useExecutionDashboardCore({
             activeTimelineFilter,
             executionPaused,
             dossierLifecyclePanelOpen,
+            dossierLifecyclePanelPhase,
+            dossierLifecyclePopStyle,
             toastEpoch,
             dataRevision: unifiedLedgerRevision,
             executionDebtorTabIndex,
             showUnifiedSeizureLogModal,
             timelineAccordionExpanded,
             isFinancialCenterExpanded,
+            isHeaderExpanded,
+            debtorAttendedVoluntarily,
+            voluntaryAttendanceCount,
+            noticeVoluntaryPeriodEndOptimistic,
+            voluntaryEndOptimistic,
+            notificationCount,
+            showExecutionFinancialHub,
         },
         modalFlags: executionModalFlags,
         chunkDataReady: Boolean(executionData),
         getScopeSources: () => buildExecutionDashboardChunkScopeSources({
+            ...executionModalFlags,
+            ...executionModalSetters,
+            activeDebtorIsEmployee,
+            activeDebtorNoticeScope,
+            alimonyBeneficiaryDeathModalOpen,
+            alimonyBeneficiaryDeathModalProfile,
+            alimonyBeneficiaryProfile,
+            appealsModalScrollToDecisionId,
+            clearDecisionsModalBootState,
+            coerciveUiLocked,
+            decisionsModalBootHubTab,
+            decisionsModalBootListTab,
+            decisionsModalScrollToDecisionId,
+            earnerForcedActionUnlocked,
+            employeeForcedBringAwaitingPersonalOutcome,
+            executionCoerciveButtonDisabled,
+            executionDataRef,
+            firstActiveAppealDecisionId,
+            followupEmployeeFinancialSalaryOnlyCoercive,
+            followupMonetaryCoerciveLimitedOnly,
+            forcedBringDecisionState,
+            forcedSummoningAnalysis,
+            handleEmployeeAssignmentRequestForcedBring,
+            handleEmployeeAssignmentRequestInvestigation,
+            handleEmployeeAssignmentResolveForcedBringOutcome,
+            handleEmployeeAssignmentTerminate,
+            handleEmployeeRegisterArrestOrder,
+            handleEmployeeWarrantOutcome,
+            lawyerStartedPostNoticeExecution,
+            onUpdate,
+            openExecutionSeizuresTab,
+            realEstateModalInitial,
+            realEstateSeizureModalDecisionId,
+            registerDebtorVoluntaryAttendance,
+            resolvedEmployeeSummonsAssignment,
+            saveRealEstateSeizureFromModal,
+            setAlimonyBeneficiaryDeathModalOpen,
+            setAlimonyBeneficiaryDeathModalProfile,
+            setRealEstateSeizureModalDecisionId,
+            setShowCoerciveModal,
+            setShowGuarantorDetailsModal,
+            setShowHeirsNotificationModal,
+            setShowNotificationModal,
+            setShowPauseModal,
+            setShowPaymentModal,
+            setShowRealEstateSeizureModal,
+            setShowSeizedAssetsModal,
+            setShowStayOfExecutionModal,
+            showCoerciveModal,
+            showDecisionsModal,
+            showDocumentsModal,
+            showGuarantorDetailsModal,
+            showHeirsNotificationModal,
+            showLedgerModal,
+            showNotificationModal,
+            showPauseModal,
+            showPaymentCalculator,
+            showPaymentModal,
+            showRealEstateSeizureModal,
+            showSeizedAssetsModal,
+            showSettlementCalculator,
+            showStayOfExecutionModal,
+            showTimelineModal,
+            showUnifiedSummonsModal,
+            commitDossierNote,
+            creditorSubstitutionRequestStatus,
+            debtorSubstitutionRequestStatus,
+            editingNoteId,
+            evictionExecutorWorkflow,
+            executorApprovalActions,
+            linkedDossierToView,
+            initialFileNumber,
+            seizedAssetsModalExecutionId,
+            syncActiveCoerciveActions,
+            syncSeizedAssets,
+            syncSeizureDrafts,
+            totalExecutionExpenses,
+            voiceUserId,
+            appointmentDateOnly,
+            appointmentPurpose,
+            breakInventoryFurnitureModalCtx,
+            breakInventoryFurnitureModalOpen,
+            caseTasksPending,
+            closeHeirMemoManually,
+            coerciveSubjectRef,
+            computeDaysRemaining,
+            computeDeadlineYmd,
+            debtorEvaded,
+            debtorNotificationDate,
+            debtorNotifiedForEvictionGrace,
+            dossierMetaDraft,
+            editPartyTarget,
+            editingAppointmentId,
+            editingTaskId,
+            employeeAssignmentTabEnabled,
+            evictionExpenseAmount,
+            evictionExpenseNote,
+            evictionExpensePayMode,
+            executionReportPrompt,
+            executorScheduleContext,
+            executorScheduleModalOpen,
+            followupDebtorSummonsProfile,
+            followupEarnerForcedActionUnlocked,
+            followupIsDebtorGovernmentEmployee,
+            followupIsDebtorRetired,
+            getMilestoneTimelineSnapshot,
+            graceModalEndYmd,
+            graceModalStartYmd,
+            guarantorDeductionDraft,
+            guarantorNameDraft,
+            guarantorSalaryDraft,
+            guarantorWorkplaceDraft,
+            handleAddTimelineEvent,
+            handleCompleteTask,
+            handleDebtorEvasion,
+            handleDeclareEvictionVoluntaryPeriodEnd,
+            handleDeclareNoticeVoluntaryPeriodEnd,
+            handleDeleteTask,
+            handleEmployeeAssignmentAttend,
+            handleEmployeeAssignmentConfirm,
+            handleEmployeeAssignmentDeclareAbsent,
+            handleForcedAttendance,
+            handleNotifyDebtor,
+            handleSaveAppointment,
+            handleSaveTask,
+            handleSpecialCasesStay,
+            handleUpdateTask,
+            hasFinancialLedger,
+            heirNoticeDateDrafts,
+            heirSummonsDatePickerOpenByHeir,
+            heirsQuickView,
+            heirsWorkflowByHeir,
+            isDebtorFreelancer,
+            isEvictionGraceEffectivelyExpired,
+            isEvictionGraceExpiredCalendar,
+            isGracePeriodExpiredNow,
+            isTask,
+            issueHeirMemoNotice,
+            issueHeirSummons,
+            judicialCustodianModalCtx,
+            judicialCustodianModalOpen,
+            judicialCustodianSalariesExpenseIqd,
+            lawyerFeeDisburseMode,
+            lawyerFeeDisburseNotes,
+            linkSeizureAuctionToAppointments,
+            markHeirSummonsAttended,
+            markHeirSummonsPeriodEnded,
+            normalizeHeirWorkflowKey,
+            noteBody,
+            noteTitle,
+            noticeKindGoalStrictBinding,
+            notificationCount,
+            partyDeathModalParty,
+            partyEditDraft,
+            partyEditHeirDeleteConfirmIdx,
+            pauseReason,
+            permanentDeleteTimelineId,
+            permanentlyDeleteCaseNote,
+            permanentlyDeleteCaseTask,
+            permanentlyDeleteTimelineEvent,
+            policeAssistanceAgencyDraft,
+            policeAssistanceModalOpen,
+            policeAssistanceRequestTitle,
+            publicationDateYmdDraft,
+            publicationModalEntityKind,
+            publicationModalOpen,
+            publicationNewspaperNameDraft,
+            removeHeirFromPartyEditDraftAtIndex,
+            residentialGraceModalShowPrimarySave,
+            residentialVacateDeadlineMaxIso,
+            runEvictionExpenseSubmit,
+            runEvictionLawyerFeeSubmit,
+            saveCoerciveActionRef,
+            saveDossierMetaDraft,
+            savePartyEditDraft,
+            savePoliceAssistanceFromModal,
+            savePublicationDetails,
+            saveSeizedPropertyAuctionSessionResult,
+            saveSeizedPropertyStepDetails,
+            saveSeizureMarkConfirmation,
+            savedNotesSplit,
+            savedNotesView,
+            scopedSummonsMarker,
+            seizedPropertyAuctionDateDraft,
+            seizedPropertyAuctionDepositAmountDraft,
+            seizedPropertyAuctionResultAmountDraft,
+            seizedPropertyAuctionResultBuyerNameDraft,
+            seizedPropertyAuctionResultEntityKind,
+            seizedPropertyAuctionResultModalOpen,
+            seizedPropertyAuctionResultOutcome,
+            seizedPropertyAwardAmountDraft,
+            seizedPropertyBuyerNameDraft,
+            seizedPropertyExpertPriceDraft,
+            seizedPropertyExpertReportDateDraft,
+            seizedPropertyExpertsNamesDraft,
+            seizedPropertyStepEntityKind,
+            seizedPropertyStepKind,
+            seizedPropertyStepModalOpen,
+            seizedPropertyStepNotesDraft,
+            seizedPropertyStepPropertyId,
+            seizureDraftsByDecisionId,
+            seizureMarkDateDraft,
+            seizureMarkEntityDraft,
+            seizureMarkLetterNumberDraft,
+            seizureMarkModalEntityKind,
+            seizureMarkModalOpen,
+            setAppointmentDateOnly,
+            setAppointmentPurpose,
+            setAppointmentTimeOptional,
+            setBreakInventoryFurnitureModalCtx,
+            setBreakInventoryFurnitureModalOpen,
+            setDebtorNotificationDate,
+            setDossierMetaDraft,
+            setEditPartyTarget,
+            setEditingAppointmentId,
+            setEditingTaskId,
+            setEvictionExpenseAmount,
+            setEvictionExpenseNote,
+            setEvictionExpensePayMode,
+            setExecutionReportPrompt,
+            setExecutorScheduleContext,
+            setExecutorScheduleModalOpen,
+            setGraceModalEndYmd,
+            setGraceModalStartYmd,
+            setGuarantorDeductionDraft,
+            setGuarantorDetailsDecisionId,
+            setGuarantorNameDraft,
+            setGuarantorSalaryDraft,
+            setGuarantorWorkplaceDraft,
+            setHeirNoticeDateDrafts,
+            setHeirSummonsDatePickerOpenByHeir,
+            setHeirsQuickView,
+            setIsPaused,
+            setIsTask,
+            setLawyerFeeDisburseMode,
+            setLawyerFeeDisburseNotes,
+            setLinkSeizureAuctionToAppointments,
+            setManualGraceCalendarExtra,
+            setNoteBody,
+            setNoteTitle,
+            setPartyDeathModalDecisionId,
+            setPartyDeathModalParty,
+            setPartyEditDraft,
+            setPartyEditHeirDeleteConfirmIdx,
+            setPauseReason,
+            setPermanentDeleteTimelineId,
+            setPoliceAssistanceAgencyDraft,
+            setPoliceAssistanceDecisionId,
+            setPoliceAssistanceModalOpen,
+            setPoliceAssistanceRequestTitle,
+            setPublicationDateYmdDraft,
+            setPublicationModalEntityId,
+            setPublicationModalOpen,
+            setPublicationNewspaperNameDraft,
+            setSeizedPropertyAuctionDateDraft,
+            setSeizedPropertyAuctionDepositAmountDraft,
+            setSeizedPropertyAuctionResultAmountDraft,
+            setSeizedPropertyAuctionResultBuyerNameDraft,
+            setSeizedPropertyAuctionResultEntityKind,
+            setSeizedPropertyAuctionResultModalOpen,
+            setSeizedPropertyAuctionResultOutcome,
+            setSeizedPropertyAuctionResultPropertyId,
+            setSeizedPropertyAwardAmountDraft,
+            setSeizedPropertyBuyerNameDraft,
+            setSeizedPropertyExpertPriceDraft,
+            setSeizedPropertyExpertReportDateDraft,
+            setSeizedPropertyExpertsNamesDraft,
+            setSeizedPropertyStepModalOpen,
+            setSeizedPropertyStepNotesDraft,
+            setSavedNotesView,
+            setSeizureMarkDateDraft,
+            setSeizureMarkEntityDraft,
+            setSeizureMarkLetterNumberDraft,
+            setSeizureMarkModalEntityId,
+            setSeizureMarkModalOpen,
+            setShowCoerciveActionForm,
+            setSolidaryCoerciveActionPending,
+            setTaskDueDate,
+            setTaskStatus,
+            solidaryCoerciveActionPending,
+            submitEvictionResidentialGraceFromModal,
+            subsequentNoticeUnlocked,
+            summoningRound,
+            summonsHubInitialMainTab,
+            terminateDebtorSummonsMarker,
+            timelineEvents,
+            togglePartyEditHeirClient,
+            unifiedCollectionApproved,
+            unifiedSummonsTargetDebtorKey,
             FollowupModalContext,
             accumulatedAlimony,
             activeCoerciveActions,
@@ -10389,10 +8821,20 @@ export function useExecutionDashboardCore({
             handleEvictionLawyerFeeRequest,
             handleEvictionLedgerActivated,
             handleFundsLedgerPayment,
+            handleAlimonyBeneficiaryDeathConfirm,
             handleGuarantorRequestFromFollowup,
             handleLiftStayOfExecution,
             handleMemoFollowupClick,
+            handlePartyDeathSave,
+            handlePayment,
+            handlePaymentFromCalculator,
+            handlePublicationNoticeDebtorAttended,
+            handlePublicationNoticeRegister,
+            handlePublicationNoticeTerminate,
+            handleRequestCreditorSubstitution,
+            handleRequestDebtorSubstitution,
             handleResumeExecution,
+            handleSettlementFromCalculator,
             hasChildDossiers,
             hasUnifiedSeizureLogContent,
             headerFields,
@@ -10457,6 +8899,8 @@ export function useExecutionDashboardCore({
             parsedDirectorateFees,
             parsedLawyerFees,
             partyBadgesExecutionId,
+            paymentAmount,
+            paymentDate,
             patchSalarySeizureAssetDetails,
             persistExecutionMerge,
             persistGuarantorFollowupDetails,
@@ -10473,6 +8917,9 @@ export function useExecutionDashboardCore({
             pushTimelineEvent,
             realEstateSeizureAssets,
             realEstateSeizureRegistryAssets,
+            restoreCaseNoteFromTrash,
+            restoreCaseTaskFromTrash,
+            restoreTimelineEventFromTrash,
             releaseSeizureAssetRow,
             remaining,
             removeJudicialCustodianEntry,
@@ -10481,12 +8928,14 @@ export function useExecutionDashboardCore({
             salarySeizureRegistryAssets,
             salarySeizureTabRows,
             saveSummonsMarkerPurposeEdit,
+            saveTimelineEditDraft,
             seizedAssets,
             seizedMovablesForSeizureLog,
             seizedPropertiesForSeizureLog,
             seizureLogExecutorDecisions,
             seizureMatrixLedgerParamsRef,
             setActiveFinancialTab,
+            setActiveCoerciveActions,
             setActiveTabId,
             setActiveTimelineFilter,
             setCaseTasksPending,
@@ -10516,6 +8965,8 @@ export function useExecutionDashboardCore({
             setMovableSeizureSubjectDraft,
             setPropertySeizureRequestModalOpen,
             setPropertySeizureSubjectDraft,
+            setPaymentAmount,
+            setPaymentDate,
             setShowAppointmentModal,
             setShowDecisionsModal,
             setShowDocumentsModal,
@@ -10535,6 +8986,8 @@ export function useExecutionDashboardCore({
             setShowUnifiedExecutionModal,
             setShowUnifiedSummonsModal,
             setShowVisitationCalendarModal,
+            setSeizedAssets,
+            setSeizureDraftsByDecisionId,
             setSummonsContextDebtorKey,
             setSummonsHubInitialMainTab,
             setSummonsMarkerPopoverOpen,
@@ -10542,6 +8995,7 @@ export function useExecutionDashboardCore({
             setThirdPartyFundsDraftById,
             setThirdPartySeizuresUi,
             setTimelineAccordionExpanded,
+            setTimelineEditDraft,
             setTimelineEvents,
             setUnifiedLedgerRevision,
             setUnifiedModalTab,
@@ -10552,6 +9006,7 @@ export function useExecutionDashboardCore({
             showDebtorUnservedMemoBadge,
             showEmployeeCompulsoryProceduresBanner,
             showExecutionFinancialHub,
+            showExecutionTrashModal,
             showExtraCreditors,
             showExtraDebtors,
             showJudgmentMeta,
@@ -10574,6 +9029,7 @@ export function useExecutionDashboardCore({
             thirdPartySeizureRegistryAssets,
             thirdPartySeizuresUi,
             timelineAccordionExpanded,
+            timelineEditDraft,
             timelineDebtorMetadata,
             timelineFilterOptions,
             timelineRadarPreviewLimit,

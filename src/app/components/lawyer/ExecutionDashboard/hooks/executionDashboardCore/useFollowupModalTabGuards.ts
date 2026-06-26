@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect } from 'react';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 import { bindHorizontalWheelToScroll } from '@/app/components/lawyer/ExecutionDashboard/helpers';
-import type { FollowupUnifiedModalTab } from '../followupModalTabTypes';
+import type { FollowupUnifiedModalTab } from '../../followupModalTabTypes';
 
 export type UseFollowupModalTabGuardsParams = {
     showUnifiedExecutionModal: boolean;
