@@ -390,6 +390,8 @@ import { useExecutionDashboardSeizureReleaseHandlers } from './executionDashboar
 import { useExecutionDashboardThirdPartyReceiveHandlers } from './executionDashboardCore/useExecutionDashboardThirdPartyReceiveHandlers';
 import { useExecutionDashboardStandaloneMarkHandlers } from './executionDashboardCore/useExecutionDashboardStandaloneMarkHandlers';
 import { useExecutionDashboardSalarySeizurePatch } from './executionDashboardCore/useExecutionDashboardSalarySeizurePatch';
+import { useExecutionDashboardFollowupSeizureHandlers } from './executionDashboardCore/useExecutionDashboardFollowupSeizureHandlers';
+import { useExecutionDashboardPoliceAssistanceHandlers } from './executionDashboardCore/useExecutionDashboardPoliceAssistanceHandlers';
 import { pickExecutionFollowupScopeSlice } from './pickExecutionFollowupScopeSlice';
 import {
     buildEndGracePeriodMergePatch,
@@ -9422,139 +9424,26 @@ export function useExecutionDashboardCore({
         executionId,
     ]);
 
-    const savePoliceAssistanceEntry = useCallback(
-        (input: { decisionId: string; agencyName: string; linkToTasks?: boolean }) => {
-            if (evictionProcedureLocked) {
-                showToast('لا يمكن حفظ القوة الجبرية — الإضبارة أو الإجراءات مقفلة.', 'warning');
-                return;
-            }
-            const decisionId = String(input.decisionId || '').trim();
-            if (!decisionId) return;
-            const agency = String(input.agencyName || '').trim();
-            if (!agency) {
-                showToast('أدخل اسم الجهة المرافقة', 'warning');
-                return;
-            }
-
-            const now = new Date().toISOString();
-            const storageId = String(
-                decisionsStorageExecutionId || executionData?.id || executionId || ''
-            ).trim();
-            const { ok } = patchExecutorDecisionRowReliable(storageId, decisionId, {
-                policeAssistanceSavedAt: now,
-                policeAssistanceAgency: agency,
-            });
-            if (!ok) {
-                showToast('تعذر حفظ بيانات القوة الإجرائية — تحقق من قرار المنفذ.', 'error');
-                return;
-            }
-
-            const linked = executorApprovalActions.getFieldVisitDeadlineIso();
-            let dueYmd = now.slice(0, 10);
-            if (linked) {
-                const d = new Date(linked);
-                if (!Number.isNaN(d.getTime())) {
-                    dueYmd = formatDateToLocalYmd(d);
-                } else if (/^\d{4}-\d{2}-\d{2}/.test(linked)) {
-                    dueYmd = linked.slice(0, 10);
-                }
-            }
-
-            const ev: TimelineEvent = {
-                id: nextTimelineId(),
-                type: 'eviction',
-                date: now.slice(0, 10),
-                timestamp: now,
-                title: '🛡️ القوة الجبرية',
-                description: `الجهة المرافقة: ${agency}`,
-                source: 'الإجراءات الجبرية — تخلية',
-                metadata: {
-                    evictionActionId: EVICTION_TIMELINE_ACTION_IDS.POLICE_FORCE,
-                    decisionRowId: decisionId,
-                    policeAssistanceAgency: agency,
-                },
-            };
-            const linkToTasks = input.linkToTasks !== false;
-            let nextTimeline = [ev, ...timelineEventsRef.current];
-            let nextTasks = caseTasksPendingRef.current;
-
-            if (linkToTasks) {
-                const taskId = nextTimelineId();
-                const taskTitle = '🛡️ متابعة القوة الجبرية';
-                const taskBody = `الجهة المرافقة: ${agency}`;
-                nextTasks = [
-                    {
-                        id: taskId,
-                        title: taskTitle,
-                        body: taskBody,
-                        dueDate: dueYmd,
-                        createdAt: now,
-                    },
-                    ...nextTasks,
-                ];
-                nextTimeline = [
-                    {
-                        id: nextTimelineId(),
-                        type: 'other',
-                        date: now,
-                        timestamp: now,
-                        title: `📌 مهمة قيد الإنجاز: ${taskTitle}`,
-                        description: `${taskBody}\n\n📅 تاريخ الإنجاز المطلوب: ${dueYmd}`,
-                        source: 'الإجراءات الجبرية — تخلية',
-                    },
-                    ...nextTimeline,
-                ];
-            }
-
-            setCaseTasksPending(nextTasks);
-            setTimelineEvents(nextTimeline);
-            persistExecutionMerge({
-                eviction_police_assistance: {
-                    decisionId,
-                    agencyName: agency,
-                    dueYmd,
-                    savedAt: now,
-                    completedAt: null,
-                },
-                timelineEvents: nextTimeline,
-                ...(linkToTasks ? { caseTasksPending: nextTasks } : {}),
-            });
-
-            setPoliceAssistanceDecisionId(null);
-            setPoliceAssistanceRequestTitle('');
-            setPoliceAssistanceAgencyDraft('');
-            setPoliceAssistanceModalOpen(false);
-            showToast(
-                linkToTasks
-                    ? 'تم حفظ القوة الجبرية وإضافتها إلى المهام'
-                    : 'تم حفظ القوة الجبرية في السجل',
-                'success'
-            );
-        },
-        [
+    const { savePoliceAssistanceEntry, savePoliceAssistanceFromModal } =
+        useExecutionDashboardPoliceAssistanceHandlers({
             evictionProcedureLocked,
-            showToast,
             decisionsStorageExecutionId,
+            executionData,
+            executionId,
             executorApprovalActions,
+            timelineEventsRef,
+            caseTasksPendingRef,
+            policeAssistanceDecisionId,
             nextTimelineId,
             persistExecutionMerge,
-            executionData?.id,
-            executionId,
-        ]
-    );
-
-    const savePoliceAssistanceFromModal = useCallback(
-        (agencyName: string, options?: { linkToTasks?: boolean }) => {
-            const decisionId = String(policeAssistanceDecisionId || '').trim();
-            if (!decisionId) return;
-            savePoliceAssistanceEntry({
-                decisionId,
-                agencyName,
-                linkToTasks: options?.linkToTasks,
-            });
-        },
-        [policeAssistanceDecisionId, savePoliceAssistanceEntry]
-    );
+            showToast,
+            setCaseTasksPending,
+            setTimelineEvents,
+            setPoliceAssistanceDecisionId,
+            setPoliceAssistanceRequestTitle,
+            setPoliceAssistanceAgencyDraft,
+            setPoliceAssistanceModalOpen,
+        });
 
     const saveBreakInventoryLedgerEntry = useCallback(
         (input: { decisionId: string; payload: BreakInventoryFurnitureSavePayload }) => {
@@ -10388,148 +10277,25 @@ export function useExecutionDashboardCore({
         saveCoerciveAction(actionType, buildInitialExecutorSeizureDetails(actionType, activeDebtorIsDeceased));
     };
 
-    const submitPropertySeizureRequest = useCallback(() => {
-        const exId = String(decisionsStorageExecutionId ?? '').trim();
-        if (!exId || exId === 'undefined') return;
-        const subject = String(propertySeizureSubjectDraft || '').trim() || 'طلب حجز عقار';
-        const body = `موضوع الطلب:\n${subject}`;
-        const did = appendPendingExecutorSeizureDecision({
-            executionId: exId,
-            requestTitle: 'طلب حجز عقار — قيد البت لدى المنفذ',
-            requestBody: body,
-            seizureSubtype: 'property',
-        });
-        if (!did) {
-            showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', { decisionsLink: true, decisionsTab: 'current' });
-            return;
-        }
-        const now = new Date().toISOString();
-        pushTimelineEvent({
-            id: nextTimelineId(),
-            date: now.slice(0, 10),
-            timestamp: now,
-            title: '📋 طلب حجز عقار — قيد البت',
-            description: body,
-            type: 'decision',
-            source: 'محضر المتابعة',
-            metadata: { timelineThreadKey: `executor_decision:${did}`, decisionRowId: did },
-        });
-        showToast('تم إرسال طلب حجز العقار إلى القرارات والطعون.', 'success', {
-            decisionsLink: true,
-            decisionId: did,
-            decisionsTab: 'current',
-        });
-        setPropertySeizureRequestModalOpen(false);
-        setPropertySeizureSubjectDraft('');
-    }, [
+    const {
+        submitPropertySeizureRequest,
+        submitMovableSeizureRequest,
+        saveSeizedPropertyInitForDecision,
+        saveSeizedMovableInitForDecision,
+    } = useExecutionDashboardFollowupSeizureHandlers({
         decisionsStorageExecutionId,
+        executionDataRef,
         nextTimelineId,
+        persistExecutionMerge,
+        pushTimelineEvent,
+        showToast,
         propertySeizureSubjectDraft,
-        pushTimelineEvent,
-        showToast,
-    ]);
-
-    const submitMovableSeizureRequest = useCallback(() => {
-        const exId = String(decisionsStorageExecutionId ?? '').trim();
-        if (!exId || exId === 'undefined') return;
-        const subject = String(movableSeizureSubjectDraft || '').trim() || 'طلب حجز مال منقول';
-        const body = `موضوع الطلب:\n${subject}`;
-        const did = appendPendingExecutorSeizureDecision({
-            executionId: exId,
-            requestTitle: 'طلب حجز مال منقول — قيد البت لدى المنفذ',
-            requestBody: body,
-            seizureSubtype: 'movable_auction',
-        });
-        if (!did) {
-            showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', {
-                decisionsLink: true,
-                decisionsTab: 'current',
-            });
-            return;
-        }
-        const now = new Date().toISOString();
-        pushTimelineEvent({
-            id: nextTimelineId(),
-            date: now.slice(0, 10),
-            timestamp: now,
-            title: '📦 طلب حجز مال منقول — قيد البت',
-            description: body,
-            type: 'decision',
-            source: 'محضر المتابعة',
-            metadata: { timelineThreadKey: `executor_decision:${did}`, decisionRowId: did },
-        });
-        showToast('تم إرسال طلب الحجز إلى القرارات والطعون.', 'success', {
-            decisionsLink: true,
-            decisionId: did,
-            decisionsTab: 'current',
-        });
-        setMovableSeizureRequestModalOpen(false);
-        setMovableSeizureSubjectDraft('');
-    }, [
-        decisionsStorageExecutionId,
+        setPropertySeizureRequestModalOpen,
+        setPropertySeizureSubjectDraft,
         movableSeizureSubjectDraft,
-        nextTimelineId,
-        pushTimelineEvent,
-        showToast,
-    ]);
-
-    const saveSeizedPropertyInitForDecision = useCallback(
-        (input: {
-            decisionId: string;
-            subject?: string;
-            propertyNumber: string;
-            propertyGender: RealEstateGender;
-            deedNotes: string;
-        }) => {
-            const exId = String(decisionsStorageExecutionId ?? '').trim();
-            const decisionId = String(input.decisionId || '').trim();
-            if (!exId || exId === 'undefined' || !decisionId) return;
-            const propertyNumber = String(input.propertyNumber || '').trim();
-            if (!propertyNumber) {
-                showToast('أدخل رقم العقار.', 'warning');
-                return;
-            }
-            const deedNotes = String(input.deedNotes || '').trim();
-            if (!deedNotes) {
-                showToast('أدخل تفاصيل السند.', 'warning');
-                return;
-            }
-            const nowIso = new Date().toISOString();
-            const prev = (executionDataRef.current?.seizedProperties || []) as SeizedProperty[];
-            const existingIdx = prev.findIndex((x) => String(x.decisionRowId || '') === decisionId);
-            const next: SeizedProperty[] = [...prev];
-            const nextRow: SeizedProperty = {
-                id: existingIdx >= 0 ? String(next[existingIdx].id) : `sp_${decisionId}`,
-                decisionRowId: decisionId,
-                propertyNumber,
-                district: String((existingIdx >= 0 ? next[existingIdx].district : '') || ''),
-                propertyGender: input.propertyGender,
-                deedNotes,
-                status: 'seized',
-                seizedAtIso: nowIso,
-                subject: String(input.subject || '').trim() || undefined,
-            };
-            if (existingIdx >= 0) next[existingIdx] = { ...next[existingIdx], ...nextRow };
-            else next.unshift(nextRow);
-            persistExecutionMerge({ seizedProperties: next });
-            patchExecutorDecisionRow(exId, decisionId, {
-                seizureRequestSavedAt: nowIso,
-                seizureRequestDetails: `رقم العقار: ${propertyNumber}\nالجنس: ${input.propertyGender}\nتفاصيل السند:\n${deedNotes}`,
-            });
-            pushTimelineEvent({
-                id: nextTimelineId(),
-                date: nowIso.slice(0, 10),
-                timestamp: nowIso,
-                title: '🏠 حفظ بيانات العقار (بعد موافقة المنفذ)',
-                description: `رقم العقار: ${propertyNumber}\nالجنس: ${input.propertyGender}\nتفاصيل السند:\n${deedNotes}`,
-                type: 'decision',
-                source: 'محضر المتابعة — الأموال المحجوزة',
-                metadata: { seizedPropertyId: nextRow.id, decisionRowId: decisionId },
-            });
-            showToast('تم حفظ بيانات العقار وإنشاء البطاقة داخل الأموال المحجوزة.', 'success');
-        },
-        [decisionsStorageExecutionId, nextTimelineId, persistExecutionMerge, pushTimelineEvent, showToast]
-    );
+        setMovableSeizureRequestModalOpen,
+        setMovableSeizureSubjectDraft,
+    });
 
     const focusSeizurePropertyInlineCompletion = useCallback(
         (decisionId: string, subject?: string) => {
@@ -10552,68 +10318,6 @@ export function useExecutionDashboardCore({
         [decisionsStorageExecutionId, executionData?.id, executionId]
     );
     focusSeizurePropertyInlineRef.current = focusSeizurePropertyInlineCompletion;
-
-    const saveSeizedMovableInitForDecision = useCallback(
-        (input: {
-            decisionId: string;
-            subject?: string;
-            movableDescription: string;
-            movableLocation: string;
-            judicialCustodianName: string;
-        }) => {
-            const exId = String(decisionsStorageExecutionId ?? '').trim();
-            const decisionId = String(input.decisionId || '').trim();
-            if (!exId || exId === 'undefined' || !decisionId) return;
-            const desc = String(input.movableDescription || '').trim();
-            if (!desc) {
-                showToast('أدخل وصف المال المنقول.', 'warning');
-                return;
-            }
-            const loc = String(input.movableLocation || '').trim();
-            if (!loc) {
-                showToast('أدخل مكان تواجد المال المنقول.', 'warning');
-                return;
-            }
-            const cust = String(input.judicialCustodianName || '').trim();
-            if (!cust) {
-                showToast('أدخل اسم الحارس القضائي.', 'warning');
-                return;
-            }
-            const nowIso = new Date().toISOString();
-            const prev = (executionDataRef.current?.seizedMovables || []) as SeizedMovable[];
-            const existingIdx = prev.findIndex((x) => String(x.decisionRowId || '') === decisionId);
-            const next: SeizedMovable[] = [...prev];
-            const nextRow: SeizedMovable = {
-                id: existingIdx >= 0 ? String(next[existingIdx].id) : `sm_${decisionId}`,
-                decisionRowId: decisionId,
-                movableDescription: desc,
-                movableLocation: loc,
-                judicialCustodianName: cust,
-                status: 'seized',
-                seizedAtIso: nowIso,
-                subject: String(input.subject || '').trim() || undefined,
-            };
-            if (existingIdx >= 0) next[existingIdx] = nextRow;
-            else next.unshift(nextRow);
-            persistExecutionMerge({ seizedMovables: next });
-            patchExecutorDecisionRow(exId, decisionId, {
-                seizureRequestSavedAt: nowIso,
-                seizureRequestDetails: `وصف المال المنقول: ${desc}\nالمكان: ${loc}\nالحارس القضائي: ${cust}`,
-            });
-            pushTimelineEvent({
-                id: nextTimelineId(),
-                date: nowIso.slice(0, 10),
-                timestamp: nowIso,
-                title: '📦 حفظ بيانات المال المنقول (بعد موافقة المنفذ)',
-                description: `وصف المال المنقول: ${desc}\nالمكان: ${loc}\nالحارس القضائي: ${cust}`,
-                type: 'decision',
-                source: 'محضر المتابعة — الأموال المحجوزة',
-                metadata: { seizedMovableId: nextRow.id, decisionRowId: decisionId },
-            });
-            showToast('تم حفظ بيانات المال المنقول وإنشاء البطاقة داخل الأموال المحجوزة.', 'success');
-        },
-        [decisionsStorageExecutionId, nextTimelineId, persistExecutionMerge, pushTimelineEvent, showToast]
-    );
 
     const focusSeizureMovableInlineCompletion = useCallback(
         (decisionId: string, subject?: string) => {
