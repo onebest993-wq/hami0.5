@@ -360,6 +360,11 @@ import { useExecutionDashboardPartyDeathHandlers } from './executionDashboardCor
 import { useExecutionDashboardEmployeeInvestigationSync } from './executionDashboardCore/useExecutionDashboardEmployeeInvestigationSync';
 import { useExecutionDashboardEmployeeAssignmentCoerciveState } from './executionDashboardCore/useExecutionDashboardEmployeeAssignmentCoerciveState';
 import { useExecutionDashboardPersonalCoerciveDecisionSync } from './executionDashboardCore/useExecutionDashboardPersonalCoerciveDecisionSync';
+import {
+    useExecutionDashboardEvictionGraceUiState,
+    useExecutionDashboardGraceLifecycleEffects,
+    useExecutionDashboardTimelineDedupeSync,
+} from './executionDashboardCore/useExecutionDashboardTimelineAndGraceSync';
 import { useExecutionDashboardExecutiveDetentionLifecycle } from './executionDashboardCore/useExecutionDashboardExecutiveDetentionLifecycle';
 import {
     useExecutionDashboardDeceasedDebtorCoerciveReset,
@@ -1145,7 +1150,6 @@ export function useExecutionDashboardCore({
     const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>(executionData?.timelineEvents || []);
     const timelineEventsRef = useRef<TimelineEvent[]>(timelineEvents);
     timelineEventsRef.current = timelineEvents;
-    const timelineDedupeSigRef = useRef<string>('');
     /** يُعبَّأ بعد تعريف `persistExecutionMerge` — لاستدعاء الدمج من `executorApprovalActions` المعرف سابقاً */
     const persistExecutionMergeRef = useRef<((patch: Record<string, unknown>) => void) | null>(null);
     const pushTimelineEventRef = useRef<((event: TimelineEvent, options?: { mergePatch?: Record<string, unknown> }) => void) | null>(
@@ -1173,51 +1177,15 @@ export function useExecutionDashboardCore({
     const caseTasksPendingRef = useRef(caseTasksPending);
     caseTasksPendingRef.current = caseTasksPending;
 
-    const graceUiExecutionKey = String(executionData?.id ?? executionId ?? '').trim();
-    const gracePinnedKey = graceUiExecutionKey ? `hami_eviction_grace_pinned_${graceUiExecutionKey}` : '';
-    const graceHiddenKey = graceUiExecutionKey ? `hami_eviction_grace_hidden_${graceUiExecutionKey}` : '';
-    const [evictionGracePinned, setEvictionGracePinned] = useState<boolean>(() => {
-        if (!gracePinnedKey) return true;
-        try {
-            const raw = SecureStoreService.getItemSync(gracePinnedKey);
-            if (raw === null) return true;
-            return raw === '1';
-        } catch {
-            return true;
-        }
-    });
-    const [evictionGraceHidden, setEvictionGraceHidden] = useState<boolean>(() => {
-        if (!graceHiddenKey) return false;
-        try {
-            return SecureStoreService.getItemSync(graceHiddenKey) === '1';
-        } catch {
-            return false;
-        }
-    });
-    useEffect(() => {
-        if (!gracePinnedKey || !graceHiddenKey) return;
-        try {
-            const p = SecureStoreService.getItemSync(gracePinnedKey);
-            setEvictionGracePinned(p === null ? true : p === '1');
-            setEvictionGraceHidden(SecureStoreService.getItemSync(graceHiddenKey) === '1');
-        } catch {
-            /* ignore */
-        }
-    }, [gracePinnedKey, graceHiddenKey]);
-
-    const toggleEvictionGracePinned = useCallback(() => {
-        setEvictionGracePinned((v) => {
-            const next = !v;
-            if (gracePinnedKey) {
-                try {
-                    SecureStoreService.setItemSync(gracePinnedKey, next ? '1' : '0');
-                } catch {
-                    /* ignore */
-                }
-            }
-            return next;
-        });
-    }, [gracePinnedKey]);
+    const {
+        evictionGracePinned,
+        setEvictionGracePinned,
+        evictionGraceHidden,
+        setEvictionGraceHidden,
+        toggleEvictionGracePinned,
+        gracePinnedKey,
+        graceHiddenKey,
+    } = useExecutionDashboardEvictionGraceUiState(executionData, executionId);
 
     const activeTimelineEvents = useMemo(
         () => timelineEvents.filter((e) => !e.trashedAt),
@@ -3160,15 +3128,20 @@ export function useExecutionDashboardCore({
     }, []);
     
     
-    // 🆕 V15: AUTO-SYNC gracePeriodEnded WITH STATE MACHINE
-    // Instead of manual button click, automatically sync with calculated status
-    useEffect(() => {
-        const shouldBeEnded = executionStatus === 'READY_FOR_COERCIVE';
-        if (shouldBeEnded && !gracePeriodEnded) {
-            setGracePeriodEnded(true);
-            setGracePeriodActive(false);
-        }
-    }, [executionStatus, gracePeriodEnded]);
+    useExecutionDashboardGraceLifecycleEffects({
+        executionStatus,
+        gracePeriodEnded,
+        setGracePeriodEnded,
+        setGracePeriodActive,
+        timelineEventsRef,
+        todayYmd,
+        executionData,
+        executionId,
+        showToastRef,
+        evictionGraceBadgeInfo,
+        showToast,
+    });
+
     
     // 🧠 Development validation (OPTIONAL: Pass uiState to check for actual UI conflicts)
     // This validation is now PASSIVE - it only logs errors if you provide uiState parameter
@@ -3394,60 +3367,6 @@ export function useExecutionDashboardCore({
     }, [saveExecutionData]);
     
 
-	useEffect(() => {
-		const appts = (timelineEventsRef.current || []).filter((ev: any) => String(ev?.type || '') === 'appointment');
-		const ymdOf = (ev: any): string => {
-			const raw = String(ev?.date || '').trim();
-			const m = /^\d{4}-\d{2}-\d{2}/.exec(raw);
-			return m ? m[0] : '';
-		};
-		const titleOf = (ev: any): string => {
-			const t = String(ev?.title || '').trim();
-			return t.replace(/^📅\s*/, '').trim() || 'موعد';
-		};
-		for (const ev of appts) {
-			const ymd = ymdOf(ev);
-			if (!ymd || ymd < todayYmd) continue;
-			const daysUntil = Math.max(0, evictionInclusiveCalendarDays(todayYmd, ymd) - 1);
-			if (daysUntil > 1) continue;
-			const key = String((ev as any).id || `${ymd}-${titleOf(ev)}`);
-			const toastSig = `hami:apptReminder:${executionData?.id ?? executionId ?? 'x'}:${key}:${todayYmd}`;
-			try {
-				if (SecureStoreService.getItemSync(toastSig)) continue;
-				SecureStoreService.setItemSync(toastSig, '1');
-			} catch {
-				/* ignore */
-			}
-			showToastRef.current(`موعد قريب: ${titleOf(ev)} — ${ymd}`, 'info');
-		}
-	}, [todayYmd, executionData?.id, executionId, setShowTimelineModal, setActiveTimelineFilter]);
-
-    useEffect(() => {
-        if (!evictionGraceBadgeInfo) return;
-        const rem = Number(evictionGraceBadgeInfo.remainingDays ?? 0);
-        if (!Number.isFinite(rem) || rem <= 0 || rem > 2) return;
-        const persistKey = String(executionData?.id ?? executionId ?? '').trim();
-        if (!persistKey) return;
-        const today = getLocalTodayYmd();
-        const k = `eviction-grace-reminder:${persistKey}:${evictionGraceBadgeInfo.endYmd}`;
-        try {
-            const last = String(SecureStoreService.getItemSync(k) || '').trim();
-            if (last === today) return;
-            SecureStoreService.setItemSync(k, today);
-        } catch {
-            /* ignore */
-        }
-        showToast(
-            `⏳ تنبيه: تبقى ${rem} ${rem === 1 ? 'يوم' : 'أيام'} على انتهاء المهلة (${evictionGraceBadgeInfo.endYmd})`,
-            'warning'
-        );
-    }, [
-        evictionGraceBadgeInfo?.endYmd,
-        evictionGraceBadgeInfo?.remainingDays,
-        executionData?.id,
-        executionId,
-        showToast,
-    ]);
 
     const executorApprovalActions: ExecutorApprovalActions = useMemo(
         () => ({
@@ -3909,41 +3828,14 @@ export function useExecutionDashboardCore({
         persistExecutionMerge,
     ]);
 
-    useEffect(() => {
-        if (!executionData?.id) return;
-        const execId = String(executionData.id || '');
-        const scopedInput =
-            isInabaSubFileId(execId) && activeSubFileId
-                ? filterTimelineEventsForInabaDossier(timelineEvents, activeSubFileId)
-                : parentDossierId
-                  ? filterTimelineEventsForParentDossier(timelineEvents, parentDossierId)
-                  : timelineEvents;
-        const cleaned = dedupeTimelineEventsForDisplay(scopedInput);
-        const sig = cleaned
-            .map(
-                (e) =>
-                    `${String(e.id)}:${String(e.type || '')}:${String(e.title || '')}:${
-                        String(e.timestamp || e.date || '')
-                    }:${String(e.trashedAt || '')}:${e.isPinned ? '1' : '0'}`
-            )
-            .join('|');
-        if (sig === timelineDedupeSigRef.current) return;
-        const rawSig = (timelineEvents || [])
-            .map(
-                (e) =>
-                    `${String(e.id)}:${String(e.type || '')}:${String(e.title || '')}:${
-                        String((e as any).timestamp || (e as any).date || '')
-                    }:${String((e as any).trashedAt || '')}:${(e as any).isPinned ? '1' : '0'}`
-            )
-            .join('|');
-        if (sig === rawSig) {
-            timelineDedupeSigRef.current = sig;
-            return;
-        }
-        timelineDedupeSigRef.current = sig;
-        setTimelineEvents(cleaned);
-        persistExecutionMerge({ timelineEvents: cleaned });
-    }, [executionData?.id, persistExecutionMerge, timelineEvents, activeSubFileId, parentDossierId]);
+    useExecutionDashboardTimelineDedupeSync({
+        executionData,
+        timelineEvents,
+        activeSubFileId,
+        parentDossierId,
+        setTimelineEvents,
+        persistExecutionMerge,
+    });
 
     useExecutionDashboardSeizureRequestCreatedListener({
         executionData,
