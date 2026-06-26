@@ -1,9 +1,14 @@
 // @ts-nocheck
 /** موجة 14 — effects صغيرة للمزامنة/UX (من core) */
 import { useEffect } from 'react';
-import type { ExecutionFile } from '@/app/types/execution';
+import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
+import { normalizeDossierLifecycleStatus } from '@/app/types/execution';
 import type { Debtor } from '@/app/types/execution';
 import { PerformanceMonitor } from '@/app/utils/performanceMonitor';
+import { areDebtorSummonsMarkersEqual } from '@/app/utils/noticeDebtorScope';
+import { normalizeExecutionTimelineFilter } from '@/app/utils/timelineCategoryFilter';
+import SecureStoreService from '@/app/services/SecureStoreService';
+import { useExecutionResidentialGraceClearedListener } from '../useExecutionDashboardWindowBridge';
 import {
     defaultEvictionEarnerFeeCollectionSM,
     type EvictionEarnerFeeCollectionSM,
@@ -181,3 +186,156 @@ export function useExecutionDashboardPaidClientFeesSync(
         setPaidClientFees(typeof p === 'number' && p >= 0 ? p : 0);
     }, [executionData?.id, executionData?.paidClientFees, setPaidClientFees]);
 }
+
+export function useExecutionDashboardSpecialRequestTemplateMenuDismiss(
+    specialRequestTemplateMenuOpen: boolean,
+    specialRequestTemplateMenuRef: React.RefObject<HTMLElement | null>,
+    setSpecialRequestTemplateMenuOpen: (v: boolean) => void,
+) {
+    useEffect(() => {
+        if (!specialRequestTemplateMenuOpen) return;
+        const onDoc = (e: MouseEvent) => {
+            const t = e.target as Node;
+            const menu = specialRequestTemplateMenuRef.current;
+            const input = document.getElementById('hami-smart-request-template');
+            if (menu?.contains(t)) return;
+            if (input && input.contains(t)) return;
+            setSpecialRequestTemplateMenuOpen(false);
+        };
+        document.addEventListener('mousedown', onDoc, true);
+        return () => document.removeEventListener('mousedown', onDoc, true);
+    }, [specialRequestTemplateMenuOpen, specialRequestTemplateMenuRef, setSpecialRequestTemplateMenuOpen]);
+}
+
+export function useExecutionDashboardDossierLifecycleDraftSync({
+    executionData,
+    setDossierStatusDraft,
+    setDossierReasonDraft,
+    setDossierDateDraft,
+}: {
+    executionData: ExecutionFile | null | undefined;
+    setDossierStatusDraft: (v: ReturnType<typeof normalizeDossierLifecycleStatus>) => void;
+    setDossierReasonDraft: (v: string) => void;
+    setDossierDateDraft: (v: string) => void;
+}) {
+    useEffect(() => {
+        const s = normalizeDossierLifecycleStatus(executionData?.dossier_lifecycle_status);
+        setDossierStatusDraft(s);
+        setDossierReasonDraft(String(executionData?.dossier_status_reason ?? '').trim());
+        setDossierDateDraft(String(executionData?.dossier_status_date ?? '').slice(0, 10));
+    }, [
+        executionData?.id,
+        executionData?.dossier_lifecycle_status,
+        executionData?.dossier_status_reason,
+        executionData?.dossier_status_date,
+        setDossierStatusDraft,
+        setDossierReasonDraft,
+        setDossierDateDraft,
+    ]);
+}
+
+export function useExecutionDashboardStandaloneMarksSync(
+    executionData: ExecutionFile | null | undefined,
+    executionStorageTick: number,
+    setStandaloneExecutionMarks: (v: ExecutionFile['standaloneExecutionMarks']) => void,
+) {
+    useEffect(() => {
+        const marks = executionData?.standaloneExecutionMarks;
+        if (!Array.isArray(marks)) return;
+        setStandaloneExecutionMarks(marks);
+    }, [executionData?.standaloneExecutionMarks, executionStorageTick, setStandaloneExecutionMarks]);
+}
+
+export function useExecutionDashboardFollowupSolidaryIndexReset(
+    executionDebtorTabIndex: number,
+    activeLiabilityGroupId: string | undefined,
+    setFollowupSolidaryDebtorIndex: (v: number) => void,
+) {
+    useEffect(() => {
+        setFollowupSolidaryDebtorIndex(0);
+    }, [executionDebtorTabIndex, activeLiabilityGroupId, setFollowupSolidaryDebtorIndex]);
+}
+
+export function useExecutionDashboardScopedDebtorNoticeSync({
+    scopedNotificationCount,
+    unifiedSummonsTargetDebtorKey,
+    scopedSummonsMarker,
+    setNotificationCount,
+    setDebtorSummonsMarkerLocal,
+}: {
+    scopedNotificationCount: number;
+    unifiedSummonsTargetDebtorKey: string;
+    scopedSummonsMarker: ExecutionFile['debtor_summons_marker'] | null;
+    setNotificationCount: React.Dispatch<React.SetStateAction<number>>;
+    setDebtorSummonsMarkerLocal: React.Dispatch<
+        React.SetStateAction<ExecutionFile['debtor_summons_marker'] | null>
+    >;
+}) {
+    useEffect(() => {
+        setNotificationCount((prev) =>
+            prev === scopedNotificationCount ? prev : scopedNotificationCount,
+        );
+    }, [scopedNotificationCount, unifiedSummonsTargetDebtorKey, setNotificationCount]);
+
+    useEffect(() => {
+        setDebtorSummonsMarkerLocal((prev) =>
+            areDebtorSummonsMarkersEqual(prev, scopedSummonsMarker) ? prev : scopedSummonsMarker,
+        );
+    }, [scopedSummonsMarker, unifiedSummonsTargetDebtorKey, setDebtorSummonsMarkerLocal]);
+}
+
+export function useExecutionDashboardActiveTimelineFilterNormalize(
+    timelineFilterOptions: ReturnType<typeof normalizeExecutionTimelineFilter> extends never
+        ? unknown
+        : Parameters<typeof normalizeExecutionTimelineFilter>[1],
+    setActiveTimelineFilter: (fn: (prev: string) => string) => void,
+) {
+    useEffect(() => {
+        setActiveTimelineFilter((prev) =>
+            normalizeExecutionTimelineFilter(prev, timelineFilterOptions as never),
+        );
+    }, [timelineFilterOptions, setActiveTimelineFilter]);
+}
+
+export function useExecutionDashboardEmployeeCompulsoryBannerReset(
+    employeeAssignmentPhaseForCoercive: string | undefined,
+    setEmployeeCompulsoryBannerDismissed: (v: boolean) => void,
+) {
+    useEffect(() => {
+        const ph = employeeAssignmentPhaseForCoercive;
+        if (ph !== 'absent_declared' && ph !== 'investigation_pending' && ph !== 'warrant_ui') {
+            setEmployeeCompulsoryBannerDismissed(false);
+        }
+    }, [employeeAssignmentPhaseForCoercive, setEmployeeCompulsoryBannerDismissed]);
+}
+
+export function useExecutionDashboardEmployeePersonalTabUnlockHydrate(
+    employeePersonalTabUnlockStorageKey: string,
+    setPersonalTabUnlockByDebtor: React.Dispatch<React.SetStateAction<Record<string, boolean>>>,
+) {
+    useEffect(() => {
+        if (!employeePersonalTabUnlockStorageKey) return;
+        try {
+            const raw = SecureStoreService.getItemSync(employeePersonalTabUnlockStorageKey);
+            if (!raw) return;
+            const parsed = JSON.parse(raw) as Record<string, boolean>;
+            if (!parsed || typeof parsed !== 'object') return;
+            setPersonalTabUnlockByDebtor((prev) => ({ ...parsed, ...prev }));
+        } catch {
+            /* ignore */
+        }
+    }, [employeePersonalTabUnlockStorageKey, setPersonalTabUnlockByDebtor]);
+}
+
+export function useExecutionDashboardPartiesExtraPanelsReset(
+    executionFileKey: string,
+    setShowExtraCreditors: (v: boolean) => void,
+    setShowExtraDebtors: (v: boolean) => void,
+) {
+    useEffect(() => {
+        setShowExtraCreditors(false);
+        setShowExtraDebtors(false);
+    }, [executionFileKey, setShowExtraCreditors, setShowExtraDebtors]);
+}
+
+export { useExecutionResidentialGraceClearedListener };

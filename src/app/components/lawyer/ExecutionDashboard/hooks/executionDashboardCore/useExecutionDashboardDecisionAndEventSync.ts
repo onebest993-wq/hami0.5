@@ -109,14 +109,14 @@ export function useExecutionDashboardEvictionLawyerFeeBackfill({
     executionId,
     executionFileKey,
     decisionsReloadEpoch,
-    persistExecutionMerge,
+    persistExecutionMergeRef,
 }: {
     isEvictionExecutionModule: boolean;
     executionData: ExecutionFile | null | undefined;
     executionId: string | undefined;
     executionFileKey: string;
     decisionsReloadEpoch: number;
-    persistExecutionMerge: (patch: Record<string, unknown>) => void;
+    persistExecutionMergeRef: MutableRefObject<((patch: Record<string, unknown>) => void) | null>;
 }) {
     const sessionMarkerRef = useRef<string | null>(null);
 
@@ -138,14 +138,14 @@ export function useExecutionDashboardEvictionLawyerFeeBackfill({
             return;
         }
         sessionMarkerRef.current = evictionLawyerFeeBackfillMarker(id);
-        persistExecutionMerge({ eviction_lawyer_fee_requested: true });
+        persistExecutionMergeRef.current?.({ eviction_lawyer_fee_requested: true });
     }, [
         isEvictionExecutionModule,
         executionData?.id,
         executionId,
         executionData?.eviction_lawyer_fee_requested,
         decisionsReloadEpoch,
-        persistExecutionMerge,
+        persistExecutionMergeRef,
     ]);
 }
 

@@ -6,7 +6,7 @@ export function buildExecutionDashboardFollowupScopeBag(
     input: ExecutionDashboardFollowupScopeBagInput,
 ): Record<string, unknown> {
     return {
-activeCoerciveActions,
+        activeCoerciveActions: input.activeCoerciveActions,
         activeDebtorIsDeceased: input.activeDebtorIsDeceased,
         activeDebtorIsEmployee: input.activeDebtorIsEmployee,
         activeDebtorIsLegalEntity: input.activeDebtorIsLegalEntity,

@@ -393,6 +393,16 @@ import {
     useExecutionDashboardPaidClientFeesSync,
     useExecutionDashboardPerformanceMonitor,
     useExecutionDashboardSummonsPopoverEscapeClose,
+    useExecutionDashboardSpecialRequestTemplateMenuDismiss,
+    useExecutionDashboardDossierLifecycleDraftSync,
+    useExecutionDashboardStandaloneMarksSync,
+    useExecutionDashboardFollowupSolidaryIndexReset,
+    useExecutionDashboardScopedDebtorNoticeSync,
+    useExecutionDashboardActiveTimelineFilterNormalize,
+    useExecutionDashboardEmployeeCompulsoryBannerReset,
+    useExecutionDashboardEmployeePersonalTabUnlockHydrate,
+    useExecutionDashboardPartiesExtraPanelsReset,
+    useExecutionResidentialGraceClearedListener,
 } from './executionDashboardCore/useExecutionDashboardRuntimeSyncEffects';
 import {
     useExecutionDecisionOutcomeToastBridge,
@@ -623,8 +633,6 @@ export function useExecutionDashboardCore({
         isUnifiedTabActive,
         activeSubFileId,
     });
-
-    useExecutionDashboardDebtorTabResetOnFileChange(executionData?.id, setExecutionDebtorTabIndex);
     
     // 🚀 V11.0: OPTIMIZED - Start with false since data is synchronous
     const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -835,6 +843,8 @@ export function useExecutionDashboardCore({
         openExecutionSeizuresTab,
     } = followupOrchestrator;
 
+    useExecutionDashboardDebtorTabResetOnFileChange(executionData?.id, setExecutionDebtorTabIndex);
+
     // NEW: Timeline Accordion    // NEW: Timeline Accordion (Relocated below Tools Grid)
     const [timelineAccordionExpanded, setTimelineAccordionExpanded] = useState<boolean>(false);
     const [activeTimelineFilter, setActiveTimelineFilter] = useState<string>('الكل');
@@ -934,42 +944,20 @@ export function useExecutionDashboardCore({
     const [paidDirectorateFees, setPaidDirectorateFees] = useState<number>(0);
     const [paidClientFees, setPaidClientFees] = useState<number>(0);
 
-    useExecutionDecisionOutcomeToastBridge({
-        executionDataId: executionData?.id,
-        executionId,
-        decisionsStorageExecutionId,
-        showUnifiedExecutionModalRef,
-        showToastRef,
-    });
-    useExecutionToastBridge(showToastRef);
-
-    useEffect(() => {
-        if (!specialRequestTemplateMenuOpen) return;
-        const onDoc = (e: MouseEvent) => {
-            const t = e.target as Node;
-            const menu = specialRequestTemplateMenuRef.current;
-            const input = document.getElementById('hami-smart-request-template');
-            if (menu?.contains(t)) return;
-            if (input && input.contains(t)) return;
-            setSpecialRequestTemplateMenuOpen(false);
-        };
-        document.addEventListener('mousedown', onDoc, true);
-        return () => document.removeEventListener('mousedown', onDoc, true);
-    }, [specialRequestTemplateMenuOpen]);
+    useExecutionDashboardSpecialRequestTemplateMenuDismiss(
+        specialRequestTemplateMenuOpen,
+        specialRequestTemplateMenuRef,
+        setSpecialRequestTemplateMenuOpen,
+    );
 
     useExecutionDashboardPaidClientFeesSync(executionData, setPaidClientFees);
 
-    useEffect(() => {
-        const s = normalizeDossierLifecycleStatus(executionData?.dossier_lifecycle_status);
-        setDossierStatusDraft(s);
-        setDossierReasonDraft(String(executionData?.dossier_status_reason ?? '').trim());
-        setDossierDateDraft(String(executionData?.dossier_status_date ?? '').slice(0, 10));
-    }, [
-        executionData?.id,
-        executionData?.dossier_lifecycle_status,
-        executionData?.dossier_status_reason,
-        executionData?.dossier_status_date,
-    ]);
+    useExecutionDashboardDossierLifecycleDraftSync({
+        executionData,
+        setDossierStatusDraft,
+        setDossierReasonDraft,
+        setDossierDateDraft,
+    });
 
     const [noteText, setNoteText] = useState<string>('');
     const [appointmentPurpose, setAppointmentPurpose] = useState<string>('');
@@ -1136,11 +1124,11 @@ export function useExecutionDashboardCore({
     );
     const standaloneExecutionMarksSnapshotRef = useRef<StandaloneExecutionMark[]>(standaloneExecutionMarks);
     standaloneExecutionMarksSnapshotRef.current = standaloneExecutionMarks;
-    useEffect(() => {
-        const marks = (executionData as ExecutionFile | null | undefined)?.standaloneExecutionMarks;
-        if (!Array.isArray(marks)) return;
-        setStandaloneExecutionMarks(marks as StandaloneExecutionMark[]);
-    }, [executionData?.standaloneExecutionMarks, executionStorageTick]);
+    useExecutionDashboardStandaloneMarksSync(
+        executionData,
+        executionStorageTick,
+        setStandaloneExecutionMarks,
+    );
 
     const getMilestoneTimelineSnapshot = useCallback(
         () =>
@@ -1328,6 +1316,15 @@ export function useExecutionDashboardCore({
         hideToast,
         showToastRef,
     } = useToastSystem(executionData?.id, executionId);
+
+    useExecutionDecisionOutcomeToastBridge({
+        executionDataId: executionData?.id,
+        executionId,
+        decisionsStorageExecutionId,
+        showUnifiedExecutionModalRef,
+        showToastRef,
+    });
+    useExecutionToastBridge(showToastRef);
 
     const decisionsOrchestrator = useExecutionDecisionsOrchestrator({
         showDecisionsModal,
@@ -1738,9 +1735,11 @@ export function useExecutionDashboardCore({
 
 
 
-    useEffect(() => {
-        setFollowupSolidaryDebtorIndex(0);
-    }, [executionDebtorTabIndex, activeLiabilityGroupId]);
+    useExecutionDashboardFollowupSolidaryIndexReset(
+        executionDebtorTabIndex,
+        activeLiabilityGroupId,
+        setFollowupSolidaryDebtorIndex,
+    );
 
     const mergedTimelineEventsDebtorScoped = useMemo(() => {
         if (!debtorBrowserTabsMode || !primaryDebtorWorkspaceKey) {
@@ -1845,16 +1844,13 @@ export function useExecutionDashboardCore({
             executionData?.debtor_summons_marker,
         ]
     );
-    useEffect(() => {
-        setNotificationCount((prev) =>
-            prev === scopedNotificationCount ? prev : scopedNotificationCount
-        );
-    }, [scopedNotificationCount, unifiedSummonsTargetDebtorKey]);
-    useEffect(() => {
-        setDebtorSummonsMarkerLocal((prev) =>
-            areDebtorSummonsMarkersEqual(prev, scopedSummonsMarker) ? prev : scopedSummonsMarker
-        );
-    }, [scopedSummonsMarker, unifiedSummonsTargetDebtorKey]);
+    useExecutionDashboardScopedDebtorNoticeSync({
+        scopedNotificationCount,
+        unifiedSummonsTargetDebtorKey,
+        scopedSummonsMarker,
+        setNotificationCount,
+        setDebtorSummonsMarkerLocal,
+    });
 
     const { activeDebtorIsEmployee, activeDebtorIsDeceased } = useActiveDebtorProfile(
         executionData,
@@ -2119,11 +2115,7 @@ export function useExecutionDashboardCore({
         [followupSpecialization, isRepresentingDebtor, hideCoerciveTabsForDebtorAgent]
     );
 
-    useEffect(() => {
-        setActiveTimelineFilter((prev) =>
-            normalizeExecutionTimelineFilter(prev, timelineFilterOptions)
-        );
-    }, [timelineFilterOptions]);
+    useExecutionDashboardActiveTimelineFilterNormalize(timelineFilterOptions, setActiveTimelineFilter);
 
     /** وفاة المدين أو استحصال مالي+موظف: إخفاء التبويب؛ الكاسب يعيد الظهور */
     const showPersonalCoerciveFollowupTab =
@@ -2134,16 +2126,10 @@ export function useExecutionDashboardCore({
         followupModalDebtorIsDeceased && followupModalDebtorIsEmployee
             ? 'حجز مستحقات ومكافأة نهاية الخدمة'
             : 'طلب حجز راتب (١/٥)';
-    useEffect(() => {
-        const ph = employeeAssignmentPhaseForCoercive;
-        if (
-            ph !== 'absent_declared' &&
-            ph !== 'investigation_pending' &&
-            ph !== 'warrant_ui'
-        ) {
-            setEmployeeCompulsoryBannerDismissed(false);
-        }
-    }, [employeeAssignmentPhaseForCoercive]);
+    useExecutionDashboardEmployeeCompulsoryBannerReset(
+        employeeAssignmentPhaseForCoercive,
+        setEmployeeCompulsoryBannerDismissed,
+    );
 
     const showEmployeeCompulsoryProceduresBanner =
         employeeAssignmentPhaseForCoercive === 'absent_declared' && !employeeCompulsoryBannerDismissed;
@@ -2159,16 +2145,11 @@ export function useExecutionDashboardCore({
         return ex ? `hami:employee_personal_unlock:${ex}` : '';
     }, [decisionsStorageExecutionId, executionData?.id, executionId]);
 
-    useEffect(() => {
-        if (!employeePersonalTabUnlockStorageKey) return;
-        try {
-            const raw = SecureStoreService.getItemSync(employeePersonalTabUnlockStorageKey);
-            if (!raw) return;
-            const parsed = JSON.parse(raw) as Record<string, boolean>;
-            if (!parsed || typeof parsed !== 'object') return;
-            setPersonalTabUnlockByDebtor((prev) => ({ ...parsed, ...prev }));
-        } catch {}
-    }, [employeePersonalTabUnlockStorageKey]);
+    useExecutionDashboardEmployeePersonalTabUnlockHydrate(
+        employeePersonalTabUnlockStorageKey,
+        setPersonalTabUnlockByDebtor,
+    );
+
     const custodyRemovalClaimActive = useMemo(
         () =>
             isCustodyRemovalExecutionClaim(
@@ -2335,51 +2316,27 @@ export function useExecutionDashboardCore({
         });
     }, [debtorBrowserTabsMode, debtorWorkspaceEntries.length]);
 
-    /** مزامنة لمرة واحدة: إضابر قديمة وافق المنفذ على صرف الأتعاب دون حفظ eviction_lawyer_fee_requested */
-    useExecutionDashboardEvictionLawyerFeeBackfill({
-        isEvictionExecutionModule,
-        executionData,
-        executionId,
+    useExecutionDashboardPartiesExtraPanelsReset(
         executionFileKey,
-        decisionsReloadEpoch,
-        persistExecutionMerge,
+        setShowExtraCreditors,
+        setShowExtraDebtors,
+    );
+
+    useExecutionResidentialGraceClearedListener({
+        executionDataId: executionData?.id,
+        executionId,
+        setEvictionVacateDeadlineLocal,
+        setEvictionVacateDraft,
+        setEvictionResidentialGracePeriodStart,
+        setEvictionResidentialGraceManuallyEndedAt,
+        setEvictionExecutorVacateGrantApproved,
+        setGraceModalAllowResave,
+        caseTasksPendingRef,
+        setCaseTasksPending,
+        setTimelineEvents,
+        persistExecutionMergeRef,
     });
 
-    useEffect(() => {
-        setShowExtraCreditors(false);
-        setShowExtraDebtors(false);
-    }, [executionFileKey]);
-
-
-    useEffect(() => {
-        const myId = String(executionData?.id ?? executionId ?? '').trim();
-        if (!myId) return;
-        const onGraceCleared = (e: Event) => {
-            const ce = e as CustomEvent<{ executionId?: string }>;
-            if (String(ce.detail?.executionId ?? '').trim() !== myId) return;
-            setEvictionVacateDeadlineLocal(null);
-            setEvictionVacateDraft('');
-            setEvictionResidentialGracePeriodStart(null);
-            setEvictionResidentialGraceManuallyEndedAt(null);
-            setEvictionExecutorVacateGrantApproved(false);
-            setGraceModalAllowResave(false);
-            const nextTasks = (caseTasksPendingRef.current || []).filter(
-                (t) => !String(t.id || '').startsWith('eviction-residential-grace-')
-            );
-            setCaseTasksPending(nextTasks);
-            setTimelineEvents((prev) => {
-                const next = stripResidentialGraceTimelineEvents(prev);
-                if (next.length === prev.length) return prev;
-                queueMicrotask(() => persistExecutionMergeRef.current?.({ timelineEvents: next }));
-                return next;
-            });
-        };
-        window.addEventListener(HAMI_RESIDENTIAL_GRACE_CLEARED, onGraceCleared as EventListener);
-        return () =>
-            window.removeEventListener(HAMI_RESIDENTIAL_GRACE_CLEARED, onGraceCleared as EventListener);
-    }, [executionData?.id, executionId]);
-
-    
     const executionExtras = (executionData || ({} as ExecutionFile)) as ExecutionFile & {
         perDebtorSalaries?: Record<string, string>;
         perDebtorGarnishments?: Record<string, string>;
@@ -2456,6 +2413,16 @@ export function useExecutionDashboardCore({
         monetaryExecutionStrictPathFlag,
         monetaryStrictForSummoningEngine,
     } = claimFinancials;
+
+    /** مزامنة لمرة واحدة: إضابر قديمة وافق المنفذ على صرف الأتعاب دون حفظ eviction_lawyer_fee_requested */
+    useExecutionDashboardEvictionLawyerFeeBackfill({
+        isEvictionExecutionModule,
+        executionData,
+        executionId,
+        executionFileKey,
+        decisionsReloadEpoch,
+        persistExecutionMergeRef,
+    });
 
     const seizureMatrixLedgerParamsRef = useRef<UnifiedLedgerTotalParams | null>(null);
     seizureMatrixLedgerParamsRef.current = seizureMatrixLedgerParams;
@@ -7440,6 +7407,7 @@ const {
     );
 
     const followupScopeBag = buildExecutionDashboardFollowupScopeBag({
+        activeCoerciveActions,
         activeDebtorIsDeceased,
         activeDebtorIsEmployee,
         activeDebtorIsLegalEntity,
