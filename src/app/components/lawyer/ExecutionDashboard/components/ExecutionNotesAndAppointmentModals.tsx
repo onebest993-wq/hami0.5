@@ -2,6 +2,13 @@ import React, { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import type { Dispatch, SetStateAction } from 'react';
 import { Pencil, Trash2, X } from 'lucide-react';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
+import {
+    EXEC_MODAL_BACKDROP_SAFE_PAD,
+    EXEC_MODAL_CLOSE_BTN_CLASS,
+    EXEC_MODAL_HEADER_SAFE_TOP,
+    EXEC_MODAL_NOTES_SHELL_MAX,
+} from '../executionModalMobileShell';
 import { ExecutionPinnedNotesTray } from './ExecutionPinnedNotesTray';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import {
@@ -144,17 +151,23 @@ export const ExecutionNotesAndAppointmentModals: React.FC<
         [caseTasksPending]
     );
 
+    useBodyScrollLock(showNotesModal || showAppointmentModal);
+
     return (
         <>
             {/* 🆕 V16: HYBRID NOTES/TASK ENGINE MODAL */}
             {showNotesModal && (
-                <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-xl flex items-center justify-center p-4">
+                <div
+                    className={`fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xl ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
+                >
                     <motion.div
                         initial={{ scale: 0.9, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
-                        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-amber-500/20 bg-[#0A0F1C]/88 p-6 shadow-2xl shadow-amber-500/10 backdrop-blur-3xl"
+                        className={`w-full max-w-lg overflow-y-auto rounded-3xl border border-amber-500/20 bg-[#0A0F1C]/88 p-6 shadow-2xl shadow-amber-500/10 backdrop-blur-3xl ${EXEC_MODAL_NOTES_SHELL_MAX}`}
                     >
-                        <div className="flex justify-between items-center mb-6">
+                        <div
+                            className={`mb-6 flex items-center justify-between ${EXEC_MODAL_HEADER_SAFE_TOP}`}
+                        >
                             <h3 className="text-xl font-bold bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent">
                                 سجل الملاحظات والمهام
                             </h3>
@@ -171,7 +184,7 @@ export const ExecutionNotesAndAppointmentModals: React.FC<
                                     setSavedNotesView('notes');
                                     setShowDoneTasksPanel(false);
                                 }}
-                                className="text-gray-400 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-lg"
+                                className={`${EXEC_MODAL_CLOSE_BTN_CLASS} text-gray-400 hover:text-white hover:bg-white/5`}
                             >
                                 <X size={24} />
                             </button>
@@ -285,14 +298,18 @@ export const ExecutionNotesAndAppointmentModals: React.FC<
             )}
 
             {showAppointmentModal && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xl">
+                <div
+                    className={`fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xl ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
+                >
                     <motion.div
                         initial={{ scale: 0.9, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
-                        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-amber-500/20 bg-[#0A0F1C]/88 p-6 shadow-2xl shadow-amber-500/10 backdrop-blur-3xl"
+                        className={`w-full max-w-lg overflow-y-auto rounded-3xl border border-amber-500/20 bg-[#0A0F1C]/88 p-6 shadow-2xl shadow-amber-500/10 backdrop-blur-3xl ${EXEC_MODAL_NOTES_SHELL_MAX}`}
                         dir="rtl"
                     >
-                        <div className="mb-5 flex items-center justify-between">
+                        <div
+                            className={`mb-5 flex items-center justify-between ${EXEC_MODAL_HEADER_SAFE_TOP}`}
+                        >
                             <h3 className="text-xl font-bold bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent">
                                 {editingAppointmentId ? 'تعديل موعد' : 'إضافة موعد'}
                             </h3>
@@ -305,7 +322,7 @@ export const ExecutionNotesAndAppointmentModals: React.FC<
                                     setAppointmentDateOnly('');
                                     setAppointmentTimeOptional('');
                                 }}
-                                className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
+                                className={EXEC_MODAL_CLOSE_BTN_CLASS}
                             >
                                 <X size={24} />
                             </button>

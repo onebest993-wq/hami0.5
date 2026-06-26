@@ -1,5 +1,12 @@
 ﻿import React from 'react';
 import { Car, FileText, FolderOpen, Gavel, Lock, TrendingUp, Wallet, X } from 'lucide-react';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
+import {
+    EXEC_MODAL_BACKDROP_SAFE_PAD,
+    EXEC_MODAL_CLOSE_BTN_CLASS,
+    EXEC_MODAL_COERCIVE_SHELL_MAX,
+    EXEC_MODAL_HEADER_SAFE_TOP,
+} from '../executionModalMobileShell';
 
 export interface ExecutionCoerciveActionsModalContainerProps {
     showCoerciveModal: boolean;
@@ -32,13 +39,27 @@ export const ExecutionCoerciveActionsModalContainer: React.FC<ExecutionCoerciveA
     isNonFinancialClaim,
     showToast,
 }) => {
+    useBodyScrollLock(showCoerciveModal);
+
     if (!showCoerciveModal) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4" onClick={() => setShowCoerciveModal(false)}>
-            <div className="bg-[#0B1120] border-2 border-rose-500/40 rounded-3xl w-full max-w-md max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-                <div className="sticky top-0 bg-[#0B1120] border-b border-rose-500/30 p-4 flex justify-between items-center z-10">
-                    <button type="button" onClick={() => setShowCoerciveModal(false)} className="p-2 hover:bg-rose-500/20 rounded-lg transition-all">
+        <div
+            className={`fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
+            onClick={() => setShowCoerciveModal(false)}
+        >
+            <div
+                className={`w-full max-w-md overflow-y-auto rounded-3xl border-2 border-rose-500/40 bg-[#0B1120] ${EXEC_MODAL_COERCIVE_SHELL_MAX}`}
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div
+                    className={`sticky top-0 z-10 flex items-center justify-between border-b border-rose-500/30 bg-[#0B1120] p-4 ${EXEC_MODAL_HEADER_SAFE_TOP}`}
+                >
+                    <button
+                        type="button"
+                        onClick={() => setShowCoerciveModal(false)}
+                        className={EXEC_MODAL_CLOSE_BTN_CLASS}
+                    >
                         <X size={20} className="text-white" />
                     </button>
                     <h2 className="text-rose-400 font-bold text-lg flex items-center gap-2">

@@ -12,3 +12,9 @@ export const EXEC_MODAL_BACKDROP_SAFE_PAD =
 
 export const EXEC_MODAL_TRASH_SHELL_MAX =
     'max-h-[min(85dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)))]';
+
+export const EXEC_MODAL_NOTES_SHELL_MAX =
+    'max-h-[min(90dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)))]';
+
+export const EXEC_MODAL_COERCIVE_SHELL_MAX =
+    'max-h-[min(80dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)))]';

@@ -361,6 +361,8 @@ import { useExecutionDashboardEmployeeAssignmentHandlers } from './executionDash
 import { useExecutionDashboardPartyDeathHandlers } from './executionDashboardCore/useExecutionDashboardPartyDeathHandlers';
 import { useExecutionDashboardEmployeeInvestigationSync } from './executionDashboardCore/useExecutionDashboardEmployeeInvestigationSync';
 import { useExecutionDashboardEmployeeAssignmentCoerciveState } from './executionDashboardCore/useExecutionDashboardEmployeeAssignmentCoerciveState';
+import { useExecutionDashboardPersonalCoerciveDecisionSync } from './executionDashboardCore/useExecutionDashboardPersonalCoerciveDecisionSync';
+import { useExecutionDashboardExecutiveDetentionLifecycle } from './executionDashboardCore/useExecutionDashboardExecutiveDetentionLifecycle';
 import { useExecutionDashboardPublicationNoticeHandlers } from './executionDashboardCore/useExecutionDashboardPublicationNoticeHandlers';
 import { useExecutionDashboardPaymentHandlers } from './executionDashboardCore/useExecutionDashboardPaymentHandlers';
 import { useExecutionDashboardStayHandlers } from './executionDashboardCore/useExecutionDashboardStayHandlers';
@@ -4685,24 +4687,14 @@ export function useExecutionDashboardCore({
 
     const exIdForPersonalDecisions = executionData?.id ?? executionId;
 
-    useEffect(() => {
-        if (!exIdForPersonalDecisions) return;
-        const rows = readExecutorDecisionsArray(exIdForPersonalDecisions);
-        const travelOk = rows.some(
-            (r) =>
-                r.requestKind === 'personal_coercive' &&
-                r.personalCoerciveSubtype === 'travel_ban' &&
-                r.executorOutcome === 'approved'
-        );
-        if (travelOk && !executionData?.debtor_travel_ban_active) {
-            persistExecutionMerge({ debtor_travel_ban_active: true });
-        }
-    }, [
+    useExecutionDashboardPersonalCoerciveDecisionSync({
+        executionData,
+        executionId: exIdForPersonalDecisions,
         decisionsReloadEpoch,
-        exIdForPersonalDecisions,
-        executionData?.debtor_travel_ban_active,
         persistExecutionMerge,
-    ]);
+        setTimelineEvents,
+        nextTimelineId,
+    });
 
     useExecutionDashboardEmployeeInvestigationSync({
         executionData,
@@ -4713,108 +4705,11 @@ export function useExecutionDashboardCore({
         showToast,
     });
 
-    useEffect(() => {
-        if (!exIdForPersonalDecisions) return;
-        if (executionData?.forced_bring_in_personal_followup_logged) return;
-        const rows = readExecutorDecisionsArray(exIdForPersonalDecisions);
-        const ok = rows.some(
-            (r) =>
-                r.requestKind === 'personal_coercive' &&
-                r.personalCoerciveSubtype === 'forced_bring_in' &&
-                r.executorOutcome === 'approved'
-        );
-        if (!ok) return;
-        setTimelineEvents((prev) => {
-            if (prev.some((e) => e.title && e.title.includes('مسودة مذكرة إحضار'))) {
-                queueMicrotask(() =>
-                    persistExecutionMerge({ forced_bring_in_personal_followup_logged: true })
-                );
-                return prev;
-            }
-            const now = new Date().toISOString();
-            const memo: TimelineEvent = {
-                id: nextTimelineId(),
-                date: now.slice(0, 10),
-                timestamp: now,
-                title: '📄 مسودة مذكرة إحضار (بعد موافقة المنفذ)',
-                description:
-                    'راجع الصياغة للطباعة وتسليمها لمركز الشرطة / المفرزة. يُسجّل إنجاز المهمة عند إتمام التنفيذ الميداني.',
-                type: 'coercive',
-                source: 'محضر المتابعة',
-            };
-            const task: TimelineEvent = {
-                id: nextTimelineId(),
-                date: now.slice(0, 10),
-                timestamp: now,
-                title: '📌 مهمة: مرافقة المفرزة أو تسليم مذكرة الإحضار',
-                description: 'متابعة ميدانية — حدّد الموعد من «إضافة موعد» إن لزم.',
-                type: 'other',
-                source: 'محضر المتابعة',
-            };
-            const next = [memo, task, ...prev];
-            queueMicrotask(() =>
-                persistExecutionMerge({
-                    timelineEvents: next,
-                    forced_bring_in_personal_followup_logged: true,
-                })
-            );
-            return next;
-        });
-    }, [
-        decisionsReloadEpoch,
-        exIdForPersonalDecisions,
-        executionData?.forced_bring_in_personal_followup_logged,
-        nextTimelineId,
-        persistExecutionMerge,
-    ]);
-
-    const executiveDetentionReminderFiredRef = useRef(false);
-    useEffect(() => {
-        if (!executionData?.executive_detention_reminder_sent) {
-            executiveDetentionReminderFiredRef.current = false;
-        }
-    }, [executionData?.executive_detention_reminder_sent]);
-
-    useEffect(() => {
-        const until = executionData?.executive_detention_until;
-        if (!executionData?.debtor_executive_detention_active) return;
-        if (until) {
-            const end = new Date(`${until}T23:59:59`);
-            if (!Number.isNaN(end.getTime()) && Date.now() > end.getTime()) {
-                persistExecutionMerge({
-                    debtor_executive_detention_active: false,
-                    executive_detention_until: null,
-                    executive_detention_days_total: null,
-                    executive_detention_reminder_sent: false,
-                    executive_detention_released_or_closed_at: new Date().toISOString(),
-                });
-                return;
-            }
-        }
-        if (!until) return;
-        if (executionData.executive_detention_reminder_sent || executiveDetentionReminderFiredRef.current) {
-            return;
-        }
-        const end = new Date(`${until}T23:59:59`);
-        if (Number.isNaN(end.getTime())) return;
-        const msLeft = end.getTime() - Date.now();
-        const twoDays = 2 * 24 * 60 * 60 * 1000;
-        if (msLeft > 0 && msLeft <= twoDays) {
-            executiveDetentionReminderFiredRef.current = true;
-            showToast(
-                '⏳ يتبقّى أقل من يومين على انتهاء الحبس التنفيذي — قرّر طلب التجديد أو المتابعة.',
-                'warning'
-            );
-            persistExecutionMerge({ executive_detention_reminder_sent: true });
-        }
-    }, [
-        executionData?.executive_detention_until,
-        executionData?.debtor_executive_detention_active,
-        executionData?.executive_detention_reminder_sent,
+    useExecutionDashboardExecutiveDetentionLifecycle({
+        executionData,
         persistExecutionMerge,
         showToast,
-    ]);
-
+    });
 
     const { handleLiftStayOfExecution, handleSpecialCasesStay, handleResumeExecution } =
         useExecutionDashboardStayHandlers({
