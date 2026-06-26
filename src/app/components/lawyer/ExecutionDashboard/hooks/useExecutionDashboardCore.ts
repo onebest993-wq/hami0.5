@@ -90,7 +90,6 @@ import { useDebtorScopedTimeline } from './useDebtorScopedTimeline';
 import { useDossierDeathStatus } from './useDossierDeathStatus';
 import { useDossierHeaderMetadata } from './useDossierHeaderMetadata';
 import {
-    executionFileContentSignature,
     useExecutionData,
     useStableExecutionFileForStore,
 } from './useExecutionData';
@@ -177,7 +176,6 @@ import {
     readExecutorDecisionsArray,
     readSeizureRequestTarget,
     getExecutorDecisionRowById,
-    mergeExecutorDecisionsInto,
     isExecutorRowEffectivelyApproved,
     isExecutorRowRejectedAndFinal,
     supersedeGuarantorRequestDecisionsForExecution,
@@ -198,9 +196,6 @@ import { isPersonalStatusCourtDecisionsDossier } from '@/app/utils/followupSpeci
 import {
     resolveExecutionDomainContext,
 } from '@/app/utils/executionDomainIsolation';
-import { ensureDecisionsNamespaceMigrated } from '@/app/utils/executionDecisionsNamespace';
-import { resolveDecisionsModalBootState } from '@/app/utils/decisionsModalBoot';
-import { reconcileDomainViolatingDecisions } from '@/app/utils/executionDomainReconcile';
 import {
     applyDebtorDeathFollowupOverlay,
 } from '@/app/utils/partyDeathClaimPolicy';
@@ -244,12 +239,6 @@ import type { PropertyInlineSaveContext } from '@/app/components/lawyer/Executio
 import {
     isSalarySeizureLaneOccupied,
 } from '@/app/components/lawyer/ExecutionDashboard/utils/salarySeizureTabUtils';
-import {
-    prefetchExecutionDashboardShell,
-    prefetchExecutionModalContainers,
-    prefetchExecutionOverlayModals,
-} from '../executionDashboardLazyRegistry';
-import { prefetchExecutionFollowupDefaultTab } from '../executionFollowupTabPrefetch';
 import { AR_TABLIGH_RAQM } from '../executionDashboardLazyShellUi';
 import { FollowupModalContext } from '../followupModalContext';
 import { buildFollowupModalSnapshot } from '../followupModalSnapshot';
@@ -378,6 +367,23 @@ import { useExecutionDashboardPublicationNoticeHandlers } from './executionDashb
 import { useExecutionDashboardPaymentHandlers } from './executionDashboardCore/useExecutionDashboardPaymentHandlers';
 import { useExecutionDashboardStayHandlers } from './executionDashboardCore/useExecutionDashboardStayHandlers';
 import { useExecutionDashboardDossierFollowupHandlers } from './executionDashboardCore/useExecutionDashboardDossierFollowupHandlers';
+import {
+    useExecutionDashboardDecisionsNamespaceReconcile,
+    useExecutionDashboardDecisionsStorageMigration,
+    useExecutionDashboardDossierLifecycleReconcile,
+    useExecutionDashboardShellPrefetch,
+    useExecutionDashboardStoreFileSync,
+    useExecutionDashboardUrlDelegationSync,
+} from './executionDashboardCore/useExecutionDashboardDossierBootLifecycle';
+import {
+    useExecutionDashboardExecutionFileCoerciveRefresh,
+    useExecutionDashboardSubDossierTimelineLifecycle,
+} from './executionDashboardCore/useExecutionDashboardSubDossierTimelineLifecycle';
+import { useExecutionDashboardOpenDecisionsModalBridge } from './executionDashboardCore/useExecutionDashboardOpenDecisionsModalBridge';
+import {
+    useExecutionDecisionOutcomeToastBridge,
+    useExecutionToastBridge,
+} from './useExecutionDashboardWindowBridge';
 
 import { pickExecutionFollowupScopeSlice } from './pickExecutionFollowupScopeSlice';
 import { useEarnerFinancialPersonalCoerciveFlags } from './executionDashboardEarnerFinancialCoerciveGate';
@@ -470,11 +476,11 @@ export function useExecutionDashboardCore({
     );
 
     /** مزامنة URL → Store عند بدء التشغيل */
-    useEffect(() => {
-        if (urlDelegationParentId && !delegationParentFileId) {
-            setDelegationParentFileId(urlDelegationParentId);
-        }
-    }, [urlDelegationParentId, delegationParentFileId, setDelegationParentFileId]);
+    useExecutionDashboardUrlDelegationSync(
+        urlDelegationParentId,
+        delegationParentFileId,
+        setDelegationParentFileId,
+    );
 
     /** 🆕 التبويبات (Parent-Child) — orchestrator */
     const { activeTabId, setActiveTabId } = useExecutionDossierTabOrchestrator(String(currentFileId || ''));
@@ -557,60 +563,22 @@ export function useExecutionDashboardCore({
         decisionsStorageExecutionId !== 'default' ? decisionsStorageExecutionId : undefined
     );
 
-    useEffect(() => {
-        if (isHistoricalMode) return;
-        const target = String(decisionsStorageExecutionId || '').trim();
-        if (!target || target === 'default' || target === 'undefined') return;
-
-        const legacyBase = String(executionId ?? file?.id ?? '').trim();
-        const legacySub = activeSubFileId ? `${legacyBase || target}__sub__${activeSubFileId}` : '';
-        const tabId = String(activeTabId || '').trim();
-        const baseId = String(currentFileId || '').trim();
-        const legacyTab = tabId && baseId && tabId !== baseId ? tabId : '';
-
-        const sources = [legacyBase, legacySub, legacyTab]
-            .map((x) => String(x || '').trim())
-            .filter((x) => x && x !== 'default' && x !== 'undefined' && x !== target);
-        if (sources.length === 0) return;
-
-        const markerKey = `decisions-migration:${target}`;
-        const markerVal = [...new Set(sources)].sort().join('|');
-        try {
-            const prev = String(SecureStoreService.getItemSync(markerKey) || '');
-            if (prev === markerVal) return;
-            mergeExecutorDecisionsInto({
-                targetExecutionId: target,
-                sourceExecutionIds: sources,
-            });
-            SecureStoreService.setItemSync(markerKey, markerVal);
-        } catch {}
-    }, [
-        activeSubFileId,
-        activeTabId,
-        currentFileId,
+    useExecutionDashboardDecisionsStorageMigration({
+        isHistoricalMode,
         decisionsStorageExecutionId,
         executionId,
-        file?.id,
-        isHistoricalMode,
-    ]);
+        fileId: file?.id,
+        activeSubFileId,
+        activeTabId,
+        currentFileId: String(currentFileId || ''),
+    });
 
-    useEffect(() => {
-        if (isHistoricalMode) return;
-        const target = String(decisionsStorageExecutionId || '').trim();
-        if (!target || target === 'default' || target === 'undefined') return;
-        const dataRef = executionDataRef.current as Record<string, unknown> | null | undefined;
-        ensureDecisionsNamespaceMigrated(target, dataRef);
-        reconcileDomainViolatingDecisions(target, dataRef);
-    }, [
-        decisionsStorageExecutionId,
-        executionData?.claimType,
-        executionData?.claimTypes,
-        executionData?.representedParty,
-        executionData?.debtors,
-        executionData?.docType,
-        executionData?.classification,
+    useExecutionDashboardDecisionsNamespaceReconcile({
         isHistoricalMode,
-    ]);
+        decisionsStorageExecutionId,
+        executionDataRef,
+        executionData,
+    });
 
     const dossierFileKey = String(executionData?.id ?? executionId ?? file?.id ?? '');
     const executionFileKey = String(file?.id ?? executionId ?? '');
@@ -621,18 +589,11 @@ export function useExecutionDashboardCore({
         return s.dossierLifecycleByFileId[k];
     });
 
-    useEffect(() => {
-        if (!dossierFileKey || dossierFileKey === 'undefined') return;
-        reconcileDossierLifecycle(dossierFileKey, executionData ?? undefined);
-    }, [
+    useExecutionDashboardDossierLifecycleReconcile({
         dossierFileKey,
+        executionData,
         reconcileDossierLifecycle,
-        executionData?.dossier_lifecycle_status,
-        executionData?.dossier_last_action_date,
-        executionData?.lastActionDate,
-        executionData?.dossier_status_reason,
-        executionData?.dossier_status_date,
-    ]);
+    });
 
     /** يُزامَن مع الملف عبر scopedSummonsMarker + unifiedSummonsTargetDebtorKey (مصدر واحد، بلا تكرار مع الجذر فقط) */
     const [debtorSummonsMarkerLocal, setDebtorSummonsMarkerLocal] = useState<
@@ -643,19 +604,11 @@ export function useExecutionDashboardCore({
         isUnifiedTabActive ? unifiedTabFileRow : (file as ExecutionFile | null | undefined),
     );
 
-    useEffect(() => {
-        if (!fileForStoreSync) return;
-        const store = useExecutionDashboardStore.getState();
-        if (store.activeSubFileId || isInabaSubFileId(store.currentFile?.id)) return;
-        if (isUnifiedTabActive) return;
-        const prevSig = executionFileContentSignature(store.currentFile);
-        const nextSig = executionFileContentSignature(fileForStoreSync);
-        if (prevSig === nextSig) return;
-        const prevTs = Date.parse(String(store.currentFile?.updatedAt || ''));
-        const nextTs = Date.parse(String(fileForStoreSync.updatedAt || ''));
-        if (Number.isFinite(prevTs) && Number.isFinite(nextTs) && prevTs > nextTs) return;
-        store.setCurrentFile(fileForStoreSync);
-    }, [fileForStoreSync, isUnifiedTabActive, activeSubFileId]);
+    useExecutionDashboardStoreFileSync({
+        fileForStoreSync,
+        isUnifiedTabActive,
+        activeSubFileId,
+    });
 
     useEffect(() => {
         setExecutionDebtorTabIndex(0);
@@ -667,16 +620,7 @@ export function useExecutionDashboardCore({
     
     const debtorsSectionRef = useRef<DebtorsSectionHandle>(null);
 
-    useEffect(() => {
-        prefetchExecutionDashboardShell();
-        prefetchExecutionFollowupDefaultTab();
-        prefetchExecutionModalContainers();
-        if (typeof requestIdleCallback !== 'undefined') {
-            requestIdleCallback(() => prefetchExecutionOverlayModals(), { timeout: 2500 });
-        } else {
-            window.setTimeout(() => prefetchExecutionOverlayModals(), 800);
-        }
-    }, []);
+    useExecutionDashboardShellPrefetch();
     const {
         showExtraCreditors,
         setShowExtraCreditors,
@@ -985,54 +929,14 @@ export function useExecutionDashboardCore({
     const [paidDirectorateFees, setPaidDirectorateFees] = useState<number>(0);
     const [paidClientFees, setPaidClientFees] = useState<number>(0);
 
-    useEffect(() => {
-        const myId = String(executionData?.id ?? executionId ?? '');
-        if (!myId) return;
-        const handler = (e: Event) => {
-            queueMicrotask(() => {
-                const ce = e as CustomEvent<{
-                    executionId?: string;
-                    requestKind?: string;
-                    outcome?: string;
-                    decisionId?: string;
-                    personalCoerciveSubtype?: string;
-                    suppressNavigatorToast?: boolean;
-                }>;
-                const evId = String(ce.detail?.executionId ?? '');
-                if (evId !== myId && evId !== String(decisionsStorageExecutionId ?? '')) return;
-                if (ce.detail?.suppressNavigatorToast === true) return;
-                const outcome = String(ce.detail?.outcome ?? '');
-                if (outcome !== 'approved' && outcome !== 'rejected' && outcome !== 'alternative') return;
-                const decisionId = String(ce.detail?.decisionId ?? '').trim();
-                if (!decisionId) return;
-                const kind = String(ce.detail?.requestKind ?? '').trim();
-                if (!kind) return;
-                const pcSubtype = String(ce.detail?.personalCoerciveSubtype ?? '').trim();
-                if (kind === 'seizure' || kind === 'unified_collection' || kind === 'guarantor_request' || kind === 'third_party_funds_received') return;
-                if (showUnifiedExecutionModalRef.current) return;
-
-                showToastRef.current(
-                    outcome === 'approved' || outcome === 'alternative'
-                        ? 'تم بتّ الطلب من المنفذ.'
-                        : 'تم رفض الطلب من المنفذ.',
-                    outcome === 'approved' || outcome === 'alternative' ? 'success' : 'info'
-                );
-            });
-        };
-        window.addEventListener('hami-execution-decision-outcome', handler as EventListener);
-        return () => window.removeEventListener('hami-execution-decision-outcome', handler as EventListener);
-    }, [executionData?.id, executionId, decisionsStorageExecutionId]);
-
-    useEffect(() => {
-        const onToast = (e: Event) => {
-            const ce = e as CustomEvent<{ message: string; type: 'success' | 'warning' | 'info' }>;
-            if (ce.detail?.message) {
-                showToastRef.current(ce.detail.message, ce.detail.type || 'success');
-            }
-        };
-        window.addEventListener('hami-toast', onToast as EventListener);
-        return () => window.removeEventListener('hami-toast', onToast as EventListener);
-    }, []);
+    useExecutionDecisionOutcomeToastBridge({
+        executionDataId: executionData?.id,
+        executionId,
+        decisionsStorageExecutionId,
+        showUnifiedExecutionModalRef,
+        showToastRef,
+    });
+    useExecutionToastBridge(showToastRef);
 
     useEffect(() => {
         if (!specialRequestTemplateMenuOpen) return;
@@ -1194,50 +1098,6 @@ export function useExecutionDashboardCore({
 
     /** دمج أحداث الإضبارة الفرعية مع الإضبارة الأم — مع إضافة source badge */
     const [showOnlyActiveFileTimeline, setShowOnlyActiveFileTimeline] = useState(false);
-    /** عند التبديل إلى الإضبارة الفرعية، أظهر سجلها الزمني المستقل فقط */
-    useEffect(() => {
-        if (activeSubFileId) {
-            setShowOnlyActiveFileTimeline(true);
-        }
-    }, [activeSubFileId]);
-
-    const subDossierOpenedBackfillSigRef = useRef('');
-    /** ضمان حدث «فتح الإضبارة الفرعية» — مرة واحدة لكل إضبارة فرعية */
-    useEffect(() => {
-        if (!isInabaActive || !activeSubFileId || !parentDossierId) return;
-        const sig = `${activeSubFileId}:${parentDossierId}`;
-        const tls = Array.isArray(executionData?.timelineEvents) ? executionData.timelineEvents : [];
-        const threadKey = `sub_dossier_opened:${activeSubFileId}`;
-        const hasOpen = tls.some(
-            (e) =>
-                String((e as { metadata?: Record<string, unknown> })?.metadata?.timelineThreadKey || '') ===
-                threadKey
-        );
-        if (hasOpen) {
-            subDossierOpenedBackfillSigRef.current = sig;
-            return;
-        }
-        if (subDossierOpenedBackfillSigRef.current === sig) return;
-        subDossierOpenedBackfillSigRef.current = sig;
-        const next = ensureSubDossierOpenedTimelineEvent(
-            tls,
-            activeSubFileId,
-            parentDossierId,
-            String(executionData?.directorate || executionData?.delegationTargetDirectorate || '')
-        );
-        setTimelineEvents(next);
-        queueMicrotask(() => {
-            persistExecutionMergeRef.current?.({ timelineEvents: next });
-        });
-    }, [
-        isInabaActive,
-        activeSubFileId,
-        parentDossierId,
-        executionData?.id,
-        executionData?.directorate,
-        executionData?.delegationTargetDirectorate,
-        executionData?.timelineEvents,
-    ]);
     const mergedTimelineEvents = useMergedTimelineEvents(
         activeTimelineEvents,
         subFiles as any[],
@@ -1269,44 +1129,6 @@ export function useExecutionDashboardCore({
         () => caseTasksPending.filter((t) => !t.trashedAt && Boolean(t.pinned)),
         [caseTasksPending]
     );
-
-    /** عند تغيّر ملف التنفيذ: لا يبقى سجل زمني أو ملاحظات أو مهام من إضبارة أخرى في الحالة المحلية */
-    useEffect(() => {
-        if (!executionData?.id) return;
-        const tls = executionData.timelineEvents;
-        const raw = Array.isArray(tls) ? tls : [];
-        const scoped =
-            isInabaSubFileId(executionData.id) && activeSubFileId && parentDossierId
-                ? ensureSubDossierOpenedTimelineEvent(
-                      filterTimelineEventsForInabaDossier(raw, activeSubFileId),
-                      activeSubFileId,
-                      parentDossierId,
-                      String(
-                          executionData.directorate ||
-                              (executionData as { delegationTargetDirectorate?: string })
-                                  .delegationTargetDirectorate ||
-                              ''
-                      )
-                  )
-                : parentDossierId
-                  ? filterTimelineEventsForParentDossier(raw, parentDossierId)
-                  : raw;
-        setTimelineEvents(scoped);
-        const notes = executionData.caseNotesLog;
-        setCaseNotesLog(Array.isArray(notes) ? notes : []);
-        const tasks = executionData.caseTasksPending;
-        setCaseTasksPending(Array.isArray(tasks) ? tasks : []);
-        setSeizedAssets(Array.isArray(executionData.seizedAssets) ? executionData.seizedAssets : []);
-        setSeizureDraftsByDecisionId(executionData.seizureDraftsByDecisionId ?? {});
-        setActiveCoerciveActions(Array.isArray(executionData.activeCoerciveActions) ? executionData.activeCoerciveActions : []);
-        setRealEstateSeizureAssets(
-            Array.isArray(executionData.realEstateSeizureAssets) ? executionData.realEstateSeizureAssets : []
-        );
-    }, [executionDashboardFileId, activeSubFileId, parentDossierId, executionData?.directorate]);
-
-    useEffect(() => {
-        subDossierOpenedBackfillSigRef.current = '';
-    }, [activeSubFileId, isInabaActive]);
 
     const nextTimelineId = useCallback(
         () => `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
@@ -1359,6 +1181,24 @@ export function useExecutionDashboardCore({
     const seizureDraftsByDecisionIdRef = useRef(seizureDraftsByDecisionId);
     seizureDraftsByDecisionIdRef.current = seizureDraftsByDecisionId;
     const [activeCoerciveActions, setActiveCoerciveActions] = useState<string[]>(executionData?.activeCoerciveActions || []);
+
+    useExecutionDashboardSubDossierTimelineLifecycle({
+        activeSubFileId,
+        isInabaActive,
+        parentDossierId,
+        executionData,
+        executionDashboardFileId,
+        setShowOnlyActiveFileTimeline,
+        setTimelineEvents,
+        persistExecutionMergeRef,
+        setCaseNotesLog,
+        setCaseTasksPending,
+        setSeizedAssets,
+        setSeizureDraftsByDecisionId,
+        setActiveCoerciveActions,
+        setRealEstateSeizureAssets,
+    });
+
     const [showCoerciveActionForm, setShowCoerciveActionForm] = useState<string | null>(null); // null | 'salary' | 'property' | 'travel' | 'imprisonment'
     /** بعد موافقة المنفذ على طلب الحجز — إكمال الحقول التفصيلية في النافذة نفسها */
     const [seizureDetailCompletion, setSeizureDetailCompletion] = useState<{
@@ -1545,35 +1385,15 @@ export function useExecutionDashboardCore({
         [forcedBringDecisionState.approved, executionData?.forced_bring_in_personal_outcome]
     );
 
-    useEffect(() => {
-        if (!executionData?.id) return;
-        /** منع تسرّب محجوزات/إجراءات إكراهية من إضبارة سابقة عند غياب الحقول في الملف الحالي */
-        setSeizedAssets(Array.isArray(executionData.seizedAssets) ? executionData.seizedAssets : []);
-        const ac = (executionData as ExecutionFile).activeCoerciveActions;
-        setActiveCoerciveActions(Array.isArray(ac) ? [...ac] : []);
-        const dr = executionData.seizureDraftsByDecisionId;
-        setSeizureDraftsByDecisionId(
-            dr && typeof dr === 'object' && !Array.isArray(dr) ? (dr as Record<string, SeizedAsset>) : {}
-        );
-        setForcedAttendanceIssued(
-            typeof executionData.forcedAttendanceIssued === 'boolean'
-                ? executionData.forcedAttendanceIssued
-                : false
-        );
-        setActiveNoticeState(executionData.activeNoticeState ?? null);
-        setCaseTasksPending(
-            Array.isArray(executionData.caseTasksPending) ? executionData.caseTasksPending : []
-        );
-    }, [
-        executionData?.id,
-        executionData?.updatedAt,
-        executionData?.seizedAssets,
-        executionData?.forcedAttendanceIssued,
-        executionData?.activeNoticeState,
-        (executionData as ExecutionFile)?.activeCoerciveActions,
-        executionData?.seizureDraftsByDecisionId,
-        executionData?.caseTasksPending,
-    ]);
+    useExecutionDashboardExecutionFileCoerciveRefresh({
+        executionData,
+        setSeizedAssets,
+        setActiveCoerciveActions,
+        setSeizureDraftsByDecisionId,
+        setForcedAttendanceIssued,
+        setActiveNoticeState,
+        setCaseTasksPending,
+    });
     
     // 🆕 V10.8: EXECUTION FEE INJECTION STATE
     const [executionFeeInjected, setExecutionFeeInjected] = useState<boolean>(executionData?.executionFeeInjected || false);
@@ -1594,35 +1414,10 @@ export function useExecutionDashboardCore({
         openFinancialHubLedger,
     } = useExecutionFinancialOrchestrator({ setShowUnifiedExecutionModal });
 
-    useEffect(() => {
-        const handler = (e: Event) => {
-            const ce = e as CustomEvent<{ executionId?: string; decisionId?: string; tab?: string }>;
-            const myId = String(executionData?.id ?? executionId ?? '');
-            if (!myId || String(ce.detail?.executionId ?? '') !== myId) return;
-            setShowExecutionFinancialHub(false);
-            setShowUnifiedExecutionModal(false);
-            setShowUnifiedSummonsModal(false);
-            setShowNotesModal(false);
-            setShowDocumentsModal(false);
-            setShowAppointmentModal(false);
-            setShowTimelineModal(false);
-            setShowNotificationModal(false);
-            const tabRaw = String(ce.detail?.tab || '').trim();
-            const tab =
-                tabRaw === 'current' || tabRaw === 'previous' || tabRaw === 'appeals'
-                    ? tabRaw
-                    : undefined;
-            const did = String(ce.detail?.decisionId || '').trim() || null;
-            openDecisionsModalWithBoot(
-                tab || did ? { tab: tab ?? undefined, decisionId: did } : undefined,
-            );
-        };
-        window.addEventListener('hami-open-decisions-modal', handler as EventListener);
-        return () => window.removeEventListener('hami-open-decisions-modal', handler as EventListener);
-    }, [
-        executionData?.id,
+    useExecutionDashboardOpenDecisionsModalBridge({
+        executionDataId: executionData?.id,
         executionId,
-        setShowDecisionsModal,
+        setShowExecutionFinancialHub,
         setShowUnifiedExecutionModal,
         setShowUnifiedSummonsModal,
         setShowNotesModal,
@@ -1630,7 +1425,8 @@ export function useExecutionDashboardCore({
         setShowAppointmentModal,
         setShowTimelineModal,
         setShowNotificationModal,
-    ]);
+        openDecisionsModalWithBoot,
+    });
 
     const { thirdPartySeizuresUi, setThirdPartySeizuresUi, applyThirdPartySeizuresFromPatch } =
         useThirdPartySeizuresUi(executionData);
