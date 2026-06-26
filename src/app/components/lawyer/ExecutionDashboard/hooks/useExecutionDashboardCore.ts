@@ -392,6 +392,10 @@ import { useExecutionDashboardStandaloneMarkHandlers } from './executionDashboar
 import { useExecutionDashboardSalarySeizurePatch } from './executionDashboardCore/useExecutionDashboardSalarySeizurePatch';
 import { useExecutionDashboardFollowupSeizureHandlers } from './executionDashboardCore/useExecutionDashboardFollowupSeizureHandlers';
 import { useExecutionDashboardPoliceAssistanceHandlers } from './executionDashboardCore/useExecutionDashboardPoliceAssistanceHandlers';
+import { useExecutionDashboardThirdPartySeizureHandlers } from './executionDashboardCore/useExecutionDashboardThirdPartySeizureHandlers';
+import { useExecutionDashboardBreakInventoryHandlers } from './executionDashboardCore/useExecutionDashboardBreakInventoryHandlers';
+import { useExecutionDashboardEmployeeAssignmentHandlers } from './executionDashboardCore/useExecutionDashboardEmployeeAssignmentHandlers';
+
 import { pickExecutionFollowupScopeSlice } from './pickExecutionFollowupScopeSlice';
 import {
     buildEndGracePeriodMergePatch,
@@ -4364,113 +4368,15 @@ export function useExecutionDashboardCore({
         [decisionsStorageExecutionId, nextTimelineId, pushTimelineEvent, realEstateSeizureModalDecisionId, showToast]
     );
 
-    const saveThirdPartySeizureForDecision = useCallback(
-        (input: {
-            decisionId: string;
-            thirdPartyName: string;
-            requestedAmountIqd: number;
-            notificationDateIso: string;
-        }) => {
-            const decisionId = String(input.decisionId || '').trim();
-            if (!decisionId) return;
-            const draft = {
-                thirdPartyName: input.thirdPartyName,
-                requestedAmountIqd: input.requestedAmountIqd,
-                notificationDateIso: input.notificationDateIso,
-            };
-            const nowIso = new Date().toISOString();
-            const today = getLocalTodayYmd();
-            const prev = (executionDataRef.current?.thirdPartySeizures || []) as ThirdPartySeizure[];
-            const existing = prev.find((a) => String(a.decisionRowId || '').trim() === decisionId) || null;
-            const entityId = String(existing?.id || `tps_${decisionId}_${Date.now()}`);
-            const nextRow = {
-                id: entityId,
-                decisionRowId: decisionId,
-                thirdPartyName: String(draft.thirdPartyName || '').trim(),
-                requestedAmountIqd:
-                    typeof draft.requestedAmountIqd === 'number' && Number.isFinite(draft.requestedAmountIqd)
-                        ? Math.max(0, Math.trunc(draft.requestedAmountIqd))
-                        : null,
-                notificationDateIso: String(draft.notificationDateIso || '').trim() ? String(draft.notificationDateIso).trim() : null,
-                replyStatus: existing?.replyStatus || 'pending',
-                transferredAmountIqd:
-                    typeof existing?.transferredAmountIqd === 'number' && Number.isFinite(existing.transferredAmountIqd)
-                        ? Math.max(0, Math.trunc(existing.transferredAmountIqd))
-                        : null,
-                status: existing?.status || 'notified',
-            };
-            const nextSeizures: ThirdPartySeizure[] = [nextRow as ThirdPartySeizure, ...prev.filter((a) => String(a.id || '') !== entityId)];
-            setThirdPartySeizuresUi(nextSeizures);
-
-            try {
-                const decisionRow = getExecutorDecisionRowById(decisionsStorageExecutionId, decisionId) as any;
-                const rawJson = String(decisionRow?.seizurePayloadJson || '').trim();
-                const updatedPayloadJson = (() => {
-                    try {
-                        const prevJson = rawJson ? (JSON.parse(rawJson) as any) : {};
-                        return JSON.stringify({
-                            ...prevJson,
-                            thirdPartySeizureId: entityId,
-                            thirdPartyName: nextRow.thirdPartyName,
-                            requestedAmountIqd: nextRow.requestedAmountIqd,
-                            notificationDateIso: nextRow.notificationDateIso,
-                        });
-                    } catch {
-                        return JSON.stringify({
-                            thirdPartySeizureId: entityId,
-                            thirdPartyName: nextRow.thirdPartyName,
-                            requestedAmountIqd: nextRow.requestedAmountIqd,
-                            notificationDateIso: nextRow.notificationDateIso,
-                        });
-                    }
-                })();
-                const amountLabel =
-                    typeof nextRow.requestedAmountIqd === 'number' && nextRow.requestedAmountIqd > 0
-                        ? `${nextRow.requestedAmountIqd.toLocaleString('ar-IQ')} د.ع`
-                        : '—';
-                patchExecutorDecisionRow(decisionsStorageExecutionId, decisionId, {
-                    seizureRequestSavedAt: nowIso,
-                    seizureRequestDetails: [
-                        `الجهة: ${nextRow.thirdPartyName || '—'}`,
-                        `المبلغ المطلوب حجزه: ${amountLabel}`,
-                        nextRow.notificationDateIso ? `تاريخ التبليغ: ${String(nextRow.notificationDateIso).slice(0, 10)}` : null,
-                    ]
-                        .filter(Boolean)
-                        .join('\n'),
-                    seizurePayloadJson: updatedPayloadJson,
-                });
-            } catch {
-                /* ignore */
-            }
-
-            const requested =
-                typeof nextRow.requestedAmountIqd === 'number' &&
-                Number.isFinite(nextRow.requestedAmountIqd) &&
-                nextRow.requestedAmountIqd > 0
-                    ? `${nextRow.requestedAmountIqd.toLocaleString('ar-IQ')} د.ع`
-                    : '—';
-
-            pushTimelineEvent(
-                {
-                    id: nextTimelineId(),
-                    date: today,
-                    timestamp: nowIso,
-                    title: '📨 حجز مال المدين لدى الغير — تم التبليغ',
-                    description: `الجهة: ${nextRow.thirdPartyName}\nالمبلغ المطلوب حجزه: ${requested}${nextRow.notificationDateIso ? `\nتاريخ التبليغ: ${String(nextRow.notificationDateIso).slice(0, 10)}` : ''}`,
-                    type: 'coercive',
-                    source: 'محضر المتابعة — حجز لدى الغير',
-                    metadata: {
-                        timelineThreadKey: `third_party_seizure:${decisionId}`,
-                        decisionRowId: decisionId,
-                        thirdPartySeizureId: entityId,
-                    },
-                },
-                { mergePatch: { thirdPartySeizures: nextSeizures } as any }
-            );
-            showToast('تم إنشاء مسار الحجز لدى الغير بحالة (تم التبليغ).', 'success');
-        },
-        [decisionsStorageExecutionId, getLocalTodayYmd, nextTimelineId, pushTimelineEvent, showToast]
-    );
+    const { saveThirdPartySeizureForDecision } = useExecutionDashboardThirdPartySeizureHandlers({
+        decisionsStorageExecutionId,
+        executionDataRef,
+        getLocalTodayYmd,
+        nextTimelineId,
+        pushTimelineEvent,
+        showToast,
+        setThirdPartySeizuresUi,
+    });
 
     useEffect(() => {
         const id = executionData?.id;
@@ -6646,484 +6552,27 @@ export function useExecutionDashboardCore({
         showToast,
     ]);
 
-    const handleEmployeeAssignmentConfirm = useCallback(
-        (p: { purpose: string; notifyDate: string; durationDays: number }) => {
-            const d = executionData;
-            if (!d?.id) return;
-            const targetKey = unifiedSummonsTargetDebtorKey;
-            const pk = primaryDebtorKeyResolved;
-            const existing = getEmployeeAssignmentForDebtorKey(d, targetKey, pk);
-            if (
-                existing &&
-                (existing.phase === 'active' ||
-                    existing.phase === 'absent_declared' ||
-                    existing.phase === 'investigation_pending' ||
-                    existing.phase === 'warrant_ui')
-            ) {
-                showToast('يوجد تكليف مسجّل لهذا المدين — أنهِه أو أكمل المرحلة الحالية أولاً', 'warning');
-                return;
-            }
-            const effectiveDurationDays = Math.max(1, Number(p.durationDays) || 1);
-            const deadlineDate = computeTaklifDeadlineYmd(p.notifyDate, effectiveDurationDays);
-            const ts = new Date().toISOString();
-            const assignment = {
-                phase: 'active' as const,
-                assignedDebtorKey: targetKey,
-                purpose: p.purpose,
-                notifyDate: p.notifyDate,
-                durationDays: effectiveDurationDays,
-                deadlineDate,
-                confirmedAt: ts,
-                investigationDecisionId: null as string | null,
-                investigationApproved: false,
-                arrestOrderRecorded: false,
-            };
-            setTimelineEvents((prev) => {
-                const ev: TimelineEvent = {
-                    id: nextTimelineId(),
-                    date: p.notifyDate,
-                    timestamp: ts,
-                    title: '📋 تكليف حضور — مدين موظف',
-                    description: `الغاية: ${p.purpose}\nالمدة: ${effectiveDurationDays} أيام (من اليوم التالي لتاريخ التبليغ) — ينتهي ${deadlineDate}`,
-                    type: 'summons',
-                    source: 'التبليغ',
-                    metadata: timelineDebtorMetadata(targetKey),
-                };
-                const next = [ev, ...prev];
-                persistExecutionMerge({
-                    ...buildEmployeeAssignmentPatchForDebtorKey(d, targetKey, assignment, pk),
-                    ...buildDebtorSummonsMarkerPatchForKey(d, targetKey, pk, null),
-                    ...buildPublicationNoticePatchForDebtorKey(d, targetKey, null),
-                    timelineEvents: next,
-                });
-                return next;
-            });
-            showToast('تم تسجيل التكليف بالحضور', 'success');
-        },
-        [
-            unifiedSummonsTargetDebtorKey,
-            executionData,
-            executionData?.employee_summons_assignments_by_debtor,
-            executionData?.employee_summons_assignment,
-            executionData?.id,
-            nextTimelineId,
-            persistExecutionMerge,
-            primaryDebtorKeyResolved,
-            showToast,
-        ]
-    );
-
-    const handleEmployeeAssignmentAttend = useCallback(() => {
-        const d = executionData;
-        if (!d) return;
-        const targetKey = unifiedSummonsTargetDebtorKey;
-        const pk = primaryDebtorKeyResolved;
-        const a0 = getEmployeeAssignmentForDebtorKey(d, targetKey, pk);
-        if (!a0) return;
-        const ts = new Date().toISOString();
-        setTimelineEvents((prev) => {
-            const ev: TimelineEvent = {
-                id: nextTimelineId(),
-                date: ts.slice(0, 10),
-                timestamp: ts,
-                title: '🟢 حضور المدين — تكليف بالحضور',
-                description: 'سُجّل حضور المدين خلال مدة التكليف.',
-                type: 'summons',
-                source: 'التبليغ',
-                metadata: timelineDebtorMetadata(targetKey),
-            };
-            const next = [ev, ...prev];
-            persistExecutionMerge({
-                ...buildEmployeeAssignmentPatchForDebtorKey(d, targetKey, null, pk),
-                timelineEvents: next,
-            });
-            return next;
-        });
-        showToast('تم تسجيل الحضور وإنهاء التكليف', 'success');
-    }, [
-        unifiedSummonsTargetDebtorKey,
+    const {
+        handleEmployeeAssignmentConfirm,
+        handleEmployeeAssignmentAttend,
+        handleEmployeeAssignmentDeclareAbsent,
+        handleEmployeeAssignmentTerminate,
+        handleEmployeeAssignmentRequestInvestigation,
+        handleEmployeeAssignmentRequestForcedBring,
+        handleEmployeeRegisterArrestOrder,
+        handleEmployeeWarrantOutcome,
+        handleEmployeeAssignmentResolveForcedBringOutcome,
+    } = useExecutionDashboardEmployeeAssignmentHandlers({
         executionData,
-        executionData?.employee_summons_assignments_by_debtor,
-        executionData?.employee_summons_assignment,
+        unifiedSummonsTargetDebtorKey,
+        primaryDebtorKeyResolved,
         nextTimelineId,
         persistExecutionMerge,
-        primaryDebtorKeyResolved,
         showToast,
-    ]);
-
-    const handleEmployeeAssignmentDeclareAbsent = useCallback(() => {
-        const d = executionData;
-        if (!d) return;
-        const targetKey = unifiedSummonsTargetDebtorKey;
-        const pk = primaryDebtorKeyResolved;
-        const a = getEmployeeAssignmentForDebtorKey(d, targetKey, pk);
-        if (!a || a.phase !== 'active') return;
-        const deadlineYmd =
-            a.notifyDate != null && a.notifyDate !== ''
-                ? computeTaklifDeadlineYmd(a.notifyDate, a.durationDays ?? 1)
-                : a.deadlineDate || '';
-        if (!deadlineYmd) return;
-        if (!isAssignmentDeadlinePassed(deadlineYmd)) {
-            showToast('تسجيل عدم الحضور يُتاح بعد انتهاء المدة التقويمية', 'warning');
-            return;
-        }
-        const nextGen = (a.taklifCycleGeneration ?? 0) + 1;
-        const resetAssignment = {
-            ...a,
-            phase: 'absent_declared' as const,
-            taklifCycleGeneration: nextGen,
-            investigationDecisionId: null as string | null,
-            investigationApproved: false,
-            arrestOrderRecorded: false,
-        };
-        setTimelineEvents((prev) => {
-            const ts = new Date().toISOString();
-            const ev: TimelineEvent = {
-                id: nextTimelineId(),
-                date: ts.slice(0, 10),
-                timestamp: ts,
-                title: '⚠ عدم حضور المدين — إعادة دورة التكليف',
-                description: `سُجّل عدم الحضور بعد انتهاء المدة التقويمية للتكليف. دورة التكليف: ${nextGen}. أُعيدت مرحلة المفاتحة والتنفيذ الجبري للبداية ضمن نفس التكليف.`,
-                type: 'summons',
-                source: 'التبليغ',
-                metadata: timelineDebtorMetadata(targetKey),
-            };
-            const next = [ev, ...prev];
-            persistExecutionMerge({
-                ...buildEmployeeAssignmentPatchForDebtorKey(
-                    d,
-                    targetKey,
-                    { ...resetAssignment, periodEndedAt: ts },
-                    pk
-                ),
-                timelineEvents: next,
-            });
-            return next;
-        });
-    }, [
-        unifiedSummonsTargetDebtorKey,
-        executionData,
-        executionData?.employee_summons_assignments_by_debtor,
-        executionData?.employee_summons_assignment,
-        nextTimelineId,
-        persistExecutionMerge,
-        primaryDebtorKeyResolved,
-        showToast,
-    ]);
-
-    const handleEmployeeAssignmentTerminate = useCallback(() => {
-        const d = executionData;
-        if (!d) return;
-        const targetKey = unifiedSummonsTargetDebtorKey;
-        const pk = primaryDebtorKeyResolved;
-        const a = getEmployeeAssignmentForDebtorKey(d, targetKey, pk);
-        if (!a) return;
-        setTimelineEvents((prev) => {
-            const ts = new Date().toISOString();
-            const ev: TimelineEvent = {
-                id: nextTimelineId(),
-                date: ts.slice(0, 10),
-                timestamp: ts,
-                title: '⏹ إنهاء تكليف الحضور (تسجيل يدوي)',
-                description: 'أُنهي تكليف الحضور دون اكتمال المسار الآلي.',
-                type: 'summons',
-                source: 'التبليغ',
-                metadata: timelineDebtorMetadata(targetKey),
-            };
-            const next = [ev, ...prev];
-            persistExecutionMerge({
-                ...buildEmployeeAssignmentPatchForDebtorKey(d, targetKey, null, pk),
-                timelineEvents: next,
-            });
-            return next;
-        });
-        showToast('تم إنهاء التكليف بالحضور', 'info');
-    }, [
-        unifiedSummonsTargetDebtorKey,
-        executionData,
-        executionData?.employee_summons_assignments_by_debtor,
-        executionData?.employee_summons_assignment,
-        nextTimelineId,
-        persistExecutionMerge,
-        primaryDebtorKeyResolved,
-        showToast,
-    ]);
-
-    const handleEmployeeAssignmentRequestInvestigation = useCallback(() => {
-        const d = executionData;
-        const id = d?.id;
-        if (!d || !id) return;
-        const targetKey = unifiedSummonsTargetDebtorKey;
-        const pk = primaryDebtorKeyResolved;
-        const a = getEmployeeAssignmentForDebtorKey(d, targetKey, pk);
-        if (!a) return;
-        const deadlineForBody =
-            a.deadlineDate ||
-            (a.notifyDate != null &&
-            a.notifyDate !== '' &&
-            a.durationDays != null &&
-            a.durationDays > 0
-                ? addCalendarDaysYmd(a.notifyDate, a.durationDays)
-                : '—');
-        const body = `تكليف حضور (مدين موظف).\nالغاية: ${a.purpose || '—'}\nمرجع تاريخ التكليف: ${a.notifyDate || '—'}\nآخر أجل للمدة: ${deadlineForBody}`;
-        const res = appendPersonalCoerciveExecutorRequest({
-            executionId: id,
-            subtype: 'employee_assignment_investigation',
-            title: 'طلب مفاتحة محكمة التحقيق لإصدار أمر قبض — تكليف حضور (موظف)',
-            body,
-        });
-        if (!res.ok || !res.decisionId) {
-            showToast('تعذّر إدراج الطلب في القرارات', 'error');
-            return;
-        }
-        const decisionId = res.decisionId;
-        setTimelineEvents((prev) => {
-            const ts = new Date().toISOString();
-            const ev: TimelineEvent = {
-                id: nextTimelineId(),
-                date: ts.slice(0, 10),
-                timestamp: ts,
-                title: '📤 طلب مفاتحة التحقيق — تكليف حضور',
-                description: 'أُرسل طلب مفاتحة محكمة التحقيق لإصدار أمر قبض ضمن مسار التكليف بالحضور.',
-                type: 'summons',
-                source: 'التبليغ',
-                metadata: timelineDebtorMetadata(targetKey),
-            };
-            const next = [ev, ...prev];
-            persistExecutionMerge({
-                ...buildEmployeeAssignmentPatchForDebtorKey(
-                    d,
-                    targetKey,
-                    {
-                        ...a,
-                        phase: 'investigation_pending',
-                        investigationDecisionId: decisionId,
-                    },
-                    pk
-                ),
-                timelineEvents: next,
-            });
-            return next;
-        });
-        showToast('أُرسل الطلب إلى القرارات والطعون', 'success', { decisionsLink: true });
-    }, [
-        unifiedSummonsTargetDebtorKey,
-        executionData,
-        executionData?.employee_summons_assignments_by_debtor,
-        executionData?.employee_summons_assignment,
-        executionData?.id,
-        nextTimelineId,
-        persistExecutionMerge,
-        primaryDebtorKeyResolved,
-        showToast,
-    ]);
-
-    const handleEmployeeAssignmentRequestForcedBring = useCallback(() => {
-        const d = executionData;
-        const id = d?.id;
-        if (!d || !id) return;
-        const targetKey = unifiedSummonsTargetDebtorKey;
-        const pk = primaryDebtorKeyResolved;
-        const a = getEmployeeAssignmentForDebtorKey(d, targetKey, pk);
-        if (!a || a.phase !== 'warrant_ui' || !a.arrestOrderRecorded) return;
-        const res = appendPersonalCoerciveExecutorRequest({
-            executionId: id,
-            subtype: 'forced_bring_in',
-            title: 'طلب إحضار جبري للمدين — بعد أمر قبض (تكليف حضور)',
-            body: `تكليف حضور.\nالغاية: ${a.purpose || '—'}\nطلب إحضار جبري بعد تسجيل صدور أمر القبض ضمن مسار التكليف.`,
-        });
-        if (!res.ok || !res.decisionId) {
-            showToast('تعذّر إدراج طلب الإحضار في القرارات', 'error');
-            return;
-        }
-        const ts = new Date().toISOString();
-        setTimelineEvents((prev) => {
-            const ev: TimelineEvent = {
-                id: nextTimelineId(),
-                date: ts.slice(0, 10),
-                timestamp: ts,
-                title: '📤 طلب إحضار جبري — تكليف حضور',
-                description: 'أُرسل طلب إحضار جبري إلى منفذ العدل ضمن مسار التكليف بعد أمر القبض.',
-                type: 'summons',
-                source: 'التبليغ',
-                metadata: {
-                    ...timelineDebtorMetadata(targetKey),
-                    timelineThreadKey: `executor_decision:${res.decisionId}`,
-                    decisionRowId: res.decisionId,
-                },
-            };
-            const next = [ev, ...prev];
-            persistExecutionMerge({
-                forcedAttendanceIssued: true,
-                activeNoticeState: 'forced_attendance',
-                timelineEvents: next,
-            });
-            return next;
-        });
-        showToast('أُرسل طلب الإحضار إلى القرارات والطعون', 'success', { decisionsLink: true });
-    }, [
-        unifiedSummonsTargetDebtorKey,
-        executionData,
-        executionData?.employee_summons_assignments_by_debtor,
-        executionData?.employee_summons_assignment,
-        executionData?.id,
-        nextTimelineId,
-        persistExecutionMerge,
-        primaryDebtorKeyResolved,
-        showToast,
-    ]);
-
-    const handleEmployeeRegisterArrestOrder = useCallback(() => {
-        const d = executionData;
-        if (!d) return;
-        const targetKey = unifiedSummonsTargetDebtorKey;
-        const pk = primaryDebtorKeyResolved;
-        const a = getEmployeeAssignmentForDebtorKey(d, targetKey, pk);
-        if (!a) return;
-        setTimelineEvents((prev) => {
-            const ts = new Date().toISOString();
-            const ev: TimelineEvent = {
-                id: nextTimelineId(),
-                date: ts.slice(0, 10),
-                timestamp: ts,
-                title: '📌 تسجيل صدور أمر القبض — تكليف حضور',
-                description: 'سُجّل صدور أمر القبض بعد موافقة مسار المفاتحة.',
-                type: 'summons',
-                source: 'التبليغ',
-                metadata: timelineDebtorMetadata(targetKey),
-            };
-            const next = [ev, ...prev];
-            persistExecutionMerge({
-                ...buildEmployeeAssignmentPatchForDebtorKey(d, targetKey, { ...a, arrestOrderRecorded: true }, pk),
-                timelineEvents: next,
-            });
-            return next;
-        });
-        showToast('تم تسجيل صدور أمر القبض', 'success');
-    }, [
-        unifiedSummonsTargetDebtorKey,
-        executionData,
-        executionData?.employee_summons_assignments_by_debtor,
-        executionData?.employee_summons_assignment,
-        nextTimelineId,
-        persistExecutionMerge,
-        primaryDebtorKeyResolved,
-        showToast,
-    ]);
-
-    const handleEmployeeWarrantOutcome = useCallback(
-        (which: 'brought' | 'terminate') => {
-            const d = executionData;
-            if (!d) return;
-            if (!(forcedBringDecisionState.approved && !forcedBringDecisionState.pending)) {
-                showToast('لا يمكن تسجيل نتيجة أمر القبض قبل موافقة المنفذ على طلب الإحضار الجبري.', 'warning');
-                return;
-            }
-            const targetKey = unifiedSummonsTargetDebtorKey;
-            const pk = primaryDebtorKeyResolved;
-            const a0 = getEmployeeAssignmentForDebtorKey(d, targetKey, pk);
-            if (!a0) return;
-            const ts = new Date().toISOString();
-            setTimelineEvents((prev) => {
-                const ev: TimelineEvent =
-                    which === 'brought'
-                        ? {
-                              id: nextTimelineId(),
-                              date: ts.slice(0, 10),
-                              timestamp: ts,
-                              title: '✓ تم إحضار المدين — بعد أمر القبض',
-                              description: 'أُنهي تكليف الحضور بعد التنفيذ.',
-                              type: 'summons',
-                              source: 'التبليغ',
-                              metadata: timelineDebtorMetadata(targetKey),
-                          }
-                        : {
-                              id: nextTimelineId(),
-                              date: ts.slice(0, 10),
-                              timestamp: ts,
-                              title: '⏹ إنهاء التكليف بالحضور',
-                              description: 'أُنهي التكليف دون إحضار (تسجيل يدوي).',
-                              type: 'summons',
-                              source: 'التبليغ',
-                              metadata: timelineDebtorMetadata(targetKey),
-                          };
-                const next = [ev, ...prev];
-                persistExecutionMerge({
-                    ...buildEmployeeAssignmentPatchForDebtorKey(d, targetKey, null, pk),
-                    timelineEvents: next,
-                });
-                return next;
-            });
-            showToast(which === 'brought' ? 'تم التسجيل' : 'تم إنهاء التكليف', 'success');
-        },
-        [
-            unifiedSummonsTargetDebtorKey,
-            executionData,
-            executionData?.employee_summons_assignments_by_debtor,
-            executionData?.employee_summons_assignment,
-            nextTimelineId,
-            persistExecutionMerge,
-            primaryDebtorKeyResolved,
-            forcedBringDecisionState.approved,
-            forcedBringDecisionState.pending,
-            showToast,
-        ]
-    );
-
-    /** بعد موافقة المنفذ على الإحضار الجبري: نفس منطق محضر المتابعة مع إنهاء التكليف للمدين المستهدف */
-    const handleEmployeeAssignmentResolveForcedBringOutcome = useCallback(
-        (which: 'brought' | 'absconded') => {
-            const d = executionData;
-            if (!d) return;
-            if (!employeeForcedBringAwaitingPersonalOutcome) {
-                showToast('لا يمكن تسجيل النتيجة الآن. الحالة ليست بانتظار نتيجة الإحضار الجبري.', 'warning');
-                return;
-            }
-            const targetKey = unifiedSummonsTargetDebtorKey;
-            const pk = primaryDebtorKeyResolved;
-            const a0 = getEmployeeAssignmentForDebtorKey(d, targetKey, pk);
-            if (!a0) return;
-            const ts = new Date().toISOString();
-            const label =
-                which === 'brought'
-                    ? '✅ تم إحضار المدين أمام المنفذ'
-                    : '⚠️ المدين متخفي / مجهول محل الإقامة';
-            setTimelineEvents((prev) => {
-                const ev: TimelineEvent = {
-                    id: nextTimelineId(),
-                    date: ts.slice(0, 10),
-                    timestamp: ts,
-                    title: label,
-                    description: 'تسجيل نتيجة مسار الإحضار الجبري الشخصي بشأن المدين — مع إنهاء تكليف الحضور.',
-                    type: 'coercive',
-                    source: 'محضر المتابعة',
-                    metadata: timelineDebtorMetadata(targetKey),
-                };
-                const next = [ev, ...prev];
-                persistExecutionMerge({
-                    ...buildEmployeeAssignmentPatchForDebtorKey(d, targetKey, null, pk),
-                    forced_bring_in_personal_outcome: which === 'brought' ? null : 'absconded',
-                    timelineEvents: next,
-                });
-                return next;
-            });
-            showToast(
-                which === 'brought'
-                    ? 'تم التسجيل وتصفير دورة الإحضار الجبري لإتاحة طلب جديد عند الحاجة.'
-                    : 'تم تسجيل النتيجة في محضر المتابعة.',
-                'success'
-            );
-        },
-        [
-            executionData,
-            unifiedSummonsTargetDebtorKey,
-            primaryDebtorKeyResolved,
-            nextTimelineId,
-            persistExecutionMerge,
-            employeeForcedBringAwaitingPersonalOutcome,
-            showToast,
-        ]
-    );
+        setTimelineEvents,
+        forcedBringDecisionState,
+        employeeForcedBringAwaitingPersonalOutcome,
+    });
 
     const handlePublicationNoticeRegister = useCallback(
         (p: { publicationDateYmd: string; newspaper1: string; newspaper2: string }) => {
@@ -9445,178 +8894,20 @@ export function useExecutionDashboardCore({
             setPoliceAssistanceModalOpen,
         });
 
-    const saveBreakInventoryLedgerEntry = useCallback(
-        (input: { decisionId: string; payload: BreakInventoryFurnitureSavePayload }) => {
-            if (evictionProcedureLocked) {
-                showToast('لا يمكن حفظ الجرد — الإضبارة أو الإجراءات مقفلة.', 'warning');
-                return;
-            }
-            const decisionId = String(input.decisionId || '').trim();
-            if (!decisionId) return;
-            const storageId = String(
-                decisionsStorageExecutionId || executionData?.id || executionId || ''
-            ).trim();
-            const ts = new Date().toISOString();
-            const payload = input.payload;
-            const { ok } = patchExecutorDecisionRowReliable(storageId, decisionId, {
-                breakInventoryFurnitureLedgerAt: ts,
-                breakInventoryFurnitureMode: payload.mode,
-                breakInventoryFurnitureLines:
-                    payload.mode === 'list'
-                        ? payload.lines.map((s) => s.trim()).filter(Boolean)
-                        : [],
-            });
-            if (!ok) {
-                showToast('تعذر حفظ الجرد — تحقق من قرار المنفذ.', 'error');
-                return;
-            }
-            const body =
-                payload.mode === 'none'
-                    ? 'إقرار: لا يوجد أثاث منقول في العين وقت الجرد (كسر الأقفال والجرد).'
-                    : [
-                          'قائمة المنقولات المجرودة (كسر الأقفال والجرد):',
-                          ...payload.lines
-                              .map((s) => s.trim())
-                              .filter(Boolean)
-                              .map((l, i) => `${i + 1}. ${l}`),
-                      ].join('\n');
-            const now = new Date().toISOString();
-            const noteId = `note_${Date.now()}`;
-            setCaseNotesLog((prev) => {
-                const next = [
-                    {
-                        id: noteId,
-                        title: 'جرد الأثاث — كسر الأقفال والجرد',
-                        body,
-                        createdAt: now,
-                    },
-                    ...prev,
-                ];
-                queueMicrotask(() => {
-                    persistExecutionMergeRef.current?.({ caseNotesLog: next });
-                });
-                return next;
-            });
-            showToast('تم حفظ الجرد في قسم الملاحظات', 'success');
-        },
-        [
-            evictionProcedureLocked,
-            showToast,
-            decisionsStorageExecutionId,
-            executionData?.id,
-            executionId,
-        ]
-    );
-
-    const finalizeBreakInventoryEntry = useCallback(
-        (input: { decisionId: string }) => {
-            if (evictionProcedureLocked) {
-                showToast('لا يمكن تأكيد الجرد — الإضبارة أو الإجراءات مقفلة.', 'warning');
-                return;
-            }
-            const decisionId = String(input.decisionId || '').trim();
-            if (!decisionId) return;
-            const storageId = String(
-                decisionsStorageExecutionId || executionData?.id || executionId || ''
-            ).trim();
-            const { ok } = patchExecutorDecisionRowReliable(storageId, decisionId, {
-                breakInventoryFurnitureFinalizedAt: new Date().toISOString(),
-            });
-            if (!ok) {
-                showToast('تعذر تأكيد اكتمال الجرد', 'error');
-                return;
-            }
-            showToast('تم إنهاء الجرد وإغلاق الطلب', 'success');
-        },
-        [
-            evictionProcedureLocked,
-            showToast,
-            decisionsStorageExecutionId,
-            executionData?.id,
-            executionId,
-        ]
-    );
-
-    const saveMaritalFurnitureDeliveryInventoryEntry = useCallback(
-        (input: { decisionId: string; items: import('@/app/types/maritalFurniture').MaritalFurnitureItem[] }) => {
-            if (evictionProcedureLocked) {
-                showToast('لا يمكن حفظ الجرد — الإضبارة أو الإجراءات مقفلة.', 'warning');
-                return;
-            }
-            const decisionId = String(input.decisionId || '').trim();
-            if (!decisionId) return;
-            const normalized = normalizeMaritalFurnitureItems(input.items).map((row) => ({
-                ...row,
-                delivered: input.items.find((i) => i.id === row.id)?.delivered === true,
-            }));
-            if (normalized.length === 0) {
-                showToast('لا توجد قطع أثاث لحفظ حالة التسليم', 'warning');
-                return;
-            }
-
-            const storageId = String(
-                decisionsStorageExecutionId || executionData?.id || executionId || ''
-            ).trim();
-            const ts = new Date().toISOString();
-            const undeliveredTotal = sumUndeliveredMaritalFurnitureTotal(normalized);
-            const furnitureValue = sumMaritalFurnitureTotal(normalized);
-            const body = buildMaritalFurnitureDeliveryNoteBody(normalized);
-
-            const { ok } = patchExecutorDecisionRowReliable(storageId, decisionId, {
-                breakInventoryFurnitureLedgerAt: ts,
-                breakInventoryFurnitureMode: 'marital_delivery',
-                breakInventoryFurnitureLines: normalized.map(
-                    (row) =>
-                        `${row.name}|${row.quantity}|${row.delivered ? 'delivered' : 'undelivered'}`
-                ),
-            });
-            if (!ok) {
-                showToast('تعذر حفظ جرد التسليم — تحقق من قرار المنفذ.', 'error');
-                return;
-            }
-
-            persistExecutionMerge({
-                maritalFurnitureItems: normalized,
-                furnitureValue,
-                furnitureDetails: furnitureDetailsFromItems(normalized),
-                maritalFurnitureDeliveryRecordedAt: ts,
-                totalAmount: undeliveredTotal,
-                debtAmount: undeliveredTotal,
-            });
-
-            const noteId = `note_${Date.now()}`;
-            setCaseNotesLog((prev) => {
-                const next = [
-                    {
-                        id: noteId,
-                        title: 'جرد تسليم الأثاث الزوجية',
-                        body,
-                        createdAt: ts,
-                    },
-                    ...prev,
-                ];
-                queueMicrotask(() => {
-                    persistExecutionMergeRef.current?.({ caseNotesLog: next });
-                });
-                return next;
-            });
-
-            showToast(
-                undeliveredTotal > 0
-                    ? `تم حفظ التسليم — ${undeliveredTotal.toLocaleString('ar-IQ')} د.ع غير مُسلَّم في المركز المالي`
-                    : 'تم حفظ التسليم — جميع القطع مُسلَّمة ولا مبلغ في المركز المالي',
-                'success'
-            );
-        },
-        [
-            evictionProcedureLocked,
-            showToast,
-            decisionsStorageExecutionId,
-            executionData?.id,
-            executionId,
-            persistExecutionMerge,
-        ]
-    );
+    const {
+        saveBreakInventoryLedgerEntry,
+        finalizeBreakInventoryEntry,
+        saveMaritalFurnitureDeliveryInventoryEntry,
+    } = useExecutionDashboardBreakInventoryHandlers({
+        evictionProcedureLocked,
+        decisionsStorageExecutionId,
+        executionData,
+        executionId,
+        showToast,
+        setCaseNotesLog,
+        persistExecutionMergeRef,
+        persistExecutionMerge,
+    });
 
     const completeEvictionResidentialGrace = useCallback(() => {
         if (evictionProcedureLocked) {
@@ -10720,6 +10011,19 @@ export function useExecutionDashboardCore({
     const specificDeliveryFinancialized = Boolean(
         (executionData as { specificDeliveryFinancialized?: boolean } | null | undefined)
             ?.specificDeliveryFinancialized,
+    );
+
+    const insertTimelineEventToSupabase = useCallback(
+        (params: {
+            executionFileId: string;
+            event: TimelineEvent;
+            snapshotData?: unknown;
+        }) => {
+            void import('@/app/services/timelineEventsSupabase')
+                .then(({ insertTimelineEventToSupabase: insert }) => insert(params))
+                .catch(() => {});
+        },
+        [],
     );
 
     const followupScopeBag = {

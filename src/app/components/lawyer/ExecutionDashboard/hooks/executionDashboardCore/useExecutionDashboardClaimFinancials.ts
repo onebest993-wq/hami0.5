@@ -9,7 +9,7 @@ import {
     computeFinancialPrincipalAmount,
     computePrincipalDebtAmount,
     hasEvictionDataSignals,
-    hasEvictionTimelineSignals,
+    hasEvictionTimelineSignals as detectEvictionTimelineSignals,
     resolveExecutionClaimTypeFlags,
     resolveIsEvictionExecutionModule,
 } from './executionDashboardClaimFinancials';
@@ -143,7 +143,7 @@ export function useExecutionDashboardClaimFinancials(params: UseExecutionDashboa
     );
 
     const hasEvictionTimelineSignals = useMemo(
-        () => hasEvictionTimelineSignals(activeTimelineEvents),
+        () => detectEvictionTimelineSignals(activeTimelineEvents),
         [activeTimelineEvents],
     );
 

@@ -1,0 +1,169 @@
+{
+  "capturedAt": "2026-06-26T21:11:08.788Z",
+  "rows": [
+    {
+      "file": "execution-dashboard-core-CHxSE_6x.js",
+      "rawKb": 615
+    },
+    {
+      "file": "execution-helpers-D4XogOMa.js",
+      "rawKb": 362.9
+    },
+    {
+      "file": "criminal-store-BixrpkOo.js",
+      "rawKb": 222.1
+    },
+    {
+      "file": "CriminalDashboard-Cn3ibAIG.js",
+      "rawKb": 196.4
+    },
+    {
+      "file": "criminal-store-slices-C2IqvA1u.js",
+      "rawKb": 181.1
+    },
+    {
+      "file": "execution-phone-body-DLkR5cI-.js",
+      "rawKb": 137.7
+    },
+    {
+      "file": "LawyerDashboard-Dc3fbl_y.js",
+      "rawKb": 122.4
+    },
+    {
+      "file": "criminal-dashboard-parties-DZ2aKYKw.js",
+      "rawKb": 106.1
+    },
+    {
+      "file": "CommunityScreen-1F7hsHsY.js",
+      "rawKb": 91.2
+    },
+    {
+      "file": "execution-law-articles-BPSyJILg.js",
+      "rawKb": 82
+    },
+    {
+      "file": "community-overlays-DpGQsOEW.js",
+      "rawKb": 59.1
+    },
+    {
+      "file": "criminal-tab-procedural-canvas-8qhtENHK.js",
+      "rawKb": 57.2
+    },
+    {
+      "file": "global-search-overlay-sqg4e5NJ.js",
+      "rawKb": 51.6
+    },
+    {
+      "file": "execution-lazy-registry-Bgk2GPwX.js",
+      "rawKb": 42.6
+    },
+    {
+      "file": "community-repository-DD1oqzFr.js",
+      "rawKb": 38
+    },
+    {
+      "file": "criminal-tab-new-case-BbY2R4Zi.js",
+      "rawKb": 31.9
+    },
+    {
+      "file": "criminal-dashboard-request-ui-BAOJ02xw.js",
+      "rawKb": 31.5
+    },
+    {
+      "file": "LawyerDashboardHomeTab-BFRNgE8Y.js",
+      "rawKb": 26.5
+    },
+    {
+      "file": "criminal-tab-judicial-ledger-Dz0WqEKO.js",
+      "rawKb": 25.4
+    },
+    {
+      "file": "global-search-index-build-Bs67H_Ob.js",
+      "rawKb": 24.9
+    },
+    {
+      "file": "criminal-tab-legal-codes-ijvoXkDs.js",
+      "rawKb": 23.9
+    },
+    {
+      "file": "global-search-fuse-D6p4KMCL.js",
+      "rawKb": 23.8
+    },
+    {
+      "file": "global-search-index-runtime-BucN0D0c.js",
+      "rawKb": 20.1
+    },
+    {
+      "file": "criminal-tab-trials-BKyulJS5.js",
+      "rawKb": 19.2
+    },
+    {
+      "file": "LawyerDashboardBackgroundServices-xfbAzXFe.js",
+      "rawKb": 18.9
+    },
+    {
+      "file": "execution-overlays-shell-U_rSpQdW.js",
+      "rawKb": 18.5
+    },
+    {
+      "file": "execution-overlays-heavy-DxbGyhGa.js",
+      "rawKb": 15.3
+    },
+    {
+      "file": "global-search-results-panel-DxL9VsPM.js",
+      "rawKb": 10.1
+    },
+    {
+      "file": "execution-followup-shared-tlah1eki.js",
+      "rawKb": 9.6
+    },
+    {
+      "file": "criminal-legal-codes-A9h35Ft_.js",
+      "rawKb": 4.9
+    },
+    {
+      "file": "CommunityScreenOverlays-BlH3pKwX.js",
+      "rawKb": 4.2
+    },
+    {
+      "file": "LawyerDashboardScheduleTab-CJmBi0BN.js",
+      "rawKb": 2.8
+    },
+    {
+      "file": "global-search-extras-DdZDpnme.js",
+      "rawKb": 2.7
+    },
+    {
+      "file": "iraqi-law-loader-B-XxkYg6.js",
+      "rawKb": 2.7
+    },
+    {
+      "file": "execution-overlays-edit-B3AJh59u.js",
+      "rawKb": 2.3
+    },
+    {
+      "file": "criminal-tab-statements-BT4-Vj0B.js",
+      "rawKb": 1.7
+    },
+    {
+      "file": "execution-dashboard-static-scope-Cukfw2fW.js",
+      "rawKb": 1.4
+    },
+    {
+      "file": "global-search-loader-CydVU2y0.js",
+      "rawKb": 0.7
+    },
+    {
+      "file": "execution-overlays-executor-DpNeakGt.js",
+      "rawKb": 0.5
+    },
+    {
+      "file": "execution-overlays-notes-n7cxpOPx.js",
+      "rawKb": 0.4
+    },
+    {
+      "file": "execution-overlays-solidary-BOclYWLG.js",
+      "rawKb": 0.4
+    }
+  ]
+}
