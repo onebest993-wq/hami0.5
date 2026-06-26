@@ -1,9 +1,8 @@
 /**
- * يتحقق أن props المطلوبة في مكونات shell overlays مسجّلة في EXECUTION_SHELL_OVERLAY_PROP_KEYS
- * ومربوطة في getScopeSources (عبر audit-execution-chunk-scope resolver).
+ * يتحقق أن props المطلوبة في مكونات shell overlays مسجّلة ومربوطة في chunk scope.
  */
 import fs from 'node:fs';
-import { execSync } from 'node:child_process';
+import { resolveExecutionChunkScopeKeys } from './lib/resolveExecutionChunkScopeKeys.mjs';
 
 const SHELL_KEYS_PATH =
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionShellOverlayPropKeys.ts';
@@ -42,55 +41,10 @@ function extractRequiredInterfaceProps(src, interfaceName) {
     return required;
 }
 
-function resolveScopeKeysFromAudit() {
-    const out = execSync('node scripts/audit-execution-chunk-scope.mjs', { encoding: 'utf8' });
-    if (!/resolved scope keys:/.test(out)) {
-        throw new Error('chunk scope audit failed');
-    }
-    const core = fs.readFileSync(CORE_PATH, 'utf8');
-    const blockStart = core.indexOf('getScopeSources: () => buildExecutionDashboardChunkScopeSources({');
-    const blockEnd = core.indexOf('\n        }),', blockStart);
-    const block = core.slice(blockStart, blockEnd);
-
-    const keys = new Set();
-    for (const m of block.matchAll(/^\s+([a-zA-Z_][a-zA-Z0-9_]*),/gm)) keys.add(m[1]);
-    for (const m of block.matchAll(/^\s+([a-zA-Z_][a-zA-Z0-9_]*):/gm)) keys.add(m[1]);
-    for (const spread of block.matchAll(/\.\.\.([a-zA-Z_][a-zA-Z0-9_]*)/g)) {
-        const name = spread[1];
-        if (name === 'executionModalFlags' || name === 'executionModalSetters') {
-            const objStart = core.indexOf(`const ${name} = {`);
-            const objEnd = core.indexOf('\n    };', objStart);
-            const objBlock = core.slice(objStart, objEnd);
-            for (const k of objBlock.matchAll(/^\s+([a-zA-Z_][a-zA-Z0-9_]*),/gm)) keys.add(k[1]);
-        }
-        if (name === 'pickExecutionFollowupScopeSlice') {
-            const bagStart = core.indexOf('const followupScopeBag = {');
-            const bagEnd = core.indexOf('\n    };', bagStart);
-            const bagBlock = core.slice(bagStart, bagEnd);
-            for (const k of bagBlock.matchAll(/^\s+([a-zA-Z_][a-zA-Z0-9_]*):/gm)) keys.add(k[1]);
-            for (const k of bagBlock.matchAll(/^\s+([a-zA-Z_][a-zA-Z0-9_]*),/gm)) keys.add(k[1]);
-        }
-    }
-    for (const file of [
-        'src/app/components/lawyer/ExecutionDashboard/executionDashboardStaticChunkScope.ts',
-        'src/app/components/lawyer/ExecutionDashboard/executionDashboardRuntimeChunkScope.ts',
-        'src/app/components/lawyer/ExecutionDashboard/executionDashboardUiChunkScope.ts',
-        'src/app/components/lawyer/ExecutionDashboard/executionDashboardImportedHelpersChunkScope.ts',
-        'src/app/components/lawyer/ExecutionDashboard/executionDashboardPhoneBodyComponentsChunkScope.ts',
-        'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardLazyChunkScope.ts',
-    ]) {
-        if (!fs.existsSync(file)) continue;
-        const src = fs.readFileSync(file, 'utf8');
-        for (const k of [...src.matchAll(/^\s+([a-zA-Z_][a-zA-Z0-9_]*):/gm)].map((x) => x[1])) keys.add(k);
-        for (const k of [...src.matchAll(/^\s+([a-zA-Z_][a-zA-Z0-9_]*),/gm)].map((x) => x[1])) keys.add(k);
-    }
-    return keys;
-}
-
 const shellKeys = new Set(
     extractConstKeys(fs.readFileSync(SHELL_KEYS_PATH, 'utf8'), 'EXECUTION_SHELL_OVERLAY_PROP_KEYS'),
 );
-const scopeKeys = resolveScopeKeysFromAudit();
+const scopeKeys = resolveExecutionChunkScopeKeys(fs.readFileSync(CORE_PATH, 'utf8'));
 
 let failed = false;
 for (const source of OVERLAY_PROP_SOURCES) {

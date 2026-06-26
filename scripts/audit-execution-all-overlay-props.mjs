@@ -1,10 +1,8 @@
 /**
- * Phase A — فحص شامل لكل shell overlay chunks:
- * - s.* في ملفات overlays
- * - props مطلوبة من export interface/type
- * - SEIZED_PROPERTY_PORTAL_PROP_KEYS مقابل scope
+ * Phase A — فحص شامل لكل shell overlay chunks
  */
 import fs from 'node:fs';
+import { resolveExecutionChunkScopeKeys } from './lib/resolveExecutionChunkScopeKeys.mjs';
 
 const ROOT = 'src/app/components/lawyer/ExecutionDashboard';
 const SHELL_KEYS_PATH = `${ROOT}/hooks/executionShellOverlayPropKeys.ts`;
@@ -51,44 +49,6 @@ function extractRequiredTypeProps(src, typeName) {
     return required;
 }
 
-function resolveScopeKeys(core) {
-    const start = core.indexOf('getScopeSources: () => buildExecutionDashboardChunkScopeSources({');
-    const end = core.indexOf('\n        }),', start);
-    const block = core.slice(start, end);
-    const keys = new Set();
-    for (const m of block.matchAll(/^\s+([a-zA-Z_][a-zA-Z0-9_]*),/gm)) keys.add(m[1]);
-    for (const m of block.matchAll(/^\s+([a-zA-Z_][a-zA-Z0-9_]*):/gm)) keys.add(m[1]);
-    for (const spread of block.matchAll(/\.\.\.([a-zA-Z_][a-zA-Z0-9_]*)/g)) {
-        const name = spread[1];
-        if (name === 'executionModalFlags' || name === 'executionModalSetters') {
-            const objStart = core.indexOf(`const ${name} = {`);
-            const objEnd = core.indexOf('\n    };', objStart);
-            for (const k of core.slice(objStart, objEnd).matchAll(/^\s+([a-zA-Z_][a-zA-Z0-9_]*),/gm)) {
-                keys.add(k[1]);
-            }
-        }
-        if (name === 'pickExecutionFollowupScopeSlice') {
-            const bagStart = core.indexOf('const followupScopeBag = {');
-            const bagEnd = core.indexOf('\n    };', bagStart);
-            const bagBlock = core.slice(bagStart, bagEnd);
-            for (const k of bagBlock.matchAll(/^\s+([a-zA-Z_][a-zA-Z0-9_]*)(?::|,)/gm)) keys.add(k[1]);
-        }
-    }
-    for (const file of [
-        `${ROOT}/executionDashboardStaticChunkScope.ts`,
-        `${ROOT}/executionDashboardRuntimeChunkScope.ts`,
-        `${ROOT}/executionDashboardUiChunkScope.ts`,
-        `${ROOT}/executionDashboardImportedHelpersChunkScope.ts`,
-        `${ROOT}/executionDashboardPhoneBodyComponentsChunkScope.ts`,
-        `${ROOT}/hooks/executionDashboardLazyChunkScope.ts`,
-    ]) {
-        if (!fs.existsSync(file)) continue;
-        const src = fs.readFileSync(file, 'utf8');
-        for (const k of [...src.matchAll(/^\s+([a-zA-Z_][a-zA-Z0-9_]*)(?::|,)/gm)].map((m) => m[1])) keys.add(k);
-    }
-    return keys;
-}
-
 function collectSProps(files) {
     const used = new Set();
     for (const file of files) {
@@ -107,7 +67,7 @@ const portalKeys = extractConstKeys(
     'SEIZED_PROPERTY_PORTAL_PROP_KEYS',
 );
 const core = fs.readFileSync(CORE_PATH, 'utf8');
-const scopeKeys = resolveScopeKeys(core);
+const scopeKeys = resolveExecutionChunkScopeKeys(core);
 
 let failed = false;
 
