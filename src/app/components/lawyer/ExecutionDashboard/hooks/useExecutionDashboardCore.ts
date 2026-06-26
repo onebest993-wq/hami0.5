@@ -170,7 +170,6 @@ import {
     appendPersonalCoerciveExecutorRequest,
     appendPendingExecutorSeizureDecision,
     appendSpecialFollowupRequest,
-    computeGuarantorApprovalMergePatch,
     hasApprovedUnifiedCollection,
     patchExecutorDecisionRow,
     patchExecutorDecisionRowEverywhere,
@@ -274,7 +273,6 @@ import {
     getPersonalCoerciveSubtypeOutcome,
     hasApprovedLawyerFeePayout,
 } from '@/app/utils/executorSeizureDecisionQueue';
-import { HAMI_APPEND_EXECUTION_TIMELINE } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
 import { buildSeizedAssetDetailLines } from '@/app/utils/seizedAssetDisplay';
 import {
     getExecutionPartyDisplayName,
@@ -363,6 +361,14 @@ import { useExecutionDashboardEmployeeInvestigationSync } from './executionDashb
 import { useExecutionDashboardEmployeeAssignmentCoerciveState } from './executionDashboardCore/useExecutionDashboardEmployeeAssignmentCoerciveState';
 import { useExecutionDashboardPersonalCoerciveDecisionSync } from './executionDashboardCore/useExecutionDashboardPersonalCoerciveDecisionSync';
 import { useExecutionDashboardExecutiveDetentionLifecycle } from './executionDashboardCore/useExecutionDashboardExecutiveDetentionLifecycle';
+import {
+    useExecutionDashboardDeceasedDebtorCoerciveReset,
+    useExecutionDashboardEvictionLawyerFeeBackfill,
+    useExecutionDashboardGuarantorDecisionSync,
+    useExecutionDashboardHeirsInvestigationSync,
+    useExecutionDashboardSeizureRequestCreatedListener,
+    useExecutionDashboardWindowEventListeners,
+} from './executionDashboardCore/useExecutionDashboardDecisionAndEventSync';
 import { useExecutionDashboardPublicationNoticeHandlers } from './executionDashboardCore/useExecutionDashboardPublicationNoticeHandlers';
 import { useExecutionDashboardPaymentHandlers } from './executionDashboardCore/useExecutionDashboardPaymentHandlers';
 import { useExecutionDashboardStayHandlers } from './executionDashboardCore/useExecutionDashboardStayHandlers';
@@ -2270,18 +2276,18 @@ export function useExecutionDashboardCore({
         showToast,
     });
 
-    useEffect(() => {
-        const handler = (e: Event) => {
-            const detail = (e as CustomEvent<{ executionId?: string }>).detail;
-            const targetId = String(detail?.executionId || executionId || executionData?.id || '').trim();
-            const currentId = String(executionId || executionData?.id || '').trim();
-            if (targetId && currentId && targetId !== currentId) return;
-            setShowDecisionsModal(false);
-            openExecutionSeizuresTab();
-        };
-        window.addEventListener('hami-open-execution-coercive-tab', handler as EventListener);
-        return () => window.removeEventListener('hami-open-execution-coercive-tab', handler as EventListener);
-    }, [executionData?.id, executionId, openExecutionSeizuresTab, setShowDecisionsModal]);
+    useExecutionDashboardWindowEventListeners({
+        executionData,
+        executionId,
+        decisionsStorageExecutionId,
+        setShowDecisionsModal,
+        openExecutionSeizuresTab,
+        pushTimelineEventRef,
+        nextTimelineId,
+        showDecisionsModal,
+        showHeirsNotificationModal,
+        setShowHeirsNotificationModal,
+    });
 
     const activeDebtorNameResolved = useMemo(() => {
         const row = allDebtorsUnified[executionDebtorTabIndex];
@@ -2602,10 +2608,14 @@ export function useExecutionDashboardCore({
     }, [debtorBrowserTabsMode, debtorWorkspaceEntries.length]);
 
     /** مزامنة لمرة واحدة: إضابر قديمة وافق المنفذ على صرف الأتعاب دون حفظ eviction_lawyer_fee_requested */
-    const backfillEvictionLawyerFeeRequestedRef = useRef<string | null>(null);
-    useEffect(() => {
-        backfillEvictionLawyerFeeRequestedRef.current = null;
-    }, [executionFileKey]);
+    useExecutionDashboardEvictionLawyerFeeBackfill({
+        isEvictionExecutionModule,
+        executionData,
+        executionId,
+        executionFileKey,
+        decisionsReloadEpoch,
+        persistExecutionMerge,
+    });
 
     useEffect(() => {
         setShowExtraCreditors(false);
@@ -3935,162 +3945,35 @@ export function useExecutionDashboardCore({
         persistExecutionMerge({ timelineEvents: cleaned });
     }, [executionData?.id, persistExecutionMerge, timelineEvents, activeSubFileId, parentDossierId]);
 
-    useEffect(() => {
-        const myId = String(executionData?.id ?? executionId ?? '');
-        if (!myId) return;
+    useExecutionDashboardSeizureRequestCreatedListener({
+        executionData,
+        executionId,
+        seizureDraftsByDecisionIdRef,
+        seizedAssetsSnapshotRef,
+        setSeizureDraftsByDecisionId,
+        setTimelineEvents,
+        nextTimelineId,
+        persistExecutionMerge,
+    });
 
-        const handler = (e: Event) => {
-            const ce = e as CustomEvent<{ executionId?: string; decisionId?: string; subtype?: string }>;
-            if (String(ce.detail?.executionId ?? '') !== myId) return;
-            const decisionId = String(ce.detail?.decisionId ?? '').trim();
-            const subtype = String(ce.detail?.subtype ?? '').trim();
-            if (!decisionId || !subtype) return;
-
-            if (subtype === 'property') {
-                return;
-            }
-
-            const alreadyDraft = Boolean(seizureDraftsByDecisionIdRef.current?.[decisionId]);
-            if (alreadyDraft) return;
-            const alreadyAsset = seizedAssetsSnapshotRef.current.some(
-                (a) =>
-                    String((a.details as Record<string, unknown> | undefined)?.decisionRowId ?? '') ===
-                    decisionId
-            );
-            if (alreadyAsset) return;
-
-            const actionType =
-                subtype === 'movable' || subtype === 'movable_auction'
-                    ? 'vehicle'
-                    : subtype === 'salary'
-                      ? 'salary'
-                      : 'property';
-
-            const baseDesc =
-                actionType === 'salary'
-                    ? 'طلب حجز راتب (مبدئي) — تُستكمل التفاصيل بعد موافقة منفذ العدل.'
-                    : actionType === 'vehicle'
-                      ? 'طلب حجز مال منقول (مبدئي) — تُستكمل التفاصيل بعد موافقة منفذ العدل.'
-                      : subtype === 'notice'
-                        ? 'طلب وضع إشارة الحجز التنفيذي (مبدئي) — تُستكمل التفاصيل بعد موافقة منفذ العدل.'
-                        : 'طلب حجز عقار (مبدئي) — تُستكمل التفاصيل بعد موافقة منفذ العدل.';
-
-            const details: Record<string, string> = {
-                seizureUiKind: actionType,
-                decisionRowId: decisionId,
-                employerName: '',
-                salaryAmount: '',
-                propertyAddress: '',
-                propertyLocation: '',
-                vehicleDescription: '',
-                vehiclePlate: '',
-                movableAssetType: '',
-                movableDescription: '',
-                movableLocation: '',
-                judicialCustodianName: '',
-                description: baseDesc,
-            };
-
-            const dayYmd = getLocalTodayYmd();
-            const draft: SeizedAsset = {
-                id: `draft_${decisionId}`,
-                type:
-                    subtype === 'notice'
-                        ? 'طلب وضع إشارة الحجز التنفيذي (قيد البت)'
-                        : actionType === 'salary'
-                          ? 'طلب حجز راتب (قيد البت)'
-                          : actionType === 'vehicle'
-                            ? 'طلب حجز مال منقول (قيد البت)'
-                            : 'طلب حجز عقار (قيد البت)',
-                details,
-                status: 'pending',
-                seizureDate: dayYmd,
-            };
-
-            const label =
-                subtype === 'notice'
-                    ? 'طلب وضع إشارة الحجز التنفيذي'
-                    : actionType === 'salary'
-                      ? 'طلب حجز راتب'
-                      : actionType === 'vehicle'
-                        ? 'طلب حجز مال منقول'
-                        : 'طلب حجز عقار';
-            const now = new Date().toISOString();
-            const ev: TimelineEvent = {
-                id: nextTimelineId(),
-                date: now,
-                timestamp: now,
-                title: `📋 ${label} — قيد البت`,
-                description: baseDesc,
-                type: 'coercive',
-                source: 'التنفيذ والمحجوزات',
-                metadata: {
-                    timelineThreadKey: `executor_decision:${decisionId}`,
-                    decisionRowId: decisionId,
-                },
-            };
-
-            setSeizureDraftsByDecisionId((prev) => {
-                const next = { ...prev, [decisionId]: draft };
-                setTimelineEvents((tlPrev) => {
-                    const nextTl = [ev, ...tlPrev];
-                    persistExecutionMerge({ seizureDraftsByDecisionId: next, timelineEvents: nextTl });
-                    return nextTl;
-                });
-                return next;
-            });
-        };
-
-        window.addEventListener('hami-seizure-request-created', handler as EventListener);
-        return () => window.removeEventListener('hami-seizure-request-created', handler as EventListener);
-    }, [executionData?.id, executionId, nextTimelineId, persistExecutionMerge]);
-
-    /** مزامنة موافقة الكفيل من تخزين «القرارات» إلى الملف — إذا فشل الوسيط أو أُغلق المودال قبل الدمج */
-    useEffect(() => {
-        if (!executionData) return;
-        const patch = computeGuarantorApprovalMergePatch(
-            decisionsStorageExecutionId,
-            executionData
-        );
-        if (!patch || Object.keys(patch).length === 0) return;
-        persistExecutionMerge(patch);
-    }, [
+    useExecutionDashboardGuarantorDecisionSync({
+        executionData,
         decisionsReloadEpoch,
         decisionsStorageExecutionId,
-        executionData?.id,
-        executionData?.guarantor_followup,
         persistExecutionMerge,
-    ]);
-    useEffect(() => {
-        if (!activeDebtorIsDeceased) return;
-        if (
-            activeCoerciveActions.length === 0 &&
-            !debtorArrested &&
-            !investigationPathDebtorPresent &&
-            !executionData?.forced_bring_in_personal_outcome &&
-            !executionData?.forced_bring_in_personal_followup_logged
-        ) {
-            return;
-        }
-        setActiveCoerciveActions([]);
-        setDebtorArrested(false);
-        setInvestigationPathDebtorPresent(false);
-        persistExecutionMerge({
-            activeCoerciveActions: [],
-            debtorArrested: false,
-            investigationPathDebtorPresent: false,
-            forced_bring_in_personal_outcome: null,
-            forced_bring_in_personal_followup_logged: false,
-        });
-    }, [
+    });
+
+    useExecutionDashboardDeceasedDebtorCoerciveReset({
         activeDebtorIsDeceased,
         activeCoerciveActions,
         debtorArrested,
         investigationPathDebtorPresent,
-        executionData?.forced_bring_in_personal_outcome,
-        executionData?.forced_bring_in_personal_followup_logged,
+        executionData,
+        setActiveCoerciveActions,
+        setDebtorArrested,
+        setInvestigationPathDebtorPresent,
         persistExecutionMerge,
-    ]);
+    });
 
     const {
         executionCopilotDecisions,
@@ -4242,28 +4125,6 @@ export function useExecutionDashboardCore({
         pushSeizureAuctionCalendarAppointment,
     ]);
 
-    useEffect(() => {
-        const handler = (e: Event) => {
-            const ce = e as CustomEvent<{
-                executionId?: string;
-                event?: Omit<TimelineEvent, 'id'>;
-                mergePatch?: Record<string, unknown>;
-            }>;
-            const evId = String(ce.detail?.executionId ?? '').trim();
-            const myId = String(executionData?.id ?? executionId ?? '').trim();
-            const storeId = String(decisionsStorageExecutionId ?? '').trim();
-            if (!evId || (evId !== myId && evId !== storeId)) return;
-            const payload = ce.detail?.event;
-            if (!payload) return;
-            pushTimelineEventRef.current?.(
-                { ...payload, id: nextTimelineId() },
-                ce.detail?.mergePatch ? { mergePatch: ce.detail.mergePatch } : undefined
-            );
-        };
-        window.addEventListener(HAMI_APPEND_EXECUTION_TIMELINE, handler as EventListener);
-        return () =>
-            window.removeEventListener(HAMI_APPEND_EXECUTION_TIMELINE, handler as EventListener);
-    }, [executionData?.id, executionId, decisionsStorageExecutionId, nextTimelineId]);
 
     const realEstateModalInitial = useMemo(() => {
         const did = String(realEstateSeizureModalDecisionId || '').trim();
@@ -4905,27 +4766,6 @@ export function useExecutionDashboardCore({
         persistExecutionMerge,
         nextTimelineId,
         showToast,
-    ]);
-
-    useEffect(() => {
-        if (!isEvictionExecutionModule) return;
-        const id = String(executionData?.id ?? executionId ?? '');
-        if (!id || id === 'undefined') return;
-        if (executionData?.eviction_lawyer_fee_requested) return;
-        if (!hasApprovedLawyerFeePayout(id)) return;
-
-        const marker = `backfill_lawyer_fee_${id}`;
-        if (backfillEvictionLawyerFeeRequestedRef.current === marker) return;
-        backfillEvictionLawyerFeeRequestedRef.current = marker;
-
-        persistExecutionMerge({ eviction_lawyer_fee_requested: true });
-    }, [
-        isEvictionExecutionModule,
-        executionData?.id,
-        executionId,
-        executionData?.eviction_lawyer_fee_requested,
-        decisionsReloadEpoch,
-        persistExecutionMerge,
     ]);
 
     useLayoutEffect(() => {
@@ -5998,43 +5838,13 @@ const {
         },
         [nextTimelineId, upsertHeirWorkflow]
     );
-    useEffect(() => {
-        if (!executionData?.id) return;
-        const byHeir = executionData?.heirs_notification_workflow?.byHeir || {};
-        const rows = readExecutorDecisionsArray(decisionsStorageExecutionId);
-        let changed = false;
-        const nextByHeir: Record<string, any> = { ...byHeir };
-        Object.entries(byHeir).forEach(([k, v]) => {
-            const row = (v || {}) as Record<string, any>;
-            const decisionId = String(row.investigationDecisionId || '').trim();
-            if (!decisionId) return;
-            const decision = rows.find((r) => String((r as { id?: unknown }).id ?? '') === decisionId);
-            const outcome = String((decision as { executorOutcome?: unknown } | undefined)?.executorOutcome ?? 'pending');
-            const mapped =
-                outcome === 'approved'
-                    ? 'approved'
-                    : outcome === 'rejected' || outcome === 'alternative'
-                      ? 'rejected'
-                      : 'pending';
-            if (String(row.investigationDecisionStatus || 'none') !== mapped) {
-                nextByHeir[k] = { ...row, investigationDecisionStatus: mapped };
-                changed = true;
-            }
-        });
-        if (!changed) return;
-        persistExecutionMerge({
-            heirs_notification_workflow: {
-                hasReceivedInitialNotice: true,
-                byHeir: nextByHeir,
-            },
-        });
-    }, [
-        executionData?.id,
-        executionData?.heirs_notification_workflow?.byHeir,
+    useExecutionDashboardHeirsInvestigationSync({
+        executionData,
         decisionsStorageExecutionId,
         decisionsReloadEpoch,
         persistExecutionMerge,
-    ]);
+    });
+
     const issueHeirArrestWarrant = useCallback(
         (heirName: string) => {
             upsertHeirWorkflow(

@@ -5,6 +5,13 @@ import type { Dispatch, ElementType, SetStateAction } from 'react';
 import { X } from 'lucide-react';
 import type { TimelineEvent } from '@/app/types/execution';
 import { EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
+import {
+    EXEC_MODAL_BACKDROP_SAFE_PAD,
+    EXEC_MODAL_CLOSE_BTN_CLASS,
+    EXEC_MODAL_HEADER_SAFE_TOP,
+    EXEC_MODAL_SHELL_HEIGHT_CLASS,
+} from '../executionModalMobileShell';
 import {
     EXECUTION_TIMELINE_FILTER_OPTIONS,
     adjacentExecutionTimelineFilter,
@@ -117,10 +124,10 @@ export const ExecutionFullTimelineModalContainer: React.FC<
         eventsScrollRef.current?.scrollTo({ top: 0, behavior: 'auto' });
     }, [activeTimelineFilter, showTimelineModal]);
 
+    useBodyScrollLock(showTimelineModal);
+
     useEffect(() => {
         if (!showTimelineModal) return;
-        const prev = document.body.style.overflow;
-        document.body.style.overflow = 'hidden';
         const onKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
                 setShowTimelineModal(false);
@@ -138,7 +145,6 @@ export const ExecutionFullTimelineModalContainer: React.FC<
         };
         window.addEventListener('keydown', onKeyDown);
         return () => {
-            document.body.style.overflow = prev;
             window.removeEventListener('keydown', onKeyDown);
         };
     }, [showTimelineModal, setShowTimelineModal, activeTimelineFilter, setActiveTimelineFilter, timelineFilterOptions]);
@@ -153,7 +159,7 @@ export const ExecutionFullTimelineModalContainer: React.FC<
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="fixed inset-0 flex flex-col overflow-hidden bg-slate-950/75 p-0 backdrop-blur-2xl sm:p-3"
+                    className={`fixed inset-0 flex flex-col overflow-hidden bg-slate-950/75 p-0 backdrop-blur-2xl sm:p-3 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
                     style={{ zIndex: EXEC_MODAL_Z.timelineFullModal }}
                     onClick={(e) => {
                         if (e.target === e.currentTarget) setShowTimelineModal(false);
@@ -164,15 +170,15 @@ export const ExecutionFullTimelineModalContainer: React.FC<
                         initial={{ opacity: 0, y: 16 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 16 }}
-                        className="mx-auto flex h-full min-h-0 w-full max-w-lg flex-col overflow-hidden border border-white/10 bg-[#0A0F1C] shadow-2xl sm:rounded-2xl"
+                        className={`mx-auto flex min-h-0 w-full max-w-lg flex-col overflow-hidden border border-white/10 bg-[#0A0F1C] shadow-2xl sm:rounded-2xl ${EXEC_MODAL_SHELL_HEIGHT_CLASS}`}
                         onClick={(e) => e.stopPropagation()}
                         dir="rtl"
                     >
-                        <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3">
+                        <div className={`flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3 ${EXEC_MODAL_HEADER_SAFE_TOP}`}>
                             <button
                                 type="button"
                                 onClick={() => setShowTimelineModal(false)}
-                                className="rounded-lg border border-transparent p-2 text-slate-300 transition-colors hover:border-white/15 hover:bg-white/10 hover:text-white"
+                                className={EXEC_MODAL_CLOSE_BTN_CLASS}
                                 aria-label="إغلاق"
                             >
                                 <X size={22} />
