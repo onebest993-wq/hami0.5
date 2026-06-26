@@ -160,7 +160,7 @@ export default defineConfig(({ command }) => ({
     alias: [
       {
         find: '@/app/bootstrap/LawyerDashboardGate',
-        replacement: bootstrapGatePath('src/app/bootstrap/LawyerDashboardGate.dev.tsx', command),
+        replacement: path.resolve(projectRoot, 'src/app/bootstrap/LawyerDashboardGate.tsx'),
       },
       {
         find: '@/app/bootstrap/SecurityInitializerGate',
@@ -169,6 +169,7 @@ export default defineConfig(({ command }) => ({
       { find: '@/app', replacement: path.resolve(__dirname, './src/app') },
       { find: '@', replacement: path.resolve(__dirname, './src') },
     ],
+    dedupe: ['react', 'react-dom'],
   },
   server: {
     host: true,
@@ -222,7 +223,7 @@ export default defineConfig(({ command }) => ({
       resolveDependencies: (_filename, deps) =>
         deps.filter(
           (dep) =>
-            !/(lawyer-dashboard|execution-dashboard|execution-hooks|execution-helpers|criminal-dashboard|criminal-store|smart-file-modal|iraqi-law-loader|ExecutionDashboard|CriminalDashboard)/i.test(
+            !/(lawyer-dashboard|execution-dashboard|execution-dashboard-static-scope|execution-dashboard-loader|execution-lazy-registry|execution-tab-|execution-orchestrators|execution-hooks|execution-helpers|execution-modals|execution-overlays|execution-shell-overlays|execution-phone-body|execution-law-articles|criminal-dashboard|criminal-tab-|criminal-dashboard-request-ui|criminal-dashboard-parties|criminal-legal-codes|criminal-store|criminal-store-slices|criminal-lazy-modals|community-overlays|community-repository|CommunityScreen|global-search-|smart-file-modal|iraqi-law-loader|articles\.json|ExecutionDashboard|CriminalDashboard|vendor-motion|vendor-supabase|SmartToastContainer|SmartDialogContainer|auth-context|app-deferred-boot|runtime-|deferred-app)/i.test(
               dep,
             ),
         ),
@@ -230,26 +231,89 @@ export default defineConfig(({ command }) => ({
     rollupOptions: {
       external:
         command === 'build'
-          ? ['html2canvas', 'dompurify', 'expo-secure-store', 'expo-modules-core']
+          ? ['html2canvas', 'expo-secure-store', 'expo-modules-core']
           : ['expo-secure-store', 'expo-modules-core'],
       output: {
         manualChunks(id) {
           if (
-            id.includes('context/AuthContext') ||
-            id.includes('context\\AuthContext') ||
-            id.includes('utils/authStorage')
+            id.includes('context/authProviderRuntime') ||
+            id.includes('context\\authProviderRuntime')
           ) {
             return 'auth-context';
           }
           if (
-            id.includes('/runtime/') ||
-            id.includes('\\runtime\\') ||
-            id.includes('/bootstrap/deferredBoot') ||
-            id.includes('\\bootstrap\\deferredBoot')
+            id.includes('/runtime/lawyerDashboardLoader') ||
+            id.includes('\\runtime\\lawyerDashboardLoader')
           ) {
             return 'app-runtime';
           }
+          if (
+            id.includes('/bootstrap/deferredBoot') ||
+            id.includes('\\bootstrap\\deferredBoot') ||
+            id.includes('/runtime/deferredGoogleFonts') ||
+            id.includes('\\runtime\\deferredGoogleFonts') ||
+            id.includes('/runtime/deferredAppStyles') ||
+            id.includes('\\runtime\\deferredAppStyles')
+          ) {
+            return 'app-deferred-boot';
+          }
+          if (
+            (id.includes('/runtime/') || id.includes('\\runtime\\')) &&
+            !id.includes('sameOriginApiProbe')
+          ) {
+            if (id.includes('executionDashboardLoader')) return 'execution-dashboard-loader';
+            if (id.includes('globalSearchLoader')) return 'global-search-loader';
+            if (/HubLoader|hubLoader|Loader\.ts/i.test(id)) {
+              const base = id.split(/[/\\]/).pop()?.replace(/\.ts$/, '') ?? 'hub';
+              return `runtime-${base}`;
+            }
+            return;
+          }
+          if (
+            id.includes('workers/globalSearchIndex.worker') ||
+            id.includes('workers\\globalSearchIndex.worker')
+          ) {
+            return 'global-search-worker';
+          }
+          if (id.includes('globalSearchLoad')) {
+            return 'global-search-extras';
+          }
+          if (
+            /globalSearchIndexPure|globalSearchIndex\w+Entries|globalSearchIndexPureHelpers/.test(id) ||
+            /[/\\]globalSearchIndex\.ts$/.test(id) ||
+            id.includes('executionSearchIndex') ||
+            id.includes('globalSearchFileSliceCache')
+          ) {
+            return 'global-search-index-build';
+          }
+          if (
+            id.includes('globalSearchIndexRuntime') ||
+            id.includes('globalSearchIndexPrepare') ||
+            id.includes('globalSearchWarm') ||
+            id.includes('globalSearchQuerySecurity') ||
+            id.includes('globalSearchProfileCache') ||
+            id.includes('globalSearchIndexWorkerClient') ||
+            id.includes('globalSearchFuse')
+          ) {
+            return 'global-search-index-runtime';
+          }
+          if (id.includes('GlobalSearchOverlay') || id.includes('GlobalSearchOverlay\\')) {
+            if (
+              /GlobalSearchOverlay[/\\]hooks[/\\](useSearchIndex|useSearchExtras|GlobalSearchRuntimeProvider)/.test(
+                id,
+              )
+            ) {
+              return 'global-search-index-runtime';
+            }
+            if (
+              /GlobalSearchOverlay[/\\]components[/\\](SearchResultsPanel|ResultsBody|ResultRow)/.test(id)
+            ) {
+              return 'global-search-results-panel';
+            }
+            return 'global-search-overlay';
+          }
           if (id.includes('node_modules')) {
+            if (id.includes('fuse.js')) return 'global-search-fuse';
             if (id.includes('lucide-react')) return 'vendor-icons';
             if (id.includes('react-dom')) return 'vendor-react';
             if (id.includes('node_modules/react/')) return 'vendor-react';
@@ -258,14 +322,277 @@ export default defineConfig(({ command }) => ({
             if (id.includes('@sentry')) return 'vendor-sentry';
             return;
           }
+          if (
+            id.includes('useFollowupModalPersistNavigation') ||
+            id.includes('useExecutionDashboardView') ||
+            id.includes('useExecutionDashboardState') ||
+            id.includes('useExecutionDashboardCore')
+          ) {
+            return 'execution-dashboard-core';
+          }
+          if (
+            id.includes('ExecutionDashboard/hooks/executionDashboardCore') ||
+            id.includes('ExecutionDashboard\\hooks\\executionDashboardCore') ||
+            id.includes('useExecutionDashboardShellOrchestrators') ||
+            id.includes('useExecutionDashboardClaimFinancials') ||
+            id.includes('useExecutionDashboardGraceAndSummoning') ||
+            id.includes('useExecutionDashboardFollowupSeizureTabs') ||
+            id.includes('useExecutionDashboardOtherPartyMirror') ||
+            id.includes('useExecutionDashboardSalarySeizureTabRows') ||
+            id.includes('useExecutionDashboardCoerciveActionBridge') ||
+            id.includes('useExecutionDashboardSeizureReleaseHandlers') ||
+            id.includes('useExecutionDashboardThirdPartyReceiveHandlers') ||
+            id.includes('useFollowupModalTabGuards')
+          ) {
+            return 'execution-dashboard-core';
+          }
+          if (
+            id.includes('executionDashboardLazyChunkScope') ||
+            id.includes('executionDashboardLazyRegistry') ||
+            id.includes('executionFollowupModalLazy') ||
+            id.includes('executionFollowupTabPrefetch')
+          ) {
+            return 'execution-lazy-registry';
+          }
+          if (id.includes('executionDashboardLazyShellUi') || id.includes('DebtorFinancialProgressBar')) {
+            return 'execution-helpers';
+          }
+          if (id.includes('executionModalStack')) {
+            return 'execution-helpers';
+          }
+          if (
+            id.includes('executorApprovalWorkflow') ||
+            id.includes('publicationNoticeDebtor') ||
+            id.includes('residentialEvictionGrace') ||
+            id.includes('executionModuleStrategies')
+          ) {
+            return 'execution-helpers';
+          }
+          if (id.includes('ExecutionDashboard/components/PersonalTab') || id.includes('ExecutionDashboard\\components\\PersonalTab')) {
+            return 'execution-tab-personal';
+          }
+          if (id.includes('PersonalCoerciveFollowupPanel')) {
+            return 'execution-tab-personal';
+          }
+          if (id.includes('ExecutionDashboard/components/CoerciveTab') || id.includes('ExecutionDashboard\\components\\CoerciveTab')) {
+            return 'execution-tab-coercive';
+          }
+          if (id.includes('ExecutionDashboard/components/FinancialTab') || id.includes('ExecutionDashboard\\components\\FinancialTab')) {
+            return 'execution-tab-financial';
+          }
+          if (id.includes('ExecutionDashboard/components/SeizureRequestsTab') || id.includes('ExecutionDashboard\\components\\SeizureRequestsTab')) {
+            return 'execution-tab-seizure';
+          }
+          if (id.includes('ExecutionDashboard/components/CommunicationsTab') || id.includes('ExecutionDashboard\\components\\CommunicationsTab')) {
+            return 'execution-tab-correspondences';
+          }
+          if (id.includes('ExecutionDashboard/components/RequestsTab') || id.includes('ExecutionDashboard\\components\\RequestsTab')) {
+            return 'execution-tab-requests';
+          }
+          if (id.includes('ExecutionDashboard/components/DossierControlsTab') || id.includes('ExecutionDashboard\\components\\DossierControlsTab')) {
+            return 'execution-tab-dossier-controls';
+          }
+          if (id.includes('ExecutionDashboard/components/OtherPartyTab') || id.includes('ExecutionDashboard\\components\\OtherPartyTab')) {
+            return 'execution-tab-other-party';
+          }
+          if (id.includes('followupModalTabTypes')) {
+            return 'execution-helpers';
+          }
+          if (
+            /followupModalContext|followupModalSnapshot|followupTabKeepAlive|useExecutionFollowupModalSnapshot|FollowupTabKeepAlivePanel/.test(
+              id,
+            )
+          ) {
+            return 'execution-followup-shared';
+          }
+          if (
+            id.includes('ExecutionDashboard/orchestrators') ||
+            id.includes('ExecutionDashboard\\orchestrators')
+          ) {
+            return 'execution-dashboard-core';
+          }
+          if (
+            id.includes('executionDashboardStaticChunkScope') ||
+            id.includes('executionDashboardConstants') ||
+            id.includes('ExecutionDashboard/hooks/executionDashboardStaticChunkScope')
+          ) {
+            return 'execution-dashboard-static-scope';
+          }
+          if (id.includes('executionDashboardClaimFinancials')) {
+            return 'execution-helpers';
+          }
+          if (id.includes('executionDashboardGraceSummoning')) {
+            return 'execution-helpers';
+          }
+          if (id.includes('executionDashboardRuntimeChunkScope')) {
+            return 'execution-helpers';
+          }
+          if (id.includes('executionDashboardUiChunkScope')) {
+            return 'execution-dashboard-core';
+          }
+          if (id.includes('followupSnapshotFieldKeys')) {
+            return 'execution-followup-shared';
+          }
           if (id.includes('ExecutionDashboard/hooks/') || id.includes('ExecutionDashboard\\hooks\\')) {
-            return 'execution-hooks';
+            if (
+              /followupModal|FollowupModal|buildFollowupModalSnapshot|executionFollowupModalSnapshot|useExecutionFollowupModalSnapshot|enrichFollowupModalSnapshot/.test(
+                id,
+              ) &&
+              !id.includes('useFollowupModalPersistNavigation')
+            ) {
+              return 'execution-followup-shared';
+            }
+            if (
+              /LazyChunk|ChunkScope|BootPrefetch|PhoneBodyGate|PhoneBodyPropKeys|ShellOverlayPropKeys|buildExecutionPhoneBodyProps|buildExecutionDashboardChunkScopeSources|pickExecution|assignExecution|executionDashboardChunkScope|executionPhoneBodyScope|executionShellOverlayScope/.test(
+                id,
+              )
+            ) {
+              return 'execution-dashboard-core';
+            }
+            return 'execution-dashboard-core';
+          }
+          if (id.includes('requestsTabConstants')) {
+            return 'execution-helpers';
           }
           if (id.includes('ExecutionDashboard/helpers/') || id.includes('ExecutionDashboard\\helpers\\')) {
             return 'execution-helpers';
           }
+          if (
+            id.includes('ExecutionDashboard/ExecutionFollowupModalPortal') ||
+            id.includes('ExecutionDashboard\\ExecutionFollowupModalPortal')
+          ) {
+            return 'execution-modals-followup';
+          }
+          if (
+            id.includes('ExecutionDashboard/components/ExecutionModalsContainer') ||
+            id.includes('ExecutionDashboard\\components\\ExecutionModalsContainer')
+          ) {
+            return 'execution-modals-core';
+          }
+          if (
+            id.includes('ExecutionDashboard/components/UnifiedSummonsModalContainer') ||
+            id.includes('ExecutionDashboard\\components\\UnifiedSummonsModalContainer')
+          ) {
+            return 'execution-modals-summons';
+          }
+          if (
+            id.includes('ExecutionDashboard/components/ExecutionDashboardPhoneBody') ||
+            id.includes('ExecutionDashboard\\components\\ExecutionDashboardPhoneBody')
+          ) {
+            return 'execution-phone-body';
+          }
+          if (id.includes('executionLaws.articles.json')) {
+            return 'execution-law-articles';
+          }
+          if (
+            id.includes('ExecutionDashboard/components/ExecutionDashboardHeavyModals') ||
+            id.includes('ExecutionDashboard\\components\\ExecutionDashboardHeavyModals')
+          ) {
+            return 'execution-overlays-heavy';
+          }
+          if (
+            id.includes('ExecutionDashboard/components/ExecutionDashboardEditOverlays') ||
+            id.includes('ExecutionDashboard\\components\\ExecutionDashboardEditOverlays')
+          ) {
+            return 'execution-overlays-edit';
+          }
+          if (
+            id.includes('ExecutionDashboard/components/ExecutionDashboardNotesOverlays') ||
+            id.includes('ExecutionDashboard\\components\\ExecutionDashboardNotesOverlays')
+          ) {
+            return 'execution-overlays-notes';
+          }
+          if (
+            id.includes('ExecutionDashboard/components/ExecutionDashboardExecutorWorkflowOverlays') ||
+            id.includes('ExecutionDashboard\\components\\ExecutionDashboardExecutorWorkflowOverlays')
+          ) {
+            return 'execution-overlays-executor';
+          }
+          if (
+            id.includes('ExecutionDashboard/components/ExecutionDashboardSolidaryEvictionOverlays') ||
+            id.includes('ExecutionDashboard\\components\\ExecutionDashboardSolidaryEvictionOverlays')
+          ) {
+            return 'execution-overlays-solidary';
+          }
+          if (
+            id.includes('ExecutionDashboard/components/ExecutionDashboardShellOverlays') ||
+            id.includes('ExecutionDashboard\\components\\ExecutionDashboardShellOverlays')
+          ) {
+            return 'execution-overlays-shell';
+          }
           if (id.includes('criminal-system/criminalStore') || id.includes('criminal-system\\criminalStore')) {
             return 'criminal-store';
+          }
+          if (
+            /criminal-system[/\\]CriminalPartiesGrid/.test(id)
+          ) {
+            return 'criminal-dashboard-parties';
+          }
+          if (
+            /criminal-system[/\\]components[/\\](RequestModalEntryLanes|ConcernedPartyDecisionPicker|LawyerRequestUxAddons)\./.test(
+              id,
+            )
+          ) {
+            return 'criminal-dashboard-request-ui';
+          }
+          if (
+            /criminal-system[/\\](lawFilters|penalLawFilters|juvenileLawFilters)\./.test(id) ||
+            /criminal-system[/\\]legalCodes[/\\]LegalCodesTab/.test(id)
+          ) {
+            return 'criminal-tab-legal-codes';
+          }
+          if (/criminal-system[/\\]CriminalNewCase/.test(id)) {
+            return 'criminal-tab-new-case';
+          }
+          if (/criminal-system[/\\]components[/\\]TrialsTab/.test(id)) {
+            return 'criminal-tab-trials';
+          }
+          if (/criminal-system[/\\]components[/\\]RecursiveProceduralCanvas/.test(id)) {
+            return 'criminal-tab-procedural-canvas';
+          }
+          if (/criminal-system[/\\]components[/\\]JudicialDecisionsLedger/.test(id)) {
+            return 'criminal-tab-judicial-ledger';
+          }
+          if (/criminal-system[/\\]components[/\\]StatementsPhaseSections/.test(id)) {
+            return 'criminal-tab-statements';
+          }
+          if (
+            /criminal-system[/\\](trialSessions|trialDepositions|trialCharge|trialSessionPreparatory|stageFinalDecision|verdictCassation|partyPersonalStage|cassation|stageTransitionAppeal|proceduralCassation|complainantCassation|decisionAppealPeriod|proceduralContainers|proceduralSandbox|proceduralItemLink|proceduralRequestTypes|journeyOrder|lawyerRequestsEngine|lawyerMotionFeed|investigationDefendant|investigationDraft|investigationPhase|juvenileInvestigation|criminalUnknown|detentionEngine|statementRecording)/.test(
+              id,
+            )
+          ) {
+            return 'criminal-store-slices';
+          }
+          if (
+            id.includes('bundledIraqiLawLoader') ||
+            id.includes('iraqiLawBundleRegistry')
+          ) {
+            return 'iraqi-law-loader';
+          }
+          if (
+            id.includes('criminal-system/legalCodes') ||
+            id.includes('criminal-system\\legalCodes')
+          ) {
+            return 'criminal-legal-codes';
+          }
+          if (id.includes('criminalDashboardLazyModals')) {
+            return 'criminal-lazy-modals';
+          }
+          if (id.includes('CommunityScreen') || id.includes('CommunityScreen\\')) {
+            if (
+              /CommunityScreen[/\\]components[/\\](LegalRepository|UploadDocumentModal|RepositoryCard|RepositoryFilterPanel|ForumDeleteConfirmModal)/.test(
+                id,
+              )
+            ) {
+              return 'community-repository';
+            }
+            if (
+              /CommunityScreen[/\\]components[/\\](AddQuestionSheet|CommentBottomSheet|SearchOverlay|CreateGroupModal|EditPostModal|ForumMemberProfileOverlay|FullscreenImageOverlay)/.test(
+                id,
+              )
+            ) {
+              return 'community-overlays';
+            }
           }
           // لا تقسيم يدوي أوسع — يسبب circular chunks أو modulepreload لحزم lazy.
         },

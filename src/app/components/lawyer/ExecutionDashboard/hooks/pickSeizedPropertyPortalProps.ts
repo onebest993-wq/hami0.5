@@ -1,0 +1,71 @@
+export const SEIZED_PROPERTY_PORTAL_PROP_KEYS = [
+    'seizedPropertyStepModalOpen',
+    'seizedPropertyStepEntityKind',
+    'setSeizedPropertyStepModalOpen',
+    'seizedPropertyStepKind',
+    'seizedPropertyStepPropertyId',
+    'executionData',
+    'seizedPropertyExpertsNamesDraft',
+    'setSeizedPropertyExpertsNamesDraft',
+    'seizedPropertyExpertReportDateDraft',
+    'setSeizedPropertyExpertReportDateDraft',
+    'seizedPropertyExpertPriceDraft',
+    'setSeizedPropertyExpertPriceDraft',
+    'seizedPropertyAuctionDateDraft',
+    'setSeizedPropertyAuctionDateDraft',
+    'linkSeizureAuctionToAppointments',
+    'setLinkSeizureAuctionToAppointments',
+    'seizedPropertyBuyerNameDraft',
+    'setSeizedPropertyBuyerNameDraft',
+    'seizedPropertyAwardAmountDraft',
+    'setSeizedPropertyAwardAmountDraft',
+    'seizedPropertyStepNotesDraft',
+    'setSeizedPropertyStepNotesDraft',
+    'saveSeizedPropertyStepDetails',
+    'seizedPropertyAuctionResultModalOpen',
+    'seizedPropertyAuctionResultEntityKind',
+    'setSeizedPropertyAuctionResultModalOpen',
+    'setSeizedPropertyAuctionResultPropertyId',
+    'setSeizedPropertyAuctionResultEntityKind',
+    'setSeizedPropertyAuctionResultOutcome',
+    'setSeizedPropertyAuctionResultBuyerNameDraft',
+    'setSeizedPropertyAuctionResultAmountDraft',
+    'setSeizedPropertyAuctionDepositAmountDraft',
+    'seizedPropertyAuctionResultOutcome',
+    'seizedPropertyAuctionResultBuyerNameDraft',
+    'seizedPropertyAuctionResultAmountDraft',
+    'seizedPropertyAuctionDepositAmountDraft',
+    'saveSeizedPropertyAuctionSessionResult',
+    'seizureMarkModalOpen',
+    'seizureMarkModalEntityKind',
+    'setSeizureMarkModalOpen',
+    'setSeizureMarkModalEntityId',
+    'setSeizureMarkLetterNumberDraft',
+    'setSeizureMarkDateDraft',
+    'setSeizureMarkEntityDraft',
+    'seizureMarkLetterNumberDraft',
+    'seizureMarkDateDraft',
+    'seizureMarkEntityDraft',
+    'saveSeizureMarkConfirmation',
+    'publicationModalOpen',
+    'publicationModalEntityKind',
+    'setPublicationModalOpen',
+    'setPublicationModalEntityId',
+    'setPublicationNewspaperNameDraft',
+    'setPublicationDateYmdDraft',
+    'publicationNewspaperNameDraft',
+    'publicationDateYmdDraft',
+    'savePublicationDetails',
+] as const;
+
+export type SeizedPropertyPortalPropKey = (typeof SEIZED_PROPERTY_PORTAL_PROP_KEYS)[number];
+
+export function pickSeizedPropertyPortalProps(
+    sources: Record<string, unknown>,
+): Record<SeizedPropertyPortalPropKey, unknown> {
+    const out = {} as Record<SeizedPropertyPortalPropKey, unknown>;
+    for (const key of SEIZED_PROPERTY_PORTAL_PROP_KEYS) {
+        out[key] = sources[key];
+    }
+    return out;
+}

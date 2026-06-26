@@ -12,7 +12,6 @@ import React, {
 } from 'react';
 import type { Dispatch, ElementType, RefObject, SetStateAction } from 'react';
 import { createPortal } from 'react-dom';
-import { useDebtorTags } from '@/app/components/lawyer/ExecutionDashboard/hooks/useDebtorTags';
 import { ExecutionPartySpecialActionsMenu } from '@/app/components/lawyer/execution/ExecutionPartySpecialActionsMenu';
 import type {
     Debtor,
@@ -453,18 +452,6 @@ export const DebtorsSection = forwardRef<DebtorsSectionHandle, DebtorsSectionPro
         voluntaryEndOptimistic = false,
     } = props;
 
-    const {
-        customTags,
-        setCustomTags,
-        tagInputOpen,
-        setTagInputOpen,
-        tagDrafts,
-        setTagDrafts,
-        debtorTags,
-        handleAddTag,
-        handleRemoveTag,
-    } = useDebtorTags();
-
     const custodyRemovalClaimActive = useMemo(
         () => isCustodyRemovalExecutionClaim(executionData, claimType),
         [executionData, claimType]
@@ -836,7 +823,7 @@ export const DebtorsSection = forwardRef<DebtorsSectionHandle, DebtorsSectionPro
                                                           ra?.phase === 'warrant_ui' &&
                                                           ra?.arrestOrderRecorded;
                                                       if (!warrantOk) return false;
-                                                      if (rowForcedBringDecisionState.pending) return true;
+                                                      if (rowForcedBringDecisionState.pending) return false;
                                                       if (!isPrimary) return false;
                                                       return (
                                                           rowForcedBringDecisionState.approved &&
@@ -854,16 +841,10 @@ export const DebtorsSection = forwardRef<DebtorsSectionHandle, DebtorsSectionPro
                                                             voluntaryAttendanceCount > 0
                                                           : false;
                                                       if (attendanceResolved) return false;
-                                                      const forcedIndicator = isPrimary
-                                                          ? forcedAttendanceIssued ||
-                                                            activeNoticeState === 'forced_attendance' ||
-                                                            Boolean(executionData?.forcedAttendanceIssued)
-                                                          : false;
-                                                      if (forcedIndicator) return true;
-                                                      if (rowForcedBringDecisionState.pending) return true;
+                                                      if (rowForcedBringDecisionState.pending) return false;
                                                       if (!isPrimary) return false;
+                                                      if (!rowForcedBringDecisionState.approved) return false;
                                                       return (
-                                                          rowForcedBringDecisionState.approved &&
                                                           executionData?.forced_bring_in_personal_outcome !==
                                                               'brought' &&
                                                           executionData?.forced_bring_in_personal_outcome !==
@@ -938,53 +919,6 @@ export const DebtorsSection = forwardRef<DebtorsSectionHandle, DebtorsSectionPro
                                                                     role="presentation"
                                                                     dir="rtl"
                                                                 >
-                                                                    {!isRepresentingDebtor ? (
-                                                                        <>
-                                                                            {debtorTags(debtorKey).map(tag => (
-                                                                                <span key={tag} className="inline-flex items-center gap-1 border border-dashed border-gray-500/50 text-gray-400 bg-transparent px-2 py-0.5 rounded text-[10px] leading-tight select-none">
-                                                                                    {tag}
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={() => handleRemoveTag(debtorKey, tag)}
-                                                                                        className="text-gray-500 hover:text-rose-300 transition-colors leading-none"
-                                                                                    >
-                                                                                        ✕
-                                                                                    </button>
-                                                                                </span>
-                                                                            ))}
-                                                                            {tagInputOpen[debtorKey] ? (
-                                                                                <span className="inline-flex items-center gap-1">
-                                                                                    <input
-                                                                                        type="text"
-                                                                                        value={tagDrafts[debtorKey] ?? ''}
-                                                                                        onChange={e => setTagDrafts(prev => ({ ...prev, [debtorKey]: e.target.value }))}
-                                                                                        onKeyDown={e => {
-                                                                                            if (e.key === 'Enter') { e.preventDefault(); handleAddTag(debtorKey); }
-                                                                                            if (e.key === 'Escape') { setTagInputOpen(prev => ({ ...prev, [debtorKey]: false })); setTagDrafts(prev => ({ ...prev, [debtorKey]: '' })); }
-                                                                                        }}
-                                                                                        placeholder="وسم..."
-                                                                                        className="w-20 rounded border border-dashed border-gray-500/40 bg-transparent px-1.5 py-0.5 text-[10px] text-gray-300 placeholder:text-gray-600 focus:border-amber-400/40 focus:outline-none"
-                                                                                        autoFocus
-                                                                                    />
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={() => handleAddTag(debtorKey)}
-                                                                                        className="text-[10px] text-gray-500 hover:text-emerald-300 transition-colors"
-                                                                                    >
-                                                                                        حفظ
-                                                                                    </button>
-                                                                                </span>
-                                                                            ) : (
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => { setTagDrafts(prev => ({ ...prev, [debtorKey]: '' })); setTagInputOpen(prev => ({ ...prev, [debtorKey]: true })); }}
-                                                                                    className="inline-flex items-center gap-0.5 border border-dashed border-gray-500/30 text-gray-500 bg-transparent px-1.5 py-0.5 rounded text-[10px] leading-tight hover:border-gray-400/50 hover:text-gray-300 transition-colors"
-                                                                                >
-                                                                                    + إضافة وسم
-                                                                                </button>
-                                                                            )}
-                                                                        </>
-                                                                    ) : null}
                                                                     {debtorDisp.showDeceasedGlyph && !debtorHeirsWord ? (
                                                                         <span className="shrink-0 rounded-md border border-rose-500/40 bg-rose-950/40 px-1.5 py-0.5 text-[10px] font-bold leading-none text-rose-200/95 select-none">
                                                                             متوفى
@@ -1039,7 +973,7 @@ export const DebtorsSection = forwardRef<DebtorsSectionHandle, DebtorsSectionPro
                                                                     if (!hasSeizureBadges && !showInteractive) return null;
                                                                     return (
                                                                         <div
-                                                                            className="mt-2 flex flex-row-reverse flex-wrap items-center justify-start gap-2"
+                                                                            className="mt-2 flex flex-row-reverse flex-wrap items-center justify-start gap-1.5"
                                                                             dir="rtl"
                                                                             onClick={(e) => e.stopPropagation()}
                                                                             onKeyDown={(e) => e.stopPropagation()}
@@ -1052,6 +986,16 @@ export const DebtorsSection = forwardRef<DebtorsSectionHandle, DebtorsSectionPro
                                                                                     party="debtor"
                                                                                     isPrimaryDebtor={isPrimary}
                                                                                     executionData={viewExecutionData}
+                                                                                    debtorAttendedVoluntarily={
+                                                                                        isPrimary
+                                                                                            ? debtorAttendedVoluntarily
+                                                                                            : false
+                                                                                    }
+                                                                                    voluntaryAttendanceCount={
+                                                                                        isPrimary
+                                                                                            ? voluntaryAttendanceCount
+                                                                                            : 0
+                                                                                    }
                                                                                     activeCoerciveActions={activeCoerciveActions}
                                                                                     seizedAssets={seizedAssets}
                                                                                     realEstateSeizureAssets={realEstateSeizureAssets}
@@ -1404,53 +1348,6 @@ export const DebtorsSection = forwardRef<DebtorsSectionHandle, DebtorsSectionPro
                                                                         role="presentation"
                                                                         dir="rtl"
                                                                     >
-                                                                        {!isRepresentingDebtor ? (
-                                                                            <>
-                                                                                {debtorTags(debtorKey).map(tag => (
-                                                                                    <span key={tag} className="inline-flex items-center gap-1 border border-dashed border-gray-500/50 text-gray-400 bg-transparent px-2 py-0.5 rounded text-[10px] leading-tight select-none">
-                                                                                        {tag}
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            onClick={() => handleRemoveTag(debtorKey, tag)}
-                                                                                            className="text-gray-500 hover:text-rose-300 transition-colors leading-none"
-                                                                                        >
-                                                                                            ✕
-                                                                                        </button>
-                                                                                    </span>
-                                                                                ))}
-                                                                                {tagInputOpen[debtorKey] ? (
-                                                                                    <span className="inline-flex items-center gap-1">
-                                                                                        <input
-                                                                                            type="text"
-                                                                                            value={tagDrafts[debtorKey] ?? ''}
-                                                                                            onChange={e => setTagDrafts(prev => ({ ...prev, [debtorKey]: e.target.value }))}
-                                                                                            onKeyDown={e => {
-                                                                                                if (e.key === 'Enter') { e.preventDefault(); handleAddTag(debtorKey); }
-                                                                                                if (e.key === 'Escape') { setTagInputOpen(prev => ({ ...prev, [debtorKey]: false })); setTagDrafts(prev => ({ ...prev, [debtorKey]: '' })); }
-                                                                                            }}
-                                                                                            placeholder="وسم..."
-                                                                                            className="w-20 rounded border border-dashed border-gray-500/40 bg-transparent px-1.5 py-0.5 text-[10px] text-gray-300 placeholder:text-gray-600 focus:border-amber-400/40 focus:outline-none"
-                                                                                            autoFocus
-                                                                                        />
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            onClick={() => handleAddTag(debtorKey)}
-                                                                                            className="text-[10px] text-gray-500 hover:text-emerald-300 transition-colors"
-                                                                                        >
-                                                                                            حفظ
-                                                                                        </button>
-                                                                                    </span>
-                                                                                ) : (
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={() => { setTagDrafts(prev => ({ ...prev, [debtorKey]: '' })); setTagInputOpen(prev => ({ ...prev, [debtorKey]: true })); }}
-                                                                                        className="inline-flex items-center gap-0.5 border border-dashed border-gray-500/30 text-gray-500 bg-transparent px-1.5 py-0.5 rounded text-[10px] leading-tight hover:border-gray-400/50 hover:text-gray-300 transition-colors"
-                                                                                    >
-                                                                                        + إضافة وسم
-                                                                                    </button>
-                                                                                )}
-                                                                            </>
-                                                                        ) : null}
                                                                         {debtorDisp.showDeceasedGlyph && !debtorHeirsWord ? (
                                                                             <span className="shrink-0 rounded-md border border-rose-500/40 bg-rose-950/40 px-1.5 py-0.5 text-[10px] font-bold leading-none text-rose-200/95 select-none">
                                                                                 متوفى

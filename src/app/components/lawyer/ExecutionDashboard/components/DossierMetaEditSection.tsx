@@ -169,11 +169,7 @@ export const DossierMetaEditSection: React.FC<DossierMetaEditSectionProps> = ({
                                 </select>
                             </div>
                         </>
-                    ) : (
-                        <p className="sm:col-span-2 rounded-lg border border-slate-700/50 bg-slate-900/40 px-3 py-2 text-[10px] leading-relaxed text-slate-500">
-                            حقول العقار والتخلية تظهر فقط عندما تكون المطالبة من نوع تخلية مأجور / تسليم عقار.
-                        </p>
-                    )}
+                    ) : null}
                 </div>
                 <button
                     type="button"

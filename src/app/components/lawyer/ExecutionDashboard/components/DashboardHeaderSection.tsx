@@ -9,7 +9,6 @@ import {
 import {
     Link,
 } from 'lucide-react';
-import { ColleagueConsultationHeaderButton } from '@/app/components/lawyer/caseShare/ColleagueConsultationHeaderButton';
 
 interface StatuteStatus {
     daysRemaining: number;
@@ -282,26 +281,21 @@ export const DashboardHeaderSection = memo(function DashboardHeaderSection({
 
 
             {/* 🆕 V19: FILE HEADER — المديرية ورقم الإضبارة + حالة الإضبارة (داخل الحاوية الجوزية) */}
-            <div className="mx-3 mt-3 mb-0 flex justify-end" dir="rtl">
-                <ColleagueConsultationHeaderButton
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#E6C673]/10 border border-[#E6C673]/30 text-[#E6C673] hover:bg-[#E6C673]/16 transition-all text-[11px] font-bold"
-                    iconSize={14}
-                />
-            </div>
             <div className="mx-3 mt-1.5 mb-1.5">
                 <div
-                    className={`relative w-full overflow-hidden backdrop-blur-xl bg-[#0B1120]/65 border border-amber-500/35 px-3 py-2.5 shadow-lg shadow-amber-950/25 ring-1 ring-[#D4AF37]/10 ${
+                    className={`relative w-full overflow-hidden backdrop-blur-xl bg-[#0B1120]/65 border border-amber-500/35 px-3 py-2.5 shadow-lg shadow-amber-950/25 ring-1 ring-[#D4AF37]/10 touch-manipulation ${
                         isHeaderExpanded ? 'rounded-t-2xl rounded-b-none' : 'rounded-2xl'
                     }`}
                     role="button"
                     tabIndex={0}
-                    onClick={toggleHeaderExpanded}
+                    onClick={() => toggleHeaderExpanded()}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
                             toggleHeaderExpanded();
                         }
                     }}
+                    aria-expanded={isHeaderExpanded}
                     aria-label={isHeaderExpanded ? 'طيّ تفاصيل الإضبارة' : 'توسيع تفاصيل الإضبارة'}
                     title={isHeaderExpanded ? 'طيّ التفاصيل' : 'توسيع التفاصيل'}
                 >
@@ -456,12 +450,14 @@ export const DashboardHeaderSection = memo(function DashboardHeaderSection({
                 </div>
 
                 {/* EXPANDED STATE: Document Details Grid */}
-                <AnimatePresence>
+                <AnimatePresence initial={false}>
                     {isHeaderExpanded && (
                         <motion.div
+                            key="dossier-header-expanded"
                             initial={{ height: 0, opacity: 0 }}
                             animate={{ height: 'auto', opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2, ease: 'easeOut' }}
                             className="overflow-hidden bg-[#0B1120]/55 border border-t-0 border-amber-500/35 rounded-b-2xl -mt-px"
                         >
                             <div className="space-y-1 px-3 py-2" dir="rtl">
@@ -502,15 +498,27 @@ export const DashboardHeaderSection = memo(function DashboardHeaderSection({
                                                 className="col-span-2"
                                             />
                                             {expanded.showSpecificDeliveryMeta ? (
-                                                <DetailCell
-                                                    label="طبيعة الشيء"
-                                                    value={
-                                                        expanded.headerFields
-                                                            .specificDeliveryItemNatureDisplay ||
-                                                        'غير محدد'
-                                                    }
-                                                    className="col-span-2"
-                                                />
+                                                <>
+                                                    <DetailCell
+                                                        label="طبيعة الشيء"
+                                                        value={
+                                                            expanded.headerFields
+                                                                .specificDeliveryItemNatureDisplay ||
+                                                            'غير محدد'
+                                                        }
+                                                        className="col-span-2"
+                                                    />
+                                                    {expanded.headerFields.specificDeliveryItemName ? (
+                                                        <DetailCell
+                                                            label="الأشياء المراد تسليمها"
+                                                            value={
+                                                                expanded.headerFields
+                                                                    .specificDeliveryItemName
+                                                            }
+                                                            className="col-span-2"
+                                                        />
+                                                    ) : null}
+                                                </>
                                             ) : null}
                                             {expanded.showJudgmentMeta ? (
                                                 <DetailCell

@@ -243,123 +243,117 @@ export const PartiesSection = memo(function PartiesSection({
                                 </>
                         }
                         collapsed={
-                            <div className="flex w-full items-center justify-between gap-2 text-right" dir="rtl">
-                                <div className="min-w-0 flex-1 rounded-xl py-0 text-right">
-                                    <div className="flex w-full min-w-0 flex-col items-stretch gap-1" dir="rtl">
-                                        <div
-                                            className="flex w-full min-w-0 flex-row flex-nowrap items-center justify-center gap-2 overflow-hidden"
-                                            dir="rtl"
-                                        >
-                                            <div
-                                                className="flex min-w-0 max-w-full flex-row flex-nowrap items-center justify-center gap-1 overflow-hidden"
-                                                dir="rtl"
+                            <div className="flex w-full flex-col items-center justify-center gap-0.5 text-center" dir="rtl">
+                                <div className="flex min-w-0 max-w-full flex-row flex-nowrap items-center justify-center gap-1 overflow-hidden">
+                                    {creditorHeirsWord ? (
+                                        <HeirsQuickViewTrigger
+                                            label={creditorHeirsWord}
+                                            onOpen={() =>
+                                                openHeirsQuickView(
+                                                    c as unknown as Party,
+                                                    'creditor',
+                                                    'ورثة الدائن'
+                                                )
+                                            }
+                                        />
+                                    ) : null}
+                                    <span className="min-w-0 max-w-full truncate text-base font-bold leading-none text-white sm:text-lg">
+                                        {creditorHeirsWord
+                                            ? creditorDisp.baseName
+                                            : creditorDisp.text}
+                                        {(creditorHasHeirs
+                                            ? heirsDetailsIncludeClient(
+                                                  (c as unknown as Party).heirs_details
+                                              )
+                                            : c.isClient) &&
+                                        !creditorDisp.showDeceasedGlyph ? (
+                                            <span
+                                                className="ms-1 inline-block text-[#E6C673] text-[13px] leading-none select-none"
+                                                title="موكلي"
+                                                aria-label="موكلي"
                                             >
-                                                {creditorHeirsWord ? (
-                                                    <HeirsQuickViewTrigger
-                                                        label={creditorHeirsWord}
-                                                        onOpen={() =>
-                                                            openHeirsQuickView(
-                                                                c as unknown as Party,
-                                                                'creditor',
-                                                                'ورثة الدائن'
-                                                            )
-                                                        }
-                                                    />
-                                                ) : null}
-                                                <span className="min-w-0 max-w-full truncate text-center text-xl font-bold leading-tight text-white block">
-                                                    {creditorHeirsWord
-                                                        ? creditorDisp.baseName
-                                                        : creditorDisp.text}
-                                                    {(creditorHasHeirs
-                                                        ? heirsDetailsIncludeClient(
-                                                              (c as unknown as Party).heirs_details
-                                                          )
-                                                        : c.isClient) &&
-                                                    !creditorDisp.showDeceasedGlyph ? (
-                                                        <span
-                                                            className="ms-1 inline-block text-[#E6C673] text-[14px] leading-none select-none"
-                                                            title="موكلي"
-                                                            aria-label="موكلي"
-                                                        >
-                                                            ★
-                                                        </span>
-                                                    ) : null}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <div
-                                            className="mt-0.5 flex flex-row flex-nowrap items-center justify-start gap-1 overflow-x-auto scrollbar-hide"
-                                            onClick={(e) => e.stopPropagation()}
-                                            onKeyDown={(e) => e.stopPropagation()}
-                                            role="presentation"
-                                            dir="rtl"
-                                        >
-                                            {creditorDisp.showDeceasedGlyph && !creditorHeirsWord ? (
-                                                <span className="shrink-0 rounded-md border border-rose-500/40 bg-rose-950/40 px-1.5 py-0.5 text-[10px] font-bold leading-none text-rose-200/95 select-none">
-                                                    متوفى
-                                                </span>
-                                            ) : null}
-                                            {ent.ecIndex === 0 &&
-                                            !isPmCred &&
-                                            creditorPartyPreserveAppealInline &&
-                                            executionAppealBanner.show ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        onOpenDecisionsAppealsTab();
-                                                    }}
-                                                    className="max-w-[10rem] shrink-0 truncate inline-flex items-center rounded-md border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-[10px] font-normal text-red-500 transition-colors hover:bg-red-500/15"
-                                                    title={`طعن ساري: ${executionAppealBanner.label} — افتح مركز الطعون`}
-                                                >
-                                                    {executionAppealBanner.label}
-                                                </button>
-                                            ) : null}
-                                        </div>
-                                        <div
-                                            className="flex flex-row flex-wrap items-center justify-start gap-1 mt-0.5"
-                                            onClick={(e) => e.stopPropagation()}
-                                            onKeyDown={(e) => e.stopPropagation()}
-                                            role="presentation"
-                                        >
-                                            <ExecutionPartyInteractiveBadges
-                                                executionId={partyBadgesExecutionId}
-                                                party="creditor"
-                                                isPrimaryDebtor={false}
-                                                executionData={viewExecutionData}
-                                                activeCoerciveActions={activeCoerciveActions}
-                                                seizedAssets={seizedAssets}
-                                                timelineEvents={activeTimelineEvents}
-                                                hasGuarantor={false}
-                                                memoBadge={null}
-                                                absenceBadge={null}
-                                                showSummonsBadge={false}
-                                                debtorArrested={false}
-                                                forcedAttendancePending={false}
-                                                decisionsReloadEpoch={decisionsReloadEpoch}
-                                                isHistoricalMode={isHistoricalMode}
-                                            />
-                                        </div>
+                                                ★
+                                            </span>
+                                        ) : null}
+                                    </span>
+                                </div>
+                                {(creditorDisp.showDeceasedGlyph && !creditorHeirsWord) ||
+                                (ent.ecIndex === 0 &&
+                                    !isPmCred &&
+                                    creditorPartyPreserveAppealInline &&
+                                    executionAppealBanner.show) ? (
+                                    <div
+                                        className="flex max-w-full flex-row flex-nowrap items-center justify-center gap-1 overflow-x-auto scrollbar-hide"
+                                        onClick={(e) => e.stopPropagation()}
+                                        onKeyDown={(e) => e.stopPropagation()}
+                                        role="presentation"
+                                        dir="rtl"
+                                    >
+                                        {creditorDisp.showDeceasedGlyph && !creditorHeirsWord ? (
+                                            <span className="shrink-0 rounded-md border border-rose-500/40 bg-rose-950/40 px-1.5 py-0.5 text-[10px] font-bold leading-none text-rose-200/95 select-none">
+                                                متوفى
+                                            </span>
+                                        ) : null}
                                         {ent.ecIndex === 0 &&
                                         !isPmCred &&
-                                        !creditorPartyPreserveAppealInline &&
+                                        creditorPartyPreserveAppealInline &&
                                         executionAppealBanner.show ? (
-                                            <div className="flex w-full justify-end" dir="rtl">
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        onOpenDecisionsAppealsTab();
-                                                    }}
-                                                    className="max-w-[10rem] shrink-0 truncate inline-flex items-center rounded-md border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-[10px] font-normal text-red-500 transition-colors hover:bg-red-500/15"
-                                                    title={`طعن ساري: ${executionAppealBanner.label} — افتح مركز الطعون`}
-                                                >
-                                                    {executionAppealBanner.label}
-                                                </button>
-                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onOpenDecisionsAppealsTab();
+                                                }}
+                                                className="max-w-[10rem] shrink-0 truncate inline-flex items-center rounded-md border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-[10px] font-normal text-red-500 transition-colors hover:bg-red-500/15"
+                                                title={`طعن ساري: ${executionAppealBanner.label} — افتح مركز الطعون`}
+                                            >
+                                                {executionAppealBanner.label}
+                                            </button>
                                         ) : null}
                                     </div>
+                                ) : null}
+                                <div
+                                    className="flex max-w-full flex-row flex-wrap items-center justify-center gap-1"
+                                    onClick={(e) => e.stopPropagation()}
+                                    onKeyDown={(e) => e.stopPropagation()}
+                                    role="presentation"
+                                >
+                                    <ExecutionPartyInteractiveBadges
+                                        executionId={partyBadgesExecutionId}
+                                        party="creditor"
+                                        isPrimaryDebtor={false}
+                                        executionData={viewExecutionData}
+                                        activeCoerciveActions={activeCoerciveActions}
+                                        seizedAssets={seizedAssets}
+                                        timelineEvents={activeTimelineEvents}
+                                        hasGuarantor={false}
+                                        memoBadge={null}
+                                        absenceBadge={null}
+                                        showSummonsBadge={false}
+                                        debtorArrested={false}
+                                        forcedAttendancePending={false}
+                                        decisionsReloadEpoch={decisionsReloadEpoch}
+                                        isHistoricalMode={isHistoricalMode}
+                                    />
                                 </div>
+                                {ent.ecIndex === 0 &&
+                                !isPmCred &&
+                                !creditorPartyPreserveAppealInline &&
+                                executionAppealBanner.show ? (
+                                    <div className="flex w-full justify-center" dir="rtl">
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onOpenDecisionsAppealsTab();
+                                            }}
+                                            className="max-w-[10rem] shrink-0 truncate inline-flex items-center rounded-md border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-[10px] font-normal text-red-500 transition-colors hover:bg-red-500/15"
+                                            title={`طعن ساري: ${executionAppealBanner.label} — افتح مركز الطعون`}
+                                        >
+                                            {executionAppealBanner.label}
+                                        </button>
+                                    </div>
+                                ) : null}
                             </div>
                         }
                     />

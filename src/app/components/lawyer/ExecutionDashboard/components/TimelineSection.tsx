@@ -1,17 +1,17 @@
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Dispatch, ElementType, SetStateAction, TransitionStartFunction } from 'react';
 import type { TimelineEvent } from '@/app/types/execution';
 import { useEntityCalendarEvents } from '@/app/hooks/useEntityCalendarEvents';
 import { mergeTimelineEventsWithCalendar } from '@/app/utils/calendarTimelineMerge';
 import {
     EXECUTION_TIMELINE_FILTER_OPTIONS,
-    adjacentExecutionTimelineFilter,
     filterExecutionTimelineEvents,
     type ExecutionTimelineFilterLabel,
 } from '@/app/utils/timelineCategoryFilter';
 import { dedupeTimelineEventsForDisplay } from '@/app/utils/timelineDedup';
+import { useReduceMotion } from '@/app/hooks/useReduceMotion';
+import { ExecutionTimelineFilterBar } from './ExecutionTimelineFilterBar';
 
 interface TimelineSectionProps {
     timelineAccordionExpanded: boolean;
@@ -87,6 +87,7 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
     executionEntityId,
     timelineFilterOptions = EXECUTION_TIMELINE_FILTER_OPTIONS,
 }) => {
+    const reduceMotion = useReduceMotion();
     const TIMELINE_PAGE_SIZE = 100;
     const [timelineVisibleCount, setTimelineVisibleCount] = useState(TIMELINE_PAGE_SIZE);
     const [activeAppointmentsVisibleCount, setActiveAppointmentsVisibleCount] = useState(TIMELINE_PAGE_SIZE);
@@ -167,6 +168,108 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
         });
     }, [activeTimelineFilter]);
 
+    const renderExpandedBody = () => (
+        <>
+            <div className="px-3 pt-3">
+                <ExecutionTimelineFilterBar
+                    activeTimelineFilter={activeTimelineFilter}
+                    setActiveTimelineFilter={setActiveTimelineFilter}
+                    timelineFilterOptions={timelineFilterOptions}
+                    filterCounts={filterCounts}
+                    filterChipRefs={filterChipRefs}
+                    hasSubFiles={hasSubFiles}
+                    showOnlyActiveFileTimeline={showOnlyActiveFileTimeline}
+                    setShowOnlyActiveFileTimeline={setShowOnlyActiveFileTimeline}
+                />
+            </div>
+
+            <div className="max-h-[min(70vh,32rem)] overflow-y-auto overscroll-contain px-4 py-5 pb-8">
+                {activeTimelineFilter === 'مواعيد' && appointmentsSplit ? (
+                    <div className="space-y-6" dir="rtl">
+                        <div className="space-y-2">
+                            <p className="text-xs font-black text-slate-200">المواعيد النشطة</p>
+                            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                                <PremiumTimelineAuditLog
+                                    events={appointmentsSplit.active.slice(0, activeAppointmentsVisibleCount)}
+                                    onTogglePin={toggleTimelineEventPin}
+                                    onRequestTrash={moveTimelineEventToTrash}
+                                    onRequestEdit={onRequestEditTimelineEvent}
+                                    isHistoricalMode={isHistoricalMode}
+                                />
+                            </Suspense>
+                            {appointmentsSplit.active.length > activeAppointmentsVisibleCount ? (
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setActiveAppointmentsVisibleCount((v) => v + TIMELINE_PAGE_SIZE)
+                                    }
+                                    className="mt-2 rounded-lg border border-slate-600/45 bg-slate-800/40 px-3 py-1.5 text-[11px] font-bold text-slate-200 hover:border-[#E6C673]/35"
+                                >
+                                    تحميل المزيد
+                                </button>
+                            ) : null}
+                        </div>
+                        <div className="space-y-2">
+                            <p className="text-xs font-black text-slate-200">المواعيد المنتهية</p>
+                            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                                <PremiumTimelineAuditLog
+                                    events={appointmentsSplit.ended.slice(0, endedAppointmentsVisibleCount)}
+                                    onTogglePin={toggleTimelineEventPin}
+                                    onRequestTrash={moveTimelineEventToTrash}
+                                    onRequestEdit={onRequestEditTimelineEvent}
+                                    isHistoricalMode={isHistoricalMode}
+                                />
+                            </Suspense>
+                            {appointmentsSplit.ended.length > endedAppointmentsVisibleCount ? (
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setEndedAppointmentsVisibleCount((v) => v + TIMELINE_PAGE_SIZE)
+                                    }
+                                    className="mt-2 rounded-lg border border-slate-600/45 bg-slate-800/40 px-3 py-1.5 text-[11px] font-bold text-slate-200 hover:border-[#E6C673]/35"
+                                >
+                                    تحميل المزيد
+                                </button>
+                            ) : null}
+                        </div>
+                    </div>
+                ) : (
+                    <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                        <PremiumTimelineAuditLog
+                            events={effectiveEvents.slice(0, timelineVisibleCount)}
+                            onTogglePin={toggleTimelineEventPin}
+                            onRequestTrash={moveTimelineEventToTrash}
+                            onRequestEdit={onRequestEditTimelineEvent}
+                            isHistoricalMode={isHistoricalMode}
+                        />
+                    </Suspense>
+                )}
+                {activeTimelineFilter !== 'مواعيد' && effectiveEvents.length > timelineVisibleCount ? (
+                    <button
+                        type="button"
+                        onClick={() => setTimelineVisibleCount((v) => v + TIMELINE_PAGE_SIZE)}
+                        className="mt-2 rounded-lg border border-slate-600/45 bg-slate-800/40 px-3 py-1.5 text-[11px] font-bold text-slate-200 hover:border-[#E6C673]/35"
+                    >
+                        تحميل المزيد
+                    </button>
+                ) : null}
+            </div>
+
+            <div className="p-3 pt-0">
+                <button
+                    type="button"
+                    onClick={() => setShowTimelineModal(true)}
+                    className="w-full rounded-lg border border-slate-600/45 bg-slate-800/40 p-2.5 transition-all hover:border-[#E6C673]/35 hover:bg-slate-800/55"
+                >
+                    <div className="flex items-center justify-center gap-2 text-slate-200">
+                        <History size={16} className="text-[#E6C673]/85" />
+                        <span className="text-sm font-semibold">عرض السجل الكامل</span>
+                    </div>
+                </button>
+            </div>
+        </>
+    );
+
     return (
         <div className="mx-3 mt-3 rounded-xl border border-slate-500/25 bg-[#0A0F1C]/30 p-0.5 shadow-md shadow-black/25 ring-1 ring-white/[0.05] backdrop-blur-xl">
             <button type="button"
@@ -197,185 +300,24 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
                     </Suspense>
                 )}
 
-            <AnimatePresence>
-                {timelineAccordionExpanded && (
-                    <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="border-t border-slate-600/30"
-                    >
-                        <div className="p-3 pb-0">
-                            <div className="mb-2 flex items-center justify-between gap-2" dir="rtl">
-                                <button
-                                    type="button"
-                                    aria-label="التصنيف التالي"
-                                    onClick={() =>
-                                        setActiveTimelineFilter(
-                                            adjacentExecutionTimelineFilter(
-                                                activeTimelineFilter,
-                                                1,
-                                                timelineFilterOptions
-                                            )
-                                        )
-                                    }
-                                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-700/50 bg-slate-800/40 px-2 py-1 text-[10px] font-bold text-slate-300 hover:bg-slate-700/50"
-                                >
-                                    <ChevronLeft size={14} />
-                                    التالي
-                                </button>
-                                <p className="min-w-0 truncate text-center text-[10px] font-bold text-slate-300">
-                                    {activeTimelineFilter}
-                                    <span className="mx-1 text-slate-500">·</span>
-                                    <span className="text-amber-200/90">
-                                        {filterCounts[activeTimelineFilter] ?? 0}
-                                    </span>
-                                </p>
-                                <button
-                                    type="button"
-                                    aria-label="التصنيف السابق"
-                                    onClick={() =>
-                                        setActiveTimelineFilter(
-                                            adjacentExecutionTimelineFilter(
-                                                activeTimelineFilter,
-                                                -1,
-                                                timelineFilterOptions
-                                            )
-                                        )
-                                    }
-                                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-700/50 bg-slate-800/40 px-2 py-1 text-[10px] font-bold text-slate-300 hover:bg-slate-700/50"
-                                >
-                                    السابق
-                                    <ChevronRight size={14} />
-                                </button>
-                            </div>
-                            <div className="flex items-center gap-2 overflow-x-auto pb-3 scrollbar-hide">
-                                {timelineFilterOptions.map((label) => (
-                                    <button type="button"
-                                        key={label}
-                                        ref={(el) => {
-                                            filterChipRefs.current[label] = el;
-                                        }}
-                                        onClick={() => setActiveTimelineFilter(label)}
-                                        className={`px-3 py-1.5 rounded-full text-[10px] font-semibold whitespace-nowrap transition-all ${
-                                            activeTimelineFilter === label
-                                                ? 'bg-[#E6C673]/14 text-amber-100 border border-[#E6C673]/38'
-                                                : 'bg-slate-800/30 text-slate-300 border border-slate-700/40 hover:bg-slate-700/45'
-                                        }`}
-                                    >
-                                        {label}
-                                        {(filterCounts[label] ?? 0) > 0 && label !== 'الكل' ? (
-                                            <span className="mr-1 text-[9px] opacity-70">
-                                                ({filterCounts[label]})
-                                            </span>
-                                        ) : null}
-                                    </button>
-                                ))}
-                                {hasSubFiles && setShowOnlyActiveFileTimeline ? (
-                                    <button type="button"
-                                        onClick={() => setShowOnlyActiveFileTimeline((v) => !v)}
-                                        className={`px-3 py-1.5 rounded-full text-[10px] font-semibold whitespace-nowrap transition-all ${
-                                            showOnlyActiveFileTimeline
-                                                ? 'bg-indigo-500/20 text-indigo-200 border border-indigo-500/40'
-                                                : 'bg-slate-800/30 text-slate-300 border border-slate-700/40 hover:bg-slate-700/45'
-                                        }`}
-                                    >
-                                        {showOnlyActiveFileTimeline ? 'عرض أحداث الإضبارتين' : 'أحداث الإضبارة المحددة فقط'}
-                                    </button>
-                                ) : null}
-                            </div>
-                        </div>
-
-                        <div className="max-h-[min(70vh,32rem)] overflow-y-auto overscroll-contain px-4 py-5 pb-8">
-                            {activeTimelineFilter === 'مواعيد' && appointmentsSplit ? (
-                                <div className="space-y-6" dir="rtl">
-                                    <div className="space-y-2">
-                                        <p className="text-xs font-black text-slate-200">
-                                            المواعيد النشطة
-                                        </p>
-                                        <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
-                                            <PremiumTimelineAuditLog
-                                                events={appointmentsSplit.active.slice(0, activeAppointmentsVisibleCount)}
-                                                onTogglePin={toggleTimelineEventPin}
-                                                onRequestTrash={moveTimelineEventToTrash}
-                                                onRequestEdit={onRequestEditTimelineEvent}
-                                                isHistoricalMode={isHistoricalMode}
-                                            />
-                                        </Suspense>
-                                        {appointmentsSplit.active.length > activeAppointmentsVisibleCount ? (
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    setActiveAppointmentsVisibleCount((v) => v + TIMELINE_PAGE_SIZE)
-                                                }
-                                                className="mt-2 rounded-lg border border-slate-600/45 bg-slate-800/40 px-3 py-1.5 text-[11px] font-bold text-slate-200 hover:border-[#E6C673]/35"
-                                            >
-                                                تحميل المزيد
-                                            </button>
-                                        ) : null}
-                                    </div>
-                                    <div className="space-y-2">
-                                        <p className="text-xs font-black text-slate-200">
-                                            المواعيد المنتهية
-                                        </p>
-                                        <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
-                                            <PremiumTimelineAuditLog
-                                                events={appointmentsSplit.ended.slice(0, endedAppointmentsVisibleCount)}
-                                                onTogglePin={toggleTimelineEventPin}
-                                                onRequestTrash={moveTimelineEventToTrash}
-                                                onRequestEdit={onRequestEditTimelineEvent}
-                                                isHistoricalMode={isHistoricalMode}
-                                            />
-                                        </Suspense>
-                                        {appointmentsSplit.ended.length > endedAppointmentsVisibleCount ? (
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    setEndedAppointmentsVisibleCount((v) => v + TIMELINE_PAGE_SIZE)
-                                                }
-                                                className="mt-2 rounded-lg border border-slate-600/45 bg-slate-800/40 px-3 py-1.5 text-[11px] font-bold text-slate-200 hover:border-[#E6C673]/35"
-                                            >
-                                                تحميل المزيد
-                                            </button>
-                                        ) : null}
-                                    </div>
-                                </div>
-                            ) : (
-                                <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
-                                    <PremiumTimelineAuditLog
-                                        events={effectiveEvents.slice(0, timelineVisibleCount)}
-                                        onTogglePin={toggleTimelineEventPin}
-                                        onRequestTrash={moveTimelineEventToTrash}
-                                        onRequestEdit={onRequestEditTimelineEvent}
-                                        isHistoricalMode={isHistoricalMode}
-                                    />
-                                </Suspense>
-                            )}
-                            {activeTimelineFilter !== 'مواعيد' && effectiveEvents.length > timelineVisibleCount ? (
-                                <button
-                                    type="button"
-                                    onClick={() => setTimelineVisibleCount((v) => v + TIMELINE_PAGE_SIZE)}
-                                    className="mt-2 rounded-lg border border-slate-600/45 bg-slate-800/40 px-3 py-1.5 text-[11px] font-bold text-slate-200 hover:border-[#E6C673]/35"
-                                >
-                                    تحميل المزيد
-                                </button>
-                            ) : null}
-                        </div>
-
-                        <div className="p-3 pt-0">
-                            <button type="button"
-                                onClick={() => setShowTimelineModal(true)}
-                                className="w-full rounded-lg border border-slate-600/45 bg-slate-800/40 p-2.5 transition-all hover:border-[#E6C673]/35 hover:bg-slate-800/55"
-                            >
-                                <div className="flex items-center justify-center gap-2 text-slate-200">
-                                    <History size={16} className="text-[#E6C673]/85" />
-                                    <span className="text-sm font-semibold">عرض السجل الكامل</span>
-                                </div>
-                            </button>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {reduceMotion ? (
+                timelineAccordionExpanded ? (
+                    <div className="border-t border-slate-600/30">{renderExpandedBody()}</div>
+                ) : null
+            ) : (
+                <AnimatePresence>
+                    {timelineAccordionExpanded && (
+                        <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="border-t border-slate-600/30"
+                        >
+                            {renderExpandedBody()}
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            )}
         </div>
     );
 };

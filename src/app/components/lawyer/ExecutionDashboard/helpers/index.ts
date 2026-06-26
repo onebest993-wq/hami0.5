@@ -23,6 +23,7 @@ export {
     seizureCoerciveKeyFromAssetType,
     stripSeizureTypeDecorators,
     isSalarySeizureRow,
+    isSalarySeizureAsset,
     isMovablePropertySeizureRow
 } from './seizureUtils';
 

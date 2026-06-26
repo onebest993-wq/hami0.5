@@ -54,7 +54,6 @@ export function useSubsequentNoticeFlow(
     activeDebtorIsDeceased: boolean,
     primaryDebtorKeyResolved: string | null,
     debtorNotifiedForEvictionGrace: boolean,
-    remaining: number,
 ) {
     const earnerForcedActionUnlocked = useMemo(() => {
         if (!isEarnerLikeSummonsBranch(debtorSummonsProfile as DebtorSummonsProfile)) return false;
@@ -302,7 +301,6 @@ export function useSubsequentNoticeFlow(
     ]);
 
     const primaryDebtorAbsenceBadge = useMemo(() => {
-        if (remaining <= 0) return null;
         if (activeDebtorNoticeScope.absenceBadgeDismissed) return null;
         if (lawyerStartedPostNoticeExecution) return null;
         if (primaryDebtorTaklifActive) return null;
@@ -339,7 +337,6 @@ export function useSubsequentNoticeFlow(
         noticeVoluntaryPeriodEndOptimistic,
         executionData?.eviction_voluntary_period_end_declared,
         voluntaryEndOptimistic,
-        remaining,
     ]);
 
     const showDebtorSummonsAttendanceBadge = useMemo(

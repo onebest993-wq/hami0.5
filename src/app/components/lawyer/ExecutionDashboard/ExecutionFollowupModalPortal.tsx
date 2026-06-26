@@ -1,9 +1,7 @@
-import React, { Suspense } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { motion } from 'motion/react';
 import { X, ChevronLeft, ChevronRight, ClipboardList } from 'lucide-react';
 import {
-    EXEC_OVERLAY_LAZY_FALLBACK,
     LazyCoerciveTab,
     LazyCommunicationsTab,
     LazyDossierControlsTab,
@@ -16,13 +14,22 @@ import {
     LazyPersonalTab,
     LazyRequestsTab,
     LazySeizureRequestsTab,
-} from './executionDashboardLazyShell';
+} from './executionDashboardLazyRegistry';
+import { EXEC_SECTION_LAZY_FALLBACK } from './executionDashboardLazyShellUi';
 import { EXEC_MODAL_BACKDROP_STRONG, EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
 import { EVICTION_TIMELINE_ACTION_IDS, isSpecificDeliveryClaim } from '@/app/utils/executionModuleStrategies';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { resolveDebtorDisplayNameForKey } from '@/app/utils/coerciveDebtorScope';
 import { normalizeDossierLifecycleStatus } from '@/app/types/execution';
 import { useFollowupModal } from './followupModalContext';
+import { assignMutableRefCurrent } from './utils/assignMutableRefCurrent';
+import { DebtorFinancialProgressBar as DebtorFinancialProgressBarComponent } from './components/DebtorFinancialProgressBar';
+import { FollowupTabKeepAlivePanel } from './components/FollowupTabKeepAlivePanel';
+import {
+    resolveFollowupActivePanelKey,
+    useFollowupModalTabKeepAlive,
+} from './followupTabKeepAlive';
+import { prefetchExecutionFollowupTab } from './executionFollowupTabPrefetch';
 
 export function ExecutionFollowupModalPortal() {
     const {
@@ -90,6 +97,8 @@ export function ExecutionFollowupModalPortal() {
         followupMonetaryCoerciveLimitedOnly,
         followupSalarySeizureLabel,
         followupSpecialization,
+        hideExecutiveDetentionJudgeCard,
+        earnerFinancialPersonalCoerciveActive,
         forcedBringDecisionState,
         forcedSummoningAnalysis,
         getLocalTodayYmd,
@@ -110,12 +119,12 @@ export function ExecutionFollowupModalPortal() {
         handleIssueHeirsExecutionNoticeMemo,
         handleSpecificDeliveryExpenseRecorded,
         handleSpecificDeliveryFinancialized,
+        handleSpecificDeliveryItemDeclaredDestroyed,
         headerFields,
         hideCoerciveTabsForDebtorAgent,
         inabaCorrespondenceLog,
         inabaTargets,
         inlineActionGateKey,
-        insertTimelineEventToSupabase,
         isAlimonyClaimType,
         isEvictionExecutionModule,
         isFollowupTabActive,
@@ -214,6 +223,36 @@ export function ExecutionFollowupModalPortal() {
         voluntaryEndOptimistic
     } = useFollowupModal();
 
+    const TabPersonal = PersonalTab ?? LazyPersonalTab;
+    const TabCoercive = CoerciveTab ?? LazyCoerciveTab;
+    const TabSeizureRequests = SeizureRequestsTab ?? LazySeizureRequestsTab;
+    const TabFinancial = FinancialTab ?? LazyFinancialTab;
+    const TabOtherParty = OtherPartyTab ?? LazyOtherPartyTab;
+    const TabCommunications = CommunicationsTab ?? LazyCommunicationsTab;
+    const TabDossierControls = DossierControlsTab ?? LazyDossierControlsTab;
+    const TabRequests = RequestsTab ?? LazyRequestsTab;
+    const ProgressBar = DebtorFinancialProgressBar ?? DebtorFinancialProgressBarComponent;
+    const spec = followupSpecialization ?? {};
+    const workspaceCtx = assignmentWorkspaceCtx ?? { activeDebtorKey: '' };
+
+    const debtorsUnified = Array.isArray(allDebtorsUnified) ? allDebtorsUnified : [];
+    const followupModalTabs = Array.isArray(effectiveFollowupModalTabs) ? effectiveFollowupModalTabs : [];
+
+    const activePanelKey = useMemo(
+        () =>
+            resolveFollowupActivePanelKey({
+                unifiedModalTab,
+                showPersonalCoerciveFollowupTab,
+                hideFollowupCoerciveTab: spec.hideFollowupCoerciveTab,
+            }),
+        [unifiedModalTab, showPersonalCoerciveFollowupTab, spec.hideFollowupCoerciveTab],
+    );
+    const panelsToRender = useFollowupModalTabKeepAlive(activePanelKey);
+
+    useEffect(() => {
+        prefetchExecutionFollowupTab(activePanelKey);
+    }, [activePanelKey]);
+
     if (typeof document === 'undefined') return null;
 
     return createPortal(
@@ -278,8 +317,8 @@ export function ExecutionFollowupModalPortal() {
                                     </div>
                                     <div
                                         ref={(el) => {
-                                            (followupModalChipTablistRef as any).current = el;
-                                            (followupModalSectionTabsRef as any).current = el;
+                                            assignMutableRefCurrent(followupModalChipTablistRef, el);
+                                            assignMutableRefCurrent(followupModalSectionTabsRef, el);
                                         }}
                                         role="tablist"
                                         aria-label="أقسام محضر المتابعة"
@@ -294,7 +333,7 @@ export function ExecutionFollowupModalPortal() {
                                             el.scrollLeft += delta;
                                         }}
                                     >
-                                        {effectiveFollowupModalTabs.map((tab) => {
+                                        {followupModalTabs.map((tab) => {
                                             const active = isFollowupTabActive(tab.id);
                                             return (
                                                 <button
@@ -304,11 +343,13 @@ export function ExecutionFollowupModalPortal() {
                                                     data-followup-tab={tab.id}
                                                     aria-selected={active}
                                                     onClick={() => {
+                                                        prefetchExecutionFollowupTab(tab.id);
                                                         if (tab.id === 'seizure_requests') {
                                                             openSeizureRequestsTab();
                                                             return;
                                                         }
                                                         setUnifiedModalTab(tab.id);
+                                                        queueMicrotask(() => persistFollowupModalViewport());
                                                     }}
                                                     title={
                                                         tab.id === 'personal' && personalTabLockedForEmployee
@@ -333,7 +374,7 @@ export function ExecutionFollowupModalPortal() {
                                     onScroll={() => persistFollowupModalViewport()}
                                     className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10"
                                 >
-                                {!isSolidaryLiability && allDebtorsUnified.length > 1 ? (
+                                {!isSolidaryLiability && debtorsUnified.length > 1 ? (
                                     <div className="sticky top-0 z-[5] border-b border-slate-700/50 bg-[#0B1120]/98 px-2 pt-2 pb-2 backdrop-blur-md">
                                         <p className="mb-1 px-1 text-right text-[9px] text-slate-500">
                                             مدينو الإضبارة — ذمة مستقلة لكل منهم (اختر التبويب قبل الإجراء)
@@ -342,7 +383,7 @@ export function ExecutionFollowupModalPortal() {
                                             ref={followupModalDebtorTabsRef}
                                             className="scrollbar-hide flex gap-1 overflow-x-auto pb-1"
                                         >
-                                            {allDebtorsUnified.map((d, i) => (
+                                            {debtorsUnified.map((d, i) => (
                                                 <button
                                                     key={d.id}
                                                     type="button"
@@ -360,13 +401,13 @@ export function ExecutionFollowupModalPortal() {
                                                 </button>
                                             ))}
                                         </div>
-                                        {allDebtorsUnified[executionDebtorTabIndex] ? (
+                                        {debtorsUnified[executionDebtorTabIndex] ? (
                                             <>
-                                                <DebtorFinancialProgressBar
+                                                <ProgressBar
                                                     allocated={
-                                                        allDebtorsUnified[executionDebtorTabIndex].allocated_debt
+                                                        debtorsUnified[executionDebtorTabIndex].allocated_debt
                                                     }
-                                                    paid={allDebtorsUnified[executionDebtorTabIndex].paid_amount}
+                                                    paid={debtorsUnified[executionDebtorTabIndex].paid_amount}
                                                     label="حصة المدين النشط"
                                                 />
                                                 <div className="flex justify-end px-1 -mt-1 pb-1">
@@ -374,7 +415,7 @@ export function ExecutionFollowupModalPortal() {
                                                         {`المدين النشط: مدين ${executionDebtorTabIndex + 1}`}
                                                     </span>
                                                 </div>
-                                                {allDebtorsUnified[executionDebtorTabIndex].cleared ? (
+                                                {debtorsUnified[executionDebtorTabIndex].cleared ? (
                                                     <div className="flex justify-end px-1 pb-1">
                                                         <span className="rounded-lg border border-emerald-500/45 bg-emerald-950/30 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
                                                             براءة ذمة / Cleared
@@ -386,13 +427,13 @@ export function ExecutionFollowupModalPortal() {
                                     </div>
                                 ) : null}
 
-                                {isSolidaryLiability && allDebtorsUnified.length >= 1 ? (
+                                {isSolidaryLiability && debtorsUnified.length >= 1 ? (
                                     <div className="border-b border-amber-500/25 bg-slate-900/50 px-3 py-2">
                                         <p className="mb-2 text-right text-[10px] font-bold text-amber-200/90">
                                             تضامن — عرض موحّد لجميع المدينين
                                         </p>
                                         <ul className="mb-2 space-y-1 text-right text-[11px] text-slate-300">
-                                            {allDebtorsUnified.map((d, idx) => (
+                                            {debtorsUnified.map((d, idx) => (
                                                 <li key={d.id}>
                                                     • {`مدين ${idx + 1}`}
                                                     {d.cleared ? (
@@ -403,7 +444,7 @@ export function ExecutionFollowupModalPortal() {
                                                 </li>
                                             ))}
                                         </ul>
-                                        <DebtorFinancialProgressBar
+                                        <ProgressBar
                                             allocated={totalOwed}
                                             paid={paidDebt}
                                             label="تقدّم الإضبارة (إجمالي)"
@@ -411,8 +452,12 @@ export function ExecutionFollowupModalPortal() {
                                     </div>
                                 ) : null}
 
-                                {unifiedModalTab === 'personal' && showPersonalCoerciveFollowupTab ? (
-                                    <PersonalTab
+                                {panelsToRender.has('personal') && showPersonalCoerciveFollowupTab ? (
+                                    <FollowupTabKeepAlivePanel
+                                        panelId="personal"
+                                        active={activePanelKey === 'personal'}
+                                    >
+                                    <TabPersonal
                                         personalTabLockedForEmployee={personalTabLockedForEmployee}
                                         onConfirmUnlock={() =>
                                             setPersonalTabUnlockByDebtor((prev) => {
@@ -438,7 +483,7 @@ export function ExecutionFollowupModalPortal() {
                                         setDebtorArrested={setDebtorArrested}
                                         showEmployeeAssignmentCoerciveBlock={showEmployeeAssignmentCoerciveBlock}
                                         resolvedEmployeeSummonsAssignment={resolvedEmployeeSummonsAssignment}
-                                        EXEC_OVERLAY_LAZY_FALLBACK={EXEC_OVERLAY_LAZY_FALLBACK}
+                                        EXEC_SECTION_LAZY_FALLBACK={EXEC_SECTION_LAZY_FALLBACK}
                                         LazyEmployeeAssignmentCoerciveFollowupBlock={LazyEmployeeAssignmentCoerciveFollowupBlock}
                                         forcedBringDecisionState={forcedBringDecisionState}
                                         employeeForcedBringAwaitingPersonalOutcome={employeeForcedBringAwaitingPersonalOutcome}
@@ -460,12 +505,12 @@ export function ExecutionFollowupModalPortal() {
                                         persistExecutionMerge={persistExecutionMerge}
                                         pushTimelineEvent={pushTimelineEvent}
                                         nextTimelineId={nextTimelineId}
-                                        assignmentWorkspaceCtx={assignmentWorkspaceCtx}
+                                        assignmentWorkspaceCtx={workspaceCtx}
                                         primaryDebtorKeyResolved={primaryDebtorKeyResolved}
                                         onOpenDecisions={openDecisionsModalWithBoot}
                                         onOpenSummonsCenter={() => {
                                             setSummonsContextDebtorKey(
-                                                String(assignmentWorkspaceCtx.activeDebtorKey)
+                                                String(workspaceCtx.activeDebtorKey)
                                             );
                                             setSummonsHubInitialMainTab('tabligh');
                                             setShowUnifiedSummonsModal(true);
@@ -483,11 +528,20 @@ export function ExecutionFollowupModalPortal() {
                                         kasabTerminationEmphasis={kasabTerminationEmphasis}
                                         activeDebtorIsEmployee={activeDebtorIsEmployee}
                                         hidePersonalJudgePresentation={
-                                            followupSpecialization.hidePersonalJudgePresentation ||
+                                            spec.hidePersonalJudgePresentation ||
                                             activeDebtorIsEmployee
                                         }
+                                        hideExecutiveDetentionJudgeCard={
+                                            hideExecutiveDetentionJudgeCard ||
+                                            activeDebtorIsEmployee
+                                        }
+                                        earnerFinancialPersonalCoerciveActive={
+                                            earnerFinancialPersonalCoerciveActive
+                                        }
                                         hidePersonalForcedBringActivation={
-                                            followupSpecialization.hidePersonalForcedBringActivation
+                                            earnerFinancialPersonalCoerciveActive
+                                                ? false
+                                                : spec.hidePersonalForcedBringActivation
                                         }
                                         activeDebtorNoticeScope={activeDebtorNoticeScope}
                                         handleEmployeeAssignmentRequestInvestigation={handleEmployeeAssignmentRequestInvestigation}
@@ -497,24 +551,16 @@ export function ExecutionFollowupModalPortal() {
                                         handleEmployeeWarrantOutcome={handleEmployeeWarrantOutcome}
                                         handleEmployeeAssignmentTerminate={handleEmployeeAssignmentTerminate}
                                     />
-								) : !followupSpecialization.hideFollowupCoerciveTab &&
-								  (unifiedModalTab === 'coercive' ||
-								  (unifiedModalTab === 'personal' && !showPersonalCoerciveFollowupTab)) ? (
-									<motion.div
-										key="followup-coercive"
-										initial="hidden"
-										animate="show"
-										variants={{
-											hidden: { opacity: 0, y: 10 },
-											show: {
-												opacity: 1,
-												y: 0,
-												transition: { duration: 0.25 },
-											},
-										}}
-										className="p-4 sm:p-5 space-y-4"
-									>
-                                        <CoerciveTab
+                                    </FollowupTabKeepAlivePanel>
+								) : null}
+
+                                {panelsToRender.has('coercive') && !spec.hideFollowupCoerciveTab ? (
+                                    <FollowupTabKeepAlivePanel
+                                        panelId="coercive"
+                                        active={activePanelKey === 'coercive'}
+                                        className="p-4 sm:p-5 space-y-4"
+                                    >
+                                        <TabCoercive
                                             coerciveUiLocked={coerciveUiLocked}
                                             isEvictionExecutionModule={isEvictionExecutionModule}
                                             executionData={viewExecutionData}
@@ -525,7 +571,7 @@ export function ExecutionFollowupModalPortal() {
                                             lawyerStartedPostNoticeExecution={lawyerStartedPostNoticeExecution}
                                             registerDebtorVoluntaryAttendance={registerDebtorVoluntaryAttendance}
                                             openExecutionSeizuresTab={openExecutionSeizuresTab}
-                                            EXEC_OVERLAY_LAZY_FALLBACK={EXEC_OVERLAY_LAZY_FALLBACK}
+                                            EXEC_OVERLAY_LAZY_FALLBACK={EXEC_SECTION_LAZY_FALLBACK}
                                             LazyEvictionFieldProceduresPanel={LazyEvictionFieldProceduresPanel}
                                             evictionProcedureLocked={evictionProcedureLocked}
                                             evictionProcedureLockHint={evictionProcedureLockHint}
@@ -556,34 +602,34 @@ export function ExecutionFollowupModalPortal() {
                                             onExpandProcedureConsumed={consumeFollowupExpandProcedure}
                                             followupEmployeeFinancialSalaryOnlyCoercive={followupEmployeeFinancialSalaryOnlyCoercive}
                                             followupMonetaryCoerciveLimitedOnly={followupMonetaryCoerciveLimitedOnly}
-                                            hideCoerciveGraceNoticeBanner={followupSpecialization.hideCoerciveGraceNoticeBanner}
-                                            hideCoerciveFinancialBanners={followupSpecialization.hideCoerciveFinancialBanners}
-                                            hideCoerciveSeizureSalaryAndProperty={followupSpecialization.hideCoerciveSeizureSalaryAndProperty}
-                                            hideEncroachmentEvictionProcedureItems={followupSpecialization.hideEncroachmentEvictionProcedureItems}
+                                            hideCoerciveGraceNoticeBanner={spec.hideCoerciveGraceNoticeBanner}
+                                            hideCoerciveFinancialBanners={spec.hideCoerciveFinancialBanners}
+                                            hideCoerciveSeizureSalaryAndProperty={spec.hideCoerciveSeizureSalaryAndProperty}
+                                            hideEncroachmentEvictionProcedureItems={spec.hideEncroachmentEvictionProcedureItems}
                                             showEncroachmentRemovalRequestCards={
-                                                followupSpecialization.showEncroachmentRemovalRequestCards
+                                                spec.showEncroachmentRemovalRequestCards
                                             }
                                             showSpecificDeliverySurveyorCard={
-                                                followupSpecialization.showSpecificDeliverySurveyorCard
+                                                spec.showSpecificDeliverySurveyorCard
                                             }
                                             showSpecificDeliveryConversionCard={
-                                                followupSpecialization.showSpecificDeliveryConversionCard
+                                                spec.showSpecificDeliveryConversionCard
                                             }
                                             hideEvictionCustodianProcedure={
-                                                followupSpecialization.hideEvictionCustodianProcedure
+                                                spec.hideEvictionCustodianProcedure
                                             }
                                             showSpecificDeliveryBreakInventoryCard={
-                                                followupSpecialization.showSpecificDeliveryBreakInventoryCard
+                                                spec.showSpecificDeliveryBreakInventoryCard
                                             }
                                             showSpecificDeliveryFieldProcedures={
-                                                followupSpecialization.showSpecificDeliveryFieldProcedures
+                                                spec.showSpecificDeliveryFieldProcedures
                                             }
                                             showGenericFieldProcedureCards={
-                                                followupSpecialization.showSpecificDeliveryFieldProcedures &&
+                                                spec.showSpecificDeliveryFieldProcedures &&
                                                 !isMaritalFurnitureClaim
                                             }
                                             hideFollowupCoerciveTab={
-                                                followupSpecialization.hideFollowupCoerciveTab
+                                                spec.hideFollowupCoerciveTab
                                             }
                                             isSpecificDeliveryModule={isSpecificDeliveryClaim(
                                                 claimTypeForExecutionModule
@@ -594,13 +640,19 @@ export function ExecutionFollowupModalPortal() {
                                             )}
                                             specificDeliveryItemName={headerFields.specificDeliveryItemName}
                                             specificDeliveryItemNature={headerFields.specificDeliveryItemNature}
+                                            specificDeliveryItems={
+                                                (executionData as { specificDeliveryItems?: unknown })
+                                                    ?.specificDeliveryItems as
+                                                    | import('@/app/utils/specificDeliveryItemsUtils').SpecificDeliveryItem[]
+                                                    | undefined
+                                            }
                                             debtAmount={executionData?.debtAmount}
                                             totalAmount={executionData?.totalAmount}
-                                            specificDeliveryConvertedAmount={
-                                                (executionData as { specificDeliveryConvertedAmount?: number })
-                                                    ?.specificDeliveryConvertedAmount
-                                            }
+                                            specificDeliveryConvertedAmount={specificDeliveryConvertedAmount ?? 0}
                                             onSpecificDeliveryFinancialized={handleSpecificDeliveryFinancialized}
+                                            onSpecificDeliveryItemDeclaredDestroyed={
+                                                handleSpecificDeliveryItemDeclaredDestroyed
+                                            }
                                             onEncroachmentExpenseRecorded={handleEncroachmentExpenseRecorded}
                                             onSpecificDeliveryExpenseRecorded={handleSpecificDeliveryExpenseRecorded}
                                             executionCoerciveButtonDisabled={executionCoerciveButtonDisabled}
@@ -617,16 +669,29 @@ export function ExecutionFollowupModalPortal() {
                                             followupSalarySeizureLabel={followupSalarySeizureLabel}
                                             followupGarnishmentAmountPreview={followupGarnishmentAmountPreview}
                                         />
-                                    </motion.div>
-                                ) : unifiedModalTab === 'financial' ? (
-                                    <FinancialTab openFinancialHubLedger={openFinancialHubLedger} />
-                                ) : unifiedModalTab === 'other_party' ? (
-                                    <OtherPartyTab
+                                    </FollowupTabKeepAlivePanel>
+                                ) : null}
+
+                                {panelsToRender.has('financial') ? (
+                                    <FollowupTabKeepAlivePanel
+                                        panelId="financial"
+                                        active={activePanelKey === 'financial'}
+                                    >
+                                    <TabFinancial openFinancialHubLedger={openFinancialHubLedger} />
+                                    </FollowupTabKeepAlivePanel>
+                                ) : null}
+
+                                {panelsToRender.has('other_party') ? (
+                                    <FollowupTabKeepAlivePanel
+                                        panelId="other_party"
+                                        active={activePanelKey === 'other_party'}
+                                    >
+                                    <TabOtherParty
                                         executionData={viewExecutionData}
                                         decisionsStorageExecutionId={decisionsStorageExecutionId}
                                         persistExecutionMerge={persistExecutionMerge}
                                         handleOtherPartyActionSubmitToDecisions={otherPartyTabSubmitHandler}
-                                        EXEC_OVERLAY_LAZY_FALLBACK={EXEC_OVERLAY_LAZY_FALLBACK}
+                                        EXEC_OVERLAY_LAZY_FALLBACK={EXEC_SECTION_LAZY_FALLBACK}
                                         LazyOtherPartyActionsLog={LazyOtherPartyActionsLog}
                                         showCreditorRequestsMirror={isRepresentingDebtor}
                                         creditorRequestsMirror={otherPartyCreditorMirrorProps ?? undefined}
@@ -634,8 +699,15 @@ export function ExecutionFollowupModalPortal() {
                                         creditorTrackHandlers={creditorOtherPartyTrackHandlers}
                                         appealPerspective={appealPerspective}
                                     />
-                                ) : unifiedModalTab === 'seizure_requests' ? (
-                                    <SeizureRequestsTab
+                                    </FollowupTabKeepAlivePanel>
+                                ) : null}
+
+                                {panelsToRender.has('seizure_requests') ? (
+                                    <FollowupTabKeepAlivePanel
+                                        panelId="seizure_requests"
+                                        active={activePanelKey === 'seizure_requests'}
+                                    >
+                                    <TabSeizureRequests
                                         executionId={decisionsStorageExecutionId ?? executionId}
                                         executionData={viewExecutionData}
                                         remainingBalanceIqd={remainingBalanceForSeizure}
@@ -667,19 +739,19 @@ export function ExecutionFollowupModalPortal() {
                                         }
                                         requestGuarantorSeizure={requestGuarantorSeizure}
                                         forceHideGuarantorSeizureSubTab={
-                                            followupSpecialization.hideGuarantorSeizureSubTab
+                                            spec.hideGuarantorSeizureSubTab
                                         }
                                         financialGuarantorRequestOnly={
-                                            followupSpecialization.showFinancialGuarantorRequestOnly
+                                            spec.showFinancialGuarantorRequestOnly
                                         }
                                         isFinancialDebtCollectionClaim={
-                                            followupSpecialization.isFinancialDebtCollection
+                                            spec.isFinancialDebtCollection
                                         }
                                         settlementBreachTriggeredAt={
                                             settlementGuarantorGate.settlementBreachTriggeredAt
                                         }
                                         hideAllGuarantorPresence={
-                                            followupSpecialization.hideAllGuarantorPresence
+                                            spec.hideAllGuarantorPresence
                                         }
                                         ledgerPendingSettlement={
                                             settlementGuarantorGate.pendingSettlement
@@ -687,18 +759,25 @@ export function ExecutionFollowupModalPortal() {
                                         isAlimonyClaim={isAlimonyClaimType}
                                         claimType={claimType}
                                     />
-								) : unifiedModalTab === 'correspondences' ? (
-                                    <CommunicationsTab
+                                    </FollowupTabKeepAlivePanel>
+                                ) : null}
+
+                                {panelsToRender.has('correspondences') ? (
+                                    <FollowupTabKeepAlivePanel
+                                        panelId="correspondences"
+                                        active={activePanelKey === 'correspondences'}
+                                    >
+                                    <TabCommunications
                                         decisionsStorageExecutionId={decisionsStorageExecutionId}
                                         showToast={showToast}
                                         showSoftFieldProcedures={
-                                            followupSpecialization.showCorrespondencesSoftProcedures
+                                            spec.showCorrespondencesSoftProcedures
                                         }
                                         showEncroachmentSurveyor={
-                                            followupSpecialization.showEncroachmentRemovalRequestCards
+                                            spec.showEncroachmentRemovalRequestCards
                                         }
                                         showSpecificDeliverySurveyor={
-                                            followupSpecialization.showSpecificDeliverySurveyorCard
+                                            spec.showSpecificDeliverySurveyorCard
                                         }
                                         inlineActionGateKey={inlineActionGateKey}
                                         setInlineActionGateKey={setInlineActionGateKey}
@@ -729,23 +808,17 @@ export function ExecutionFollowupModalPortal() {
                                         }}
                                         nextTimelineId={nextTimelineId}
                                     />
-                                ) : unifiedModalTab === 'dossier_controls' ? (
-                                    <motion.div
-                                        key="followup-dossier-controls"
-                                        initial="hidden"
-                                        animate="show"
-                                        variants={{
-                                            hidden: { opacity: 0, y: 10 },
-                                            show: {
-                                                opacity: 1,
-                                                y: 0,
-                                                transition: { duration: 0.25 },
-                                            },
-                                        }}
+                                    </FollowupTabKeepAlivePanel>
+                                ) : null}
+
+                                {panelsToRender.has('dossier_controls') ? (
+                                    <FollowupTabKeepAlivePanel
+                                        panelId="dossier_controls"
+                                        active={activePanelKey === 'dossier_controls'}
                                         className="p-4 sm:p-5"
                                         dir="rtl"
                                     >
-                                        <DossierControlsTab
+                                        <TabDossierControls
                                             parentFileId={parentDossierId}
                                             decisionsStorageExecutionId={decisionsStorageExecutionId}
                                             appealPerspective={appealPerspective}
@@ -776,9 +849,15 @@ export function ExecutionFollowupModalPortal() {
                                                 return handleDossierAction(payload);
                                             }}
                                         />
-                                    </motion.div>
-                                ) : unifiedModalTab === 'admin' ? (
-                                    <RequestsTab
+                                    </FollowupTabKeepAlivePanel>
+                                ) : null}
+
+                                {panelsToRender.has('admin') ? (
+                                    <FollowupTabKeepAlivePanel
+                                        panelId="admin"
+                                        active={activePanelKey === 'admin'}
+                                    >
+                                    <TabRequests
                                         executionId={decisionsStorageExecutionId ?? executionId}
                                         appealPerspective={appealPerspective}
                                         specialRequestTemplatePick={specialRequestTemplatePick}
@@ -800,7 +879,7 @@ export function ExecutionFollowupModalPortal() {
                                         hiddenFollowupRequestOptions={{
                                             domainContext: executionDomainContext,
                                             flags: {
-                                                ...followupSpecialization,
+                                                ...spec,
                                                 showPersonalCoerciveFollowupTab,
                                                 showGuarantorInSeizureTab:
                                                     showGuarantorInSeizureFollowupTab,
@@ -808,7 +887,7 @@ export function ExecutionFollowupModalPortal() {
                                                 isAlimonyClaim: isAlimonyClaimType,
                                                 activeDebtorIsEmployee,
                                                 showHiddenExecutiveDossierPresentation:
-                                                    !followupSpecialization.hidePersonalJudgePresentation &&
+                                                    !hideExecutiveDetentionJudgeCard &&
                                                     !activeDebtorIsEmployee &&
                                                     remainingBalanceForSeizure > 0,
                                             },
@@ -849,7 +928,8 @@ export function ExecutionFollowupModalPortal() {
                                             },
                                         }}
                                     />
-													) : null}
+                                    </FollowupTabKeepAlivePanel>
+                                ) : null}
                             </div>
                         </div>
 						</div>

@@ -1,112 +1,122 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'motion/react';
 import { X } from 'lucide-react';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { ExecutionLawReferencePanel } from '@/app/components/lawyer/execution/ExecutionLawReferencePanel';
+import { EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
+import { useExecutionDashboardStore } from '@/app/stores/executionDashboardStore';
+
+const LAW_REFERENCE_MODAL_KEY = 'showLawReferencePanel' as const;
 
 export interface LawReferencePanelProps {
-    isLawReferenceOpen: boolean;
-    setIsLawReferenceOpen: (v: boolean) => void;
-    EXEC_MODAL_Z: Record<string, number>;
-    isEvictionExecutionModule: boolean;
-    executionData: Record<string, any> | null | undefined;
+    /** @deprecated الحالة من Zustand — يُتجاهل */
+    isLawReferenceOpen?: boolean;
+    /** @deprecated استخدم closeModal في المتجر */
+    setIsLawReferenceOpen?: (v: boolean) => void;
+    EXEC_MODAL_Z?: Record<string, number>;
+    isEvictionExecutionModule?: boolean;
+    executionData?: Record<string, unknown> | null | undefined;
+    viewExecutionData?: Record<string, unknown> | null | undefined;
 }
 
-const LawReferenceOverlay: React.FC<Omit<LawReferencePanelProps, 'isLawReferenceOpen'>> = ({
-    setIsLawReferenceOpen,
-    EXEC_MODAL_Z,
-    isEvictionExecutionModule,
+export const LawReferencePanel: React.FC<LawReferencePanelProps> = ({
+    isEvictionExecutionModule = false,
     executionData,
+    viewExecutionData,
+    EXEC_MODAL_Z: execModalZProp,
 }) => {
+    const isOpen = useExecutionDashboardStore((s) => s.modals.showLawReferencePanel);
+    const closeModal = useExecutionDashboardStore((s) => s.closeModal);
+    const executionTypeFromStore = useExecutionDashboardStore((s) => s.currentFile?.executionType);
+    const [articlesReady, setArticlesReady] = useState(false);
+
+    const resolvedExecutionData = executionData ?? viewExecutionData;
+    const executionType = isEvictionExecutionModule
+        ? 'تخلية'
+        : String(
+              resolvedExecutionData?.executionType ?? executionTypeFromStore ?? '',
+          ).trim();
+
+    const handleClose = useCallback(() => {
+        setArticlesReady(false);
+        closeModal(LAW_REFERENCE_MODAL_KEY);
+    }, [closeModal]);
+
+    useBodyScrollLock(isOpen);
+
     useEffect(() => {
-        const prev = document.body.style.overflow;
-        document.body.style.overflow = 'hidden';
+        if (!isOpen) {
+            setArticlesReady(false);
+            return;
+        }
+        const frameId = requestAnimationFrame(() => setArticlesReady(true));
+        return () => cancelAnimationFrame(frameId);
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (!isOpen) return;
         const onKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') setIsLawReferenceOpen(false);
+            if (e.key === 'Escape') handleClose();
         };
         window.addEventListener('keydown', onKeyDown);
-        return () => {
-            document.body.style.overflow = prev;
-            window.removeEventListener('keydown', onKeyDown);
-        };
-    }, [setIsLawReferenceOpen]);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [isOpen, handleClose]);
 
-    return (
-        <>
-            <motion.div
-                key="law-ref-backdrop"
-                role="presentation"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-md sm:p-6"
-                style={{ zIndex: EXEC_MODAL_Z.lawReferencePanel }}
-                onClick={(e) => {
-                    if (e.target === e.currentTarget) setIsLawReferenceOpen(false);
-                }}
-            />
-            <motion.div
-                key="law-ref-panel"
+    if (!isOpen || typeof document === 'undefined') return null;
+
+    const z = execModalZProp?.lawReferencePanel ?? EXEC_MODAL_Z.lawReferencePanel ?? 100;
+
+    return createPortal(
+        <div
+            role="presentation"
+            className="fixed inset-0 bg-[#05060D]/82 backdrop-blur-md"
+            style={{ zIndex: z }}
+            onClick={(e) => {
+                if (e.target === e.currentTarget) handleClose();
+            }}
+        >
+            <div
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="law-reference-title"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.12, ease: 'easeOut' }}
-                className="fixed inset-y-0 right-0 flex min-h-0 w-full max-w-2xl flex-col border-l border-slate-700/50 bg-[#0A0F1C] shadow-2xl"
-                style={{ zIndex: EXEC_MODAL_Z.lawReferencePanel + 1 }}
+                className="fixed inset-x-0 bottom-0 flex max-h-[min(92dvh,calc(100dvh-env(safe-area-inset-bottom)))] w-full min-h-0 flex-col overflow-hidden rounded-t-[1.5rem] border border-[#E6C673]/20 bg-[#0A0F1C] shadow-2xl sm:inset-x-auto sm:inset-y-0 sm:start-0 sm:bottom-auto sm:h-full sm:max-h-none sm:w-full sm:max-w-md sm:rounded-none sm:rounded-e-[1.5rem] sm:border-y sm:border-e sm:border-s-0"
                 dir="rtl"
                 onClick={(e) => e.stopPropagation()}
+                data-testid="execution-law-reference-panel"
             >
-                <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-700/50 px-4 py-4">
+                <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-700/50 px-4 py-3.5 pt-[max(0.75rem,env(safe-area-inset-top))] sm:pt-3.5">
                     <button
                         type="button"
-                        onClick={() => setIsLawReferenceOpen(false)}
-                        className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+                        onPointerDown={(e) => {
+                            e.preventDefault();
+                            handleClose();
+                        }}
+                        className="touch-manipulation rounded-lg p-2 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
                         aria-label="إغلاق"
+                        data-testid="execution-law-reference-close"
                     >
                         <X size={22} />
                     </button>
-                    <h2
-                        id="law-reference-title"
-                        className="flex-1 text-center text-base font-bold text-slate-100 sm:text-lg"
-                    >
-                        قانون التنفيذ العراقي رقم 45 لسنة 1980
-                    </h2>
+                    <div className="min-w-0 flex-1 text-center">
+                        <h2
+                            id="law-reference-title"
+                            className="truncate text-base font-bold text-slate-100 sm:text-lg"
+                        >
+                            قانون التنفيذ العراقي رقم 45
+                        </h2>
+                        <p className="mt-0.5 text-[10px] text-white/40">مرجع تشريعي — تصنيف حسب الإجراء</p>
+                    </div>
                     <span className="w-10 shrink-0" aria-hidden />
                 </div>
-                <div className="flex min-h-0 flex-1 flex-col">
-                    <ExecutionLawReferencePanel
-                        executionType={isEvictionExecutionModule ? 'تخلية' : executionData?.executionType}
-                    />
-                </div>
-            </motion.div>
-        </>
-    );
-};
-
-export const LawReferencePanel: React.FC<LawReferencePanelProps> = ({
-    isLawReferenceOpen,
-    setIsLawReferenceOpen,
-    EXEC_MODAL_Z,
-    isEvictionExecutionModule,
-    executionData,
-}) => {
-    if (typeof document === 'undefined') return null;
-
-    return createPortal(
-        <AnimatePresence>
-            {isLawReferenceOpen ? (
-                <LawReferenceOverlay
-                    setIsLawReferenceOpen={setIsLawReferenceOpen}
-                    EXEC_MODAL_Z={EXEC_MODAL_Z}
-                    isEvictionExecutionModule={isEvictionExecutionModule}
-                    executionData={executionData}
-                />
-            ) : null}
-        </AnimatePresence>,
+                {articlesReady ? (
+                    <ExecutionLawReferencePanel executionType={executionType} />
+                ) : (
+                    <div className="flex min-h-0 flex-1 items-center justify-center px-4 py-8">
+                        <p className="text-sm text-slate-500">جاري تجهيز المرجع القانوني…</p>
+                    </div>
+                )}
+            </div>
+        </div>,
         document.body,
     );
 };

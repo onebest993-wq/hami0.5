@@ -39,10 +39,10 @@ import {
     resolveMaritalFurnitureDeliveryState,
 } from '@/app/utils/maritalFurnitureDeliveryWorkflow';
 import {
-    isSpecificDeliveryJudgmentValuePredetermined,
     shouldShowSpecificDeliveryMovableValuationExpert,
     shouldShowSpecificDeliveryPropertyExpert,
 } from '@/app/utils/specificDeliveryExpertVisibility';
+import { getPendingSpecificDeliveryItems } from '@/app/utils/specificDeliveryItemsUtils';
 
 type ProcedureExpandKey =
     | 'field_visit'
@@ -93,11 +93,13 @@ export interface EvictionProceduresSectionProps {
     showSpecificDeliveryConversionCard?: boolean;
     specificDeliveryItemName?: string;
     specificDeliveryItemNature?: string | null;
+    specificDeliveryItems?: import('@/app/utils/specificDeliveryItemsUtils').SpecificDeliveryItem[] | null;
     debtAmount?: number | null;
     totalAmount?: number | null;
     specificDeliveryConvertedAmount?: number | null;
     specificDeliveryFinancialized?: boolean;
-    onSpecificDeliveryFinancialized?: (amount: number) => void;
+    onSpecificDeliveryFinancialized?: (amount: number, itemId?: string) => void;
+    onSpecificDeliveryItemDeclaredDestroyed?: (itemId: string) => void;
     onSpecificDeliveryExpenseRecorded?: (row: SpecificDeliveryCaseExpenseRow) => void;
     openPoliceAssistanceDetails?: (input: { decisionId: string; requestTitle: string }) => void;
     savePoliceAssistance?: (input: {
@@ -139,11 +141,13 @@ export const EvictionProceduresSection: React.FC<EvictionProceduresSectionProps>
     showSpecificDeliveryConversionCard = false,
     specificDeliveryItemName = '',
     specificDeliveryItemNature = null,
+    specificDeliveryItems = null,
     debtAmount = 0,
     totalAmount = 0,
     specificDeliveryConvertedAmount = 0,
     specificDeliveryFinancialized = false,
     onSpecificDeliveryFinancialized,
+    onSpecificDeliveryItemDeclaredDestroyed,
     onSpecificDeliveryExpenseRecorded,
     openPoliceAssistanceDetails,
     savePoliceAssistance,
@@ -166,11 +170,13 @@ export const EvictionProceduresSection: React.FC<EvictionProceduresSectionProps>
 
     const showPropertyExpertCard = shouldShowSpecificDeliveryPropertyExpert({
         specificDeliveryItemNature,
+        specificDeliveryItems,
         showPropertyExpertCardFlag: showSpecificDeliverySurveyorCard,
     });
 
     const showMovableValuationExpertCard = shouldShowSpecificDeliveryMovableValuationExpert({
         specificDeliveryItemNature,
+        specificDeliveryItems,
         specificDeliveryFinancialized,
         debtAmount,
         totalAmount,
@@ -178,11 +184,9 @@ export const EvictionProceduresSection: React.FC<EvictionProceduresSectionProps>
         decisions: decisionRows,
     });
 
-    const judgmentValuePredetermined = isSpecificDeliveryJudgmentValuePredetermined({
-        debtAmount,
-        totalAmount,
-        specificDeliveryConvertedAmount,
-    });
+    const hasPendingDeliveryItems =
+        getPendingSpecificDeliveryItems(specificDeliveryItems ?? []).length > 0 ||
+        (!specificDeliveryItems?.length && !specificDeliveryFinancialized);
 
     const openAppeals = React.useCallback(
         (decisionId: string) => {
@@ -754,9 +758,9 @@ export const EvictionProceduresSection: React.FC<EvictionProceduresSectionProps>
                     setInlineActionGateKey={setInlineActionGateKey}
                     showToast={showToast}
                     specificDeliveryItemName={specificDeliveryItemName}
+                    specificDeliveryItems={specificDeliveryItems}
                     specificDeliveryFinancialized={specificDeliveryFinancialized}
-                    onConversionFinancialized={onSpecificDeliveryFinancialized}
-                    showDirectCashConversion={judgmentValuePredetermined}
+                    onConversionItemDeclared={onSpecificDeliveryItemDeclaredDestroyed}
                 />
             ) : null}
 
@@ -767,6 +771,8 @@ export const EvictionProceduresSection: React.FC<EvictionProceduresSectionProps>
                     setInlineActionGateKey={setInlineActionGateKey}
                     showToast={showToast}
                     specificDeliveryItemName={specificDeliveryItemName}
+                    specificDeliveryItems={specificDeliveryItems}
+                    hasPendingDeliveryItems={hasPendingDeliveryItems}
                     onExpenseRecorded={onSpecificDeliveryExpenseRecorded}
                     onValuationFinancialized={onSpecificDeliveryFinancialized}
                 />

@@ -13,7 +13,7 @@ export interface PersonalTabProps {
     setDebtorArrested: React.Dispatch<React.SetStateAction<boolean>>;
     showEmployeeAssignmentCoerciveBlock: boolean;
     resolvedEmployeeSummonsAssignment: any;
-    EXEC_OVERLAY_LAZY_FALLBACK: React.ReactNode;
+    EXEC_SECTION_LAZY_FALLBACK: React.ReactNode;
     LazyEmployeeAssignmentCoerciveFollowupBlock: React.LazyExoticComponent<React.ComponentType<any>>;
     forcedBringDecisionState: { pending: boolean; approved: boolean; rejected: boolean };
     employeeForcedBringAwaitingPersonalOutcome: boolean;
@@ -45,6 +45,8 @@ export interface PersonalTabProps {
     custodyRemovalClaimActive?: boolean;
     hidePersonalJudgePresentation?: boolean;
     hidePersonalForcedBringActivation?: boolean;
+    hideExecutiveDetentionJudgeCard?: boolean;
+    earnerFinancialPersonalCoerciveActive?: boolean;
     activeDebtorNoticeScope: Record<string, any>;
     handleEmployeeAssignmentRequestInvestigation: () => void;
     handleEmployeeRegisterArrestOrder: () => void;
@@ -67,7 +69,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
     setDebtorArrested,
     showEmployeeAssignmentCoerciveBlock,
     resolvedEmployeeSummonsAssignment,
-    EXEC_OVERLAY_LAZY_FALLBACK,
+    EXEC_SECTION_LAZY_FALLBACK,
     LazyEmployeeAssignmentCoerciveFollowupBlock,
     forcedBringDecisionState,
     employeeForcedBringAwaitingPersonalOutcome,
@@ -99,6 +101,8 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
     custodyRemovalClaimActive = false,
     hidePersonalJudgePresentation = false,
     hidePersonalForcedBringActivation = false,
+    hideExecutiveDetentionJudgeCard = false,
+    earnerFinancialPersonalCoerciveActive = false,
     activeDebtorNoticeScope,
     handleEmployeeAssignmentRequestInvestigation,
     handleEmployeeRegisterArrestOrder,
@@ -133,7 +137,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
         <div className="p-4 sm:p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
             {showEmployeeAssignmentCoerciveBlock &&
             resolvedEmployeeSummonsAssignment ? (
-                <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                <Suspense fallback={EXEC_SECTION_LAZY_FALLBACK}>
                     <LazyEmployeeAssignmentCoerciveFollowupBlock
                         assignment={resolvedEmployeeSummonsAssignment}
                         onRequestInvestigation={
@@ -179,7 +183,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                     </p>
                 </div>
             ) : (
-                <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                <Suspense fallback={EXEC_SECTION_LAZY_FALLBACK}>
                     <LazyPersonalCoerciveFollowupPanel
                         executionId={resolvedExecutionId || undefined}
                         decisionsReloadEpoch={decisionsReloadEpoch}
@@ -221,6 +225,8 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                         kasabCoerciveEmphasis={kasabTerminationEmphasis}
                         kasabRelaxedGates={!activeDebtorIsEmployee || custodyRemovalClaimActive}
                         hideDossierJudgePresentation={hidePersonalJudgePresentation}
+                        hideExecutiveDetentionJudgeCard={hideExecutiveDetentionJudgeCard}
+                        earnerFinancialPersonalCoerciveActive={earnerFinancialPersonalCoerciveActive}
                         hideExecutorForcedBringActivation={hidePersonalForcedBringActivation}
                         activeDebtorIsEmployee={activeDebtorIsEmployee}
                     />

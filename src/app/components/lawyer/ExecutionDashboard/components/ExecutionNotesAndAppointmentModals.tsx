@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import type { Dispatch, SetStateAction } from 'react';
-import { Pencil, Pin, Trash2, X } from 'lucide-react';
+import { Pencil, Trash2, X } from 'lucide-react';
 import { ExecutionPinnedNotesTray } from './ExecutionPinnedNotesTray';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import {
@@ -10,6 +10,8 @@ import {
 } from '@/app/utils/executorSeizureDecisionQueue';
 import { ExecutionTasksSection } from './ExecutionTasksSection';
 import { ntm } from './notesTasksModalUi';
+import { DossierFastNoteComposer } from '@/app/components/lawyer/dossier-notes/DossierFastNoteComposer';
+import { DossierNotesVault } from '@/app/components/lawyer/dossier-notes/DossierNotesVault';
 
 type CaseNoteLogRow = NonNullable<ExecutionFile['caseNotesLog']>[number];
 
@@ -18,6 +20,7 @@ export interface ExecutionNotesAndAppointmentModalsProps {
     setShowNotesModal: (show: boolean) => void;
     setNoteTitle: Dispatch<SetStateAction<string>>;
     setNoteBody: Dispatch<SetStateAction<string>>;
+    setEditingNoteId?: Dispatch<SetStateAction<string | null>>;
     setIsTask: Dispatch<SetStateAction<boolean>>;
     setTaskDueDate: Dispatch<SetStateAction<string>>;
     setTaskStatus: Dispatch<SetStateAction<'pending' | 'done'>>;
@@ -40,7 +43,10 @@ export interface ExecutionNotesAndAppointmentModalsProps {
     noteBody: string;
     isTask: boolean;
     editingTaskId: string | null;
-    handleSaveNote: () => void;
+    commitDossierNote: (payload: { title: string; bodyHtml: string; noteId?: string }) => void | Promise<void>;
+    voiceUserId?: string;
+    editingNoteId?: string | null;
+    setEditingNoteId?: Dispatch<SetStateAction<string | null>>;
 
     showAppointmentModal: boolean;
     setShowAppointmentModal: (show: boolean) => void;
@@ -83,6 +89,7 @@ export const ExecutionNotesAndAppointmentModals: React.FC<
     setShowNotesModal,
     setNoteTitle,
     setNoteBody,
+    setEditingNoteId,
     setIsTask,
     setTaskDueDate,
     setTaskStatus,
@@ -99,7 +106,9 @@ export const ExecutionNotesAndAppointmentModals: React.FC<
     noteBody,
     isTask,
     editingTaskId,
-    handleSaveNote,
+    editingNoteId = null,
+    commitDossierNote,
+    voiceUserId,
     showAppointmentModal,
     setShowAppointmentModal,
     setEditingAppointmentId,
@@ -158,6 +167,7 @@ export const ExecutionNotesAndAppointmentModals: React.FC<
                                     setTaskDueDate('');
                                     setTaskStatus('pending');
                                     setEditingTaskId(null);
+                                    setEditingNoteId?.(null);
                                     setSavedNotesView('notes');
                                     setShowDoneTasksPanel(false);
                                 }}
@@ -182,99 +192,84 @@ export const ExecutionNotesAndAppointmentModals: React.FC<
 
                         <div className="my-5 border-t border-amber-500/15 pt-5" dir="rtl">
                             <p className="mb-3 text-sm font-black text-amber-100/95">الملاحظات</p>
-                        {unpinnedNotes.length > 0 && (
-                            <div className="mb-4 max-h-44 space-y-2 overflow-y-auto rounded-2xl border border-amber-500/15 bg-[#0A0F1C]/35 p-3">
-                                <p className="text-right text-xs font-bold text-amber-300/90">
-                                    المحفوظات ({unpinnedNotes.length})
-                                </p>
-                                {unpinnedNotes.map((n) => (
-                                    <div
-                                        key={n.id}
-                                        className="flex items-start gap-2 border-b border-slate-700/30 pb-2 text-right last:border-0 last:pb-0"
-                                        dir="rtl"
-                                    >
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-white text-xs font-semibold break-words">{n.title}</p>
-                                            <p className="mt-0.5 text-gray-500 text-[10px] leading-relaxed whitespace-pre-line break-words">
-                                                {n.body}
-                                            </p>
-                                        </div>
-                                        {(() => {
-                                            const isInventoryNote =
-                                                String(n.title || '').trim() ===
-                                                'جرد الأثاث — كسر الأقفال والجرد';
-                                            if (!isInventoryNote) return null;
-                                            const hit = findApprovedBreakInventoryNeedingLedger(
-                                                decisionsStorageExecutionId
-                                            );
-                                            if (!hit) return null;
-                                            return (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        const ts = new Date().toISOString();
-                                                        patchExecutorDecisionRow(
-                                                            decisionsStorageExecutionId,
-                                                            hit.decisionId,
-                                                            {
-                                                                breakInventoryFurnitureFinalizedAt: ts,
-                                                            }
-                                                        );
-                                                        showToast('تم إنهاء الجرد وإغلاق الطلب', 'success');
-                                                    }}
-                                                    className="shrink-0 rounded-lg border border-emerald-500/30 bg-emerald-900/25 px-2 py-1 text-[10px] font-bold text-emerald-100 hover:bg-emerald-900/35"
-                                                    title="إنهاء الجرد"
-                                                >
-                                                    تم الإنهاء
-                                                </button>
-                                            );
-                                        })()}
+
+                            <DossierNotesVault
+                                notes={unpinnedNotes.map((n) => ({
+                                    id: n.id,
+                                    title: n.title,
+                                    body: n.body ?? '',
+                                    date: n.createdAt,
+                                    pinned: n.pinned,
+                                }))}
+                                onEdit={(note) => {
+                                    setEditingNoteId?.(note.id);
+                                    setNoteTitle(note.title);
+                                    setNoteBody(note.body);
+                                    setIsTask(false);
+                                    setEditingTaskId(null);
+                                }}
+                                onTogglePin={toggleCaseNotePin}
+                                onDelete={moveCaseNoteToTrash}
+                                variant="execution"
+                                heading="مخزن الملاحظات"
+                                emptyLabel="لا توجد ملاحظات محفوظة بعد — اكتب ملاحظة جديدة أدناه."
+                                lawContext={{ kind: 'execution' }}
+                                renderNoteExtra={(n) => {
+                                    const isInventoryNote =
+                                        String(n.title || '').trim() === 'جرد الأثاث — كسر الأقفال والجرد';
+                                    if (!isInventoryNote) return null;
+                                    const hit = findApprovedBreakInventoryNeedingLedger(
+                                        decisionsStorageExecutionId
+                                    );
+                                    if (!hit) return null;
+                                    return (
                                         <button
                                             type="button"
-                                            onClick={() => toggleCaseNotePin(n.id)}
-                                            className={`shrink-0 rounded-lg border p-1 transition-all ${
-                                                n.pinned
-                                                    ? 'border-amber-400/35 bg-amber-500/15 text-amber-200'
-                                                    : 'border-white/10 text-slate-400 hover:bg-white/5'
-                                            }`}
-                                            title={n.pinned ? 'إلغاء التثبيت' : 'تثبيت'}
+                                            onClick={() => {
+                                                const ts = new Date().toISOString();
+                                                patchExecutorDecisionRow(
+                                                    decisionsStorageExecutionId,
+                                                    hit.decisionId,
+                                                    {
+                                                        breakInventoryFurnitureFinalizedAt: ts,
+                                                    }
+                                                );
+                                                showToast('تم إنهاء الجرد وإغلاق الطلب', 'success');
+                                            }}
+                                            className="shrink-0 rounded-lg border border-emerald-500/30 bg-emerald-900/25 px-2 py-1 text-[10px] font-bold text-emerald-100 hover:bg-emerald-900/35"
+                                            title="إنهاء الجرد"
                                         >
-                                            <Pin size={14} className={n.pinned ? 'fill-current' : undefined} />
+                                            تم الإنهاء
                                         </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => moveCaseNoteToTrash(n.id)}
-                                            className="shrink-0 rounded-lg border border-rose-500/25 p-1 text-rose-300 hover:bg-rose-950/40"
-                                            title="نقل إلى السلة"
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
-                                    </div>
-                                ))}
+                                    );
+                                }}
+                            />
+
+                            <div className="mt-4">
+                            <DossierFastNoteComposer
+                            title={noteTitle}
+                            onTitleChange={setNoteTitle}
+                            bodyHtml={noteBody}
+                            onBodyChange={setNoteBody}
+                            context={{ kind: 'execution' }}
+                            onSave={(payload) => {
+                                void commitDossierNote({
+                                    ...payload,
+                                    noteId: editingNoteId ?? undefined,
+                                });
+                            }}
+                            voiceUserId={voiceUserId}
+                            onVoiceNote={(voicePayload) => {
+                                void commitDossierNote({
+                                    title: voicePayload.title,
+                                    bodyHtml: voicePayload.body,
+                                    noteId: editingNoteId ?? undefined,
+                                });
+                            }}
+                            saveLabel={editingNoteId ? 'حفظ التعديل' : 'حفظ الملاحظة'}
+                            expanded
+                        />
                             </div>
-                        )}
-
-                        <div className="mb-4">
-                            <label className={ntm.label}>عنوان الملاحظة</label>
-                            <input
-                                type="text"
-                                value={noteTitle}
-                                onChange={(e) => setNoteTitle(e.target.value)}
-                                placeholder="عنوان الملاحظة"
-                                className={ntm.field}
-                            />
-                        </div>
-
-                        <div className="mb-5">
-                            <label className={ntm.label}>تفاصيل الملاحظة</label>
-                            <textarea
-                                value={noteBody}
-                                onChange={(e) => setNoteBody(e.target.value)}
-                                placeholder="اكتب تفاصيل الملاحظة هنا..."
-                                rows={4}
-                                className={`${ntm.textarea} min-h-[7rem]`}
-                            />
-                        </div>
 
                         <ExecutionPinnedNotesTray
                             variant="modal"
@@ -284,15 +279,6 @@ export const ExecutionNotesAndAppointmentModals: React.FC<
                             onToggleTaskPin={toggleCaseTaskPin}
                             onTrashNote={moveCaseNoteToTrash}
                         />
-
-                        {/* Save Button */}
-                        <button
-                            type="button"
-                            onClick={handleSaveNote}
-                            className={`${ntm.btnPrimary} w-full py-3 text-sm`}
-                        >
-                            حفظ الملاحظة
-                        </button>
                         </div>
                     </motion.div>
                 </div>

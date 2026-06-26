@@ -1,5 +1,4 @@
-import { storageCache } from '@/app/utils/storageCache';
-import { EXECUTION_FILES_STORAGE_KEY, loadExecutionFilesRaw, saveExecutionFilesRaw } from '@/app/utils/executionFilesStorage';
+import { patchExecutionDossierRecord, readExecutionDossierBlob } from '@/app/utils/executionDossierBlobPersistence';
 import type { ExecutionFile } from '@/app/types/execution';
 
 export type InabaCorrespondenceLogStatus = 'pending_executor' | 'sent' | 'rejected';
@@ -55,23 +54,12 @@ export function patchParentInabaCorrespondenceLog(
     const parentId = String(parentExecutionId || '').trim();
     if (!parentId) return null;
     try {
-        const all = loadExecutionFilesRaw() as ExecutionFile[];
-        const idx = all.findIndex((f) => String(f?.id || '').trim() === parentId);
-        if (idx < 0) return null;
-        const prev = getInabaCorrespondenceLog(all[idx]);
+        const file = readExecutionDossierBlob(parentId);
+        if (!file) return null;
+        const prev = getInabaCorrespondenceLog(file as ExecutionFile);
         const next = mutator(prev);
         const patch = { inaba_correspondence_log: next, updatedAt: new Date().toISOString() };
-        all[idx] = { ...all[idx], ...patch };
-        saveExecutionFilesRaw(all);
-        const cache = storageCache.get(EXECUTION_FILES_STORAGE_KEY);
-        if (Array.isArray(cache)) {
-            const arr = cache as ExecutionFile[];
-            const cIdx = arr.findIndex((f) => String(f?.id || '').trim() === parentId);
-            if (cIdx >= 0) {
-                arr[cIdx] = { ...arr[cIdx], ...patch };
-                storageCache.set(EXECUTION_FILES_STORAGE_KEY, arr);
-            }
-        }
+        patchExecutionDossierRecord(parentId, patch);
         return next;
     } catch {
         return null;

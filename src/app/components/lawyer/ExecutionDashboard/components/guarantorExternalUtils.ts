@@ -1,5 +1,5 @@
 import type { ExecutionFile } from '@/app/types/execution';
-import { parseAmount } from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
+import { parseAmount } from '@/app/utils/execution/amountInput';
 import {
     isExecutorHubRowSuperseded,
     isExecutorRowRejectedAndFinal,
@@ -8,12 +8,9 @@ import {
 } from '@/app/utils/executorSeizureDecisionQueue';
 import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 
-export function hasActiveFinancialGuarantorFollowup(executionData: ExecutionFile | null | undefined): boolean {
-    const gf = executionData?.guarantor_followup;
-    if (!gf?.executor_approved) return false;
-    if (gf.channel === 'procedural') return false;
-    return true;
-}
+import { hasActiveFinancialGuarantorFollowup } from '@/app/utils/execution/guarantorFollowup';
+
+export { hasActiveFinancialGuarantorFollowup };
 
 /** تظهر بطاقة الضامن بعد إتمام مسار الكفيل الضامن (موافقة المنفذ + حفظ البيانات) */
 export function shouldShowGuarantorExternalHub(executionData: ExecutionFile | null | undefined): boolean {

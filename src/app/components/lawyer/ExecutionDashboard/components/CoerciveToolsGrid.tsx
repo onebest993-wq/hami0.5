@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle, Wallet, FolderOpen } from 'lucide-react';
+import { CheckCircle, Wallet } from 'lucide-react';
 import { InlineActionGate } from './InlineActionGate';
 import type { InlineActionGateKey } from '../types';
 
@@ -32,56 +32,11 @@ export const CoerciveToolsGrid: React.FC<CoerciveToolsGridProps> = ({
     setInlineActionGateKey,
     handleCoerciveAction,
 }) => {
-    const renderSeizureButton = ({
-        type,
-        label,
-        icon: Icon,
-        gateKey,
-    }: {
-        type: string;
-        label: string;
-        icon: React.ElementType;
-        gateKey: InlineActionGateKey;
-    }) => (
-        <div className="relative">
-            <button
-                type="button"
-                onClick={() => {
-                    if (executionCoerciveButtonDisabled) return;
-                    setInlineActionGateKey(gateKey);
-                }}
-                disabled={executionCoerciveButtonDisabled}
-                className={`w-full backdrop-blur-xl rounded-2xl p-4 transition-all relative ${
-                    executionCoerciveButtonDisabled
-                        ? 'bg-slate-900/40 opacity-50 cursor-not-allowed'
-                        : 'bg-slate-800/60 hover:bg-slate-700/60'
-                }`}
-            >
-                {activeCoerciveActions.includes(type) && (
-                    <CheckCircle size={14} className="absolute top-2 right-2 text-emerald-400" />
-                )}
-                <div className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/5 mx-auto mb-2">
-                    <Icon className="w-6 h-6 text-white/70" />
-                </div>
-                <p className={`font-semibold text-xs text-center ${executionCoerciveButtonDisabled ? 'text-gray-600' : 'text-white'}`}>
-                    {label}
-                </p>
-            </button>
-            <InlineActionGate
-                gateKey={gateKey}
-                activeKey={inlineActionGateKey}
-                onConfirm={() => handleCoerciveAction(type)}
-                onCancel={() => setInlineActionGateKey(null)}
-            />
-        </div>
-    );
-
     if (isEvictionExecutionModule) return null;
 
     const showSalaryButton = activeDebtorIsEmployee && !hideCoerciveSeizureSalaryAndProperty;
-    const showPropertyButton = !hideCoerciveSeizureSalaryAndProperty;
 
-    if (!showSalaryButton && !showPropertyButton) return null;
+    if (!showSalaryButton) return null;
 
     return (
         <>
@@ -129,9 +84,6 @@ export const CoerciveToolsGrid: React.FC<CoerciveToolsGridProps> = ({
                         />
                     </div>
                 )}
-
-                {showPropertyButton &&
-                    renderSeizureButton({ type: 'property', label: 'طلب حجز عقار', icon: FolderOpen, gateKey: 'seizure_property' })}
             </div>
         </>
     );

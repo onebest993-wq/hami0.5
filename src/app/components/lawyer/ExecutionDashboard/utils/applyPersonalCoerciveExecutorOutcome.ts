@@ -1,12 +1,7 @@
 // @ts-nocheck
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import { useExecutionDashboardStore } from '@/app/stores/executionDashboardStore';
-import {
-    EXECUTION_FILES_STORAGE_KEY,
-    loadExecutionFilesRaw,
-    saveExecutionFilesRaw,
-} from '@/app/utils/executionFilesStorage';
-import { storageCache } from '@/app/utils/storageCache';
+import { patchExecutionDossierRecord } from '@/app/utils/executionDossierBlobPersistence';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import { stripPendingLabelsFromExecutorSubject } from '@/app/utils/executorDecisionTitles';
 import {
@@ -16,8 +11,9 @@ import {
     resolveExecutorDecisionRowContext,
     type PersonalCoerciveSubtype,
 } from '@/app/utils/executorSeizureDecisionQueue';
+import { HAMI_APPEND_EXECUTION_TIMELINE } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
 
-export const HAMI_APPEND_EXECUTION_TIMELINE = 'hami-append-execution-timeline';
+export { HAMI_APPEND_EXECUTION_TIMELINE };
 
 function normalizeBaseDossierIdFromDecisionsKey(rawKey: string | undefined): string {
     const key = String(rawKey || '').trim();
@@ -34,29 +30,11 @@ function normalizeBaseDossierIdFromDecisionsKey(rawKey: string | undefined): str
 export function persistExecutionPatch(executionId: string, patch: Record<string, unknown>): void {
     if (!executionId || Object.keys(patch).length === 0) return;
     const dossierId = normalizeBaseDossierIdFromDecisionsKey(executionId) || executionId;
+    patchExecutionDossierRecord(dossierId, patch);
     const store = useExecutionDashboardStore.getState();
     const curId = String(store.currentFile?.id || '').trim();
     if (curId && curId === dossierId) {
         store.updateCurrentFile(patch as Partial<ExecutionFile>);
-        return;
-    }
-    try {
-        const all = loadExecutionFilesRaw() as ExecutionFile[];
-        const idx = all.findIndex((f) => String(f?.id || '').trim() === dossierId);
-        if (idx < 0) return;
-        all[idx] = { ...all[idx], ...patch } as ExecutionFile;
-        saveExecutionFilesRaw(all);
-        const cache = storageCache.get(EXECUTION_FILES_STORAGE_KEY);
-        if (Array.isArray(cache)) {
-            const arr = cache as ExecutionFile[];
-            const cIdx = arr.findIndex((f) => String(f?.id || '').trim() === dossierId);
-            if (cIdx >= 0) {
-                arr[cIdx] = { ...arr[cIdx], ...patch } as ExecutionFile;
-                storageCache.set(EXECUTION_FILES_STORAGE_KEY, arr);
-            }
-        }
-    } catch {
-        /* ignore */
     }
 }
 

@@ -46,4 +46,3 @@ export { useOpenFinancialHubLedger } from './useOpenFinancialHubLedger';
 export { useCaseTasksAndNotes } from './useCaseTasksAndNotes';
 export { useExecutionTrashAndPins } from './useExecutionTrashAndPins';
 export { usePartyEditWorkflow } from './usePartyEditWorkflow';
-export { useDebtorTags } from './useDebtorTags';

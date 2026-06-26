@@ -12,6 +12,9 @@ export interface InlineActionGateProps {
     mode?: InlineActionGateMode;
     warningMessage?: string;
     confirmLabel?: string;
+    confirmDisabled?: boolean;
+    variant?: 'overlay' | 'inline';
+    children?: React.ReactNode;
 }
 
 export const InlineActionGate = React.memo(function InlineActionGate({
@@ -22,6 +25,9 @@ export const InlineActionGate = React.memo(function InlineActionGate({
     mode = 'initial',
     warningMessage,
     confirmLabel,
+    confirmDisabled = false,
+    variant = 'overlay',
+    children,
 }: InlineActionGateProps) {
     const [busy, setBusy] = useState(false);
     const isVisible = activeKey === gateKey;
@@ -32,10 +38,10 @@ export const InlineActionGate = React.memo(function InlineActionGate({
     const confirmButton = (
         <button
             type="button"
-            disabled={busy}
+            disabled={busy || confirmDisabled}
             onClick={(e) => {
                 e.stopPropagation();
-                if (busy) return;
+                if (busy || confirmDisabled) return;
                 setBusy(true);
                 try {
                     onConfirm();
@@ -44,7 +50,7 @@ export const InlineActionGate = React.memo(function InlineActionGate({
                     onCancel();
                 }
             }}
-            className="rounded-xl border border-amber-500 bg-amber-600/20 px-3 py-2 text-[11px] font-black text-amber-100 hover:bg-amber-600/25 disabled:opacity-50 whitespace-nowrap"
+            className="rounded-xl border border-amber-500 bg-amber-600/20 px-3 py-2 text-[11px] font-black text-amber-100 hover:bg-amber-600/25 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
         >
             <span className="flex flex-row-reverse items-center justify-center gap-2">
                 <Send size={14} className="text-amber-200 shrink-0" />
@@ -91,15 +97,38 @@ export const InlineActionGate = React.memo(function InlineActionGate({
         );
     }
 
+    if (variant === 'inline') {
+        return (
+            <div
+                className="border-t border-amber-500/20 bg-slate-950/35 px-3 py-3"
+                dir="rtl"
+                role="presentation"
+                onClick={(e) => e.stopPropagation()}
+            >
+                {children}
+                <div className="mt-3 flex flex-row-reverse flex-wrap items-center justify-center gap-2">
+                    {confirmButton}
+                    {cancelButton}
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div
-            className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-slate-950/45 px-3 py-2 backdrop-blur-xl"
+            className="absolute inset-0 z-20 flex flex-col overflow-hidden rounded-2xl bg-slate-950/60 backdrop-blur-xl"
             role="presentation"
             onClick={(e) => e.stopPropagation()}
+            dir="rtl"
         >
-            <div className="flex flex-row-reverse flex-wrap items-center justify-center gap-2">
-                {confirmButton}
-                {cancelButton}
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pt-4 pb-2 flex flex-col items-stretch justify-center">
+                {children}
+            </div>
+            <div className="shrink-0 border-t border-white/10 bg-slate-950/80 px-3 py-3">
+                <div className="flex flex-row-reverse flex-wrap items-center justify-center gap-2">
+                    {confirmButton}
+                    {cancelButton}
+                </div>
             </div>
         </div>
     );

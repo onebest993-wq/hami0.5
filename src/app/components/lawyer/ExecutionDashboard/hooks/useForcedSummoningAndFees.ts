@@ -33,6 +33,7 @@ export function useForcedSummoningAndFees(
     paidCourtFees: number,
     paidDirectorateFees: number,
     paidClientFees: number,
+    earnerPersonalCoerciveFinancialThresholdMet = false,
 ) {
     const forcedSummoningAnalysis = useMemo(() => {
         const d0 = (
@@ -77,6 +78,7 @@ export function useForcedSummoningAndFees(
             graceExtraCalendarDays:
                 isEvictionExecutionModule ? 0 : manualGraceCalendarExtra ? 1 : 0,
             monetaryExecutionStrict: monetaryStrictForSummoningEngine,
+            earnerPersonalCoerciveFinancialThresholdMet,
         });
         if (
             isEvictionExecutionModule &&
@@ -110,6 +112,7 @@ export function useForcedSummoningAndFees(
         executionData?.executionTarget,
         isAlimonyClaim,
         monetaryStrictForSummoningEngine,
+        earnerPersonalCoerciveFinancialThresholdMet,
         debtorAttendedVoluntarily,
         activeTimelineEventsDebtorScoped,
         forcedAttendanceIssued,

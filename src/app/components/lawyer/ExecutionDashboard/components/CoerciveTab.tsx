@@ -72,10 +72,12 @@ export interface CoerciveTabProps {
     specificDeliveryFinancialized?: boolean;
     specificDeliveryItemName?: string;
     specificDeliveryItemNature?: string | null;
+    specificDeliveryItems?: import('@/app/utils/specificDeliveryItemsUtils').SpecificDeliveryItem[] | null;
     debtAmount?: number | null;
     totalAmount?: number | null;
     specificDeliveryConvertedAmount?: number | null;
-    onSpecificDeliveryFinancialized?: (amount: number) => void;
+    onSpecificDeliveryFinancialized?: (amount: number, itemId?: string) => void;
+    onSpecificDeliveryItemDeclaredDestroyed?: (itemId: string) => void;
     onEncroachmentExpenseRecorded?: (row: EncroachmentCaseExpenseRow) => void;
     onSpecificDeliveryExpenseRecorded?: (
         row: import('@/app/utils/specificDeliveryPropertyExpertRequest').SpecificDeliveryCaseExpenseRow
@@ -151,10 +153,12 @@ export const CoerciveTab: React.FC<CoerciveTabProps> = ({
     specificDeliveryFinancialized = false,
     specificDeliveryItemName = '',
     specificDeliveryItemNature = null,
+    specificDeliveryItems = null,
     debtAmount = 0,
     totalAmount = 0,
     specificDeliveryConvertedAmount = 0,
     onSpecificDeliveryFinancialized,
+    onSpecificDeliveryItemDeclaredDestroyed,
     onEncroachmentExpenseRecorded,
     onSpecificDeliveryExpenseRecorded,
     executionCoerciveButtonDisabled,
@@ -292,14 +296,6 @@ export const CoerciveTab: React.FC<CoerciveTabProps> = ({
             </div>
         )}
 
-        {!isEvictionExecutionModule && followupMonetaryCoerciveLimitedOnly && !hideCoerciveFinancialBanners && (
-            <div className="backdrop-blur-xl bg-sky-950/30 border border-sky-500/35 rounded-2xl p-3 text-right">
-                <p className="text-sky-200/95 text-[11px] leading-relaxed">
-                    تنفيذ مالي: طلبات حجز الراتب أو العقار أو المال المنقول تُعرَض على منفذ العدل. الإحضار الجبري والمفاتحة وطلب الكفيل من تبويب «التنفيذ الجبري الشخصي» في محضر المتابعة.
-                </p>
-            </div>
-        )}
-
         {!isEvictionExecutionModule &&
             isSpecificDeliveryModule &&
             !showSpecificDeliveryFieldProcedures &&
@@ -346,11 +342,13 @@ export const CoerciveTab: React.FC<CoerciveTabProps> = ({
                 showSpecificDeliveryConversionCard={showSpecificDeliveryConversionCard}
                 specificDeliveryItemName={specificDeliveryItemName}
                 specificDeliveryItemNature={specificDeliveryItemNature}
+                specificDeliveryItems={specificDeliveryItems}
                 debtAmount={debtAmount}
                 totalAmount={totalAmount}
                 specificDeliveryConvertedAmount={specificDeliveryConvertedAmount}
                 specificDeliveryFinancialized={specificDeliveryFinancialized}
                 onSpecificDeliveryFinancialized={onSpecificDeliveryFinancialized}
+                onSpecificDeliveryItemDeclaredDestroyed={onSpecificDeliveryItemDeclaredDestroyed}
                 onSpecificDeliveryExpenseRecorded={onSpecificDeliveryExpenseRecorded}
                 openPoliceAssistanceDetails={openPoliceAssistanceDetails}
                 savePoliceAssistance={savePoliceAssistance}

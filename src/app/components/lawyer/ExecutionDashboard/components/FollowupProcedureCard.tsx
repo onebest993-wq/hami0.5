@@ -27,6 +27,8 @@ export interface FollowupProcedureCardProps {
     workflowComplete?: boolean;
     resubmitWarningMessage?: string;
     lifecycleSummary?: ExecutorRequestLifecycleSummary | null;
+    sendGateContent?: React.ReactNode;
+    sendGateConfirmDisabled?: boolean;
 }
 
 export const FollowupProcedureCard: React.FC<FollowupProcedureCardProps> = ({
@@ -46,6 +48,8 @@ export const FollowupProcedureCard: React.FC<FollowupProcedureCardProps> = ({
     workflowComplete = false,
     resubmitWarningMessage,
     lifecycleSummary = null,
+    sendGateContent,
+    sendGateConfirmDisabled = false,
 }) => {
     const [lifecycleOpen, setLifecycleOpen] = useState(false);
     const inProgress = hasActiveRequest && !workflowComplete;
@@ -131,7 +135,11 @@ export const FollowupProcedureCard: React.FC<FollowupProcedureCardProps> = ({
                     warningMessage={resubmitWarningMessage}
                     onConfirm={handleConfirmSend}
                     onCancel={() => setInlineActionGateKey(null)}
-                />
+                    confirmDisabled={sendGateConfirmDisabled}
+                    variant={sendGateContent ? 'inline' : 'overlay'}
+                >
+                    {sendGateContent}
+                </InlineActionGate>
             ) : null}
 
             {panelOpen && panelBody ? (

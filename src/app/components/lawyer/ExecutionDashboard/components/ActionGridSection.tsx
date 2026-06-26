@@ -2,14 +2,9 @@ import React, { memo, useEffect, useMemo } from 'react';
 import type { Dispatch, ElementType, SetStateAction } from 'react';
 import type { ExecutionFile } from '@/app/types/execution';
 import { ExecutionPinnedNotesTray } from './ExecutionPinnedNotesTray';
-import { prefetchExecutionLawArticlesRemote } from '@/app/utils/executionLawRemoteCache';
-import {
-    prefetchDecisionsAndAppealsEngine,
-    prefetchExecutionDashboardShell,
-    prefetchExecutionFollowupDefaultTab,
-    prefetchFinancialOperationsCenter,
-    prefetchFollowupMemoPanels,
-} from '@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShell';
+import { prefetchLawReferencePanel, prefetchExecutionDashboardShell } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShell';
+import { prefetchExecutionActionGridTile } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardOverlayPrefetch';
+import { useExecutionDashboardStore } from '@/app/stores/executionDashboardStore';
 
 type CaseNoteLogRow = NonNullable<ExecutionFile['caseNotesLog']>[number];
 type CaseTaskRow = NonNullable<ExecutionFile['caseTasksPending']>[number];
@@ -40,9 +35,9 @@ interface ActionGridSectionProps {
     setShowNotesModal: (show: boolean) => void;
     setShowDocumentsModal: (show: boolean) => void;
     setShowDecisionsModal: (show: boolean) => void;
+    onOpenDecisionsModal?: () => void;
     setIsFinancialCenterExpanded: Dispatch<SetStateAction<boolean>>;
     setShowExecutionFinancialHub: Dispatch<SetStateAction<boolean>>;
-    setIsLawReferenceOpen: Dispatch<SetStateAction<boolean>>;
     onMemoFollowupClick: () => void;
     onOpenSeizureLog: () => void;
     showSeizureLogButton: boolean;
@@ -74,9 +69,9 @@ export const ActionGridSection = memo(function ActionGridSection({
     setShowNotesModal,
     setShowDocumentsModal,
     setShowDecisionsModal,
+    onOpenDecisionsModal,
     setIsFinancialCenterExpanded,
     setShowExecutionFinancialHub,
-    setIsLawReferenceOpen,
     onMemoFollowupClick,
     onOpenSeizureLog,
     showSeizureLogButton,
@@ -92,11 +87,7 @@ export const ActionGridSection = memo(function ActionGridSection({
 
     useEffect(() => {
         prefetchExecutionDashboardShell();
-        prefetchExecutionFollowupDefaultTab();
-        prefetchExecutionLawArticlesRemote();
-        prefetchFinancialOperationsCenter();
-        prefetchFollowupMemoPanels();
-        prefetchDecisionsAndAppealsEngine();
+        prefetchLawReferencePanel();
     }, []);
 
     const gridTiles = useMemo(
@@ -135,7 +126,8 @@ export const ActionGridSection = memo(function ActionGridSection({
                     label: 'القرارات والطعون',
                     tone: 'border-rose-500/35 bg-rose-500/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-rose-400/50 hover:bg-rose-500/14 hover:shadow-[0_0_22px_-6px_rgba(244,63,94,0.38)] focus-visible:ring-rose-400/30',
                     iconClass: 'text-rose-300',
-                    onClick: () => setShowDecisionsModal(true),
+                    onClick: () =>
+                        (onOpenDecisionsModal ?? (() => setShowDecisionsModal(true)))(),
                     locked: executionToolsTimelineLockedUi,
                 },
                 {
@@ -257,6 +249,7 @@ export const ActionGridSection = memo(function ActionGridSection({
                         <button
                             type="button"
                             disabled={tile.locked}
+                            onPointerEnter={() => prefetchExecutionActionGridTile(tile.key)}
                             onClick={tile.onClick}
                             className={`group flex min-h-[100px] w-full flex-col items-center justify-center gap-2 rounded-xl border px-2 py-4 text-center backdrop-blur-md transition-all duration-200 focus:outline-none focus-visible:ring-2 ${tile.tone} ${
                                 tile.locked ? 'cursor-not-allowed opacity-40 hover:shadow-none' : ''
@@ -312,26 +305,18 @@ export const ActionGridSection = memo(function ActionGridSection({
                 ) : null}
                 <button
                     type="button"
+                    onPointerEnter={() => prefetchLawReferencePanel()}
                     onClick={() => {
-                        prefetchExecutionLawArticlesRemote();
-                        setIsLawReferenceOpen(true);
+                        prefetchLawReferencePanel();
+                        useExecutionDashboardStore.getState().openModal('showLawReferencePanel');
                     }}
                     dir="rtl"
-                    className={[
-                        'flex min-h-[100px] w-full items-center justify-center gap-3 rounded-xl border border-[#E6C673]/40 bg-gradient-to-br from-[#E6C673]/12 via-amber-500/10 to-[#0A0F1C]/50 px-4 py-4 text-center shadow-[0_0_28px_-8px_rgba(230,198,115,0.35)] backdrop-blur-md transition-all duration-200 hover:border-[#E6C673]/60 hover:shadow-[0_0_32px_-6px_rgba(230,198,115,0.5)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/40',
-                        showSeizureLogButton
-                            ? 'flex-col gap-2'
-                            : 'col-span-2 flex-row-reverse gap-4 sm:min-h-[88px]',
-                    ].join(' ')}
+                    className="col-span-2 flex min-h-[100px] w-full flex-col items-center justify-center gap-2 rounded-xl border border-[#E6C673]/40 bg-gradient-to-br from-[#E6C673]/12 via-amber-500/10 to-[#0A0F1C]/50 px-4 py-4 text-center shadow-[0_0_28px_-8px_rgba(230,198,115,0.35)] backdrop-blur-md transition-all duration-200 hover:border-[#E6C673]/60 hover:shadow-[0_0_32px_-6px_rgba(230,198,115,0.5)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/40"
+                    data-testid="execution-law-reference-open"
                 >
-                    <Book size={showSeizureLogButton ? 32 : 36} className="shrink-0 text-[#E6C673]" strokeWidth={2} />
+                    <Book size={32} className="shrink-0 text-[#E6C673]" strokeWidth={2} />
                     <span
-                        className={[
-                            'font-bold leading-tight text-[#F5E6B8]',
-                            showSeizureLogButton
-                                ? 'text-center text-[11px] sm:text-xs'
-                                : 'text-right text-sm sm:text-base',
-                        ].join(' ')}
+                        className="text-center text-[11px] font-bold leading-tight text-[#F5E6B8] sm:text-xs"
                         dir="rtl"
                     >
                         قانون التنفيذ

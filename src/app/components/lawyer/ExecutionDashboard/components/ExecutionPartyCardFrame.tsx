@@ -82,9 +82,9 @@ export const ExecutionPartyCardFrame = React.memo(function ExecutionPartyCardFra
                 aria-label={expandAriaLabel}
                 onClick={onToggle}
                 onKeyDown={handleHeaderKeyDown}
-                className={`relative z-[2] w-full cursor-pointer px-3 py-2 pt-2.5 text-right outline-none focus-visible:ring-2 ${v.headerFocus}`}
+                className={`relative z-[2] flex w-full cursor-pointer flex-col items-center justify-center gap-0.5 px-3 pb-2 pt-3.5 text-center outline-none focus-visible:ring-2 ${v.headerFocus}`}
             >
-                <div className="pointer-events-none [&_button]:pointer-events-auto [&_input]:pointer-events-auto [&_textarea]:pointer-events-auto [&_select]:pointer-events-auto [&_a]:pointer-events-auto [&_[role=button]]:pointer-events-auto">
+                <div className="pointer-events-none flex w-full flex-col items-center justify-center [&_button]:pointer-events-auto [&_input]:pointer-events-auto [&_textarea]:pointer-events-auto [&_select]:pointer-events-auto [&_a]:pointer-events-auto [&_[role=button]]:pointer-events-auto">
                     {children}
                 </div>
             </div>

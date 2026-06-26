@@ -5,8 +5,8 @@ import {
     makeInabaSubFileId,
     isInabaSubFileId,
 } from '@/app/stores/executionDashboardStore';
-import { loadExecutionFilesRaw, saveExecutionFilesRaw, EXECUTION_FILES_STORAGE_KEY } from '@/app/utils/executionFilesStorage';
-import { storageCache } from '@/app/utils/storageCache';
+import { patchExecutionDossierRecord } from '@/app/utils/executionDossierBlobPersistence';
+import { loadExecutionFilesRaw, saveExecutionFilesRaw } from '@/app/utils/executionFilesStorage';
 import { updateInabaLogEntryByDecisionId } from '@/app/components/lawyer/ExecutionDashboard/utils/inabaCorrespondenceLog';
 import { newEventId } from '@/app/components/lawyer/DecisionsAndAppealsEngine/utils';
 import {
@@ -385,25 +385,7 @@ export function applyDossierSpecialFollowupOutcome(input: {
         if (curId && curId === dossierId) {
             store.updateCurrentFile(patch);
         } else {
-            try {
-                const all = loadExecutionFilesRaw() as any[];
-                const idx = all.findIndex((f: any) => String(f?.id || '').trim() === dossierId);
-                if (idx >= 0) {
-                    all[idx] = { ...(all[idx] as any), ...patch };
-                    saveExecutionFilesRaw(all);
-                    const cache = storageCache.get(EXECUTION_FILES_STORAGE_KEY);
-                    if (Array.isArray(cache)) {
-                        const arr = cache as any[];
-                        const cIdx = arr.findIndex((f: any) => String(f?.id || '').trim() === dossierId);
-                        if (cIdx >= 0) {
-                            arr[cIdx] = { ...(arr[cIdx] as any), ...patch };
-                            storageCache.set(EXECUTION_FILES_STORAGE_KEY, arr);
-                        }
-                    }
-                }
-            } catch {
-                /* ignore */
-            }
+            patchExecutionDossierRecord(dossierId, patch);
         }
         dispatchToast(
             'تم نقل الإضبارة وتحديث المديرية. يمكنك تغيير رقم الإضبارة من الخيار الظاهر فوق الرقم.',
@@ -441,25 +423,7 @@ export function applyDossierSpecialFollowupOutcome(input: {
         if (curId && curId === dossierId) {
             store.updateCurrentFile(patch);
         } else {
-            try {
-                const all = loadExecutionFilesRaw() as any[];
-                const idx = all.findIndex((f: any) => String(f?.id || '').trim() === dossierId);
-                if (idx >= 0) {
-                    all[idx] = { ...(all[idx] as any), ...patch };
-                    saveExecutionFilesRaw(all);
-                    const cache = storageCache.get(EXECUTION_FILES_STORAGE_KEY);
-                    if (Array.isArray(cache)) {
-                        const arr = cache as any[];
-                        const cIdx = arr.findIndex((f: any) => String(f?.id || '').trim() === dossierId);
-                        if (cIdx >= 0) {
-                            arr[cIdx] = { ...(arr[cIdx] as any), ...patch };
-                            storageCache.set(EXECUTION_FILES_STORAGE_KEY, arr);
-                        }
-                    }
-                }
-            } catch {
-                /* ignore */
-            }
+            patchExecutionDossierRecord(dossierId, patch);
         }
         dispatchToast('تم تجديد الإضبارة وإرجاع حالتها إلى نشطة.', 'success');
         markDossierSpecialFollowupApplied(executionId, id);

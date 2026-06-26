@@ -2,7 +2,7 @@ import React, { Suspense, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import type { Dispatch, ElementType, SetStateAction } from 'react';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import type { TimelineEvent } from '@/app/types/execution';
 import { EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
 import {
@@ -12,6 +12,7 @@ import {
     type ExecutionTimelineFilterLabel,
 } from '@/app/utils/timelineCategoryFilter';
 import { dedupeTimelineEventsForDisplay } from '@/app/utils/timelineDedup';
+import { ExecutionTimelineFilterBar } from './ExecutionTimelineFilterBar';
 
 type PremiumTimelineAuditLogComponent = React.ComponentType<{
     events: TimelineEvent[];
@@ -189,73 +190,13 @@ export const ExecutionFullTimelineModalContainer: React.FC<
                         </div>
 
                         <div className="shrink-0 border-b border-white/10 px-3 py-2">
-                            <div className="mb-2 flex items-center justify-between gap-2">
-                                <button
-                                    type="button"
-                                    aria-label="التصنيف التالي"
-                                    onClick={() =>
-                                        setActiveTimelineFilter(
-                                            adjacentExecutionTimelineFilter(
-                                                activeTimelineFilter,
-                                                1,
-                                                timelineFilterOptions
-                                            )
-                                        )
-                                    }
-                                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-700/50 bg-slate-800/40 px-2 py-1 text-[10px] font-bold text-slate-300 hover:bg-slate-700/50"
-                                >
-                                    <ChevronLeft size={14} />
-                                    التالي
-                                </button>
-                                <p className="min-w-0 truncate text-center text-[10px] font-bold text-slate-300">
-                                    {activeTimelineFilter}
-                                    <span className="mx-1 text-slate-500">·</span>
-                                    <span className="text-amber-200/90">
-                                        {filterCounts[activeTimelineFilter] ?? 0}
-                                    </span>
-                                </p>
-                                <button
-                                    type="button"
-                                    aria-label="التصنيف السابق"
-                                    onClick={() =>
-                                        setActiveTimelineFilter(
-                                            adjacentExecutionTimelineFilter(
-                                                activeTimelineFilter,
-                                                -1,
-                                                timelineFilterOptions
-                                            )
-                                        )
-                                    }
-                                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-700/50 bg-slate-800/40 px-2 py-1 text-[10px] font-bold text-slate-300 hover:bg-slate-700/50"
-                                >
-                                    السابق
-                                    <ChevronRight size={14} />
-                                </button>
-                            </div>
-                            <div className="hide-scrollbar flex flex-row-reverse flex-nowrap gap-2 overflow-x-auto overscroll-x-contain pb-1 touch-pan-x">
-                                {timelineFilterOptions.map((label) => (
-                                    <button
-                                        key={label}
-                                        type="button"
-                                        ref={(el) => {
-                                            filterChipRefs.current[label] = el;
-                                        }}
-                                        onClick={() => setActiveTimelineFilter(label)}
-                                        className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-[10px] font-semibold transition-all ${
-                                            activeTimelineFilter === label
-                                                ? 'border-[#E6C673]/38 bg-[#E6C673]/14 text-amber-100'
-                                                : 'border-slate-700/40 bg-slate-800/30 text-slate-300 hover:bg-slate-700/45'
-                                        }`}
-                                    >
-                                        {label}
-                                        {(filterCounts[label] ?? 0) > 0 && label !== 'الكل' ? (
-                                            <span className="mr-1 text-[9px] opacity-70">
-                                                ({filterCounts[label]})
-                                            </span>
-                                        ) : null}
-                                    </button>
-                                ))}
-                            </div>
+                            <ExecutionTimelineFilterBar
+                                activeTimelineFilter={activeTimelineFilter}
+                                setActiveTimelineFilter={setActiveTimelineFilter}
+                                timelineFilterOptions={timelineFilterOptions}
+                                filterCounts={filterCounts}
+                                filterChipRefs={filterChipRefs}
+                            />
                         </div>
 
                         <div

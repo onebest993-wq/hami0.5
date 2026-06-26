@@ -5,6 +5,10 @@ import type { MaritalFurnitureItem } from '@/app/types/maritalFurniture';
 import { MaritalFurnitureSetupSection } from '@/app/components/lawyer/ExecutionCreationView/components/MaritalFurnitureSetupSection';
 import { parseMoneyInput } from '@/app/components/lawyer/ExecutionCreationView/hooks/executionFormUtils';
 import {
+    formatMoneyIntegerDisplay,
+    handleMoneyInputChange,
+} from '@/app/utils/moneyInput';
+import {
     countMaritalFurnitureDeliveryStatus,
     createEmptyMaritalFurnitureItem,
     formatMaritalFurnitureIqd,
@@ -28,8 +32,7 @@ export interface MaritalFurnitureModuleProps {
 const SEARCH_MIN = 10;
 
 function formatCurrency(value: string): string {
-    const number = value.replace(/\D/g, '');
-    return number.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return formatMoneyIntegerDisplay(value);
 }
 
 function DeliveryStatusCell({ row, recorded }: { row: MaritalFurnitureItem; recorded: boolean }) {
@@ -269,8 +272,9 @@ export const MaritalFurnitureModule: React.FC<MaritalFurnitureModuleProps> = ({
                                         onChange={setDraftItems}
                                         formatCurrency={formatCurrency}
                                         onPriceInput={(e, onParsed) => {
-                                            const raw = e.target.value.replace(/[^\d]/g, '');
-                                            onParsed(parseMoneyInput(raw));
+                                            handleMoneyInputChange(e.target.value, (raw) => {
+                                                onParsed(parseMoneyInput(raw));
+                                            });
                                         }}
                                         isRowLocked={isDeliveredRowLocked}
                                         allowAddRows={!deliveryRecorded}
