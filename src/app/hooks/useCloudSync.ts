@@ -30,6 +30,11 @@ import { EXECUTION_FILES_STORAGE_KEY } from '@/app/utils/executionFilesStorage';
 import { STORAGE_KEYS } from '@/app/utils/constants';
 import { useVisibilityAwareInterval } from '@/app/hooks/useVisibilityAwareInterval';
 import { isCloudPollingPausedByRealtime } from '@/app/services/realtimeSyncGate';
+import { isBenignSecureFetchError } from '@/app/services/secureFetchErrors';
+import {
+    mapLocalKeyToCloudSyncBucket,
+    useCloudSyncStatusStore,
+} from '@/app/services/cloudSync/cloudSyncStatusStore';
 
 // =====================================================
 // Types
@@ -188,6 +193,29 @@ export function useCloudSync(options: CloudSyncOptions): CloudSyncState & {
   const disabledLoggedRef = useRef(false);
   const callbacksRef = useRef({ onSyncSuccess, onSyncError });
   callbacksRef.current = { onSyncSuccess, onSyncError };
+  const syncBucketId = mapLocalKeyToCloudSyncBucket(localKey);
+  const lastSyncTimeMs = state.lastSyncTime?.getTime() ?? null;
+  const lastReportKeyRef = useRef('');
+
+  useEffect(() => {
+    if (!syncBucketId) return;
+    const reportKey = JSON.stringify({
+      isSyncing: state.isSyncing,
+      lastSyncTimeMs,
+      syncStatus: state.syncStatus,
+      syncError: state.syncError,
+      isOnline: state.isOnline,
+    });
+    if (reportKey === lastReportKeyRef.current) return;
+    lastReportKeyRef.current = reportKey;
+    useCloudSyncStatusStore.getState().reportBucket(syncBucketId, {
+      isSyncing: state.isSyncing,
+      lastSyncTime: lastSyncTimeMs,
+      syncStatus: state.syncStatus,
+      syncError: state.syncError,
+    });
+    useCloudSyncStatusStore.getState().setOnline(state.isOnline);
+  }, [syncBucketId, state.isSyncing, lastSyncTimeMs, state.syncStatus, state.syncError, state.isOnline]);
 
   function errorMessageOf(err: unknown): string {
     if (err instanceof Error) return err.message || 'حدث خطأ غير متوقع';
@@ -322,7 +350,11 @@ export function useCloudSync(options: CloudSyncOptions): CloudSyncState & {
       callbacksRef.current?.onSyncSuccess?.();
       
     } catch (error: unknown) {
-      debug.error('[CloudSync] فشلت المزامنة:', error);
+      if (isBenignSecureFetchError(error)) {
+        debug.warn('[CloudSync] sync skipped (offline/unavailable):', error);
+      } else {
+        debug.error('[CloudSync] فشلت المزامنة:', error);
+      }
       
       if (isMountedRef.current) {
         setState(prev => ({

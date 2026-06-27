@@ -4,7 +4,6 @@
 import React, {
     useState,
     useMemo,
-    useEffect,
     useLayoutEffect,
     useCallback,
     useRef,
@@ -134,7 +133,6 @@ import { supabase } from '@/app/lib/supabase-client';
 
 import { dedupeTimelineEventsForDisplay, mergeSimilarRecentTimelineEvent } from '@/app/utils/timelineDedup';
 import { buildExecutionTimelineSnapshot } from '@/app/utils/buildExecutionTimelineSnapshot';
-import type { TimelineEventDbRow } from '@/app/types/supabase-timeline';
 import { useShallow as shallow } from 'zustand/react/shallow';
 // ✅ FIXED: Import proper types
 import type {
@@ -214,8 +212,6 @@ import {
     readMaritalFurnitureItems,
     resolveMaritalFurnitureFinancialPrincipal,
     sumMaritalFurnitureTotal,
-    sumUndeliveredMaritalFurnitureTotal,
-    isMaritalFurnitureDeliveryStatusRecorded,
 } from '@/app/utils/maritalFurniture';
 import {
     executionTimelineVisibilityFromFollowup,
@@ -403,6 +399,13 @@ import {
     useExecutionDashboardEmployeePersonalTabUnlockHydrate,
     useExecutionDashboardPartiesExtraPanelsReset,
     useExecutionResidentialGraceClearedListener,
+    useExecutionDashboardUnifiedModalPersonalTabRedirect,
+    useExecutionDashboardDebtorBrowserTabsClamp,
+    useExecutionDashboardSaveOnUnmount,
+    useExecutionDashboardFieldVisitScheduledListener,
+    useExecutionDashboardMaritalFurnitureFinancialSync,
+    useExecutionDashboardSupabaseTimelineHydrate,
+    useExecutionDashboardExecutionFeeExemptionToast,
 } from './executionDashboardCore/useExecutionDashboardRuntimeSyncEffects';
 import {
     useExecutionDecisionOutcomeToastBridge,
@@ -2267,25 +2270,17 @@ export function useExecutionDashboardCore({
         followupTabsRestricted,
     ]);
 
-    useEffect(() => {
-        if (!showUnifiedExecutionModal) return;
-        if (modalShowPersonalCoerciveFollowupTab) return;
-        if (unifiedModalTab !== 'personal') return;
-        const nextTab = followupModalSpecializationEffective.hideFollowupSeizureRequestsTab
-            ? followupModalSpecializationEffective.hideFollowupCoerciveTab
-                ? 'correspondences'
-                : 'coercive'
-            : 'seizure_requests';
-        setUnifiedModalTab(nextTab);
-    }, [
+    useExecutionDashboardUnifiedModalPersonalTabRedirect({
         showUnifiedExecutionModal,
+        modalShowPersonalCoerciveFollowupTab,
+        unifiedModalTab,
+        hideFollowupSeizureRequestsTab:
+            followupModalSpecializationEffective.hideFollowupSeizureRequestsTab,
+        hideFollowupCoerciveTab: followupModalSpecializationEffective.hideFollowupCoerciveTab,
         followupSolidaryDebtorIndex,
         executionDebtorTabIndex,
-        modalShowPersonalCoerciveFollowupTab,
-        followupModalSpecializationEffective.hideFollowupSeizureRequestsTab,
-        followupModalSpecializationEffective.hideFollowupCoerciveTab,
-        unifiedModalTab,
-    ]);
+        setUnifiedModalTab,
+    });
 
     const isFollowupTabActive = useCallback(
         (tabId: (typeof followupModalTabs)[number]['id']) => {
@@ -2305,16 +2300,11 @@ export function useExecutionDashboardCore({
         ]
     );
 
-    useEffect(() => {
-        if (!debtorBrowserTabsMode) return;
-        const n = debtorWorkspaceEntries.length;
-        if (n === 0) return;
-        setExecutionDebtorTabIndex((i) => {
-            if (i < 0) return 0;
-            if (i >= n) return n - 1;
-            return i;
-        });
-    }, [debtorBrowserTabsMode, debtorWorkspaceEntries.length]);
+    useExecutionDashboardDebtorBrowserTabsClamp({
+        debtorBrowserTabsMode,
+        debtorWorkspaceEntryCount: debtorWorkspaceEntries.length,
+        setExecutionDebtorTabIndex,
+    });
 
     useExecutionDashboardPartiesExtraPanelsReset(
         executionFileKey,
@@ -2987,23 +2977,14 @@ export function useExecutionDashboardCore({
         remaining,
     );
 
-    React.useEffect(() => {
-        if (
-            debtorNotificationDate &&
-            daysSinceNoticeCalculated <= 7 &&
-            remaining <= 0 &&
-            !executionFeeInjected
-        ) {
-            showToast('✅ تم دفع كامل الدين خلال المهلة - إعفاء من رسم التحصيل', 'success');
-        }
-    }, [
+    useExecutionDashboardExecutionFeeExemptionToast({
+        debtorNotificationDate,
         daysSinceNoticeCalculated,
         remaining,
-        debtorNotificationDate,
         executionFeeInjected,
         showToast,
-    ]);
-    
+    });
+
     useExecutionDashboardStatuteWarning(
         statuteStatus,
         showStatuteWarning,
@@ -3086,14 +3067,7 @@ export function useExecutionDashboardCore({
         earnerFeeCollectionSm,
         debtorSummonsMarkerLocal]);
     
-    // Save on unmount
-    useEffect(() => {
-        return () => {
-            saveExecutionData();
-        };
-    }, [saveExecutionData]);
-    
-
+    useExecutionDashboardSaveOnUnmount(saveExecutionData);
 
     const executorApprovalActions: ExecutorApprovalActions = useMemo(
         () => ({
@@ -3376,37 +3350,12 @@ export function useExecutionDashboardCore({
         [setShowDecisionsModal]
     );
 
-    useEffect(() => {
-        const myId = String(executionData?.id ?? executionId ?? '');
-        if (!myId) return;
-        const onFieldVisitScheduled = (e: Event) => {
-            const ce = e as CustomEvent<{
-                executionId?: string;
-                decisionId?: string;
-                eventIso?: string;
-                purpose?: string;
-            }>;
-            const evId = String(ce.detail?.executionId ?? '').trim();
-            if (evId !== myId && evId !== String(decisionsStorageExecutionId ?? '')) return;
-            const eventIso = String(ce.detail?.eventIso ?? '').trim();
-            const decisionId = String(ce.detail?.decisionId ?? '').trim();
-            if (!eventIso || !decisionId) return;
-            const purpose = String(ce.detail?.purpose || 'موعد الخروج الميداني').trim();
-            const linkToAppointments = ce.detail?.linkToAppointments !== false;
-            if (linkToAppointments) {
-                executorApprovalActions.pushCalendarAppointment({
-                    dossierId: evId || myId,
-                    decisionId,
-                    purpose,
-                    eventIso,
-                    recordedAt: new Date().toISOString(),
-                });
-            }
-        };
-        window.addEventListener('hami-eviction-field-visit-scheduled', onFieldVisitScheduled as EventListener);
-        return () =>
-            window.removeEventListener('hami-eviction-field-visit-scheduled', onFieldVisitScheduled as EventListener);
-    }, [executionData?.id, executionId, decisionsStorageExecutionId, executorApprovalActions]);
+    useExecutionDashboardFieldVisitScheduledListener({
+        executionDataId: executionData?.id,
+        executionId,
+        decisionsStorageExecutionId,
+        executorApprovalActions,
+    });
 
     const persistExecutionMerge = useCallback(
         (patch: Record<string, unknown>) => {
@@ -3537,23 +3486,12 @@ export function useExecutionDashboardCore({
         showToast,
     });
 
-    useEffect(() => {
-        if (!isMaritalFurnitureClaim || !executionData) return;
-        const items = maritalFurnitureItemsForFollowup;
-        const deliveryRecorded = isMaritalFurnitureDeliveryStatusRecorded(executionData);
-        const expectedFinancial = deliveryRecorded
-            ? sumUndeliveredMaritalFurnitureTotal(items)
-            : 0;
-        const storedDebt = Math.round(Number(executionData.debtAmount) || 0);
-        const storedTotal = Math.round(Number(executionData.totalAmount) || 0);
-        if (storedDebt === expectedFinancial && storedTotal === expectedFinancial) return;
-        persistExecutionMerge({ debtAmount: expectedFinancial, totalAmount: expectedFinancial });
-    }, [
+    useExecutionDashboardMaritalFurnitureFinancialSync({
         isMaritalFurnitureClaim,
         executionData,
         maritalFurnitureItemsForFollowup,
         persistExecutionMerge,
-    ]);
+    });
 
     useExecutionDashboardTimelineDedupeSync({
         executionData,
@@ -3824,22 +3762,10 @@ export function useExecutionDashboardCore({
         setThirdPartySeizuresUi,
     });
 
-    useEffect(() => {
-        const id = executionData?.id;
-        if (!id || id === 'undefined' || isInabaSubFileId(id)) return;
-        let cancelled = false;
-        void import('@/app/services/timelineEventsSupabase')
-            .then(({ fetchTimelineEventsFromSupabase, mergeRemoteSnapshotsIntoTimelineEvents }) =>
-                fetchTimelineEventsFromSupabase(String(id)).then((rows: TimelineEventDbRow[]) => {
-                    if (cancelled || !rows.length) return;
-                    setTimelineEvents((prev) => mergeRemoteSnapshotsIntoTimelineEvents(prev, rows));
-                })
-            )
-            .catch(() => {});
-        return () => {
-            cancelled = true;
-        };
-    }, [executionData?.id]);
+    useExecutionDashboardSupabaseTimelineHydrate({
+        executionDataId: executionData?.id,
+        setTimelineEvents,
+    });
 
     const persistGuarantorFollowupDetails = useCallback(
         (

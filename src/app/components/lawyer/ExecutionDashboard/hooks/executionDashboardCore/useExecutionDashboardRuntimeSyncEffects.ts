@@ -17,6 +17,11 @@ import {
     buildDebtorLiabilityGroups,
     isPerDebtorSolidarySplitMode,
 } from '@/app/utils/debtorLiabilityGroups';
+import {
+    isMaritalFurnitureDeliveryStatusRecorded,
+    sumUndeliveredMaritalFurnitureTotal,
+} from '@/app/utils/maritalFurniture';
+import { isInabaSubFileId } from '@/app/stores/executionDashboardStore';
 
 export function useExecutionDashboardDebtorTabResetOnFileChange(
     executionDataId: string | undefined,
@@ -339,3 +344,212 @@ export function useExecutionDashboardPartiesExtraPanelsReset(
 }
 
 export { useExecutionResidentialGraceClearedListener };
+
+export function useExecutionDashboardExecutionFeeExemptionToast({
+    debtorNotificationDate,
+    daysSinceNoticeCalculated,
+    remaining,
+    executionFeeInjected,
+    showToast,
+}: {
+    debtorNotificationDate: string | null;
+    daysSinceNoticeCalculated: number;
+    remaining: number;
+    executionFeeInjected: boolean;
+    showToast: (message: string, type: string) => void;
+}) {
+    useEffect(() => {
+        if (
+            debtorNotificationDate &&
+            daysSinceNoticeCalculated <= 7 &&
+            remaining <= 0 &&
+            !executionFeeInjected
+        ) {
+            showToast('✅ تم دفع كامل الدين خلال المهلة - إعفاء من رسم التحصيل', 'success');
+        }
+    }, [
+        daysSinceNoticeCalculated,
+        remaining,
+        debtorNotificationDate,
+        executionFeeInjected,
+        showToast,
+    ]);
+}
+
+export function useExecutionDashboardUnifiedModalPersonalTabRedirect({
+    showUnifiedExecutionModal,
+    modalShowPersonalCoerciveFollowupTab,
+    unifiedModalTab,
+    hideFollowupSeizureRequestsTab,
+    hideFollowupCoerciveTab,
+    followupSolidaryDebtorIndex,
+    executionDebtorTabIndex,
+    setUnifiedModalTab,
+}: {
+    showUnifiedExecutionModal: boolean;
+    modalShowPersonalCoerciveFollowupTab: boolean;
+    unifiedModalTab: string;
+    hideFollowupSeizureRequestsTab: boolean;
+    hideFollowupCoerciveTab: boolean;
+    followupSolidaryDebtorIndex: number;
+    executionDebtorTabIndex: number;
+    setUnifiedModalTab: (tab: string) => void;
+}) {
+    useEffect(() => {
+        if (!showUnifiedExecutionModal) return;
+        if (modalShowPersonalCoerciveFollowupTab) return;
+        if (unifiedModalTab !== 'personal') return;
+        const nextTab = hideFollowupSeizureRequestsTab
+            ? hideFollowupCoerciveTab
+                ? 'correspondences'
+                : 'coercive'
+            : 'seizure_requests';
+        setUnifiedModalTab(nextTab);
+    }, [
+        showUnifiedExecutionModal,
+        followupSolidaryDebtorIndex,
+        executionDebtorTabIndex,
+        modalShowPersonalCoerciveFollowupTab,
+        hideFollowupSeizureRequestsTab,
+        hideFollowupCoerciveTab,
+        unifiedModalTab,
+        setUnifiedModalTab,
+    ]);
+}
+
+export function useExecutionDashboardDebtorBrowserTabsClamp({
+    debtorBrowserTabsMode,
+    debtorWorkspaceEntryCount,
+    setExecutionDebtorTabIndex,
+}: {
+    debtorBrowserTabsMode: boolean;
+    debtorWorkspaceEntryCount: number;
+    setExecutionDebtorTabIndex: (fn: (i: number) => number) => void;
+}) {
+    useEffect(() => {
+        if (!debtorBrowserTabsMode) return;
+        const n = debtorWorkspaceEntryCount;
+        if (n === 0) return;
+        setExecutionDebtorTabIndex((i) => {
+            if (i < 0) return 0;
+            if (i >= n) return n - 1;
+            return i;
+        });
+    }, [debtorBrowserTabsMode, debtorWorkspaceEntryCount, setExecutionDebtorTabIndex]);
+}
+
+export function useExecutionDashboardSaveOnUnmount(saveExecutionData: () => void) {
+    useEffect(() => {
+        return () => {
+            saveExecutionData();
+        };
+    }, [saveExecutionData]);
+}
+
+export function useExecutionDashboardFieldVisitScheduledListener({
+    executionDataId,
+    executionId,
+    decisionsStorageExecutionId,
+    executorApprovalActions,
+}: {
+    executionDataId: string | undefined;
+    executionId: string | undefined;
+    decisionsStorageExecutionId: string;
+    executorApprovalActions: {
+        pushCalendarAppointment: (input: {
+            dossierId: string;
+            decisionId: string;
+            purpose: string;
+            eventIso: string;
+            recordedAt: string;
+        }) => void;
+    };
+}) {
+    useEffect(() => {
+        const myId = String(executionDataId ?? executionId ?? '');
+        if (!myId) return;
+        const onFieldVisitScheduled = (e: Event) => {
+            const ce = e as CustomEvent<{
+                executionId?: string;
+                decisionId?: string;
+                eventIso?: string;
+                purpose?: string;
+                linkToAppointments?: boolean;
+            }>;
+            const evId = String(ce.detail?.executionId ?? '').trim();
+            if (evId !== myId && evId !== String(decisionsStorageExecutionId ?? '')) return;
+            const eventIso = String(ce.detail?.eventIso ?? '').trim();
+            const decisionId = String(ce.detail?.decisionId ?? '').trim();
+            if (!eventIso || !decisionId) return;
+            const purpose = String(ce.detail?.purpose || 'موعد الخروج الميداني').trim();
+            const linkToAppointments = ce.detail?.linkToAppointments !== false;
+            if (linkToAppointments) {
+                executorApprovalActions.pushCalendarAppointment({
+                    dossierId: evId || myId,
+                    decisionId,
+                    purpose,
+                    eventIso,
+                    recordedAt: new Date().toISOString(),
+                });
+            }
+        };
+        window.addEventListener('hami-eviction-field-visit-scheduled', onFieldVisitScheduled as EventListener);
+        return () =>
+            window.removeEventListener('hami-eviction-field-visit-scheduled', onFieldVisitScheduled as EventListener);
+    }, [executionDataId, executionId, decisionsStorageExecutionId, executorApprovalActions]);
+}
+
+export function useExecutionDashboardMaritalFurnitureFinancialSync({
+    isMaritalFurnitureClaim,
+    executionData,
+    maritalFurnitureItemsForFollowup,
+    persistExecutionMerge,
+}: {
+    isMaritalFurnitureClaim: boolean;
+    executionData: ExecutionFile | null | undefined;
+    maritalFurnitureItemsForFollowup: unknown;
+    persistExecutionMerge: (patch: Record<string, unknown>) => void;
+}) {
+    useEffect(() => {
+        if (!isMaritalFurnitureClaim || !executionData) return;
+        const items = maritalFurnitureItemsForFollowup;
+        const deliveryRecorded = isMaritalFurnitureDeliveryStatusRecorded(executionData);
+        const expectedFinancial = deliveryRecorded
+            ? sumUndeliveredMaritalFurnitureTotal(items as Parameters<typeof sumUndeliveredMaritalFurnitureTotal>[0])
+            : 0;
+        const storedDebt = Math.round(Number(executionData.debtAmount) || 0);
+        const storedTotal = Math.round(Number(executionData.totalAmount) || 0);
+        if (storedDebt === expectedFinancial && storedTotal === expectedFinancial) return;
+        persistExecutionMerge({ debtAmount: expectedFinancial, totalAmount: expectedFinancial });
+    }, [
+        isMaritalFurnitureClaim,
+        executionData,
+        maritalFurnitureItemsForFollowup,
+        persistExecutionMerge,
+    ]);
+}
+
+export function useExecutionDashboardSupabaseTimelineHydrate({
+    executionDataId,
+    setTimelineEvents,
+}: {
+    executionDataId: string | undefined;
+    setTimelineEvents: React.Dispatch<React.SetStateAction<TimelineEvent[]>>;
+}) {
+    useEffect(() => {
+        const id = executionDataId;
+        if (!id || id === 'undefined' || isInabaSubFileId(id)) return;
+        let cancelled = false;
+        void import('@/app/services/timelineEventsSupabase')
+            .then(({ fetchTimelineEventsFromSupabase, mergeRemoteSnapshotsIntoTimelineEvents }) =>
+                fetchTimelineEventsFromSupabase(String(id)).then((rows) => {
+                    if (cancelled || !rows.length) return;
+                    setTimelineEvents((prev) => mergeRemoteSnapshotsIntoTimelineEvents(prev, rows));
+                }),
+            )
+            .catch(() => {});
+        return () => {
+            cancelled = true;
+        };
+    }, [executionDataId, setTimelineEvents]);
+}

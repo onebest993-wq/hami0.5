@@ -12,7 +12,7 @@ import { debug } from '@/app/utils/debug';
 import { STORAGE_KEYS } from '@/app/utils/constants';
 import { EXECUTION_FILES_STORAGE_KEY } from '@/app/utils/executionFilesStorage';
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
-import { PrefetchScheduler } from '@/app/runtime/prefetchScheduler';
+import { useCloudSyncStatusStore } from '@/app/services/cloudSync/cloudSyncStatusStore';
 
 export type LawyerDashboardBackgroundServicesProps = {
     user: User;
@@ -70,7 +70,6 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
 
     const advancedServicesOnceRef = useRef(false);
     const realtimeSyncTimersRef = useRef<Partial<Record<'notes' | 'lawsuit' | 'execution', number>>>({});
-    const prefetchOnceRef = useRef(false);
 
     const { syncNow: syncNotesNow } = useCloudSync({
         localKey: STORAGE_KEYS.LAWYER_NOTES,
@@ -81,7 +80,7 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
             mergeNotesStores(synced ?? []);
             onNotesSynced(synced ?? []);
         },
-        onSyncError: (error) => debug.error('[LawyerDashboard] ❌ فشلت مزامنة الملاحظات:', error),
+        onSyncError: (error) => debug.warn('[LawyerDashboard] sync notes skipped:', error),
     });
 
     const { syncNow: syncLawsuitFilesNow } = useCloudSync({
@@ -92,15 +91,26 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
             const merged = persistenceRepository.load<FileData[]>(STORAGE_KEYS.LAWYER_FILES);
             if (Array.isArray(merged)) onLawsuitFilesSynced(merged);
         },
-        onSyncError: (error) => debug.error('[LawyerDashboard] ❌ فشلت مزامنة ملفات الدعاوى:', error),
+        onSyncError: (error) => debug.warn('[LawyerDashboard] sync lawsuit skipped:', error),
     });
 
     const { syncNow: syncExecutionFilesNow } = useCloudSync({
         localKey: EXECUTION_FILES_STORAGE_KEY,
         syncInterval: 300_000,
         enabled: !!user && syncExecutionOn,
-        onSyncError: (error) => debug.error('[LawyerDashboard] ❌ فشلت مزامنة ملفات التنفيذ:', error),
+        onSyncError: (error) => debug.warn('[LawyerDashboard] sync execution skipped:', error),
     });
+
+    useEffect(() => {
+        useCloudSyncStatusStore.getState().setSignedIn(Boolean(user?.id));
+    }, [user?.id]);
+
+    useEffect(() => {
+        const store = useCloudSyncStatusStore.getState();
+        store.registerSyncHandler('notes', () => syncNotesNowRef.current());
+        store.registerSyncHandler('lawsuit', () => syncLawsuitFilesNowRef.current());
+        store.registerSyncHandler('execution', () => syncExecutionFilesNowRef.current());
+    }, [syncNotesNowRef, syncLawsuitFilesNowRef, syncExecutionFilesNowRef]);
 
     const { alerts, loading, error, refresh, refreshLight } = useAppAlerts({
         lawyerId,
@@ -156,8 +166,8 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
     );
 
     useRealtime({
-        userId: user.id,
-        enabled: !!user,
+        userId: user?.id ?? '',
+        enabled: Boolean(user?.id),
         showToasts: true,
         onExecutionUpdate: async (payload) => {
             scheduleRealtimeSync('execution', () => {
@@ -211,18 +221,6 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
             }
         })();
     }, [user, pushAllowed]);
-
-    useEffect(() => {
-        if (prefetchOnceRef.current) return;
-        const run = () => {
-            if (prefetchOnceRef.current) return;
-            prefetchOnceRef.current = true;
-            PrefetchScheduler.planLawyerSecondaryWave();
-        };
-        const delayMs = import.meta.env.DEV ? 4_000 : 18_000;
-        const t = window.setTimeout(run, delayMs);
-        return () => window.clearTimeout(t);
-    }, []);
 
     return null;
 }

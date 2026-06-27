@@ -105,6 +105,9 @@ test.describe('Execution console hygiene', () => {
         await page.waitForTimeout(1500);
         await page.keyboard.press('Escape').catch(() => undefined);
 
+        // خدمات الخلفية (تنبيهات + تقويم + مزامنة) تُطلق بعد idle
+        await page.waitForTimeout(6_000);
+
         assertConsoleClean(messages, pageErrors);
     });
 });

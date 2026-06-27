@@ -8,6 +8,7 @@ import { CALENDAR_UPDATED_EVENT } from '@/app/services/calendarBridge.types';
 import { syncPushForNewCriticalAlerts } from '@/app/services/appAlertPushSync';
 import { filterAlertsByNotificationSettings, getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
 import { ensureCalendarPopulatedFromLiveDossiers } from '@/app/services/calendarDossierSync';
+import { isBenignSecureFetchError } from '@/app/services/secureFetchErrors';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { debug } from '@/app/utils/debug';
 
@@ -97,17 +98,21 @@ export function useAppAlerts(params: {
         setError(null);
         try {
             if (syncCalendar) {
-                await ensureCalendarPopulatedFromLiveDossiers(
-                    {
-                        lawyerId: uid,
-                        lawsuitFiles: filesRef.current,
-                        executionFiles: executionRef.current,
-                        criminalCases: criminalRef.current,
-                        globalNotes: notesRef.current,
-                        fieldTasks: fieldTasksRef.current,
-                    },
-                    { emitUpdated: false },
-                );
+                try {
+                    await ensureCalendarPopulatedFromLiveDossiers(
+                        {
+                            lawyerId: uid,
+                            lawsuitFiles: filesRef.current,
+                            executionFiles: executionRef.current,
+                            criminalCases: criminalRef.current,
+                            globalNotes: notesRef.current,
+                            fieldTasks: fieldTasksRef.current,
+                        },
+                        { emitUpdated: false },
+                    );
+                } catch (calendarErr) {
+                    debug.warn('[useAppAlerts] calendar populate skipped (non-fatal):', calendarErr);
+                }
             }
 
             const rawList = await SecretaryOrchestrator.getUnifiedAlerts({
@@ -134,7 +139,11 @@ export function useAppAlerts(params: {
         } catch (err) {
             if (gen !== generationRef.current) return;
             const msg = err instanceof Error ? err.message : 'تعذّر تحديث التنبيهات';
-            debug.error('[useAppAlerts] refresh failed:', err);
+            if (isBenignSecureFetchError(err)) {
+                debug.warn('[useAppAlerts] refresh skipped (offline/unavailable):', err);
+            } else {
+                debug.error('[useAppAlerts] refresh failed:', err);
+            }
             setError(msg);
         } finally {
             if (gen === generationRef.current) {

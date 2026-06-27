@@ -135,7 +135,7 @@ export class RealtimeService {
 
       this.channels.set(channelId, channel);
     } catch {
-      debug.error('[RealtimeService] فشل الاشتراك في ملفات الدعاوى:', channelId);
+      debug.warn('[RealtimeService] subscribe lawsuit skipped:', channelId);
     }
     return channelId;
   }
@@ -196,7 +196,7 @@ export class RealtimeService {
 
       this.channels.set(channelId, channel);
     } catch {
-      debug.error('[RealtimeService] فشل الاشتراك في الملاحظات:', channelId);
+      debug.warn('[RealtimeService] subscribe notes skipped:', channelId);
     }
     return channelId;
   }
