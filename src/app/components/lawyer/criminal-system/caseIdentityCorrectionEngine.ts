@@ -1,4 +1,4 @@
-import type { CriminalCase, InvestigationPapersAt } from './criminalStore';
+import type { CriminalCase, InvestigationPapersAt } from './criminalCaseModel';
 
 export const CASE_IDENTITY_CORRECTION_CATEGORY = 'تصحيح بيانات الإضبارة';
 

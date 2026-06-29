@@ -149,7 +149,7 @@ export function TaskNodeCard({
         >
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button type="button" className={TX_ICON_BTN + ' !w-10 !h-10'} aria-label="خيارات المهمة">
+              <button type="button" className={TX_ICON_BTN} aria-label="خيارات المهمة">
                 <MoreVertical className="w-4 h-4" />
               </button>
             </DropdownMenuTrigger>
@@ -176,7 +176,7 @@ export function TaskNodeCard({
             type="button"
             disabled={isDone}
             onClick={() => onMarkDone(task)}
-            className={`${TX_OCHRE_BTN} !h-10 !px-3 !text-[11px] inline-flex items-center gap-1.5 disabled:opacity-40`}
+            className={`${TX_OCHRE_BTN} !px-3 !text-[11px] inline-flex items-center gap-1.5 disabled:opacity-40`}
           >
             <Check className="w-4 h-4" />
             منجز
@@ -185,7 +185,7 @@ export function TaskNodeCard({
           <button
             type="button"
             onClick={() => onAddSubTask(task)}
-            className={`${TX_GOLD_BTN} !h-10 !px-3 !text-[11px] inline-flex items-center gap-1.5`}
+            className={`${TX_GOLD_BTN} !px-3 !text-[11px] inline-flex items-center gap-1.5`}
           >
             <GitBranch className="w-4 h-4" />
             متفرع

@@ -1,7 +1,8 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { X } from 'lucide-react';
-import { FORUM_PANEL, FORUM_PUBLISH_BTN, FORUM_PUBLISH_BTN_DISABLED, FORUM_SURFACE_INPUT } from '../forumPlumTheme';
+import { FORUM_PANEL, FORUM_PUBLISH_BTN, FORUM_PUBLISH_BTN_DISABLED, FORUM_SURFACE_INPUT, FORUM_ICON_BTN } from '../forumPlumTheme';
 
 interface CreateGroupModalProps {
     isOpen: boolean;
@@ -24,27 +25,29 @@ export function CreateGroupModal({
     onSubmit,
     onClose,
 }: CreateGroupModalProps) {
+    const reduceMotion = useReduceMotion();
+
     return (
         <AnimatePresence>
             {isOpen ? (
                 <>
                     <motion.div
-                        initial={{ opacity: 0 }}
+                        initial={reduceMotion ? false : { opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
+                        exit={reduceMotion ? undefined : { opacity: 0 }}
                         onClick={onClose}
                         className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[80]"
                     />
                     <motion.div
-                        initial={{ y: '100%' }}
+                        initial={reduceMotion ? false : { y: '100%' }}
                         animate={{ y: 0 }}
-                        exit={{ y: '100%' }}
-                        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        className={`fixed bottom-0 left-0 right-0 z-[80] ${FORUM_PANEL} rounded-t-[24px] p-6 shadow-2xl border-t border-[#4A3D52]/50`}
+                        exit={reduceMotion ? undefined : { y: '100%' }}
+                        transition={reduceMotion ? { duration: 0 } : { type: 'spring', damping: 25, stiffness: 300 }}
+                        className={`fixed bottom-0 left-0 right-0 z-[80] ${FORUM_PANEL} rounded-t-[24px] p-6 shadow-2xl border-t border-[#4A3D52]/50 pb-[max(1.5rem,env(safe-area-inset-bottom))]`}
                     >
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-white text-lg font-bold">إنشاء مجموعة تخصصية</h2>
-                            <button type="button" onClick={onClose} className="text-white/50 hover:text-white">
+                            <button type="button" onClick={onClose} className={FORUM_ICON_BTN} aria-label="إغلاق">
                                 <X size={20} />
                             </button>
                         </div>

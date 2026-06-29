@@ -1,6 +1,6 @@
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { LegalCase } from '@/app/stores/caseStore';
-import { isExecutionInTrash } from '@/app/utils/executionTrash';
+import { isExecutionArchived, isExecutionInTrash } from '@/app/utils/executionTrash';
 import { isLawsuitInTrash } from '@/app/utils/lawsuitTrash';
 
 /** حالة العنصر في نتائج البحث الشامل */
@@ -13,10 +13,11 @@ export const SEARCH_LIFECYCLE_LABELS: Record<SearchLifecycle, string> = {
 };
 
 export function resolveFileSearchLifecycle(
-    file: FileData & { executionTrashDeletedAt?: string | null },
+    file: FileData & { executionTrashDeletedAt?: string | null; executionArchivedAt?: string | null },
 ): SearchLifecycle {
     if (file.status === 'deleted' || isLawsuitInTrash(file)) return 'deleted';
     if (isExecutionInTrash(file)) return 'deleted';
+    if (isExecutionArchived(file)) return 'archived';
     if (file.status === 'archived' || file.status === 'archived_stage') return 'archived';
     return 'active';
 }

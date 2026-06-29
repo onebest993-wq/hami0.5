@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { publishFinancialCenterTimelineNote } from '../financialCenterTimeline';
-import { HAMI_APPEND_EXECUTION_TIMELINE } from '@/app/components/lawyer/ExecutionDashboard/utils/applyPersonalCoerciveExecutorOutcome';
+import { HAMI_APPEND_EXECUTION_TIMELINE } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
 
 describe('publishFinancialCenterTimelineNote', () => {
     beforeEach(() => {

@@ -4,11 +4,12 @@ import { Camera, MessageCircle } from 'lucide-react';
 import { deriveNotificationCategory, type NotificationModel } from '@/app/infrastructure/NotificationRepository';
 import { formatNotificationForCard } from '@/app/services/notificationMessageFormat';
 import {
-    borderRightForCategory,
+    accentBarForCategory,
     resolveNotificationTheme,
 } from '@/app/components/lawyer/NotificationPanel/utils/notificationFilters';
 import { formatTimeShort } from '@/app/components/lawyer/NotificationPanel/utils/timeGrouping';
 import { pickTypeIcon } from '@/app/components/lawyer/NotificationPanel/utils/pickTypeIcon';
+import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 
 interface NotificationCardProps {
     notification: NotificationModel;
@@ -23,6 +24,7 @@ function NotificationCardInner({
     onScan,
     onClientRequest,
 }: NotificationCardProps) {
+    const reduceMotion = useReduceMotion();
     const category = deriveNotificationCategory(notification);
     const theme = resolveNotificationTheme(notification);
     const cardLines = formatNotificationForCard(notification);
@@ -35,20 +37,31 @@ function NotificationCardInner({
     return (
         <motion.button
             type="button"
-            layout
-            initial={{ opacity: 0, y: 4 }}
+            layout={reduceMotion ? false : true}
+            initial={reduceMotion ? false : { opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             onClick={() => onTap(notification)}
             className={[
-                'group w-full text-right relative px-4 py-3 rounded-2xl transition-all backdrop-blur-md touch-manipulation',
-                'flex items-start gap-3 ring-1 active:bg-white/[0.06]',
+                'group w-full text-right relative px-4 py-3.5 rounded-2xl transition-all backdrop-blur-md touch-manipulation',
+                'flex items-start gap-3 ring-1 active:scale-[0.99]',
                 unread
-                    ? `bg-[#0A0F1C]/70 ${theme.tone.ring} border-r-2 ${borderRightForCategory(category)}`
-                    : 'bg-white/[0.015] ring-white/5 border-r-2 border-r-transparent',
+                    ? `bg-[#0A0F1C]/80 ${theme.tone.ring} shadow-[0_8px_32px_rgba(0,0,0,0.35)] border border-white/[0.06]`
+                    : 'bg-white/[0.02] ring-white/5 border border-transparent',
             ].join(' ')}
+            data-testid={`notification-card-${notification.id}`}
         >
+            {unread ? (
+                <span
+                    className={`absolute top-3.5 end-3 w-2 h-2 rounded-full bg-rose-400 shadow-[0_0_10px_rgba(251,113,133,0.65)]`}
+                    aria-hidden
+                />
+            ) : null}
             <div
-                className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${theme.tone.bg} ${theme.tone.text}`}
+                className={`absolute inset-y-3 start-0 w-1 rounded-full ${accentBarForCategory(category)}`}
+                aria-hidden
+            />
+            <div
+                className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${theme.tone.bg} ${theme.tone.text} border border-white/[0.06]`}
             >
                 <TypeIcon size={18} aria-hidden />
             </div>

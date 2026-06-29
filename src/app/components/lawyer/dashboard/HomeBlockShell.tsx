@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import type { HomeBlockStyleOverride, HomeCustomizableId } from '@/app/services/settings/homeLayout';
 import {
     resolveHomeBlockClassNames,
@@ -8,15 +8,25 @@ import {
 } from '@/app/services/settings/resolveHomeBlockStyle';
 import { useLawyerSettings } from '@/app/context/LawyerSettingsContext';
 import { HomeBlockPatternOverlay } from './HomeBlockPatternOverlay';
+import { HomeMoroccanGlassDecor } from './HomeMoroccanGlassDecor';
 
-type HomeBlockShellProps = {
+type HomeBlockShellInteractionProps = {
+    onClick?: () => void;
+    onPointerEnter?: React.PointerEventHandler<HTMLElement>;
+    onPointerDown?: React.PointerEventHandler<HTMLElement>;
+    onMouseEnter?: React.MouseEventHandler<HTMLElement>;
+    onFocus?: React.FocusEventHandler<HTMLElement>;
+    disabled?: boolean;
+    tabIndex?: number;
+};
+
+type HomeBlockShellProps = HomeBlockShellInteractionProps & {
     blockId: HomeCustomizableId;
     override?: HomeBlockStyleOverride;
     themePrimary: string;
     className?: string;
     children: React.ReactNode;
     as?: 'div' | 'section' | 'button' | 'header';
-    onClick?: () => void;
     type?: 'button';
     'data-testid'?: string;
     'aria-label'?: string;
@@ -24,7 +34,7 @@ type HomeBlockShellProps = {
     inheritContentScale?: boolean;
 };
 
-export function HomeBlockShell({
+export const HomeBlockShell = memo(function HomeBlockShell({
     blockId,
     override,
     themePrimary,
@@ -32,6 +42,12 @@ export function HomeBlockShell({
     children,
     as = 'div',
     onClick,
+    onPointerEnter,
+    onPointerDown,
+    onMouseEnter,
+    onFocus,
+    disabled,
+    tabIndex,
     type,
     'data-testid': testId,
     'aria-label': ariaLabel,
@@ -47,7 +63,11 @@ export function HomeBlockShell({
         override,
         settings.appearance.homeContainerBorder !== false,
     );
+    const isButton = as === 'button';
     const Component = as;
+    const focusRing = isButton
+        ? 'outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0F1C]'
+        : '';
 
     return (
         <Component
@@ -55,16 +75,26 @@ export function HomeBlockShell({
             data-hami-block-border={containerBorderOn ? '1' : '0'}
             data-testid={testId}
             aria-label={ariaLabel}
-            type={as === 'button' ? type ?? 'button' : undefined}
+            type={isButton ? type ?? 'button' : undefined}
             onClick={onClick}
-            className={`relative overflow-hidden border ${blockClasses} ${className}`.trim()}
+            onPointerEnter={onPointerEnter}
+            onPointerDown={onPointerDown}
+            onMouseEnter={onMouseEnter}
+            onFocus={onFocus}
+            disabled={isButton ? disabled : undefined}
+            tabIndex={isButton ? tabIndex : undefined}
+            className={`relative overflow-hidden border ${blockClasses} ${focusRing} ${className}`.trim()}
             style={style}
         >
             <HomeBlockPatternOverlay override={override} themePrimary={themePrimary} />
+            <HomeMoroccanGlassDecor pattern={override?.pattern} />
             {shouldShowHomeBlockSheen(override?.pattern) ? (
-                <div className="hami-sovereign-shine absolute inset-0 rounded-[inherit] pointer-events-none z-0" aria-hidden />
+                <div
+                    className="hami-sovereign-shine absolute inset-0 rounded-[inherit] pointer-events-none z-0"
+                    aria-hidden
+                />
             ) : null}
             <div className="relative z-[1]">{children}</div>
         </Component>
     );
-}
+});

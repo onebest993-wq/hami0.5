@@ -59,6 +59,9 @@ export interface TimelineEvent {
     icon?: string;
     color?: string;
     metadata?: Record<string, unknown>;
+    timestamp?: string;
+    source?: string;
+    snapshot?: unknown;
 }
 
 /** صف مدين مختصر يُستخدم في واجهة التنفيذ الموحّدة */

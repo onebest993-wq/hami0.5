@@ -78,6 +78,18 @@ export function syncExecutorDecisionResolution(input: {
     const today = getLocalTodayYmd();
     const noteTrim = String(input.executorNote || '').trim();
 
+    const appealStatus = String(stored.appealStatus ?? '').trim();
+    const hasOpenAppealPipeline =
+        appealStatus === 'tadhallum_filed' ||
+        appealStatus === 'tamyeez_filed' ||
+        stored.appealPhase === 'grievance' ||
+        stored.appealPhase === 'cassation' ||
+        Boolean(stored.awaitingCassationEntryBy) ||
+        stored.grievanceRejectedAwaitingTamyeez === true ||
+        stored.grievanceAcceptedAwaitingDebtorTamyeez === true ||
+        Boolean(stored.activeAppealCopyId) ||
+        Boolean(String(stored.appealResult ?? '').trim());
+
     const patchRow: Record<string, unknown> = {
         executorOutcome:
             input.resolution === 'alternative'
@@ -93,6 +105,18 @@ export function syncExecutorDecisionResolution(input: {
             input.resolution === 'rejected' ? 'after_rejection' : 'after_approval',
         status: input.resolution === 'rejected' ? 'rejected' : 'accepted',
     };
+    if (hasOpenAppealPipeline) {
+        patchRow.appealActor = null;
+        patchRow.appealMethod = null;
+        patchRow.appealResult = null;
+        patchRow.awaitingCassationEntryBy = null;
+        patchRow.grievanceRejectedAwaitingTamyeez = false;
+        patchRow.grievanceAcceptedAwaitingDebtorTamyeez = false;
+        patchRow.activeAppealCopyId = null;
+        patchRow.appealWorkflowState = 'NONE';
+        patchRow.grievanceOutcomeIssuedYmd = undefined;
+        patchRow.cassationAppealClockYmd = undefined;
+    }
     if (input.resolution === 'rejected') {
         patchRow.date = today;
     }

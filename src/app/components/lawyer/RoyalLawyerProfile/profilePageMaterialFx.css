@@ -1,0 +1,249 @@
+/* ── خامة الصفحة (الطبقة الأساسية) ── */
+[data-profile-page-texture] {
+    pointer-events: none;
+}
+
+[data-lawyer-profile-root][data-profile-material='glass'] {
+    background-color: var(--profile-page-bg);
+}
+
+[data-lawyer-profile-root][data-profile-material='glass'] [data-profile-page-texture] {
+    background:
+        radial-gradient(ellipse 100% 70% at 50% -15%, color-mix(in srgb, var(--profile-accent) 10%, transparent), transparent 58%),
+        linear-gradient(180deg, color-mix(in srgb, var(--profile-accent) 4%, #030508), var(--profile-page-bg));
+}
+
+[data-lawyer-profile-root][data-profile-material='fabric'] {
+    background-color: var(--profile-page-bg);
+}
+
+[data-lawyer-profile-root][data-profile-material='fabric'] [data-profile-page-texture] {
+    background-image:
+        repeating-linear-gradient(
+            45deg,
+            color-mix(in srgb, var(--profile-accent) 5%, transparent) 0 1px,
+            transparent 1px 9px
+        ),
+        repeating-linear-gradient(
+            -45deg,
+            rgba(255, 255, 255, 0.025) 0 1px,
+            transparent 1px 11px
+        ),
+        linear-gradient(135deg, color-mix(in srgb, var(--profile-accent) 7%, var(--profile-page-bg)), var(--profile-page-bg));
+}
+
+[data-lawyer-profile-root][data-profile-material='metallic'] {
+    background-color: #0a0e16;
+}
+
+[data-lawyer-profile-root][data-profile-material='metallic'] [data-profile-page-texture] {
+    background:
+        linear-gradient(112deg, transparent 0%, rgba(210, 220, 235, 0.07) 48%, transparent 52%),
+        linear-gradient(180deg, color-mix(in srgb, var(--profile-accent) 6%, #121820), var(--profile-page-bg));
+}
+
+[data-lawyer-profile-root][data-profile-material='gilded'] {
+    background-color: #05060d;
+}
+
+[data-lawyer-profile-root][data-profile-material='gilded'] [data-profile-page-texture] {
+    background:
+        radial-gradient(ellipse 80% 50% at 50% 0%, color-mix(in srgb, var(--profile-accent) 16%, transparent), transparent 62%),
+        linear-gradient(165deg, color-mix(in srgb, var(--profile-accent) 12%, #080a12), var(--profile-page-bg));
+}
+
+[data-lawyer-profile-root][data-profile-material='ornate'] {
+    background-color: var(--profile-page-bg);
+}
+
+[data-lawyer-profile-root][data-profile-material='ornate'] [data-profile-page-texture] {
+    background:
+        radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--profile-accent) 12%, transparent), transparent 40%),
+        var(--profile-page-bg);
+}
+
+[data-lawyer-profile-root][data-profile-material='matte'] {
+    background-color: color-mix(in srgb, var(--profile-accent) 4%, #080c14);
+}
+
+[data-lawyer-profile-root][data-profile-material='matte'] [data-profile-page-texture] {
+    background: var(--profile-page-bg);
+}
+
+[data-lawyer-profile-root] .hami-profile-panel-shell {
+    background: color-mix(in srgb, var(--profile-accent) 4%, rgba(255, 255, 255, 0.03));
+    border: 1px solid color-mix(in srgb, var(--profile-accent) 20%, rgba(255, 255, 255, 0.08));
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow:
+        0 12px 48px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+[data-lawyer-profile-root] .hami-profile-panel-sheen {
+    background: linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--profile-accent) 7%, transparent),
+        transparent 45%,
+        color-mix(in srgb, var(--profile-accent) 3%, transparent)
+    );
+}
+
+[data-lawyer-profile-root][data-profile-material='glass'] [data-profile-panel] {
+    background: linear-gradient(165deg, rgba(255, 255, 255, 0.06), rgba(8, 12, 22, 0.55));
+    border-color: color-mix(in srgb, var(--profile-accent) 22%, rgba(255, 255, 255, 0.08));
+}
+
+[data-lawyer-profile-root][data-profile-material='fabric'] {
+    background-color: var(--profile-page-bg);
+}
+
+[data-lawyer-profile-root][data-profile-material='fabric'] [data-profile-panel] {
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent),
+        repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.02) 0 2px, transparent 2px 6px);
+    border-color: color-mix(in srgb, var(--profile-accent) 18%, rgba(255, 255, 255, 0.06));
+}
+
+[data-lawyer-profile-root][data-profile-material='metallic'] {
+    background-color: #0a0e16;
+}
+
+[data-lawyer-profile-root][data-profile-material='metallic'] [data-profile-panel] {
+    background: linear-gradient(160deg, rgba(180, 190, 210, 0.12), rgba(20, 24, 36, 0.85));
+    border-color: rgba(200, 210, 230, 0.2);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+[data-lawyer-profile-root][data-profile-material='gilded'] {
+    background-color: #05060d;
+}
+
+[data-lawyer-profile-root][data-profile-material='gilded'] [data-profile-panel] {
+    background: linear-gradient(165deg, color-mix(in srgb, var(--profile-accent) 14%, #0a0f1c), #05060d);
+    border-color: color-mix(in srgb, var(--profile-accent) 45%, transparent);
+}
+
+[data-lawyer-profile-root][data-profile-material='ornate'] {
+    background-color: var(--profile-page-bg);
+}
+
+[data-lawyer-profile-root][data-profile-material='ornate'] [data-profile-panel] {
+    background:
+        radial-gradient(circle at 20% 10%, color-mix(in srgb, var(--profile-accent) 12%, transparent), transparent 45%),
+        linear-gradient(165deg, rgba(255, 255, 255, 0.05), rgba(6, 10, 18, 0.9));
+    border-color: color-mix(in srgb, var(--profile-accent) 28%, rgba(255, 255, 255, 0.1));
+}
+
+[data-lawyer-profile-root][data-profile-material='matte'] {
+    background-color: color-mix(in srgb, var(--profile-accent) 4%, #080c14);
+}
+
+[data-lawyer-profile-root][data-profile-material='matte'] [data-profile-panel] {
+    background: #0b1021;
+    border-color: rgba(255, 255, 255, 0.08);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+[data-lawyer-profile-root] .hami-profile-contact-channel {
+    border-color: rgba(255, 255, 255, 0.06);
+    transition: border-color 0.15s, background-color 0.15s;
+}
+
+[data-lawyer-profile-root] .hami-profile-contact-channel:hover {
+    border-color: color-mix(in srgb, var(--profile-accent) 35%, transparent);
+    background: color-mix(in srgb, var(--profile-accent) 4%, rgba(255, 255, 255, 0.04));
+}
+
+[data-lawyer-profile-root] .hami-profile-contact-icon {
+    background: color-mix(in srgb, var(--profile-accent) 10%, transparent);
+    color: var(--profile-accent);
+}
+
+[data-lawyer-profile-root] .hami-profile-portrait-ring {
+    background: linear-gradient(
+        to bottom right,
+        color-mix(in srgb, var(--profile-accent) 70%, transparent),
+        color-mix(in srgb, var(--profile-accent) 25%, transparent),
+        color-mix(in srgb, var(--profile-accent) 10%, transparent)
+    );
+}
+
+[data-lawyer-profile-root] .hami-profile-portrait-frame {
+    border-color: color-mix(in srgb, var(--profile-accent) 55%, transparent);
+    box-shadow:
+        0 16px 40px rgba(0, 0, 0, 0.45),
+        0 0 0 1px color-mix(in srgb, var(--profile-accent) 15%, transparent);
+}
+
+/* ── أداء: تخفيف blur والحركات أثناء فتح الاستوديو ── */
+[data-lawyer-profile-root][data-profile-settings-open='true'] .hami-profile-panel-shell {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+[data-lawyer-profile-root][data-profile-settings-open='true'] .hami-profile-hero-aurora {
+    filter: blur(10px);
+}
+
+[data-lawyer-profile-root][data-profile-settings-open='true'] [data-profile-portrait-float] {
+    animation: none !important;
+}
+
+@media (hover: none) and (pointer: coarse) {
+    [data-lawyer-profile-root] .hami-profile-panel-shell {
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+    }
+
+    [data-lawyer-profile-root] .hami-profile-hero-aurora {
+        filter: blur(12px);
+        opacity: 0.75;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    [data-lawyer-profile-root] .hami-profile-hero-aurora {
+        filter: blur(10px);
+        opacity: 0.6;
+    }
+
+    [data-lawyer-profile-root] .hami-profile-ambient-glow {
+        opacity: 0.45;
+    }
+
+    [data-lawyer-profile-root] [data-profile-portrait-float] {
+        animation: none !important;
+        transform: none !important;
+    }
+
+    [data-lawyer-profile-root] .hami-profile-panel-shell {
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+}
+
+[data-lawyer-profile-root][data-profile-reduce-motion='true'] .hami-profile-hero-aurora,
+[data-lawyer-profile-root][data-profile-page-hidden='true'] .hami-profile-hero-aurora {
+    filter: blur(10px);
+    opacity: 0.55;
+}
+
+[data-lawyer-profile-root][data-profile-reduce-motion='true'] .hami-profile-ambient-glow,
+[data-lawyer-profile-root][data-profile-page-hidden='true'] .hami-profile-ambient-glow {
+    opacity: 0.4;
+}
+
+[data-lawyer-profile-root][data-profile-reduce-motion='true'] [data-profile-portrait-float],
+[data-lawyer-profile-root][data-profile-page-hidden='true'] [data-profile-portrait-float] {
+    animation: none !important;
+    transform: none !important;
+}
+
+[data-lawyer-profile-root][data-profile-reduce-motion='true'] .hami-profile-panel-shell,
+[data-lawyer-profile-root][data-profile-page-hidden='true'] .hami-profile-panel-shell {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+

@@ -1,8 +1,9 @@
-import React, { type RefObject } from 'react';
+import React, { useEffect, type RefObject } from 'react';
 import { motion } from 'motion/react';
 import { Loader2, Search, X } from 'lucide-react';
 
 export interface SearchHeaderProps {
+    open?: boolean;
     query: string;
     onQueryChange: (value: string) => void;
     onClose: () => void;
@@ -10,7 +11,15 @@ export interface SearchHeaderProps {
     inputRef?: RefObject<HTMLInputElement | null>;
 }
 
-export function SearchHeader({ query, onQueryChange, onClose, isBusy, inputRef }: SearchHeaderProps) {
+export function SearchHeader({ open = true, query, onQueryChange, onClose, isBusy, inputRef }: SearchHeaderProps) {
+    useEffect(() => {
+        if (!open) return;
+        const finePointer = window.matchMedia('(pointer: fine)').matches;
+        if (!finePointer) return;
+        const frame = requestAnimationFrame(() => inputRef?.current?.focus({ preventScroll: true }));
+        return () => cancelAnimationFrame(frame);
+    }, [inputRef, open]);
+
     return (
         <div className="relative shrink-0 px-4 pt-2 pb-3 sm:px-5 sm:pt-4">
             <div
@@ -40,13 +49,19 @@ export function SearchHeader({ query, onQueryChange, onClose, isBusy, inputRef }
                 >
                     <Search className="text-[#E6C673] shrink-0" size={20} strokeWidth={2.2} aria-hidden />
                     <input
-                        autoFocus
                         ref={inputRef}
+                        type="search"
+                        role="searchbox"
+                        aria-label="بحث في التطبيق"
                         data-testid="global-search-input"
                         value={query}
                         onChange={(e) => onQueryChange(e.target.value)}
                         placeholder="ابحث في التطبيق..."
                         enterKeyHint="search"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="off"
+                        spellCheck={false}
                         className="flex-1 min-w-0 bg-transparent text-base sm:text-lg font-bold text-white placeholder-white/25 outline-none border-none"
                     />
                     {isBusy ? (
@@ -58,7 +73,7 @@ export function SearchHeader({ query, onQueryChange, onClose, isBusy, inputRef }
                             animate={{ opacity: 1, scale: 1 }}
                             onClick={() => onQueryChange('')}
                             whileTap={{ scale: 0.9 }}
-                            className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/50 shrink-0"
+                            className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-white/10 flex items-center justify-center text-white/50 shrink-0 touch-manipulation"
                             aria-label="مسح البحث"
                         >
                             <X size={14} />

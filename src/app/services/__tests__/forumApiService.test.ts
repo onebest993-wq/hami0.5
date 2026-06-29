@@ -1,5 +1,20 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
+import { sanitizeCommunityPostForCreate } from '@/app/services/forum/forumPostCreateGuard';
+
+vi.mock('@/app/utils/authStorage', () => ({
+    readPersistedSupabaseAuth: vi.fn(() => ({ user: { id: 'session-user' } })),
+}));
+
+const forumGroupLocalMocks = {
+    listGroups: vi.fn(),
+};
+
+vi.mock('@/app/services/forum/forumGroupLocalStore', () => ({
+    ForumGroupLocalStore: {
+        listGroups: (...args: unknown[]) => forumGroupLocalMocks.listGroups(...args),
+    },
+}));
 
 // محاكاة SecureAPIClient + SecureFetchError مباشرة (يسمح باختبار استراتيجية الـ fallback)
 vi.mock('@/app/services/SecureAPIClient', () => {
@@ -34,6 +49,14 @@ vi.mock('@/app/lib/supabase-client', () => ({
     },
 }));
 
+vi.mock('@/app/services/auditLogPublisher', () => ({
+    AuditLog: {
+        forum: {
+            questionPosted: vi.fn(),
+        },
+    },
+}));
+
 // محاكاة lawyer-cloud (مسار fallback)
 const lawyerCloudMocks = {
     listPosts: vi.fn(),
@@ -51,6 +74,19 @@ const lawyerCloudMocks = {
 };
 
 vi.mock('@/app/services/lawyer-cloud', () => ({
+    CommunityDB: {
+        listPosts: lawyerCloudMocks.listPosts,
+        savePost: lawyerCloudMocks.savePost,
+        persistPostsBatch: lawyerCloudMocks.persistPostsBatch,
+    },
+}));
+
+vi.mock('@/app/services/cloud/lawyerCommunityCloud', () => ({
+    CommunityDB: {
+        listPosts: lawyerCloudMocks.listPosts,
+        savePost: lawyerCloudMocks.savePost,
+        persistPostsBatch: lawyerCloudMocks.persistPostsBatch,
+    },
     mergeCommunityPostsById: (local: CommunityPost[], remote: CommunityPost[]) => {
         const map = new Map<string, CommunityPost>();
         for (const p of local) map.set(p.id, p);
@@ -69,11 +105,6 @@ vi.mock('@/app/services/lawyer-cloud', () => ({
     filterDeletedCommunityPosts: (posts: CommunityPost[], _deleted: Set<string>) => posts,
     getDeletedCommunityPostIds: vi.fn().mockResolvedValue(new Set<string>()),
     sortCommunityPosts: (posts: CommunityPost[]) => posts,
-    CommunityDB: {
-        listPosts: lawyerCloudMocks.listPosts,
-        savePost: lawyerCloudMocks.savePost,
-        persistPostsBatch: lawyerCloudMocks.persistPostsBatch,
-    },
     addCommunityPost: lawyerCloudMocks.addCommunityPost,
     deleteCommunityPost: lawyerCloudMocks.deleteCommunityPost,
     addCommunityComment: lawyerCloudMocks.addCommunityComment,
@@ -105,12 +136,15 @@ let SecureAPIClient: typeof import('../SecureAPIClient').SecureAPIClient;
 let getCurrentAccessToken: ReturnType<typeof vi.fn>;
 let SecureFetchError: typeof import('../SecureAPIClient').SecureFetchError;
 let supabaseModule: typeof import('@/app/lib/supabase-client');
+let readPersistedSupabaseAuth: ReturnType<typeof vi.fn>;
 
 beforeEach(async () => {
     // إعادة استيراد + إعادة بناء التطبيقات بدل clearAllMocks (الذي يمسح الـ implementations)
     const apiModule = await import('../forumApiService');
     const secModule = await import('../SecureAPIClient');
     supabaseModule = await import('@/app/lib/supabase-client');
+    const authStorageModule = await import('@/app/utils/authStorage');
+    readPersistedSupabaseAuth = authStorageModule.readPersistedSupabaseAuth as ReturnType<typeof vi.fn>;
     ForumApiService = apiModule.ForumApiService;
     SecureAPIClient = secModule.SecureAPIClient;
     getCurrentAccessToken = secModule.getCurrentAccessToken as ReturnType<typeof vi.fn>;
@@ -126,6 +160,11 @@ beforeEach(async () => {
     });
     (supabaseModule.supabase.auth.getUser as ReturnType<typeof vi.fn>).mockReset();
     (supabaseModule.supabase.auth.getUser as ReturnType<typeof vi.fn>).mockResolvedValue({ data: { user: null } });
+    forumGroupLocalMocks.listGroups.mockReset();
+    forumGroupLocalMocks.listGroups.mockReturnValue([]);
+    readPersistedSupabaseAuth.mockReset();
+    readPersistedSupabaseAuth.mockReturnValue({ user: { id: 'session-user' } });
+    lawyerCloudMocks.savePost.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -195,6 +234,64 @@ describe('ForumApiService.withFallback', () => {
         });
     });
 
+    describe('listGroups', () => {
+        const sampleGroup = {
+            id: 'g1',
+            name: 'مجموعة تجريبية',
+            description: 'وصف',
+            coverImage: null,
+            creatorId: 'session-user',
+            isOfficial: false,
+            createdAt: '2026-01-01T00:00:00.000Z',
+            memberCount: 1,
+            isMember: true,
+            viewerRole: 'admin' as const,
+        };
+
+        it('يستخدم API عند نجاح الاستدعاء', async () => {
+            (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+                ok: true,
+                groups: [sampleGroup],
+            });
+            const rows = await ForumApiService.listGroups();
+            expect(rows).toHaveLength(1);
+            expect(rows[0]?.id).toBe('g1');
+            expect(SecureAPIClient.fetchSecure).toHaveBeenCalledWith('/api/forum/groups', { method: 'GET' });
+        });
+
+        it('يقع على المخزن المحلي عند فشل الشبكة', async () => {
+            forumGroupLocalMocks.listGroups.mockReturnValueOnce([sampleGroup]);
+            (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('network'));
+            const rows = await ForumApiService.listGroups();
+            expect(rows[0]?.id).toBe('g1');
+            expect(forumGroupLocalMocks.listGroups).toHaveBeenCalled();
+        });
+
+        it('يقع على المخزن المحلي عند 401', async () => {
+            forumGroupLocalMocks.listGroups.mockReturnValueOnce([sampleGroup]);
+            (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+                new SecureFetchError('unauthorized', 401, '', '/api/forum/groups'),
+            );
+            const rows = await ForumApiService.listGroups();
+            expect(rows[0]?.id).toBe('g1');
+        });
+
+        it('يتخطى API عند غياب access token', async () => {
+            getCurrentAccessToken.mockResolvedValueOnce(null);
+            forumGroupLocalMocks.listGroups.mockReturnValueOnce([sampleGroup]);
+            const rows = await ForumApiService.listGroups();
+            expect(rows[0]?.id).toBe('g1');
+            expect(SecureAPIClient.fetchSecure).not.toHaveBeenCalled();
+        });
+
+        it('يرمي الخطأ عند 403', async () => {
+            (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+                new SecureFetchError('forbidden', 403, JSON.stringify({ error: 'حسابك محظور من المنتدى' }), '/api/forum/groups'),
+            );
+            await expect(ForumApiService.listGroups()).rejects.toThrow('forbidden');
+        });
+    });
+
     describe('createPost', () => {
         it('يستخدم API ويُرجع المنشور المحفوظ', async () => {
             const post = makePost('new-1');
@@ -213,7 +310,12 @@ describe('ForumApiService.withFallback', () => {
             lawyerCloudMocks.addCommunityPost.mockResolvedValueOnce(undefined);
             const result = await ForumApiService.createPost(post);
             expect(result.id).toBe('new-2');
-            expect(lawyerCloudMocks.addCommunityPost).toHaveBeenCalledWith(post);
+            expect(lawyerCloudMocks.addCommunityPost).toHaveBeenCalledWith(
+                sanitizeCommunityPostForCreate(
+                    { ...post, content: post.content.trim() },
+                    post.authorId,
+                ),
+            );
         });
     });
 
@@ -311,6 +413,7 @@ describe('ForumApiService.withFallback', () => {
             (supabaseModule.supabase.auth.getSession as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
                 data: { session: null },
             });
+            readPersistedSupabaseAuth.mockReturnValueOnce({ user: null });
             await expect(ForumApiService.deletePost('p1', 'author-1', false)).rejects.toThrow('يجب تسجيل الدخول');
         });
     });

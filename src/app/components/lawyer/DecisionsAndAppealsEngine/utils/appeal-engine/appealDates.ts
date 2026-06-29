@@ -1,102 +1,68 @@
-import { createElement, type ReactNode } from 'react';
-import { stripEmojisFromText } from '@/app/utils/timelineSmartDisplay';
-import type { ExecutionDecisionAppealPhase, ExecutionDecisionHubStatus } from '@/app/types/execution';
 import type { Decision } from '../../types';
-import {
-    decisionCardGlassClasses,
-    type DecisionCardEnforcementVisual,
-} from '../../decisionCardGlassShell';
-import {
-    appealCreditorRequestPauseGateMessage,
-    appealCreditorRequestRevokedGateMessage,
-    appealRelabelTimelineMessage,
-    isAppealResultFavorableToDebtorClient,
-    type AppealUiPerspective,
-} from '../../appealUiLabels';
-import { resolveUnderlyingDecisionHub } from '../decisionGraphUtils';
-import {
-    EXECUTOR_QUEUE_REQUEST_KINDS,
-    hubWithInferredAppealOrigin,
-    inferDecisionAppealRequestOrigin,
-    isCreditorInitiatedExecutorRequest,
-    isCreditorExecutorAppealSubject,
-    isCreditorPartyRequest,
-    isDecisionLikeRow,
-    resolveRequestFilerFromDebtorAgentView,
-    resolveRequestProponent,
-} from '../appealRequestOrigin';
 import { formatDateNumeric } from './decisionCardFormatting';
 import {
     isManualExecutorLedgerDecision,
     resolveExecutorDecisionStatusFlag,
     resolveManualExecutorWorkflowPhase,
 } from './manualExecutorIdentity';
+import { EXECUTOR_QUEUE_REQUEST_KINDS } from '../appealRequestOrigin';
+import {
+    addCalendarDaysYmd,
+    daysElapsedFromAnchorYmd,
+    isYmdWindowOpen,
+    lastDayOfYmdWindow,
+    localDateToYmd,
+    normalizeYmd,
+    todayYmd,
+    windowBoundsYmd,
+    ymdToLocalDate,
+} from '@/app/utils/executionYmdCalendar';
 
+export {
+    addCalendarDaysYmd,
+    localDateToYmd,
+    todayYmd,
+    ymdToLocalDate,
+};
+
+/** مهلة التظلم أمام المنفذ — 3 أيام تقويمية من يوم الإصدار */
 export const GRIEVANCE_APPEAL_WINDOW_DAYS = 3;
-/** مهلة التمييز: 7 أيام من اليوم التالي لإصدار القرار أو صدور التظلم */
+/** مهلة التمييز — 7 أيام تقويمية من يوم الإصدار أو من قرار التظلم */
 export const CASSATION_APPEAL_WINDOW_DAYS = 7;
 
-export function ymdToLocalDate(ymd: string): Date | null {
-    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(ymd || '').trim());
-    if (!m) return null;
-    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-    d.setHours(0, 0, 0, 0);
-    return d;
+const APPEAL_WINDOW_MODE = 'inclusive_same_day' as const;
+
+export function appealWindowBoundsYmd(issueYmd: string, windowDays: number) {
+    return windowBoundsYmd(issueYmd, windowDays, APPEAL_WINDOW_MODE);
 }
 
-export function localDateToYmd(d: Date): string {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
+export function resolveAppealLastDeadlineYmd(
+    kind: 'tadhallum' | 'tamyeez',
+    decisionYmd: string,
+    cassationClockYmd: string,
+): string {
+    const issueYmd =
+        kind === 'tadhallum'
+            ? decisionYmd
+            : String(cassationClockYmd || decisionYmd).trim() || decisionYmd;
+    const windowDays =
+        kind === 'tadhallum' ? GRIEVANCE_APPEAL_WINDOW_DAYS : CASSATION_APPEAL_WINDOW_DAYS;
+    return lastDayOfYmdWindow(issueYmd, windowDays, APPEAL_WINDOW_MODE);
 }
 
-export function todayYmd(): string {
-    return localDateToYmd(new Date());
-}
-
-export function addCalendarDaysYmd(ymd: string, days: number): string {
-    const d = ymdToLocalDate(ymd);
-    if (!d) return ymd;
-    d.setDate(d.getDate() + days);
-    return localDateToYmd(d);
-}
-
-/** أيام من اليوم التالي لتاريخ الإصدار (يوم الإصدار نفسه = -1) */
 export function appealWindowDaysElapsedFromIssueYmd(
     issueYmd: string,
-    today: Date = new Date()
+    today: Date = new Date(),
 ): number {
-    const issue = ymdToLocalDate(issueYmd);
-    if (!issue) return 999;
-    const windowStart = new Date(issue);
-    windowStart.setDate(windowStart.getDate() + 1);
-    windowStart.setHours(0, 0, 0, 0);
-    const t = new Date(today);
-    t.setHours(0, 0, 0, 0);
-    return Math.floor((t.getTime() - windowStart.getTime()) / 86400000);
+    return daysElapsedFromAnchorYmd(issueYmd, today, APPEAL_WINDOW_MODE);
 }
 
 export function decisionAppealClockYmd(d: { date?: string; resolvedAt?: string }): string {
-    if (d.resolvedAt) {
-        const dt = new Date(d.resolvedAt);
-        if (!Number.isNaN(dt.getTime())) {
-            const y = dt.getFullYear();
-            const m = String(dt.getMonth() + 1).padStart(2, '0');
-            const day = String(dt.getDate()).padStart(2, '0');
-            return `${y}-${m}-${day}`;
-        }
-    }
-    const raw = String(d.date || '').trim();
-    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
-    const dt2 = new Date(raw);
-    if (!Number.isNaN(dt2.getTime())) {
-        const y = dt2.getFullYear();
-        const m = String(dt2.getMonth() + 1).padStart(2, '0');
-        const day = String(dt2.getDate()).padStart(2, '0');
-        return `${y}-${m}-${day}`;
-    }
-    return raw.slice(0, 10);
+    const fromDate = normalizeYmd(d.date);
+    if (fromDate) return fromDate;
+    const fromResolved = normalizeYmd(d.resolvedAt);
+    if (fromResolved) return fromResolved;
+    return String(d.date ?? '').trim().slice(0, 10);
 }
 
 export function isOpenGrievancePipeline(row: Decision): boolean {
@@ -158,7 +124,6 @@ export function resolveGrievanceIssuedYmd(d: Decision): string | null {
     return null;
 }
 
-/** ساعة التمييز: من القرار، أو من صدور التظلم/التمديد إن وُجد */
 export function resolveCassationAppealClockYmd(d: Decision): string {
     if (String(d.cassationAppealClockYmd || '').trim()) {
         return String(d.cassationAppealClockYmd).slice(0, 10);
@@ -189,9 +154,20 @@ export function appealGrievanceFilingClockPatch(): Partial<Decision> {
     };
 }
 
+/** بعد إصدار قرار التظلم — تبدأ مهلة التمييز من هذا التاريخ */
+export function appealGrievanceOutcomeClockPatch(
+    outcomeIssuedYmd?: string
+): Pick<Decision, 'grievanceOutcomeIssuedYmd' | 'cassationAppealClockYmd'> {
+    const ymd = String(outcomeIssuedYmd || todayYmd()).trim().slice(0, 10);
+    return {
+        grievanceOutcomeIssuedYmd: ymd,
+        cassationAppealClockYmd: ymd,
+    };
+}
+
 export function appealWindowsForDecision(
     d: Decision,
-    today: Date = new Date()
+    today: Date = new Date(),
 ): {
     canTadhallum: boolean;
     canTamyeez: boolean;
@@ -211,9 +187,11 @@ export function appealWindowsForDecision(
         ? appealWindowDaysElapsedFromIssueYmd(cassationClockYmd, today)
         : -1;
     const canTadhallum =
-        !grievancePending && grievanceDays >= 0 && grievanceDays < GRIEVANCE_APPEAL_WINDOW_DAYS;
+        !grievancePending &&
+        isYmdWindowOpen(grievanceDays, GRIEVANCE_APPEAL_WINDOW_DAYS);
     const canTamyeez =
-        !grievancePending && cassationDays >= 0 && cassationDays < CASSATION_APPEAL_WINDOW_DAYS;
+        !grievancePending &&
+        isYmdWindowOpen(cassationDays, CASSATION_APPEAL_WINDOW_DAYS);
 
     return {
         canTadhallum,
@@ -251,13 +229,18 @@ export type AppealDeadlineWindows = ReturnType<typeof appealWindowsForDecision>;
 
 export type AppealDeadlineExpiryKind = 'grievance' | 'cassation';
 
-/** يوم انتهاء المهلة بالضبط — لا قبله ولا بعده */
 export function resolveAppealDeadlineExpiryKind(d: Decision): AppealDeadlineExpiryKind | null {
     if (d.appealDeadlinePerpetuallyEnforced || d.isArchived) return null;
     if (d.appealSourceDecisionId) return null;
     if (!decisionHasAppealClock(d)) return null;
     if (isManualExecutorLedgerDecision(d) && resolveExecutorDecisionStatusFlag(d) === 3) {
         return null;
+    }
+    if (isManualExecutorLedgerDecision(d)) {
+        const phase = resolveManualExecutorWorkflowPhase(d);
+        if (phase === 'cassation_pending') {
+            return null;
+        }
     }
     if (d.appealStatus === 'final') return null;
 

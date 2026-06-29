@@ -1,6 +1,13 @@
-import { useMemo } from 'react';
+import { createElement, useMemo } from 'react';
+import { LawyerBootShell } from '@/app/bootstrap/LawyerBootShell';
 import { assembleLawyerDashboardReadyView } from '@/app/hooks/lawyerDashboard/assembleLawyerDashboardReadyView';
+import { buildLawyerDashboardTabStackMask } from '@/app/hooks/lawyerDashboard/buildLawyerDashboardTabStackMask';
 import { useLawyerDashboardCoreOrchestration } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCoreOrchestration';
+import {
+    dashboardHeaderOverlayFingerprint,
+    dashboardShellFingerprint,
+} from '@/app/hooks/lawyerDashboard/dashboardViewFingerprint';
+import { patchLawyerDashboardHeaderOverlayOpen } from '@/app/hooks/lawyerDashboard/patchLawyerDashboardHeaderOverlayOpen';
 import type {
     LawyerDashboardCoreViewModel,
     UseLawyerDashboardCoreParams,
@@ -9,56 +16,34 @@ import type {
 export type { BuildLawyerDashboardOverlaysHostParams } from '@/app/hooks/lawyerDashboard/buildLawyerDashboardOverlaysHostProps.types';
 export type { LawyerDashboardCoreViewModel, UseLawyerDashboardCoreParams } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCore.types';
 
-type Orchestration = ReturnType<typeof useLawyerDashboardCoreOrchestration>;
-
-/** بصمة خفيفة — إعادة تجميع الواجهة فقط عند تغيّرات ذات معنى */
-function dashboardViewFingerprint(o: Orchestration): string {
-    const { overlays, workspace, appAlerts, notifications, urgent } = o;
-    return [
-        o.user?.id ?? '',
-        overlays.activeTab,
-        overlays.showSettings,
-        overlays.homeLayoutEditMode,
-        overlays.showCommunity,
-        overlays.showLawsuitsWorkspace,
-        overlays.showGlobalSearch,
-        overlays.showDocs,
-        overlays.criminalDashboardCaseId ?? '',
-        workspace.files.length,
-        workspace.executionFiles.length,
-        workspace.globalNotes.length,
-        workspace.activeFile?.id ?? '',
-        appAlerts.visibleAppAlerts.length,
-        appAlerts.appAlertsLoading ? '1' : '0',
-        appAlerts.appAlertsError ?? '',
-        notifications.showNotifications ? '1' : '0',
-        notifications.notificationsUnreadCount,
-        urgent.showUrgentDashboard ? '1' : '0',
-        o.pendingFieldTasksCount,
-        o.theme.primary,
-        o.shapeClass,
-        o.appLock.locked ? '1' : '0',
-    ].join('|');
-}
-
 export function useLawyerDashboardCore({
     onLogout,
     onNavigateToCase,
     onAppNavigate,
-    quantum,
+    pendingFieldTasksCount,
+    quantumTasksFingerprint,
     backgroundRuntimeEnabled,
 }: UseLawyerDashboardCoreParams): LawyerDashboardCoreViewModel {
-    const orchestration = useLawyerDashboardCoreOrchestration({ onNavigateToCase, quantum });
+    const orchestration = useLawyerDashboardCoreOrchestration({
+        onNavigateToCase,
+        pendingFieldTasksCount,
+        quantumTasksFingerprint,
+    });
 
-    const viewFingerprint = orchestration.authGate
+    const shellFingerprint = orchestration.authGate
         ? `gate:${String(orchestration.authGate)}`
         : !orchestration.user
-          ? 'empty'
-          : dashboardViewFingerprint(orchestration);
+          ? 'boot'
+          : dashboardShellFingerprint(orchestration);
 
-    return useMemo((): LawyerDashboardCoreViewModel => {
+    const headerOverlayFingerprint =
+        orchestration.authGate || !orchestration.user
+            ? ''
+            : dashboardHeaderOverlayFingerprint(orchestration);
+
+    const stableReady = useMemo((): LawyerDashboardCoreViewModel => {
         if (orchestration.authGate) return { status: 'gate', node: orchestration.authGate };
-        if (!orchestration.user) return { status: 'empty' };
+        if (!orchestration.user) return { status: 'gate', node: createElement(LawyerBootShell) };
 
         return assembleLawyerDashboardReadyView({
             ...orchestration,
@@ -68,10 +53,36 @@ export function useLawyerDashboardCore({
             backgroundRuntimeEnabled,
         });
     }, [
-        viewFingerprint,
+        shellFingerprint,
         onLogout,
         onAppNavigate,
         onNavigateToCase,
         backgroundRuntimeEnabled,
     ]);
+
+    return useMemo((): LawyerDashboardCoreViewModel => {
+        if (stableReady.status !== 'ready') return stableReady;
+
+        return patchLawyerDashboardHeaderOverlayOpen(stableReady, {
+            showSettings: orchestration.dashboardSettings.showSettings,
+            showGlobalSearch: orchestration.overlays.showGlobalSearch,
+            showNotifications: orchestration.notifications.showNotifications,
+            activeTab: orchestration.overlays.activeTab,
+            tabStackMask: buildLawyerDashboardTabStackMask(orchestration),
+            headerVisibility: {
+                showSettings: orchestration.dashboardSettings.showSettings,
+                isNewCaseModalOpen: orchestration.workspace.isNewCaseModalOpen,
+                isNotepadOpen: orchestration.dashboardRepository.isRepositoryOpen,
+                showCommunity: orchestration.dashboardCommunity.showCommunity,
+                activeTab: orchestration.overlays.activeTab,
+                activeFile: orchestration.workspace.activeFile,
+                archiveType: orchestration.archiveAndSync.archiveType,
+                showLawsuitsWorkspace: orchestration.overlays.showLawsuitsWorkspace,
+                showTransactions: orchestration.dashboardTransactions.showTransactions,
+                showTasksManager: orchestration.overlays.showTasksManager,
+                showDocs: orchestration.dashboardRepository.isRepositoryOpen,
+                isCriminalDossierOpen: orchestration.overlays.isCriminalDossierOpen,
+            },
+        });
+    }, [stableReady, headerOverlayFingerprint]);
 }

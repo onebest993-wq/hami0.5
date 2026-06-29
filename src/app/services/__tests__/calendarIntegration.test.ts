@@ -14,6 +14,7 @@ describe('calendar integration flows', () => {
         saveLawsuitFilesRaw([]);
         saveExecutionFilesRaw([]);
         vi.spyOn(CalendarDB, 'saveEvent').mockResolvedValue(undefined as never);
+        vi.spyOn(CalendarDB, 'saveEventsBatch').mockResolvedValue(undefined as never);
         vi.spyOn(CalendarDB, 'getEvents').mockResolvedValue([]);
         vi.spyOn(CalendarDB, 'getAllStoredEvents').mockResolvedValue([]);
         vi.spyOn(CalendarDB, 'deleteEvent').mockResolvedValue(undefined as never);
@@ -43,19 +44,21 @@ describe('calendar integration flows', () => {
 
         syncLawsuitFileToCalendar(file, 'lawyer-1');
         await new Promise((r) => setTimeout(r, 30));
-        expect(CalendarDB.saveEvent).toHaveBeenCalled();
+        expect(CalendarDB.saveEventsBatch).toHaveBeenCalled();
 
         await removeAllBridgedEventsForEntity('lawsuit', 'case-1', 'lawyer-1');
-        vi.mocked(CalendarDB.saveEvent).mockClear();
+        vi.mocked(CalendarDB.saveEventsBatch).mockClear();
 
         const restored = { ...file, status: 'active' as const, deletedAt: undefined };
         saveLawsuitFilesRaw([restored]);
         syncLawsuitFileToCalendar(restored, 'lawyer-1');
         await new Promise((r) => setTimeout(r, 30));
 
-        expect(CalendarDB.saveEvent).toHaveBeenCalled();
+        expect(CalendarDB.saveEventsBatch).toHaveBeenCalled();
         const id = buildStableBridgeId('lawsuit', 'case-1', 'hearing-1');
-        const saved = vi.mocked(CalendarDB.saveEvent).mock.calls.find((c) => c[0]?.id === id);
+        const saved = vi
+            .mocked(CalendarDB.saveEventsBatch)
+            .mock.calls.find((c) => c[0]?.some((e) => e.id === id));
         expect(saved).toBeTruthy();
     });
 

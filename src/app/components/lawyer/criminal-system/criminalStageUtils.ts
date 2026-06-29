@@ -11,9 +11,9 @@ import type {
     CriminalLawyerRole,
     CrimeType,
     DefendantStatus,
-    OurRepresentation,
     TimelineEvent,
-} from './criminalStore';
+} from './criminalCaseModel';
+import type { OurRepresentation } from './criminalProceduralPartyUtils';
 
 export type { CaseStage } from '@/app/types/criminal';
 export { INVESTIGATION_EVENT_CATEGORIES, TRIAL_EVENT_CATEGORIES } from '@/app/types/criminal';

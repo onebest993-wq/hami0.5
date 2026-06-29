@@ -4,17 +4,12 @@
 import React from 'react';
 import { ChevronDown } from 'lucide-react';
 
+export { formatUnifiedLedgerDate } from './helpers/formatUnifiedLedgerDate';
 export const EXEC_OVERLAY_LAZY_FALLBACK: React.ReactNode = null;
 export const EXEC_FOC_LAZY_FALLBACK: React.ReactNode = null;
 export const EXEC_SECTION_LAZY_FALLBACK: React.ReactNode = (
     <div className="mx-1 my-3 h-28 animate-pulse rounded-2xl bg-white/[0.04]" aria-hidden />
 );
-
-export function formatUnifiedLedgerDate(iso: string | undefined): string {
-    if (!iso) return '—';
-    const d = new Date(iso);
-    return Number.isNaN(d.getTime()) ? String(iso) : d.toLocaleDateString('ar-IQ');
-}
 
 export const AR_TABLIGH_RAQM: Record<number, string> = {
     1: 'واحد',

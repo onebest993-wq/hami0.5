@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildLawsuitShareCatalog } from '../caseShareCatalogBuilder';
+import { buildExecutionShareCatalog, buildLawsuitShareCatalog } from '../caseShareCatalogBuilder';
 import { resolveVisibleCatalog, DEFAULT_SECTION_VISIBILITY } from '../caseShareVisibility';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 
@@ -32,6 +32,20 @@ describe('caseShareCatalogBuilder', () => {
         expect(catalog.some((s) => s.key === 'notes')).toBe(true);
         expect(catalog.some((s) => s.key === 'timeline')).toBe(true);
         expect(catalog.some((s) => s.key === 'documents')).toBe(true);
+    });
+
+    it('buildExecutionShareCatalog always exposes execution consult sections', () => {
+        const catalog = buildExecutionShareCatalog({ id: 'exec-1', notes: [] } as never);
+        expect(catalog).toHaveLength(7);
+        expect(catalog.map((s) => s.key)).toEqual([
+            'followup',
+            'decisions',
+            'notes',
+            'appointments',
+            'documents',
+            'timeline',
+            'financial',
+        ]);
     });
 
     it('resolveVisibleCatalog hides picked items', () => {

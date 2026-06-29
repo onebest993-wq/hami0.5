@@ -30,7 +30,7 @@ import {
     type HiddenGuarantorContext,
     type HiddenPersonalCoerciveRequestKey,
 } from '@/app/components/lawyer/ExecutionDashboard/components/hiddenFollowupRequestsUtils';
-import { hasActiveFinancialGuarantorFollowup } from '@/app/components/lawyer/ExecutionDashboard/components/guarantorExternalUtils';
+import { hasActiveFinancialGuarantorFollowup } from '@/app/utils/execution/guarantorFollowup';
 import {
     isCreditorOtherPartyOptionAccessible,
     type CreditorMirrorWorkflowContext,

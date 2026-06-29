@@ -134,7 +134,12 @@ export const ColleagueShareCatalogPicker = memo(function ColleagueShareCatalogPi
 
                         {mode === 'pick' && isOpen ? (
                             <div className="border-t border-white/5 px-2 py-1 max-h-48 overflow-y-auto">
-                                {section.items.map((item) => {
+                                {section.items.length === 0 ? (
+                                    <p className="py-2 px-1 text-center text-[10px] text-white/35">
+                                        لا يوجد محتوى في هذا القسم حالياً
+                                    </p>
+                                ) : (
+                                    section.items.map((item) => {
                                     const visible = isShareItemVisible(
                                         section.key,
                                         item.id,
@@ -166,7 +171,8 @@ export const ColleagueShareCatalogPicker = memo(function ColleagueShareCatalogPi
                                             </span>
                                         </label>
                                     );
-                                })}
+                                })
+                                )}
                             </div>
                         ) : null}
                     </div>

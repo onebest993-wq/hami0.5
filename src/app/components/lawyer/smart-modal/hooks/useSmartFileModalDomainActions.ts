@@ -63,6 +63,7 @@ export function useSmartFileModalDomainActions(params: SmartFileModalDomainActio
         handleOpponentAbsentObjection: judgment.handleOpponentAbsentObjection,
         handleRestoreEvent: stageTimeline.handleRestoreEvent,
         handleHardDeleteEvent: stageTimeline.handleHardDeleteEvent,
+        handleDeleteEvent: stageTimeline.handleDeleteEvent,
         handleEmptyTrash: stageTimeline.handleEmptyTrash,
         handleJudgmentConfirm: judgment.handleJudgmentConfirm,
         handleAppealRegistration: judgment.handleAppealRegistration,

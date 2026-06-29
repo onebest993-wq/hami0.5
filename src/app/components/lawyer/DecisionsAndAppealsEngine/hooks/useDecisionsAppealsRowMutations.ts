@@ -1,6 +1,7 @@
 import React from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { dispatchDecisionsReload } from '@/app/utils/executorSeizureDecisionQueue';
+import { resolveActiveDecisionsNamespaceSlug } from '@/app/utils/executionDecisionsNamespace';
+import { resolveDecisionsStorageExecutionId } from '@/app/components/lawyer/DecisionsAndAppealsEngine/engine/resolveDecisionsStorageExecutionId';
 import { applyEvictionAppealClosure } from '@/app/utils/evictionAppealSync';
 import { applyPersonalCoerciveAppealClosure } from '@/app/utils/personalCoerciveAppealSync';
 import type { Decision } from '../types';
@@ -16,6 +17,8 @@ export function useDecisionsAppealsRowMutations(params: DecisionsAppealsMutation
         getMilestoneTimelineSnapshot,
         setDecisionsHubTab,
         executionId,
+        getEffectiveExecutionData,
+        resolveWritableExecutionId,
         newTitle,
         newBody,
         newDate,
@@ -27,12 +30,10 @@ export function useDecisionsAppealsRowMutations(params: DecisionsAppealsMutation
         (decisionId: string, patch: Partial<Decision>) => {
             setDecisions((prev) => {
                 const next = prev.map((d) => (d.id === decisionId ? { ...d, ...patch } : d));
-                persistDecisionsToStorage(next);
-                queueMicrotask(() => dispatchDecisionsReload());
-                return next;
+                return persistDecisionsToStorage(next) ?? next;
             });
         },
-        [persistDecisionsToStorage]
+        [persistDecisionsToStorage, setDecisions]
     );
 
     const logAppealTimeline = React.useCallback(
@@ -58,11 +59,9 @@ export function useDecisionsAppealsRowMutations(params: DecisionsAppealsMutation
     const handleDeleteDecision = React.useCallback((id: string) => {
         setDecisions((prev) => {
             const next = prev.filter((d) => d.id !== id);
-            persistDecisionsToStorage(next);
-            queueMicrotask(() => dispatchDecisionsReload());
-            return next;
+            return persistDecisionsToStorage(next, { removedIds: [id] }) ?? next;
         });
-    }, [persistDecisionsToStorage]);
+    }, [persistDecisionsToStorage, setDecisions]);
 
     const handleArchiveDecision = React.useCallback((id: string) => {
         setDecisions((prev) => {
@@ -77,33 +76,41 @@ export function useDecisionsAppealsRowMutations(params: DecisionsAppealsMutation
                       }
                     : d
             );
-            persistDecisionsToStorage(next);
-            queueMicrotask(() => dispatchDecisionsReload());
-            const archived = next.find((d) => d.id === id);
+            const synced = persistDecisionsToStorage(next) ?? next;
+            const archived = synced.find((d) => d.id === id);
             if (archived) {
                 applyPersonalCoerciveAppealClosure({
                     executionId,
                     row: archived as unknown as Record<string, unknown>,
-                    allDecisions: next as unknown as Record<string, unknown>[],
+                    allDecisions: synced as unknown as Record<string, unknown>[],
                     forceClose: true,
                 });
                 applyEvictionAppealClosure({
                     executionId,
                     row: archived as unknown as Record<string, unknown>,
-                    allDecisions: next as unknown as Record<string, unknown>[],
+                    allDecisions: synced as unknown as Record<string, unknown>[],
                     forceClose: true,
                 });
             }
             queueMicrotask(() => setDecisionsHubTab('archive'));
-            return next;
+            return synced;
         });
-    }, [executionId, persistDecisionsToStorage]);
+    }, [executionId, persistDecisionsToStorage, setDecisions, setDecisionsHubTab]);
 
     const handleAddDecision = () => {
         if (!newTitle.trim() || !newDate) {
             SmartToast.error('يرجى تعبئة العنوان والتاريخ على الأقل');
             return;
         }
+        const executionData = getEffectiveExecutionData();
+        const persistId =
+            resolveWritableExecutionId() ??
+            resolveDecisionsStorageExecutionId(executionId, executionData);
+        if (!persistId || persistId === 'default') {
+            SmartToast.error('تعذّر حفظ القرار — لم يُحدَّد ملف التنفيذ بعد');
+            return;
+        }
+        const domainNamespace = resolveActiveDecisionsNamespaceSlug(persistId, executionData);
         const newDecision: Decision = {
             id: (globalThis as any).crypto?.randomUUID?.() ? (globalThis as any).crypto.randomUUID() : `${Date.now()}_${Math.random().toString(16).slice(2)}`,
             title: newTitle,
@@ -114,13 +121,20 @@ export function useDecisionsAppealsRowMutations(params: DecisionsAppealsMutation
             appealStatus: 'pending',
             appealPhase: null,
             appealWorkflowState: 'NONE',
+            domainNamespace,
         };
-        
+
         const updated = [newDecision, ...decisions];
-        setDecisions(updated);
-        persistDecisionsToStorage(updated);
-        dispatchDecisionsReload();
-        
+        let merged = persistDecisionsToStorage(updated);
+        if (!merged) {
+            merged = persistDecisionsToStorage(updated);
+        }
+        if (!merged) {
+            SmartToast.error('تعذّر حفظ القرار — أعد فتح الإضبارة وحاول مجدداً');
+            return;
+        }
+        setDecisions(merged);
+
         const now = new Date().toISOString();
         const milestoneSnap = getMilestoneTimelineSnapshot?.();
         onTimelineUpdate({

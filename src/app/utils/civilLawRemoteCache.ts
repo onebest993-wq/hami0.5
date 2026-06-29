@@ -7,7 +7,7 @@ import {
     extractArticleSortNumber,
     normalizeArabicDigits,
 } from '@/app/components/admin/lawStructure';
-import { getBundledLawRows } from '@/app/utils/bundledIraqiLawLoader';
+import { loadBundledLawRows } from '@/app/utils/bundledIraqiLawLoader';
 
 export type CivilLawArticle = {
     id: string;
@@ -103,7 +103,10 @@ export async function loadCivilLawArticles(tab: CivilLawCodeType): Promise<Civil
             /* fallback to bundled project files */
         }
 
-        const bundled = mapRowsToArticles(getBundledLawRows(CIVIL_LAW_CANONICAL_NAMES[tab]), tab);
+        const bundled = mapRowsToArticles(
+            await loadBundledLawRows(CIVIL_LAW_CANONICAL_NAMES[tab]),
+            tab,
+        );
         if (bundled.length > 0) {
             cache.set(tab, bundled);
             return bundled;

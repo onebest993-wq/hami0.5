@@ -14,7 +14,8 @@ import { dispatchExecutionTimelineAppend } from '@/app/components/lawyer/Executi
 import type { ExecutionFile } from '@/app/types/execution';
 import { isExecutionAppealTerminal } from '@/app/utils/executionDecisionAppealActive';
 import { dispatchDecisionsReload, readExecutorDecisionsArray } from '@/app/utils/executorSeizureDecisionQueue';
-import { writeExecutorDecisionsArray } from '@/app/utils/executionDecisionsNamespace';
+import { writeExecutorDecisionsUnionForExecution } from '@/app/utils/executionDecisionsNamespace';
+import { readExecutionDataForDomainGate } from '@/app/utils/executionDomainIsolation';
 
 export type LawyerCassationEntryResult = {
     ok: boolean;
@@ -195,7 +196,11 @@ export function applyLawyerCassationEntryForExecution(input: {
         timelineDescription
     );
 
-    writeExecutorDecisionsArray(executionId, next as unknown as Record<string, unknown>[]);
+    writeExecutorDecisionsUnionForExecution(
+        executionId,
+        next as unknown as Record<string, unknown>[],
+        readExecutionDataForDomainGate(executionId)
+    );
     dispatchDecisionsReload();
 
     if (input.appendTimeline !== false) {

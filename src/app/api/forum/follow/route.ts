@@ -26,6 +26,9 @@ export async function GET(request: Request): Promise<Response> {
         const targetUserId = url.searchParams.get('userId')?.trim() || auth.userId;
 
         if (mode === 'followers') {
+            if (targetUserId !== auth.userId && !auth.isAdmin) {
+                return jsonResponse(403, { ok: false, error: 'غير مصرح بعرض متابعي هذا المستخدم' });
+            }
             const rows = await ForumFollowRepository.getFollowers(targetUserId);
             return jsonResponse(200, { ok: true, follows: rows, count: rows.length });
         }

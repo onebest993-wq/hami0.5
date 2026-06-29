@@ -1,15 +1,11 @@
-import React, { Suspense, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import {
-    LazySmartVaultModal,
-    LazyVoiceRecorderModal,
-} from '@/app/components/lawyer/commandCenterDockLazy';
-import type { CommandCenterDockActions } from './useCommandCenterDockActions';
 import { HomeDockQuickSheet } from './HomeDockQuickSheet';
 import { useWorkspaceStore } from '@/app/stores/workspaceStore';
 import { isRealSignedIn } from '@/app/services/auth/shellAuth';
 import { ALERTS_DOCK_FEATURE } from '@/app/services/alerts/dockAlertsOpen';
 import { openHomeHubCardInteraction } from '@/app/services/alerts/homeHubCardLogic';
+import type { CommandCenterDockActions } from './useCommandCenterDockActions';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import type { WorkspacePinnedItem } from '@/app/workspace/types';
 
@@ -20,18 +16,7 @@ type CommandCenterOverlaysProps = {
 };
 
 export function CommandCenterOverlays({ userId, actions, onNavigateRoute }: CommandCenterOverlaysProps) {
-    const {
-        showVault,
-        setShowVault,
-        showVoiceModal,
-        setShowVoiceModal,
-        saveVoiceNote,
-        hubDockSheet,
-        setHubDockSheet,
-        secretaryAlerts,
-        onOpenEntity,
-        onUnpinItem,
-    } = actions;
+    const { hubDockSheet, setHubDockSheet, secretaryAlerts, onOpenEntity, onUnpinItem } = actions;
     const pinnedItems = useWorkspaceStore((s) => s.pinnedItems);
 
     const guardInteraction = useCallback(
@@ -48,19 +33,6 @@ export function CommandCenterOverlays({ userId, actions, onNavigateRoute }: Comm
 
     return (
         <div className="z-50">
-            {showVault ? (
-                <Suspense fallback={null}>
-                    <LazySmartVaultModal onClose={() => setShowVault(false)} currentUserId={userId} />
-                </Suspense>
-            ) : null}
-            {showVoiceModal ? (
-                <Suspense fallback={null}>
-                    <LazyVoiceRecorderModal
-                        onClose={() => setShowVoiceModal(false)}
-                        onSaveVoice={saveVoiceNote}
-                    />
-                </Suspense>
-            ) : null}
             <HomeDockQuickSheet
                 mode={hubDockSheet}
                 onClose={() => setHubDockSheet(null)}

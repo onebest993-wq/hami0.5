@@ -1,5 +1,3 @@
-import { STORAGE_KEYS } from '@/app/utils/constants';
-
 export const EXECUTION_FILES_STORAGE_KEY = 'executionFiles';
 export const EXECUTION_FILES_STORAGE_KEYS_LEGACY = [
     'hami-execution-files',
@@ -7,7 +5,7 @@ export const EXECUTION_FILES_STORAGE_KEYS_LEGACY = [
     'lawyer_execution_files',
 ] as const;
 
-export const LAWSUIT_FILES_STORAGE_KEY = STORAGE_KEYS.LAWYER_FILES;
+export const LAWSUIT_FILES_STORAGE_KEY = 'lawyer_files';
 export const LAWSUIT_FILES_STORAGE_KEYS_LEGACY = [
     'lawsuitFiles',
     'hami-lawsuit-files',

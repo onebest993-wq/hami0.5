@@ -58,7 +58,14 @@ export function useAppealWorkflowCardDerivedState({
         canShowAppealInitialForDecision(decision);
     const cassTips = cassationButtonTitles(decision, appealPerspective);
     const underlyingHub = resolveUnderlyingDecisionHub(decision, decisions);
+    const isAppealCopy = Boolean(decision.appealSourceDecisionId);
+    const enforcementHub = isAppealCopy ? underlyingHub : decision;
+    const pipelineRow = appealPipelineRowForCard(enforcementHub, decisions);
+    const appealProceedings = buildAppealProceedingsForDecision(pipelineRow, appealPerspective);
+    const showAppealDetailsToggle = appealProceedings.length > 0;
     const showDebtorGrievanceNotice =
+        !showAppealDetailsToggle &&
+        !isAppealCopy &&
         !windows.isPastGrievanceDeadline &&
         decision.appealActor === 'debtor' &&
         decision.appealMethod === 'tadhallum' &&
@@ -68,28 +75,27 @@ export function useAppealWorkflowCardDerivedState({
             !isCreditorInitiatedExecutorRequest(underlyingHub));
     const titleClean = cleanTitle(decision.title);
     const hubStatus = deriveDecisionHubStatus(decision, requestNeedsExecutorOutcome);
-    const showExecutorPendingFooter = hubStatus === 'pending';
-    const { statusPillEl } = buildDecisionCardStatus(decision, appealWindowClosed, decisions);
-    const pipelineRow = appealPipelineRowForCard(decision, decisions);
-    const appealProceedings = buildAppealProceedingsForDecision(pipelineRow, appealPerspective);
+    const showExecutorPendingFooter =
+        !decision.manualExecutorLedgerEntry && hubStatus === 'pending';
+    const { statusPillEl } = buildDecisionCardStatus(enforcementHub, appealWindowClosed, decisions);
     const requestAppealGate = resolveCreditorRequestAppealGate(
-        decision,
+        enforcementHub,
         pipelineRow,
         appealPerspective,
     );
-    const settled = !requestNeedsExecutorOutcome(decision);
+    const settled = !requestNeedsExecutorOutcome(enforcementHub);
     const phaseLabel = resolveAppealWorkflowPhaseLabel(pipelineRow, appealPerspective);
     const hubTitleClean = cleanTitle(underlyingHub.title);
-    const isAppealCopy = Boolean(decision.appealSourceDecisionId);
-    const showHubLink = isAppealCopy && underlyingHub.id !== decision.id && hubTitleClean;
-    const appealLegallyFinal = isExecutorDecisionAppealFinal(decision, pipelineRow, {
+    const compactAppealCopyChrome = isAppealCopy;
+    const showHubLink = false;
+    const appealLegallyFinal = isExecutorDecisionAppealFinal(enforcementHub, pipelineRow, {
         appealWindowClosed,
         appealTrackActive: hasAppealActivity && !appealWindowClosed,
     });
-    const enforcementState = resolveCreditorDecisionEnforcementState(decision, pipelineRow, {
+    const enforcementState = resolveCreditorDecisionEnforcementState(enforcementHub, pipelineRow, {
         hubTab: 'appeals',
         appealLegallyFinal,
-        needsExecutor: requestNeedsExecutorOutcome(decision),
+        needsExecutor: requestNeedsExecutorOutcome(enforcementHub),
         appealPerspective,
         allDecisions: decisions,
     });
@@ -98,7 +104,6 @@ export function useAppealWorkflowCardDerivedState({
         enforcementState.pillLabel,
         requestAppealGate,
     );
-    const showAppealDetailsToggle = appealProceedings.length > 0;
     const requestFiler =
         appealPerspective === 'debtor_agent'
             ? resolveRequestFilerFromDebtorAgentView(underlyingHub)
@@ -108,10 +113,7 @@ export function useAppealWorkflowCardDerivedState({
             ? resolveDebtorAgentRequestFateLine(enforcementState, requestAppealGate)
             : null;
     const showDetailsSection =
-        showDebtorGrievanceNotice ||
-        appealProceedings.length > 0 ||
-        (appealWindowClosed && !isFinalLocked) ||
-        showExecutorPendingFooter;
+        showDebtorGrievanceNotice || showAppealDetailsToggle || showExecutorPendingFooter;
 
     return {
         state,
@@ -132,6 +134,7 @@ export function useAppealWorkflowCardDerivedState({
         phaseLabel,
         hubTitleClean,
         isAppealCopy,
+        compactAppealCopyChrome,
         showHubLink,
         enforcementState,
         dateStr,

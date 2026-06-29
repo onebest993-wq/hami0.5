@@ -2,7 +2,7 @@
 /** توجيه handleCoerciveAction — موجة 7 */
 import { useCallback, type MutableRefObject } from 'react';
 import { readExecutorDecisionsArray } from '@/app/utils/executorSeizureDecisionQueue';
-import { buildInitialExecutorSeizureDetails } from './executionDashboardCoerciveAction';
+import { buildInitialExecutorSeizureDetails } from '../../helpers/buildInitialExecutorSeizureDetails';
 import {
     findAwaitingSeizureDecisionId,
     isSeizureActionType,

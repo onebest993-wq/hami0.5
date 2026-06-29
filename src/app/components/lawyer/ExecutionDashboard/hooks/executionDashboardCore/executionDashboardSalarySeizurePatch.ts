@@ -27,7 +27,7 @@ export function applySalarySeizureAssetDetailsPatch(
         monthlyDeductionIqd: patch.monthlyDeductionIqd > 0 ? patch.monthlyDeductionIqd : undefined,
         activeDebtorIsDeceased: opts.activeDebtorIsDeceased,
         subject: resolveSalarySeizureSubject(
-            (target as Record<string, unknown>) ?? { details: { salaryAmount: patch.salaryAmount } },
+            (target as unknown as Record<string, unknown>) ?? { details: { salaryAmount: patch.salaryAmount } },
             opts.executionData ?? null,
             opts.storageExecutionId,
         ),
@@ -45,9 +45,9 @@ export function applySalarySeizureAssetDetailsPatch(
                     ? { employerName: String(patch.employerName).trim() }
                     : {}),
                 ...(patch.monthlyDeductionIqd > 0
-                    ? { monthlyDeductionIqd: Math.trunc(patch.monthlyDeductionIqd) }
+                    ? { monthlyDeductionIqd: String(Math.trunc(patch.monthlyDeductionIqd)) }
                     : {}),
-            },
+            } as Record<string, string>,
         };
     });
 }

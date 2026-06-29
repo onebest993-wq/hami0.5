@@ -3,13 +3,14 @@ import type { Decision } from '@/app/components/lawyer/DecisionsAndAppealsEngine
 import type { AppealUiPerspective } from '@/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels';
 import {
     newEventId,
+    resolveAppealBaseBranch,
     resolveHarmedPartyAppealActor,
 } from '@/app/components/lawyer/DecisionsAndAppealsEngine/utils';
 import { applyEvictionAppealClosure } from '@/app/utils/evictionAppealSync';
 import { applyPersonalCoerciveAppealClosure } from '@/app/utils/personalCoerciveAppealSync';
 import { dispatchDecisionsReload, readExecutorDecisionsArray } from '@/app/utils/executorSeizureDecisionQueue';
-import { writeExecutorDecisionsArray } from '@/app/utils/executionDecisionsNamespace';
-import SecureStoreService from '@/app/services/SecureStoreService';
+import { writeExecutorDecisionsUnionForExecution } from '@/app/utils/executionDecisionsNamespace';
+import { readExecutionDataForDomainGate } from '@/app/utils/executionDomainIsolation';
 
 export type WaiveInitialAppealApplyResult = {
     ok: boolean;
@@ -17,6 +18,31 @@ export type WaiveInitialAppealApplyResult = {
     title?: string;
     message?: string;
 };
+
+function isAppealPipelineOpen(hub: Decision): boolean {
+    if (hub.appealStatus === 'tadhallum_filed' || hub.appealStatus === 'tamyeez_filed') return true;
+    if (hub.appealPhase === 'grievance' || hub.appealPhase === 'cassation') return true;
+    if (Boolean(hub.activeAppealCopyId)) return true;
+    if (Boolean(hub.awaitingCassationEntryBy)) return true;
+    return false;
+}
+
+/** قرار المنفذ لصالح مقدّم الطلب — لا نستبدل موقف الطرف الذي له حق الطعن */
+export function canWaiveFavorableExecutorOutcome(
+    hub: Decision,
+    perspective: AppealUiPerspective = 'creditor_agent'
+): boolean {
+    const ex = hub.executorOutcome;
+    if (ex !== 'approved' && ex !== 'alternative') return false;
+    const harmed = resolveHarmedPartyAppealActor(hub, perspective);
+    if (perspective === 'creditor_agent' && hub.appealRequestOrigin === 'creditor_side') {
+        return harmed !== 'debtor';
+    }
+    if (perspective === 'debtor_agent' && hub.appealRequestOrigin === 'debtor_side') {
+        return harmed !== 'lawyer';
+    }
+    return false;
+}
 
 /** هل يمكن للطرف المتضرر (وكيل الدائن) الاستغناء عن التظلم والتمييز قبل تقديمهما */
 export function canWaiveInitialAppeal(
@@ -26,11 +52,21 @@ export function canWaiveInitialAppeal(
 ): boolean {
     if (hub.noAppealChosen === true) return false;
     if (hub.appealStatus === 'final') return false;
-    if (hub.appealRequestOrigin === 'executor_side') return false;
-    if (hub.appealStatus === 'tadhallum_filed' || hub.appealStatus === 'tamyeez_filed') return false;
-    if (hub.appealPhase === 'grievance' || hub.appealPhase === 'cassation') return false;
-    if (Boolean(hub.activeAppealCopyId)) return false;
-    if (Boolean(hub.awaitingCassationEntryBy)) return false;
+    if (isAppealPipelineOpen(hub)) return false;
+
+    if (canWaiveFavorableExecutorOutcome(hub, perspective)) {
+        return true;
+    }
+
+    if (hub.appealRequestOrigin === 'executor_side') {
+        if (hub.manualExecutorLedgerEntry) return false;
+        const branch = resolveAppealBaseBranch(hub);
+        if (perspective === 'debtor_agent') {
+            return branch === 'after_approval';
+        }
+        return branch === 'after_rejection';
+    }
+
     const harmed = resolveHarmedPartyAppealActor(hub, perspective);
     if (perspective === 'debtor_agent') {
         return harmed === 'debtor';
@@ -46,13 +82,17 @@ export function canWaiveInitialAppeal(
     return false;
 }
 
-export function buildWaiveInitialAppealPatch(_hub: Decision): Partial<Decision> {
+export function buildWaiveInitialAppealPatch(
+    hub: Decision,
+    opts?: { favorable?: boolean }
+): Partial<Decision> {
     const sealedAt = new Date().toISOString();
+    const favorable = opts?.favorable === true;
     return {
         noAppealChosen: true,
         appealStatus: 'final',
         appealPhase: null,
-        appealWorkflowState: 'FINAL_REJECTED',
+        appealWorkflowState: favorable ? 'FINAL_ACCEPTED' : 'FINAL_REJECTED',
         appealActor: null,
         appealMethod: null,
         awaitingCassationEntryBy: null,
@@ -86,12 +126,14 @@ export function applyWaiveInitialAppealForExecution(input: {
         return { ok: false, message: 'لا يمكن إتمام الاستغناء عن الطعن في هذه الحالة.' };
     }
 
-    const patch = buildWaiveInitialAppealPatch(row);
     const perspective = input.appealPerspective ?? 'creditor_agent';
-    const outcomeLine =
-        perspective === 'debtor_agent'
-            ? 'لا حاجة للطعن — قُبل قرار المنفذ دون تظلم أو تمييز من موكّلنا وأُغلقت المهلة.'
-            : 'لا حاجة للطعن — قُبل قرار المنفذ دون تقديم تظلم أو تمييز وأُغلقت دورة الطلب.';
+    const favorable = canWaiveFavorableExecutorOutcome(row, perspective);
+    const patch = buildWaiveInitialAppealPatch(row, { favorable });
+    const outcomeLine = favorable
+        ? 'لا حاجة للطعن — القرار لمصلحتنا وأُغلقت دورة الطلب دون انتظار مهلة الطرف الآخر.'
+        : perspective === 'debtor_agent'
+          ? 'لا حاجة للطعن — قُبل قرار المنفذ دون تظلم أو تمييز من موكّلنا وأُغلقت المهلة.'
+          : 'لا حاجة للطعن — قُبل قرار المنفذ دون تقديم تظلم أو تمييز وأُغلقت دورة الطلب.';
     const logEntry = {
         id: newEventId(),
         at: new Date().toISOString(),
@@ -111,7 +153,11 @@ export function applyWaiveInitialAppealForExecution(input: {
         };
     });
 
-    writeExecutorDecisionsArray(executionId, next as unknown as Record<string, unknown>[]);
+    writeExecutorDecisionsUnionForExecution(
+        executionId,
+        next as unknown as Record<string, unknown>[],
+        readExecutionDataForDomainGate(executionId)
+    );
     dispatchDecisionsReload();
 
     const mergedRow = next.find((x) => x.id === row.id);

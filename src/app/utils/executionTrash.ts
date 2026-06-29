@@ -46,3 +46,23 @@ export function stripExecutionTrashFields<T extends Record<string, unknown>>(fil
     delete (next as { executionTrashDeletedAt?: string }).executionTrashDeletedAt;
     return next;
 }
+
+export function getExecutionArchivedAt(file: { executionArchivedAt?: string | null }): string | null {
+    const v = file?.executionArchivedAt;
+    if (typeof v !== 'string' || !v.trim()) return null;
+    return v.trim();
+}
+
+export function isExecutionArchived(file: {
+    executionArchivedAt?: string | null;
+    executionTrashDeletedAt?: string | null;
+}): boolean {
+    if (isExecutionInTrash(file)) return false;
+    return getExecutionArchivedAt(file) != null;
+}
+
+export function stripExecutionArchiveFields<T extends Record<string, unknown>>(file: T): T {
+    const next = { ...file };
+    delete (next as { executionArchivedAt?: string }).executionArchivedAt;
+    return next;
+}

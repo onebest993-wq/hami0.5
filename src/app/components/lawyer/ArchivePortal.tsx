@@ -1,5 +1,8 @@
 // @ts-nocheck
-import React from 'react';
+import React, { useEffect } from 'react';
+import { warmLawsuitWorkspace, warmExecutionWorkspace, prefetchExecutionCreationView } from '@/app/utils/lazyComponents';
+import { createPortal } from 'react-dom';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { X, Plus } from 'lucide-react';
 import { executionTrashDaysRemaining } from '@/app/utils/executionTrash';
 import type { ArchivePortalProps } from '@/app/types/common';
@@ -32,6 +35,8 @@ export const ArchivePortal = ({
     hideTopActionBar,
     onMoveExecutionToTrash,
     onRestoreExecutionFromTrash,
+    onArchiveExecution,
+    onRestoreArchivedExecution,
     onPermanentlyDeleteExecutions,
     onMoveLawsuitToTrash,
     onRestoreLawsuitFromTrash,
@@ -43,6 +48,7 @@ export const ArchivePortal = ({
     onOpenCriminalCase,
     onDeleteCriminalCase,
     initialLawsuitJurisdictionTab,
+    executionFilesHydrating = false,
 }: ArchivePortalProps) => {
     const portal = useArchivePortalController({
         type,
@@ -56,6 +62,8 @@ export const ArchivePortal = ({
         onRestoreLawsuitFromTrash,
         onMoveExecutionToTrash,
         onRestoreExecutionFromTrash,
+        onArchiveExecution,
+        onRestoreArchivedExecution,
     });
 
     const {
@@ -78,22 +86,26 @@ export const ArchivePortal = ({
         setPerspectiveFilter,
         executionPreviewFile,
         setExecutionPreviewFile,
-        executionTrashView,
-        setExecutionTrashView,
+        executionViewMode,
+        setExecutionViewMode,
+        executionArchivedCount,
         lawsuitViewMode,
         setLawsuitViewMode,
         trashConfirmTarget,
         setTrashConfirmTarget,
+        archiveConfirmTarget,
+        setArchiveConfirmTarget,
         lawsuitTrashConfirmTarget,
         setLawsuitTrashConfirmTarget,
         selectedTrashIds,
         setSelectedTrashIds,
         permanentDeleteOpen,
         setPermanentDeleteOpen,
-        permanentCountdown,
+        confirmPermanentDelete,
+        beginPermanentDeleteForIds,
         permanentIdsRef,
         previewTimelineEvents,
-        executionTrashedCountForFilter,
+        executionTrashedCountTotal,
         executionJurisdictionCountsForView,
         lawsuitTrashedCount,
         unifiedArchivedCount,
@@ -111,14 +123,41 @@ export const ArchivePortal = ({
         executionFilterSummary,
     } = portal;
 
-    return (
-        <div
-            className={
-                embedded
-                    ? 'h-full bg-black/90 backdrop-blur-md flex flex-col animate-in fade-in duration-300 font-[\'Tajawal\']'
-                    : 'fixed inset-0 z-[60] bg-black/90 backdrop-blur-md flex flex-col animate-in fade-in duration-300 font-[\'Tajawal\']'
+    useBodyScrollLock(!embedded);
+
+    useEffect(() => {
+        if (type === 'executions') {
+            prefetchExecutionCreationView();
+        }
+    }, [type]);
+
+    useEffect(() => {
+        if (type === 'lawsuits') {
+            warmLawsuitWorkspace();
+        }
+        if (type === 'executions') {
+            warmExecutionWorkspace();
+        }
+    }, [type]);
+
+    useEffect(() => {
+        if (embedded) return;
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                onClose();
             }
-        >
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [embedded, onClose]);
+
+    const shellClass = embedded
+        ? "h-full bg-black/90 backdrop-blur-md flex flex-col animate-in fade-in duration-300 font-['Tajawal']"
+        : "fixed inset-0 z-[80] bg-black/90 backdrop-blur-md flex flex-col animate-in fade-in duration-300 font-['Tajawal']";
+
+    const layer = (
+        <div className={shellClass}>
             {!hideHeader && (
                 <div className="px-5 sm:px-6 py-4 border-b border-white/[0.06] flex justify-between items-center gap-4 bg-[#0A0F1C]/80 backdrop-blur-xl shrink-0">
                     <div className="min-w-0 flex-1">
@@ -126,11 +165,17 @@ export const ArchivePortal = ({
                         <p className="text-white/40 text-sm mt-0.5 leading-relaxed">
                                 {type === 'executions' ? (
                                     <>
-                                        {executionTrashView ? (
+                                        {executionViewMode === 'trash' ? (
                                             <>
                                                 {enrichedFiles.length}{' '}
                                                 {enrichedFiles.length === 1 ? 'إضبارة' : 'إضبارات'} في
                                                 سلة المهملات
+                                            </>
+                                        ) : executionViewMode === 'archived' ? (
+                                            <>
+                                                {enrichedFiles.length}{' '}
+                                                {enrichedFiles.length === 1 ? 'إضبارة' : 'إضبارات'} في
+                                                مخزن الأرشيف
                                             </>
                                         ) : (
                                             <>
@@ -144,7 +189,7 @@ export const ArchivePortal = ({
                                                 ) : null}
                                             </>
                                         )}
-                                        {executionTrashView ? (
+                                        {executionViewMode === 'trash' ? (
                                             <span className="block mt-1 text-amber-200/80 text-[11px]">
                                                 تبقى الإضابير هنا 30 يوماً ثم تُحذف تلقائياً نهائياً ما لم
                                                 تُسترجع.
@@ -166,7 +211,8 @@ export const ArchivePortal = ({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="shrink-0 w-10 h-10 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white flex items-center justify-center transition-all"
+                        aria-label="إغلاق مخزن الأضابير"
+                        className="shrink-0 w-10 h-10 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white flex items-center justify-center transition-all touch-manipulation"
                     >
                         <X size={20} />
                     </button>
@@ -175,9 +221,10 @@ export const ArchivePortal = ({
 
             <ArchivePortalLifecycleBars
                 hasExecutionLifecycle={hasExecutionLifecycle}
-                executionTrashView={executionTrashView}
-                setExecutionTrashView={setExecutionTrashView}
-                executionTrashedCountForFilter={executionTrashedCountForFilter}
+                executionViewMode={executionViewMode}
+                setExecutionViewMode={setExecutionViewMode}
+                executionTrashedCountTotal={executionTrashedCountTotal}
+                executionArchivedCount={executionArchivedCount}
                 hasLawsuitLifecycle={hasLawsuitLifecycle}
                 lawsuitViewMode={lawsuitViewMode}
                 setLawsuitViewMode={setLawsuitViewMode}
@@ -208,7 +255,7 @@ export const ArchivePortal = ({
 
             {type === 'executions' ? (
                 <ExecutionArchiveToolbar
-                    lifecycleMode={executionTrashView ? 'trash' : 'active'}
+                    lifecycleMode={executionViewMode}
                     searchQuery={searchQuery}
                     onSearchQueryChange={setSearchQuery}
                     filterType={filterType}
@@ -229,7 +276,7 @@ export const ArchivePortal = ({
                 />
             )}
 
-            {type === 'executions' && executionTrashView && enrichedFiles.length > 0 && onPermanentlyDeleteExecutions && (
+            {type === 'executions' && executionViewMode === 'trash' && enrichedFiles.length > 0 && onPermanentlyDeleteExecutions && (
                 <ArchivePortalTrashBulkBar
                     selectedCount={selectedTrashIds.size}
                     onSelectAll={selectAllTrashedInView}
@@ -239,25 +286,28 @@ export const ArchivePortal = ({
             )}
 
             {/* Grid */}
-            <div className="flex-1 overflow-y-auto p-8">
+            <div className="flex-1 overflow-y-auto p-8 pb-[max(2rem,calc(5.5rem+env(safe-area-inset-bottom)))]">
             <ArchivePortalFileGrid
                 type={type}
                 enrichedFiles={enrichedFiles}
                 searchQuery={searchQuery}
                 filterType={filterType}
                 perspectiveFilter={perspectiveFilter}
-                executionTrashView={executionTrashView}
-                setExecutionTrashView={setExecutionTrashView}
+                executionViewMode={executionViewMode}
+                setExecutionViewMode={setExecutionViewMode}
                 lawsuitFilesForCluster={lawsuitFilesForCluster}
                 onFileClick={onFileClick}
                 setExecutionPreviewFile={setExecutionPreviewFile}
                 onMoveExecutionToTrash={onMoveExecutionToTrash}
+                onArchiveExecution={onArchiveExecution}
                 onRestoreExecutionFromTrash={onRestoreExecutionFromTrash}
+                onRestoreArchivedExecution={onRestoreArchivedExecution}
                 onPermanentlyDeleteExecutions={onPermanentlyDeleteExecutions}
                 executionTrashDaysRemaining={executionTrashDaysRemaining}
                 selectedTrashIds={selectedTrashIds}
                 toggleTrashSelect={toggleTrashSelect}
                 setTrashConfirmTarget={setTrashConfirmTarget}
+                setArchiveConfirmTarget={setArchiveConfirmTarget}
                 hasLawsuitLifecycle={hasLawsuitLifecycle}
                 dossierViewMode={dossierViewMode}
                 showCriminalCardsInGrid={showCriminalCardsInGrid}
@@ -275,6 +325,8 @@ export const ArchivePortal = ({
                 onDeleteCriminalCase={onDeleteCriminalCase}
                 dossierSearchQuery={dossierSearchQuery}
                 lawsuitJurisdictionTab={lawsuitJurisdictionTab}
+                executionFilesHydrating={executionFilesHydrating}
+                beginPermanentDeleteForIds={beginPermanentDeleteForIds}
             />
             </div>
 
@@ -294,13 +346,16 @@ export const ArchivePortal = ({
                 type={type}
                 trashConfirmTarget={trashConfirmTarget}
                 setTrashConfirmTarget={setTrashConfirmTarget}
+                archiveConfirmTarget={archiveConfirmTarget}
+                setArchiveConfirmTarget={setArchiveConfirmTarget}
+                onArchiveExecution={onArchiveExecution}
                 lawsuitTrashConfirmTarget={lawsuitTrashConfirmTarget}
                 setLawsuitTrashConfirmTarget={setLawsuitTrashConfirmTarget}
                 criminalDeleteTarget={criminalDeleteTarget}
                 setCriminalDeleteTarget={setCriminalDeleteTarget}
                 permanentDeleteOpen={permanentDeleteOpen}
                 setPermanentDeleteOpen={setPermanentDeleteOpen}
-                permanentCountdown={permanentCountdown}
+                confirmPermanentDelete={confirmPermanentDelete}
                 permanentIdsRef={permanentIdsRef}
                 onMoveExecutionToTrash={onMoveExecutionToTrash}
                 onMoveLawsuitToTrash={onMoveLawsuitToTrash}
@@ -310,12 +365,15 @@ export const ArchivePortal = ({
             {/* ⭐ Floating Action Button — يظهر في كل تبويبات الإضابير (مدني/شخصي/جزائي/تنفيذ) ولا يأخذ مساحة من القائمة. */}
             {!hideTopActionBar &&
                 lawsuitViewMode === 'active' &&
-                !(type === 'executions' && executionTrashView) &&
+                !(type === 'executions' && executionViewMode !== 'active') &&
                 (type === 'lawsuits' || type === 'executions') && (
                     <button
                         type="button"
-                        data-testid={type === 'lawsuits' ? 'lawsuits-add-new' : undefined}
+                        data-testid={type === 'lawsuits' ? 'lawsuits-add-new' : 'executions-add-new'}
                         onClick={onAddAction}
+                        onPointerEnter={() => {
+                            if (type === 'executions') prefetchExecutionCreationView();
+                        }}
                         title={
                             type === 'executions'
                                 ? 'فتح إضبارة تنفيذ جديدة'
@@ -330,7 +388,7 @@ export const ArchivePortal = ({
                                   ? 'إنشاء إضبارة جزائية جديدة'
                                   : 'إضافة ملف قضائي جديد'
                         }
-                        className={`absolute bottom-6 left-6 z-40 group flex items-center gap-2.5 h-14 rounded-full pl-5 pr-4 shadow-2xl border-2 font-bold transition-all duration-200 hover:scale-[1.04] active:scale-95 ${
+                        className={`absolute z-40 group flex items-center gap-2.5 h-14 rounded-full pl-5 pr-4 shadow-2xl border-2 font-bold transition-all duration-200 hover:scale-[1.04] active:scale-95 touch-manipulation bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-[max(1.5rem,env(safe-area-inset-left))] ${
                             lawsuitJurisdictionTab === 'criminal' && type === 'lawsuits'
                                 ? 'bg-gradient-to-r from-rose-700 to-red-600 hover:from-red-600 hover:to-rose-600 text-white border-rose-400/40 shadow-rose-900/50'
                                 : 'bg-gradient-to-r from-[#E6C673] to-[#D4AF37] hover:from-[#D4AF37] hover:to-[#E6C673] text-[#0B1021] border-[#E6C673]/60 shadow-[#E6C673]/30'
@@ -349,4 +407,7 @@ export const ArchivePortal = ({
                 )}
         </div>
     );
+
+    if (embedded) return layer;
+    return typeof document !== 'undefined' ? createPortal(layer, document.body) : layer;
 };

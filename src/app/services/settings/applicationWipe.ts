@@ -1,12 +1,18 @@
 import { supabase } from '@/app/lib/supabase-client';
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
 import { clearStoredBiometricCredential } from '@/app/services/security/webAuthnLock';
+import { clearNativeBiometricEnrollment } from '@/app/runtime/nativeBiometricBridge';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import { isKvProxyNetworkEnabled } from '@/app/services/kvProxyConfig';
 import { clearAllVaultBlobs } from '@/app/services/vaultBlobStore';
 import { invalidateLawyerSettingsCache, persistWallpaper } from '@/app/services/settings';
 import { runBypassingLocalOnly } from '@/app/services/settings/localOnlyGuard';
+import { wipeShellNotificationsClient } from '@/app/services/notifications/notificationClientWipe';
+import {
+    clearLocalNotificationCache,
+    resetNotificationStoreAfterWipe,
+} from '@/app/services/notifications/notificationLocalCleanup';
 
 const KV_PROXY_URL = '/api/kv-proxy';
 
@@ -164,6 +170,11 @@ export async function wipeAllApplicationData(
 
     if (userId) {
         try {
+            await wipeShellNotificationsClient();
+        } catch {
+            /* best effort */
+        }
+        try {
             await wipeCloudDataForUser(userId);
         } catch {
             /* local wipe continues */
@@ -177,8 +188,11 @@ export async function wipeAllApplicationData(
     }
 
     clearStoredBiometricCredential();
+    clearNativeBiometricEnrollment();
     persistWallpaper(undefined);
     clearBrowserStorage();
+    clearLocalNotificationCache(userId);
+    await resetNotificationStoreAfterWipe();
     await wipeLocalSecureStore();
 
     try {

@@ -21,6 +21,7 @@ import { TrialSessionPreparatoryAppealBlock } from './TrialSessionPreparatoryApp
 import { useCriminalStore } from '../criminalStore';
 import type { CriminalCaseUserRole } from '../complainantCassationGovernance';
 import { getPendingCassationAppealForResult } from '../judicialDecisionsEngine';
+import { CriminalModalPortal, CRIMINAL_MODAL_Z } from '../criminalModalPortal';
 
 export type TrialsTabProps = {
     caseId: string;
@@ -529,7 +530,7 @@ export const TrialsTab = ({
 
 
             {isAddOpen ? (
-                <div className="fixed inset-0 z-[235] bg-black/80 backdrop-blur-sm p-4 flex items-center justify-center print:hidden">
+                <CriminalModalPortal zIndex={CRIMINAL_MODAL_Z.trial}>
                     <div className="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 overflow-hidden shadow-2xl max-h-[90vh] flex flex-col">
                         <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/50 flex justify-between items-center">
                             <div className="text-white font-black text-sm">
@@ -702,11 +703,11 @@ export const TrialsTab = ({
                             </div>
                         </div>
                     </div>
-                </div>
+                </CriminalModalPortal>
             ) : null}
 
             {postponeSessionId && postponeSession ? (
-                <div className="fixed inset-0 z-[236] bg-black/80 backdrop-blur-sm p-4 flex items-center justify-center print:hidden">
+                <CriminalModalPortal zIndex={CRIMINAL_MODAL_Z.trialPostpone}>
                     <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 overflow-hidden shadow-2xl">
                         <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/50 flex justify-between items-center">
                             <div className="text-white font-black text-sm">
@@ -760,7 +761,7 @@ export const TrialsTab = ({
                             </div>
                         </div>
                     </div>
-                </div>
+                </CriminalModalPortal>
             ) : null}
         </div>
     );

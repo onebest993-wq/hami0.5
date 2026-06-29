@@ -1,6 +1,7 @@
 import React from 'react';
 import type { MergedTimelineEventView } from '../../caseMergeTimeline';
 import { formatTimelineCategoryDisplayLabel, normalizeTimelineCategoryForDisplay, resolveTimelineEventTitle } from '../../criminalStageUtils';
+import { CriminalModalPortal, CRIMINAL_MODAL_Z } from '../../criminalModalPortal';
 
 export type TimelineMergedEventViewModalProps = {
     open: boolean;
@@ -22,7 +23,7 @@ export const TimelineMergedEventViewModal = ({
     const originNum = String(event.originCaseNumber ?? '').trim() || '—';
 
     return (
-        <div className="fixed inset-0 z-[222] bg-black/80 backdrop-blur-sm p-4 flex items-center justify-center print:hidden" dir="rtl">
+        <CriminalModalPortal zIndex={CRIMINAL_MODAL_Z.procedural}>
             <div className="w-full max-w-6xl rounded-xl border border-slate-700 bg-slate-900 overflow-hidden">
                 <div className="p-4 border-b border-slate-700 bg-slate-800/50 flex items-center justify-between gap-3">
                     <div className="text-white font-black text-sm whitespace-normal break-words">عرض إجراء مضموم (قراءة فقط)</div>
@@ -38,23 +39,25 @@ export const TimelineMergedEventViewModal = ({
                     <div className="rounded-xl border border-slate-600/50 bg-slate-800/40 px-3 py-2 text-slate-300 text-xs font-bold whitespace-normal break-words">
                         🔗 من الإضبارة المضمومة رقم {originNum} — سجل تاريخي مقفول ولا يُعدَّل من الإضبارة الأم.
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="w-full rounded-xl border border-slate-700 bg-slate-800/40 px-3 py-2 text-sm text-white/90">
-                            <span className="text-white/50 text-xs block mb-1">تاريخ الحدث</span>
-                            {event.date || '—'}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="rounded-xl border border-slate-700 bg-slate-800/40 px-3 py-2 text-sm text-white/90">
+                            <span className="text-white/50 text-xs block mb-1">التاريخ</span>
+                            <span dir="ltr">{event.date || '—'}</span>
                         </div>
-                        <div className="w-full rounded-xl border border-slate-700 bg-slate-800/40 px-3 py-2 text-sm text-white/90">
+                        <div className="rounded-xl border border-slate-700 bg-slate-800/40 px-3 py-2 text-sm text-white/90">
                             <span className="text-white/50 text-xs block mb-1">التصنيف</span>
                             {formatTimelineCategoryDisplayLabel(displayCategory) || '—'}
                         </div>
                     </div>
-                    <div className="w-full rounded-xl border border-slate-700 bg-slate-800/40 px-3 py-2 text-sm text-white font-black">
+                    <div className="rounded-xl border border-slate-700 bg-slate-800/40 px-3 py-2 text-sm text-white font-black whitespace-normal break-words">
                         {title || '—'}
                     </div>
-                    <div className="w-full rounded-xl border border-slate-700 bg-slate-800/40 px-3 py-2 text-sm text-white/90 whitespace-normal break-words min-h-[80px]">
-                        {details || '—'}
-                    </div>
-                    <div className="flex justify-end pt-2">
+                    {details ? (
+                        <div className="rounded-xl border border-slate-700 bg-slate-800/40 px-3 py-2 text-sm text-white/85 whitespace-pre-wrap break-words">
+                            {details}
+                        </div>
+                    ) : null}
+                    <div className="flex justify-end pt-1">
                         <button
                             type="button"
                             onClick={onClose}
@@ -65,6 +68,6 @@ export const TimelineMergedEventViewModal = ({
                     </div>
                 </div>
             </div>
-        </div>
+        </CriminalModalPortal>
     );
 };

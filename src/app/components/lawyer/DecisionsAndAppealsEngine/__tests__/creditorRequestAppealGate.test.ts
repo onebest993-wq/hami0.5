@@ -18,6 +18,7 @@ import {
     inferDecisionAppealRequestOrigin,
     isCreditorExecutorAppealSubject,
     isExecutorRequestFollowupBlocked,
+    isExecutorSideAwaitingAppealEntry,
     resolveExecutorRequestFollowupBlockFromRecord,
 } from '../utils';
 import {
@@ -614,6 +615,29 @@ describe('creditorRequestAppealGate', () => {
         });
         expect(resolveHarmedPartyAppealActor(hub, 'creditor_agent')).toBe('lawyer');
         expect(creditorAgentDebtorIsSoleAppellant(hub, 'creditor_agent')).toBe(false);
+    });
+
+    it('opens unified appeal entry for settled creditor personal coercive on issue day', () => {
+        const hub = baseDecision({
+            requestKind: 'personal_coercive',
+            personalCoerciveSubtype: 'forced_bring_in',
+            appealRequestOrigin: 'creditor_side',
+            executorOutcome: 'approved',
+            date: '2026-06-01',
+            appealStatus: 'pending',
+        });
+        expect(isExecutorSideAwaitingAppealEntry(hub)).toBe(true);
+    });
+
+    it('opens unified appeal entry for settled debtor-side queue request', () => {
+        const hub = baseDecision({
+            requestKind: 'guarantor_request',
+            appealRequestOrigin: 'debtor_side',
+            executorOutcome: 'rejected',
+            date: '2026-06-01',
+            appealStatus: 'pending',
+        });
+        expect(isExecutorSideAwaitingAppealEntry(hub)).toBe(true);
     });
 
     it('resolveEffectiveAppealActor ignores stale lawyer actor after debtor grievance accepted', () => {

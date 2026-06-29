@@ -1,18 +1,25 @@
 import { GUEST_LAWYER_ID } from '@/app/utils/guestLawyerSession';
 
+/** إنتاج SPA ثابت (Vercel/Netlify) بدون BFF — يُفعَّل الضيف للمعاينة */
+function isStaticSpaProduction(): boolean {
+    return import.meta.env.PROD && import.meta.env.VITE_BFF_AUTH !== 'true';
+}
+
 /** معرّفات لا تُعدّ جلسة Supabase/BFF حقيقية في بوابات الواجهة (إنتاج) */
 export const SHELL_NON_AUTH_USER_IDS = new Set<string>([GUEST_LAWYER_ID, 'demo_user']);
 
 /**
- * فترة التطوير: فتح ميزات الواجهة بدون Supabase حقيقي.
+ * فترة التطوير / المعاينة: فتح ميزات الواجهة بدون Supabase حقيقي.
  * - DEV: مفعّل افتراضياً
+ * - إنتاج SPA ثابت (بدون VITE_BFF_AUTH): مفعّل افتراضياً — يمنع شاشة سوداء على Vercel
  * - VITE_SHELL_AUTH_OPEN=true|false: تجاوز صريح
  */
 export function isShellAuthBypassed(): boolean {
     const flag = import.meta.env.VITE_SHELL_AUTH_OPEN;
     if (flag === 'false') return false;
     if (flag === 'true') return true;
-    return import.meta.env.DEV;
+    if (import.meta.env.DEV) return true;
+    return isStaticSpaProduction();
 }
 
 export function isShellDemoUserId(userId: string | null | undefined): boolean {

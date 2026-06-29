@@ -28,6 +28,8 @@ export function isKeyOwnedBy(rawKey: unknown, userId: string, op: 'read' | 'writ
     if (k.startsWith('repository:docs:')) return true;
     if (k.startsWith('banned:users:')) return true;
     if (k.startsWith('follow:')) return true;
+    /** ملف مهني — قراءة عامة لأي محامٍ مصادق؛ الكتابة تبقى للمالك فقط */
+    if (k.startsWith('profile:')) return true;
   }
 
   return false;

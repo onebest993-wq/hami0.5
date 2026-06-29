@@ -114,7 +114,7 @@ export function computeFinancialLawyerFeesAmount(input: {
 }
 
 export function hasEvictionDataSignals(executionData: ExecutionFile | null | undefined): boolean {
-    const ed = executionData as Record<string, unknown> | null | undefined;
+    const ed = executionData as unknown as Record<string, unknown> | null | undefined;
     if (!ed) return false;
     const boolSignals = [
         'eviction_executor_vacate_grant_approved',

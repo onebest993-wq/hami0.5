@@ -49,7 +49,7 @@ export const ResultRow = memo(function ResultRow({
                     <WorkspacePinButton
                         item={pinItem}
                         relatedLinkCount={relatedLinkCount}
-                        className="!w-8 !h-8"
+                        className="!min-w-[44px] !min-h-[44px] !w-11 !h-11 touch-manipulation"
                         size={14}
                     />
                 </div>

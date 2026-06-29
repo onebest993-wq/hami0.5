@@ -1,11 +1,11 @@
 /** مزامنة نتائج مفاتحة التحقيق مع تكليف حضور الموظف — منطق نقي (موجة 9) */
-import type { ExecutionFile } from '@/app/types/execution';
+import type { ExecutionFile, EmployeeSummonsAssignmentState } from '@/app/types/execution';
 import {
     mergeInvestigationOutcomesIntoEmployeeAssignments,
-    type EmployeeSummonsAssignmentState,
+    type ExecutorDecisionRowLite,
 } from '@/app/utils/employeeSummonsAssignment';
 
-export type ExecutorDecisionRowLite = Record<string, unknown>;
+export type { ExecutorDecisionRowLite };
 
 export type InvestigationMergeResult = {
     patch: Partial<ExecutionFile>;
@@ -37,7 +37,7 @@ export function buildEmployeeInvestigationSyncSignature(
         ...Object.entries(byDebtor)
             .map(([k, st]) => {
                 const row = st as EmployeeSummonsAssignmentState;
-                return `${k}:${row.phase}:${String(row.investigationDecisionId ?? '')}:${String(row.arrestOrderRecorded ?? '')}`;
+                return `${k}:${String(row.phase ?? '')}:${String(row.investigationDecisionId ?? '')}:${String(row.arrestOrderRecorded ?? '')}`;
             })
             .sort(),
     ].join('|');

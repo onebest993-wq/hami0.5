@@ -4,7 +4,7 @@ import {
     readExecutorDecisionsArray,
     resolveExecutorDecisionRowContext,
 } from '@/app/utils/executorSeizureDecisionQueue';
-import { writeExecutorDecisionsArray } from '@/app/utils/executionDecisionsNamespace';
+import { writeExecutorDecisionsUnionForExecution } from '@/app/utils/executionDecisionsNamespace';
 import { syncExecutorDecisionResolution } from '@/app/utils/syncExecutorDecisionResolution';
 import {
     DEBTOR_AGENT_CREDITOR_MIRROR_SOURCE,
@@ -39,7 +39,7 @@ function supersedeStoredManualOtherPartyRows(executionId: string, optionId: stri
     try {
         const arr = readExecutorDecisionsArray(executionId);
         const next = supersedePriorManualOtherPartyRows(arr, optionId);
-        writeExecutorDecisionsArray(executionId, next);
+        writeExecutorDecisionsUnionForExecution(executionId, next);
         dispatchDecisionsReload();
     } catch {
         /* ignore */

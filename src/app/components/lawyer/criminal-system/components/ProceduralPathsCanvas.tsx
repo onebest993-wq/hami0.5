@@ -5,6 +5,7 @@ import type { ProceduralPath, ProceduralPathStep } from '../proceduralPathsEngin
 import { proceduralStepStatusLabel, sortPathStepsChronologically } from '../proceduralPathsEngine';
 import { ProceduralPathFormModal } from './modals/ProceduralPathFormModal';
 import { ProceduralStepFormModal } from './modals/ProceduralStepFormModal';
+import { CriminalModalPortal, CRIMINAL_MODAL_Z } from '../criminalModalPortal';
 
 export type ProceduralPathsCanvasProps = {
     caseId: string;
@@ -304,7 +305,7 @@ export const ProceduralPathsCanvas = ({ caseId, readOnly = false }: ProceduralPa
             />
 
             {confirmDeletePathId ? (
-                <div className="fixed inset-0 z-[223] bg-black/80 p-4 flex items-center justify-center print:hidden" dir="rtl">
+                <CriminalModalPortal zIndex={CRIMINAL_MODAL_Z.proceduralConfirm}>
                     <div className="w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900 p-4 space-y-3">
                         <div className="text-white font-black text-sm">حذف مسار التتبع؟</div>
                         <p className="text-white/70 text-xs font-bold">سيتم حذف المسار وجميع خطواته نهائياً.</p>
@@ -328,7 +329,7 @@ export const ProceduralPathsCanvas = ({ caseId, readOnly = false }: ProceduralPa
                             </button>
                         </div>
                     </div>
-                </div>
+                </CriminalModalPortal>
             ) : null}
         </div>
     );

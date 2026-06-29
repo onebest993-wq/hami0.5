@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import { X, Save, Loader2 } from 'lucide-react';
 import type { SmartVaultDoc } from '@/app/services/lawyer-cloud';
@@ -6,6 +7,7 @@ import { VaultCategoryPicker } from '@/app/components/lawyer/SmartVaultModal/Vau
 import {
     VAULT_SHEET,
     VAULT_SHEET_OVERLAY,
+    VAULT_SHEET_OVERLAY_VIEWPORT,
     VAULT_INPUT,
     VAULT_LABEL,
     VAULT_BTN_SAVE,
@@ -25,6 +27,8 @@ interface VaultDocEditSheetProps {
     onAddCategory: (name: string) => void;
     onSave: (values: VaultDocEditValues) => void;
     onClose: () => void;
+    /** viewport = portal فوق المستودع الذكي */
+    overlayScope?: 'panel' | 'viewport';
 }
 
 export const VaultDocEditSheet: React.FC<VaultDocEditSheetProps> = ({
@@ -34,6 +38,7 @@ export const VaultDocEditSheet: React.FC<VaultDocEditSheetProps> = ({
     onAddCategory,
     onSave,
     onClose,
+    overlayScope = 'panel',
 }) => {
     const [title, setTitle] = useState(doc.title);
     const [lawyerNote, setLawyerNote] = useState(doc.lawyerNote ?? '');
@@ -45,14 +50,17 @@ export const VaultDocEditSheet: React.FC<VaultDocEditSheetProps> = ({
         setClassification(doc.customCategory ?? '');
     }, [doc]);
 
-    return (
+    const overlayClass = overlayScope === 'viewport' ? VAULT_SHEET_OVERLAY_VIEWPORT : VAULT_SHEET_OVERLAY;
+
+    const sheet = (
         <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className={VAULT_SHEET_OVERLAY}
+            className={overlayClass}
             dir="rtl"
             onClick={isSaving ? undefined : onClose}
+            data-testid="vault-doc-edit-overlay"
         >
             <motion.div
                 initial={{ opacity: 0, y: 24 }}
@@ -120,4 +128,9 @@ export const VaultDocEditSheet: React.FC<VaultDocEditSheetProps> = ({
             </motion.div>
         </motion.div>
     );
+
+    if (overlayScope === 'viewport' && typeof document !== 'undefined') {
+        return createPortal(sheet, document.body);
+    }
+    return sheet;
 };

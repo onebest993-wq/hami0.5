@@ -120,8 +120,6 @@ export function SecurityInitializer(): null {
       securityAudit.performHealthCheck().then((health) => {
         if (!health.healthy && import.meta.env.DEV) {
           debug.warn('[Security] System health issues:', health.issues);
-        } else if (import.meta.env.DEV) {
-          debug.log('[Security] System health check passed ✅');
         }
       });
 

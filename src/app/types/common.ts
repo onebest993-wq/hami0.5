@@ -518,8 +518,14 @@ export interface ArchivePortalProps {
     onMoveExecutionToTrash?: (fileId: string | number) => void;
     /** استرجاع من السلة */
     onRestoreExecutionFromTrash?: (fileId: string | number) => void;
+    /** أرشفة إضبارة تنفيذ (مخزن الأرشيف) */
+    onArchiveExecution?: (fileId: string | number) => void;
+    /** إعادة إضبارة مؤرشفة إلى النشطة */
+    onRestoreArchivedExecution?: (fileId: string | number) => void;
     /** حذف نهائي من السلة (بعد العد التنازلي في الواجهة) */
     onPermanentlyDeleteExecutions?: (fileIds: Array<string | number>) => void;
+    /** قائمة executionFiles ما زالت تُحمَّل من التخزين — تجنّب «لا توجد إضابير» الكاذبة */
+    executionFilesHydrating?: boolean;
     /** الدعاوى المدنية: نقل إلى سلة المهملات */
     onMoveLawsuitToTrash?: (fileId: string | number) => void;
     /** استرجاع دعوى من السلة */

@@ -9,7 +9,9 @@ import {
     GRIEVANCE_APPEAL_WINDOW_DAYS,
     reconcileAppealDeadlineEnforcement,
     resolveAppealDeadlineExpiryKind,
+    resolveAppealLastDeadlineYmd,
     resolveCassationAppealClockYmd,
+    decisionAppealClockYmd,
     resolveManualExecutorWorkflowPhase,
     shouldShowAppealDeadlineLapseActions,
 } from '../utils';
@@ -26,41 +28,52 @@ function base(overrides: Partial<Decision> = {}): Decision {
     };
 }
 
-describe('appealWindowDaysElapsedFromIssueYmd — من اليوم التالي', () => {
-    it('يوم الإصدار لا يُحسب', () => {
-        expect(appealWindowDaysElapsedFromIssueYmd('2026-06-01', new Date('2026-06-01'))).toBe(-1);
-    });
-
-    it('اليوم التالي = اليوم 0', () => {
-        expect(appealWindowDaysElapsedFromIssueYmd('2026-06-01', new Date('2026-06-02'))).toBe(0);
+describe('decisionAppealClockYmd — تاريخ الإصدار القانوني', () => {
+    it('يُفضَّل حقل date على resolvedAt لتجنب انزياح UTC', () => {
+        expect(
+            decisionAppealClockYmd({
+                date: '2026-06-25',
+                resolvedAt: '2026-06-24T21:00:00.000Z',
+            }),
+        ).toBe('2026-06-25');
     });
 });
 
-describe('appealWindowsForDecision — تظلم 3 / تمييز 7 من اليوم التالي', () => {
+describe('appealWindowDaysElapsedFromIssueYmd — من يوم الإصدار', () => {
+    it('يوم الإصدار = اليوم 0', () => {
+        expect(appealWindowDaysElapsedFromIssueYmd('2026-06-01', new Date('2026-06-01'))).toBe(0);
+    });
+
+    it('اليوم التالي = اليوم 1', () => {
+        expect(appealWindowDaysElapsedFromIssueYmd('2026-06-01', new Date('2026-06-02'))).toBe(1);
+    });
+});
+
+describe('appealWindowsForDecision — تظلم 3 / تمييز 7 من يوم الإصدار', () => {
     afterEach(() => {
         vi.useRealTimers();
     });
 
-    it('يوم الإصدار: لا تظلم ولا تمييز', () => {
+    it('يوم الإصدار: تظلم وتمييز مفتوحان', () => {
         vi.useFakeTimers();
         vi.setSystemTime(new Date('2026-06-01T12:00:00'));
         const w = appealWindowsForDecision(base());
-        expect(w.canTadhallum).toBe(false);
-        expect(w.canTamyeez).toBe(false);
-        expect(w.grievanceDaysElapsed).toBe(-1);
+        expect(w.canTadhallum).toBe(true);
+        expect(w.canTamyeez).toBe(true);
+        expect(w.grievanceDaysElapsed).toBe(0);
     });
 
-    it('اليوم 2–4: مهلة التظلم (3 أيام)', () => {
+    it('اليوم 2–3: مهلة التظلم (3 أيام)', () => {
         vi.useFakeTimers();
-        vi.setSystemTime(new Date('2026-06-04T12:00:00'));
+        vi.setSystemTime(new Date('2026-06-03T12:00:00'));
         const w = appealWindowsForDecision(base());
         expect(w.canTadhallum).toBe(true);
         expect(w.grievanceDaysElapsed).toBe(2);
     });
 
-    it('اليوم 5: انتهى التظلم — التمييز ما زال مفتوحاً', () => {
+    it('اليوم 4: انتهى التظلم — التمييز ما زال مفتوحاً', () => {
         vi.useFakeTimers();
-        vi.setSystemTime(new Date('2026-06-05T12:00:00'));
+        vi.setSystemTime(new Date('2026-06-04T12:00:00'));
         const w = appealWindowsForDecision(base());
         expect(w.canTadhallum).toBe(false);
         expect(w.isPastGrievanceDeadline).toBe(true);
@@ -69,7 +82,7 @@ describe('appealWindowsForDecision — تظلم 3 / تمييز 7 من اليوم
 
     it('بعد نتيجة التظلم تُعاد ساعة التمييز من تاريخ إصدار قرار التظلم', () => {
         vi.useFakeTimers();
-        vi.setSystemTime(new Date('2026-06-10T12:00:00'));
+        vi.setSystemTime(new Date('2026-06-09T12:00:00'));
         const row = base({
             manualExecutorLedgerEntry: true,
             manualExecutorWorkflowPhase: 'cassation_unlocked',
@@ -82,6 +95,35 @@ describe('appealWindowsForDecision — تظلم 3 / تمييز 7 من اليوم
         expect(w.cassationDaysElapsed).toBe(6);
         expect(w.canTamyeez).toBe(true);
     });
+
+    it('queue request after grievance rejection uses outcome clock for cassation window', () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2026-06-09T12:00:00'));
+        const row = base({
+            requestKind: 'seizure',
+            appealRequestOrigin: 'creditor_side',
+            executorOutcome: 'rejected',
+            appealResult: 'رد التظلم',
+            appealStatus: 'pending',
+            grievanceRejectedAwaitingTamyeez: true,
+            awaitingCassationEntryBy: 'lawyer',
+            grievanceOutcomeIssuedYmd: '2026-06-03',
+            cassationAppealClockYmd: '2026-06-03',
+        });
+        expect(resolveCassationAppealClockYmd(row)).toBe('2026-06-03');
+        const w = appealWindowsForDecision(row);
+        expect(w.canTamyeez).toBe(true);
+    });
+});
+
+describe('resolveAppealLastDeadlineYmd', () => {
+    it('آخر يوم تظلم من يوم الإصدار', () => {
+        expect(resolveAppealLastDeadlineYmd('tadhallum', '2026-06-01', '')).toBe('2026-06-03');
+    });
+
+    it('آخر يوم تمييز من يوم الإصدار', () => {
+        expect(resolveAppealLastDeadlineYmd('tamyeez', '2026-06-01', '2026-06-01')).toBe('2026-06-07');
+    });
 });
 
 describe('resolveAppealDeadlineExpiryKind — يوم الانتهاء فقط', () => {
@@ -91,7 +133,7 @@ describe('resolveAppealDeadlineExpiryKind — يوم الانتهاء فقط', (
 
     it('يوم انتهاء التمييز بالضبط — تظهر اللوحة', () => {
         vi.useFakeTimers();
-        vi.setSystemTime(new Date('2026-06-09T12:00:00'));
+        vi.setSystemTime(new Date('2026-06-08T12:00:00'));
         const row = base({ manualExecutorLedgerEntry: true, executorDecisionStatusFlag: 1 });
         expect(resolveAppealDeadlineExpiryKind(row)).toBe('cassation');
         expect(shouldShowAppealDeadlineLapseActions(row)).toBe(true);
@@ -99,7 +141,7 @@ describe('resolveAppealDeadlineExpiryKind — يوم الانتهاء فقط', (
 
     it('بعد يوم انتهاء التمييز — لا تظهر اللوحة', () => {
         vi.useFakeTimers();
-        vi.setSystemTime(new Date('2026-06-10T12:00:00'));
+        vi.setSystemTime(new Date('2026-06-09T12:00:00'));
         const row = base({ manualExecutorLedgerEntry: true, executorDecisionStatusFlag: 1 });
         expect(resolveAppealDeadlineExpiryKind(row)).toBeNull();
         expect(shouldShowAppealDeadlineLapseActions(row)).toBe(false);
@@ -107,14 +149,14 @@ describe('resolveAppealDeadlineExpiryKind — يوم الانتهاء فقط', (
 
     it('قبل يوم انتهاء التمييز — لا تظهر اللوحة', () => {
         vi.useFakeTimers();
-        vi.setSystemTime(new Date('2026-06-08T12:00:00'));
+        vi.setSystemTime(new Date('2026-06-07T12:00:00'));
         const row = base({ manualExecutorLedgerEntry: true, executorDecisionStatusFlag: 1 });
         expect(shouldShowAppealDeadlineLapseActions(row)).toBe(false);
     });
 
     it('يوم انتهاء التظلم مع تظلم معلّق — تظهر لوحة التظلم', () => {
         vi.useFakeTimers();
-        vi.setSystemTime(new Date('2026-06-05T12:00:00'));
+        vi.setSystemTime(new Date('2026-06-04T12:00:00'));
         const row = base({
             manualExecutorLedgerEntry: true,
             executorDecisionStatusFlag: 2,
@@ -128,7 +170,7 @@ describe('resolveAppealDeadlineExpiryKind — يوم الانتهاء فقط', (
 describe('reconcileAppealDeadlineEnforcement', () => {
     beforeEach(() => {
         vi.useFakeTimers();
-        vi.setSystemTime(new Date('2026-06-09T12:00:00'));
+        vi.setSystemTime(new Date('2026-06-08T12:00:00'));
     });
     afterEach(() => {
         vi.useRealTimers();
@@ -146,7 +188,7 @@ describe('reconcileAppealDeadlineEnforcement', () => {
     });
 
     it('تظلم معلّق في يوم انتهاء التظلم — يُغلق تلقائياً', () => {
-        vi.setSystemTime(new Date('2026-06-05T12:00:00'));
+        vi.setSystemTime(new Date('2026-06-04T12:00:00'));
         const row = base({
             manualExecutorLedgerEntry: true,
             executorDecisionStatusFlag: 2,

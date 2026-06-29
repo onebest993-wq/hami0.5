@@ -1,6 +1,7 @@
 /**
  * حارس طلبات kv-proxy — يمنع عاصفة الطلبات التي تجمد المتصفح
  */
+import { debug } from '@/app/utils/debug';
 
 type InFlightEntry = { promise: Promise<Response>; startedAt: number };
 
@@ -57,7 +58,7 @@ export async function fetchKvProxyGuarded(
             continue;
         }
         if (import.meta.env.DEV) {
-            console.warn('[KvGuard] تجاوز حد kv-proxy — تم تخطي الطلب');
+            debug.warn('[KvGuard] تجاوز حد kv-proxy — تم تخطي الطلب');
         }
         return new Response(JSON.stringify({ error: 'rate_limited', localOnly: true }), {
             status: 429,
@@ -67,7 +68,7 @@ export async function fetchKvProxyGuarded(
 
     while (inFlight.size >= MAX_IN_FLIGHT) {
         if (import.meta.env.DEV) {
-            console.warn('[KvGuard] طلبات kv-proxy متزامنة كثيرة — انتظار');
+            debug.warn('[KvGuard] طلبات kv-proxy متزامنة كثيرة — انتظار');
         }
         await Promise.race([...inFlight.values()].map((e) => e.promise)).catch(() => undefined);
         if (inFlight.size < MAX_IN_FLIGHT) break;

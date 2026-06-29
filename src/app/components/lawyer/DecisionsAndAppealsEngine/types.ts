@@ -115,6 +115,8 @@ export interface Decision {
     requestCycleSupersededAt?: string;
     /** أرشفة القرار لإخفائه من القائمة الرئيسية */
     isArchived?: boolean;
+    /** سلّة تخزين namespace — يثبّت مكان الصف بعد إعادة التحميل */
+    domainNamespace?: string;
     /** انقضت مهلة التمييز — القرار نافذٌ نهائياً (لا يُعاد فتح طعن) */
     appealDeadlinePerpetuallyEnforced?: boolean;
     /** تاريخ صدور/تسجيل التظلم (Y-m-d) */
@@ -133,4 +135,8 @@ export interface Decision {
     deputationSent?: boolean;
     /** الإنابة التنفيذية — تم إنهاء الإنابة */
     deputationClosed?: boolean;
+    /** مخاطبة جهة — إخفاء أزرار متابعة النتيجة (تجاهل) */
+    deputationFollowupDismissed?: boolean;
+    /** مخاطبة جهة — تأكيد عدم ورود إجابة */
+    deputationNoResponseConfirmed?: boolean;
 }

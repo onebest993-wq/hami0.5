@@ -3,7 +3,10 @@ import { writeExecutorDecisionsArray } from '@/app/utils/executionDecisionsNames
 import {
     dispatchDecisionsReload,
     executorDecisionRowHubDefaults,
+    isExecutorHubRowSuperseded,
+    isExecutorRowEffectivelyApproved,
     isExecutorRowRejectedAndFinal,
+    isEvictionProcedureRowPending,
     patchExecutorDecisionRow,
     readExecutorDecisionsArray,
 } from '@/app/utils/executorSeizureDecisionQueue';
@@ -21,40 +24,124 @@ function newConversionDecisionId(): string {
     return `spec_conv_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
-export function appendSpecificDeliveryConversionRequest(input: {
+function archiveSpecialFollowupHubRow(row: Record<string, unknown>): Record<string, unknown> {
+    return {
+        ...row,
+        requestCycleSuperseded: true,
+        requestCycleSupersededAt: new Date().toISOString(),
+        isArchived: true,
+    };
+}
+
+export function isSpecificDeliveryConversionCycleComplete(
+    row: Record<string, unknown> | null | undefined,
+    opts?: {
+        requiresCashValue?: boolean;
+        allDecisions?: Record<string, unknown>[];
+    }
+): boolean {
+    if (!row) return false;
+    const saved = Boolean(String(row.specificDeliveryConversionSavedAt || '').trim());
+    if (saved) return true;
+    if (isExecutorRowRejectedAndFinal(row)) return true;
+    if (opts?.requiresCashValue) return false;
+    /** بعد الموافقة يُكمَّل تلقائياً — القيمة عبر الخبير */
+    if (opts?.allDecisions?.length) return false;
+    return isExecutorRowEffectivelyApproved(row);
+}
+
+export function sendInitialSpecificDeliveryConversionRequest(input: {
     executionId: string | undefined;
-}): string | null {
+    supersedeCompletedHub?: boolean;
+    itemId?: string;
+    itemName?: string;
+}): { ok: boolean; decisionId?: string } {
     try {
-        const arr = readExecutorDecisionsArray(input.executionId);
-        const existing = arr.find((row) => isSpecificDeliveryConversionDecisionRow(row));
-        if (existing && !isExecutorRowRejectedAndFinal(existing)) return null;
+        let arr = readExecutorDecisionsArray(input.executionId);
+        const existing = arr.find(
+            (row) =>
+                isSpecificDeliveryConversionDecisionRow(row) && !isExecutorHubRowSuperseded(row)
+        );
+        if (existing) {
+            if (isEvictionProcedureRowPending(existing)) return { ok: false };
+            const saved = Boolean(
+                String(
+                    (existing as { specificDeliveryConversionSavedAt?: string })
+                        .specificDeliveryConversionSavedAt || '',
+                ).trim(),
+            );
+            const rejected = isExecutorRowRejectedAndFinal(existing);
+            if (saved || rejected) {
+                if (input.supersedeCompletedHub) {
+                    arr = arr.map((row) =>
+                        String((row as { id?: string }).id || '') === String(existing.id || '')
+                            ? archiveSpecialFollowupHubRow(row as Record<string, unknown>)
+                            : row
+                    );
+                } else {
+                    return { ok: false };
+                }
+            } else {
+                return { ok: false };
+            }
+        }
         const decisionId = newConversionDecisionId();
+        const itemName = String(input.itemName || '').trim();
+        const itemId = String(input.itemId || '').trim();
+        const bodyExtra = itemName ? `\nالشيء: ${itemName}` : '';
         const row = {
             id: decisionId,
             title: SPECIFIC_DELIVERY_CONVERSION_TITLE,
-            body: SPECIFIC_DELIVERY_CONVERSION_INITIAL_BODY,
+            body: SPECIFIC_DELIVERY_CONVERSION_INITIAL_BODY + bodyExtra,
             date: getLocalTodayYmd(),
             appealStatus: 'pending' as const,
             executorOutcome: 'pending' as const,
             requestKind: 'special_followup' as const,
             appealRequestOrigin: 'creditor_side' as const,
-            payloadJson: JSON.stringify({ kind: SPECIFIC_DELIVERY_CONVERSION_PAYLOAD_KIND }),
+            payloadJson: JSON.stringify({
+                kind: SPECIFIC_DELIVERY_CONVERSION_PAYLOAD_KIND,
+                ...(itemId ? { itemId } : {}),
+                ...(itemName ? { itemName } : {}),
+            }),
             ...executorDecisionRowHubDefaults(),
         };
         arr.unshift(row);
         writeExecutorDecisionsArray(input.executionId, arr);
         dispatchDecisionsReload();
-        return decisionId;
+        return { ok: true, decisionId };
     } catch {
-        return null;
+        return { ok: false };
     }
 }
 
-export function sendInitialSpecificDeliveryConversionRequest(input: {
+/** @deprecated — استخدم sendInitialSpecificDeliveryConversionRequest */
+export function appendSpecificDeliveryConversionRequest(input: {
     executionId: string | undefined;
-}): { ok: boolean; decisionId?: string } {
-    const decisionId = appendSpecificDeliveryConversionRequest(input);
-    return decisionId ? { ok: true, decisionId } : { ok: false };
+}): string | null {
+    const result = sendInitialSpecificDeliveryConversionRequest(input);
+    return result.ok ? result.decisionId ?? null : null;
+}
+
+export function completeSpecificDeliveryConversionApproval(input: {
+    executionId: string | undefined;
+    decisionId: string;
+    itemName?: string;
+}): { ok: boolean } {
+    const decisionId = String(input.decisionId || '').trim();
+    if (!decisionId) return { ok: false };
+
+    const item = String(input.itemName || '').trim();
+    const body =
+        `طلب تحويل المطالبة إلى قيمة نقدية لتعذر التسليم أو هلاك الشيء.\n` +
+        (item ? `الشيء المُعلَن هلاكه: ${item}\n` : '') +
+        `تم تسجيل الهلاك — يُستكمل تقدير القيمة السوقية عبر انتداب الخبير.`;
+
+    const patched = patchExecutorDecisionRow(input.executionId, decisionId, {
+        body,
+        specificDeliveryConversionSavedAt: new Date().toISOString(),
+        specificDeliveryConversionAmount: null,
+    });
+    return patched ? { ok: true } : { ok: false };
 }
 
 export function finalizeSpecificDeliveryConversionRequest(input: {
@@ -79,6 +166,23 @@ export function finalizeSpecificDeliveryConversionRequest(input: {
         specificDeliveryConversionAmount: amount,
     });
     return patched ? { ok: true, amount } : { ok: false };
+}
+
+export function parseSpecificDeliveryConversionPayload(
+    row: Record<string, unknown> | null | undefined,
+): { itemId?: string; itemName?: string } {
+    if (!row) return {};
+    const raw = String(row.payloadJson || '').trim();
+    if (!raw) return {};
+    try {
+        const p = JSON.parse(raw) as { itemId?: string; itemName?: string };
+        return {
+            itemId: String(p.itemId || '').trim() || undefined,
+            itemName: String(p.itemName || '').trim() || undefined,
+        };
+    } catch {
+        return {};
+    }
 }
 
 export function isSpecificDeliveryConversionDecisionRow(

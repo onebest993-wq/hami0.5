@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import {
     CALENDAR_DOCK_FEATURE,
@@ -14,40 +14,31 @@ import {
     openHubArchiveFromShell,
 } from '@/app/services/hub/hubShellNavigation';
 import { isRealSignedIn } from '@/app/services/auth/shellAuth';
-import { prefetchCommunityScreen, prefetchSmartLegalRadar } from '@/app/utils/lazyComponents';
-import {
-    FORUM_SHELL_FEATURE,
-    openLawyerForumFromShell,
-} from '@/app/services/forum/forumShellNavigation';
+import { prefetchHubArchiveIntent } from '@/app/hooks/lawyerDashboard/lawyerDashboardIntentPrefetch';
+import { prefetchDockWidgetIntentImmediate } from '@/app/hooks/lawyerDashboard/dockShellPrefetchGate';
+import { FORUM_SHELL_FEATURE } from '@/app/services/forum/forumShellNavigation';
 import {
     HAMI_DISMISS_OVERLAYS_EVENT,
     dismissTransientOverlays,
-    type TransientOverlayId,
 } from '@/app/utils/bodyScrollLock';
-import type { CommandCenterNote, VoiceNoteSavePayload } from '../commandCenterTypes';
+import type { CommandCenterNote } from '../commandCenterTypes';
 import type { HomeWidgetId } from '@/app/services/settings/homeLayout';
 import type { HomeDockQuickSheetMode } from './HomeDockQuickSheet';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
-import { createQuickNoteId, inferQuickNoteType } from './quickNoteUtils';
-import { focusSovereignPromptInput } from './sovereignPromptFocus';
-import { useQuickNoteDraft } from './useQuickNoteDraft';
-import {
-    isVoiceBlobWithinLimit,
-    isVoiceDurationValid,
-    persistVoiceRecording,
-} from '@/app/services/voice/voiceRecordingLimits';
 
-export type VoiceNotePayload = VoiceNoteSavePayload;
+/** يمنع فتح طبقات متعددة من النقر السريع المتكرر على الشريط السفلي */
+const DOCK_ACTION_COOLDOWN_MS = 400;
 
 export type CommandCenterDockActionsOptions = {
     userId?: string;
     onOpenCalendar?: () => void;
     onOpenFullNotepad?: () => void;
+    onOpenRepository?: (opts?: { tab?: 'notepad' | 'vault'; scanner?: boolean; notepadMode?: 'list' | 'create' }) => void;
     onOpenFieldTasksSheet?: () => void;
     onOpenCommunity?: () => void;
-    onAddNote?: (note: CommandCenterNote) => void;
+    onAddNote?: (note: CommandCenterNote) => void | Promise<void>;
     onOpenArchive?: (id: string) => void;
-    onPrefetchExecution?: () => void;
+    onOpenVault?: () => void;
     secretaryAlerts?: SecretaryAlert[];
     onNavigateRoute?: (routePath: string) => void;
     onOpenEntity?: (alert: SecretaryAlert) => void;
@@ -60,11 +51,11 @@ export function useCommandCenterDockActions({
     userId,
     onOpenCalendar,
     onOpenFullNotepad,
+    onOpenRepository,
     onOpenFieldTasksSheet,
     onOpenCommunity,
-    onAddNote,
     onOpenArchive,
-    onPrefetchExecution,
+    onOpenVault,
     secretaryAlerts = [],
     onNavigateRoute,
     onOpenEntity,
@@ -72,15 +63,11 @@ export function useCommandCenterDockActions({
     pinnedCount = 0,
     urgentAlertsCount = 0,
 }: CommandCenterDockActionsOptions) {
-    const [showVault, setShowVault] = useState(false);
-    const [showVoiceModal, setShowVoiceModal] = useState(false);
-    const { quickNote, setQuickNote, clearQuickNote } = useQuickNoteDraft(userId);
     const [hubDockSheet, setHubDockSheet] = useState<HomeDockQuickSheetMode>(null);
+    const lastDockActionAtRef = useRef(0);
 
     useEffect(() => {
-        const onDismiss = (e: Event) => {
-            const except = (e as CustomEvent<{ except?: TransientOverlayId }>).detail?.except;
-            if (except !== 'vault') setShowVault(false);
+        const onDismiss = (_e: Event) => {
             setHubDockSheet(null);
         };
         window.addEventListener(HAMI_DISMISS_OVERLAYS_EVENT, onDismiss);
@@ -96,122 +83,62 @@ export function useCommandCenterDockActions({
         [userId],
     );
 
-    const openVoiceModal = useCallback(() => {
-        if (!requireSignedIn('التسجيل الصوتي')) return;
-        setShowVoiceModal(true);
-    }, [requireSignedIn]);
-
-    const saveQuickNote = useCallback(
-        (text: string) => {
-            if (!requireSignedIn('الملاحظة السريعة')) return;
-
-            const cleanText = text.trim();
-            if (!cleanText) {
-                SmartToast.info('اكتب ملاحظة أولاً');
-                return;
-            }
-            if (!onAddNote) {
-                SmartToast.error('تعذّر حفظ الملاحظة — حاول مجدداً');
-                return;
-            }
-
-            const type = inferQuickNoteType(cleanText);
-
-            onAddNote({
-                id: createQuickNoteId(),
-                content: cleanText,
-                type,
-                date: new Date(),
-            });
-
-            SmartToast.success(type === 'schedule' ? 'تمت جدولة الموعد في التقويم 📅' : 'تم حفظ الملاحظة 📝');
-            clearQuickNote();
-        },
-        [clearQuickNote, onAddNote, requireSignedIn],
-    );
-
-    const saveVoiceNote = useCallback(
-        async (payload: VoiceNotePayload) => {
-            if (!requireSignedIn('التسجيل الصوتي')) return;
-            if (!isVoiceDurationValid(payload.durationSeconds)) {
-                SmartToast.error('التسجيل قصير جداً أو تجاوز 3 دقائق');
-                return;
-            }
-            if (!isVoiceBlobWithinLimit(payload.blob.size)) {
-                SmartToast.error('حجم التسجيل غير مدعوم');
-                return;
-            }
-            if (!onAddNote) {
-                SmartToast.error('تعذّر حفظ التسجيل — حاول مجدداً');
-                return;
-            }
-
-            const noteId = createQuickNoteId();
-            try {
-                const { body } = await persistVoiceRecording(noteId, payload.blob);
-                const transcript = payload.transcript?.trim();
-
-                onAddNote({
-                    id: noteId,
-                    content: body,
-                    type: 'voice',
-                    transcript: transcript || undefined,
-                    durationSeconds: payload.durationSeconds,
-                    date: new Date(),
-                });
-
-                SmartToast.success(
-                    transcript
-                        ? 'تم حفظ التسجيل والنص في المفكرة 🎙️'
-                        : 'تم حفظ التسجيل في المفكرة 🎙️',
-                );
-                setShowVoiceModal(false);
-            } catch {
-                SmartToast.error('تعذّر حفظ التسجيل — حجم كبير أو مساحة غير كافية');
-            }
-        },
-        [onAddNote, requireSignedIn],
-    );
-
     const resolveDockWidgetClick = useCallback(
         (widgetId: HomeWidgetId, isEditing: boolean): (() => void) | undefined => {
             if (isEditing) return undefined;
 
+            const run = (handler: () => void) => () => {
+                const now = Date.now();
+                if (now - lastDockActionAtRef.current < DOCK_ACTION_COOLDOWN_MS) return;
+                lastDockActionAtRef.current = now;
+                prefetchDockWidgetIntentImmediate(widgetId);
+                handler();
+            };
+
             switch (widgetId) {
+                case 'dockRepository':
+                    return run(() => {
+                        if (!requireSignedIn('المستودع الذكي')) return;
+                        dismissTransientOverlays('repository');
+                        if (onOpenRepository) onOpenRepository();
+                        else onOpenFullNotepad?.();
+                    });
                 case 'dockNotepad':
-                    return () => {
+                    return run(() => {
                         if (!requireSignedIn('المفكرة')) return;
-                        if (onOpenFullNotepad) onOpenFullNotepad();
-                        else SmartToast.info('المفكرة الكاملة');
-                    };
+                        dismissTransientOverlays('repository');
+                        if (onOpenRepository) onOpenRepository({ tab: 'notepad' });
+                        else onOpenFullNotepad?.();
+                    });
                 case 'dockCalendar':
-                    return () => {
+                    return run(() => {
                         openCalendarFromDock({
                             signedIn: requireSignedIn(CALENDAR_DOCK_FEATURE),
                             onSignedOut: () => undefined,
                             onOpenCalendar: () => {
                                 dismissTransientOverlays();
-                                prefetchSmartLegalRadar();
                                 if (onOpenCalendar) onOpenCalendar();
                                 else SmartToast.info('📅 فتح التقويم...');
                             },
                         });
-                    };
+                    });
                 case 'dockVault':
-                    return () => {
+                    return run(() => {
                         if (!requireSignedIn('مخزن الملفات')) return;
-                        dismissTransientOverlays('vault');
-                        setShowVault(true);
-                    };
+                        dismissTransientOverlays('repository');
+                        if (onOpenRepository) onOpenRepository({ tab: 'vault' });
+                        else if (onOpenVault) onOpenVault();
+                        else SmartToast.info('مخزن الملفات');
+                    });
                 case 'dockTasks':
-                    return () => {
+                    return run(() => {
                         if (!requireSignedIn('مهام اليوم')) return;
                         dismissTransientOverlays('field-tasks');
                         if (onOpenFieldTasksSheet) onOpenFieldTasksSheet();
                         else SmartToast.info('مهام اليوم');
-                    };
+                    });
                 case 'alerts':
-                    return () => {
+                    return run(() => {
                         openAlertsDockFromShell({
                             signedIn: requireSignedIn(ALERTS_DOCK_FEATURE),
                             pinnedCount,
@@ -222,38 +149,37 @@ export function useCommandCenterDockActions({
                                 setHubDockSheet(mode);
                             },
                         });
-                    };
+                    });
                 case 'dockQuickNote':
-                    return () => focusSovereignPromptInput();
+                    return run(() => {
+                        if (!requireSignedIn('المفكرة')) return;
+                        dismissTransientOverlays('repository');
+                        if (onOpenRepository) onOpenRepository({ tab: 'notepad', notepadMode: 'create' });
+                        else onOpenFullNotepad?.();
+                    });
                 case 'forum':
-                    return () => {
-                        openLawyerForumFromShell({
-                            signedIn: requireSignedIn(FORUM_SHELL_FEATURE),
-                            onOpen: () => {
-                                dismissTransientOverlays();
-                                prefetchCommunityScreen();
-                                if (onOpenCommunity) onOpenCommunity();
-                                else SmartToast.info(FORUM_SHELL_FEATURE);
-                            },
-                        });
-                    };
+                    return run(() => {
+                        if (!requireSignedIn(FORUM_SHELL_FEATURE)) return;
+                        if (onOpenCommunity) onOpenCommunity();
+                        else SmartToast.info(FORUM_SHELL_FEATURE);
+                    });
                 case 'hubExecution':
                 case 'hubLawsuit':
                 case 'hubTransaction': {
                     const archiveId = hubArchiveIdFromWidget(widgetId);
                     if (!archiveId) return undefined;
-                    return () => {
+                    return run(() => {
                         openHubArchiveFromShell({
                             signedIn: requireSignedIn(hubShellFeature(archiveId)),
                             archiveId,
                             onSignedOut: () => undefined,
                             onOpen: (id) => {
                                 dismissTransientOverlays();
-                                if (id === 'execution') onPrefetchExecution?.();
+                                prefetchHubArchiveIntent(id);
                                 onOpenArchive?.(id);
                             },
                         });
-                    };
+                    });
                 }
                 default:
                     return undefined;
@@ -261,27 +187,19 @@ export function useCommandCenterDockActions({
         },
         [
             onOpenFullNotepad,
+            onOpenRepository,
             onOpenCalendar,
             requireSignedIn,
             onOpenFieldTasksSheet,
             onOpenCommunity,
-            onPrefetchExecution,
             onOpenArchive,
+            onOpenVault,
             pinnedCount,
             urgentAlertsCount,
         ],
     );
 
     return {
-        showVault,
-        setShowVault,
-        showVoiceModal,
-        setShowVoiceModal,
-        quickNote,
-        setQuickNote,
-        openVoiceModal,
-        saveQuickNote,
-        saveVoiceNote,
         resolveDockWidgetClick,
         hubDockSheet,
         setHubDockSheet,

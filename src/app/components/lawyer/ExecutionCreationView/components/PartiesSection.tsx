@@ -7,6 +7,7 @@ import {
     shouldShowIndependentDebtorSharePanels,
 } from '../hooks/executionFormUtils';
 import { IndependentDebtorSharePanel } from './IndependentDebtorSharePanel';
+import { handleMoneyInputChange } from '@/app/utils/moneyInput';
 
 interface CreditorData {
     id: number;
@@ -124,18 +125,16 @@ export const PartiesSection: React.FC<PartiesSectionProps> = React.memo(({
                 <IndependentDebtorSharePanel
                     debtDraft={formatCurrency(debtorManualDebtClaims[debtorKey] ?? '')}
                     onDebtInput={(e) => {
-                        const raw = e.target.value.replace(/,/g, '');
-                        if (raw === '' || !isNaN(Number(raw))) {
+                        handleMoneyInputChange(e.target.value, (raw) => {
                             onDebtorManualDebtChange(debtorKey, raw);
-                        }
+                        });
                     }}
                     showLawyerFeesShare={includeLawyerFees}
                     lawyerFeesDraft={formatCurrency(debtorLawyerFeesClaims[debtorKey] ?? '')}
                     onLawyerFeesInput={(e) => {
-                        const raw = e.target.value.replace(/,/g, '');
-                        if (raw === '' || !isNaN(Number(raw))) {
+                        handleMoneyInputChange(e.target.value, (raw) => {
                             onDebtorLawyerFeesChange(debtorKey, raw);
-                        }
+                        });
                     }}
                 />
             </div>

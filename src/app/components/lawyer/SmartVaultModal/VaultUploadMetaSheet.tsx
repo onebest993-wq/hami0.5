@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import { X, Upload, FileText, Loader2, ImageIcon } from 'lucide-react';
 import { isVaultImageFile } from '@/app/services/vaultUploadService';
@@ -8,6 +9,7 @@ import { VaultCategoryPicker } from '@/app/components/lawyer/SmartVaultModal/Vau
 import {
     VAULT_SHEET,
     VAULT_SHEET_OVERLAY,
+    VAULT_SHEET_OVERLAY_VIEWPORT,
     VAULT_INPUT,
     VAULT_LABEL,
     VAULT_BTN_SAVE,
@@ -30,6 +32,7 @@ interface VaultUploadMetaSheetProps {
     onAddCategory: (name: string) => void;
     onConfirm: (meta: VaultUploadMeta) => void;
     onCancel: () => void;
+    overlayScope?: 'panel' | 'viewport';
 }
 
 function suggestTitle(fileName: string): string {
@@ -46,6 +49,7 @@ export const VaultUploadMetaSheet: React.FC<VaultUploadMetaSheetProps> = ({
     onAddCategory,
     onConfirm,
     onCancel,
+    overlayScope = 'panel',
 }) => {
     const [title, setTitle] = useState('');
     const [lawyerNote, setLawyerNote] = useState('');
@@ -59,15 +63,17 @@ export const VaultUploadMetaSheet: React.FC<VaultUploadMetaSheetProps> = ({
 
     const isImage = uploadKind === 'image' && isVaultImageFile(file);
     const isPdf = uploadKind === 'pdf';
+    const overlayClass = overlayScope === 'viewport' ? VAULT_SHEET_OVERLAY_VIEWPORT : VAULT_SHEET_OVERLAY;
 
-    return (
+    const sheet = (
         <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className={VAULT_SHEET_OVERLAY}
+            className={overlayClass}
             dir="rtl"
             onClick={isSaving ? undefined : onCancel}
+            data-testid="vault-upload-meta-overlay"
         >
             <motion.div
                 initial={{ opacity: 0, y: 24 }}
@@ -179,4 +185,9 @@ export const VaultUploadMetaSheet: React.FC<VaultUploadMetaSheetProps> = ({
             </motion.div>
         </motion.div>
     );
+
+    if (overlayScope === 'viewport' && typeof document !== 'undefined') {
+        return createPortal(sheet, document.body);
+    }
+    return sheet;
 };

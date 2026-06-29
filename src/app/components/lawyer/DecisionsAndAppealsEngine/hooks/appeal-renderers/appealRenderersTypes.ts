@@ -24,6 +24,10 @@ export type UseDecisionsAppealsAppealRenderersArgs = {
         stage: 'grievance' | 'cassation',
         appellants: import('../../utils').ManualAppealAppellantActor[]
     ) => void;
+    commitQueueRequestAppealEntry: (
+        decision: Decision,
+        stage: 'grievance' | 'cassation'
+    ) => void;
     applyWaiveInitialAppeal: (decision: Decision) => void;
     applyCassationCourtDecision: (
         decision: Decision,

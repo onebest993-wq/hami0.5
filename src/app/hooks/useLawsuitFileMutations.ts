@@ -126,16 +126,6 @@ export function useLawsuitFileMutations({
                 setFiles((prev) => prev.map((f) => (f.id === fileToDelete.id ? updated : f)));
                 void removeAllBridgedEventsForEntity('lawsuit', fileToDelete.id, userId);
             }
-            try {
-                void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                    AuditLog.civil.archived({
-                        caseId: fileToDelete.id,
-                        caseNo: fileToDelete.caseNo || `#${fileToDelete.id}`,
-                    });
-                });
-            } catch {
-                /* silent */
-            }
             unpinWorkspaceForDeletedFile(fileToDelete);
             void refreshAppAlerts();
         },
@@ -147,18 +137,6 @@ export function useLawsuitFileMutations({
             const updated: FileData = { ...fileToRestore, status: 'active', deletedAt: undefined };
             setFiles((prev) => prev.map((f) => (f.id === fileToRestore.id ? updated : f)));
             setActiveFile(updated);
-            try {
-                void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                    AuditLog.civil.statusChanged({
-                        caseId: fileToRestore.id,
-                        caseNo: fileToRestore.caseNo || `#${fileToRestore.id}`,
-                        fromStatus: 'محذوف',
-                        toStatus: 'نشط',
-                    });
-                });
-            } catch {
-                /* silent */
-            }
             void refreshAppAlerts();
         },
         [refreshAppAlerts, setActiveFile, setFiles],

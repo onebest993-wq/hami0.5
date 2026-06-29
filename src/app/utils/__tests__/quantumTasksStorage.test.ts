@@ -83,7 +83,7 @@ describe('serializeQuantumTasks / deserializeQuantumTasks roundtrip', () => {
 });
 
 describe('countPendingFieldTasks', () => {
-    it('counts only tasks pinned to field curtain', () => {
+    it('counts field-day sheet tasks for dock badge', () => {
         const pending = [
             task({ id: '1', title: 'مثبت', pinnedToFieldCurtain: true }),
             task({ id: '2', title: 'موقع', location: '  بغداد  ' }),

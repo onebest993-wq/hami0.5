@@ -157,23 +157,26 @@ function resolveEmployeeDebtor(data: Record<string, unknown>): boolean {
     return /موظف|employee/i.test(occ);
 }
 
-/** قراءة بيانات الإضبارة للبوابات — من الذاكرة المؤقتة أو التخزين */
+/** قراءة بيانات الإضبارة للبوابات — المصدر الموثوق هو SecureStore (لا cache قديم) */
 export function readExecutionDataForDomainGate(
     executionId: string | undefined
 ): Record<string, unknown> | null {
     const id = normalizeExecutionStorageId(executionId);
     if (!id || id === 'default') return null;
-    const cached = storageCache.get(executionStorageKey(id));
-    if (cached && typeof cached === 'object' && !Array.isArray(cached)) {
-        return cached as Record<string, unknown>;
-    }
+    const key = executionStorageKey(id);
     try {
-        const raw = SecureStoreService.getItemSync(executionStorageKey(id));
-        if (!raw) return null;
+        const raw = SecureStoreService.getItemSync(key);
+        if (!raw?.trim()) {
+            storageCache.invalidate(key);
+            return null;
+        }
         const parsed = JSON.parse(raw) as unknown;
-        return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-            ? (parsed as Record<string, unknown>)
-            : null;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            return null;
+        }
+        const record = parsed as Record<string, unknown>;
+        storageCache.touchCacheEntry(key, record);
+        return record;
     } catch {
         return null;
     }
@@ -201,6 +204,9 @@ export function resolveExecutionDomainContext(
             claimTypes: data.claimTypes as string[] | undefined,
             specificDeliveryItemNature: data.specificDeliveryItemNature as string | undefined,
             specificDeliveryFinancialized: data.specificDeliveryFinancialized as boolean | undefined,
+            specificDeliveryItems: data.specificDeliveryItems as
+                | import('@/app/utils/specificDeliveryItemsUtils').SpecificDeliveryItem[]
+                | undefined,
             docType: String(data.docType || ''),
             classification: String(data.classification || ''),
             category: String(data.category || ''),
@@ -243,6 +249,11 @@ export function isDecisionVisibleInDomainContext(
     ctx: ExecutionDomainContext,
     row: Record<string, unknown>
 ): boolean {
+    const taggedNamespace = String((row as { domainNamespace?: string }).domainNamespace || '').trim();
+    if (taggedNamespace) {
+        return isDecisionAllowedForPerspective(ctx, row);
+    }
+
     if (row.manualExecutorLedgerEntry === true || row.appealRequestOrigin === 'executor_side') {
         return isDecisionAllowedForPerspective(ctx, row);
     }
@@ -252,7 +263,9 @@ export function isDecisionVisibleInDomainContext(
         const gate = canPersistExecutorRequestKind(ctx, requestKind as ExecutorRequestKind, {
             personalCoerciveSubtype: String(row.personalCoerciveSubtype || ''),
         });
-        if (!gate.allowed) return false;
+        if (!gate.allowed) {
+            return false;
+        }
     }
 
     return isDecisionAllowedForPerspective(ctx, row);

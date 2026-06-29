@@ -19,7 +19,7 @@ export function resolveSettingsShellStyle(appearance: AppSettingsState['appearan
     const hasWallpaper = !!wallpaperSrc;
     const themeToken = LAWYER_THEME_TOKENS[appearance.theme] ?? LAWYER_THEME_TOKENS.gold;
     const shellBg = resolveLawyerSurfaceBaseColor(appearance.theme, 'dark', hasWallpaper);
-    const headerTint = hexToRgba(themeToken.bg, 0.16);
+    const headerTint = hasWallpaper ? 'rgba(11, 16, 33, 0.88)' : hexToRgba(themeToken.bg, 0.16);
 
     return { wallpaperSrc, hasWallpaper, shellBg, headerTint };
 }

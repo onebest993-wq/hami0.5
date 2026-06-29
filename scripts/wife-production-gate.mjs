@@ -277,7 +277,6 @@ const clientFromHits = directSupabaseFrom.hits.filter((f) => {
   if (f.startsWith('src/app/api/')) return false;
   if (f.includes('SupabaseService.ts')) return false;
   if (f.includes('AdminLawEntry')) return false;
-  if (f.includes('AdminService.ts')) return false;
   return true;
 });
 record(

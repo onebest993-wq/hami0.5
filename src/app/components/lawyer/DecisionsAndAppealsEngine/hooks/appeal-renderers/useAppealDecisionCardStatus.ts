@@ -5,7 +5,7 @@ import {
     appealPipelineRowForCard,
     isExecutorDecisionAppealFinal,
     resolveCreditorDecisionEnforcementState,
-    renderDecisionHubStatusPill,
+    renderBinaryEnforcementStatusPill,
 } from '../../utils';
 
 export function useAppealDecisionCardStatus(args: UseDecisionsAppealsAppealRenderersArgs) {
@@ -55,6 +55,9 @@ export function useAppealDecisionCardStatus(args: UseDecisionsAppealsAppealRende
         };
 
         const statusPillEl = (() => {
+            if (decision.manualExecutorLedgerEntry === true) {
+                return null;
+            }
             const enforcement = resolveCreditorDecisionEnforcementState(decision, pipeline, {
                 hubTab: decisionsHubTab,
                 appealLegallyFinal,
@@ -65,9 +68,8 @@ export function useAppealDecisionCardStatus(args: UseDecisionsAppealsAppealRende
             const isFinalEnforcedLabel =
                 enforcement.pillLabel === 'القرار نافذ' ||
                 enforcement.pillLabel.endsWith('— نافذ');
-            return renderDecisionHubStatusPill(
-                enforcement.pillLabel,
-                enforcement.pillTone,
+            return renderBinaryEnforcementStatusPill(
+                enforcement.enforced,
                 enforcement.enforced && isFinalEnforcedLabel
                     ? () => openAppealContext(true)
                     : undefined

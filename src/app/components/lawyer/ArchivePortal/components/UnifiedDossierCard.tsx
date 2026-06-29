@@ -18,8 +18,9 @@
  *   └─────────────────────────────────────────────┘
  */
 
-import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
+import { useRef, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import { motion } from 'motion/react';
+import { prefetchCriminalDashboard, warmLawsuitWorkspace } from '@/app/utils/lazyComponents';
 
 export type DossierKind = 'criminal' | 'civil' | 'personal' | 'transaction';
 
@@ -117,19 +118,36 @@ export const UnifiedDossierCard = ({
     wrapperClassName,
     testId,
 }: UnifiedDossierCardProps) => {
-    const handleOpenClick = (event: MouseEvent<HTMLButtonElement>) => {
-        event.stopPropagation();
+    const prefetchFiredRef = useRef(false);
+
+    const warmDossierShell = () => {
+        if (prefetchFiredRef.current) return;
+        prefetchFiredRef.current = true;
+        if (kind === 'criminal') {
+            prefetchCriminalDashboard();
+        } else {
+            warmLawsuitWorkspace();
+        }
+    };
+
+    const openDossier = () => {
+        warmDossierShell();
         onOpen();
     };
 
+    const handleOpenClick = (event: MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation();
+        openDossier();
+    };
+
     const handleCardClick = () => {
-        onOpen();
+        openDossier();
     };
 
     const handleCardKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
         if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
-            onOpen();
+            openDossier();
         }
     };
 
@@ -141,6 +159,8 @@ export const UnifiedDossierCard = ({
             tabIndex={0}
             onClick={handleCardClick}
             onKeyDown={handleCardKeyDown}
+            onPointerEnter={warmDossierShell}
+            onFocus={warmDossierShell}
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             whileHover={{ y: -4 }}

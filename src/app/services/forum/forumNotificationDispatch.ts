@@ -1,8 +1,10 @@
-import { NotificationDB, type CommunityComment, type CommunityPost, type ForumNotification, type NotificationType } from '@/app/services/lawyer-cloud';
+import type { CommunityComment, CommunityPost, ForumNotification, NotificationType } from '@/app/services/lawyer-cloud';
+import { resolveForumNotificationDb } from '@/app/services/notifications/forumNotificationDbResolver';
 import { ForumFollowRepository } from './forumFollowRepository';
 import { ForumPostFollowRepository } from './forumPostFollowRepository';
 import { ForumGroupRepository } from './forumGroupRepository';
 import { collectForumParticipants, extractForumMentionIds } from './forumMentionUtils';
+import { forumAuthorDisplayName } from './forumMapper';
 
 const DEDUPE_WINDOW_MS = 5 * 60 * 1000;
 const AGGREGATABLE_TYPES: NotificationType[] = ['comment', 'reply'];
@@ -49,7 +51,8 @@ async function pushNotification(
     const lookupKey = aggregateKey ?? dedupeKey;
 
     if (lookupKey) {
-        const recent = await NotificationDB.getNotifications(partial.userId);
+        const db = await resolveForumNotificationDb();
+        const recent = await db.getNotifications(partial.userId);
         const cutoff = Date.now() - DEDUPE_WINDOW_MS;
         const existing = recent.find(
             (n) =>
@@ -66,7 +69,7 @@ async function pushNotification(
         if (existing) {
             if (AGGREGATABLE_TYPES.includes(partial.type)) {
                 const count = (existing.activityCount ?? 1) + 1;
-                await NotificationDB.updateNotification(partial.userId, existing.id, {
+                await db.updateNotification(partial.userId, existing.id, {
                     title: aggregateTitle(partial.type, count),
                     message: aggregateMessage(partial.type, count, partial.message),
                     activityCount: count,
@@ -79,7 +82,8 @@ async function pushNotification(
         }
     }
 
-    await NotificationDB.addNotification({
+    const db = await resolveForumNotificationDb();
+    await db.addNotification({
         ...partial,
         dedupeKey: lookupKey ?? dedupeKey,
         activityCount: AGGREGATABLE_TYPES.includes(partial.type) ? 1 : undefined,
@@ -126,6 +130,7 @@ export async function dispatchFollowedUserNewPost(params: {
     post: CommunityPost;
 }): Promise<void> {
     const { authorId, authorName, post } = params;
+    const displayAuthor = post.isAnonymous ? forumAuthorDisplayName(post) : authorName;
     const followers = await ForumFollowRepository.getFollowers(authorId);
     await Promise.allSettled(
         followers.map(async (f) => {
@@ -135,7 +140,7 @@ export async function dispatchFollowedUserNewPost(params: {
                     userId: f.followerId,
                     type: 'new_post',
                     title: post.groupId ? 'منشور جديد في مجموعة من محامٍ تتابعه' : 'منشور جديد من محامٍ تتابعه',
-                    message: `نشر ${authorName}: ${snippet(post.content)}`,
+                    message: `نشر ${displayAuthor}: ${snippet(post.content)}`,
                     postId: post.id,
                 },
                 `forum:new-post:${post.id}:${f.followerId}`,
@@ -144,13 +149,13 @@ export async function dispatchFollowedUserNewPost(params: {
     );
 
     if (post.groupId) {
-        await dispatchGroupNewPostNotification({ post, authorName });
+        await dispatchGroupNewPostNotification({ post, authorName: displayAuthor });
     }
     await dispatchContentMentions({
         post,
         content: post.content,
         authorId,
-        authorName,
+        authorName: displayAuthor,
         contextLabel: 'منشور',
     });
 }
@@ -243,6 +248,7 @@ export async function dispatchCommentNotifications(params: {
     parentComment?: CommunityComment | null;
 }): Promise<void> {
     const { post, comment, parentComment } = params;
+    const postAuthorLabel = forumAuthorDisplayName(post);
     const isReply = Boolean(parentComment);
     const tasks: Promise<void>[] = [];
 
@@ -293,8 +299,8 @@ export async function dispatchCommentNotifications(params: {
                     type: isReply ? 'reply' : 'comment',
                     title: isReply ? 'رد في نقاش تتابعه' : 'نشاط على محامٍ تتابعه',
                     message: isReply
-                        ? `رد ${comment.authorName} في نقاش ${post.authorName}`
-                        : `علق ${comment.authorName} على منشور ${post.authorName}`,
+                        ? `رد ${comment.authorName} في نقاش ${postAuthorLabel}`
+                        : `علق ${comment.authorName} على منشور ${postAuthorLabel}`,
                     postId: post.id,
                 },
                 `forum:follow-activity:${post.id}:${comment.id}:${f.followerId}`,
@@ -363,7 +369,7 @@ export async function dispatchBestAnswerNotification(params: {
             userId: comment.authorId,
             type: 'best_answer',
             title: 'تم اعتماد إجابتك',
-            message: `اختار ${post.authorName} تعليقك كأفضل إجابة`,
+            message: `اختار ${forumAuthorDisplayName(post)} تعليقك كأفضل إجابة`,
             postId: post.id,
         },
         `forum:best:${post.id}:${comment.id}`,

@@ -1,9 +1,22 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { useQuantumTasks } from '../useQuantumTasks';
 import { releaseExpiredFieldCurtainPins } from '@/app/components/lawyer/dashboard/tasksManager/utils';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { startOfLocalDay } from '@/app/utils/nlpParser';
+import {
+    persistTaskVoiceAttachment,
+    removeTaskVoiceAttachment,
+} from '@/app/services/tasks/taskVoiceAttachment';
+
+vi.mock('@/app/services/tasks/taskVoiceAttachment', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/app/services/tasks/taskVoiceAttachment')>();
+    return {
+        ...actual,
+        persistTaskVoiceAttachment: vi.fn(),
+        removeTaskVoiceAttachment: vi.fn(),
+    };
+});
 
 function task(partial: Partial<LegalTask> & Pick<LegalTask, 'id' | 'title'>): LegalTask {
     return {
@@ -22,6 +35,9 @@ function task(partial: Partial<LegalTask> & Pick<LegalTask, 'id' | 'title'>): Le
         subTasks: partial.subTasks ?? [],
         documentRequirements: [],
         expenses: [],
+        voiceRef: partial.voiceRef ?? null,
+        voiceTranscript: partial.voiceTranscript ?? null,
+        voiceDurationSec: partial.voiceDurationSec ?? null,
     };
 }
 
@@ -30,6 +46,21 @@ describe('useQuantumTasks', () => {
         vi.stubGlobal('crypto', {
             randomUUID: () => 'test-uuid-' + Math.random().toString(36).slice(2, 8),
         });
+        vi.mocked(persistTaskVoiceAttachment).mockResolvedValue({
+            voiceRef: 'hami-voice-ref:task-voice-mock',
+            voiceTranscript: 'جلسة صوتية',
+            voiceDurationSec: 8,
+        });
+        vi.mocked(removeTaskVoiceAttachment).mockResolvedValue(undefined);
+    });
+
+    it('addTask returns null for empty or oversized input', () => {
+        const { result } = renderHook(() => useQuantumTasks([]));
+
+        expect(result.current.addTask('')).toBeNull();
+        expect(result.current.addTask('  ')).toBeNull();
+        expect(result.current.addTask('x'.repeat(2001))).toBeNull();
+        expect(result.current.tasks).toHaveLength(0);
     });
 
     it('addTask appends pending task and keeps in agenda after complete until week ends', () => {
@@ -91,6 +122,50 @@ describe('useQuantumTasks', () => {
 
         expect(result.current.tasks.find((t) => t.id === idA)?.pinnedToFieldCurtain).toBe(false);
         expect(result.current.tasks.find((t) => t.id === idB)?.pinnedToFieldCurtain).toBe(true);
+    });
+
+    it('addTaskFromVoice persists voice blob and creates task with voice fields', async () => {
+        const { result } = renderHook(() => useQuantumTasks([]));
+        const payload = {
+            blob: new Blob(['audio'], { type: 'audio/webm' }),
+            durationSeconds: 8,
+            transcript: 'جلسة محكمة كرخ غداً',
+        };
+
+        let created: LegalTask | null = null;
+        await act(async () => {
+            created = await result.current.addTaskFromVoice(payload);
+        });
+
+        expect(persistTaskVoiceAttachment).toHaveBeenCalled();
+        expect(created).not.toBeNull();
+        expect(result.current.tasks).toHaveLength(1);
+        expect(result.current.tasks[0]!.voiceRef).toBe('hami-voice-ref:task-voice-mock');
+        expect(result.current.tasks[0]!.voiceTranscript).toBe('جلسة صوتية');
+        expect(result.current.tasks[0]!.voiceDurationSec).toBe(8);
+    });
+
+    it('deleteTask removes voice attachment when voiceRef is set', async () => {
+        const { result } = renderHook(() => useQuantumTasks([]));
+        const payload = {
+            blob: new Blob(['audio'], { type: 'audio/webm' }),
+            durationSeconds: 5,
+            transcript: 'مهمة صوتية',
+        };
+
+        await act(async () => {
+            await result.current.addTaskFromVoice(payload);
+        });
+        const id = result.current.tasks[0]!.id;
+
+        act(() => {
+            result.current.deleteTask(id);
+        });
+
+        await waitFor(() => {
+            expect(removeTaskVoiceAttachment).toHaveBeenCalledWith('hami-voice-ref:task-voice-mock');
+        });
+        expect(result.current.tasks).toHaveLength(0);
     });
 
     it('releaseExpiredFieldCurtainPins keeps today pin when parsedDate is in the past', () => {

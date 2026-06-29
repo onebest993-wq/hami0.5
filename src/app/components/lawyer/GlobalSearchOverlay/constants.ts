@@ -61,5 +61,3 @@ export const CATEGORY_META: Record<GlobalSearchCategory, { icon: LucideIcon; col
     community: { icon: MessagesSquare, color: '#F472B6' },
     notification: { icon: Bell, color: '#F59E0B' },
 };
-
-export { Search };

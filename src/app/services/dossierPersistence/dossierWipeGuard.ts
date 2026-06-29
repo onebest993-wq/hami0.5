@@ -3,7 +3,8 @@ import {
     PROTECTED_ARRAY_STORAGE_KEYS,
     PROTECTED_OBJECT_STORAGE_KEYS,
 } from './protectedStorageKeys';
-import { QUANTUM_TASKS_STORAGE_KEY } from '@/app/utils/quantumTasksStorage';
+
+const QUANTUM_TASKS_STORAGE_KEY = 'hami_quantum_legal_tasks_v1';
 
 /** يعدّ عناصر مصفوفة JSON */
 export function countDossierArray(raw: string | null | undefined): number {

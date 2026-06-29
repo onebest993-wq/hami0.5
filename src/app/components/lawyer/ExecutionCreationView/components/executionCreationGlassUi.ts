@@ -81,9 +81,8 @@ export const ecg = {
     aggregateTotalLabel: 'text-sm font-bold text-[#F0DFA8]',
     aggregateTotalValue: 'text-xl font-black font-mono text-[#E6C673] tabular-nums tracking-wide',
     sectionWrap: 'w-full px-3 py-4',
-    sectionHeader: 'mb-5 pb-3 border-b border-[#E6C673]/20',
-    sectionTitle:
-        'text-xl font-black text-transparent bg-clip-text bg-gradient-to-l from-[#F5E6B8] via-[#E6C673] to-[#C9A84C] tracking-wide',
+    sectionHeader: 'mb-4 pb-2.5 border-b border-[#E6C673]/15',
+    sectionTitle: 'text-base md:text-lg font-bold text-[#E6C673] tracking-wide leading-snug',
     partyGroup: 'rounded-2xl border border-white/10 bg-[#0A0F1C]/40 backdrop-blur-sm',
     partyDivider: 'py-4',
     partyDividerLine: 'h-px w-full bg-gradient-to-r from-transparent via-white/12 to-transparent',

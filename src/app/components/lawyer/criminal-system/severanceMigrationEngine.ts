@@ -1,4 +1,4 @@
-import type { CriminalCase, CriminalComplainant, CriminalDefendant, InvestigationLog, LawyerRequest, TimelineEvent } from './criminalStore';
+import type { CriminalCase, CriminalComplainant, CriminalDefendant, InvestigationLog, LawyerRequest, TimelineEvent } from './criminalCaseModel';
 import type { JudicialDecision } from '@/app/types/criminal';
 import { resolveDefendantFullName } from './criminalUnknownDefendant';
 

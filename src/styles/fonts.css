@@ -1,1 +1,1 @@
-/* الخطوط تُحمَّل من index.html (preconnect) — تجنّب @import لأنه يبطئ أول عرض */
+/* الخطوط تُحمَّل مؤجَّلاً عبر deferredGoogleFonts.ts — لا preconnect/preload في index.html */

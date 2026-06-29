@@ -1,19 +1,31 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import { X, ZoomIn, ExternalLink, FileText, ImageIcon } from 'lucide-react';
 import type { SmartVaultDoc } from '@/app/services/lawyer-cloud';
 import { formatDate, formatFileSize } from '@/app/components/lawyer/hooks/useSmartVault';
 import type { VaultDocViewerKind } from '@/app/services/vaultUploadService';
 import { toVaultPdfViewerUrl } from '@/app/services/vaultUploadService';
+import { VAULT_SHEET_OVERLAY_VIEWPORT } from './vaultDustyRoseTheme';
 
 interface VaultDocViewerProps {
     doc: SmartVaultDoc;
     fileUrl: string;
     kind: VaultDocViewerKind;
     onClose: () => void;
+    overlayScope?: 'panel' | 'viewport';
 }
 
-export const VaultDocViewer: React.FC<VaultDocViewerProps> = ({ doc, fileUrl, kind, onClose }) => {
+const PANEL_OVERLAY =
+    'absolute inset-0 z-[50] flex flex-col bg-[#1a1614]/95 backdrop-blur-md min-h-0';
+
+export const VaultDocViewer: React.FC<VaultDocViewerProps> = ({
+    doc,
+    fileUrl,
+    kind,
+    onClose,
+    overlayScope = 'panel',
+}) => {
     const isPdf = kind === 'pdf';
     const [pdfSrc, setPdfSrc] = useState<string | null>(isPdf ? null : fileUrl);
     const [pdfError, setPdfError] = useState(false);
@@ -53,15 +65,20 @@ export const VaultDocViewer: React.FC<VaultDocViewerProps> = ({ doc, fileUrl, ki
     }, [onClose]);
 
     const openUrl = pdfSrc ?? fileUrl;
+    const overlayClass =
+        overlayScope === 'viewport'
+            ? `${VAULT_SHEET_OVERLAY_VIEWPORT} flex flex-col !items-stretch !justify-stretch bg-[#1a1614]/96 min-h-0`
+            : PANEL_OVERLAY;
 
-    return (
+    const viewer = (
         <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 z-[50] flex flex-col bg-[#1a1614]/95 backdrop-blur-md"
+            className={overlayClass}
             dir="rtl"
             onClick={onClose}
+            data-testid="vault-doc-viewer-overlay"
         >
             <div
                 className="shrink-0 flex items-center justify-between px-5 py-3 border-b border-[#C9A9A6]/12 bg-[#2E2A27] gap-2"
@@ -153,4 +170,9 @@ export const VaultDocViewer: React.FC<VaultDocViewerProps> = ({ doc, fileUrl, ki
             </div>
         </motion.div>
     );
+
+    if (overlayScope === 'viewport' && typeof document !== 'undefined') {
+        return createPortal(viewer, document.body);
+    }
+    return viewer;
 };

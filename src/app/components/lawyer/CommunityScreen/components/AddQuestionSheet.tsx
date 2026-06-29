@@ -1,5 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useReduceMotion } from '@/app/hooks/useReduceMotion';
+import { useCommunitySheetChrome } from '@/app/hooks/useCommunitySheetChrome';
 import { X, ImageIcon, Paperclip, FileText, Mic, Square, Loader2, EyeOff, Zap } from 'lucide-react';
 import type { MentionCandidate } from '@/app/hooks/useForumMentionAutocomplete';
 import { useForumMentionAutocomplete } from '@/app/hooks/useForumMentionAutocomplete';
@@ -67,6 +69,8 @@ export const AddQuestionSheet = ({
     onImageUpload, onDocUpload, onSubmit, onClose,
     mentionCandidates = [],
 }: AddQuestionSheetProps) => {
+    const reduceMotion = useReduceMotion();
+    const { sheetStyle } = useCommunitySheetChrome();
     const mention = useForumMentionAutocomplete(newPostText, onNewPostTextChange, mentionCandidates);
 
     return (
@@ -74,18 +78,20 @@ export const AddQuestionSheet = ({
             {isOpen && (
                 <>
                     <motion.div
-                        initial={{ opacity: 0 }}
+                        initial={reduceMotion ? false : { opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
+                        exit={reduceMotion ? undefined : { opacity: 0 }}
                         onClick={onClose}
                         className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70]"
                     />
                     <motion.div
+                        data-testid="forum-add-question-sheet"
                         initial={{ y: "100%" }}
                         animate={{ y: 0 }}
                         exit={{ y: "100%" }}
                         transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                        className={`fixed bottom-0 left-0 right-0 z-[70] ${FORUM_PANEL} rounded-t-[24px] p-6 shadow-2xl border-t border-[#4A3D52]/50`}
+                        style={sheetStyle}
+                        className={`fixed bottom-0 left-0 right-0 z-[70] ${FORUM_PANEL} rounded-t-[24px] p-6 shadow-2xl border-t border-[#4A3D52]/50 pb-[max(1.5rem,env(safe-area-inset-bottom))]`}
                     >
                         <div className="w-full flex justify-center mb-6"><div className="w-12 h-1.5 bg-white/20 rounded-full" /></div>
                         <h2 className="text-white text-lg font-bold mb-4">طرح استشارة قانونية جديدة</h2>

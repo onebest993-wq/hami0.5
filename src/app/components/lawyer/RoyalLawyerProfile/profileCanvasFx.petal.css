@@ -1,0 +1,48 @@
+.profile-text-canvas__petals {
+    position: absolute;
+    inset: 0;
+    z-index: 7;
+    touch-action: none;
+    overflow: hidden;
+    cursor: grab;
+}
+
+.profile-text-canvas__petals:active {
+    cursor: grabbing;
+}
+
+.profile-text-canvas__petal {
+    position: absolute;
+    width: 0.72rem;
+    height: 1.05rem;
+    margin: -0.52rem 0 0 -0.36rem;
+    background: linear-gradient(
+        148deg,
+        color-mix(in srgb, var(--canvas-accent, #e6c673) 88%, #fff8e8),
+        color-mix(in srgb, var(--canvas-accent, #e6c673) 32%, #3d3018)
+    );
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(var(--petal-rot, 0deg));
+    box-shadow:
+        0 2px 10px rgba(0, 0, 0, 0.28),
+        0 0 12px color-mix(in srgb, var(--canvas-accent, #e6c673) 18%, transparent);
+    transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s ease;
+    opacity: 0.82;
+    animation: profile-petal-float 4.8s ease-in-out infinite;
+    animation-delay: var(--petal-delay, 0s);
+}
+
+@keyframes profile-petal-float {
+    0%,
+    100% {
+        translate: 0 0;
+    }
+    50% {
+        translate: 0 -3px;
+    }
+}
+
+.profile-text-canvas[data-revealed='true'] .profile-text-canvas__petal {
+    opacity: 0;
+    transform: translate(var(--petal-tx, 0), var(--petal-ty, -32px)) rotate(32deg) scale(0.5);
+}

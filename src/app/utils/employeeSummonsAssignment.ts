@@ -7,6 +7,9 @@ import {
     formatDateToLocalYmd,
     parseLocalNotificationDate,
 } from '@/app/utils/executionStateMachine';
+import { addCalendarDaysYmd } from '@/app/utils/executionYmdCalendar';
+
+export { addCalendarDaysYmd };
 
 /** شريحة من ملف التنفيذ لقراءة/كتابة تكليفات الموظفين */
 export type EmployeeSummonsAssignmentsFileSlice = {
@@ -196,18 +199,7 @@ export function findInvestigationPendingEmployeeAssignment(
     return null;
 }
 
-/** نهاية المدة = تاريخ التبليغ + N أيام تقويمية (مثال: 1 + 3 = 4 في التقويم). */
-export function addCalendarDaysYmd(ymd: string, days: number): string {
-    const d = parseLocalNotificationDate(ymd);
-    if (Number.isNaN(d.getTime())) return '';
-    d.setDate(d.getDate() + days);
-    return formatDateToLocalYmd(d);
-}
-
-/**
- * مهلة التكليف بالحضور: تبدأ من اليوم التالي لتاريخ التبليغ الفعلي.
- * النهاية = (تاريخ التبليغ + 1) + N أيام (افتراضياً 4).
- */
+/** نهاية المدة = (تاريخ التبليغ + 1) + N أيام تقويمية */
 export function computeTaklifDeadlineYmd(
     notifyDateYmd: string,
     durationDays: number = 4

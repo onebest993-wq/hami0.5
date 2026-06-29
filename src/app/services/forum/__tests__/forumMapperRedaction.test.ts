@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
     ANONYMOUS_USER_ID,
     ANONYMOUS_USER_NAME,
+    forumAuthorDisplayName,
     redactAnonymousAuthor,
 } from '../forumMapper';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
@@ -133,5 +134,16 @@ describe('redactAnonymousAuthor — حماية هوية النشر المجهو�
         });
         const result = redactAnonymousAuthor(p, 'admin', true);
         expect(result.comments[0].authorId).toBe('real-user-id');
+    });
+});
+
+describe('forumAuthorDisplayName', () => {
+    it('يعيد الاسم المجهول للمنشورات المجهولة', () => {
+        expect(
+            forumAuthorDisplayName({
+                isAnonymous: true,
+                authorName: 'اسم حقيقي',
+            }),
+        ).toBe(ANONYMOUS_USER_NAME);
     });
 });

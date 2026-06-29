@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { Fingerprint, Lock, LogOut } from 'lucide-react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
@@ -21,7 +21,7 @@ export const AppLockOverlay: React.FC<AppLockOverlayProps> = ({
     const [attempting, setAttempting] = useState(false);
     const busy = unlocking || attempting;
 
-    const handleBiometric = async () => {
+    const handleBiometric = useCallback(async () => {
         setAttempting(true);
         try {
             const ok = await onUnlockBiometric();
@@ -29,12 +29,28 @@ export const AppLockOverlay: React.FC<AppLockOverlayProps> = ({
         } finally {
             setAttempting(false);
         }
-    };
+    }, [onUnlockBiometric]);
+
+    useEffect(() => {
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape' || busy) return;
+            event.preventDefault();
+            event.stopPropagation();
+            if (requiresBiometric) {
+                void handleBiometric();
+            } else {
+                onUnlockContinue();
+            }
+        };
+        window.addEventListener('keydown', onKeyDown, true);
+        return () => window.removeEventListener('keydown', onKeyDown, true);
+    }, [busy, requiresBiometric, onUnlockContinue, handleBiometric]);
 
     return (
         <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
+            data-testid="app-lock-overlay"
             className="fixed inset-0 z-[100000] flex flex-col items-center justify-center bg-[#05060D]/95 backdrop-blur-xl px-6"
             role="dialog"
             aria-modal="true"

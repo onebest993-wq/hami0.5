@@ -1,38 +1,52 @@
-type Bucket = { count: number; resetAt: number };
+import { consumeRateLimitSlot } from '@/app/api/security/wifeRateLimitStore';
 
-const buckets = new Map<string, Bucket>();
+type ForumRateAction = 'post' | 'comment' | 'report' | 'upvote';
 
-function check(key: string, max: number, windowMs: number): boolean {
-    const now = Date.now();
-    const entry = buckets.get(key);
-    if (!entry || now > entry.resetAt) {
-        buckets.set(key, { count: 1, resetAt: now + windowMs });
-        return true;
-    }
-    entry.count += 1;
-    return entry.count <= max;
+type RateLimitRule = {
+    scope: string;
+    maxRequests: number;
+    windowMs: number;
+};
+
+function buildRateLimitKey(userId: string, action: ForumRateAction, postId?: string): string {
+    if (action === 'report') return `${userId}:${postId ?? 'any'}`;
+    return userId;
 }
 
-/** حد معدّل على السيرفر لمسارات المنتدى (per userId). */
-export function checkForumActionRateLimit(
-    userId: string,
-    action: 'post' | 'comment' | 'report' | 'upvote',
-    opts?: { postId?: string },
-): boolean {
-    if (!userId) return false;
+function rulesForAction(action: ForumRateAction): RateLimitRule[] {
     switch (action) {
         case 'post':
-            return check(`forum:post:burst:${userId}`, 1, 30_000);
+            return [{ scope: 'forum:post:burst', maxRequests: 1, windowMs: 30_000 }];
         case 'comment':
-            return (
-                check(`forum:comment:burst:${userId}`, 1, 8_000) &&
-                check(`forum:comment:min:${userId}`, 30, 60_000)
-            );
+            return [
+                { scope: 'forum:comment:burst', maxRequests: 1, windowMs: 8_000 },
+                { scope: 'forum:comment:min', maxRequests: 30, windowMs: 60_000 },
+            ];
         case 'report':
-            return check(`forum:report:${userId}:${opts?.postId ?? 'any'}`, 1, 24 * 60 * 60_000);
+            return [{ scope: 'forum:report', maxRequests: 1, windowMs: 24 * 60 * 60_000 }];
         case 'upvote':
-            return check(`forum:upvote:min:${userId}`, 60, 60_000);
+            return [{ scope: 'forum:upvote:min', maxRequests: 60, windowMs: 60_000 }];
         default:
-            return true;
+            return [];
     }
+}
+
+/** حد معدّل على السيرفر — Redis عند التوفر، ذاكرة محلية في التطوير. */
+export async function checkForumActionRateLimit(
+    userId: string,
+    action: ForumRateAction,
+    opts?: { postId?: string },
+): Promise<boolean> {
+    if (!userId) return false;
+
+    const subjectKey = buildRateLimitKey(userId, action, opts?.postId);
+    for (const rule of rulesForAction(action)) {
+        const allowed = await consumeRateLimitSlot(subjectKey, {
+            scope: rule.scope,
+            maxRequests: rule.maxRequests,
+            windowMs: rule.windowMs,
+        });
+        if (!allowed) return false;
+    }
+    return true;
 }

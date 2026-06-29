@@ -7,6 +7,7 @@ import {
     resolveMainIndicatorY,
     visualIndexToPlacementIndex,
 } from './homeLayoutDragUtils';
+import { resolveHomeLayoutEscapeAction } from './homeLayoutEscapeStack';
 
 export type HomeLayoutSelectedBlockId = HomeWidgetId | 'dockShell';
 
@@ -308,9 +309,32 @@ export function HomeLayoutEditProvider({
     useEffect(() => {
         if (!isEditing) return;
         const onKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape' && draggingWidgetIdRef.current) {
-                e.preventDefault();
-                cancelDrag();
+            if (e.key !== 'Escape') return;
+            const action = resolveHomeLayoutEscapeAction({
+                dragging: Boolean(draggingWidgetIdRef.current),
+                selectedBlockId,
+            });
+            e.preventDefault();
+            switch (action) {
+                case 'cancel-drag':
+                    cancelDrag();
+                    break;
+                case 'close-customizer':
+                    setSelectedBlockIdState(null);
+                    break;
+                case 'exit-edit':
+                    draggingWidgetIdRef.current = null;
+                    dragSourceZoneRef.current = null;
+                    dropHighlightZoneRef.current = null;
+                    setSelectedBlockIdState(null);
+                    setResizeBlockId(null);
+                    setDraggingWidgetId(null);
+                    setDropHighlightZone(null);
+                    setDropPreview(null);
+                    onExit();
+                    break;
+                default:
+                    break;
             }
         };
         window.addEventListener('keydown', onKeyDown);
@@ -321,7 +345,7 @@ export function HomeLayoutEditProvider({
                 dragRafRef.current = null;
             }
         };
-    }, [isEditing, cancelDrag]);
+    }, [isEditing, cancelDrag, onExit, selectedBlockId]);
 
     const value = useMemo(
         () => ({

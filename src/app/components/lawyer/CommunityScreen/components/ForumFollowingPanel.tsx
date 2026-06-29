@@ -1,8 +1,11 @@
 import React, { memo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
+import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { UserCheck, UserMinus, Bell, MessageCircle, Reply, X } from 'lucide-react';
 import type { ForumFollowRecord } from '@/app/services/forum/forumFollowTypes';
 import {
+    FORUM_ICON_BTN,
     FORUM_PANEL,
     FORUM_TEXT_APRICOT,
     FORUM_TEXT_MUTED,
@@ -22,6 +25,7 @@ type ForumFollowingPanelProps = {
         prefs: Partial<Pick<ForumFollowRecord, 'notifyPosts' | 'notifyComments' | 'notifyReplies'>>,
     ) => void;
     onOpenFollowingFeed: () => void;
+    onOpenProfile?: (userId: string, displayName?: string) => void;
 };
 
 function PrefToggle({
@@ -61,31 +65,35 @@ export const ForumFollowingPanel = memo(function ForumFollowingPanel({
     onFollowBack,
     onUpdatePrefs,
     onOpenFollowingFeed,
+    onOpenProfile,
 }: ForumFollowingPanelProps) {
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [tab, setTab] = useState<'following' | 'followers'>('following');
+    const reduceMotion = useReduceMotion();
 
-    return (
+    const panelLayer = (
         <AnimatePresence>
             {open ? (
                 <>
                     <motion.div
                         key="following-backdrop"
-                        initial={{ opacity: 0 }}
+                        initial={reduceMotion ? false : { opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
+                        exit={reduceMotion ? undefined : { opacity: 0 }}
                         className="fixed inset-0 z-[96] bg-black/50"
                         onClick={onClose}
                         aria-hidden
                     />
                     <motion.div
                         key="following-sheet"
-                        initial={{ y: '100%' }}
+                        data-testid="forum-following-panel"
+                        initial={reduceMotion ? false : { y: '100%' }}
                         animate={{ y: 0 }}
-                        exit={{ y: '100%' }}
-                        transition={{ type: 'spring', stiffness: 420, damping: 38 }}
-                        className={`fixed inset-x-0 bottom-0 z-[97] max-h-[78dvh] rounded-t-[24px] ${FORUM_PANEL} shadow-2xl flex flex-col`}
+                        exit={reduceMotion ? undefined : { y: '100%' }}
+                        transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 38 }}
+                        className={`fixed inset-x-0 bottom-0 z-[97] max-h-[78dvh] rounded-t-[24px] ${FORUM_PANEL} shadow-2xl flex flex-col pb-[env(safe-area-inset-bottom)]`}
                         role="dialog"
+                        aria-modal="true"
                         aria-label="قائمة المتابعة"
                         dir="rtl"
                     >
@@ -116,7 +124,7 @@ export const ForumFollowingPanel = memo(function ForumFollowingPanel({
                                     type="button"
                                     onClick={onClose}
                                     aria-label="إغلاق"
-                                    className="w-8 h-8 rounded-full bg-[#342C3A] flex items-center justify-center text-white/50"
+                                    className={FORUM_ICON_BTN}
                                 >
                                     <X size={16} />
                                 </button>
@@ -165,18 +173,40 @@ export const ForumFollowingPanel = memo(function ForumFollowingPanel({
                                                 </div>
                                                 <button
                                                     type="button"
-                                                    onClick={() =>
-                                                        setExpandedId(expanded ? null : row.followingId)
-                                                    }
+                                                    onClick={() => {
+                                                        if (onOpenProfile) {
+                                                            onOpenProfile(row.followingId, name);
+                                                            onClose();
+                                                            return;
+                                                        }
+                                                        setExpandedId(expanded ? null : row.followingId);
+                                                    }}
                                                     className="flex-1 min-w-0 text-right"
                                                 >
                                                     <p className={`${FORUM_TEXT_PRIMARY} text-xs font-bold truncate`}>
                                                         {name}
                                                     </p>
                                                     <p className={`${FORUM_TEXT_MUTED} text-[10px]`}>
-                                                        {expanded ? 'إخفاء التفضيلات' : 'تخصيص التنبيهات'}
+                                                        {onOpenProfile
+                                                            ? 'عرض الملف الشخصي'
+                                                            : expanded
+                                                              ? 'إخفاء التفضيلات'
+                                                              : 'تخصيص التنبيهات'}
                                                     </p>
                                                 </button>
+                                                {onOpenProfile ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            setExpandedId(expanded ? null : row.followingId)
+                                                        }
+                                                        className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/10 flex items-center justify-center text-white/45"
+                                                        title="تخصيص التنبيهات"
+                                                        aria-label="تخصيص التنبيهات"
+                                                    >
+                                                        <Bell size={14} />
+                                                    </button>
+                                                ) : null}
                                                 <button
                                                     type="button"
                                                     onClick={() => onUnfollow(row.followingId)}
@@ -236,8 +266,24 @@ export const ForumFollowingPanel = memo(function ForumFollowingPanel({
                                                 {name.slice(0, 1)}
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <p className={`${FORUM_TEXT_PRIMARY} text-xs font-bold truncate`}>{name}</p>
-                                                <p className={`${FORUM_TEXT_MUTED} text-[10px]`}>متابِع لك</p>
+                                                {onOpenProfile ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            onOpenProfile(row.followerId, name);
+                                                            onClose();
+                                                        }}
+                                                        className="text-right w-full"
+                                                    >
+                                                        <p className={`${FORUM_TEXT_PRIMARY} text-xs font-bold truncate`}>{name}</p>
+                                                        <p className={`${FORUM_TEXT_MUTED} text-[10px]`}>عرض الملف الشخصي</p>
+                                                    </button>
+                                                ) : (
+                                                    <>
+                                                        <p className={`${FORUM_TEXT_PRIMARY} text-xs font-bold truncate`}>{name}</p>
+                                                        <p className={`${FORUM_TEXT_MUTED} text-[10px]`}>متابِع لك</p>
+                                                    </>
+                                                )}
                                             </div>
                                             {onFollowBack ? (
                                                 <button
@@ -258,4 +304,6 @@ export const ForumFollowingPanel = memo(function ForumFollowingPanel({
             ) : null}
         </AnimatePresence>
     );
+
+    return typeof document !== 'undefined' ? createPortal(panelLayer, document.body) : panelLayer;
 });

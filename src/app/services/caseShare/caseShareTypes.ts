@@ -4,7 +4,17 @@ export type CaseShareDossierModule = 'execution' | 'lawsuit' | 'criminal' | 'per
 /** full = إظهار كامل | partial = تجهيل جزئي | hidden = إخفاء كامل */
 export type CaseShareVisibilityMode = 'full' | 'partial' | 'hidden';
 
-export type ShareSectionKey = 'timeline' | 'notes' | 'documents' | 'parties' | 'court' | 'meta';
+export type ShareSectionKey =
+    | 'timeline'
+    | 'notes'
+    | 'documents'
+    | 'parties'
+    | 'court'
+    | 'meta'
+    | 'followup'
+    | 'decisions'
+    | 'appointments'
+    | 'financial';
 
 export type ShareCatalogItemKind = 'timeline' | 'note' | 'document' | 'hearing' | 'meta';
 
@@ -54,6 +64,18 @@ export type DossierShareSource = {
     documentCount: number;
     /** فهرس محتويات الإضبارة للاختيار التفصيلي */
     catalog: ShareCatalogSection[];
+    /** بيانات عرض الإضبارة التنفيذية (بدون أطراف) */
+    executionMeta?: ExecutionShareMeta;
+};
+
+export type ExecutionShareMeta = {
+    directorate: string;
+    fileNumber: string;
+    fileYear: string;
+    claimType: string;
+    documentType: string;
+    lifecycleStatus: string;
+    docNumber: string;
 };
 
 /** العرض المقنّع للمستلم */
@@ -110,9 +132,65 @@ export const DEFAULT_CASE_SHARE_VISIBLE_FIELDS: CaseShareVisibleFields = {
         parties: 'all',
         court: 'all',
         meta: 'all',
+        followup: 'all',
+        decisions: 'all',
+        appointments: 'all',
+        financial: 'all',
     },
     hiddenItemIds: [],
 };
+
+/** إعدادات افتراضية لاستشارة زميل في إضبارة تنفيذ — كل الأقسام مخفية ما عدا بيانات الإضبارة في الترويسة */
+export const DEFAULT_EXECUTION_CONSULT_VISIBLE_FIELDS: CaseShareVisibleFields = {
+    documents: false,
+    case_numbers: true,
+    parties_names: 'hidden',
+    court_details: 'hidden',
+    text_masking: '',
+    masked_terms: [],
+    sectionMode: {
+        followup: 'none',
+        decisions: 'none',
+        notes: 'none',
+        appointments: 'none',
+        documents: 'none',
+        timeline: 'none',
+        financial: 'none',
+        parties: 'none',
+        court: 'none',
+        meta: 'none',
+    },
+    hiddenItemIds: [],
+};
+
+export const EXECUTION_CONSULT_SECTION_DEFS: Array<{ key: ShareSectionKey; title: string }> = [
+    { key: 'followup', title: 'محضر المتابعة' },
+    { key: 'decisions', title: 'القرارات والطعون' },
+    { key: 'notes', title: 'ملاحظات' },
+    { key: 'appointments', title: 'المواعيد' },
+    { key: 'documents', title: 'المستندات' },
+    { key: 'timeline', title: 'السجل الزمني' },
+    { key: 'financial', title: 'المركز المالي' },
+];
+
+export const EXECUTION_CONSULT_SECTION_KEYS: ShareSectionKey[] = EXECUTION_CONSULT_SECTION_DEFS.map(
+    (s) => s.key,
+);
+
+export function defaultConsultVisibleFields(module?: CaseShareDossierModule): CaseShareVisibleFields {
+    if (module === 'execution') {
+        return {
+            ...DEFAULT_EXECUTION_CONSULT_VISIBLE_FIELDS,
+            sectionMode: { ...DEFAULT_EXECUTION_CONSULT_VISIBLE_FIELDS.sectionMode },
+            hiddenItemIds: [],
+        };
+    }
+    return {
+        ...DEFAULT_CASE_SHARE_VISIBLE_FIELDS,
+        sectionMode: { ...DEFAULT_CASE_SHARE_VISIBLE_FIELDS.sectionMode },
+        hiddenItemIds: [],
+    };
+}
 
 export type NetworkColleague = {
     id: string;

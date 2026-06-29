@@ -162,9 +162,3 @@ export function resolveMainIndicatorY(
     if (visualIndex >= sorted.length) return sorted[sorted.length - 1].rect.bottom + 6;
     return sorted[visualIndex].rect.top - 4;
 }
-
-/** @deprecated — استخدم computeMainVisualIndex */
-export const computeMainInsertIndex = computeMainVisualIndex;
-
-/** @deprecated — استخدم computeDockPlacementIndex */
-export const computeDockInsertIndex = computeDockPlacementIndex;

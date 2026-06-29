@@ -36,6 +36,7 @@ export class CommunityErrorBoundary extends Component<Props, State> {
             return (
                 <div
                     dir="rtl"
+                    data-testid="forum-error-fallback"
                     className="w-full h-full flex flex-col items-center justify-center p-6 text-center"
                     style={{ backgroundColor: FORUM_PLUM_DEEP }}
                 >
@@ -51,6 +52,7 @@ export class CommunityErrorBoundary extends Component<Props, State> {
                     ) : null}
                     <button
                         type="button"
+                        data-testid="forum-error-retry"
                         onClick={this.handleRetry}
                         className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold ${FORUM_PUBLISH_BTN}`}
                     >

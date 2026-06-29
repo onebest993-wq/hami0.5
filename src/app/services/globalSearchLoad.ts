@@ -1,22 +1,7 @@
-import type { CalendarEvent, CommunityPost } from '@/app/services/lawyer-cloud';
-import {
-    CalendarDB,
-    CommunityDB,
-    RepositoryDB,
-    SmartVaultDB,
-    TransactionsThreadingDB,
-    type SmartVaultDoc,
-} from '@/app/services/lawyer-cloud';
-import type { RepositoryDocument } from '@/app/services/lawyer-cloud';
-import { UrgentActionsDB } from '@/app/services/urgent-actions-db';
+import type { CalendarEvent } from '@/app/services/cloud/lawyerCalendarTypes';
+import type { CommunityPost, RepositoryDocument, SmartVaultDoc } from '@/app/services/lawyer-cloud';
 import type { LegalTask } from '@/app/types/TaskEngine';
-import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
-import { QUANTUM_TASKS_STORAGE_KEY, deserializeQuantumTasks } from '@/app/utils/quantumTasksStorage';
 import type { Transaction, TransactionTask, FinanceRecord } from '@/app/modules/transactionsThreading/types';
-import { invalidateGlobalSearchFuseCache } from '@/app/services/globalSearchFuse';
-import { invalidateGlobalSearchIndexCache } from '@/app/services/globalSearchIndexRuntime';
-import { invalidateProfileLineCache } from '@/app/services/globalSearchProfileCache';
-import { resetGlobalSearchWarmState } from '@/app/services/globalSearchWarm';
 
 export type GlobalSearchExtras = {
     quantumTasks: LegalTask[];
@@ -54,10 +39,15 @@ export function invalidateGlobalSearchExtrasCache(userId?: string | null): void 
     if (userId && resolvedExtrasCache?.userId !== userId) return;
     resolvedExtrasCache = null;
     if (!userId || inflightExtras?.userId === userId) inflightExtras = null;
-    invalidateGlobalSearchIndexCache();
-    invalidateGlobalSearchFuseCache();
-    invalidateProfileLineCache(userId ?? undefined);
-    resetGlobalSearchWarmState();
+    void import('@/app/services/globalSearchIndexRuntime').then((m) => m.invalidateGlobalSearchIndexCache());
+    void import('@/app/services/globalSearchFuse').then((m) => m.invalidateGlobalSearchFuseCache());
+    void import('@/app/services/search/globalSearchFileSliceCache').then((m) =>
+        m.invalidateFileSearchSliceCache(),
+    );
+    void import('@/app/services/globalSearchProfileCache').then((m) =>
+        m.invalidateProfileLineCache(userId ?? undefined),
+    );
+    void import('@/app/services/globalSearchWarm').then((m) => m.resetGlobalSearchWarmState());
 }
 
 /** تسخين مصادر البحث في الخلفية — لا يُعيد التحميل إذا كان الكاش سارياً. */
@@ -69,14 +59,32 @@ export function warmGlobalSearchExtras(userId: string | null): void {
 }
 
 async function fetchGlobalSearchExtras(userId: string): Promise<GlobalSearchExtras> {
+    const [
+        { RepositoryDB, SmartVaultDB },
+        { UrgentActionsDB },
+        { persistenceRepository },
+        { QUANTUM_TASKS_STORAGE_KEY, deserializeQuantumTasks },
+        { fetchCalendarEvents },
+        { fetchTransactionsThreadingState },
+        { fetchCommunityPosts },
+    ] = await Promise.all([
+        import('@/app/services/lawyer-cloud'),
+        import('@/app/services/urgent-actions-db'),
+        import('@/app/infrastructure/persistence/LocalStorageRepository'),
+        import('@/app/utils/quantumTasksStorage'),
+        import('@/app/services/calendar/calendarCloudLoader'),
+        import('@/app/services/transactions/transactionsCloudLoader'),
+        import('@/app/services/forum/communityCloudLoader'),
+    ]);
+
     const [calendarEvents, vaultDocs, repositoryDocs, urgentState, threadingState, communityPosts] =
         await Promise.all([
-            CalendarDB.getEvents(userId).catch(() => [] as CalendarEvent[]),
+            fetchCalendarEvents(userId).catch(() => [] as CalendarEvent[]),
             SmartVaultDB.listDocs(userId).catch(() => [] as SmartVaultDoc[]),
             RepositoryDB.listDocuments().catch(() => [] as RepositoryDocument[]),
             UrgentActionsDB.getState(userId).catch(() => null),
-            TransactionsThreadingDB.getState(userId).catch(() => null),
-            CommunityDB.listPosts().catch(() => [] as CommunityPost[]),
+            fetchTransactionsThreadingState(userId).catch(() => null),
+            fetchCommunityPosts().catch(() => [] as CommunityPost[]),
         ]);
 
     const quantumBlob = persistenceRepository.load<unknown>(QUANTUM_TASKS_STORAGE_KEY);

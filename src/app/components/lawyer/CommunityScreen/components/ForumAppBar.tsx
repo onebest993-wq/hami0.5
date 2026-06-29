@@ -2,17 +2,16 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ArrowRight, Search, Bell, ChevronDown, Users } from 'lucide-react';
 import { AnimatePresence } from 'motion/react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import type { ForumNotification } from '@/app/services/lawyer-cloud';
-import { ForumApiService } from '@/app/services/forumApiService';
-import { FORUM_UNREAD_CHANGED_EVENT } from '@/app/services/forum/forumNotificationBridge';
-import { useVisibilityAwareInterval } from '@/app/hooks/useVisibilityAwareInterval';
 import { ForumCategoryPanel } from './ForumCategoryPanel';
 import { RepositoryFilterPanel } from './RepositoryFilterPanel';
 import { ForumSectionSwitch, type ForumSectionId } from './ForumSectionSwitch';
-import { ForumNotificationRow } from './ForumNotificationRow';
+import { prefetchCommunitySearchOverlay } from '../communityOverlayPrefetch';
+import { ForumNotificationsPanel } from './ForumNotificationsPanel';
+import { useForumAppBarNotifications } from '../hooks/useForumAppBarNotifications';
 import { FORUM_FILTER_LABELS } from '../forumFilters';
 import {
     FORUM_APP_BAR,
+    FORUM_APP_BAR_ICON,
     FORUM_ACCENT_CHIP,
     FORUM_PANEL,
     FORUM_TEXT_APRICOT,
@@ -47,6 +46,8 @@ interface ForumAppBarProps {
     forumFeedScope?: 'all' | 'following';
     onForumFeedScopeChange?: (scope: 'all' | 'following') => void;
     notificationStreamActive?: boolean;
+    onAppBarDropdownChange?: (open: boolean) => void;
+    closeAppBarDropdownsRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 export const ForumAppBar = ({
@@ -71,15 +72,17 @@ export const ForumAppBar = ({
     forumFeedScope = 'all',
     onForumFeedScopeChange,
     notificationStreamActive = false,
+    onAppBarDropdownChange,
+    closeAppBarDropdownsRef,
 }: ForumAppBarProps) => {
-    const [notifications, setNotifications] = useState<ForumNotification[]>([]);
-    const [unreadCount, setUnreadCount] = useState(0);
-    const lastUnreadRef = useRef(0);
-    const seenNotifIdsRef = useRef<Set<string>>(new Set());
-    const [showNotifPanel, setShowNotifPanel] = useState(false);
     const [showForumFilterPanel, setShowForumFilterPanel] = useState(false);
     const [showRepositoryFilterPanel, setShowRepositoryFilterPanel] = useState(false);
-    const [loadingNotifs, setLoadingNotifs] = useState(false);
+    const notif = useForumAppBarNotifications(
+        userId,
+        notificationStreamActive,
+        onNavigateToPost,
+        onSectionChange,
+    );
     const activeFilterLabel = FORUM_FILTER_LABELS[selectedFilterIndex] ?? FORUM_FILTER_LABELS[0];
     const hasForumFilter = selectedFilterIndex !== 0;
     const hasRepositoryFilter = repositoryHasActiveListFilters(
@@ -98,105 +101,10 @@ export const ForumAppBar = ({
         setShowRepositoryFilterPanel(false);
     }, [activeSection]);
 
-    const fetchNotifications = useCallback(async () => {
-        if (!userId) {
-            setNotifications([]);
-            setUnreadCount(0);
-            return;
-        }
-        setLoadingNotifs(true);
-        try {
-            const { notifications: list, unreadCount: unread } = await ForumApiService.listForumNotifications(userId);
-            const slice = list.slice(0, 25);
-            setNotifications(slice);
-            setUnreadCount(unread);
-
-            if (lastUnreadRef.current > 0 && unread > lastUnreadRef.current) {
-                const fresh = slice.find((n) => !n.read && !seenNotifIdsRef.current.has(n.id));
-                if (fresh) {
-                    SmartToast.show(fresh.title, {
-                        type: 'info',
-                        description: fresh.message,
-                        duration: 4500,
-                    });
-                }
-            }
-            lastUnreadRef.current = unread;
-            for (const n of slice) seenNotifIdsRef.current.add(n.id);
-        } catch {
-            SmartToast.error('تعذّر تحميل التنبيهات');
-        } finally {
-            setLoadingNotifs(false);
-        }
-    }, [userId]);
-
-    useEffect(() => {
-        void fetchNotifications();
-    }, [fetchNotifications]);
-
-    useVisibilityAwareInterval(() => {
-        void fetchNotifications();
-    }, notificationStreamActive ? 45_000 : 5_000, Boolean(userId));
-
-    useEffect(() => {
-        const onExternal = (e: Event) => {
-            const detail = (e as CustomEvent<{ count: number; refresh?: boolean }>).detail;
-            if (typeof detail?.count === 'number') {
-                setUnreadCount(detail.count);
-                lastUnreadRef.current = detail.count;
-            }
-            if (detail?.refresh) void fetchNotifications();
-        };
-        window.addEventListener(FORUM_UNREAD_CHANGED_EVENT, onExternal);
-        return () => window.removeEventListener(FORUM_UNREAD_CHANGED_EVENT, onExternal);
-    }, [fetchNotifications]);
-
-    const handleMarkAllRead = async () => {
-        if (!userId) return;
-        try {
-            await ForumApiService.markAllForumNotificationsRead(userId);
-            setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-            setUnreadCount(0);
-            lastUnreadRef.current = 0;
-            SmartToast.success('تم تحديد جميع التنبيهات كمقروءة');
-        } catch {
-            SmartToast.error('تعذّر تحديث التنبيهات');
-        }
-    };
-
-    const handleNotificationClick = async (notif: ForumNotification) => {
-        if (!userId) return;
-        try {
-            if (!notif.read) {
-                await ForumApiService.markForumNotificationRead(notif.id, userId);
-                setNotifications((prev) =>
-                    prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n)),
-                );
-                setUnreadCount((c) => Math.max(0, c - 1));
-                lastUnreadRef.current = Math.max(0, lastUnreadRef.current - 1);
-            }
-            setShowNotifPanel(false);
-            if (notif.postId) {
-                onSectionChange('forum');
-                onNavigateToPost?.(notif.postId);
-            }
-        } catch {
-            SmartToast.error('تعذّر فتح التنبيه');
-        }
-    };
-
     const handleBellClick = () => {
-        if (!userId) {
-            SmartToast.warning('سجّل الدخول لعرض التنبيهات');
-            return;
-        }
         setShowForumFilterPanel(false);
         setShowRepositoryFilterPanel(false);
-        setShowNotifPanel((v) => {
-            const next = !v;
-            if (next) void fetchNotifications();
-            return next;
-        });
+        notif.handleBellClick(onAppBarDropdownChange);
     };
 
     const handleForumSearchClick = () => {
@@ -205,26 +113,50 @@ export const ForumAppBar = ({
     };
 
     const handleForumFilterToggle = () => {
-        setShowNotifPanel(false);
+        notif.setShowNotifPanel(false);
         setShowRepositoryFilterPanel(false);
-        setShowForumFilterPanel((v) => !v);
+        setShowForumFilterPanel((v) => {
+            const next = !v;
+            onAppBarDropdownChange?.(next);
+            return next;
+        });
     };
 
     const handleRepositoryFilterToggle = () => {
-        setShowNotifPanel(false);
+        notif.setShowNotifPanel(false);
         setShowForumFilterPanel(false);
-        setShowRepositoryFilterPanel((v) => !v);
+        setShowRepositoryFilterPanel((v) => {
+            const next = !v;
+            onAppBarDropdownChange?.(next);
+            return next;
+        });
     };
 
+    const closeAppBarDropdowns = useCallback(() => {
+        notif.setShowNotifPanel(false);
+        setShowForumFilterPanel(false);
+        setShowRepositoryFilterPanel(false);
+        onAppBarDropdownChange?.(false);
+    }, [notif.setShowNotifPanel, onAppBarDropdownChange]);
+
+    useEffect(() => {
+        if (!closeAppBarDropdownsRef) return;
+        closeAppBarDropdownsRef.current = closeAppBarDropdowns;
+        return () => {
+            closeAppBarDropdownsRef.current = null;
+        };
+    }, [closeAppBarDropdownsRef, closeAppBarDropdowns]);
+
     return (
-        <div className={FORUM_APP_BAR}>
+        <div className={FORUM_APP_BAR} data-testid="forum-app-bar">
             <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                     {onBack ? (
                         <button
                             type="button"
+                            data-testid="forum-back"
                             onClick={onBack}
-                            className="w-9 h-9 rounded-full bg-[#2C2434] flex items-center justify-center text-[#9A9098] hover:text-[#F0B896] hover:bg-[#342C3E] hover:shadow-[inset_0_0_16px_rgba(240,184,150,0.1)] transition-all shrink-0"
+                            className={`${FORUM_APP_BAR_ICON} bg-[#2C2434] text-[#9A9098] hover:text-[#F0B896] hover:bg-[#342C3E] hover:shadow-[inset_0_0_16px_rgba(240,184,150,0.1)] shrink-0`}
                             aria-label="رجوع"
                         >
                             <ArrowRight size={20} />
@@ -241,7 +173,7 @@ export const ForumAppBar = ({
                             type="button"
                             onClick={onOpenFollowing}
                             aria-label="المتابَعون"
-                            className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors relative ${
+                            className={`${FORUM_APP_BAR_ICON} relative ${
                                 forumFeedScope === 'following'
                                     ? 'bg-[#F0B896]/14 text-[#F0B896] border border-[#F0B896]/30'
                                     : 'bg-[#2C2434] text-[#9A9098] hover:text-[#F0B896] hover:bg-[#342C3E]'
@@ -258,63 +190,44 @@ export const ForumAppBar = ({
                     <div className="relative">
                         <button
                             type="button"
+                            data-testid="forum-notifications-trigger"
                             onClick={handleBellClick}
                             aria-label="التنبيهات"
-                            aria-expanded={showNotifPanel}
-                            className="w-10 h-10 rounded-full bg-[#2C2434] flex items-center justify-center text-[#9A9098] hover:text-[#F0B896] hover:bg-[#342C3E] transition-colors relative"
+                            aria-expanded={notif.showNotifPanel}
+                            className={`${FORUM_APP_BAR_ICON} bg-[#2C2434] text-[#9A9098] hover:text-[#F0B896] hover:bg-[#342C3E] relative`}
                         >
                             <Bell size={20} />
-                            {unreadCount > 0 ? (
+                            {notif.unreadCount > 0 ? (
                                 <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1 shadow-lg">
-                                    {unreadCount > 99 ? '99+' : unreadCount}
+                                    {notif.unreadCount > 99 ? '99+' : notif.unreadCount}
                                 </span>
                             ) : null}
                         </button>
 
-                        {showNotifPanel ? (
-                            <>
-                                <div className="fixed inset-0 z-40" onClick={() => setShowNotifPanel(false)} />
-                                <div className={`absolute left-0 top-full mt-2 w-80 z-50 ${FORUM_PANEL} shadow-2xl overflow-hidden`}>
-                                    <div className="flex items-center justify-between px-4 py-3 border-b border-[#4A3D52]/40">
-                                        <h3 className={`${FORUM_TEXT_PRIMARY} font-bold text-sm`}>التنبيهات</h3>
-                                        {unreadCount > 0 ? (
-                                            <button
-                                                type="button"
-                                                onClick={() => void handleMarkAllRead()}
-                                                className={`${FORUM_TEXT_APRICOT} text-[11px] font-bold hover:underline`}
-                                            >
-                                                تحديد الكل كمقروء
-                                            </button>
-                                        ) : null}
-                                    </div>
-                                    <div className="max-h-80 overflow-y-auto">
-                                        {loadingNotifs ? (
-                                            <p className="text-white/40 text-xs text-center py-6">جاري التحميل...</p>
-                                        ) : notifications.length === 0 ? (
-                                            <p className="text-gray-500 text-xs text-center py-6">لا توجد تنبيهات</p>
-                                        ) : (
-                                            notifications.map((n) => (
-                                                <ForumNotificationRow
-                                                    key={n.id}
-                                                    notification={n}
-                                                    onClick={() => void handleNotificationClick(n)}
-                                                />
-                                            ))
-                                        )}
-                                    </div>
-                                </div>
-                            </>
-                        ) : null}
+                        <ForumNotificationsPanel
+                            open={notif.showNotifPanel}
+                            unreadCount={notif.unreadCount}
+                            loading={notif.loadingNotifs}
+                            notifications={notif.notifications}
+                            onClose={() => {
+                                notif.setShowNotifPanel(false);
+                                onAppBarDropdownChange?.(false);
+                            }}
+                            onMarkAllRead={() => void notif.handleMarkAllRead()}
+                            onNotificationClick={(n) => void notif.handleNotificationClick(n)}
+                        />
                     </div>
 
                     {activeSection === 'forum' ? (
                         <div className="relative">
-                            <div className="flex items-center h-10 rounded-full bg-[#2C2434] border border-[#4A3D52]/50 overflow-hidden">
+                            <div className="flex items-center min-h-[44px] rounded-full bg-[#2C2434] border border-[#4A3D52]/50 overflow-hidden">
                                 <button
                                     type="button"
+                                    data-testid="forum-search-trigger"
                                     onClick={handleForumSearchClick}
+                                    onPointerEnter={prefetchCommunitySearchOverlay}
                                     aria-label="بحث في المنتدى والمستودع"
-                                    className="w-10 h-10 flex items-center justify-center text-[#9A9098] hover:text-[#F0B896] hover:bg-[#342C3E] transition-colors"
+                                    className={`${FORUM_APP_BAR_ICON} text-[#9A9098] hover:text-[#F0B896] hover:bg-[#342C3E]`}
                                 >
                                     <Search size={18} />
                                 </button>

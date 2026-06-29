@@ -1,6 +1,7 @@
 // @ts-nocheck
 import React, { useEffect, useRef, useState } from 'react';
 import { PROCEDURAL_PATH_COLOR_PRESETS, normalizePathColor } from '../../proceduralPathsEngine';
+import { CriminalModalPortal, CRIMINAL_MODAL_Z } from '../../criminalModalPortal';
 
 export type ProceduralPathFormPayload = { name: string; color: string };
 
@@ -41,7 +42,7 @@ export const ProceduralPathFormModal = ({
     if (!open) return null;
 
     return (
-        <div className="fixed inset-0 z-[222] bg-black/80 backdrop-blur-sm p-4 flex items-center justify-center print:hidden" dir="rtl">
+        <CriminalModalPortal zIndex={CRIMINAL_MODAL_Z.procedural}>
             <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 overflow-hidden">
                 <div className="p-4 border-b border-slate-700 bg-slate-800/50 flex items-center justify-between gap-3">
                     <div className="text-white font-black text-sm">{title}</div>
@@ -95,6 +96,6 @@ export const ProceduralPathFormModal = ({
                     </div>
                 </div>
             </div>
-        </div>
+        </CriminalModalPortal>
     );
 };

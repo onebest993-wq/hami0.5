@@ -10,7 +10,6 @@ import React, {
 } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { ArrowRight, X } from 'lucide-react';
-import { supabase } from '@/app/lib/supabase-client';
 import {
     useCriminalStore,
     type CriminalCase,
@@ -34,7 +33,32 @@ import {
 import { CriminalDashboardHeader } from './CriminalDashboardHeader';
 import { ColleagueConsultationProvider } from '../caseShare/ColleagueConsultationContext';
 import { extractCriminalShareSource } from '@/app/services/caseShare/caseShareExtractors';
-import { CriminalPartiesGrid } from './CriminalPartiesGrid';
+import {
+    LazyCriminalNewCase,
+    LazyCriminalPartiesGrid,
+    LazyDecisionsCommandBar,
+    LazyDecisionsScopeFilterBar,
+    LazyJudicialDecisionsLedger,
+    LazyLegalCodesTab,
+    LazyLiveArrestSummonCard,
+    LazyLiveDetentionCard,
+    LazyRecursiveProceduralCanvas,
+    LazyStatementsPhaseSections,
+    LazyStatementHighlightedContent,
+    LazyTrialDepositionWitnessCard,
+    LazyTrialsTab,
+    LazyVerdictCardsPanel,
+    prefetchCriminalDashboardTab,
+    prefetchCriminalJudicialDecisionsLedger,
+    prefetchCriminalPartiesGrid,
+    prefetchCriminalTrialsTab,
+} from './criminalDashboardLazyRegistry';
+import {
+    criminalDashboardTabClass,
+    CRIMINAL_DASHBOARD_TAB_LABELS,
+    type CriminalDashboardTab,
+} from './criminalDashboardTabChrome';
+import { CRIMINAL_DOSSIER_TEST_IDS } from './criminalDossierTestIds';
 import {
     buildCriminalActionParties,
     formatConcernedPartyLabel,
@@ -105,7 +129,6 @@ import { UnknownDefendantPartyBlockedRow } from './components/UnknownDefendantPa
 import type { CassationType, ProsecutionInterventionBasis } from '@/app/types/criminal';
 import { isCassationClosureQuashDecision, isUnderInterventionReview, availableCassationTypesForStage, cassationFilingTypeLabel } from './cassationEngine';
 import type { SocialInquiryWorkflowStatus } from './criminalStageUtils';
-import { ConfirmActionModal } from './ConfirmActionModal';
 import {
     InvestigationDecisionModal,
     SeveranceTargetPickerModal,
@@ -122,6 +145,7 @@ import {
     RequestQuickFinalizeModal,
     CriminalStatementModal,
     MergeCaseModal,
+    ConfirmActionModal,
 } from './criminalDashboardLazyModals';
 import {
     filterActiveInvestigationDefendants,
@@ -161,65 +185,26 @@ import {
     isInvestigationPurgeDecisionTemplate,
     purgeDecisionIncludesUnknownDefendants,
 } from './proceduralRequestTypes';
-import { ConcernedPartyDecisionPicker } from './components/ConcernedPartyDecisionPicker';
-import type { PartyBailDraft, PartyDetentionDraft } from './components/ConcernedPartyDecisionPicker';
-import { emptyPartyBailDraft, isPartyBailDraftValid } from './components/ConcernedPartyDecisionPicker';
-import { PendingSeveranceResumeBar } from './components/PendingSeveranceResumeBar';
-import { JudicialDecisionsLedger } from './components/JudicialDecisionsLedger';
+import {
+    ConcernedPartyDecisionPicker,
+    emptyPartyBailDraft,
+    isPartyBailDraftValid,
+    LawyerRequestAttachmentsEditor,
+    LawyerRequestMarginsMiniTimeline,
+    RequestMarginAddButton,
+    RequestMarginPromptModal,
+    RequestModalEntryLanes,
+    RequestStarToggle,
+    type PartyBailDraft,
+    type PartyDetentionDraft,
+    type SeizedAssetDraft as AssetSeizureDraftLocal,
+} from './criminalDashboardLazyRequestUi';
 
-const LazyCriminalNewCase = React.lazy(() =>
-    import('./CriminalNewCase').then((m) => ({ default: m.CriminalNewCase })),
-);
-const LazyStatementsPhaseSections = React.lazy(() =>
-    import('./components/StatementsPhaseSections').then((m) => ({ default: m.StatementsPhaseSections })),
-);
-const LazyLegalCodesTab = React.lazy(() =>
-    import('./legalCodes/LegalCodesTab').then((m) => ({ default: m.LegalCodesTab })),
-);
-const LazyTrialsTab = React.lazy(() =>
-    import('./components/TrialsTab').then((m) => ({ default: m.TrialsTab })),
-);
-const LazyRecursiveProceduralCanvas = React.lazy(() =>
-    import('./components/RecursiveProceduralCanvas').then((m) => ({
-        default: m.RecursiveProceduralCanvas,
-    })),
-);
-
-type CriminalDashboardTab = 'requests' | 'statements' | 'tracking' | 'legal_codes';
-
-function criminalDashboardTabClass(tab: CriminalDashboardTab, active: boolean): string {
-    const base = 'px-4 py-2 rounded-xl border font-black text-sm transition whitespace-nowrap';
-    const palette: Record<CriminalDashboardTab, { active: string; idle: string }> = {
-        requests: {
-            active: `${base} border-[#E6C673]/55 bg-[#E6C673]/12 text-[#E6C673] underline underline-offset-8 decoration-2 decoration-[#E6C673]`,
-            idle: `${base} border-slate-700/80 bg-slate-900/80 text-white/70 hover:border-[#E6C673]/40 hover:text-[#E6C673]`,
-        },
-        statements: {
-            active: `${base} border-sky-400/55 bg-sky-500/12 text-sky-100 underline underline-offset-8 decoration-2 decoration-sky-400`,
-            idle: `${base} border-slate-700/80 bg-slate-900/80 text-white/70 hover:border-sky-400/40 hover:text-sky-200`,
-        },
-        tracking: {
-            active: `${base} border-violet-400/55 bg-violet-500/12 text-violet-100 underline underline-offset-8 decoration-2 decoration-violet-400`,
-            idle: `${base} border-slate-700/80 bg-slate-900/80 text-white/70 hover:border-violet-400/40 hover:text-violet-200`,
-        },
-        legal_codes: {
-            active: `${base} border-emerald-400/55 bg-emerald-500/12 text-emerald-100 underline underline-offset-8 decoration-2 decoration-emerald-400`,
-            idle: `${base} border-slate-700/80 bg-slate-900/80 text-white/70 hover:border-emerald-400/40 hover:text-emerald-200`,
-        },
-    };
-    return active ? palette[tab].active : palette[tab].idle;
-}
-import { TrialDepositionWitnessCard } from './components/TrialDepositionWitnessCard';
 import type { TrialDeposition } from './trialDepositionsEngine';
 import { sortTrialDepositionsDesc } from './trialDepositionsEngine';
 import { inferDecisionPresenceFromTrialSessions, resolveCassationRemandRetrialPivotDate, sortTrialSessionsAsc } from './trialSessionsEngine';
 import { resolveCurrentAccusationArticleFromCase } from './trialChargeEngine';
 import { normalizeTrashBin } from './criminalCaseTrash';
-import type { DecisionsLedgerKindFilter } from './components/JudicialDecisionsLedger';
-import { DecisionsCommandBar } from './components/DecisionsCommandBar';
-import { LiveDetentionCard } from './components/LiveDetentionCard';
-import { LiveArrestSummonCard } from './components/LiveArrestSummonCard';
-import { VerdictCardsPanel } from './components/VerdictCardsPanel';
 import { normalizeVerdictCards, resolveVerdictCardsLifecycle, type VerdictCard } from './verdictCardsEngine';
 import type { StageFinalDecisionFormPayload } from './stageFinalDecisionEngine';
 import { computeOrdinaryCassationWindow } from './decisionAppealPeriodEngine';
@@ -227,7 +212,6 @@ import { resolveProceedingsBlockAppealability } from './requestActionEngine';
 import { resolveCaseSovereignContext } from './caseClassificationEngine';
 import { mergeJudicialDecisionsFromRequests, resolveCriminalCaseUserRole, getPendingCassationAppealForResult, sortJudicialDecisionsNewestFirst } from './judicialDecisionsEngine';
 import { validateDetentionDateRange } from './detentionEngine';
-import { DecisionsScopeFilterBar } from './components/DecisionsScopeFilterBar';
 import { JourneyStageBadge } from './components/JourneyStageBadge';
 import {
     defaultDecisionsScopeForStage,
@@ -248,13 +232,6 @@ import {
     canAddLawyerRequestFollowUpMargin,
     canEditLawyerRequestAttachments,
 } from './lawyerRequestsEngine';
-import {
-    LawyerRequestAttachmentsEditor,
-    LawyerRequestMarginsMiniTimeline,
-    RequestMarginAddButton,
-    RequestMarginPromptModal,
-    RequestStarToggle,
-} from './components/LawyerRequestUxAddons';
 import {
     buildActiveParties,
     buildAllParties,
@@ -311,12 +288,7 @@ import {
     shouldShowMultiPartySelectionPicker,
     shouldShowRequestPartyPicker,
 } from './requestPartySelection';
-import {
-    RequestModalEntryLanes,
-    type SeizedAssetDraft as AssetSeizureDraftLocal,
-} from './components/RequestModalEntryLanes';
 import type { JudicialDecision, JudicialDecisionAppeal } from '@/app/types/criminal';
-import { StatementHighlightedContent } from './components/StatementHighlightedContent';
 import { buildMergedCaseHeaderBadges } from './caseMergeTimeline';
 import {
     buildRequestFatalLockMessage,
@@ -347,12 +319,12 @@ const RequestReadOnlyField = ({ label, value }: { label: string; value: string }
     </div>
 );
 
-export const CriminalDashboard = ({
+export const CriminalDashboard = React.memo(function CriminalDashboard({
     id,
     onClose,
     onOpenCase,
     onRequestNewCaseFromSeverance,
-}: CriminalDashboardProps) => {
+}: CriminalDashboardProps) {
     const rawCase = useCriminalStore(useShallow((s) => s.casesById[id] ?? null));
     const mergedCaseIdsForLookup = useMemo(
         () => resolveMergedCaseIds(rawCase ?? undefined),
@@ -539,7 +511,12 @@ export const CriminalDashboard = ({
 
     if (!criminalCase) {
         return (
-            <div className="fixed inset-0 z-[220] bg-black font-['Tajawal'] flex items-center justify-center p-6" dir="rtl">
+            <div
+                className="fixed inset-0 z-[220] bg-black font-['Tajawal'] flex items-center justify-center p-6"
+                dir="rtl"
+                data-testid={CRIMINAL_DOSSIER_TEST_IDS.dossier}
+                data-dossier-state="missing"
+            >
                 <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0B1021] p-6 text-center">
                     <div className="text-white font-black text-base mb-2">
                         لم يتم العثور على الإضبارة الجنائية. قد تكون محذوفة أو الرقم غير صحيح
@@ -1304,11 +1281,14 @@ export const CriminalDashboard = ({
 
     const [activeTab, setActiveTab] = useState<CriminalDashboardTab>('requests');
     const switchDashboardTab = useCallback((tab: CriminalDashboardTab) => {
+        prefetchCriminalDashboardTab(tab);
         startTransition(() => setActiveTab(tab));
     }, []);
 
     useEffect(() => {
-        void import('./components/TrialsTab');
+        prefetchCriminalTrialsTab();
+        prefetchCriminalPartiesGrid();
+        prefetchCriminalJudicialDecisionsLedger();
     }, [id]);
 
     useEffect(() => {
@@ -3917,10 +3897,12 @@ export const CriminalDashboard = ({
 
                     <div className="mt-3 text-white/90 text-sm whitespace-normal break-words leading-relaxed print:text-black">
                         <span className="text-white/60 font-black ml-2">❝</span>
-                        <StatementHighlightedContent
-                            content={st.content}
-                            highlights={st.contentHighlights}
-                        />
+                        <Suspense fallback={null}>
+                            <LazyStatementHighlightedContent
+                                content={st.content}
+                                highlights={st.contentHighlights}
+                            />
+                        </Suspense>
                     </div>
                 </div>
             );
@@ -4247,7 +4229,11 @@ export const CriminalDashboard = ({
 
     return (
         <ColleagueConsultationProvider source={extractCriminalShareSource(criminalCase)}>
-        <div className="fixed inset-0 z-[220] flex flex-col overflow-hidden bg-slate-900 print:bg-white">
+        <div
+            className="fixed inset-0 z-[220] flex flex-col overflow-hidden bg-slate-900 print:bg-white"
+            data-testid={CRIMINAL_DOSSIER_TEST_IDS.dossier}
+            data-dossier-state="ready"
+        >
             {legalToast ? (
                 <div className="fixed top-4 left-4 right-4 z-[260] flex items-center justify-center print:hidden pointer-events-none">
                     <div
@@ -4490,7 +4476,8 @@ export const CriminalDashboard = ({
                     </div>
                 ) : null}
 
-                <CriminalPartiesGrid
+                <Suspense fallback={null}>
+                <LazyCriminalPartiesGrid
                     caseId={id}
                     complainants={displayComplainants}
                     defendants={visibleDefendants}
@@ -4524,6 +4511,7 @@ export const CriminalDashboard = ({
                         });
                     }}
                 />
+                </Suspense>
 
                 {defendants.some((d: any) => isGuarantorForfeited(d?.guarantorDetails)) ? (
                     <div className="max-w-5xl mx-auto w-full px-6 pb-2 print:hidden">
@@ -4574,30 +4562,34 @@ export const CriminalDashboard = ({
                     <button
                         type="button"
                         onClick={() => switchDashboardTab('requests')}
+                        onPointerEnter={() => prefetchCriminalDashboardTab('requests')}
                         className={criminalDashboardTabClass('requests', activeTab === 'requests')}
                     >
-                        القرارات
+                        {CRIMINAL_DASHBOARD_TAB_LABELS.requests}
                     </button>
                     <button
                         type="button"
                         onClick={() => switchDashboardTab('statements')}
+                        onPointerEnter={() => prefetchCriminalDashboardTab('statements')}
                         className={criminalDashboardTabClass('statements', activeTab === 'statements')}
                     >
-                        سجل الإفادات
+                        {CRIMINAL_DASHBOARD_TAB_LABELS.statements}
                     </button>
                     <button
                         type="button"
                         onClick={() => switchDashboardTab('tracking')}
+                        onPointerEnter={() => prefetchCriminalDashboardTab('tracking')}
                         className={criminalDashboardTabClass('tracking', activeTab === 'tracking')}
                     >
-                        مسارات التتبع
+                        {CRIMINAL_DASHBOARD_TAB_LABELS.tracking}
                     </button>
                     <button
                         type="button"
                         onClick={() => switchDashboardTab('legal_codes')}
+                        onPointerEnter={() => prefetchCriminalDashboardTab('legal_codes')}
                         className={criminalDashboardTabClass('legal_codes', activeTab === 'legal_codes')}
                     >
-                        متون القوانين
+                        {CRIMINAL_DASHBOARD_TAB_LABELS.legal_codes}
                     </button>
                 </div>
             </div>
@@ -4607,6 +4599,7 @@ export const CriminalDashboard = ({
                     onClick={handleDashboardBack}
                     title="رجوع"
                     aria-label="رجوع"
+                    data-testid={CRIMINAL_DOSSIER_TEST_IDS.back}
                     className="fixed bottom-2 right-2 z-[240] inline-flex items-center justify-center h-10 w-10 rounded-full border border-white/15 bg-white/[0.05] text-gray-300 hover:text-white hover:bg-white/[0.14] hover:border-white/30 transition print:hidden"
                 >
                     <ArrowRight className="h-4.5 w-4.5" aria-hidden />
@@ -4738,14 +4731,14 @@ export const CriminalDashboard = ({
                     ) : null}
 
                     {isEffectiveTrialCourtStage ? (
-                        <Suspense fallback={<div className="text-white/60 text-xs">جاري تحميل سجل الإفادات...</div>}>
+                        <Suspense fallback={null}>
                         <LazyStatementsPhaseSections
                             trialStatements={partitionedStatements.trial}
                             investigationStatements={partitionedStatements.investigation}
                             trialDepositions={sortedTrialDepositions}
                             renderTrialDeposition={(dep) => (
-                                <TrialDepositionWitnessCard
-                                    key={dep.id}
+                                <Suspense fallback={null} key={dep.id}>
+                                <LazyTrialDepositionWitnessCard
                                     deposition={dep}
                                     investigationStatements={partitionedStatements.investigation}
                                     trialStatements={partitionedStatements.trial}
@@ -4778,6 +4771,7 @@ export const CriminalDashboard = ({
                                               }
                                     }
                                 />
+                                </Suspense>
                             )}
                             renderStatement={renderStatementCard}
                         />
@@ -4787,13 +4781,13 @@ export const CriminalDashboard = ({
                     )}
                 </div>
             ) : activeTab === 'legal_codes' ? (
-                <Suspense fallback={<div className="p-6 text-white/60 text-xs text-center max-w-5xl mx-auto">جاري تحميل متون القوانين...</div>}>
-                    <LazyLegalCodesTab showJuvenileLawTab={hasJuvenileInCase} />
+                <Suspense fallback={null}>
+                <LazyLegalCodesTab showJuvenileLawTab={hasJuvenileInCase} />
                 </Suspense>
             ) : activeTab === 'tracking' ? (
                 <div key="criminal-tab-tracking" className="flex flex-col w-full">
-                    <Suspense fallback={<div className="p-6 text-white/60 text-xs text-center">جاري تحميل مسارات التتبع...</div>}>
-                        <LazyRecursiveProceduralCanvas
+                    <Suspense fallback={null}>
+                    <LazyRecursiveProceduralCanvas
                             key={`criminal-tab-tracking-canvas-${id}`}
                             caseId={id}
                             readOnly={isTimelineArchiveReadOnly || isDashboardReadOnly || isInvestigationMaterialReadOnly}
@@ -4809,7 +4803,8 @@ export const CriminalDashboard = ({
                     className="flex flex-col px-6 pt-2 pb-6 max-w-5xl mx-auto w-full gap-2 print:text-black"
                 >
                     <div className="flex flex-col items-center gap-1 print:hidden">
-                        <DecisionsCommandBar
+                        <Suspense fallback={null}>
+                        <LazyDecisionsCommandBar
                             activeFilter={decisionsKindFilter}
                             onFilterChange={setDecisionsKindFilter}
                             showInvestigationJudicialTabs={isInvestigationPhase}
@@ -4826,17 +4821,21 @@ export const CriminalDashboard = ({
                             onOpenLawyerMotionModal={openLawyerMotionModal}
                             readOnly={!canCreateDecisionsOrRequests}
                         />
-                        <DecisionsScopeFilterBar
+                        </Suspense>
+                        <Suspense fallback={null}>
+                        <LazyDecisionsScopeFilterBar
                             value={decisionsScopeFilter}
                             onChange={setDecisionsScopeFilter}
                             options={decisionsScopeOptions}
                         />
+                        </Suspense>
                     </div>
 
                     {showTrialsTab &&
                     decisionsKindFilter === 'trial_sessions' &&
                     effectiveDecisionsScope === 'current' ? (
-                        <VerdictCardsPanel
+                        <Suspense fallback={null}>
+                        <LazyVerdictCardsPanel
                             cards={currentVerdictCardsForPanel}
                             defendants={defendants}
                             caseStage={effectiveUiStage === 'felony' || effectiveUiStage === 'misdemeanor' ? effectiveUiStage : caseStage}
@@ -4882,17 +4881,12 @@ export const CriminalDashboard = ({
                             }}
                             onOpenCassationFiling={openVerdictCassationFiling}
                         />
+                        </Suspense>
                     ) : null}
 
                     {decisionsKindFilter === 'trial_sessions' && showTrialsTab ? (
-                        <Suspense
-                            fallback={
-                                <div className="text-white/60 text-xs text-center py-6">
-                                    جاري تحميل جلسات المرافعة...
-                                </div>
-                            }
-                        >
-                            <LazyTrialsTab
+                        <Suspense fallback={null}>
+                        <LazyTrialsTab
                                 embedded
                                 caseId={id}
                                 caseStage={caseStage}
@@ -4931,7 +4925,8 @@ export const CriminalDashboard = ({
                             />
                         </Suspense>
                     ) : decisionsKindFilter !== 'trial_sessions' ? (
-                    <JudicialDecisionsLedger
+                    <Suspense fallback={null}>
+                    <LazyJudicialDecisionsLedger
                         decisions={visibleJudicialDecisions}
                         parties={allParties}
                         defendants={defendants}
@@ -4982,7 +4977,8 @@ export const CriminalDashboard = ({
                             onDeclareJudgmentFinal,
                             onMoveToTrash,
                         }) => (
-                            <LiveDetentionCard
+                            <Suspense fallback={null}>
+                            <LazyLiveDetentionCard
                                 decision={decision}
                                 allDecisions={allDecisions}
                                 userRole={criminalCaseUserRole}
@@ -5018,9 +5014,11 @@ export const CriminalDashboard = ({
                                 }}
                                 onQuickBailRelease={openQuickBailFromDecision}
                             />
+                            </Suspense>
                         )}
                         renderLiveArrestSummonCard={({ decision, partyLabel, onMoveToTrash }) => (
-                            <LiveArrestSummonCard
+                            <Suspense fallback={null}>
+                            <LazyLiveArrestSummonCard
                                 decision={decision}
                                 readOnly={isTimelineArchiveReadOnly || isDashboardReadOnly}
                                 partyLabel={partyLabel}
@@ -5037,8 +5035,10 @@ export const CriminalDashboard = ({
                                     return null;
                                 }}
                             />
+                            </Suspense>
                         )}
                     />
+                    </Suspense>
                     ) : null}
                     {decisionsKindFilter !== 'trial_sessions' &&
                     kindFilteredJudicialDecisions.length > visibleJudicialDecisions.length ? (
@@ -6836,13 +6836,7 @@ export const CriminalDashboard = ({
                     aria-modal="true"
                     aria-label="تعبئة بيانات الإضبارة المفرّقة"
                 >
-                    <Suspense
-                        fallback={
-                            <div className="flex-1 grid place-items-center text-[#E6C673] text-sm font-bold animate-pulse">
-                                جاري تحميل نموذج الإضبارة المفرّقة...
-                            </div>
-                        }
-                    >
+                        <Suspense fallback={null}>
                         <LazyCriminalNewCase
                             embeddedOverlay
                             severanceFormMode
@@ -6855,10 +6849,10 @@ export const CriminalDashboard = ({
                                 }
                             }}
                         />
-                    </Suspense>
+                        </Suspense>
                 </div>
             ) : null}
         </div>
         </ColleagueConsultationProvider>
     );
-};
+});

@@ -34,6 +34,7 @@ export type UseLawyerGlobalNotesParams = {
     bumpSearchIndex: () => void;
     setFiles: Dispatch<SetStateAction<FileData[]>>;
     openNormalNewCaseModal: () => void;
+    closeNotepad: () => void;
 };
 
 export function useLawyerGlobalNotes({
@@ -44,6 +45,7 @@ export function useLawyerGlobalNotes({
     bumpSearchIndex,
     setFiles,
     openNormalNewCaseModal,
+    closeNotepad,
 }: UseLawyerGlobalNotesParams) {
     const [globalNotes, setGlobalNotes] = useState<GlobalNote[]>([]);
     const [notesHydrated, setNotesHydrated] = useState(false);
@@ -75,10 +77,6 @@ export function useLawyerGlobalNotes({
             cancelled = true;
         };
     }, []);
-
-    const [isNotepadOpen, setIsNotepadOpen] = useState(false);
-    const [notepadMode, setNotepadMode] = useState<'list' | 'create'>('list');
-    const [notepadFocusNoteId, setNotepadFocusNoteId] = useState<string | undefined>();
 
     const resolveNotesUserId = useCallback(
         () => user?.id ?? authUserId ?? null,
@@ -132,15 +130,26 @@ export function useLawyerGlobalNotes({
     const handleSaveNote = useCallback(
         async (note: GlobalNote) => {
             const uid = resolveNotesUserId();
-            const exists = globalNotes.some((n) => n.id === note.id);
+            const exists = globalNotes.some((n) => String(n.id) === String(note.id));
 
+            let nextNotes: GlobalNote[] = [];
             setGlobalNotes((prev) => {
-                const found = prev.find((n) => n.id === note.id);
-                if (found) return prev.map((n) => (n.id === note.id ? note : n));
-                return [...prev, note];
+                const found = prev.find((n) => String(n.id) === String(note.id));
+                const enriched: GlobalNote = {
+                    ...note,
+                    createdAtIso: note.createdAtIso ?? (found ? found.createdAtIso : new Date().toISOString()),
+                };
+                nextNotes = found
+                    ? prev.map((n) => (String(n.id) === String(note.id) ? enriched : n))
+                    : [...prev, enriched];
+                if (localAutoSave && notesHydrated) {
+                    persistenceRepository.save(STORAGE_KEYS.LAWYER_NOTES, nextNotes);
+                }
+                return nextNotes;
             });
 
-            if (uid && (note.body || '').trim()) {
+            const bodyPlain = (note.body || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+            if (uid && bodyPlain) {
                 const mappedId = vaultIdForGlobal(uid, note.id);
                 const vaultId = notesVault.syncFromGlobal(
                     uid,
@@ -186,40 +195,47 @@ export function useLawyerGlobalNotes({
                 );
             }
         },
-        [globalNotes, refreshAppAlerts, resolveNotesUserId, setFiles, user],
+        [globalNotes, localAutoSave, notesHydrated, refreshAppAlerts, resolveNotesUserId, setFiles, user],
     );
 
     const handleDeleteNote = useCallback(
-        async (id: string) => {
+        async (id: string | number) => {
+            const idStr = String(id);
             const uid = resolveNotesUserId();
-            const note = globalNotes.find((n) => String(n.id) === id);
+            const note = globalNotes.find((n) => String(n.id) === idStr);
             const voiceRef = parseVoiceNoteRef(note?.body);
             if (voiceRef) await deleteVoiceBlob(voiceRef);
 
             if (uid) {
-                const vaultId = vaultIdForGlobal(uid, id);
+                const vaultId = vaultIdForGlobal(uid, idStr);
                 if (vaultId) notesVault.deleteNote(vaultId);
-                unlinkGlobal(uid, id);
+                unlinkGlobal(uid, idStr);
             }
-            setGlobalNotes((prev) => prev.filter((n) => String(n.id) !== id));
-            unpinWorkspaceItem(id, 'notepad');
+            setGlobalNotes((prev) => {
+                const next = prev.filter((n) => String(n.id) !== idStr);
+                if (localAutoSave && notesHydrated) {
+                    persistenceRepository.save(STORAGE_KEYS.LAWYER_NOTES, next);
+                }
+                return next;
+            });
+            unpinWorkspaceItem(idStr, 'notepad');
 
             if (user) {
                 try {
-                    await SupabaseService.deleteGlobalNote(String(id));
+                    await SupabaseService.deleteGlobalNote(idStr);
                 } catch (error) {
                     debug.error('[LawyerDashboard] ⚠️ Cloud note delete failed:', error);
                 }
             }
             void refreshAppAlerts();
         },
-        [globalNotes, refreshAppAlerts, resolveNotesUserId, user],
+        [globalNotes, localAutoSave, notesHydrated, refreshAppAlerts, resolveNotesUserId, user],
     );
 
     const handleConvertNote = useCallback(() => {
-        setIsNotepadOpen(false);
+        closeNotepad();
         openNormalNewCaseModal();
-    }, [openNormalNewCaseModal]);
+    }, [closeNotepad, openNormalNewCaseModal]);
 
     const handleNotepadConvert = useCallback(
         (_note: { text: string }) => {
@@ -231,12 +247,6 @@ export function useLawyerGlobalNotes({
     return {
         globalNotes,
         setGlobalNotes,
-        isNotepadOpen,
-        setIsNotepadOpen,
-        notepadMode,
-        setNotepadMode,
-        notepadFocusNoteId,
-        setNotepadFocusNoteId,
         mergeNotesStores,
         resolveNotesUserId,
         handleSaveNote,

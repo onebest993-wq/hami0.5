@@ -75,6 +75,9 @@ export async function resolveCommunityAttachmentUrl(
         return attachment.url;
     }
 
-    if (attachment.url) return attachment.url;
+    const rawUrl = attachment.url?.trim();
+    if (rawUrl && !/^(javascript|data:text\/html|vbscript):/i.test(rawUrl)) {
+        return rawUrl;
+    }
     return null;
 }

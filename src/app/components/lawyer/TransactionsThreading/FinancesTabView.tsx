@@ -109,7 +109,7 @@ export function FinancesTabView({ transaction, readOnly }: { transaction: Transa
                   <button
                     type="button"
                     onClick={() => setFeesEditing(true)}
-                    className={`${TX_GOLD_BTN} !h-8 !px-3 !text-xs`}
+                    className={`${TX_GOLD_BTN} !px-3 !text-xs`}
                   >
                     تعديل
                   </button>

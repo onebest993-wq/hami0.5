@@ -2,13 +2,15 @@ import React, { Suspense } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { resolveCalendarUserId } from '@/app/services/calendarBridge';
 import { LazySmartLegalRadar } from '@/app/utils/lazyComponents';
-import { LAWYER_LAZY_FALLBACK } from '../LawyerDashboardParts/constants';
+import { RadarErrorBoundary } from '@/app/components/lawyer/SmartLegalRadar/RadarErrorBoundary';
+import { ScheduleTabFallback } from '@/app/components/lawyer/LawyerDashboardParts/LazyFallback';
 import type { FileData } from '../LawyerShared';
 import type { ExecutionFile } from '../LawyerDashboardParts/types';
 import { coerceExecutionFilePreserveId, isFileData } from '../LawyerDashboardParts/utils';
 
 export type LawyerDashboardScheduleTabProps = {
     visible: boolean;
+    scheduleTabSessionKey?: number;
     userId: string | undefined;
     authUserId: string | undefined;
     calendarSearchFocus: { date?: string; eventId?: string } | null;
@@ -44,72 +46,78 @@ export function LawyerDashboardScheduleTab({
 }: LawyerDashboardScheduleTabProps) {
     if (!visible) return null;
 
+    const handleBack = () => {
+        onClearCalendarSearchFocus();
+        onBackToHome();
+    };
+
+    const calendarUserId = resolveCalendarUserId(userId ?? authUserId ?? null);
+
     return (
-        <div className="block h-[100dvh]">
-            <Suspense fallback={LAWYER_LAZY_FALLBACK}>
-                <LazySmartLegalRadar
-                    onBack={() => {
-                        onClearCalendarSearchFocus();
-                        onBackToHome();
-                    }}
-                    userId={resolveCalendarUserId(userId ?? authUserId ?? null)}
-                    initialDate={calendarSearchFocus?.date}
-                    initialEventId={calendarSearchFocus?.eventId}
-                    onOpenSource={(sourceModule, sourceEntityId) => {
-                        switch (sourceModule) {
-                            case 'lawsuit': {
-                                const f = files.find((file) => String(file.id) === sourceEntityId);
-                                if (f && isFileData(f)) {
-                                    onOpenLawsuitFile(f);
+        <div className="block h-[100dvh] bg-[#1f1712]" data-testid="lawyer-schedule-tab-shell">
+            <RadarErrorBoundary onBack={handleBack}>
+                <Suspense fallback={ScheduleTabFallback}>
+                    <LazySmartLegalRadar
+                        onBack={handleBack}
+                        userId={calendarUserId}
+                        initialDate={calendarSearchFocus?.date}
+                        initialEventId={calendarSearchFocus?.eventId}
+                        onOpenSource={(sourceModule, sourceEntityId) => {
+                            switch (sourceModule) {
+                                case 'lawsuit': {
+                                    const f = files.find((file) => String(file.id) === sourceEntityId);
+                                    if (f && isFileData(f)) {
+                                        onOpenLawsuitFile(f);
+                                        onBackToHome();
+                                        return;
+                                    }
+                                    SmartToast.info('الإضبارة غير متاحة');
+                                    return;
+                                }
+                                case 'execution': {
+                                    const ex = executionFiles.find(
+                                        (file) => String(file.id ?? '') === sourceEntityId,
+                                    );
+                                    if (ex) {
+                                        onOpenExecutionFile(coerceExecutionFilePreserveId(ex));
+                                        onBackToHome();
+                                        return;
+                                    }
+                                    SmartToast.info('إضبارة التنفيذ غير متاحة');
+                                    return;
+                                }
+                                case 'criminal':
+                                    onOpenCriminalCase(sourceEntityId);
+                                    return;
+                                case 'urgent':
+                                    onOpenUrgentCase(sourceEntityId);
+                                    return;
+                                case 'transaction': {
+                                    const f = files.find((file) => String(file.id) === sourceEntityId);
+                                    if (f && isFileData(f)) {
+                                        onOpenLawsuitFile(f);
+                                        return;
+                                    }
+                                    onOpenTransaction(sourceEntityId);
+                                    return;
+                                }
+                                case 'threading':
+                                    onOpenTransaction(sourceEntityId);
+                                    return;
+                                case 'note':
+                                    onOpenNote(sourceEntityId);
+                                    return;
+                                case 'task':
                                     onBackToHome();
+                                    onOpenFieldTasks();
                                     return;
-                                }
-                                SmartToast.info('الإضبارة غير متاحة');
-                                return;
+                                default:
+                                    SmartToast.info('المصدر غير معروف');
                             }
-                            case 'execution': {
-                                const ex = executionFiles.find(
-                                    (file) => String(file.id ?? '') === sourceEntityId,
-                                );
-                                if (ex) {
-                                    onOpenExecutionFile(coerceExecutionFilePreserveId(ex));
-                                    onBackToHome();
-                                    return;
-                                }
-                                SmartToast.info('إضبارة التنفيذ غير متاحة');
-                                return;
-                            }
-                            case 'criminal':
-                                onOpenCriminalCase(sourceEntityId);
-                                return;
-                            case 'urgent':
-                                onOpenUrgentCase(sourceEntityId);
-                                return;
-                            case 'transaction': {
-                                const f = files.find((file) => String(file.id) === sourceEntityId);
-                                if (f && isFileData(f)) {
-                                    onOpenLawsuitFile(f);
-                                    return;
-                                }
-                                onOpenTransaction(sourceEntityId);
-                                return;
-                            }
-                            case 'threading':
-                                onOpenTransaction(sourceEntityId);
-                                return;
-                            case 'note':
-                                onOpenNote(sourceEntityId);
-                                return;
-                            case 'task':
-                                onBackToHome();
-                                onOpenFieldTasks();
-                                return;
-                            default:
-                                SmartToast.info('المصدر غير معروف');
-                        }
-                    }}
-                />
-            </Suspense>
+                        }}
+                    />
+                </Suspense>
+            </RadarErrorBoundary>
         </div>
     );
 }

@@ -37,7 +37,7 @@ export function manualExecutorAppealPipelineActive(d: Decision): boolean {
 
 /** الأصل يُعرض في سجل الطعون فقط — لا في القرارات السابقة */
 export function hubHasActiveAppealLedgerEntry(hub: Decision): boolean {
-    if (manualExecutorAppealPipelineActive(hub)) return true;
+    // قرار «إضافة قرار» يبقى في القرارات السابقة طوال مسار الطعن اليدوي
     if (hub.manualExecutorLedgerEntry === true) return false;
     if (hub.appealSourceDecisionId) return false;
     if (hub.activeAppealCopyId) return true;

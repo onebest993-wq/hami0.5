@@ -2,6 +2,7 @@ import { sanitizePayload } from '../../security/sanitizer.ts';
 import { ForumRepository } from '../../../services/forum/forumRepository.ts';
 import { checkForumActionRateLimit } from '../../../services/forum/forumRateLimitServer.ts';
 import { redactAnonymousAuthor } from '../../../services/forum/forumMapper.ts';
+import { resolveForumAuthorDisplayName } from '../../../services/forum/forumAuthorResolver.ts';
 import type { CommunityComment } from '../../../services/lawyer-cloud.ts';
 import { UserRole } from '../../../types/admin-types.ts';
 import { requireForumAuthAndUnbanned, jsonResponse } from '../_auth.ts';
@@ -10,14 +11,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === 'object';
 }
 
-function normalizeComment(raw: unknown, postId: string): CommunityComment | null {
+function normalizeComment(raw: unknown, postId: string, authorName: string): CommunityComment | null {
     if (!isRecord(raw)) return null;
     const id = typeof raw.id === 'string' ? raw.id : null;
     const authorId = typeof raw.authorId === 'string' ? raw.authorId : null;
-    const authorName = typeof raw.authorName === 'string' ? raw.authorName : null;
     const content = typeof raw.content === 'string' ? raw.content.trim() : null;
     const createdAt = typeof raw.createdAt === 'string' ? raw.createdAt : null;
-    if (!id || !authorId || !authorName || !content || !createdAt) return null;
+    if (!id || !authorId || !content || !createdAt) return null;
     if (content.length < 2) return null;
     // حماية ضد DoS: حد أعلى لطول التعليق (5K حرف)
     if (content.length > 5_000) return null;
@@ -44,10 +44,14 @@ export async function POST(request: Request): Promise<Response> {
         }
 
         if (payload.action === 'add') {
-            if (!checkForumActionRateLimit(auth.userId, 'comment')) {
+            if (!(await checkForumActionRateLimit(auth.userId, 'comment'))) {
                 return jsonResponse(429, { ok: false, error: 'تجاوزت حد التعليقات، انتظر قليلاً' });
             }
-            const comment = normalizeComment(payload.comment, payload.postId);
+            const comment = normalizeComment(
+                payload.comment,
+                payload.postId,
+                await resolveForumAuthorDisplayName(auth.userId),
+            );
             if (!comment) {
                 return jsonResponse(400, { ok: false, error: 'بيانات التعليق غير صالحة' });
             }

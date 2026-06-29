@@ -113,6 +113,7 @@ export function buildFreshExecutionDossierBlob(file: Record<string, unknown>): R
     clean.linkedDossiers = [];
     clean.hasGuarantor = false;
     clean.updatedAt = new Date().toISOString();
+    if (typeof clean.notes !== 'string') delete clean.notes;
     return clean;
 }
 

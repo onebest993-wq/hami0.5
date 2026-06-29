@@ -1,4 +1,5 @@
 import { resolveAmountGuarantorRequestVisible } from '@/app/components/lawyer/FinancialOperationsCenter/settlementGuarantorGate';
+import type { PendingSettlement } from '@/app/components/lawyer/FinancialOperationsCenter/types';
 import { hasActiveFinancialGuarantorFollowup } from '@/app/utils/execution/guarantorFollowup';
 import type { ExecutionFile } from '@/app/types/execution';
 
@@ -49,7 +50,7 @@ export function computeShowGuarantorInSeizureFollowupTab(input: {
             isFinancialDebtCollectionClaim: true,
             financialCenterTotalIqd: remainingBalanceForSeizure,
             settlementBreachTriggeredAt: settlementGuarantorGate.settlementBreachTriggeredAt,
-            pendingSettlement: settlementGuarantorGate.pendingSettlement,
+            pendingSettlement: settlementGuarantorGate.pendingSettlement as PendingSettlement | null | undefined,
             hideAllGuarantorPresence: false,
         })
     ) {

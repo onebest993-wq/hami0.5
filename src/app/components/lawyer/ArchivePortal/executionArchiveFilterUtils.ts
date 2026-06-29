@@ -18,7 +18,7 @@ import {
     isPersonalStatusCourtDecisionsDossier,
 } from '@/app/utils/followupSpecializationVisibility';
 import { isSpecificDeliveryClaim } from '@/app/utils/executionModuleStrategies';
-import { isExecutionInTrash } from '@/app/utils/executionTrash';
+import { isExecutionArchived, isExecutionInTrash } from '@/app/utils/executionTrash';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { LooseArchiveFile } from './types';
 import {
@@ -183,17 +183,21 @@ export function matchesExecutionArchiveFilters(
     );
 }
 
-export type ExecutionArchiveLifecycleMode = 'active' | 'trash';
+export type ExecutionArchiveLifecycleMode = 'active' | 'archived' | 'trash';
 
-/** مجموعة أساسية منفصلة — نشطة أو مهملات فقط (بدون دمج بينهما) */
+export type ExecutionViewMode = ExecutionArchiveLifecycleMode;
+
+/** مجموعة أساسية منفصلة — نشطة أو مؤرشفة أو مهملات (بدون دمج بينها) */
 export function getExecutionArchiveBasePool(
     files: LooseArchiveFile[],
     mode: ExecutionArchiveLifecycleMode
 ): LooseArchiveFile[] {
     return files.filter((f) => {
         const inTrash = isExecutionInTrash(f);
+        const archived = isExecutionArchived(f);
         if (mode === 'trash') return inTrash;
-        if (inTrash) return false;
+        if (mode === 'archived') return archived;
+        if (inTrash || archived) return false;
         if (String((f as { parentId?: string }).parentId || '').trim()) return false;
         return true;
     });

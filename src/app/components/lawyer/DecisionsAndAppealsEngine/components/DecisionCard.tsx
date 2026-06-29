@@ -3,7 +3,6 @@ import React from 'react';
 import { motion } from 'motion/react';
 import {
     ArchiveDecisionButton,
-    DECISION_META_CHIP,
 } from '../decisionCardPresentation';
 import GlowingDot from './GlowingDot';
 import { AppealOriginBadge } from './AppealOriginBadge';
@@ -171,11 +170,6 @@ function DecisionCard(props: DecisionCardProps) {
                             <span>{dateStr}</span>
                             <AppealOriginBadge decision={decision} perspective={appealPerspective} />
                         </div>
-                        {decision.tamyeezDecisionNumber?.trim() ? (
-                            <span className={DECISION_META_CHIP}>
-                                تمييز: {decision.tamyeezDecisionNumber}
-                            </span>
-                        ) : null}
                     </div>
                     {debtorFateLine ? (
                         <DecisionDebtorFateLine
@@ -183,17 +177,26 @@ function DecisionCard(props: DecisionCardProps) {
                             fateLine={debtorFateLine}
                         />
                     ) : null}
+                    {hubBodyText ? (
+                        <p className="text-[11px] leading-relaxed text-slate-300 whitespace-pre-wrap">
+                            {hubBodyText}
+                        </p>
+                    ) : null}
+                    {showExecutorPendingFooter ? (
+                        <p className="text-[10px] leading-relaxed text-blue-400/80">
+                            قيد المعالجة — بانتظار قرار المنفذ
+                        </p>
+                    ) : null}
                 </div>
 
-                {(debtorsCount > 1 && debtorName) ||
-                (showRegisteredAppealPathLine && !isManualLedgerCard) ? (
+                {(debtorsCount > 1 && debtorName) || showRegisteredAppealPathLine ? (
                     <div className="mt-1 border-t border-white/5 pt-2 space-y-1">
                         {debtorsCount > 1 && debtorName ? (
                             <p className="text-sm text-amber-200/90">
                                 طلب مقدّم ضد المدين {debtorName}
                             </p>
                         ) : null}
-                        {showRegisteredAppealPathLine && !isManualLedgerCard ? (
+                        {showRegisteredAppealPathLine ? (
                             <AppealProceedingsToggle
                                 pipelineRow={pipelineRow}
                                 appealPerspective={appealPerspective}
@@ -250,7 +253,8 @@ function DecisionCard(props: DecisionCardProps) {
                 {isManualLedgerCard &&
                 !decision.isArchived &&
                 ((decisionsHubTab === 'previous' &&
-                    resolveExecutorDecisionStatusFlag(decision) === 1) ||
+                    (resolveExecutorDecisionStatusFlag(decision) === 1 ||
+                        resolveExecutorDecisionStatusFlag(decision) === 2)) ||
                     (decisionsHubTab === 'appeals' &&
                         resolveExecutorDecisionStatusFlag(decision) === 2)) ? (
                     <ManualExecutorSmartCardPanel
@@ -326,6 +330,7 @@ function DecisionCard(props: DecisionCardProps) {
                       )
                     : null}
                 {legacyAppealActionsVisible &&
+                    !isManualLedgerCard &&
                     pipelineRow.appealStatus === 'tamyeez_filed' &&
                     pipelineRow.appealMethod === 'tamyeez' &&
                     renderAppealTamyeezPhasePanel(pipelineRow, 'previousCard', cassTips, (v) => {

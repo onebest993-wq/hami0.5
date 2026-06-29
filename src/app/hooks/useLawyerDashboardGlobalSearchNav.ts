@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import { releaseBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { persistCommunitySection } from '@/app/components/lawyer/CommunityScreen/communitySectionState';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
@@ -27,6 +28,9 @@ type GlobalSearchNav =
       }
     | { type: 'case'; caseId: string };
 
+import type { OpenNotepadOptions } from '@/app/hooks/lawyerDashboard/useLawyerDashboardRepository';
+import type { OpenScheduleTabOptions } from '@/app/hooks/lawyerDashboard/useLawyerDashboardScheduleTab';
+
 export type UseLawyerDashboardGlobalSearchNavParams = {
     files: FileData[];
     executionFiles: ExecutionFile[];
@@ -34,20 +38,17 @@ export type UseLawyerDashboardGlobalSearchNavParams = {
     setGlobalSearchInitialQuery: Dispatch<SetStateAction<string>>;
     openNotifications: () => void;
     openProfileTab: () => void;
-    setCalendarSearchFocus: Dispatch<SetStateAction<{ date?: string; eventId?: string } | null>>;
+    openScheduleTab: (opts?: OpenScheduleTabOptions) => void;
     setActiveTab: Dispatch<SetStateAction<LawyerDashboardTab>>;
     openCommunityTab: () => void;
     setCommunityDeepLink: Dispatch<
         SetStateAction<{ postId?: string; openComments?: boolean } | null>
     >;
-    setUrgentFocusCaseId: Dispatch<SetStateAction<string | undefined>>;
-    setShowUrgentDashboard: Dispatch<SetStateAction<boolean>>;
+    openUrgentInLawsuitsWorkspace: (caseId?: string) => void;
     openCriminalCase: (caseId: string, options?: OpenCriminalCaseOptions) => void;
     openTransactionsHub: (focusId?: string) => void;
     openTasksManager: (focusTaskId?: string) => void;
-    setNotepadMode: Dispatch<SetStateAction<'list' | 'create'>>;
-    setNotepadFocusNoteId: Dispatch<SetStateAction<string | undefined>>;
-    setIsNotepadOpen: Dispatch<SetStateAction<boolean>>;
+    openNotepad: (opts?: OpenNotepadOptions) => void;
     openVaultModal: (opts?: { scanner?: boolean }) => void;
     setActiveFile: Dispatch<SetStateAction<FileData | ExecutionFile | null>>;
     selectCase: (caseId: string) => void;
@@ -61,18 +62,15 @@ export function useLawyerDashboardGlobalSearchNav({
     setGlobalSearchInitialQuery,
     openNotifications,
     openProfileTab,
-    setCalendarSearchFocus,
+    openScheduleTab,
     setActiveTab,
     openCommunityTab,
     setCommunityDeepLink,
-    setUrgentFocusCaseId,
-    setShowUrgentDashboard,
+    openUrgentInLawsuitsWorkspace,
     openCriminalCase,
     openTransactionsHub,
     openTasksManager,
-    setNotepadMode,
-    setNotepadFocusNoteId,
-    setIsNotepadOpen,
+    openNotepad,
     openVaultModal,
     setActiveFile,
     selectCase,
@@ -81,6 +79,7 @@ export function useLawyerDashboardGlobalSearchNav({
     const closeGlobalSearch = useCallback(() => {
         setShowGlobalSearch(false);
         setGlobalSearchInitialQuery('');
+        releaseBodyScrollLock();
     }, [setGlobalSearchInitialQuery, setShowGlobalSearch]);
 
     const handleGlobalSearchNavigate = useCallback(
@@ -91,11 +90,7 @@ export function useLawyerDashboardGlobalSearchNav({
                 return;
             }
             if (nav.type === 'calendar') {
-                setCalendarSearchFocus({
-                    date: nav.date,
-                    eventId: nav.eventId,
-                });
-                setActiveTab('schedule');
+                openScheduleTab({ date: nav.date, eventId: nav.eventId });
                 return;
             }
             if (nav.type === 'repository') {
@@ -116,8 +111,7 @@ export function useLawyerDashboardGlobalSearchNav({
             }
             if (nav.type === 'urgent') {
                 setActiveTab('home');
-                setUrgentFocusCaseId(nav.urgentId);
-                setShowUrgentDashboard(true);
+                openUrgentInLawsuitsWorkspace(nav.urgentId);
                 return;
             }
             if (nav.type === 'criminal') {
@@ -136,9 +130,7 @@ export function useLawyerDashboardGlobalSearchNav({
             }
             if (nav.type === 'note' || nav.type === 'voice') {
                 setActiveTab('home');
-                setNotepadMode('list');
-                setNotepadFocusNoteId(nav.noteId);
-                setIsNotepadOpen(true);
+                openNotepad({ mode: 'list', focusNoteId: nav.noteId });
                 return;
             }
             if (nav.type === 'vault') {
@@ -188,20 +180,16 @@ export function useLawyerDashboardGlobalSearchNav({
             openCriminalCase,
             openNotifications,
             openProfileTab,
+            openScheduleTab,
             openTasksManager,
             openTransactionsHub,
             openVaultModal,
+            openNotepad,
             selectCase,
             setActiveFile,
             setActiveTab,
-            setCalendarSearchFocus,
             setCommunityDeepLink,
-            setIsNotepadOpen,
-            setNotepadFocusNoteId,
-            setNotepadMode,
-            openNotifications,
-            setShowUrgentDashboard,
-            setUrgentFocusCaseId,
+            openUrgentInLawsuitsWorkspace,
         ],
     );
 

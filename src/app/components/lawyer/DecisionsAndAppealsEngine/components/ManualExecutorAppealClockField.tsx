@@ -7,7 +7,6 @@ export type ManualExecutorAppealClockFieldProps = {
     valueYmd: string;
     onChangeYmd?: (ymd: string) => void;
     readOnly?: boolean;
-    hint?: string;
 };
 
 export function ManualExecutorAppealClockField({
@@ -16,7 +15,6 @@ export function ManualExecutorAppealClockField({
     valueYmd,
     onChangeYmd,
     readOnly = false,
-    hint,
 }: ManualExecutorAppealClockFieldProps) {
     return (
         <div className="space-y-1.5 rounded-xl border border-white/10 bg-white/[0.03] p-3">
@@ -42,9 +40,6 @@ export function ManualExecutorAppealClockField({
                     style={{ direction: 'ltr', textAlign: 'right' }}
                 />
             )}
-            {hint ? (
-                <p className="text-[9px] leading-relaxed text-slate-500">{hint}</p>
-            ) : null}
         </div>
     );
 }

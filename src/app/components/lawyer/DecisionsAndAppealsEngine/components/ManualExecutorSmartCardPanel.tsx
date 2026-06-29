@@ -1,21 +1,31 @@
 import React, { useEffect, useState } from 'react';
+import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { Decision } from '../types';
 import {
     appealWindowsForDecision,
     buildManualExecutorAppealFilePatch,
-    buildManualExecutorAppealLostPatch,
-    buildManualExecutorAppealWonPatch,
     buildManualExecutorCassationFilePatch,
+    buildManualExecutorCassationNaqdPatch,
+    buildManualExecutorCassationRadLaheezaPatch,
     buildManualExecutorGrievanceOutcomePatch,
     decisionAppealClockYmd,
-    formatAppealClockYmdLabel,
-    resolveCassationAppealClockYmd,
+    manualExecutorAwaitingCassationParty,
+    manualExecutorCassationEntryButtonLabel,
+    manualExecutorCassationFiledNoticeLabel,
     resolveExecutorDecisionStatusFlag,
     resolveManualExecutorWorkflowPhase,
     shouldShowAppealDeadlineLapseActions,
     todayYmd,
 } from '../utils';
+import { DECISION_BTN_DEBTOR_APPEAL_NOTICE } from '../decisionCardPresentation';
 import { ManualExecutorAppealClockField } from './ManualExecutorAppealClockField';
+import { AppealSelectedDeadlineHint } from './AppealSelectedDeadlineHint';
+
+const CHIP_BASE =
+    'min-h-[36px] rounded-full border px-3 py-1.5 text-[10px] font-bold transition-colors disabled:pointer-events-none disabled:opacity-40';
+const CHIP_OFF = 'border-white/10 bg-white/[0.04] text-slate-400 hover:text-slate-200';
+const CHIP_ON =
+    'border-[#E6C673]/35 bg-[#E6C673]/[0.12] text-[#E6C673] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]';
 
 export type ManualExecutorSmartCardPanelProps = {
     decision: Decision;
@@ -50,6 +60,8 @@ export function ManualExecutorSmartCardPanel({
         ).slice(0, 10)
     );
     const originalDecisionYmd = decisionAppealClockYmd(decision);
+    const canSubmitInitialAppeal =
+        appealKind === 'tadhallum' ? windows.canTadhallum : windows.canTamyeez;
 
     useEffect(() => {
         if (decision.manualExecutorAppealAppellant) {
@@ -59,8 +71,7 @@ export function ManualExecutorSmartCardPanel({
 
     useEffect(() => {
         if (workflowPhase === 'cassation_unlocked') {
-            setShowAppealForm(true);
-            setAppealKind('tamyeez');
+            setShowAppealForm(false);
         }
     }, [workflowPhase, decision.id]);
 
@@ -72,19 +83,29 @@ export function ManualExecutorSmartCardPanel({
 
     if (flag === 3) return null;
 
-    if (shouldShowAppealDeadlineLapseActions(decision)) {
+    if (
+        shouldShowAppealDeadlineLapseActions(decision) &&
+        workflowPhase !== 'cassation_pending'
+    ) {
         return null;
     }
 
     const submitInitialAppeal = () => {
         const patch = buildManualExecutorAppealFilePatch(decision, appellant, appealKind);
+        if (!patch.executorDecisionStatusFlag) {
+            SmartToast.error(
+                appealKind === 'tadhallum'
+                    ? 'انتهت مهلة التظلم — لا يمكن تسجيل الطعن بهذا النوع'
+                    : 'انتهت مهلة التمييز — لا يمكن تسجيل الطعن بهذا النوع'
+            );
+            return;
+        }
         patchDecisionRow(decision.id, patch);
         logAppealTimeline(
             appealKind === 'tadhallum' ? 'تسجيل تظلم' : 'تسجيل تمييز',
             patch.appealTimelineLogs?.[0]?.message
         );
         setShowAppealForm(false);
-        queueMicrotask(() => goToAppealsWithScroll(decision.id));
     };
 
     const submitGrievanceOutcome = (accepted: boolean) => {
@@ -102,118 +123,118 @@ export function ManualExecutorSmartCardPanel({
     };
 
     const submitCassation = () => {
+        const party = manualExecutorAwaitingCassationParty(decision);
+        if (!party) return;
         const patch = buildManualExecutorCassationFilePatch(decision);
+        if (!patch.manualExecutorAppealAppellant) return;
         patchDecisionRow(decision.id, patch);
         logAppealTimeline('تسجيل تمييز', patch.appealTimelineLogs?.[0]?.message);
-        setShowAppealForm(false);
     };
 
-    const resolveWon = () => {
-        const patch = buildManualExecutorAppealWonPatch(decision);
+    const submitCassationNaqd = () => {
+        const patch = buildManualExecutorCassationNaqdPatch(decision);
         if (!patch.executorDecisionStatusFlag) return;
         patchDecisionRow(decision.id, patch);
-        logAppealTimeline('حسم التمييز — كسبنا', patch.appealTimelineLogs?.[0]?.message);
-        if (patch.executorDecisionStatusFlag === 3 || patch.isArchived) {
+        logAppealTimeline('نتيجة التمييز', patch.appealTimelineLogs?.[0]?.message);
+        if (patch.isArchived) {
             queueMicrotask(() => onOpenArchiveTab());
         }
     };
 
-    const resolveLost = () => {
-        const patch = buildManualExecutorAppealLostPatch(decision);
+    const submitCassationRadLaheeza = () => {
+        const patch = buildManualExecutorCassationRadLaheezaPatch(decision);
         if (!patch.executorDecisionStatusFlag) return;
         patchDecisionRow(decision.id, patch);
-        logAppealTimeline('حسم التمييز — خسرنا', patch.appealTimelineLogs?.[0]?.message);
-        if (patch.executorDecisionStatusFlag === 3 || patch.isArchived) {
+        logAppealTimeline('نتيجة التمييز', patch.appealTimelineLogs?.[0]?.message);
+        if (patch.isArchived) {
             queueMicrotask(() => onOpenArchiveTab());
         }
     };
-
-    const cassationOnlyLocked = workflowPhase === 'cassation_unlocked';
-    const grievanceLocked = workflowPhase === 'grievance_pending' || cassationOnlyLocked;
 
     if (workflowPhase === 'grievance_pending' && !windows.isPastGrievanceDeadline) {
+        const grievanceFiler =
+            decision.manualExecutorAppealAppellant === 'debtor' ? 'المدين' : 'الدائن';
         return (
             <div className="min-h-0 flex w-full min-w-0 flex-col gap-2">
                 <p className="text-[10px] leading-relaxed text-amber-200/90">
-                    سجّل نتيجة قرار المنفذ في التظلم المعلّق:
+                    مقدّم التظلم: {grievanceFiler} — سجّل نتيجة قرار المنفذ:
                 </p>
                 <ManualExecutorAppealClockField
                     id={`grievance-outcome-date-${decision.id}`}
                     label="تاريخ إصدار قرار التظلم (معيار بدء احتساب مهلة التمييز)"
                     valueYmd={grievanceOutcomeDateYmd}
                     onChangeYmd={setGrievanceOutcomeDateYmd}
-                    hint={`القرار الأصلي صدر بتاريخ ${formatAppealClockYmdLabel(originalDecisionYmd)} — تُحسب مهلة التمييز من اليوم التالي لتاريخ قرار التظلم أعلاه.`}
                 />
                 <button
                     type="button"
                     onClick={() => submitGrievanceOutcome(true)}
                     className={btnPrimaryWFull}
                 >
-                    قُبل التظلم (تعديل/إلغاء القرار الأصلي)
+                    قبول التظلم
                 </button>
                 <button
                     type="button"
                     onClick={() => submitGrievanceOutcome(false)}
                     className="w-full rounded-xl border border-white/10 bg-white/[0.04] py-2 px-3 text-center text-[11px] font-bold text-slate-200 backdrop-blur-md transition-all duration-200 hover:border-white/18 hover:bg-white/[0.08]"
                 >
-                    رُدّ التظلم (تأييد القرار الأصلي)
+                    رد التظلم
                 </button>
             </div>
         );
     }
 
-    if (workflowPhase === 'cassation_unlocked' && windows.canTamyeez) {
-        const cassationClockYmd = resolveCassationAppealClockYmd(decision);
+    if (workflowPhase === 'cassation_unlocked') {
+        const cassationParty = manualExecutorAwaitingCassationParty(decision);
+        if (!cassationParty) return null;
+        if (!windows.canTamyeez) return null;
         return (
             <div className="min-h-0 space-y-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                <p className="text-[10px] leading-relaxed text-amber-200/90">
-                    انتهى التظلم — الممر الوحيد المتبقي هو التمييز خلال مهلة 7 أيام.
-                </p>
-                <ManualExecutorAppealClockField
-                    id={`cassation-clock-${decision.id}`}
-                    label="تاريخ إصدار القرار (معيار احتساب مهلة التمييز)"
-                    valueYmd={cassationClockYmd}
-                    readOnly
-                    hint={`القرار الأصلي: ${formatAppealClockYmdLabel(originalDecisionYmd)} — مهلة التمييز من اليوم التالي للتاريخ المعروض.`}
+                <AppealSelectedDeadlineHint
+                    kind="tamyeez"
+                    decisionYmd={originalDecisionYmd}
+                    windows={windows}
                 />
-                <div className="space-y-1.5">
-                    <label
-                        htmlFor={`appeal-kind-cassation-${decision.id}`}
-                        className="text-[10px] font-bold text-slate-400"
-                    >
-                        نوع الطعن القانوني
-                    </label>
-                    <select
-                        id={`appeal-kind-cassation-${decision.id}`}
-                        value="tamyeez"
-                        disabled
-                        className="w-full cursor-not-allowed rounded-xl border border-[#E6C673]/30 bg-[#E6C673]/10 px-3 py-2 text-[11px] text-[#E6C673] outline-none"
-                    >
-                        <option value="tamyeez">طعن تمييزي أمام محكمة الاستئناف</option>
-                    </select>
-                </div>
                 <button type="button" onClick={submitCassation} className={btnPrimaryWFull}>
-                    تسجيل التمييز
+                    {manualExecutorCassationEntryButtonLabel(cassationParty)}
                 </button>
             </div>
         );
     }
 
-    if (workflowPhase === 'cassation_pending' && windows.canTamyeez) {
+    if (workflowPhase === 'cassation_pending') {
+        const cassationParty = decision.manualExecutorAppealAppellant;
         return (
             <div className="flex w-full min-w-0 flex-col gap-2">
-                <button type="button" onClick={resolveWon} className={btnPrimaryWFull}>
-                    كسبنا الطعن (نقض القرار)
+                {cassationParty ? (
+                    <span
+                        className={`${DECISION_BTN_DEBTOR_APPEAL_NOTICE} pointer-events-none`}
+                        aria-live="polite"
+                    >
+                        {manualExecutorCassationFiledNoticeLabel(cassationParty)}
+                    </span>
+                ) : null}
+                <p className="text-[10px] leading-relaxed text-slate-400">نتيجة التمييز:</p>
+                <button type="button" onClick={submitCassationNaqd} className={btnPrimaryWFull}>
+                    نقض القرار
                 </button>
                 <button
                     type="button"
-                    onClick={resolveLost}
+                    onClick={submitCassationRadLaheeza}
                     className="w-full rounded-xl border border-rose-500/25 bg-rose-500/10 py-2 px-3 text-center text-[11px] font-bold text-rose-200 backdrop-blur-md transition-all duration-200 hover:border-rose-500/40 hover:bg-rose-500/15"
                 >
-                    خسرنا الطعن (تصديق القرار)
+                    رد اللائحة
                 </button>
             </div>
         );
+    }
+
+    if (flag === 2) {
+        return null;
+    }
+
+    const appealWindowsOpen = windows.canTadhallum || windows.canTamyeez;
+    if (!appealWindowsOpen) {
+        return null;
     }
 
     return (
@@ -221,59 +242,68 @@ export function ManualExecutorSmartCardPanel({
             {!showAppealForm ? (
                 <button
                     type="button"
-                    onClick={() => setShowAppealForm(true)}
+                    onClick={() => {
+                        setAppealKind(windows.canTadhallum ? 'tadhallum' : 'tamyeez');
+                        setShowAppealForm(true);
+                    }}
                     className={btnPrimaryWFull}
                 >
                     تسجيل الطعن
                 </button>
             ) : (
                 <div className="min-h-0 space-y-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                    <div className="space-y-2">
-                        <p className="text-[10px] font-bold text-slate-400">مَن هو الطاعن؟</p>
-                        <label className="flex cursor-pointer items-center gap-2 text-[11px] text-slate-200">
-                            <input
-                                type="radio"
-                                name={`appellant-${decision.id}`}
-                                checked={appellant === 'lawyer'}
-                                onChange={() => setAppellant('lawyer')}
-                                className="accent-[#E6C673]"
-                            />
-                            الدائن
-                        </label>
-                        <label className="flex cursor-pointer items-center gap-2 text-[11px] text-slate-200">
-                            <input
-                                type="radio"
-                                name={`appellant-${decision.id}`}
-                                checked={appellant === 'debtor'}
-                                onChange={() => setAppellant('debtor')}
-                                className="accent-[#E6C673]"
-                            />
-                            المدين
-                        </label>
+                    <div className="space-y-1.5">
+                        <p className="text-[10px] font-bold text-slate-400">نوع الطعن</p>
+                        <div className="flex flex-wrap justify-end gap-2">
+                            <button
+                                type="button"
+                                disabled={!windows.canTadhallum}
+                                onClick={() => setAppealKind('tadhallum')}
+                                className={`${CHIP_BASE} ${appealKind === 'tadhallum' ? CHIP_ON : CHIP_OFF}`}
+                            >
+                                تظلم أمام المنفذ
+                            </button>
+                            <button
+                                type="button"
+                                disabled={!windows.canTamyeez}
+                                onClick={() => setAppealKind('tamyeez')}
+                                className={`${CHIP_BASE} ${appealKind === 'tamyeez' ? CHIP_ON : CHIP_OFF}`}
+                            >
+                                تمييز أمام الاستئناف
+                            </button>
+                        </div>
+                        <AppealSelectedDeadlineHint
+                            kind={appealKind}
+                            decisionYmd={originalDecisionYmd}
+                            windows={windows}
+                        />
                     </div>
                     <div className="space-y-1.5">
-                        <label
-                            htmlFor={`appeal-kind-${decision.id}`}
-                            className="text-[10px] font-bold text-slate-400"
-                        >
-                            نوع الطعن القانوني
-                        </label>
-                        <select
-                            id={`appeal-kind-${decision.id}`}
-                            value={appealKind}
-                            onChange={(e) =>
-                                setAppealKind(e.target.value as 'tadhallum' | 'tamyeez')
-                            }
-                            className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[11px] text-white outline-none focus:border-[#E6C673]/40"
-                        >
-                            {windows.canTadhallum && !grievanceLocked ? (
-                                <option value="tadhallum">تظلم أمام المنفذ العدل</option>
-                            ) : null}
-                            <option value="tamyeez">طعن تمييزي أمام محكمة الاستئناف</option>
-                        </select>
+                        <p className="text-[10px] font-bold text-slate-400">مقدّم التظلم</p>
+                        <div className="flex flex-wrap justify-end gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setAppellant('lawyer')}
+                                className={`${CHIP_BASE} ${appellant === 'lawyer' ? CHIP_ON : CHIP_OFF}`}
+                            >
+                                الدائن
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setAppellant('debtor')}
+                                className={`${CHIP_BASE} ${appellant === 'debtor' ? CHIP_ON : CHIP_OFF}`}
+                            >
+                                المدين
+                            </button>
+                        </div>
                     </div>
-                    <div className="flex flex-row-reverse gap-2">
-                        <button type="button" onClick={submitInitialAppeal} className={btnPrimaryWFull}>
+                    <div className="flex flex-row-reverse gap-2 pt-1">
+                        <button
+                            type="button"
+                            onClick={submitInitialAppeal}
+                            disabled={!canSubmitInitialAppeal}
+                            className={`${btnPrimaryWFull}${!canSubmitInitialAppeal ? ' pointer-events-none opacity-40' : ''}`}
+                        >
                             حفظ
                         </button>
                         <button

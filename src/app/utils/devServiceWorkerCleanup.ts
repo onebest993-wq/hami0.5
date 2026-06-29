@@ -2,6 +2,8 @@
  * في التطوير: إلغاء Service Worker والكاش حتى لا يُقدَّم @vite/client قديم
  * (يسبب فشل WebSocket و ReferenceError من حزم قديمة).
  */
+import { debug } from '@/app/utils/debug';
+
 export async function cleanupDevServiceWorkers(): Promise<void> {
     if (!import.meta.env.DEV) return;
     if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
@@ -18,9 +20,9 @@ export async function cleanupDevServiceWorkers(): Promise<void> {
         }
 
         if (registrations.length > 0 || cacheCount > 0) {
-            console.info('[Hami Dev] تم مسح Service Worker والكاش — أعد تحميل الصفحة مرة واحدة (Ctrl+Shift+R)');
+            debug.info('[Hami Dev] تم مسح Service Worker والكاش — أعد تحميل الصفحة مرة واحدة (Ctrl+Shift+R)');
         }
     } catch (error) {
-        console.warn('[Hami Dev] تعذّر مسح Service Worker:', error);
+        debug.warn('[Hami Dev] تعذّر مسح Service Worker:', error);
     }
 }

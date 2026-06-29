@@ -5,8 +5,8 @@ import {
     readDevMockUser,
     readPersistedSupabaseAuth,
 } from '@/app/utils/authStorage';
-import { createGuestLawyerSession } from '@/app/utils/guestLawyerSession';
-import { isBffAuthEnabled } from '@/app/utils/bffAuthClient';
+import { getDevMockLawyerSession } from '@/app/services/auth/devMockLawyerAuth';
+import { isBffAuthEnabled } from '@/app/utils/bffAuthFlags';
 import { isShellAuthBypassed } from '@/app/services/auth/shellAuth';
 
 export type AuthBootState = { user: User | null; session: Session | null };
@@ -37,7 +37,7 @@ function devMockBootState(): AuthBootState | null {
 /** حالة المصادقة الأولية — بدون ضيف تلقائي في الإنتاج */
 export function resolveInitialAuthState(): AuthBootState {
     if (isBffAuthEnabled()) {
-        return isShellAuthBypassed() ? createGuestLawyerSession() : EMPTY_AUTH;
+        return isShellAuthBypassed() ? getDevMockLawyerSession() : EMPTY_AUTH;
     }
 
     const persisted = readPersistedSupabaseAuth();
@@ -48,7 +48,7 @@ export function resolveInitialAuthState(): AuthBootState {
     const devMock = devMockBootState();
     if (devMock) return devMock;
 
-    return isShellAuthBypassed() ? createGuestLawyerSession() : EMPTY_AUTH;
+    return isShellAuthBypassed() ? getDevMockLawyerSession() : EMPTY_AUTH;
 }
 
 /** بعد تسجيل الخروج أو غياب جلسة — ضيف فقط في وضع التطوير/التجاوز */

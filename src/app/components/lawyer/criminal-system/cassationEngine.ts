@@ -13,7 +13,7 @@ import type {
 } from '@/app/types/criminal';
 import { CASSATION_APPEAL_RESULT_TO_OUTCOME, type DispositiveCassationAppealResult } from '@/app/types/criminal';
 import { isDispositiveCassationResult } from './proceduralCassationResults';
-import type { CriminalCase, CriminalDefendant, StageConclusion, TimelineEvent } from './criminalStore';
+import type { CriminalCase, CriminalDefendant, StageConclusion, TimelineEvent } from './criminalCaseModel';
 import {
     appendStageJourneyNode,
     buildInitialStageJourney,

@@ -1,5 +1,5 @@
 // @ts-nocheck
-/** مرافق تنفيذ ثقيلة — chunk execution-helpers (منفصل عن static-scope و UI scope) */
+/** مرافق تنفيذ ثقيلة — chunk execution-helpers */
 import {
     getExecutionModuleStrategy,
     isEvictionClaim,

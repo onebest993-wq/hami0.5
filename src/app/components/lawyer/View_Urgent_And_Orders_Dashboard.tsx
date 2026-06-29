@@ -15,7 +15,7 @@ import { SmartToast } from '@/app/components/ui/SmartToast';
 import { DashboardControls } from './View_Urgent_And_Orders_Dashboard/DashboardControls';
 import { DashboardSection } from './View_Urgent_And_Orders_Dashboard/DashboardSection';
 import type { ViewMode, FilterStatus, Props } from './View_Urgent_And_Orders_Dashboard/types';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuthSafe } from '@/app/context/AuthContext';
 import { loadPersistedViewMode, persistViewMode } from '@/app/services/settings/builtInBehavior';
 import { DeferredActiveOrderFile, preloadActiveOrderFilePanel } from './DeferredActiveOrderFile';
 import { ErrorBoundary } from '@/app/components/ui/ErrorBoundary';
@@ -106,7 +106,7 @@ export const View_Urgent_And_Orders_Dashboard: React.FC<Props> = ({
     focusCaseId,
     embeddedInWorkspace = false,
 }) => {
-    const { user: authUser, isLoading: authLoading } = useAuth();
+    const { user: authUser, isLoading: authLoading } = useAuthSafe();
     const userId = useMemo(() => {
         if (authLoading) return null;
         return authUser?.id ?? 'dev-user-uuid-1';

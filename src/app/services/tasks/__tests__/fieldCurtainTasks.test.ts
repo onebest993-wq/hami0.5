@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import {
     countActiveFieldCurtainTasks,
+    countFieldDaySheetTasks,
     listActiveFieldCurtainTasks,
+    listFieldDaySheetTasks,
     sortFieldCurtainTasks,
 } from '@/app/services/tasks/fieldCurtainTasks';
 
@@ -58,5 +60,41 @@ describe('fieldCurtainTasks', () => {
             fieldCurtainPinnedAt: new Date('2026-06-01'),
         });
         expect(sortFieldCurtainTasks([older, newer]).map((t) => t.id)).toEqual(['b', 'a']);
+    });
+
+    it('includes today field tasks in sheet list even when not pinned', () => {
+        const today = new Date('2026-06-21T10:00:00');
+        const tasks = [
+            task({
+                id: '1',
+                title: 'ميدانية اليوم',
+                parsedDate: new Date('2026-06-21T09:00:00'),
+            }),
+            task({
+                id: '2',
+                title: 'بعيدة',
+                parsedDate: new Date('2026-08-01T09:00:00'),
+            }),
+        ];
+        expect(listFieldDaySheetTasks(tasks, today).map((t) => t.id)).toEqual(['1']);
+        expect(countFieldDaySheetTasks(tasks, today)).toBe(1);
+    });
+
+    it('sheet list still prioritizes pinned tasks', () => {
+        const today = new Date('2026-06-21T10:00:00');
+        const tasks = [
+            task({
+                id: 'unpinned',
+                title: 'اليوم',
+                parsedDate: new Date('2026-06-21T09:00:00'),
+            }),
+            task({
+                id: 'pinned',
+                title: 'مثبت',
+                pinnedToFieldCurtain: true,
+                fieldCurtainPinnedAt: new Date('2026-06-21T08:00:00'),
+            }),
+        ];
+        expect(listFieldDaySheetTasks(tasks, today).map((t) => t.id)).toEqual(['pinned', 'unpinned']);
     });
 });

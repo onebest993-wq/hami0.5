@@ -1,4 +1,4 @@
-import type { LawyerRequest } from './criminalStore';
+import type { LawyerRequest } from './criminalCaseModel';
 import { isLawyerRequestFinalStatus, isLawyerRequestLocked } from './lawyerRequestStatusMachine';
 import { validateDetentionDateRange } from './detentionEngine';
 import { isTimelineNextDateInvalid } from './criminalStageUtils';

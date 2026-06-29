@@ -4,7 +4,7 @@ import type {
     LegalTask,
     TaskExpenseEntry,
 } from '@/app/types/TaskEngine';
-import { countActiveFieldCurtainTasks } from '@/app/services/tasks/fieldCurtainTasks';
+import { countFieldDaySheetTasks } from '@/app/services/tasks/fieldCurtainTasks';
 
 export const QUANTUM_TASKS_STORAGE_KEY = 'hami_quantum_legal_tasks_v1';
 
@@ -109,6 +109,12 @@ export function deserializeQuantumTasks(raw: unknown): LegalTask[] {
                 subTasks: mapSubTasks(r.subTasks),
                 documentRequirements: mapDocumentRequirements(r.documentRequirements),
                 expenses: mapExpenses(r.expenses),
+                voiceRef: r.voiceRef == null ? null : String(r.voiceRef),
+                voiceTranscript: r.voiceTranscript == null ? null : String(r.voiceTranscript),
+                voiceDurationSec:
+                    typeof r.voiceDurationSec === 'number' && Number.isFinite(r.voiceDurationSec)
+                        ? r.voiceDurationSec
+                        : null,
             } as LegalTask;
         })
         .filter((t) => t.id.length > 0);
@@ -127,7 +133,7 @@ export function serializeQuantumTasks(tasks: LegalTask[]): { tasks: Record<strin
     };
 }
 
-/** عداد شارة الدوك — مهام مثبتة على ستارة الميدان وغير منجزة. */
+/** عداد شارة الدوك — مهام اليوم الميدانية المستحقة أو المثبتة على الستارة. */
 export function countPendingFieldTasks(pendingTasks: LegalTask[]): number {
-    return countActiveFieldCurtainTasks(pendingTasks);
+    return countFieldDaySheetTasks(pendingTasks);
 }

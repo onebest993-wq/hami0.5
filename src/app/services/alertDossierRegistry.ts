@@ -5,7 +5,7 @@ import type { CriminalCase } from '@/app/components/lawyer/criminal-system/crimi
 import type { CalendarSourceModule } from '@/app/services/calendarBridge.types';
 import type { ExecutionFile } from '@/app/types/execution';
 import { normalizeDossierLifecycleStatus } from '@/app/types/execution';
-import { isExecutionInTrash } from '@/app/utils/executionTrash';
+import { isExecutionArchived, isExecutionInTrash } from '@/app/utils/executionTrash';
 
 export type DossierContext = {
     clientName: string;
@@ -41,6 +41,7 @@ export function isActiveExecutionFile(raw: unknown): boolean {
     const f = raw as ExecutionFile & { executionTrashDeletedAt?: string | null; deleted?: boolean };
     if (f.deleted === true) return false;
     if (isExecutionInTrash(f)) return false;
+    if (isExecutionArchived(f)) return false;
     if (normalizeDossierLifecycleStatus(f.dossier_lifecycle_status) === 'finished') return false;
     return true;
 }

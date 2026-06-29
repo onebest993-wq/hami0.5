@@ -90,11 +90,12 @@ export const EventCard = React.memo(function EventCard({
                             </button>
                         )}
                         {event.source === 'calendar' && !isDiscovered && (
-                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity">
                                 <button
                                     type="button"
                                     onClick={() => onEdit(event)}
-                                    className="p-1.5 rounded-lg hover:bg-[#F5EDE0]/10 text-[#E8DCC8]/55 hover:text-[#D4A87A] transition-colors"
+                                    aria-label="تعديل الموعد"
+                                    className="p-1.5 rounded-lg hover:bg-[#F5EDE0]/10 text-[#E8DCC8]/55 hover:text-[#D4A87A] transition-colors touch-manipulation"
                                 >
                                     <svg
                                         xmlns="http://www.w3.org/2000/svg"
@@ -115,7 +116,8 @@ export const EventCard = React.memo(function EventCard({
                                     <button
                                         type="button"
                                         onClick={() => onDelete(event)}
-                                        className="p-1.5 rounded-lg hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-colors"
+                                        aria-label="حذف الموعد"
+                                        className="p-1.5 rounded-lg hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-colors touch-manipulation"
                                     >
                                         <Trash2 size={14} />
                                     </button>
@@ -137,8 +139,9 @@ export const EventCard = React.memo(function EventCard({
                             type="button"
                             onClick={() =>
                                 window.open(
-                                    `https://wa.me/${event.clientPhone}?text=مرحباً ${event.clientName}، تذكير بالموعد: ${event.title}`,
+                                    `https://wa.me/${encodeURIComponent(String(event.clientPhone).replace(/[^\d+]/g, ''))}?text=${encodeURIComponent(`مرحباً ${event.clientName}، تذكير بالموعد: ${event.title}`)}`,
                                     '_blank',
+                                    'noopener,noreferrer',
                                 )
                             }
                             className="flex-1 bg-[#F5EDE0]/[0.04] hover:bg-emerald-600/15 hover:text-emerald-400 border border-[#F5EDE0]/10 hover:border-emerald-500/30 text-[#E8DCC8]/75 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all"
@@ -153,6 +156,7 @@ export const EventCard = React.memo(function EventCard({
                                     window.open(
                                         `https://www.google.com/maps/search/${encodeURIComponent(event.location)}`,
                                         '_blank',
+                                        'noopener,noreferrer',
                                     )
                                 }
                                 className="flex-1 bg-[#F5EDE0]/[0.04] hover:bg-[#C4956A]/15 hover:text-[#F5EDE0] border border-[#F5EDE0]/10 hover:border-[#C4956A]/35 text-[#E8DCC8]/75 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all"

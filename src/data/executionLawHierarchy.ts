@@ -175,6 +175,11 @@ export const TAKHLYA_DEFAULT_LEAF_ID: ExecutionLawLeafId = 'adjudication_deliver
 
 export type ExecutionLawLeafFilter = ExecutionLawLeafId | 'all_in_parent';
 
+/** عرض كل مواد القانون 1–130 دون تقييد التبويب */
+export type ExecutionLawParentScope = ExecutionLawParentId | 'all_articles';
+
+export const ALL_EXECUTION_ARTICLES_SCOPE = 'all_articles' as const;
+
 /** فلاتر استعراض الأدمن — مُشتقة من التصنيف الفرعي نفسه */
 export function buildExecutionLawAdminBrowseFilters(): Array<{
     id: string;

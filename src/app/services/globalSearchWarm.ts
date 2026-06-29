@@ -34,57 +34,100 @@ export function resetGlobalSearchWarmState(): void {
 }
 
 export function isGlobalSearchPipelineWarm(input: WarmGlobalSearchInput, profileLine: string, extrasLoaded: boolean): boolean {
-    if (!extrasLoaded || !input.userId) return false;
+    if (!input.userId) return false;
     const prepared = prepareGlobalSearchIndexInput({
         ...input,
         profileLine,
         cases: useCaseStore.getState().cases,
-        extras: getCachedGlobalSearchExtras(input.userId) ?? undefined,
+        extras: extrasLoaded ? getCachedGlobalSearchExtras(input.userId) ?? undefined : undefined,
     });
     const key = computeGlobalSearchIndexKey(prepared);
     return Boolean(getCachedGlobalSearchIndex(key) && hasCachedGlobalSearchFuse(key));
 }
 
-/** تسخين كامل: extras → profile → index idle → Fuse — لأول فتح فوري للبحث. */
-export function warmGlobalSearchPipeline(input: WarmGlobalSearchInput): void {
+async function warmCoreIndex(
+    input: WarmGlobalSearchInput,
+    seq: number,
+    priority: 'interactive' | 'idle',
+): Promise<string | null> {
+    const profileLine = input.userId ? await resolveProfileLine(input.userId).catch(() => '') : '';
+    if (seq !== warmSeq) return null;
+
+    const prepared = prepareGlobalSearchIndexInput({
+        ...input,
+        profileLine,
+        cases: useCaseStore.getState().cases,
+    });
+    const key = computeGlobalSearchIndexKey(prepared);
+    if (hasCachedGlobalSearchFuse(key)) return key;
+
+    const index = await resolveGlobalSearchIndex(prepared, priority);
+    if (seq !== warmSeq) return null;
+    getOrCreateGlobalSearchFuse(key, index);
+    return key;
+}
+
+async function warmFullIndex(
+    input: WarmGlobalSearchInput,
+    seq: number,
+    priority: 'interactive' | 'idle',
+): Promise<void> {
+    const uid = input.userId;
+    if (!uid) return;
+
+    let extras = getCachedGlobalSearchExtras(uid);
+    if (!extras) {
+        extras = await loadGlobalSearchExtras(uid).catch(() => null);
+    }
+    if (seq !== warmSeq || !extras) return;
+
+    const profileLine = await resolveProfileLine(uid).catch(() => '');
+    if (seq !== warmSeq) return;
+
+    const prepared = prepareGlobalSearchIndexInput({
+        ...input,
+        profileLine,
+        cases: useCaseStore.getState().cases,
+        extras,
+    });
+    const key = computeGlobalSearchIndexKey(prepared);
+
+    if (lastWarmKey === key && getCachedGlobalSearchIndex(key) && hasCachedGlobalSearchFuse(key)) {
+        return;
+    }
+
+    const index = await resolveGlobalSearchIndex(prepared, priority);
+    if (seq !== warmSeq) return;
+    getOrCreateGlobalSearchFuse(key, index);
+    lastWarmKey = key;
+}
+
+/** تسخين: فهرس أساسي فوراً (دعاوى/ملاحظات) ثم extras → فهرس كامل. */
+export function warmGlobalSearchPipeline(input: WarmGlobalSearchInput, immediate = false): void {
     if (typeof window === 'undefined') return;
 
     const seq = ++warmSeq;
-    const uid = input.userId;
-    const idleTimeout = import.meta.env.DEV ? 3_500 : 2_000;
+    const priority = immediate ? 'interactive' : 'idle';
+    const idleTimeout = immediate ? 0 : import.meta.env.DEV ? 3_500 : 2_000;
 
-    void (async () => {
-        let extras = uid ? getCachedGlobalSearchExtras(uid) : null;
-        if (!extras && uid) {
-            extras = await loadGlobalSearchExtras(uid).catch(() => null);
-        }
-        if (seq !== warmSeq || !extras) return;
-
-        const profileLine = await resolveProfileLine(uid);
+    const run = () => {
         if (seq !== warmSeq) return;
+        void warmCoreIndex(input, seq, priority)
+            .catch(() => {
+                /* تسخين اختياري */
+            })
+            .then(() => {
+                if (seq !== warmSeq) return;
+                return warmFullIndex(input, seq, priority);
+            })
+            .catch(() => {
+                /* تسخين اختياري */
+            });
+    };
 
-        const prepared = prepareGlobalSearchIndexInput({
-            ...input,
-            profileLine,
-            cases: useCaseStore.getState().cases,
-            extras,
-        });
-        const key = computeGlobalSearchIndexKey(prepared);
-
-        if (lastWarmKey === key && getCachedGlobalSearchIndex(key) && hasCachedGlobalSearchFuse(key)) {
-            return;
-        }
-
-        scheduleIdle(() => {
-            if (seq !== warmSeq) return;
-            void resolveGlobalSearchIndex(prepared)
-                .then((index) => getOrCreateGlobalSearchFuse(key, index))
-                .then(() => {
-                    if (seq === warmSeq) lastWarmKey = key;
-                })
-                .catch(() => {
-                    /* تسخين اختياري */
-                });
-        }, idleTimeout);
-    })();
+    if (immediate) {
+        run();
+    } else {
+        scheduleIdle(run, idleTimeout);
+    }
 }

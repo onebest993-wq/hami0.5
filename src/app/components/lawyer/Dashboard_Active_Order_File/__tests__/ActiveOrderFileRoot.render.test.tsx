@@ -8,6 +8,7 @@ import type { UrgentCase } from '../../Component_Urgent_Card';
 
 vi.mock('@/app/context/AuthContext', () => ({
     useAuth: () => ({ user: { id: 'dev-user-uuid-1' }, isLoading: false }),
+    useAuthUser: () => ({ id: 'dev-user-uuid-1' }),
 }));
 
 function renderDossier(fileData: unknown) {

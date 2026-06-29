@@ -9,7 +9,10 @@ import {
     isExecutorRowRejectedAndFinal,
     readExecutorDecisionsArray,
 } from '@/app/utils/executorSeizureDecisionQueue';
-import { isExecutorDecisionRowEffectivelyEnforced } from '@/app/components/lawyer/ExecutionDashboard/utils/executorRequestEnforceability';
+import {
+    isExecutorDecisionRowEffectivelyEnforced,
+    isExecutorRowApprovedWorkflowActive,
+} from '@/app/components/lawyer/ExecutionDashboard/utils/executorRequestEnforceability';
 
 type PersonalCoerciveQueueState = ReturnType<typeof getPersonalCoerciveSubtypeOutcome>;
 
@@ -193,7 +196,7 @@ export function isArrestWarrantEnforceable(
     return String(ed?.personal_arrest_warrant_stage ?? '').trim() === 'issued';
 }
 
-/** منع سفر نافذ — يتزامن مع debtor_travel_ban_active وعدم توقيف الطعن */
+/** منع سفر نافذ — بعد موافقة المنفذ وانتهاء مسار الطعن الموقِف */
 export function isTravelBanEnforceable(
     ed: { debtor_travel_ban_active?: boolean; travel_ban_withdrawn_at?: string | null } | null | undefined,
     opts?: {
@@ -204,11 +207,11 @@ export function isTravelBanEnforceable(
     if (isTravelBanRequestWithdrawn(ed)) return false;
     if (ed?.debtor_travel_ban_active !== true) return false;
     const row = opts?.travelDecisionRow;
-    const all = opts?.allDecisions;
-    if (row && Array.isArray(all) && all.length > 0) {
+    const all = opts?.allDecisions ?? [];
+    if (row && all.length > 0) {
         return isExecutorDecisionRowEffectivelyEnforced(row, all);
     }
-    return true;
+    return false;
 }
 
 /** نتيجة قاضي البداءة الفعلية — من الملف أو صف القرار (بما فيه نقض التمييز) */
@@ -416,15 +419,29 @@ export function resolvePrimaryDebtorCoerciveStack(args: {
     const forcedNeedsOutcome =
         pcDecisions && Boolean(forcedSt?.approved) && !forcedBringResolved;
 
-    const showForcedAttendance =
-        !showArrestWarrantBadge &&
-        !forcedBringResolved &&
-        (Boolean(args.forcedAttendancePending) || forcedNeedsOutcome);
-
     const allDecisions = decId
         ? (readExecutorDecisionsArray(decId) as Record<string, unknown>[])
         : [];
     const scope = { debtorKey: args.activeDebtorKey, primaryDebtorKey: args.primaryDebtorKey };
+    const forcedRow =
+        decId && allDecisions.length > 0
+            ? getGoverningPersonalCoerciveSubtypeRowFromDecisions(
+                  allDecisions,
+                  'forced_bring_in',
+                  scope
+              )
+            : null;
+    const forcedBringWorkflowActive =
+        forcedRow != null && allDecisions.length > 0
+            ? isExecutorRowApprovedWorkflowActive(forcedRow, allDecisions)
+            : false;
+
+    const showForcedAttendance =
+        !showArrestWarrantBadge &&
+        !forcedBringResolved &&
+        forcedBringWorkflowActive &&
+        (forcedNeedsOutcome || Boolean(args.forcedAttendancePending));
+
     const travelDecisionRow =
         decId && allDecisions.length > 0
             ? getGoverningPersonalCoerciveSubtypeRowFromDecisions(allDecisions, 'travel_ban', scope)

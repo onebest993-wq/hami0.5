@@ -3,6 +3,13 @@ export const CAIRO_FONT_STYLE = { fontFamily: 'Cairo, sans-serif' } as const;
 export {
     ArchivePortalFallback as ARCHIVE_PORTAL_FALLBACK,
     CommunityScreenFallback as COMMUNITY_SCREEN_FALLBACK,
+    LawsuitsWorkspaceFallback as LAWSUITS_WORKSPACE_FALLBACK,
+    TransactionsHubFallback as TRANSACTIONS_HUB_FALLBACK,
+    RepositoryShellFallback as REPOSITORY_SHELL_FALLBACK,
+    ScheduleTabFallback as SCHEDULE_TAB_FALLBACK,
+    SettingsHubFallback as SETTINGS_HUB_FALLBACK,
+    TasksManagerFallback as TASKS_MANAGER_FALLBACK,
+    FieldTasksSheetFallback as FIELD_TASKS_SHEET_FALLBACK,
     LawyerLazyFallback as LAWYER_LAZY_FALLBACK,
     LawyerHomeAlertsFallback as LAWYER_HOME_ALERTS_FALLBACK,
     LawyerHomeHubFallback as LAWYER_HOME_HUB_FALLBACK,

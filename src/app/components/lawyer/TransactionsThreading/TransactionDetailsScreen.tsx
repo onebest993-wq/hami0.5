@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, MoreVertical, Share2 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -6,8 +6,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/app/components/ui/dropdown-menu';
-import { Drawer, DrawerContent } from '@/app/components/ui/drawer';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/app/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/app/components/ui/tabs';
 import { useTransactionsThreadingStore } from '@/app/modules/transactionsThreading/store';
 import { listTaskTemplates, saveTaskTemplate, deleteTaskTemplate } from '@/app/modules/transactionsThreading/taskTemplates';
@@ -19,29 +17,20 @@ import { DocumentsTabView } from './DocumentsTabView';
 import { FinancesTabView } from './FinancesTabView';
 import { generateClientReport } from './generateClientReport';
 import {
-    GLASS_BTN,
-    GLASS_FIELD,
+    canImportTaskTemplate,
+    importTaskTemplateToTransaction,
+} from '@/app/services/transactions/importTaskTemplateToTransaction';
+import { sanitizeTransactionTemplateName } from '@/app/services/transactions/transactionsInputSecurity';
+import {
     TX_ACCENT_SURFACE,
-    TX_DIALOG_BTN_CANCEL,
-    TX_DIALOG_DESC,
-    TX_DIALOG_SHELL,
-    TX_DIALOG_TITLE,
-    TX_DRAWER_SHELL,
     TX_DROPDOWN_CONTENT,
     TX_DROPDOWN_FOCUS,
     TX_GOLD_BTN,
     TX_ICON_BTN,
-    TX_INNER_SURFACE,
     TX_OCHRE_BTN,
-    TX_STATUS_ACTIVE,
-    TX_STATUS_COMPLETED,
-    TX_STATUS_PAUSED,
     TX_TAB_TRIGGER,
     TX_TEXT_MUTED,
     TX_TEXT_OCHRE,
-    TX_TEXT_PRIMARY,
-    TX_TEXT_SECONDARY,
-    TxGlassDrawerFrame,
     TxGlassFab,
     TxGlassHeader,
     TxGlassPage,
@@ -49,27 +38,24 @@ import {
     TxGlassTabsList,
     TxHeaderRow,
 } from './transactionsGlassTheme';
+import type { TransactionsDetailsEscapeSnapshot } from './transactionsEscapeStack';
+import { txStatusBadgeClass, txStatusLabelAr } from './transactionDetails/transactionDetailsUtils';
+import { TransactionDetailsDialogs } from './transactionDetails/TransactionDetailsDialogs';
 
 const EMPTY_TASKS: TransactionTask[] = [];
-
-function txStatusLabelAr(status: TransactionStatus) {
-  if (status === TransactionStatus.Active) return 'نشطة';
-  if (status === TransactionStatus.Paused) return 'في الانتظار';
-  return 'مكتملة';
-}
-
-function txStatusBadgeClass(status: TransactionStatus) {
-  if (status === TransactionStatus.Active) return TX_STATUS_ACTIVE;
-  if (status === TransactionStatus.Paused) return TX_STATUS_PAUSED;
-  return TX_STATUS_COMPLETED;
-}
 
 export function TransactionDetailsScreen({
   transactionId,
   onBack,
+  onEscapeSnapshotChange,
+  registerEscapeCloser,
 }: {
   transactionId: string;
   onBack?: () => void;
+  onEscapeSnapshotChange?: (snapshot: TransactionsDetailsEscapeSnapshot) => void;
+  registerEscapeCloser?: (
+    closer: ((patch: Partial<TransactionsDetailsEscapeSnapshot>) => void) | null,
+  ) => void;
 }) {
   const tx = useTransactionsThreadingStore((s) => s.transactions.find((t) => t.id === transactionId));
   const refreshTransactionData = useTransactionsThreadingStore((s) => s.refreshTransactionData);
@@ -88,6 +74,56 @@ export function TransactionDetailsScreen({
   const [templatesVersion, setTemplatesVersion] = useState(0);
   const [completeOpen, setCompleteOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [taskEscape, setTaskEscape] = useState({
+    taskCompleteOpen: false,
+    taskEditOpen: false,
+    taskDeleteOpen: false,
+  });
+  const closeTaskOverlayRef = useRef<(patch: Partial<TransactionsDetailsEscapeSnapshot>) => void>(
+    () => undefined,
+  );
+
+  const closeOverlay = useCallback((patch: Partial<TransactionsDetailsEscapeSnapshot>) => {
+    if (patch.reportOpen === false) setReportOpen(false);
+    if (patch.completeOpen === false) setCompleteOpen(false);
+    if (patch.saveTemplateOpen === false) setSaveTemplateOpen(false);
+    if (patch.templatesOpen === false) setTemplatesOpen(false);
+    if (patch.addTaskSheetOpen === false) {
+      setSheetOpen(false);
+      setParent(null);
+    }
+    const taskPatch: Partial<TransactionsDetailsEscapeSnapshot> = {};
+    if (patch.taskCompleteOpen === false) taskPatch.taskCompleteOpen = false;
+    if (patch.taskEditOpen === false) taskPatch.taskEditOpen = false;
+    if (patch.taskDeleteOpen === false) taskPatch.taskDeleteOpen = false;
+    if (Object.keys(taskPatch).length > 0) {
+      closeTaskOverlayRef.current(taskPatch);
+    }
+  }, []);
+
+  useEffect(() => {
+    registerEscapeCloser?.(closeOverlay);
+    return () => registerEscapeCloser?.(null);
+  }, [closeOverlay, registerEscapeCloser]);
+
+  useEffect(() => {
+    onEscapeSnapshotChange?.({
+      addTaskSheetOpen: sheetOpen,
+      reportOpen,
+      completeOpen,
+      saveTemplateOpen,
+      templatesOpen,
+      ...taskEscape,
+    });
+  }, [
+    sheetOpen,
+    reportOpen,
+    completeOpen,
+    saveTemplateOpen,
+    templatesOpen,
+    taskEscape,
+    onEscapeSnapshotChange,
+  ]);
 
   const parentHint = useMemo(() => {
     if (!parent) return null;
@@ -98,28 +134,37 @@ export function TransactionDetailsScreen({
     refreshTransactionData(transactionId);
   }, [refreshTransactionData, transactionId]);
 
+  const isReadOnly = tx?.status === TransactionStatus.Completed;
+  const templates = useMemo(
+    () => (tx && userId ? listTaskTemplates(userId) : []),
+    [templatesVersion, templatesOpen, userId, tx?.id],
+  );
+  const reportText = useMemo(
+    () => (tx ? generateClientReport(tx as Transaction, tasks) : ''),
+    [tx, tasks],
+  );
+
   if (!tx) {
     return (
-      <TxGlassPage>
-        <div className="flex items-center justify-center min-h-[60vh] px-6">
-          <TxGlassPanel className="px-6 py-8 text-center">
-            <p className={`${TX_TEXT_MUTED} text-sm font-medium`}>تعذر العثور على المعاملة</p>
-          </TxGlassPanel>
-        </div>
-      </TxGlassPage>
+      <div data-testid="transactions-details-screen">
+        <TxGlassPage>
+          <div className="flex items-center justify-center min-h-[60vh] px-6">
+            <TxGlassPanel className="px-6 py-8 text-center">
+              <p className={`${TX_TEXT_MUTED} text-sm font-medium`}>تعذر العثور على المعاملة</p>
+            </TxGlassPanel>
+          </div>
+        </TxGlassPage>
+      </div>
     );
   }
 
-  const isReadOnly = tx.status === TransactionStatus.Completed;
-  const templates = useMemo(() => (userId ? listTaskTemplates(userId) : []), [templatesVersion, templatesOpen, userId]);
+  const canSaveTemplate = !isReadOnly && tasks.length > 0 && !!userId;
 
   const requestAddTask = (p: TransactionTask | null) => {
     if (isReadOnly) return;
     setParent(p);
     setSheetOpen(true);
   };
-
-  const reportText = useMemo(() => generateClientReport(tx as Transaction, tasks), [tx, tasks]);
 
   const copyReport = async () => {
     try {
@@ -151,11 +196,9 @@ export function TransactionDetailsScreen({
     await setTransactionStatus(transactionId, TransactionStatus.Active);
   };
 
-  const canSaveTemplate = !isReadOnly && tasks.length > 0 && !!userId;
-
   const doSaveTemplate = () => {
     if (!canSaveTemplate) return;
-    const name = templateName.trim() || tx.title;
+    const name = sanitizeTransactionTemplateName(templateName, tx.title);
     if (!userId) return;
     saveTaskTemplate(userId, {
       name,
@@ -172,43 +215,20 @@ export function TransactionDetailsScreen({
   };
 
   const importTemplate = async (templateId: string) => {
-    if (isReadOnly) return;
-    if (tasks.length > 0) return;
+    if (!canImportTaskTemplate({ isReadOnly, existingTaskCount: tasks.length })) return;
     if (!userId) return;
     const template = listTaskTemplates(userId).find((t) => t.id === templateId);
     if (!template) return;
 
-    const mapOldToNew = new Map<string, string>();
-    const remaining = template.tasks.slice();
-    let guard = 0;
-    while (remaining.length && guard < 200) {
-      guard += 1;
-      let progressed = false;
-      for (let i = 0; i < remaining.length; i += 1) {
-        const t = remaining[i];
-        const canCreate = !t.parentTaskId || mapOldToNew.has(t.parentTaskId);
-        if (!canCreate) continue;
-        const parentTaskId = t.parentTaskId ? mapOldToNew.get(t.parentTaskId)! : null;
-        const created = await addTask({ transactionId, title: t.title, parentTaskId, deadline: t.deadline ?? null });
-        mapOldToNew.set(t.id, created.id);
-        remaining.splice(i, 1);
-        i -= 1;
-        progressed = true;
-      }
-      if (!progressed) {
-        for (const t of remaining) {
-          const created = await addTask({ transactionId, title: t.title, parentTaskId: null, deadline: t.deadline ?? null });
-          mapOldToNew.set(t.id, created.id);
-        }
-        remaining.length = 0;
-      }
-    }
-
-    await refreshTransactionData(transactionId);
+    await importTaskTemplateToTransaction(transactionId, template, {
+      addTask,
+      refreshTransactionData,
+    });
     setTemplatesOpen(false);
   };
 
   return (
+    <div data-testid="transactions-details-screen">
     <TxGlassPage>
       <Tabs dir="rtl" value={tab} onValueChange={(v) => setTab(v as 'path' | 'docs' | 'fin')} className="w-full">
         <TxGlassHeader>
@@ -216,6 +236,7 @@ export function TransactionDetailsScreen({
             title={tx.title}
             subtitle={tx.clientName}
             onBack={onBack}
+            backTestId="transactions-back"
             trailing={
               <div className={`px-2.5 py-0.5 rounded-[3px] border text-[10px] font-bold shrink-0 ${txStatusBadgeClass(tx.status)}`}>
                 {txStatusLabelAr(tx.status)}
@@ -297,6 +318,10 @@ export function TransactionDetailsScreen({
               onRequestAddTask={requestAddTask}
               onImportFromMyTemplates={() => setTemplatesOpen(true)}
               readOnly={isReadOnly}
+              onTaskEscapeSnapshotChange={setTaskEscape}
+              registerTaskEscapeCloser={(closer) => {
+                closeTaskOverlayRef.current = closer ?? (() => undefined);
+              }}
             />
           </TabsContent>
           <TabsContent value="docs" className="mt-0 focus-visible:outline-none">
@@ -323,115 +348,34 @@ export function TransactionDetailsScreen({
         readOnly={isReadOnly}
       />
 
-      <Dialog open={completeOpen} onOpenChange={setCompleteOpen}>
-        <DialogContent className={TX_DIALOG_SHELL}>
-          <DialogHeader className="text-right">
-            <DialogTitle className={TX_DIALOG_TITLE}>إنهاء المعاملة</DialogTitle>
-            <DialogDescription className={TX_DIALOG_DESC}>سيتم تحويل المعاملة إلى وضع القراءة فقط</DialogDescription>
-          </DialogHeader>
-          <div dir="rtl" className="text-right">
-            <div className={`${TX_INNER_SURFACE} p-4 ${TX_TEXT_SECONDARY} text-sm leading-7 font-medium`}>
-              بعد الأرشفة لن تتمكن من إضافة مهام/مستمسكات/حركات مالية أو تعديل الحالات.
-            </div>
-          </div>
-          <DialogFooter className="sm:justify-start gap-2">
-            <button type="button" onClick={() => setCompleteOpen(false)} className={TX_DIALOG_BTN_CANCEL}>
-              إلغاء
-            </button>
-            <button type="button" onClick={completeTransaction} className={GLASS_BTN + ' !w-auto px-5 h-11'}>
-              تأكيد الإنهاء
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={saveTemplateOpen} onOpenChange={setSaveTemplateOpen}>
-        <DialogContent className={TX_DIALOG_SHELL}>
-          <DialogHeader className="text-right">
-            <DialogTitle className={TX_DIALOG_TITLE}>حفظ المسار كقالب</DialogTitle>
-            <DialogDescription className={TX_DIALOG_DESC}>سيظهر القالب ضمن “قوالبي” للاستيراد لاحقاً</DialogDescription>
-          </DialogHeader>
-          <div dir="rtl" className="text-right">
-            <label className={`${TX_TEXT_MUTED} text-[11px] font-bold mb-1.5 block`}>اسم القالب</label>
-            <input
-              value={templateName}
-              onChange={(e) => setTemplateName(e.target.value)}
-              className={GLASS_FIELD}
-              placeholder="مثال: مسار قسام شرعي"
-            />
-          </div>
-          <DialogFooter className="sm:justify-start gap-2">
-            <button type="button" onClick={() => setSaveTemplateOpen(false)} className={TX_DIALOG_BTN_CANCEL}>
-              إلغاء
-            </button>
-            <button type="button" onClick={doSaveTemplate} className={GLASS_BTN + ' !w-auto px-5 h-11'}>
-              حفظ
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Drawer open={templatesOpen} onOpenChange={setTemplatesOpen}>
-        <DrawerContent className={TX_DRAWER_SHELL}>
-          <TxGlassDrawerFrame title="استيراد من قوالبي" subtitle="اختر قالباً محفوظاً لاستيراده إلى هذه المعاملة">
-            <div className="space-y-2">
-              {templates.length === 0 ? (
-                <TxGlassPanel className={`p-4 ${TX_TEXT_MUTED} text-sm font-medium`}>لا توجد قوالب محفوظة بعد.</TxGlassPanel>
-              ) : (
-                templates.map((t) => (
-                  <TxGlassPanel key={t.id} className="p-4 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className={`${TX_TEXT_PRIMARY} font-extrabold text-sm truncate`}>{t.name}</div>
-                      <div className={`${TX_TEXT_MUTED} text-xs mt-1 font-medium`}>{t.tasks.length} خطوة</div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        type="button"
-                        disabled={isReadOnly || tasks.length > 0}
-                        onClick={() => importTemplate(t.id)}
-                        className={TX_GOLD_BTN + ' disabled:opacity-50'}
-                      >
-                        استيراد
-                      </button>
-                      <button
-                        type="button"
-                        disabled={isReadOnly}
-                        onClick={() => {
-                          if (!userId) return;
-                          deleteTaskTemplate(userId, t.id);
-                          setTemplatesVersion((v) => v + 1);
-                        }}
-                        className={TX_DIALOG_BTN_CANCEL + ' !h-9 !px-3 text-xs disabled:opacity-50'}
-                      >
-                        حذف
-                      </button>
-                    </div>
-                  </TxGlassPanel>
-                ))
-              )}
-            </div>
-          </TxGlassDrawerFrame>
-        </DrawerContent>
-      </Drawer>
-
-      <Dialog open={reportOpen} onOpenChange={setReportOpen}>
-        <DialogContent className={TX_DIALOG_SHELL}>
-          <DialogHeader className="text-right">
-            <DialogTitle className={TX_DIALOG_TITLE}>تحديث الموكل</DialogTitle>
-            <DialogDescription className={TX_DIALOG_DESC}>نص جاهز للإرسال عبر واتساب</DialogDescription>
-          </DialogHeader>
-          <div dir="rtl" className="text-right">
-            <div className={`${TX_INNER_SURFACE} p-4 ${TX_TEXT_SECONDARY} text-sm whitespace-pre-wrap leading-7 max-h-[50vh] overflow-y-auto font-medium`}>
-              {reportText}
-            </div>
-          </div>
-          <DialogFooter className="sm:justify-start">
-            <button type="button" onClick={copyReport} className={GLASS_BTN + ' !w-auto px-5 h-11'}>
-              {copied ? 'تم النسخ' : 'نسخ النص'}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <TransactionDetailsDialogs
+        completeOpen={completeOpen}
+        onCompleteOpenChange={setCompleteOpen}
+        onCompleteTransaction={completeTransaction}
+        saveTemplateOpen={saveTemplateOpen}
+        onSaveTemplateOpenChange={setSaveTemplateOpen}
+        templateName={templateName}
+        onTemplateNameChange={setTemplateName}
+        onSaveTemplate={doSaveTemplate}
+        templatesOpen={templatesOpen}
+        onTemplatesOpenChange={setTemplatesOpen}
+        templates={templates}
+        isReadOnly={isReadOnly}
+        existingTaskCount={tasks.length}
+        userId={userId}
+        onImportTemplate={importTemplate}
+        onDeleteTemplate={(templateId) => {
+          if (!userId) return;
+          deleteTaskTemplate(userId, templateId);
+          setTemplatesVersion((v) => v + 1);
+        }}
+        reportOpen={reportOpen}
+        onReportOpenChange={setReportOpen}
+        reportText={reportText}
+        copied={copied}
+        onCopyReport={copyReport}
+      />
     </TxGlassPage>
+    </div>
   );
 }

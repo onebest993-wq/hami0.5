@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { mergeCommunityPostsById, type CommunityPost } from '@/app/services/lawyer-cloud';
+import { mergeCommunityPostsById } from '@/app/services/cloud/lawyerCommunityCloud';
+import type { CommunityPost } from '@/app/services/cloud/lawyerCommunityTypes';
 
 const base = (id: string, overrides: Partial<CommunityPost> = {}): CommunityPost => ({
     id,

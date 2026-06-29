@@ -3,7 +3,20 @@ import { useEffect } from 'react';
 /** يُطلَق لإغلاق الستائر/المديرات/المخزن قبل فتح طبقة ملء الشاشة أخرى */
 export const HAMI_DISMISS_OVERLAYS_EVENT = 'hami:dismiss-transient-overlays';
 
-export type TransientOverlayId = 'vault' | 'field-tasks' | 'tasks-manager' | 'transactions';
+export type TransientOverlayId =
+    | 'repository'
+    | 'vault'
+    | 'field-tasks'
+    | 'tasks-manager'
+    | 'transactions'
+    | 'global-search'
+    | 'notifications'
+    | 'profile'
+    | 'profile-settings'
+    | 'settings'
+    | 'forum'
+    | 'notepad'
+    | 'home-layout-edit';
 
 export function dismissTransientOverlays(except?: TransientOverlayId): void {
     if (typeof window === 'undefined') return;
@@ -13,6 +26,13 @@ export function dismissTransientOverlays(except?: TransientOverlayId): void {
 let lockCount = 0;
 let prevBodyOverflow = '';
 let prevHtmlOverflow = '';
+
+export function releaseBodyScrollLock(): void {
+    if (typeof document === 'undefined') return;
+    lockCount = 0;
+    document.body.style.overflow = prevBodyOverflow;
+    document.documentElement.style.overflow = prevHtmlOverflow;
+}
 
 export function lockBodyScroll(): () => void {
     if (typeof document === 'undefined') return () => undefined;

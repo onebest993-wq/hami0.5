@@ -11,8 +11,23 @@ import {
     applySilentPracticalEnrichment,
     type TaskEnrichmentOptions,
 } from '@/app/utils/quantumTaskEnrichment';
+import type { VoiceNoteSavePayload } from '@/app/components/lawyer/commandCenterTypes';
+import {
+    persistTaskVoiceAttachment,
+    removeTaskVoiceAttachment,
+    titleFromVoicePayload,
+} from '@/app/services/tasks/taskVoiceAttachment';
 
 export type AddTaskOptions = TaskEnrichmentOptions;
+
+/** حد أمان للنص الخام — يمنع تضخّم التخزين المحلي */
+export const MAX_TASK_RAW_LENGTH = 2000;
+
+const EMPTY_TASK_VOICE = {
+    voiceRef: null,
+    voiceTranscript: null,
+    voiceDurationSec: null,
+} as const;
 
 function newId(): string {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -24,9 +39,9 @@ function newId(): string {
 export function useQuantumTasks(initial: LegalTask[] = []) {
     const [tasks, setTasks] = useState<LegalTask[]>(() => prepareAgendaTasks(initial));
 
-    const addTask = useCallback((rawText: string, options?: AddTaskOptions) => {
+    const addTask = useCallback((rawText: string, options?: AddTaskOptions): LegalTask | null => {
         const trimmed = String(rawText ?? '').trim();
-        if (!trimmed) return;
+        if (!trimmed || trimmed.length > MAX_TASK_RAW_LENGTH) return null;
 
         const parsed = parseTaskInput(trimmed);
         const enriched = applySilentPracticalEnrichment(trimmed, parsed, options);
@@ -43,29 +58,64 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
             subTasks: [],
             documentRequirements: [],
             expenses: [],
+            ...EMPTY_TASK_VOICE,
         };
 
         setTasks((prev) => [...prev, next]);
-        // Audit log: تمت إضافة مهمة (نستخدم title لـ readable message)
-        try {
-            void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                AuditLog.task.created({
-                    taskId: nextId,
-                    title: enriched.title || trimmed,
-                    linkedCaseId: linkedCaseId ?? undefined,
-                });
-            });
-        } catch { /* silent */ }
+        return next;
     }, []);
 
-    const addWeeklyLocationBundle = useCallback((scheduledFor: Date, location: string, actionTitles: string[]) => {
+    const addTaskFromVoice = useCallback(
+        async (payload: VoiceNoteSavePayload, fallbackText?: string): Promise<LegalTask | null> => {
+            const titleSeed = titleFromVoicePayload(payload, fallbackText);
+            if (!titleSeed || titleSeed.length > MAX_TASK_RAW_LENGTH) return null;
+
+            const parsed = parseTaskInput(titleSeed);
+            const enriched = applySilentPracticalEnrichment(titleSeed, parsed);
+            const nextId = newId();
+            const voiceFields = await persistTaskVoiceAttachment(nextId, payload);
+            if (!voiceFields) return null;
+
+            const linkedCaseId = enriched.linkedCaseId ?? null;
+            const next: LegalTask = {
+                id: nextId,
+                rawText: titleSeed,
+                title: enriched.title || titleSeed,
+                location: enriched.location,
+                parsedDate: enriched.parsedDate,
+                reminderAt: null,
+                isFatalDeadline: enriched.isFatalDeadline,
+                linkedCaseId,
+                status: 'pending',
+                completedAt: null,
+                pinnedToFieldCurtain: false,
+                fieldCurtainPinnedAt: null,
+                subTasks: [],
+                documentRequirements: [],
+                expenses: [],
+                ...voiceFields,
+            };
+
+            setTasks((prev) => [...prev, next]);
+            return next;
+        },
+        [],
+    );
+
+    const addWeeklyLocationBundle = useCallback((
+        scheduledFor: Date,
+        location: string,
+        actionTitles: string[],
+        mainTitle?: string,
+    ) => {
         const loc = location.trim();
         const titles = actionTitles.map((x) => x.trim()).filter((x) => x.length > 0);
-        if (!loc || titles.length === 0) return;
+        const details = mainTitle?.trim() ?? '';
+        if (!loc || (!details && titles.length === 0)) return;
 
         const day = startOfLocalDay(scheduledFor);
-        const parentTitle = titles[0]!;
-        const subTasks: LegalSubTask[] = titles.slice(1).map((title) => ({
+        const parentTitle = details || titles[0]!;
+        const subTasks: LegalSubTask[] = (details ? titles : titles.slice(1)).map((title) => ({
             id: newId(),
             title,
             location: null,
@@ -74,7 +124,7 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
 
         const next: LegalTask = {
             id: newId(),
-            rawText: [loc, ...titles].join(' — '),
+            rawText: [loc, parentTitle, ...(details ? titles : titles.slice(1))].filter(Boolean).join(' — '),
             title: parentTitle,
             location: loc,
             parsedDate: new Date(day.getTime()),
@@ -88,6 +138,7 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
             subTasks,
             documentRequirements: [],
             expenses: [],
+            ...EMPTY_TASK_VOICE,
         };
         setTasks((prev) => [...prev, next]);
     }, []);
@@ -95,17 +146,20 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
     const addSnoozedBacklogTask = useCallback(
         (title: string, reminderAt: Date, location: string | null = null) => {
             const trimmed = title.trim();
-            if (!trimmed) return;
+            if (!trimmed || trimmed.length > MAX_TASK_RAW_LENGTH) return;
+            const parsed = parseTaskInput(trimmed);
+            const enriched = applySilentPracticalEnrichment(trimmed, parsed);
             const remind = startOfLocalDay(reminderAt);
+            const loc = location?.trim() ? location.trim() : enriched.location;
             const next: LegalTask = {
                 id: newId(),
                 rawText: trimmed,
-                title: trimmed,
-                location: location?.trim() ? location.trim() : null,
+                title: enriched.title || trimmed,
+                location: loc,
                 parsedDate: null,
                 reminderAt: new Date(remind.getTime()),
-                isFatalDeadline: false,
-                linkedCaseId: null,
+                isFatalDeadline: enriched.isFatalDeadline,
+                linkedCaseId: enriched.linkedCaseId,
                 status: 'pending',
                 completedAt: null,
                 pinnedToFieldCurtain: false,
@@ -113,6 +167,7 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
                 subTasks: [],
                 documentRequirements: [],
                 expenses: [],
+                ...EMPTY_TASK_VOICE,
             };
             setTasks((prev) => [...prev, next]);
         },
@@ -140,12 +195,8 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
     const deleteTask = useCallback((id: string) => {
         setTasks((prev) => {
             const target = prev.find((t) => t.id === id);
-            if (target) {
-                try {
-                    void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                        AuditLog.fieldTask.deleted({ taskId: id, title: target.title });
-                    });
-                } catch { /* silent */ }
+            if (target?.voiceRef) {
+                void removeTaskVoiceAttachment(target.voiceRef);
             }
             return prev.filter((t) => t.id !== id);
         });
@@ -153,14 +204,6 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
 
     const completeTask = useCallback((id: string) => {
         setTasks((prev) => {
-            const target = prev.find((t) => t.id === id);
-            if (target && !target.completedAt) {
-                try {
-                    void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                        AuditLog.task.completed({ taskId: id, title: target.title });
-                    });
-                } catch { /* silent */ }
-            }
             return prepareAgendaTasks(
                 prev.map((t) =>
                     t.id === id && !t.completedAt
@@ -316,11 +359,10 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
 
     const pendingTasks = useMemo(() => tasks.filter((t) => t.status === 'pending'), [tasks]);
 
-    return useMemo(
+    const actions = useMemo(
         () => ({
-            tasks,
-            pendingTasks,
             addTask,
+            addTaskFromVoice,
             addWeeklyLocationBundle,
             addSnoozedBacklogTask,
             updateTask,
@@ -339,9 +381,8 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
             setTasks,
         }),
         [
-            tasks,
-            pendingTasks,
             addTask,
+            addTaskFromVoice,
             addWeeklyLocationBundle,
             addSnoozedBacklogTask,
             updateTask,
@@ -360,4 +401,8 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
             setTasks,
         ],
     );
+
+    const data = useMemo(() => ({ tasks, pendingTasks }), [tasks, pendingTasks]);
+
+    return useMemo(() => ({ ...data, ...actions }), [data, actions]);
 }

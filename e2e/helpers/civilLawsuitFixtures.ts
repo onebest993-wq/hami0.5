@@ -235,12 +235,21 @@ export async function reinforceLawyerFilesSeed(page: Page): Promise<void> {
     await hydrateLawyerFilesFromStorage(page);
 }
 
-/** يصل إلى لوحة المحامي الرئيسية بعد splash / auth / إضبارة مفتوحة */
+/** يصل إلى لوحة المحامي الرئيسية بعد الإقلاع */
+async function assertDashboardChromeReady(page: Page): Promise<void> {
+    await page
+        .getByTestId('lawyer-dashboard-ready')
+        .waitFor({ state: 'visible', timeout: 45_000 })
+        .catch(() => undefined);
+    await expect(page.getByTestId('header-settings-trigger')).toBeVisible({ timeout: 30_000 });
+}
+
 export async function ensureLawyerDashboard(page: Page, multi = false, customFiles?: unknown[]) {
     const seedFiles = customFiles ?? (multi ? buildE2eCivilLawsuitPair() : undefined);
     await hydrateLawyerFilesFromStorage(page, seedFiles);
     const hub = page.getByTestId('hub-archive-lawsuit');
     if (await hub.isVisible().catch(() => false)) {
+        await assertDashboardChromeReady(page);
         return;
     }
 
@@ -248,33 +257,23 @@ export async function ensureLawyerDashboard(page: Page, multi = false, customFil
     if (await dossierBack.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await dossierBack.click();
         if (await hub.isVisible({ timeout: 10_000 }).catch(() => false)) {
+            await assertDashboardChromeReady(page);
             return;
         }
     }
 
     await page
-        .waitForFunction(
-            () => {
-                const hasHub = !!document.querySelector('[data-testid="hub-archive-lawsuit"]');
-                const hasBypass = Array.from(document.querySelectorAll('button')).some((b) =>
-                    (b.textContent || '').includes('تخطي المطور'),
-                );
-                return hasHub || hasBypass;
-            },
-            { timeout: 25_000 },
-        )
+        .getByTestId('lawyer-dashboard-ready')
+        .waitFor({ state: 'visible', timeout: 45_000 })
         .catch(() => undefined);
 
     if (await hub.isVisible().catch(() => false)) {
+        await assertDashboardChromeReady(page);
         return;
     }
 
-    const devBypass = page.getByRole('button', { name: /تخطي المطور/i });
-    if (await devBypass.isVisible({ timeout: 5_000 }).catch(() => false)) {
-        await devBypass.click();
-    }
-
     await expect(hub).toBeVisible({ timeout: 45_000 });
+    await assertDashboardChromeReady(page);
 }
 
 /** @deprecated use ensureLawyerDashboard */
@@ -283,8 +282,7 @@ export async function bypassDevLogin(page: Page) {
 }
 
 export async function openCivilDossier(page: Page) {
-    await page.getByTestId('hub-archive-lawsuit').click();
-    await expect(page.getByTestId('lawsuits-workspace')).toBeVisible({ timeout: 15_000 });
+    await openLawsuitsWorkspace(page);
     await page.getByTestId('lawsuits-tab-civil').click({ timeout: 5_000 }).catch(() => undefined);
     const fileCard = page.getByTestId(`lawsuit-file-${E2E_CIVIL_FILE_ID}`);
     if (await fileCard.isVisible({ timeout: 8_000 }).catch(() => false)) {
@@ -313,14 +311,24 @@ export async function addAdministrativeTask(page: Page, title: string = E2E_TASK
     await expect(page.getByText(title)).toBeVisible({ timeout: 10_000 });
 }
 
+/** يفتح مساحة الدعاوى من بطاقة الرئيسية */
+export async function openLawsuitsWorkspace(page: Page) {
+    const trigger = page.getByTestId('hub-archive-lawsuit');
+    await trigger.scrollIntoViewIfNeeded().catch(() => undefined);
+    await trigger.click({ force: true });
+    await expect(page.getByTestId('lawsuits-workspace')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId('lawsuits-tab-civil')).toBeVisible({ timeout: 20_000 });
+}
+
 /** فتح نموذج إنشاء دعوى مدنية من مخزن الدعاوى */
 export async function openCivilNewCaseForm(page: Page) {
-    await page.getByTestId('hub-archive-lawsuit').click();
-    await expect(page.getByTestId('lawsuits-workspace')).toBeVisible({ timeout: 15_000 });
-    await page.getByTestId('lawsuits-add-new').click();
-    await expect(page.getByText('اختصاص الدعوى')).toBeVisible({ timeout: 15_000 });
-    await page.getByTestId('new-case-jurisdiction-civil').click();
-    await expect(page.getByPlaceholder('اسم المحكمة المختصة...')).toBeVisible({ timeout: 15_000 });
+    await openLawsuitsWorkspace(page);
+    const addFab = page.getByTestId('lawsuits-add-new');
+    await addFab.waitFor({ state: 'visible', timeout: 15_000 });
+    await addFab.click({ force: true });
+    await expect(page.getByText('اختصاص الدعوى')).toBeVisible({ timeout: 20_000 });
+    await page.getByTestId('new-case-jurisdiction-civil').click({ force: true });
+    await expect(page.getByPlaceholder('اسم المحكمة المختصة...')).toBeVisible({ timeout: 20_000 });
 }
 
 /** تعبئة نموذج دعوى مدنية minimal وحفظها */
@@ -528,6 +536,42 @@ export function extractPartyNamesFromFile(file: unknown): string[] {
     return names;
 }
 
+/** يُفرغ كتابة lawyer_files المؤجّلة قبل قراءة التخزين في E2E */
+export async function flushLawyerFilesPersist(page: Page): Promise<void> {
+    await page.evaluate(async (storageKey) => {
+        try {
+            const mod = await import('/src/app/services/SecureStoreService.ts');
+            const Svc = mod.default ?? mod.SecureStoreService;
+            Svc.flushHeavyPersistPending?.();
+            await Svc.ensurePersistedReady?.();
+        } catch {
+            try {
+                Object.defineProperty(document, 'visibilityState', {
+                    configurable: true,
+                    get: () => 'hidden',
+                });
+                document.dispatchEvent(new Event('visibilitychange'));
+            } catch {
+                /* ignore */
+            }
+            await new Promise((resolve) => setTimeout(resolve, 1_400));
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        try {
+            const mod = await import('/src/app/services/SecureStoreService.ts');
+            const Svc = mod.default ?? mod.SecureStoreService;
+            const raw = Svc.getItemSync?.(storageKey);
+            if (typeof raw === 'string' && raw.trim()) {
+                localStorage.setItem(storageKey, raw);
+            }
+        } catch {
+            /* ignore */
+        }
+    }, LAWYER_FILES_KEY);
+}
+
 export async function waitForPartyInFiles(page: Page, name: string, timeoutMs = 15_000) {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
@@ -535,6 +579,9 @@ export async function waitForPartyInFiles(page: Page, name: string, timeoutMs = 
         if (files.some((f) => extractPartyNamesFromFile(f).includes(name))) return;
         await page.waitForTimeout(400);
     }
+    await flushLawyerFilesPersist(page);
+    const files = await readLawyerFilesFromPage(page);
+    if (files.some((f) => extractPartyNamesFromFile(f).includes(name))) return;
     throw new Error(`Party "${name}" not found in ${LAWYER_FILES_KEY} within ${timeoutMs}ms`);
 }
 
@@ -580,11 +627,20 @@ export async function readLawyerFilesFromPage(page: Page): Promise<unknown[]> {
                     }
                 });
 
-            // التطبيق يحفظ عبر SecureStore (IndexedDB) — localStorage قد يبقى بذرة E2E قديمة
             const fromIdb = parse(await readFromIdb());
-            if (fromIdb.length > 0) return fromIdb;
+            const fromLs = parse(localStorage.getItem(storageKey));
 
-            return parse(localStorage.getItem(storageKey));
+            if (fromIdb.length === 0) return fromLs;
+            if (fromLs.length === 0) return fromIdb;
+
+            const byId = new Map<string, unknown>();
+            for (const file of [...fromIdb, ...fromLs]) {
+                if (!file || typeof file !== 'object') continue;
+                const id = String((file as { id?: unknown }).id ?? '');
+                if (!id) continue;
+                byId.set(id, file);
+            }
+            return Array.from(byId.values());
         },
         { storageKey: LAWYER_FILES_KEY },
     );

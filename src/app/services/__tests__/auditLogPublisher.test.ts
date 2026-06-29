@@ -94,6 +94,18 @@ describe('AuditLog publisher', () => {
         expect(deriveNotificationDirection(n)).toBe('incoming');
     });
 
+    it('inbox.courtNotice وارد بفئة system', () => {
+        AuditLog.inbox.courtNotice({
+            caseNo: '50/2026',
+            date: '2026-06-01',
+            subject: 'جلسة',
+        });
+        const n = useNotificationStore.getState().notifications[0];
+        expect(n.type).toBe('system_alert');
+        expect(n.category).toBe('system');
+        expect(deriveNotificationDirection(n)).toBe('incoming');
+    });
+
     it('dossier.opened لا يُنشئ إشعاراً', () => {
         const r = AuditLog.dossier.opened({
             module: 'criminal',

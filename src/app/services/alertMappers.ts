@@ -25,7 +25,7 @@ function actionForAlert(alert: SecretaryAlert): SmartAlert['actionType'] {
     ) {
         return 'openChecklist';
     }
-    if (alert.target === 'notepad') return 'openDrafter';
+    if (alert.target === 'notepad') return 'openNotepad';
     if (alert.target === 'transactions' || alert.target === 'threading') return 'openScanner';
     if (alert.calendarSource?.module === 'task') return 'openChecklist';
     return 'openChecklist';

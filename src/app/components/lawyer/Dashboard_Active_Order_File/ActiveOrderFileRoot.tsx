@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuthUser } from '@/app/context/AuthContext';
 import type { ActiveOrderFileProps } from './types';
 import { formatDateText, formatDateTimeText, formatRequestNumberText } from './utils/formatters';
 import { todayYmd } from './utils/ymd';
@@ -27,7 +27,7 @@ import { useDecisionNotificationSubmit } from './hooks/useDecisionNotificationSu
 
 export const Dashboard_Active_Order_File: React.FC<ActiveOrderFileProps> = ({ fileData, onClose, onCaseUpdated }) => {
     const fd = fileData as Record<string, unknown>;
-    const { user: authUser } = useAuth();
+    const authUser = useAuthUser();
     const userId = authUser?.id || 'dev-user-uuid-1';
     const caseId = typeof fd?.id === 'string' ? fd.id : null;
     const defaultDeadlineDays = fd?.type === 'urgent_action' ? 7 : 3;

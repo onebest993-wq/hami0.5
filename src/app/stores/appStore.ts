@@ -210,42 +210,11 @@ export const useAppStore = create<AppState>()(
                 } catch (error) {
                     console.error('Failed to save execution file:', error);
                 }
-
-                // Audit log: نشر حدث "تم إنشاء إضبارة تنفيذ" إلى NotificationStore
-                try {
-                    const fileRecord = file as {
-                        executionCaseNumber?: string;
-                        caseNo?: string;
-                        fileNumber?: string;
-                        fileYear?: string;
-                        clientName?: string;
-                        creditor?: string;
-                    };
-                    const fileNo = String(fileRecord.fileNumber ?? '').trim();
-                    const fileYear = String(fileRecord.fileYear ?? '').trim();
-                    const caseNo =
-                        String(fileRecord.executionCaseNumber ?? '').trim() ||
-                        String(fileRecord.caseNo ?? '').trim() ||
-                        (fileNo && fileYear ? `${fileNo}/${fileYear}` : fileNo) ||
-                        undefined;
-                    const clientName =
-                        String(fileRecord.clientName ?? '').trim() ||
-                        String(fileRecord.creditor ?? '').trim() ||
-                        undefined;
-                    void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                        AuditLog.execution.fileCreated({
-                            executionId: file.id,
-                            caseNo: caseNo ?? 'إضبارة تنفيذ جديدة',
-                            clientName,
-                        });
-                    });
-                } catch { /* silent — audit publish is non-critical */ }
                 
                 return { executionFiles: newFiles };
             }),
             
             updateExecutionFile: (id, updates) => set((state) => {
-                const before = state.executionFiles.find((f) => f.id === id);
                 const newFiles = state.executionFiles.map((file) =>
                     file.id === id ? { ...file, ...updates } : file
                 );
@@ -255,78 +224,12 @@ export const useAppStore = create<AppState>()(
                 } catch (error) {
                     console.error('Failed to update execution file:', error);
                 }
-
-                // Audit log ذكي: فقط عند تغيير حالات حياتية (lifecycle/status/closure)، ليس عند كل تحرير حقل
-                if (before) {
-                    const b = before as unknown as Record<string, unknown>;
-                    const u = updates as unknown as Record<string, unknown>;
-                    try {
-                        void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                            const bRecord = b as {
-                                executionCaseNumber?: string;
-                                caseNo?: string;
-                                fileNumber?: string;
-                                fileYear?: string;
-                            };
-                            const fileNo = String(bRecord.fileNumber ?? '').trim();
-                            const fileYear = String(bRecord.fileYear ?? '').trim();
-                            const caseNo =
-                                String(bRecord.executionCaseNumber ?? '').trim() ||
-                                String(bRecord.caseNo ?? '').trim() ||
-                                (fileNo && fileYear ? `${fileNo}/${fileYear}` : fileNo) ||
-                                'إضبارة تنفيذ';
-
-                            // إغلاق الإضبارة
-                            if (
-                                u.dossier_lifecycle_status === 'finished' &&
-                                b.dossier_lifecycle_status !== 'finished'
-                            ) {
-                                AuditLog.execution.closed({ executionId: before.id, caseNo });
-                            }
-                            // حبس تنفيذي
-                            if (
-                                typeof u.executive_detention_until === 'string' &&
-                                u.executive_detention_until !== b.executive_detention_until
-                            ) {
-                                AuditLog.execution.detentionOrdered({
-                                    executionId: before.id,
-                                    caseNo,
-                                    untilDate: u.executive_detention_until,
-                                });
-                            }
-                        });
-                    } catch { /* silent */ }
-                }
                 
                 return { executionFiles: newFiles };
             }),
             
             deleteExecutionFile: (id) => set((state) => {
-                const before = state.executionFiles.find((f) => f.id === id);
                 const newFiles = state.executionFiles.filter((file) => file.id !== id);
-                if (before) {
-                    try {
-                        void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                            const beforeRecord = before as {
-                                executionCaseNumber?: string;
-                                caseNo?: string;
-                                fileNumber?: string;
-                                fileYear?: string;
-                            };
-                            const fileNo = String(beforeRecord.fileNumber ?? '').trim();
-                            const fileYear = String(beforeRecord.fileYear ?? '').trim();
-                            const caseNo =
-                                String(beforeRecord.executionCaseNumber ?? '').trim() ||
-                                String(beforeRecord.caseNo ?? '').trim() ||
-                                (fileNo && fileYear ? `${fileNo}/${fileYear}` : fileNo) ||
-                                'إضبارة تنفيذ';
-                            AuditLog.execution.closed({
-                                executionId: before.id,
-                                caseNo,
-                            });
-                        });
-                    } catch { /* silent */ }
-                }
                 
                 try {
                     SecureStoreService.setItemSync('executionFiles', JSON.stringify(newFiles));

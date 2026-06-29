@@ -7,6 +7,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { debug } from '@/app/utils/debug';
+import { SecureFetchError } from '@/app/services/SecureAPIClient';
 
 describe('Debug Utility', () => {
   let consoleSpy: {
@@ -67,6 +68,11 @@ describe('Debug Utility', () => {
       
       // ✅ console.error يُستدعى دائماً
       expect(consoleSpy.error).toHaveBeenCalled();
+    });
+
+    it('should suppress benign secure fetch errors unless verbose console is enabled', () => {
+      debug.error('[timelineEventsSupabase] جلب — استثناء:', new SecureFetchError('api_unavailable', 503, '', 'http://localhost/api'));
+      expect(consoleSpy.error).not.toHaveBeenCalled();
     });
   });
 

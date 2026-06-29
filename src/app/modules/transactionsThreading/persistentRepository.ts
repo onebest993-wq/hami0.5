@@ -2,8 +2,8 @@ import type { FinanceRecord, Transaction, TransactionDocument, TransactionTask }
 import { InMemoryTransactionsThreadingRepository, type TransactionsThreadingRepository } from './repository';
 
 async function loadThreadingDb() {
-    const { TransactionsThreadingDB } = await import('@/app/services/lawyer-cloud');
-    return TransactionsThreadingDB;
+    const mod = await import('@/app/services/cloud/lawyerTransactionsCloud');
+    return mod.TransactionsThreadingDB;
 }
 
 export class PersistentTransactionsThreadingRepository implements TransactionsThreadingRepository {

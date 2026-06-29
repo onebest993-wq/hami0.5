@@ -9,6 +9,7 @@ import {
     prefetchLawReferencePanel,
 } from './executionDashboardLazyShell';
 import { prefetchExecutionFollowupDefaultTab } from './executionFollowupTabPrefetch';
+import { prefetchExecutionCoreHandlers } from './executionCoreHandlersPrefetch';
 
 const notesOverlayImport = () =>
     import('./components/ExecutionNotesAndAppointmentModals').then((m) => ({
@@ -62,6 +63,7 @@ export function prefetchExecutionUnifiedSummonsOverlay(): void {
 
 export function prefetchExecutionFollowupOverlay(): void {
     if (skipExecutionOverlayPrefetch()) return;
+    prefetchExecutionCoreHandlers();
     prefetchExecutionFollowupDefaultTab();
     prefetchFollowupMemoPanels();
 }
@@ -77,6 +79,7 @@ export function prefetchExecutionActionGridTile(tileKey: string): void {
     switch (tileKey) {
         case 'appt':
         case 'notes':
+            prefetchExecutionCoreHandlers();
             prefetchExecutionNotesOverlay();
             break;
         case 'documents':
@@ -86,6 +89,11 @@ export function prefetchExecutionActionGridTile(tileKey: string): void {
             prefetchDecisionsAndAppealsEngine();
             break;
         case 'followup':
+            prefetchExecutionFollowupOverlay();
+            break;
+        case 'coercive':
+        case 'seizure':
+            prefetchExecutionCoreHandlers();
             prefetchExecutionFollowupOverlay();
             break;
         case 'finance':

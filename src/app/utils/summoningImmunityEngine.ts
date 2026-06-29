@@ -33,9 +33,11 @@ export interface SummoningImmunityInput {
     graceExtraCalendarDays?: number;
     /**
      * تنفيذ مالي صارم (مبلغ محكوم أو أتعاب، بلا هجين): الكاسب لا يُحضَر جبراً؛ يُكتفى بحجز راتب/عقار/مركبة.
-     * النفقة والهجين يُستثنىان في الواجهة عند تمرير false.
+     * يُستثنى عند تجاوز 250,000 د.ع في المركز المالي — يُفتح التنفيذ الجبري الشخصي.
      */
     monetaryExecutionStrict?: boolean;
+    /** كاسب + مركز مالي > 250,000 — يلغي حظر الإحضار الجبري في المسار المالي الصارم */
+    earnerPersonalCoerciveFinancialThresholdMet?: boolean;
 }
 
 export interface SummoningBadge {
@@ -261,10 +263,13 @@ export function canBeForcefullySummoned(input: SummoningImmunityInput): ForcedSu
         );
     }
 
-    // كاسب + مطالبة مالية ضمن تنفيذ مالي صارم: لا إحضار جبري ولا سلوك القبض — حجز راتب/عقار/مركبة
+    // كاسب + مطالبة مالية ضمن تنفيذ مالي صارم: لا إحضار جبري — إلا عند تجاوز 250,000 د.ع في المركز المالي
     const monetaryStrict = input.monetaryExecutionStrict === true;
+    const earnerFinancialPersonalCoercive =
+        input.earnerPersonalCoerciveFinancialThresholdMet === true;
     if (
         monetaryStrict &&
+        !earnerFinancialPersonalCoercive &&
         !input.isAlimony &&
         input.employmentType === 'كاسب' &&
         input.claimNature === 'مالي'

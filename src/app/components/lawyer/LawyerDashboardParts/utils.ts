@@ -15,6 +15,28 @@ export function mapFileStatusToCaseStatus(status: FileData['status']): LegalCase
     return 'active';
 }
 
+export function mapLawsuitFilesToLegalCases(files: FileData[]): LegalCase[] {
+    return files.map((f) => {
+        const clientName = f.parties?.find((p: Party) => p.isClient)?.name || 'غير معروف';
+        const opponentName = f.parties?.find((p: Party) => !p.isClient)?.name || 'غير معروف';
+        return {
+            id: f.id.toString(),
+            caseNo: f.caseNo,
+            title: f.docType || f.caseNo,
+            type: f.type,
+            court: f.court,
+            clientName,
+            opponentName,
+            linkedDocuments: [],
+            deadlines: [],
+            timeline: [],
+            createdAt: f.date,
+            updatedAt: f.date,
+            status: mapFileStatusToCaseStatus(f.status),
+        };
+    });
+}
+
 function hasValidFileId(id: unknown): boolean {
     return (
         (typeof id === 'number' && Number.isFinite(id)) ||
@@ -237,7 +259,8 @@ export function coerceExecutionFilePreserveId(input: unknown): ExecutionFile {
               : partiesDebtors;
 
     const history = Array.isArray(v.history) ? (v.history as FileData['history']) : [];
-    const notes = Array.isArray(v.notes) ? (v.notes as FileData['notes']) : [];
+    const notes =
+        typeof v.notes === 'string' && v.notes.trim() ? v.notes.trim() : undefined;
     const images = Array.isArray(v.images) ? (v.images as FileData['images']) : [];
     const date = typeof v.date === 'string' ? v.date : new Date().toISOString();
 

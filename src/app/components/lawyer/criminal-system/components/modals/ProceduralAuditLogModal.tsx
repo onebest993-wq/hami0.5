@@ -1,5 +1,6 @@
 import React from 'react';
 import type { ProceduralCanvasAuditEntry } from '../../proceduralSandboxToolkit';
+import { CriminalModalPortal, CRIMINAL_MODAL_Z } from '../../criminalModalPortal';
 
 export type ProceduralAuditLogModalProps = {
     open: boolean;
@@ -13,10 +14,7 @@ export const ProceduralAuditLogModal = ({ open, entries, onClose }: ProceduralAu
     const sorted = [...entries].reverse();
 
     return (
-        <div
-            className="fixed inset-0 z-[222] bg-black/80 backdrop-blur-sm p-4 flex items-center justify-center print:hidden"
-            dir="rtl"
-        >
+        <CriminalModalPortal zIndex={CRIMINAL_MODAL_Z.procedural}>
             <div className="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 overflow-hidden max-h-[85vh] flex flex-col">
                 <div className="p-4 border-b border-slate-700 bg-slate-800/50 flex items-center justify-between gap-3 shrink-0">
                     <div className="text-white font-black text-sm">سجل اللوحة</div>
@@ -44,6 +42,6 @@ export const ProceduralAuditLogModal = ({ open, entries, onClose }: ProceduralAu
                     )}
                 </div>
             </div>
-        </div>
+        </CriminalModalPortal>
     );
 };

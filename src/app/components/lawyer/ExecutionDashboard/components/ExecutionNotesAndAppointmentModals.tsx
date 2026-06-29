@@ -27,7 +27,6 @@ export interface ExecutionNotesAndAppointmentModalsProps {
     setShowNotesModal: (show: boolean) => void;
     setNoteTitle: Dispatch<SetStateAction<string>>;
     setNoteBody: Dispatch<SetStateAction<string>>;
-    setEditingNoteId?: Dispatch<SetStateAction<string | null>>;
     setIsTask: Dispatch<SetStateAction<boolean>>;
     setTaskDueDate: Dispatch<SetStateAction<string>>;
     setTaskStatus: Dispatch<SetStateAction<'pending' | 'done'>>;

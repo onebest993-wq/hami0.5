@@ -1,6 +1,6 @@
 import React, { useCallback, useRef } from 'react';
 import { GripHorizontal, Palette } from 'lucide-react';
-import { useLawyerSettings } from '@/app/context/LawyerSettingsContext';
+import { useLawyerSettingsHomeLayout } from '@/app/context/LawyerSettingsContext';
 import { useSettingsPatches } from '@/app/components/lawyer/HamiSettings/hooks/useSettingsPatches';
 import { useHomeLayoutEdit } from './HomeLayoutEditContext';
 
@@ -21,11 +21,11 @@ export function EditableDockShell({
     containerBorderOn = true,
 }: EditableDockShellProps) {
     const { isEditing, selectedBlockId, setSelectedBlockId } = useHomeLayoutEdit();
-    const { settings } = useLawyerSettings();
+    const { overrides } = useLawyerSettingsHomeLayout();
     const { patchBlockOverride } = useSettingsPatches();
     const dragStartRef = useRef<{ y: number; lift: number } | null>(null);
     const customizerActive = selectedBlockId === 'dockShell';
-    const liftPx = settings.homeLayout.overrides.dockShell?.dockLiftPx ?? 0;
+    const liftPx = overrides.dockShell?.dockLiftPx ?? 0;
 
     const openCustomizer = useCallback(
         (e: React.PointerEvent | React.MouseEvent) => {
@@ -72,6 +72,7 @@ export function EditableDockShell({
                 data-hami-block="dockShell"
                 data-hami-dock-count={dockCount}
                 data-hami-block-border={containerBorderOn ? '1' : '0'}
+                data-testid="home-dock-shell"
                 className={className}
                 style={style}
             >
@@ -81,7 +82,7 @@ export function EditableDockShell({
     }
 
     return (
-        <div className="relative">
+        <div className={`relative ${customizerActive ? 'z-[130]' : ''}`}>
             <div
                 data-hami-block="dockShell"
                 data-hami-dock-count={dockCount}
@@ -110,7 +111,6 @@ export function EditableDockShell({
                     type="button"
                     aria-label="تخصيص حاوية الشريط السفلي"
                     aria-pressed={customizerActive}
-                    onPointerDown={openCustomizer}
                     onClick={openCustomizer}
                     className={`flex h-7 w-7 items-center justify-center rounded-full border touch-none backdrop-blur-md transition-all active:scale-95 ${
                         customizerActive

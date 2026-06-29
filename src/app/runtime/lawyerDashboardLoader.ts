@@ -1,6 +1,6 @@
 /**
- * تحميل موحّد للوحة المحامي — prefetch + lazy في الإنتاج فقط.
- * في التطوير: App يستورد LawyerDashboard بشكل ثابت (static) لتجنّب فشل dynamic import مع HMR.
+ * تحميل موحّد للوحة المحامي — prefetch + lazy في الإنتاج والتطوير.
+ * الوعد يُخزَّن مرة واحدة؛ يُصفَّر عند HMR dispose أو resetLawyerDashboardModuleCache.
  */
 type LawyerDashboardModule = typeof import('@/app/components/lawyer/LawyerDashboard');
 
@@ -18,9 +18,6 @@ function createDashboardModuleImport(): Promise<LawyerDashboardModule> {
 }
 
 export function loadLawyerDashboardModule(): Promise<LawyerDashboardModule> {
-    if (import.meta.env.DEV) {
-        return createDashboardModuleImport();
-    }
     if (!dashboardModulePromise) {
         dashboardModulePromise = createDashboardModuleImport();
     }

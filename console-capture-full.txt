@@ -1,0 +1,29 @@
+﻿=== PAGE ERRORS ===
+[execution-dossier] evictionExecutorWorkflow is not defined
+[execution-dossier] evictionExecutorWorkflow is not defined
+
+=== INTERESTING CONSOLE ===
+[execution-dossier] [error] The above error occurred in the <ExecutionDashboardView2> component:
+
+    at ExecutionDashboardView2 (http://localhost:8080/src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardView.tsx?t=1782559435739:17:3)
+    at ExecutionDashboard2
+    at Suspense
+    at ExecutionDashboardPortal (http://localhost:8080/src/app/components/lawyer/dashboard/ExecutionDashboardPortal.tsx?t=1782559435739:11:44)
+    at LawyerDashboardCaseOverlays (http://localhost:8080/src/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardCaseOverlays.tsx?t=1782559435739:24:3)
+    at LawyerDashboard
+[execution-dossier] [error] [LawyerDashboardBoot] load/render failed: ReferenceError: evictionExecutorWorkflow is not defined
+    at useExecutionDashboardCore (http://localhost:8080/src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardCore.ts?t=1782559435739:5845:5)
+    at ExecutionDashboardView2 (http://localhost:8080/src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardView.tsx?t=1782559435739:23:14)
+    at renderWithHooks (http://localhost:8080/node_modules/.vite/deps/chunk-GG6IGNHI.js?v=e320c834:11596:26)
+    at updateFunctionComponent (http://localhost:8080/node_modules/.vite/de
+[execution-dossier] [error] [LawyerDashboardBoot] component stack: 
+    at ExecutionDashboardView2 (http://localhost:8080/src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardView.tsx?t=1782559435739:17:3)
+    at ExecutionDashboard2
+    at Suspense
+    at ExecutionDashboardPortal (http://localhost:8080/src/app/components/lawyer/dashboard/ExecutionDashboardPortal.tsx?t=1782559435739:11:44)
+    at LawyerDashboardCaseOverlays (http://localhost:8080/src/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardCaseOverlays.tsx?t=1782559435739:24:3)
+    at LawyerDashboardOverlaysHost (http://localhost
+
+=== ALL BY TYPE ===
+{ error: 3 }
+total messages: 3

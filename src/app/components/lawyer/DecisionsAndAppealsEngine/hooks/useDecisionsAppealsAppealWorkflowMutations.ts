@@ -13,7 +13,7 @@ export function useDecisionsAppealsAppealWorkflowMutations(
     const { applyWaiveCassationAfterDebtorGrievance, applyWaiveInitialAppeal } =
         useDecisionsAppealsWaiveAppealMutations(params);
     const { transitionAppealWorkflow } = useDecisionsAppealsTransitionWorkflow(params);
-    const { commitExecutorSideAppealEntry, applyLawyerCassationEntry } =
+    const { commitExecutorSideAppealEntry, commitQueueRequestAppealEntry, applyLawyerCassationEntry } =
         useDecisionsAppealsAppealEntryMutations({ ...params, transitionAppealWorkflow });
 
     return {
@@ -23,6 +23,7 @@ export function useDecisionsAppealsAppealWorkflowMutations(
         applyWaiveInitialAppeal,
         transitionAppealWorkflow,
         commitExecutorSideAppealEntry,
+        commitQueueRequestAppealEntry,
         applyLawyerCassationEntry,
     };
 }

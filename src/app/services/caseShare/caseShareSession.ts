@@ -27,9 +27,11 @@ export function clampCaseShareSessionMinutes(value: number): CaseShareSessionMin
     return inRange.length ? inRange[inRange.length - 1]! : DEFAULT_CASE_SHARE_SESSION_MINUTES;
 }
 
+export const CASE_SHARE_CHANGED_EVENT = 'hami:case-share-changed';
+
 export function dispatchCaseShareChanged(): void {
     if (typeof window === 'undefined') return;
-    window.dispatchEvent(new CustomEvent('hami:case-share-changed'));
+    window.dispatchEvent(new CustomEvent(CASE_SHARE_CHANGED_EVENT));
 }
 
 export function isCaseShareSessionExpired(share: {

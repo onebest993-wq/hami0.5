@@ -29,6 +29,7 @@ import { ProceduralAddChildModal } from './modals/ProceduralAddChildModal';
 import { ProceduralNoteFormModal } from './modals/ProceduralNoteFormModal';
 import { ProceduralActionFormModal } from './modals/ProceduralActionFormModal';
 import { ProceduralAdvancePhaseModal } from './modals/ProceduralAdvancePhaseModal';
+import { CriminalModalPortal, CRIMINAL_MODAL_Z } from '../criminalModalPortal';
 import { ProceduralPlacementBreadcrumb } from './ProceduralPlacementBreadcrumb';
 import {
     formatProceduralLinkDisplay,
@@ -838,7 +839,7 @@ export const RecursiveProceduralCanvas = ({
     const phaseFilteredRoots = useMemo(() => {
         if (!hasTrialPhase || pathsPhaseFilter === 'all') return containers;
         return filterByCasePhase(containers, pathsPhaseFilter, (root) =>
-            resolveProceduralRootCasePhase(root, stageJourney),
+            resolveProceduralRootCasePhase(root as ProceduralContainer, stageJourney),
         );
     }, [containers, hasTrialPhase, pathsPhaseFilter, stageJourney]);
 
@@ -1611,10 +1612,7 @@ export const RecursiveProceduralCanvas = ({
             />
 
             {confirmDeleteId ? (
-                <div
-                    className="fixed inset-0 z-[223] bg-black/80 p-4 flex items-center justify-center"
-                    dir="rtl"
-                >
+                <CriminalModalPortal zIndex={CRIMINAL_MODAL_Z.proceduralConfirm}>
                     <div className="w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900 p-4 space-y-3">
                         <div className="text-white font-black text-sm">نقل مسار التتبع للسلة؟</div>
                         <p className="text-white/70 text-xs font-bold">
@@ -1640,7 +1638,7 @@ export const RecursiveProceduralCanvas = ({
                             </button>
                         </div>
                     </div>
-                </div>
+                </CriminalModalPortal>
             ) : null}
         </div>
     );

@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SecuritySettings } from '@/app/services/settings/types';
-import { hasStoredBiometricCredential, isWebAuthnLockSupported, verifyBiometricUnlock } from '@/app/services/security/webAuthnLock';
+import {
+    hasNativeBiometricEnrollment,
+    verifyNativeBiometricUnlock,
+} from '@/app/runtime/nativeBiometricBridge';
+import { wireNativeBiometricAvailabilityListener } from '@/app/runtime/nativeBiometricLifecycle';
+import {
+    hasStoredBiometricCredential,
+    isWebAuthnLockSupported,
+    verifyBiometricUnlock,
+} from '@/app/services/security/webAuthnLock';
 
 const ACTIVITY_EVENTS = ['mousedown', 'keydown', 'touchstart', 'scroll', 'pointerdown'] as const;
 const TICK_MS = 4_000;
@@ -16,7 +25,9 @@ export function useAppLock(security: SecuritySettings) {
     const hiddenAtRef = useRef<number | null>(null);
 
     const idleLockEnabled = security.autoLockMinutes > 0;
-    const biometricAvailable = security.biometricLock && isWebAuthnLockSupported() && hasStoredBiometricCredential();
+    const biometricAvailable =
+        security.biometricLock &&
+        ((isWebAuthnLockSupported() && hasStoredBiometricCredential()) || hasNativeBiometricEnrollment());
     const resumeLockEnabled = biometricAvailable;
     const requiresBiometricToUnlock = biometricAvailable;
     const sessionGuardEnabled = idleLockEnabled || resumeLockEnabled;
@@ -78,10 +89,31 @@ export function useAppLock(security: SecuritySettings) {
         };
     }, [sessionGuardEnabled, idleLockEnabled, resumeLockEnabled, locked, security.autoLockMinutes, touchActivity]);
 
+    useEffect(() => {
+        if (!security.biometricLock || !hasNativeBiometricEnrollment()) return undefined;
+
+        let dispose = () => undefined;
+        void wireNativeBiometricAvailabilityListener((available) => {
+            if (!available) setLocked(true);
+        }).then((cleanup) => {
+            dispose = cleanup;
+        });
+
+        return () => {
+            dispose();
+        };
+    }, [security.biometricLock]);
+
     const unlockWithBiometric = useCallback(async (): Promise<boolean> => {
         setUnlocking(true);
         try {
-            const ok = await verifyBiometricUnlock();
+            const nativeResult = await verifyNativeBiometricUnlock();
+            const ok =
+                nativeResult === true
+                    ? true
+                    : nativeResult === false
+                      ? false
+                      : await verifyBiometricUnlock();
             if (ok) {
                 setLocked(false);
                 lastActivityRef.current = Date.now();

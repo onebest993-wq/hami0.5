@@ -1,30 +1,31 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo } from 'react';
 import type { User } from '@supabase/supabase-js';
 import type { Dispatch, SetStateAction } from 'react';
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
 import { CALENDAR_SOURCE_PATCHED_EVENT } from '@/app/services/calendarBridge.types';
 import type { CalendarSourcePatchDetail } from '@/app/services/calendarBridgePersistence';
-import { cleanupCalendarForUser } from '@/app/services/calendarDossierSync';
+import { buildCalendarDossierFingerprint } from '@/app/services/calendar/calendarDossierFingerprint';
+import { runSmartCalendarReconcileIfNeeded } from '@/app/services/calendar/calendarReconcileScheduler';
 import { resolveCalendarUserId } from '@/app/services/calendarBridge';
 import { isRealSignedIn, resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { STORAGE_KEYS } from '@/app/utils/constants';
+import { prefetchCriminalDashboard, warmLawsuitWorkspace } from '@/app/utils/lazyComponents';
+import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
+import { bindDashboardPostInteractiveWarm } from '@/app/runtime/dashboardPostInteractiveWarm';
 import {
-    prefetchCriminalDashboard,
-    prefetchDossierShells,
-    prefetchGlobalSearchOverlay,
-    prefetchNotificationPanel,
-    prefetchRoyalLawyerProfile,
-} from '@/app/utils/lazyComponents';
-import { warmGlobalSearchExtras } from '@/app/services/globalSearchLoad';
-import { warmGlobalSearchPipeline } from '@/app/services/globalSearchWarm';
+    clearGlobalSearchWarmSnapshot,
+    registerGlobalSearchWarmSnapshot,
+} from '@/app/hooks/lawyerDashboard/globalSearchIntentWarm';
 import { consumeOpenCriminalCasesListRequest } from '@/app/components/lawyer/criminal-system/criminalDevEntry';
 import { useNotificationStore } from '@/app/stores/notificationStore';
-import type { FileData, Party } from '@/app/components/lawyer/LawyerShared';
+import { refreshNotificationShellBadge } from '@/app/services/notifications/notificationBackgroundSync';
+import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { GlobalNote, ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { LawyerArchiveOverlay } from '@/app/hooks/useLawyerExecutionFiles';
 import type { LegalCase } from '@/app/stores/caseStore';
-import { mapFileStatusToCaseStatus } from '@/app/components/lawyer/LawyerDashboardParts/utils';
+import { mapLawsuitFilesToLegalCases } from '@/app/components/lawyer/LawyerDashboardParts/utils';
+import type { LegalTask } from '@/app/types/TaskEngine';
 
 export type UseLawyerDashboardRuntimeEffectsParams = {
     user: User | null;
@@ -34,10 +35,12 @@ export type UseLawyerDashboardRuntimeEffectsParams = {
     globalNotes: GlobalNote[];
     searchNotifications: Array<{ id: string; title: string; message: string; type: string }>;
     criminalCasesForCluster: unknown[];
+    quantumTasks: LegalTask[];
     searchIndexVersion: number;
     showLawsuitsWorkspace: boolean;
+    lawsuitsDossierSection: 'all' | 'civil' | 'personal' | 'criminal';
     storeCases: LegalCase[];
-    addCase: (c: LegalCase) => void;
+    hydrateCasesFromLawsuitFiles: (mapped: LegalCase[]) => void;
     refreshAppAlerts: () => void;
     reloadLawsuitFiles: () => void;
     reloadExecutionFiles: () => void;
@@ -57,10 +60,12 @@ export function useLawyerDashboardRuntimeEffects({
     globalNotes,
     searchNotifications,
     criminalCasesForCluster,
+    quantumTasks,
     searchIndexVersion,
     showLawsuitsWorkspace,
+    lawsuitsDossierSection,
     storeCases,
-    addCase,
+    hydrateCasesFromLawsuitFiles,
     refreshAppAlerts,
     reloadLawsuitFiles,
     reloadExecutionFiles,
@@ -71,24 +76,25 @@ export function useLawyerDashboardRuntimeEffects({
     setLawsuitsWorkspaceTab,
     setShowLawsuitsWorkspace,
 }: UseLawyerDashboardRuntimeEffectsParams) {
-    const calendarCleanedOnceRef = useRef(false);
-    const warmDataRef = useRef({
-        files,
-        executionFiles,
-        globalNotes,
-        searchNotifications,
-        criminalCasesForCluster,
-    });
-    warmDataRef.current = {
-        files,
-        executionFiles,
-        globalNotes,
-        searchNotifications,
-        criminalCasesForCluster,
-    };
-    const dataFootprint = `${files.length}|${executionFiles.length}|${globalNotes.length}|${criminalCasesForCluster.length}`;
-    const fetchNotifications = useNotificationStore((s) => s.fetchNotifications);
     const setNotificationUserId = useNotificationStore((s) => s.setUserId);
+
+    const calendarDossierFingerprint = useMemo(
+        () =>
+            buildCalendarDossierFingerprint(
+                files,
+                executionFiles,
+                globalNotes,
+                quantumTasks,
+                criminalCasesForCluster,
+            ),
+        [files, executionFiles, globalNotes, quantumTasks, criminalCasesForCluster],
+    );
+
+    /** intent-only: تسخين هيدر فوري + shell خفيف idle بعد التفاعل */
+    useEffect(() => {
+        const uid = resolveShellAuthUserId(authUser?.id, user?.id);
+        return bindDashboardPostInteractiveWarm(uid);
+    }, [user?.id, authUser?.id]);
 
     useEffect(() => {
         const uid = resolveShellAuthUserId(authUser?.id, user?.id);
@@ -99,23 +105,22 @@ export function useLawyerDashboardRuntimeEffects({
     useEffect(() => {
         const uid = resolveShellAuthUserId(authUser?.id, user?.id);
         if (!isRealSignedIn(uid)) return;
-        void fetchNotifications(uid!);
-    }, [user?.id, authUser?.id, fetchNotifications]);
-
-    useEffect(() => {
-        prefetchNotificationPanel();
-        prefetchRoyalLawyerProfile();
-    }, []);
-
-    useEffect(() => {
-        if (calendarCleanedOnceRef.current) return;
-        calendarCleanedOnceRef.current = true;
-        void (async () => {
-            await SecureStoreService.ensurePersistedReady();
-            const uid = resolveCalendarUserId(user?.id ?? authUser?.id ?? null);
-            await cleanupCalendarForUser(uid);
-        })();
+        return scheduleIdleWork(() => {
+            void refreshNotificationShellBadge(uid!);
+        }, 400);
     }, [user?.id, authUser?.id]);
+
+    useEffect(() => {
+        const uid = resolveCalendarUserId(user?.id ?? authUser?.id ?? null);
+        if (!isRealSignedIn(uid)) return;
+
+        return scheduleIdleWork(() => {
+            void (async () => {
+                await SecureStoreService.ensurePersistedReady();
+                await runSmartCalendarReconcileIfNeeded(uid, calendarDossierFingerprint);
+            })();
+        }, 2_500);
+    }, [user?.id, authUser?.id, calendarDossierFingerprint]);
 
     useEffect(() => {
         const handler = (ev: Event) => {
@@ -133,44 +138,35 @@ export function useLawyerDashboardRuntimeEffects({
         return () => window.removeEventListener(CALENDAR_SOURCE_PATCHED_EVENT, handler);
     }, [reloadExecutionFiles, reloadLawsuitFiles]);
 
+    /** لقطة بحث فقط — الفهرس يُبنى عند hover/فتح (لا warmGlobalSearchOnOpen عند كل تغيير ملفات) */
     useEffect(() => {
-        const uid = user?.id ?? null;
-        if (!uid) return;
-
-        prefetchGlobalSearchOverlay();
-        prefetchNotificationPanel();
-        prefetchRoyalLawyerProfile();
-        warmGlobalSearchExtras(uid);
-
-        let cancelled = false;
-        const runWarm = () => {
-            if (cancelled) return;
-            const data = warmDataRef.current;
-            warmGlobalSearchPipeline({
-                userId: uid,
-                files: data.files,
-                executionFiles: data.executionFiles,
-                globalNotes: data.globalNotes,
-                notifications: data.searchNotifications,
-                criminalCases: data.criminalCasesForCluster,
-                cacheGeneration: searchIndexVersion,
-            });
-        };
-
-        if (typeof requestIdleCallback !== 'undefined') {
-            const idleId = requestIdleCallback(runWarm, { timeout: 8_000 });
-            return () => {
-                cancelled = true;
-                cancelIdleCallback(idleId);
-            };
+        const uid = resolveShellAuthUserId(authUser?.id, user?.id);
+        if (!uid) {
+            clearGlobalSearchWarmSnapshot();
+            return;
         }
 
-        const timer = window.setTimeout(runWarm, import.meta.env.DEV ? 2_000 : 4_000);
-        return () => {
-            cancelled = true;
-            window.clearTimeout(timer);
-        };
-    }, [user?.id, searchIndexVersion, dataFootprint]);
+        registerGlobalSearchWarmSnapshot({
+            userId: uid,
+            files,
+            executionFiles,
+            globalNotes,
+            notifications: searchNotifications,
+            criminalCases: criminalCasesForCluster,
+            cacheGeneration: searchIndexVersion,
+        });
+
+        return () => clearGlobalSearchWarmSnapshot();
+    }, [
+        authUser?.id,
+        criminalCasesForCluster,
+        executionFiles,
+        files,
+        globalNotes,
+        searchIndexVersion,
+        searchNotifications,
+        user?.id,
+    ]);
 
     useEffect(() => {
         const reloadFromStorage = (opts?: { clear?: boolean }) => {
@@ -207,32 +203,16 @@ export function useLawyerDashboardRuntimeEffects({
     }, [setLawsuitsDossierSection, setLawsuitsWorkspaceTab, setShowLawsuitsWorkspace]);
 
     useEffect(() => {
-        if (showLawsuitsWorkspace) {
-            prefetchDossierShells();
-        }
-    }, [showLawsuitsWorkspace]);
+        if (!showLawsuitsWorkspace) return;
+        warmLawsuitWorkspace();
+        if (lawsuitsDossierSection !== 'criminal') return;
+        return scheduleIdleWork(() => prefetchCriminalDashboard(), 1_500);
+    }, [lawsuitsDossierSection, showLawsuitsWorkspace]);
 
     useEffect(() => {
         if (files.length === 0 || storeCases.length > 0) return;
-        for (const f of files) {
-            const clientName = f.parties?.find((p: Party) => p.isClient)?.name || 'Unknown';
-            const opponentName = f.parties?.find((p: Party) => !p.isClient)?.name || 'Unknown';
-            const mappedCase: LegalCase = {
-                id: f.id.toString(),
-                caseNo: f.caseNo,
-                title: f.docType || f.caseNo,
-                type: f.type,
-                court: f.court,
-                clientName,
-                opponentName,
-                linkedDocuments: [],
-                deadlines: [],
-                timeline: [],
-                createdAt: f.date,
-                updatedAt: f.date,
-                status: mapFileStatusToCaseStatus(f.status),
-            };
-            addCase(mappedCase);
-        }
-    }, [addCase, files, storeCases.length]);
+        return scheduleIdleWork(() => {
+            hydrateCasesFromLawsuitFiles(mapLawsuitFilesToLegalCases(files));
+        }, 2_000);
+    }, [files, hydrateCasesFromLawsuitFiles, storeCases.length]);
 }

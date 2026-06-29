@@ -264,25 +264,6 @@ export function useExecutionDashboardPaymentHandlers({
                 }
             }
 
-            if (executionId && amount > 0) {
-                try {
-                    void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                        const data = executionDataRef.current as Record<string, unknown> | undefined;
-                        const caseNo =
-                            (data?.executionCaseNumber as string | undefined) ||
-                            (data?.caseNo as string | undefined) ||
-                            String(executionId);
-                        AuditLog.execution.paymentReceived({
-                            executionId,
-                            amount,
-                            caseNo,
-                        });
-                    });
-                } catch {
-                    /* silent */
-                }
-            }
-
             const newRemaining = totalOwed - newPaidDebt;
             const ledgerEntry: FinancialLedgerEntry = {
                 id: Date.now().toString(),

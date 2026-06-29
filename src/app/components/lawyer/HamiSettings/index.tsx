@@ -1,19 +1,15 @@
-import React, { Suspense, lazy, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import type { SettingsSectionId } from '@/app/services/settings';
+import { EnsureLawyerSettingsProvider } from '@/app/context/LawyerSettingsContext';
 import { SettingsShell } from './SettingsShell';
-import { SETTING_GLASS_INNER } from './settings-ui';
-
-const AppearanceSection = lazy(() =>
-    import('./AppearanceSection').then((m) => ({ default: m.AppearanceSection })),
-);
-const SecuritySection = lazy(() =>
-    import('./SecuritySection').then((m) => ({ default: m.SecuritySection })),
-);
-const DataSection = lazy(() => import('./DataSection').then((m) => ({ default: m.DataSection })));
-const AccountSection = lazy(() =>
-    import('./AccountSection').then((m) => ({ default: m.AccountSection })),
-);
+import { SettingsSectionRouter } from './SettingsSectionRouter';
+import { SettingsErrorBoundary } from './SettingsErrorBoundary';
+import { useSettingsLifecycle } from './hooks/useSettingsLifecycle';
+import {
+    persistSettingsSection,
+    readPersistedSettingsSection,
+} from './settingsSectionPersistence';
+import { loadSettingsSection, prefetchSettingsSection } from './settingsSectionLoader';
 
 export interface HamiSettingsProps {
     onClose: () => void;
@@ -21,48 +17,10 @@ export interface HamiSettingsProps {
     onLogout?: () => void;
     onOpenProfile?: () => void;
     onOpenPrivacy?: () => void;
-    onOpenSupport?: () => void;
-}
-
-function SectionFallback() {
-    return (
-        <div className={`rounded-2xl p-8 text-center text-sm text-white/40 ${SETTING_GLASS_INNER}`}>
-            جاري التحميل…
-        </div>
-    );
-}
-
-function SettingsSectionRouter({
-    activeSection,
-    onClose,
-    onEnterHomeLayoutEdit,
-    accountProps,
-}: {
-    activeSection: SettingsSectionId;
-    onClose: () => void;
-    onEnterHomeLayoutEdit?: () => void;
-    accountProps: Pick<HamiSettingsProps, 'onLogout' | 'onOpenProfile' | 'onOpenPrivacy' | 'onOpenSupport'>;
-}) {
-    switch (activeSection) {
-        case 'appearance':
-            return <AppearanceSection onEnterHomeLayoutEdit={onEnterHomeLayoutEdit} />;
-        case 'security':
-            return <SecuritySection />;
-        case 'data':
-            return <DataSection />;
-        case 'account':
-            return (
-                <AccountSection
-                    onClose={onClose}
-                    onLogout={accountProps.onLogout}
-                    onOpenProfile={accountProps.onOpenProfile}
-                    onOpenPrivacy={accountProps.onOpenPrivacy}
-                    onOpenSupport={accountProps.onOpenSupport}
-                />
-            );
-        default:
-            return null;
-    }
+    onShellReset?: () => void;
+    userId?: string | null;
+    /** false مع keep-alive — الإعدادات مخفية لكن mounted */
+    open?: boolean;
 }
 
 export const HamiSettings = ({
@@ -71,30 +29,46 @@ export const HamiSettings = ({
     onLogout,
     onOpenProfile,
     onOpenPrivacy,
-    onOpenSupport,
+    onShellReset,
+    userId,
+    open = true,
 }: HamiSettingsProps) => {
-    const [activeSection, setActiveSection] = useState<SettingsSectionId>('appearance');
+    const [activeSection, setActiveSection] = useState<SettingsSectionId>(readPersistedSettingsSection);
+
+    useSettingsLifecycle(open, activeSection, userId);
+
+    useLayoutEffect(() => {
+        if (!open) return;
+        void loadSettingsSection(activeSection).catch(() => undefined);
+    }, [activeSection, open]);
+
+    useEffect(() => {
+        persistSettingsSection(activeSection);
+    }, [activeSection]);
+
+    const handleSectionChange = useCallback((sectionId: SettingsSectionId) => {
+        prefetchSettingsSection(sectionId);
+        setActiveSection(sectionId);
+    }, []);
 
     return (
-        <SettingsShell onClose={onClose} activeSection={activeSection} onSectionChange={setActiveSection}>
-            <AnimatePresence mode="wait">
-                <motion.div
-                    key={activeSection}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.2 }}
+        <SettingsErrorBoundary onClose={onClose} onShellReset={onShellReset}>
+            <EnsureLawyerSettingsProvider>
+                <SettingsShell
+                    onClose={onClose}
+                    activeSection={activeSection}
+                    onSectionChange={handleSectionChange}
+                    open={open}
                 >
-                    <Suspense fallback={<SectionFallback />}>
-                        <SettingsSectionRouter
-                            activeSection={activeSection}
-                            onClose={onClose}
-                            onEnterHomeLayoutEdit={onEnterHomeLayoutEdit}
-                            accountProps={{ onLogout, onOpenProfile, onOpenPrivacy, onOpenSupport }}
-                        />
-                    </Suspense>
-                </motion.div>
-            </AnimatePresence>
-        </SettingsShell>
+                    <SettingsSectionRouter
+                        activeSection={activeSection}
+                        onClose={onClose}
+                        onEnterHomeLayoutEdit={onEnterHomeLayoutEdit}
+                        open={open}
+                        accountProps={{ onLogout, onOpenProfile, onOpenPrivacy }}
+                    />
+                </SettingsShell>
+            </EnsureLawyerSettingsProvider>
+        </SettingsErrorBoundary>
     );
 };

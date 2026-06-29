@@ -14,6 +14,7 @@ export const HOME_HUB_TILE_LABELS: Record<HomeHubTileId, string> = {
 };
 
 export const DOCK_ITEM_LABELS: Record<DockItemId, string> = {
+    dockRepository: 'المستودع الذكي',
     dockNotepad: 'المفكرة',
     dockCalendar: 'التقويم',
     dockVault: 'المخزن',
@@ -37,6 +38,7 @@ export const HOME_WIDGET_LABELS: Record<HomeWidgetId, string> = {
     hubLawsuit: 'دعاوى',
     hubTransaction: 'معاملات',
     forum: 'المنتدى القانوني',
+    dockRepository: 'المستودع الذكي',
     dockNotepad: 'المفكرة',
     dockCalendar: 'التقويم',
     dockVault: 'المخزن',

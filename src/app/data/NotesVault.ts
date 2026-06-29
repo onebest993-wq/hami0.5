@@ -97,15 +97,6 @@ class NotesVaultService {
         };
         this.notes.unshift(newNote); // Add to top
         this.save();
-        // Audit log: تسجيل إضافة ملاحظة في المفكرة الكاملة
-        try {
-            void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                AuditLog.note.created({
-                    noteId: newNote.id,
-                    preview: content.slice(0, 60),
-                });
-            }).catch(() => {});
-        } catch { /* no-op */ }
         return newNote;
     }
 
@@ -114,19 +105,8 @@ class NotesVaultService {
     }
 
     deleteNote(id: string) {
-        const removed = this.notes.find(n => n.id === id);
         this.notes = this.notes.filter(n => n.id !== id);
         this.save();
-        if (removed) {
-            try {
-                void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                    AuditLog.note.deleted({
-                        noteId: removed.id,
-                        title: String(removed.content || '').slice(0, 60),
-                    });
-                }).catch(() => {});
-            } catch { /* no-op */ }
-        }
     }
 
     updateNote(id: string, updates: Partial<Pick<Note, 'content' | 'tags' | 'linkedCaseId'>>): void {
@@ -134,14 +114,6 @@ class NotesVaultService {
         if (idx === -1) return;
         this.notes[idx] = { ...this.notes[idx], ...updates };
         this.save();
-        try {
-            void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                AuditLog.note.updated({
-                    noteId: id,
-                    title: String(this.notes[idx]?.content || '').slice(0, 60),
-                });
-            }).catch(() => {});
-        } catch { /* no-op */ }
     }
 
     syncFromGlobal(_userId: string, note: { id: string | number; body: string; type?: string }, isNew: boolean, vaultId?: string): string {

@@ -8,6 +8,7 @@ import {
     resolveEffectiveAwaitingCassationParty,
     resolveCassationAppellantLabel,
     hubHasActiveAppealLedgerEntry,
+    manualExecutorAppealPipelineActive,
     resolveCreditorDecisionEnforcementState,
     manualExecutorCassationPartyAfterGrievance,
     manualExecutorAwaitingCassationParty,
@@ -480,7 +481,7 @@ describe('manual executor grievance cassation entitlement', () => {
 });
 
 describe('executor manual ledger hub routing', () => {
-    it('moves manual hub to appeals tab when appeal pipeline is active (flag 2)', () => {
+    it('keeps manual hub in previous tab during appeal pipeline (flag 2)', () => {
         const hub = baseDecision({
             manualExecutorLedgerEntry: true,
             appealRequestOrigin: 'executor_side',
@@ -488,7 +489,8 @@ describe('executor manual ledger hub routing', () => {
             manualExecutorWorkflowPhase: 'grievance_pending',
             manualExecutorAppealKind: 'tadhallum',
         });
-        expect(hubHasActiveAppealLedgerEntry(hub)).toBe(true);
+        expect(hubHasActiveAppealLedgerEntry(hub)).toBe(false);
+        expect(manualExecutorAppealPipelineActive(hub)).toBe(true);
     });
 
     it('keeps settled manual hub in previous tab when no appeal is open', () => {

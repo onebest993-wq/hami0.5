@@ -10,6 +10,9 @@ import type { DecisionCardProps } from './decisionCardTypes';
 export type DecisionsAppealsHubViewProps = {
     isHistoricalMode: boolean;
     decisions: Decision[];
+    decisionsHydrated: boolean;
+    /** القرارات المرئية بعد فلترة سياق المسار — تُستخدم لحالة الفراغ والتبويبات */
+    hubVisibleDecisions: Decision[];
     decisionsHubTab: 'current' | 'previous' | 'appeals' | 'archive';
     setDecisionsHubTab: (tab: 'current' | 'previous' | 'appeals' | 'archive') => void;
     setShowAddModal: (v: boolean) => void;
@@ -36,6 +39,8 @@ export function DecisionsAppealsHubView(props: DecisionsAppealsHubViewProps) {
     const {
         isHistoricalMode,
         decisions,
+        decisionsHydrated,
+        hubVisibleDecisions,
         decisionsHubTab,
         setDecisionsHubTab,
         setShowAddModal,
@@ -58,6 +63,8 @@ export function DecisionsAppealsHubView(props: DecisionsAppealsHubViewProps) {
         appealWorkflowCardProps,
     } = props;
 
+    const visibleDecisions = hubVisibleDecisions;
+
     return (
         <>
             {!isHistoricalMode ? (
@@ -77,13 +84,25 @@ export function DecisionsAppealsHubView(props: DecisionsAppealsHubViewProps) {
                     <div
                         className={`space-y-4${isHistoricalMode ? ' pointer-events-none select-none opacity-[0.72]' : ''}`}
                     >
-                        {decisions.length === 0 ? (
+                        {!decisionsHydrated ? (
+                            <div className="text-center py-6">
+                                <p className="text-slate-400 text-sm">جاري تحميل القرارات…</p>
+                            </div>
+                        ) : decisions.length === 0 && hubVisibleDecisions.length === 0 ? (
                             <div className="text-center py-6">
                                 <Scale size={40} className="text-slate-500 mx-auto mb-2" />
                                 <p className="text-slate-300 text-sm">لا توجد قرارات أو طلبات بعد</p>
                             </div>
                         ) : (
                             <>
+                                {visibleDecisions.length === 0 ? (
+                                    <div className="text-center py-3">
+                                        <p className="text-slate-400 text-xs">
+                                            توجد سجلات محفوظة لكنها غير مرئية في سياق هذا المسار — راجع
+                                            تبويب الأرشيف أو أعد فتح الإضبارة
+                                        </p>
+                                    </div>
+                                ) : null}
                                 <div
                                     className="flex flex-row-reverse gap-1 rounded-xl border border-white/10 bg-white/5 p-1 backdrop-blur-md"
                                     role="tablist"

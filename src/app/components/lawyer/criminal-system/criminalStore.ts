@@ -2,11 +2,22 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import SecureStoreService from '@/app/services/SecureStoreService';
-import { createCriminalShardedJSONStorage } from '@/app/services/criminalShardedPersistStorage';
 import {
-    CRIMINAL_STORAGE_PATCHED_EVENT,
-    loadCriminalCasesRaw,
-} from '@/app/utils/criminalCasesStorage';
+    createCriminalStorePersistStorage,
+    criminalStorePartialize,
+    CRIMINAL_STORE_PERSIST_VERSION,
+    CRIMINAL_STORE_KEY,
+} from './criminalStorePersistOptions';
+import {
+    ensureStageJourneyOnCase,
+    normalizeDefendantPersonalFields,
+    normalizeTrialChargeFieldsOnCase,
+    resolveInvestigationCaseNumberSnapshot,
+    sanitizeMergeTimelineEvents,
+    sanitizeMergedCasesTexts,
+} from './criminalStorePersistSupport';
+import { migrateCriminalPersistState } from './criminalStorePersistMigrate';
+import { installCriminalStorePersistMergeListener } from './criminalStorePersistMerge';
 import type {
     CassationProceeding,
     CassationType,
@@ -36,6 +47,50 @@ import {
     type CriminalTrashItemKind,
     type ProceduralSubItemTrashSnapshot,
 } from './criminalCaseTrash';
+import {
+    makeEmptyGuarantorDetails,
+    normalizeGuarantorDetails,
+    type GuarantorDetails,
+    type GuarantorPerson,
+} from './criminalGuarantorModel';
+import { normalizeSeizedAssets, type SeizedAsset } from './criminalSeizedAssetModel';
+import {
+    classifyAssetSeizurePartyKind,
+    normalizeOurRepresentation,
+    resolveOurRepresentationFromCaseRecord,
+    resolveProceduralDefendantId,
+    resolveProceduralDefendantIds,
+    type OurRepresentation,
+} from './criminalProceduralPartyUtils';
+import { caseMutationBlocked, isMergedDossierCase, timelineEventAllowedWhenFrozen } from './criminalCaseMutationPolicy';
+import { computeObjectionDeadlineFromNotifiedDate } from './criminalDateUtils';
+import { applyTimelineEventInsertion } from './criminalTimelineEventInsertEngine';
+import {
+    applyCompleteInvestigationLetter,
+    applyInvestigationLogExhibitLifecycleUpdate,
+    applyInvestigationLogInsertion,
+    applyInvestigationLogUpdate,
+    applyStatementInsertion,
+    applyStatementUpdate,
+} from './criminalInvestigationMutationEngine';
+import {
+    isInternalCaseIdentifier,
+    looksLikeRealCaseReference,
+    resolveCriminalCaseDisplayLabel,
+    resolveOfficialCaseNumber,
+    sanitizeCaseReferenceField,
+} from './criminalCaseReferenceUtils';
+import { resolveMergedCaseIds } from './criminalCaseMergeUtils';
+import { isCorruptTimelineEvent } from './criminalCaseTimelineUtils';
+import { createCriminalId as createId } from './criminalIdUtils';
+import {
+    finalizeDraftComplainantsCounterComplaint,
+    makeEmptyComplainant,
+    makeEmptyLocation,
+    makeInitialDraft,
+    normalizeCriminalCaseLocation,
+    normalizeSocialInquiryReport,
+} from './criminalCaseDraftFactory';
 import {
     computeAppealDeadline,
     normalizeTrialSessions,
@@ -431,6 +486,34 @@ export type {
 } from '@/app/types/criminal';
 export type { RecordCassationResultOutcome, RecordCassationResultPayload } from './cassationEngine';
 export type { RecordJudicialCassationResultPayload } from './cassationJudicialForm';
+export type {
+    GuarantorBailKind,
+    GuarantorPerson,
+    GuarantorDetails,
+} from './criminalGuarantorModel';
+export {
+    makeEmptyGuarantorDetails,
+    normalizeGuarantorDetails,
+    isGuarantorForfeited,
+} from './criminalGuarantorModel';
+export type { SeizedAsset } from './criminalSeizedAssetModel';
+export { normalizeSeizedAssets } from './criminalSeizedAssetModel';
+export type { OurRepresentation } from './criminalProceduralPartyUtils';
+export {
+    classifyAssetSeizurePartyKind,
+    resolveOurRepresentationFromCaseRecord,
+    resolveProceduralDefendantId,
+    resolveProceduralDefendantIds,
+} from './criminalProceduralPartyUtils';
+export {
+    isInternalCaseIdentifier,
+    looksLikeRealCaseReference,
+    resolveCriminalCaseDisplayLabel,
+    resolveOfficialCaseNumber,
+    sanitizeCaseReferenceField,
+} from './criminalCaseReferenceUtils';
+export { resolveMergedCaseIds } from './criminalCaseMergeUtils';
+export { isCorruptTimelineEvent } from './criminalCaseTimelineUtils';
 import {
     MergeValidationError,
     prepareMergedCaseTransaction,
@@ -440,718 +523,41 @@ import { findCaseInStore } from './caseMergeTimeline';
 export { MergeValidationError } from './caseMergeMigration';
 export type { MergeValidationCode } from './caseMergeMigration';
 
-export type CriminalLawyerRole = 'وكيل المشتكي' | 'وكيل المشكو منه' | 'شكوى متقابلة';
-export type OurRepresentation = 'complainant_side' | 'defendant_side';
-export type PhysicalLocation = 'judge_desk' | 'investigator_room' | 'prosecution' | 'police_station' | 'archive' | 'custom';
-export type CriminalCaseStage =
-    | 'مرحلة التحقيق'
-    | 'تحقيق الأحداث'
-    | 'محكمة الأحداث'
-    | 'محكمة الجنح'
-    | 'محكمة الجنايات'
-    | 'cassation_court';
-export type CrimeType = 'مخالفة' | 'جنحة' | 'جناية';
-export type DefendantStatus =
-    | 'حر'
-    | 'مستقدم'
-    | 'هارب'
-    | 'ملقى القبض عليه'
-    | 'موقوف'
-    | 'مكفل'
-    | 'bailed_pending_appeal'
-    | 'psychiatric_eval'
-    | 'provisional_delivery'
-    | 'behavioral_surveillance'
-    | 'juvenile_detention'
-    | 'متوفى'
-    | 'مشمول بالعفو';
-export type InvestigationPapersAt = '' | 'مركز شرطة' | 'مكتب تحقيق قضائي';
-
-/** نوع الكفالة: مالية (مبلغ) أو شخص ضامن (كفلاء بأسمائهم). */
-export type GuarantorBailKind = 'financial' | 'personal';
-
-/** كفيل ضامن مفرد ضمن قائمة الكفلاء. */
-export type GuarantorPerson = {
-    id: string;
-    fullName: string;
-};
-
-export type GuarantorDetails = {
-    bailAmount: string;
-    guarantorInfo: string;
-    /** نوع الكفالة المهيكلة — جديد. */
-    kind?: GuarantorBailKind;
-    /** أسماء الكفلاء — يُستخدم عند kind='personal'. */
-    guarantors?: GuarantorPerson[];
-};
-
-export function makeEmptyGuarantorDetails(): GuarantorDetails {
-    return { bailAmount: '', guarantorInfo: '' };
-}
-
-function normalizeGuarantorPersonList(raw: unknown): GuarantorPerson[] | undefined {
-    if (!Array.isArray(raw)) return undefined;
-    const out: GuarantorPerson[] = [];
-    raw.forEach((entry, idx) => {
-        if (!entry || typeof entry !== 'object') return;
-        const o = entry as Record<string, unknown>;
-        const fullName = String(o.fullName ?? o.name ?? '').trim();
-        if (!fullName) return;
-        const id = String(o.id ?? '').trim() || `g_${Date.now()}_${idx}`;
-        out.push({ id, fullName });
-    });
-    return out.length ? out : undefined;
-}
-
-function normalizeGuarantorBailKind(raw: unknown): GuarantorBailKind | undefined {
-    const v = String(raw ?? '').trim();
-    if (v === 'financial' || v === 'personal') return v;
-    return undefined;
-}
-
-export function normalizeGuarantorDetails(raw: unknown): GuarantorDetails | undefined {
-    if (!raw || typeof raw !== 'object') return undefined;
-    const o = raw as Record<string, unknown>;
-    if ('bailAmount' in o || 'guarantorInfo' in o) {
-        const bailAmount = String(o.bailAmount ?? '').trim();
-        const guarantorInfo = String(o.guarantorInfo ?? '').trim();
-        const kind = normalizeGuarantorBailKind(o.kind);
-        const guarantors = normalizeGuarantorPersonList(o.guarantors);
-        if (!bailAmount && !guarantorInfo && !kind && !guarantors) return undefined;
-        const result: GuarantorDetails = { bailAmount, guarantorInfo };
-        if (kind) result.kind = kind;
-        if (guarantors) result.guarantors = guarantors;
-        return result;
-    }
-    const legacyName = String(o.name ?? '').trim();
-    const legacyAmount = Number(o.amount);
-    const legacyType = String(o.type ?? '').trim();
-    const legacyNotes = String(o.forfeitureNotes ?? '').trim();
-    const legacyForfeited = o.isForfeited === true;
-    const bailAmount =
-        Number.isFinite(legacyAmount) && legacyAmount > 0
-            ? String(legacyAmount)
-            : String(o.bailAmount ?? '').trim();
-    const infoParts: string[] = [];
-    if (legacyName) infoParts.push(legacyName);
-    if (legacyType) infoParts.push(`(${legacyType})`);
-    if (legacyForfeited) infoParts.push('⛔ مصادرة الكفالة');
-    if (legacyNotes) infoParts.push(legacyNotes);
-    const guarantorInfo = infoParts.join(' — ').trim();
-    if (!bailAmount && !guarantorInfo) return undefined;
-    return { bailAmount, guarantorInfo };
-}
-
-export function isGuarantorForfeited(raw: unknown): boolean {
-    const g = normalizeGuarantorDetails(raw);
-    return Boolean(g?.guarantorInfo.includes('مصادرة'));
-}
-
-/**
- * يُعيد قائمة آمنة من الأموال المحجوزة بعد إعادة التحميل من التخزين الدائم.
- *
- * يُقصى أي صنف بدون وصف نصّي حقيقي. الحقول الاختيارية تُنظَّف إلى strings مقصوصة
- * أو تُحذف إذا كانت فارغة لئلا تتسرّب قيم "" تتعارض مع `?:` في النوع.
- */
-export function normalizeSeizedAssets(raw: unknown): SeizedAsset[] {
-    if (!Array.isArray(raw)) return [];
-    return raw
-        .map((a: any) => {
-            const description = String(a?.description ?? '').trim();
-            if (!description) return null;
-            const out: SeizedAsset = {
-                id: String(a?.id ?? createId()),
-                description,
-                createdAt: String(a?.createdAt ?? '').trim() || new Date().toISOString(),
-            };
-            const ref = String(a?.referenceNumber ?? '').trim();
-            if (ref) out.referenceNumber = ref;
-            const dt = String(a?.seizureDate ?? '').trim();
-            if (dt) out.seizureDate = dt;
-            const notes = String(a?.notes ?? '').trim();
-            if (notes) out.notes = notes;
-            const src = String(a?.sourceRequestId ?? '').trim();
-            if (src) out.sourceRequestId = src;
-            return out;
-        })
-        .filter((x): x is SeizedAsset => x !== null);
-}
-
-export type CriminalComplainant = {
-    id: string;
-    fullName: string;
-    address: string;
-    phone: string;
-    /** المكتب يُمثّل هذا الطرف (توكل) — يُحدَّد من الواجهة بجانب الاسم. */
-    isOfficeClient?: boolean;
-    isJuvenile?: boolean;
-    isUnderSeven?: boolean;
-    birthDate?: string;
-    guardianName?: string;
-    guardianRelationship?: string;
-    /**
-     * ⚖️ ازدواجية الصفة — «شكوى متقابلة» على مستوى المشتكي.
-     * عند `true` يَكتسب هذا المشتكي صفة المتهم أيضاً (يبقى داخل مصفوفة complainants
-     * ولا يُنقل إلى defendants — منع تخريب الداتا)، وتُستخدم الحقول accused* أدناه
-     * لتخزين حالته الإجرائية كمتهم بشكل مستقل عن صفته الأصلية كمشتكي.
-     *
-     * ملاحظة: عند `caseRecord.isMutualComplaint === true` كل المشتكين يُعامَلون
-     * كأنّ لديهم `isCrossComplaint = true` (سلوك تراثي).
-     */
-    isCrossComplaint?: boolean;
-    /**
-     * متهمون مُستهدفون بشكوى هذا المشتكي المتقابلة (إنشاء الإضبارة).
-     * `undefined` = لا شكوى متقابلة على هذا المشتكي.
-     * قائمة غير فارغة = الأطراف المقصودون بالشكوى المتقابلة فقط (متهمون و/أو مشتكون).
-     */
-    counterComplaintTargetDefendantIds?: string[];
-    /** حالة المشتكي كمتهم (موقوف/مكفل/حر/هارب…) — منفصلة عن صفته كمشتكي. */
-    accusedStatus?: DefendantStatus | '';
-    /** جهة الإيداع للتوقيف — مرتبطة بـ accusedStatus. */
-    accusedDetentionAuthority?: string;
-    /** تاريخ انتهاء التوقيف لهذا المشتكي حين يكون موقوفاً. */
-    accusedDetentionExpiryDate?: string;
-    /** سجل دفعات التوقيف — مماثل لـ CriminalDefendant.detentionHistoryLog. */
-    accusedDetentionHistoryLog?: DetentionHistory[];
-    /** مجموع أيام التوقيف — للحساب التراكمي. */
-    accusedTotalDetentionDays?: number;
-    /** تفاصيل الكفالة عند كون المشتكي «مكفلاً» كمتهم. */
-    accusedGuarantorDetails?: GuarantorDetails;
-    /**
-     * 🔒 قُفل سجل المشتكي بصفته متهماً (شكوى متقابلة) — يُفعَّل عند توثيق الوفاة
-     *    أو سقوط الدعوى الفرعية بحقّه. مَفهومه مماثل لـ `isPartyRecordLocked` على المتهم.
-     */
-    accusedIsPartyRecordLocked?: boolean;
-    /** مَرحلة المشتكي الشخصية بصفته متهماً (مثل lawsuit_dropped_death عند الوفاة). */
-    accusedPersonalStage?: string;
-    /**
-     * 📦 محجوزات الأموال على المشتكي المتقابل (يَوازي `seizedAssets` للمتهم). يَظهر
-     * فقط عندما يَكون المشتكي «هارباً» في شكوى متقابلة وتُصدر بحقّه أوامر حَجز.
-     */
-    accusedSeizedAssets?: SeizedAsset[];
-};
-
-export interface DetentionHistory {
-    id: string;
-    location: string;
-    startDate: string;
-    endDate?: string;
-}
-
-/**
- * مال محجوز على المتهم الهارب (م 121 أصول).
- *
- * يُنشَأ عبر قرار قاضٍ من نوع «حجز الأموال» داخل تبويب «قرارات القاضي»،
- * ويُلصق بالمتهم الهارب فقط. يمكن تعدّد الأموال على نفس المتهم،
- * ويمكن «فكّ الحجز» عن صنف واحد أو جماعياً عن كل ما لديه.
- */
-export interface SeizedAsset {
-    /** معرّف داخلي لكل صنف محجوز. */
-    id: string;
-    /** وصف المال المحجوز (مثال: «سيارة BMW X5 موديل 2020»، «حساب مصرفي رقم …»). */
-    description: string;
-    /** رقم كتاب الحجز / المرجع. */
-    referenceNumber?: string;
-    /** تاريخ تنفيذ الحجز. */
-    seizureDate?: string;
-    /** ملاحظات إضافية. */
-    notes?: string;
-    /** معرّف الطلب/القرار الذي أنشأ هذا الحجز (LawyerRequest.id) — للتتبّع. */
-    sourceRequestId?: string;
-    /** ختم زمني للإنشاء — يُحدَّد ساعة الحفظ (ISO). */
-    createdAt: string;
-}
-
-export type InAbsentiaDetails = {
-    verdictDate: string;
-    objectionDeadline: string;
-    isObjectionFiled: boolean;
-    notifiedDate?: string;
-    notificationMethod?: string;
-};
-
-export type SocialInquiryWorkflowStatus = 'not_requested' | 'under_preparation' | 'submitted';
-
-export type JuvenileDetentionPlacement = 'juvenile_observation' | 'rehabilitation_school';
-
-export type SocialInquiryReport = {
-    workflowStatus?: SocialInquiryWorkflowStatus;
-    isAttached: boolean;
-    receivedDate?: string;
-    investigatorName?: string;
-    recommendations?: string;
-};
-
-export type CriminalDefendant = {
-    id: string;
-    fullName: string;
-    address: string;
-    birthYear: string;
-    status: DefendantStatus | '';
-    detentionAuthority: string;
-    detentionExpiryDate: string;
-    detentionHistoryLog: DetentionHistory[];
-    totalDetentionDays: number;
-    hasFelonyCourtPermit?: boolean;
-    guarantorDetails?: GuarantorDetails;
-    inAbsentiaDetails?: InAbsentiaDetails;
-    /** قائمة الأموال المحجوزة على المتهم الهارب — تُملأ عبر قرار «حجز الأموال». */
-    seizedAssets?: SeizedAsset[];
-    /** المكتب يُمثّل هذا الطرف (توكل) — يُحدَّد من الواجهة بجانب الاسم. */
-    isOfficeClient?: boolean;
-    isJuvenile?: boolean;
-    isUnderSeven?: boolean;
-    birthDate?: string;
-    guardianName?: string;
-    guardianRelationship?: string;
-    socialInquiryReport?: SocialInquiryReport;
-    /** المصير الإجرائي الفردي داخل الإضبارة الموحدة. */
-    personalStage?: DefendantPersonalStage;
-    /** قفل بيانات الطرف (شمع أحمر) — مثلاً بعد وفاة المتهم. */
-    isPartyRecordLocked?: boolean;
-    /** حالة المتهم داخل التحقيق — تصفية الخصوم (افتراضي active). */
-    investigationStatus?: InvestigationDefendantStatus;
-    /** هوية المتهم مجهولة حتى «كشف الهوية». */
-    isIdentityUnknown?: boolean;
-};
-
-/** فئة العمر الإجرائية للمتهم المعلوم — بالغ (افتراضي) | حدث | دون 7 سنوات. */
-export type DefendantAgeCategory = 'adult' | 'juvenile' | 'under_seven';
-
-export type StatementHighlightColor = 'red' | 'blue' | 'yellow';
-
-export interface StatementContentHighlight {
-    start: number;
-    end: number;
-    color: StatementHighlightColor;
-}
-
-export interface Statement {
-    id: string;
-    date: string;
-    giverType: 'complainant' | 'defendant' | 'witness' | 'informant';
-    giverName: string;
-    content: string;
-    notes?: string;
-    /** مقاطع مميزة داخل نص الإفادة (توضيح المحامي). */
-    contentHighlights?: StatementContentHighlight[];
-    proceduralNodeId?: string;
-    isJudiciallyRatified?: boolean;
-    /** مكان تدوين الإفادة — مرحلة التحقيق (ضابط تحقيق / محقق قضائي). */
-    statementRecordingPlace?: 'investigation_officer' | 'judicial_investigator';
-    /** اسم الشاهد الثلاثي — حقل سجل الإفادات فقط. */
-    witnessName?: string;
-    /** عمر / سكن / صلة قرابة — اختياري للشاهد. */
-    witnessDetails?: string;
-    /**
-     * @deprecated — استُبدل بـ witnessPartySide + witnessPartyIds
-     *  - `prosecution`: شاهد إثبات (يَدعم الادعاء).
-     *  - `defense`:     شاهد نفي  (يَدعم الدفاع).
-     */
-    witnessKind?: 'prosecution' | 'defense';
-    /** جهة الشهادة — مشتكي أو متهم (لا يجتمع الطرفان). */
-    witnessPartySide?: 'complainant' | 'defendant';
-    /** الأطراف التي يخصّهم الشاهد — اختيار متعدد ضمن جهة واحدة. */
-    witnessPartyIds?: string[];
-    /** مُعَيَّن بعد الضم: مُعرّف الإضبارة الأصلية التي رُحِّلت منها هذه الإفادة. */
-    mergedFromCaseId?: string;
-    /** مُعَيَّن بعد الضم: الرقم الرسمي للإضبارة الأصلية (لشارة التتبّع). */
-    mergedFromCaseNumber?: string;
-}
-
-export type OtherEvidenceItem = {
-    id: string;
-    evidenceType: string;
-    isLinkedToDossier: boolean;
-    attachmentDate?: string;
-    notes: string;
-    proceduralNodeId?: string;
-    /** تاريخ الإنشاء — للترتيب عند غياب تاريخ الإرفاق. */
-    createdAt?: string;
-};
-
-export interface TimelineEvent {
-    id: string;
-    date: string;
-    type: 'investigation' | 'court_session' | 'decision';
-    category: string;
-    title: string;
-    description: string;
-    nextDate?: string;
-    defendantIds?: string[];
-    /**
-     * ⚖️ مُعرّفات المشتكين المتقابلين (ازدواجية الصفة) المُرتبطين بهذا الحدث.
-     * يُملأ حصراً عند تَفعيل الشكوى المتقابلة. يَسمح بِفلتَرة التايملاين بطَرف
-     * من جانِبَي القضية دون نَقل أيّ كائن بين المَصفوفات.
-     */
-    complainantIds?: string[];
-    appealedDecision?: string;
-    postponementReason?: string;
-    guarantorDetails?: GuarantorDetails;
-    extensionDays?: number;
-    socialWorkerPresent?: boolean;
-    suspendedExecution?: boolean;
-    probationYears?: number;
-    transferredToStage?: CriminalCaseStage;
-    notifiedDate?: string;
-    notificationMethod?: string;
-    summonsStatus?: 'served_valid' | 'not_served_invalid' | 'served_to_official';
-    summonsDate?: string;
-    summonsDocumentRef?: string;
-    detentionPlacement?: JuvenileDetentionPlacement;
-    isConfidential?: boolean;
-    /** طرف مستهدف للإجراء المخصص (تحقيق) — null = إجراء غير شخصي. */
-    targetDefendantId?: string | null;
-    /** حقل عرض يُحقن في العرض الموحَّد لتايم لاين الأم (true إذا كان مُرحَّلاً). */
-    isMerged?: boolean;
-    /** يُكتب عند نَقل أحداث «تفريق الدعاوى» إلى الإضبارة التابعة (severance) — تتبّع دائم. */
-    originCaseNumber?: string;
-    originCaseId?: string;
-    /** يُكتب عند تَرحيل الحدث من إضبارة مَضمومة إلى الإضبارة الأم (merge) — تتبّع دائم. */
-    mergedFromCaseId?: string;
-    mergedFromCaseNumber?: string;
-    /** عقدة المسار النشطة عند إنشاء الحدث. */
-    proceduralNodeId?: string;
-    /** رقم الجلسة — محاكمة. */
-    sessionNumber?: string;
-    /** اسم القاضي / الهيئة — محاكمة. */
-    judgeOrPanelName?: string;
-    /** طلبات الجلسة القادمة — محاكمة. */
-    nextSessionRequests?: string;
-}
-
-export interface LegalArticleChange {
-    id: string;
-    article: string;
-    changedAtDate: string;
-    changedBy: 'police' | 'investigation_judge' | 'trial_court';
-}
-
-export type ExhibitLifecycleStatus = 'seized_at_station' | 'sent_to_lab' | 'lab_result_received';
-
-export interface InvestigationLog {
-    id: string;
-    date: string;
-    category: 'official_letter' | 'forensic_report' | 'site_inspection' | 'exhibit_seizure' | 'other';
-    title: string;
-    details: string;
-    status: 'awaiting_response' | 'response_received' | 'returned_for_revision';
-    attachmentRef?: string;
-    defendantIds?: string[];
-    /** ربط إجباري بالخصم — معرّف الطرف في الإضبارة. */
-    linkedPartyId?: string;
-    /** رقم محضر الضبط — عند تصنيف «ضبط مبرز». */
-    seizureRecordNumber?: string;
-    /** رقم وتاريخ كتاب الطب العدلي — عند تصنيف «طب عدلي». */
-    forensicLetterRef?: string;
-    /** وصف المبرز الدقيق. */
-    exhibitDescription?: string;
-    /** الكمية / العدد. */
-    exhibitQuantity?: string;
-    /** دورة حياة المبرز — خزانة الأدلة فقط. */
-    exhibitLifecycle?: ExhibitLifecycleStatus;
-    /** تاريخ ورود الجواب — مخاطبات (تحديث أمامي فقط). */
-    responseReceivedAt?: string;
-    responseNotes?: string;
-    /** يُكتب عند ترحيل السجل من إضبارة مَضمومة إلى الأم (merge) — تتبّع دائم. */
-    mergedFromCaseId?: string;
-    mergedFromCaseNumber?: string;
-}
-
-export interface LawyerRequest {
-    id: string;
-    requestDate: string;
-    type: string;
-    lawyerNote: string;
-    status: 'pending' | 'approved' | 'rejected' | 'executed';
-    judgeMargin?: string;
-    decisionDate?: string;
-    defendantIds?: string[];
-    /** قفل نهائي — لا تعديل بعد التأكيد. */
-    isLocked?: boolean;
-    /** @deprecated — يُحوَّل إلى isLocked عند التحميل. */
-    decisionArchived?: boolean;
-    proceduralNodeId?: string;
-    /** قالب نوع الطلب من القائمة (بما فيها «إجراء مخصص»). */
-    proceduralTemplate?: string;
-    /** للإجراء المخصص — قابلية الطعن التمييزي. */
-    isAppealable?: boolean;
-    /** تاريخ انتهاء التوقيف/التمديد عند اختيار نوع توقيف. */
-    detentionStartDate?: string;
-    detentionEndDate?: string;
-    /** هوامش ومتابعات إجرائية متسلسلة على الطلب (منفصلة عن هامش القاضي الختامي). */
-    margins?: { id: string; date: string; text: string }[];
-    /** مرفقات موثقة (محاكاة رفع — اسم المستند فقط). */
-    attachments?: { id: string; name: string }[];
-    /** تمييز قرار/طلب مصيري في الواجهة. */
-    isStarred?: boolean;
-    /** المادة القانونية المستند عليها — استقدام/قبض. */
-    legalArticleBasis?: string;
-    /** متابعة تنفيذ أمر الاستقدام/القبض. */
-    orderEnforcement?: import('@/app/types/criminal').OrderEnforcementTracking;
-    /** المحكمة المحال إليها — إحالة الشكوى إلى محكمة أخرى. */
-    referredCourtName?: string;
-    /** بيانات قرار «تكفيل المتهم» المهيكلة — مالية أو شخص ضامن. */
-    defendantBail?: {
-        kind: GuarantorBailKind;
-        bailAmount?: string;
-        guarantors?: GuarantorPerson[];
-    };
-    /**
-     * بيانات قرار «حجز الأموال» المهيكلة — قائمة أموال محجوزة لكل طَرَف هارب مُستهدف.
-     *
-     * 🛈 ملاحظة دلالية: حقل `defendantId` تَراثياً يَحوي مُعرّف متهم؛ لكن في حالة
-     *    الشكوى المتقابلة (isMutualComplaint أو isCrossComplaint) يَجوز أن يَحمل
-     *    مُعرّف مشتكٍ مُتقابل (الحجز يَكتب على `complainant.accusedSeizedAssets`).
-     *    تَفسير المُعرّف يَتمّ ديناميكياً عبر مُطابقته مع `defendants[].id` ثم
-     *    `complainants[].id`. أيّ كود مُستقبلي يَفترض «مُعرّف متهم حَتماً» سَيُخطئ.
-     */
-    assetSeizure?: {
-        perDefendant: Array<{
-            /** مُعرّف الطَرَف المُستهدف (متهم أصلي، أو مشتكٍ متقابل في القَضايا المُتقابلة). */
-            defendantId: string;
-            assets: SeizedAsset[];
-        }>;
-    };
-    /** يُكتب عند ترحيل الطلب من إضبارة مَضمومة إلى الأم (merge) — تتبّع دائم. */
-    mergedFromCaseId?: string;
-    mergedFromCaseNumber?: string;
-}
-
-export interface StageConclusion {
-    id: string;
-    stageType: 'investigation' | 'misdemeanor' | 'felony' | 'juvenile' | 'cassation';
-    decisionType:
-        | 'referral'
-        | 'closing'
-        | 'temporary_closing'
-        | 'conviction'
-        | 'juvenile_deliver_guardian'
-        | 'juvenile_behavioral_surveillance'
-        | 'juvenile_reform_boys'
-        | 'juvenile_youth_school'
-        | 'juvenile_fine'
-        | 'juvenile_severance_referral'
-        | 'acquittal'
-        | 'release'
-        | 'expiration'
-        | 'cassation_confirm'
-        | 'cassation_quash_remand'
-        | 'cassation_quash_reduce'
-        | 'cassation_quash_acquit_release'
-        | 'return_investigation_deficiency'
-        | 'misdemeanor_to_felony_jurisdiction'
-        | 'felony_to_misdemeanor_jurisdiction'
-        | 'trial_cassation_appeal'
-        | 'cassation_quash_investigation'
-        | 'cassation_quash_trial_misdemeanor'
-        | 'cassation_quash_trial_felony'
-        | 'case_split_fugitive_referral'
-        | 'temporary_release_insufficient_evidence'
-        | 'postpone_article_183'
-        | 'default_judgment_issue'
-        | 'default_judgment_opposition';
-    date: string;
-    details: string;
-    defendantStatusAtDecision: 'detained' | 'bailed' | 'fugitive';
-    defendantIds?: string[];
-    /** نطاق المستفيدين من النقض عند أسباب شخصية (م 269/ب). */
-    targetDefendantIds?: string[];
-    /** أسباب نقض موضوعية مشتركة — يستفيد جميع المتهمين. */
-    sharedObjectiveGrounds269b?: boolean;
-    punishmentType?: 'death' | 'life' | 'other';
-    expirationReason?: StageExpirationReason;
-    /**
-     * حالة كل متهم لحظة القرار (موقوف/مكفل/هارب) — Per-Defendant.
-     * يُستخدم عندما يحتاج القرار حالات فردية مختلفة لكل متهم.
-     * يُلغي قيمة `defendantStatusAtDecision` العامة عند توفّره.
-     */
-    defendantStatusesByDefendantId?: Record<string, 'detained' | 'bailed' | 'fugitive'>;
-    /** سبب غلق الدعوى — إجباري في قرارات [غلق نهائي / غلق مؤقت]. */
-    closureReason?: InvestigationClosureReason;
-}
-
-export type CriminalCaseLocation = {
-    investigationCourtName: string;
-    investigationPapersAt: InvestigationPapersAt;
-    policeStationName: string;
-    baseRegisterNumberAndDate: string;
-    investigationOfficeName: string;
-    investigationDossierNumber: string;
-    courtName: string;
-    caseNumber: string;
-    /** رقم الادعاء العام — بجانب رقم الدعوى بعد الإحالة. */
-    publicProsecutionNumber: string;
-    /** اسم القاضي — محكمة الموضوع. */
-    trialJudgeName: string;
-    /** موعد المرافعة القادمة (YYYY-MM-DD). */
-    nextHearingDate: string;
-};
-
+export type {
+    CriminalLawyerRole,
+    PhysicalLocation,
+    CriminalCaseStage,
+    CrimeType,
+    DefendantStatus,
+    InvestigationPapersAt,
+    CriminalComplainant,
+    DetentionHistory,
+    InAbsentiaDetails,
+    SocialInquiryWorkflowStatus,
+    JuvenileDetentionPlacement,
+    SocialInquiryReport,
+    CriminalDefendant,
+    DefendantAgeCategory,
+    StatementHighlightColor,
+    StatementContentHighlight,
+    Statement,
+    OtherEvidenceItem,
+    TimelineEvent,
+    LegalArticleChange,
+    ExhibitLifecycleStatus,
+    InvestigationLog,
+    LawyerRequest,
+    StageConclusion,
+    CriminalCaseLocation,
+    CriminalCaseDraft,
+    CriminalDossierStatus,
+    InvestigationDossierClosureKind,
+    InvestigationDossierClosure,
+    CriminalCase,
+    JudicialSeveranceDraft,
+    PendingSeveranceContext,
+} from './criminalCaseModel';
 export type { CriminalCaseUserRole } from './complainantCassationGovernance';
-
-export type CriminalCaseDraft = {
-    basics: {
-        role: CriminalLawyerRole | '';
-        ourRepresentation: OurRepresentation | '';
-        /** صفة المحامي في الإضبارة — يُشتق من ourRepresentation عند الغياب. */
-        userRole?: CriminalCaseUserRole | '';
-        stage: CriminalCaseStage | '';
-        legalArticle: string;
-        crimeType: CrimeType | '';
-    };
-    location: CriminalCaseLocation;
-    complainants: CriminalComplainant[];
-    unknownDefendant: boolean;
-    defendants: CriminalDefendant[];
-    statements: Statement[];
-    otherEvidenceItems: OtherEvidenceItem[];
-    timelineEvents: TimelineEvent[];
-    investigationLogs: InvestigationLog[];
-    /** حاويات إجرائية متداخلة — لوحة المتابعة (Recursive Canvas). */
-    proceduralContainers: ProceduralContainer[];
-    /** سجل تغييرات لوحة المسارات (اختياري — شفافية). */
-    proceduralCanvasAudit?: ProceduralCanvasAuditEntry[];
-    lawyerRequests: LawyerRequest[];
-    /** سجل جلسات المحاكمة الرسمي — مستقل عن الساندبوكس الإجرائي. */
-    trials: TrialSession[];
-    /** بطاقات الأحكام (براءة/إفراج/إدانة) ومسارات الطعن — تبويب القرارات والطعون. */
-    verdictCards?: VerdictCard[];
-    /** إفادات واستجواب الشهود — محكمة الموضوع (تبويب المحاكمات فقط). */
-    trialDepositions: TrialDeposition[];
-    /** مادة الإحالة الأصلية — ثابتة للقراءة (تبويب المحاكمات). */
-    referralArticle?: string;
-    /** مادة الاتهام الحالية للمحاكمة — قابلة للتعديل (م 187). */
-    currentAccusationArticle?: string;
-    /** سجل تعديلات الوصف القانوني أثناء المرافعة. */
-    chargeModifications?: TrialChargeModification[];
-    /** السجل الزمني الموحد للقرارات القضائية (محمي). */
-    judicialDecisions?: JudicialDecision[];
-    physicalLocation: PhysicalLocation;
-    physicalLocationCustomName?: string;
-    isArticle3Offense?: boolean;
-    crimeDiscoveryDate?: string;
-    /** شكوى متقابلة (مشاجرة/تبادل أفعال) — الأطراف يبقون في مصفوفتين منفصلتين */
-    isMutualComplaint: boolean;
-    /** المشتكي هو الحق العام / الادعاء العام — لا يُدخل مشتكٍ عادي. */
-    isPublicProsecutionComplainant?: boolean;
-    /** المادة تتضمن حقاً عاماً — يُفعِّل إظهار الحق العام بعد تنازل المشتكين. */
-    articleIncludesPublicRight?: boolean;
-    /** إضبارة سرية — تُفعَّل تلقائياً عند وجود متهم/مشتكٍ حدث. */
-    isConfidential?: boolean;
-};
-
-export type CriminalDossierStatus = 'active' | 'merged';
-
-export type InvestigationDossierClosureKind = 'temporary' | 'final' | 'waiver';
-
-/** حالة إغلاق/تجميد الإضبارة التحقيقية — مستقلة عن حالة كل متهم. */
-export type InvestigationDossierClosure = {
-    kind: InvestigationDossierClosureKind;
-    closedAt: string;
-    sourceRequestId?: string;
-    defendantIds?: string[];
-};
-
-export type CriminalCase = CriminalCaseDraft & {
-    id: string;
-    createdAt: string;
-    isFrozen?: boolean;
-    /** استئخار م 183 — يحجب الإجراءات الجنائية الجديدة. */
-    isPrejudicialPostponed?: boolean;
-    /** أرشفة بحكم غيابي — يُفتح بها طعن المعارضة. */
-    isDefaultJudgmentArchived?: boolean;
-    verdictDate?: string;
-    isSentToCassation?: boolean;
-    /** @deprecated — يُرحَّل إلى cassationProceeding */
-    cassationCaseDetails?: {
-        cassationNumber: string;
-        sentDate: string;
-        panelName: string;
-    };
-    /** سجل الطعن/التدخل التمييزي النشط. */
-    cassationProceeding?: CassationProceeding;
-    isArchived?: boolean;
-    notes?: string;
-    /** حالة الارتباط الإداري — merged = إضبارة مضمومة ومغلقة */
-    dossierStatus?: CriminalDossierStatus;
-    /** أرقام الأضابير المضمومة في هذه الإضبارة الأم (للشارات) */
-    mergedCasesTexts?: string[];
-    mergedIntoCaseId?: string;
-    mergedIntoCaseNumber?: string;
-    /** معرّفات الأضابير المضمومة (ضم متعدد — الإضبارة الأم). */
-    mergedCaseIds?: string[];
-    /** @deprecated — يُدمَج عند التحميل إلى mergedCaseIds */
-    mergedFromCaseIds?: string[];
-    legalArticleHistory: LegalArticleChange[];
-    isPrivateRightWaived?: boolean;
-    waiverDate?: string;
-    finalDecision?: StageConclusion;
-    /** المرحلة القطعية (تحقيق / جنح / جنايات). */
-    caseStage?: CaseStage;
-    /** نوع الجريمة السيادي — جnaية / جنحة / مخalفة. */
-    case_classification?: import('./caseClassificationEngine').CaseClassification;
-    /** طريقة الجنحة — موjزة (م 201-211) أو غير موjزة. */
-    misdemeanor_type?: import('./caseClassificationEngine').MisdemeanorType;
-    /** رقم دعوى المحكمة بعد الإحالة. */
-    courtCaseNumber?: string;
-    /** رقم التحقيق السابق (لقطة عند الإحالة). */
-    investigationCaseNumber?: string;
-    /** قفل أمان — يمنع تعديل أحداث التحقيق. */
-    isInvestigationLocked?: boolean;
-    /** غلق/تجميد الإضبارة التحقيقية (مؤقت / نهائي / تنازل). */
-    investigationDossierClosure?: InvestigationDossierClosure;
-    /** مسار تنقل الإضبارة في رأس اللوحة. */
-    stageJourney?: JourneyNode[];
-    /** الإضبارة الأم عند تفريق الدعاوى (إضبارة تابعة). */
-    parentCaseId?: string;
-    /** وليدة قرار تفريق — لا تُعدّل المشتكين/التايم لاين القديم في التخزين. */
-    isSeveredChild?: boolean;
-    severanceReason?: SeveranceReason;
-    /** تفصيل يدوي عند اختيار «أخرى». */
-    severanceReasonDetail?: string;
-    /** تاريخ قرار التفريق (YYYY-MM-DD) — حد الوراثة من الأم. */
-    severedAt?: string;
-    /** معرّفات الإضابير المفرّعة التابعة (الأم فقط). */
-    severedChildCaseIds?: string[];
-    /** لقطة إحالة الشكوى — لاستعادة اسم المحكمة عند النقض. */
-    complaintCourtReferral?: import('./complaintCourtReferralEngine').ComplaintCourtReferralMeta;
-    /** سلة مهملات — عناصر محذوفة من الطلبات/الإفادات/التتبع قابلة للاسترجاع. */
-    trashBin?: CriminalTrashItem[];
-};
-
-/**
- * سياق تفريق الدعوى (شطر إضبارة) — يجسر بين:
- *   1. فتح المودال من ترويسة الإضبارة الأم،
- *   2. التوجيه إلى شاشة «إضبارة جديدة» مع تعبئة المتهمين فقط،
- *   3. تنفيذ الترحيل (createNew + deleteFromParent + migrateExclusiveItems) عند الحفظ.
- * يبقى في الحالة حتى يتم Commit أو Cancel بشكل صريح.
- */
-export type JudicialSeveranceDraft = {
-    requestDate: string;
-    lawyerNote: string;
-    isAppealable: boolean;
-};
-
-export type PendingSeveranceContext = {
-    parentCaseId: string;
-    /** معرّفات المتهمين في الإضبارة الأم — للحذف من الأم وقت الـ Commit. */
-    parentDefendantIds: string[];
-    /** لقطة المتهمين المنقولين (لإعادة استخدام بياناتهم الكاملة في الإضبارة الجديدة). */
-    defendantSnapshots: CriminalDefendant[];
-    /** ختم زمني لمعرفة عمر السياق وكشف أي تسريب محتمل. */
-    initiatedAt: string;
-    /** بيانات قرار التفريق من يوميات التحقيق — تُسجَّل على الأم بعد إتمام الشطر. */
-    judicialSeveranceDraft?: JudicialSeveranceDraft;
-    /** مسودّة تعبئة الإضبارة المفرّقة — منفصلة عن مسودّة «إضبارة جديدة» العادية. */
-    formDraft: CriminalCaseDraft;
-    /** اختياري — مسار `severCase` القديم أو تكامل خارجي. */
-    severanceReason?: SeveranceReason;
-    /** تفصيل يدوي عند اختيار «أخرى». */
-    severanceReasonDetail?: string;
-    /** مرحلة الإضبارة الأم عند بدء التفريق — تُقفل على المفرّقة. */
-    lockedCaseStage: CriminalCaseStage;
-};
 
 export function validateInvestigationSeveranceTargets(
     defendants: CriminalDefendant[] | undefined,
@@ -1768,95 +1174,6 @@ type CriminalStoreState = {
     setPendingSeveranceReason: (reason?: SeveranceReason, detail?: string) => void;
 };
 
-function createId(): string {
-    const cryptoObj = globalThis.crypto as Crypto | undefined;
-    if (cryptoObj && 'randomUUID' in cryptoObj && typeof cryptoObj.randomUUID === 'function') {
-        return cryptoObj.randomUUID();
-    }
-    return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-}
-
-function addUtcDays(ymd: string, days: number): string | null {
-    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd ?? '').trim());
-    if (!m) return null;
-    const dt = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
-    dt.setUTCDate(dt.getUTCDate() + Math.floor(days));
-    return dt.toISOString().slice(0, 10);
-}
-
-function addUtcMonths(ymd: string, months: number): string | null {
-    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd ?? '').trim());
-    if (!m) return null;
-    const dt = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
-    dt.setUTCMonth(dt.getUTCMonth() + Math.floor(months));
-    return dt.toISOString().slice(0, 10);
-}
-
-function computeObjectionDeadlineFromNotifiedDate(notifiedDate: string, crimeType: string): string | null {
-    const base = addUtcDays(notifiedDate, 1);
-    if (!base) return null;
-    const ct = String(crimeType ?? '').trim();
-    if (ct === 'مخالفة') return addUtcDays(base, 30);
-    if (ct === 'جنحة') return addUtcMonths(base, 3);
-    if (ct === 'جناية') return addUtcMonths(base, 6);
-    return addUtcMonths(base, 3);
-}
-
-function makeEmptyComplainant(): CriminalComplainant {
-    return {
-        id: createId(),
-        fullName: '',
-        address: '',
-        phone: '',
-        isJuvenile: false,
-        isUnderSeven: false,
-        birthDate: '',
-        guardianName: '',
-        guardianRelationship: '',
-    };
-}
-
-/** يُطبَّق عند حفظ الإضبارة من مسودّة الإنشاء — لا يغيّر سلوك الدعوى المتقابلة في لوحة الإضبارة. */
-function finalizeDraftComplainantsCounterComplaint(
-    complainants: CriminalComplainant[],
-    defendantIds: string[],
-): CriminalComplainant[] {
-    const validDef = new Set(defendantIds.map((id) => String(id ?? '').trim()).filter(Boolean));
-    const complainantIdSet = new Set(complainants.map((c) => c.id));
-    const validParty = new Set([...validDef, ...complainantIdSet]);
-
-    const accusedComplainantIds = new Set<string>();
-
-    const mapped = complainants.map((c) => {
-        const raw = c.counterComplaintTargetDefendantIds;
-        if (raw === undefined) {
-            const { counterComplaintTargetDefendantIds: _drop, ...rest } = c;
-            return { ...rest, isCrossComplaint: false };
-        }
-        const filtered = (Array.isArray(raw) ? raw : [])
-            .map((id) => String(id ?? '').trim())
-            .filter((id) => validParty.has(id));
-        if (!filtered.length) {
-            const { counterComplaintTargetDefendantIds: _drop, ...rest } = c;
-            return { ...rest, isCrossComplaint: false };
-        }
-        for (const tid of filtered) {
-            if (tid !== c.id && complainantIdSet.has(tid)) {
-                accusedComplainantIds.add(tid);
-            }
-        }
-        return {
-            ...c,
-            isCrossComplaint: true,
-            counterComplaintTargetDefendantIds: filtered,
-        };
-    });
-
-    return mapped.map((c) =>
-        accusedComplainantIds.has(c.id) ? { ...c, isCrossComplaint: true } : c,
-    );
-}
-
 function pruneCounterComplaintTargetsAfterPartyRemoval(
     complainants: CriminalComplainant[],
     removedPartyId: string,
@@ -1877,23 +1194,6 @@ function pruneCounterComplaintTargetsAfterPartyRemoval(
 
 function isCourtStageValue(v: string): v is CriminalCaseStage {
     return isValidCriminalStage(v);
-}
-
-function normalizeDefendantPersonalFields(d: CriminalDefendant): CriminalDefendant {
-    const withName = coerceDefendantFullName(d);
-    const ps = withName.personalStage ?? defaultPersonalStage();
-    const isUnderSeven = Boolean((withName as CriminalDefendant).isUnderSeven);
-    return {
-        ...withName,
-        isJuvenile: isUnderSeven ? false : Boolean((withName as CriminalDefendant).isJuvenile),
-        isUnderSeven,
-        personalStage: ps,
-        investigationStatus: normalizeInvestigationDefendantStatus(d.investigationStatus),
-        isPartyRecordLocked:
-            d.isPartyRecordLocked === true ||
-            ps === 'lawsuit_dropped_death' ||
-            ps === 'lawsuit_dropped',
-    };
 }
 
 function applyPersonalStagesToDefendants(
@@ -1955,41 +1255,6 @@ function allDefendantsTerminal(defendants: CriminalDefendant[]): boolean {
     return list.every((d) => isTerminalPersonalStage(d.personalStage ?? defaultPersonalStage()));
 }
 
-function makeEmptyLocation(): CriminalCaseLocation {
-    return {
-        investigationCourtName: '',
-        investigationPapersAt: '',
-        policeStationName: '',
-        baseRegisterNumberAndDate: '',
-        investigationOfficeName: '',
-        investigationDossierNumber: '',
-        courtName: '',
-        caseNumber: '',
-        publicProsecutionNumber: '',
-        trialJudgeName: '',
-        nextHearingDate: '',
-    };
-}
-
-function normalizeCriminalCaseLocation(raw: unknown): CriminalCaseLocation {
-    const base = makeEmptyLocation();
-    if (!raw || typeof raw !== 'object') return base;
-    const r = raw as Partial<CriminalCaseLocation>;
-    return {
-        investigationCourtName: String(r.investigationCourtName ?? ''),
-        investigationPapersAt: (r.investigationPapersAt ?? '') as InvestigationPapersAt,
-        policeStationName: String(r.policeStationName ?? ''),
-        baseRegisterNumberAndDate: sanitizeCaseReferenceField(r.baseRegisterNumberAndDate),
-        investigationOfficeName: String(r.investigationOfficeName ?? ''),
-        investigationDossierNumber: sanitizeCaseReferenceField(r.investigationDossierNumber),
-        courtName: String(r.courtName ?? ''),
-        caseNumber: sanitizeCaseReferenceField(r.caseNumber),
-        publicProsecutionNumber: String(r.publicProsecutionNumber ?? ''),
-        trialJudgeName: String(r.trialJudgeName ?? ''),
-        nextHearingDate: String(r.nextHearingDate ?? ''),
-    };
-}
-
 function resolveArticleAtReferralFromCase(c: CriminalCase): string {
     const history = Array.isArray(c.legalArticleHistory) ? c.legalArticleHistory : [];
     if (history.length) {
@@ -2010,31 +1275,6 @@ function applyTrialChargeReferralSeed(caseRecord: CriminalCase): CriminalCase {
         referralArticle: seeded.referralArticle,
         currentAccusationArticle: seeded.currentAccusationArticle,
         chargeModifications: normalizeChargeModifications(caseRecord.chargeModifications),
-    };
-}
-
-function normalizeTrialChargeFieldsOnCase(c: CriminalCase): {
-    referralArticle?: string;
-    currentAccusationArticle?: string;
-    chargeModifications?: TrialChargeModification[];
-} {
-    const chargeModifications = normalizeChargeModifications(c.chargeModifications);
-    const referralArticle = resolveReferralArticleFromCase({
-        referralArticle: c.referralArticle,
-        legalArticleHistory: c.legalArticleHistory,
-        basicsLegalArticle: c.basics?.legalArticle,
-    });
-    const currentAccusationArticle = resolveCurrentAccusationArticleFromCase({
-        currentAccusationArticle: c.currentAccusationArticle,
-        chargeModifications,
-        referralArticle: c.referralArticle,
-        legalArticleHistory: c.legalArticleHistory,
-        basicsLegalArticle: c.basics?.legalArticle,
-    });
-    return {
-        referralArticle: referralArticle || undefined,
-        currentAccusationArticle: currentAccusationArticle || undefined,
-        chargeModifications: chargeModifications.length ? chargeModifications : undefined,
     };
 }
 
@@ -2163,113 +1403,6 @@ function cloneDraftSnapshot(draft: CriminalCaseDraft): CriminalCaseDraft {
     };
 }
 
-function makeInitialDraft(): CriminalCaseDraft {
-    return {
-        basics: {
-            role: '',
-            ourRepresentation: '',
-            stage: '',
-            legalArticle: '',
-            crimeType: '',
-        },
-        location: makeEmptyLocation(),
-        complainants: [makeEmptyComplainant()],
-        unknownDefendant: false,
-        defendants: [makeEmptyDefendant()],
-        statements: [],
-        otherEvidenceItems: [],
-        timelineEvents: [],
-        investigationLogs: [],
-        proceduralContainers: [],
-        proceduralCanvasAudit: [],
-        lawyerRequests: [],
-        trials: [],
-        trialDepositions: [],
-        physicalLocation: 'custom',
-        physicalLocationCustomName: '',
-        isArticle3Offense: false,
-        crimeDiscoveryDate: '',
-        isMutualComplaint: false,
-        isPublicProsecutionComplainant: false,
-        articleIncludesPublicRight: false,
-    };
-}
-
-/** يحوّل معرّف طرف (مشتكي أو متهم) إلى صف المتهم عند تطبيق إجراءات التوقيف/الكفالة في الشكوى المتقابلة. */
-/**
- * 🧭 تَحويل مُعرّف طَرف إلى مُعرّف متهم لأغراض الإجراءات القَضائية.
- *
- * المَنطق:
- *  1) إن كان `partyId` يُطابق مُتهماً مَوجوداً → يُرجَع كما هو.
- *  2) إن لم تَكن الإضبارة شكوى متقابلة → يُرجَع كما هو (حتى لو كان مُعرّف مشتكي).
- *  3) إن كانت شكوى متقابلة + `partyId` مشتكي + يوجد متهم بنفس **الاسم الكامل** المُجرّد
- *     → يُعاد رَبط المُعرّف بِالمتهم المُطابق (سُلوك مَوروث).
- *  4) خلاف ذلك → يُرجَع المُعرّف الأصلي (مشتكٍ) ليَستهلكه المَسار المُوازي للمشتكي المتقابل.
- *
- * ⚠️ تَنبيه صَريم — مُطابقة الأسماء:
- *   اعتماد المُطابقة بالاسم الكامل المُجرّد هَش قانونياً (شَخصان مُختلفان بنفس الاسم
- *   يَتمّ خَلطهما). لكن لا يَتمّ التَطبيق إلا في الإضبارات المُعلَّمة `isMutualComplaint`
- *   صَراحةً، والسُلوك مَحفوظ للتَوافق مع البَيانات الموروثة قَبل تَبنّي الـ Dual Identity
- *   عبر `accusedStatus`. أيّ بَديل آمن يَحتاج تَرحيل بَيانات شامل (Migration) — مَوقوف.
- *
- *   التَحصين الإضافي: إذا كانت الأسماء فارغة (بعد .trim()) أو لم يُوجد تَطابق فِعلي،
- *   نُعيد المُعرّف الأصلي. لا اخْتيار «أوّل متهم» أو fallback ضَبابي.
- */
-export function resolveProceduralDefendantId(
-    complainants: CriminalComplainant[],
-    defendants: CriminalDefendant[],
-    partyId: string,
-    isMutualComplaint: boolean,
-): string {
-    const id = String(partyId ?? '').trim();
-    if (!id) return '';
-    if (defendants.some((d) => d.id === id)) return id;
-    if (!isMutualComplaint) return id;
-    const complainant = complainants.find((c) => c.id === id);
-    if (!complainant) return id;
-    const name = String(complainant.fullName ?? '').trim();
-    if (!name) return id;
-    const match = defendants.find((d) => String(d.fullName ?? '').trim() === name);
-    return match?.id ?? id;
-}
-
-function resolveProceduralDefendantIds(
-    complainants: CriminalComplainant[],
-    defendants: CriminalDefendant[],
-    partyIds: string[],
-    isMutualComplaint: boolean,
-): string[] {
-    const seen = new Set<string>();
-    const out: string[] = [];
-    for (const raw of partyIds) {
-        const resolved = resolveProceduralDefendantId(complainants, defendants, raw, isMutualComplaint);
-        if (!resolved || seen.has(resolved)) continue;
-        seen.add(resolved);
-        out.push(resolved);
-    }
-    return out;
-}
-
-function normalizeOurRepresentation(incoming: string, role: string): OurRepresentation {
-    const rep = String(incoming ?? '').trim();
-    if (rep === 'complainant_side' || rep === 'defendant_side') return rep;
-    if (rep === 'defendant') return 'defendant_side';
-    if (rep === 'complainant' || rep === 'civil_claimant') return 'complainant_side';
-    if (String(role ?? '').trim() === 'وكيل المشكو منه') return 'defendant_side';
-    return 'complainant_side';
-}
-
-/** يُورّث تمثيل المحامي من الإضبارة الأم عند شطر الإضبارة. */
-export function resolveOurRepresentationFromCaseRecord(
-    record: Pick<CriminalCase, 'basics'> | null | undefined,
-): OurRepresentation {
-    if (!record) return 'complainant_side';
-    return normalizeOurRepresentation(
-        String(record.basics?.ourRepresentation ?? ''),
-        String(record.basics?.role ?? ''),
-    );
-}
-
 function copyComplainantsForSeveranceDraft(
     parentComplainants: CriminalComplainant[] | undefined,
 ): CriminalComplainant[] {
@@ -2340,124 +1473,6 @@ function requiresDetentionExpiryDate(status: DefendantStatus | ''): boolean {
  *
  * يُوفِّر بَديلاً صَريحاً لأيّ كود يَفترض خَطأً «defendantId يَعني متهم حَتماً».
  */
-export function classifyAssetSeizurePartyKind(
-    caseRecord: { defendants?: { id: string }[]; complainants?: { id: string }[] } | undefined,
-    partyId: string,
-): 'defendant' | 'complainant' | 'unknown' {
-    const id = String(partyId ?? '').trim();
-    if (!id || !caseRecord) return 'unknown';
-    const defendants = Array.isArray(caseRecord.defendants) ? caseRecord.defendants : [];
-    if (defendants.some((d) => d.id === id)) return 'defendant';
-    const complainants = Array.isArray(caseRecord.complainants) ? caseRecord.complainants : [];
-    if (complainants.some((c) => c.id === id)) return 'complainant';
-    return 'unknown';
-}
-
-/** يكتشف معرّفات داخلية (UUID / createId) — لا تُعرض للمستخدم. */
-export function isInternalCaseIdentifier(value: string): boolean {
-    const s = String(value ?? '').trim();
-    if (!s) return false;
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s)) return true;
-    if (/^\d+_\d+[a-z0-9]+$/i.test(s)) return true;
-    if (/^[0-9a-f]{8,}$/i.test(s) && !s.includes('/')) return true;
-    return false;
-}
-
-/** يميّز رقم إضبارة/قضية حقيقي عن نص اختبار عشوائي في حقل الرقم. */
-export function looksLikeRealCaseReference(value: string): boolean {
-    const s = String(value ?? '').trim();
-    if (!s) return false;
-    if (isInternalCaseIdentifier(s)) return false;
-    if (/\d/.test(s)) return true;
-    if (/[\/\\–—]/.test(s)) return true;
-    // نص عربي/لاتيني بلا أرقام ولا فواصل مرجعية — إدخال عشوائي (مثل ىرلاىرلاى)
-    if (/^[\u0600-\u06FFa-zA-Z\s.,،]+$/u.test(s)) return false;
-    return s.length >= 16;
-}
-
-/** يُعيد المرجع إن كان حقيقياً، وإلا سلسلة فارغة (للعرض والتخزين). */
-export function sanitizeCaseReferenceField(value: string | undefined): string {
-    const s = String(value ?? '').trim();
-    return looksLikeRealCaseReference(s) ? s : '';
-}
-
-/** رقم الإضبارة الرسمي فقط — بلا UUID ولا معرّفات داخلية. */
-export function resolveOfficialCaseNumber(c: CriminalCase | undefined): string {
-    if (!c) return '—';
-    const caseNumber = String(c.location?.caseNumber ?? '').trim();
-    if (caseNumber && looksLikeRealCaseReference(caseNumber)) return caseNumber;
-    const register = String(c.location?.baseRegisterNumberAndDate ?? '').trim();
-    if (register && looksLikeRealCaseReference(register)) return register;
-    return '—';
-}
-
-/** تسمية عرض للإضبارة — رقم رسمي أو محكمة/مرحلة (بلا UUID ولا معرّفات داخلية). */
-export function resolveCriminalCaseDisplayLabel(c: CriminalCase | undefined): string {
-    if (!c) return '—';
-    const candidates = [
-        String(c.location?.caseNumber ?? '').trim(),
-        String(c.location?.investigationDossierNumber ?? '').trim(),
-        String(c.location?.baseRegisterNumberAndDate ?? '').trim(),
-    ];
-    for (const raw of candidates) {
-        if (looksLikeRealCaseReference(raw)) return raw;
-    }
-    const court = String(c.location?.investigationCourtName ?? c.location?.courtName ?? '').trim();
-    const stage = formatCriminalStageLabel(String(c.basics?.stage ?? '').trim());
-    if (court && stage) return `${court} — ${stage}`;
-    if (court) return court;
-    if (stage) return stage;
-    return 'إضبارة تحقيق';
-}
-
-function resolveCriminalAuditContext(c: CriminalCase | undefined): {
-    caseNo?: string;
-    clientName?: string;
-} {
-    if (!c) return {};
-    const label = resolveCriminalCaseDisplayLabel(c);
-    const caseNo =
-        label && label !== '—' && label !== 'إضبارة تحقيق' ? label : undefined;
-    const clientName =
-        c.defendants?.[0]?.fullName?.trim() ||
-        c.complainants?.[0]?.fullName?.trim() ||
-        undefined;
-    return { caseNo, clientName };
-}
-
-function publishCriminalActivityAudit(
-    caseRecord: CriminalCase | undefined,
-    caseId: string,
-    title: string,
-    detail: string,
-): void {
-    try {
-        const { caseNo, clientName } = resolveCriminalAuditContext(caseRecord);
-        void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-            AuditLog.criminal.activityRecorded({
-                caseId,
-                title,
-                detail,
-                caseNo,
-                clientName,
-            });
-        });
-    } catch {
-        /* silent */
-    }
-}
-
-function resolveInvestigationCaseNumberSnapshot(c: CriminalCase): string {
-    const dossier = String(c.location?.investigationDossierNumber ?? '').trim();
-    if (dossier) return dossier;
-    const reg = String(c.location?.baseRegisterNumberAndDate ?? '').trim();
-    if (reg) return reg;
-    const stored = String(c.investigationCaseNumber ?? '').trim();
-    if (stored) return stored;
-    const num = String(c.location?.caseNumber ?? '').trim();
-    return num || '—';
-}
-
 function assertInvestigationTimelineMutable(target: CriminalCase, event?: TimelineEvent, eventId?: string): void {
     if (!target.isInvestigationLocked) return;
     const list = Array.isArray(target.timelineEvents) ? target.timelineEvents : [];
@@ -2479,56 +1494,6 @@ function assertInvestigationTimelineMutable(target: CriminalCase, event?: Timeli
 function stampProceduralNodeId<T extends { proceduralNodeId?: string }>(item: T, nodeId: string): T {
     if (!nodeId) return item;
     return { ...item, proceduralNodeId: nodeId };
-}
-
-function applyJuvenileTrialJourneyLabelSanitize(c: CriminalCase, nodes: JourneyNode[]): JourneyNode[] {
-    const courtNum = String(c.courtCaseNumber ?? c.location?.caseNumber ?? '').trim();
-    const withJuvenile = sanitizeJourneyNodeLabelsForJuvenileScope(
-        nodes,
-        (node) =>
-            shouldUseJuvenileTrialJourneyLabels(Array.isArray(c.defendants) ? c.defendants : [], {
-                defendantIds: node.defendantIds,
-                storedStage: c.basics?.stage,
-            }),
-        courtNum,
-    );
-    let changed = false;
-    const next = withJuvenile.map((n) => {
-        const label = formatJourneyPathDisplayLabel(n);
-        if (label === n.label) return n;
-        changed = true;
-        return { ...n, label };
-    });
-    return changed ? next : withJuvenile;
-}
-
-function ensureStageJourneyOnCase(c: CriminalCase): CriminalCase {
-    if (Array.isArray(c.stageJourney) && c.stageJourney.length > 0) {
-        let repairedJourney = repairSameCourtRemandJourneyNodes(c.stageJourney);
-        repairedJourney = applyJuvenileTrialJourneyLabelSanitize(c, repairedJourney);
-        const currentNode = getCurrentJourneyNode(repairedJourney);
-        const resolvedStage = currentNode?.stage ?? c.caseStage ?? resolveCaseStageFromRecord(c);
-        const stored = syncStoredStageFromJourneyCaseStage(resolvedStage, c.basics?.stage);
-        const journeyChanged = JSON.stringify(repairedJourney) !== JSON.stringify(c.stageJourney);
-        const stageChanged = c.caseStage !== resolvedStage || c.basics?.stage !== stored;
-        if (!journeyChanged && !stageChanged) return c;
-        return {
-            ...c,
-            stageJourney: repairedJourney,
-            caseStage: resolvedStage,
-            basics: { ...c.basics, stage: stored },
-        };
-    }
-    const legacy = (c as CriminalCase & { proceduralNodes?: ProceduralNode[] }).proceduralNodes;
-    const journey =
-        Array.isArray(legacy) && legacy.length > 0
-            ? migrateProceduralNodesToStageJourney(legacy)
-            : buildInitialStageJourney();
-    return {
-        ...c,
-        stageJourney: journey,
-        caseStage: c.caseStage ?? resolveCaseStageFromRecord(c),
-    };
 }
 
 function applyStageJourneyTransition(
@@ -3379,68 +2344,7 @@ function applyProceduralActionToCase(
     return current;
 }
 
-function buildMergeTimelineDescription(childCaseNumber: string, mergeReason: string): string {
-    const num = childCaseNumber && childCaseNumber !== '—' ? childCaseNumber : 'غير مسجّل';
-    const reason = String(mergeReason ?? '').trim() || '—';
-    return `تم ضم الإضبارة رقم ${num} ضمن هذه الإضبارة الأم. السبب: ${reason}`;
-}
-
-function sanitizeMergedCasesTexts(texts: string[]): string[] {
-    return texts
-        .map((x) => String(x ?? '').trim())
-        .filter((x) => x.length > 0 && !isInternalCaseIdentifier(x));
-}
-
-function sanitizeMergeTimelineEvents(
-    events: TimelineEvent[],
-    mergedChildIds: string[],
-    casesById: Record<string, CriminalCase | undefined>,
-): TimelineEvent[] {
-    if (!mergedChildIds.length) return events;
-    let changed = false;
-    const next = events.map((ev) => {
-        if (ev.category !== 'ضم وإغلاق إضبارة') return ev;
-        const desc = String(ev.description ?? '');
-        const reasonMatch = desc.match(/السبب:\s*([\s\S]+)$/);
-        const reason = reasonMatch?.[1]?.trim() || '—';
-        for (const childId of mergedChildIds) {
-            const childNum = resolveOfficialCaseNumber(casesById[childId]);
-            const leakedId = desc.includes(childId) || isInternalCaseIdentifier(desc);
-            if (!leakedId) continue;
-            changed = true;
-            return { ...ev, description: buildMergeTimelineDescription(childNum, reason) };
-        }
-        return ev;
-    });
-    return changed ? next : events;
-}
-
 /** يقرأ mergedCaseIds مع ترحيل mergedFromCaseIds. */
-export function resolveMergedCaseIds(
-    caseRecord: Pick<CriminalCase, 'mergedCaseIds' | 'mergedFromCaseIds'> | undefined,
-): string[] {
-    if (!caseRecord) return [];
-    const raw = [
-        ...(Array.isArray(caseRecord.mergedCaseIds) ? caseRecord.mergedCaseIds : []),
-        ...(Array.isArray(caseRecord.mergedFromCaseIds) ? caseRecord.mergedFromCaseIds : []),
-    ];
-    return Array.from(new Set(raw.map((x) => String(x ?? '').trim()).filter((x) => x.length > 0)));
-}
-
-function isMergedDossierCase(c: CriminalCase | undefined): boolean {
-    if (!c) return false;
-    return c.dossierStatus === 'merged' || Boolean(String(c.mergedIntoCaseId ?? '').trim());
-}
-
-function caseMutationBlocked(target: CriminalCase): boolean {
-    return (
-        target.isArchived === true ||
-        target.isFrozen === true ||
-        isMergedDossierCase(target)
-    );
-}
-
-/** الطعن التمييزي مسموح حتى عند تجميد الإضبارة (غلق مؤقت/نهائي) — يُمنع فقط في دمج الإضابير. */
 function cassationAppealMutationBlocked(target: CriminalCase): boolean {
     return isMergedDossierCase(target);
 }
@@ -3988,59 +2892,13 @@ function persistSealedJudicialDecisionOnCase(
 }
 
 /** يستبعد أحداث التايم لاين التجريبية/الميتة عند التحميل من التخزين المحلي. */
-export function isCorruptTimelineEvent(ev: TimelineEvent): boolean {
-    const date = String(ev?.date ?? '').trim();
-    const next = String((ev as { nextDate?: string }).nextDate ?? '').trim();
-    const title = String(ev?.title ?? '').trim();
-    const desc = String(ev?.description ?? '').trim();
-    const category = String((ev as { category?: string }).category ?? '').trim();
-
-    if (!date) return true;
-    if (next && date && next < date) return true;
-    if (/^f+$/i.test(title) || /^f+$/i.test(desc)) return true;
-    if (/^[!؟?.\-_\s]{1,5}$/.test(title) || /^[!؟?.\-_\s]{1,5}$/.test(desc)) return true;
-    if (!category && !title && !desc) return true;
-    return false;
-}
-
-function timelineEventAllowedWhenFrozen(event: TimelineEvent): boolean {
-    const category = String((event as any)?.category ?? '').trim();
-    return (
-        category === 'تبليغ رسمي بالحكم الغيابي' ||
-        category === 'تقديم اعتراض على الحكم الغيابي' ||
-        category === 'جلسة المحاكمة الاعتراضية الأولى'
-    );
-}
-
-function normalizeSocialInquiryReport(raw: unknown): SocialInquiryReport | undefined {
-    if (!raw || typeof raw !== 'object') return undefined;
-    const r = raw as Record<string, unknown>;
-    const isAttached = r.isAttached === true;
-    const wsRaw = String(r.workflowStatus ?? '').trim();
-    const workflowStatus: SocialInquiryWorkflowStatus = isValidSocialInquiryWorkflowStatus(wsRaw)
-        ? wsRaw
-        : isAttached
-          ? 'submitted'
-          : 'not_requested';
-    const receivedDate = typeof r.receivedDate === 'string' ? String(r.receivedDate) : '';
-    const investigatorName = typeof r.investigatorName === 'string' ? String(r.investigatorName) : '';
-    const recommendations = typeof r.recommendations === 'string' ? String(r.recommendations) : '';
-    return {
-        workflowStatus,
-        isAttached: workflowStatus === 'submitted' || isAttached,
-        receivedDate: receivedDate.trim() ? receivedDate : undefined,
-        investigatorName: investigatorName.trim() ? investigatorName : undefined,
-        recommendations: recommendations.trim() ? recommendations : undefined,
-    };
-}
-
 function mapDecisionStatusToDefendantStatus(status: StageConclusion['defendantStatusAtDecision']): DefendantStatus {
     if (status === 'detained') return 'موقوف';
     if (status === 'fugitive') return 'هارب';
     return 'مكفل';
 }
 
-const criminalPersistStorage = createCriminalShardedJSONStorage<CriminalStoreState>();
+const criminalPersistStorage = createCriminalStorePersistStorage<CriminalStoreState>();
 
 export const useCriminalStore = create<CriminalStoreState>()(
     persist(
@@ -4698,17 +3556,12 @@ export const useCriminalStore = create<CriminalStoreState>()(
                 set((state) => {
                     const target = ensureStageJourneyOnCase(state.casesById[caseId] as CriminalCase);
                     if (!target) return state;
-                    if (statementMutationBlocked(target)) return state;
-                    if (isStatementFromUnknownDefendant(statement, target.defendants)) return state;
-                    const nodeId = resolveCurrentJourneyNodeId(target.stageJourney);
-                    const stamped = stampProceduralNodeId(statement, nodeId);
+                    const result = applyStatementInsertion(target, statement);
+                    if (!result.ok) return state;
                     return {
                         casesById: {
                             ...state.casesById,
-                            [caseId]: {
-                                ...target,
-                                statements: [...(target.statements ?? []), stamped],
-                            },
+                            [caseId]: result.nextCase,
                         },
                     };
                 }),
@@ -4798,33 +3651,12 @@ export const useCriminalStore = create<CriminalStoreState>()(
                 set((state) => {
                     const target = state.casesById[caseId];
                     if (!target) return state;
-                    if (statementMutationBlocked(target)) return state;
-                    const list = Array.isArray(target.statements) ? target.statements : [];
-                    const idx = list.findIndex((s) => s.id === statementId);
-                    if (idx < 0) return state;
-                    const next = list.map((s, i) => {
-                        if (i !== idx) return s;
-                        const nextRatified =
-                            updatedData.isJudiciallyRatified === true
-                                ? true
-                                : updatedData.isJudiciallyRatified === false
-                                  ? undefined
-                                  : (s as any).isJudiciallyRatified === true
-                                    ? true
-                                    : undefined;
-                        const isRatified = (s as any).isJudiciallyRatified === true;
-                        const patch = isRatified
-                            ? {
-                                  notes: updatedData.notes,
-                                  isJudiciallyRatified: updatedData.isJudiciallyRatified,
-                              }
-                            : updatedData;
-                        return { ...s, ...patch, isJudiciallyRatified: nextRatified, id: s.id };
-                    });
+                    const result = applyStatementUpdate(target, statementId, updatedData);
+                    if (!result.ok) return state;
                     return {
                         casesById: {
                             ...state.casesById,
-                            [caseId]: { ...target, statements: next },
+                            [caseId]: result.nextCase,
                         },
                     };
                 }),
@@ -4832,180 +3664,12 @@ export const useCriminalStore = create<CriminalStoreState>()(
                 set((state) => {
                     const target = ensureStageJourneyOnCase(state.casesById[caseId] as CriminalCase);
                     if (!target) return state;
-                    if (caseMutationBlocked(target) && !timelineEventAllowedWhenFrozen(event)) return state;
-                    const category = String((event as any)?.category ?? '').trim();
-                    if (
-                        target.isInvestigationLocked &&
-                        isLockedInvestigationTimelineEvent(category, String((event as any)?.type ?? ''))
-                    ) {
-                        return state;
-                    }
-
-                    const isCourtSession = String((event as any)?.type ?? '').trim() === 'court_session';
-                    const nextEvent: TimelineEvent = (() => {
-                        if (!isCourtSession) {
-                            const { summonsStatus, summonsDate, summonsDocumentRef, ...rest } = event as any;
-                            return rest as TimelineEvent;
-                        }
-                        const statusRaw = String((event as any)?.summonsStatus ?? '').trim();
-                        const status =
-                            statusRaw === 'served_valid' ||
-                            statusRaw === 'not_served_invalid' ||
-                            statusRaw === 'served_to_official'
-                                ? statusRaw
-                                : '';
-                        const summonsDate = String((event as any)?.summonsDate ?? '').trim();
-                        const summonsDocumentRef = String((event as any)?.summonsDocumentRef ?? '').trim();
-                        if (!status || !summonsDate || !summonsDocumentRef) return null as any;
-                        return {
-                            ...(event as any),
-                            summonsStatus: status as any,
-                            summonsDate,
-                            summonsDocumentRef,
-                        } as TimelineEvent;
-                    })();
-                    if (!nextEvent) return state;
-
-                    const rawIds = (event as any)?.defendantIds;
-                    const eventPartyIds = Array.isArray(rawIds)
-                        ? rawIds.map((x: unknown) => String(x ?? '').trim()).filter((x: string) => x.length > 0)
-                        : [];
-                    const isMutual = target.isMutualComplaint === true;
-                    const caseComplainants = Array.isArray(target.complainants) ? target.complainants : [];
-                    let nextDefendantsAfterArrest = Array.isArray(target.defendants) ? target.defendants : [];
-                    const eventDefendantIds = resolveProceduralDefendantIds(
-                        caseComplainants,
-                        nextDefendantsAfterArrest,
-                        eventPartyIds,
-                        isMutual,
-                    );
-
-                    const isBailForfeiture = category === 'قرار مصادرة الكفالة وتحصيلها';
-                    const isInAbsentiaNotification = category === 'تبليغ رسمي بالحكم الغيابي';
-
-                    const guarantorDetails = normalizeGuarantorDetails((event as any)?.guarantorDetails) ?? null;
-
-                    const isArrestCategory = isDetentionArrestCategory(category);
-                    const isInvDetentionCategory = isInvestigationDetentionCategory(category);
-                    const placementRaw = String((event as any)?.detentionPlacement ?? '').trim();
-                    const detentionPlacement = isValidJuvenileDetentionPlacement(placementRaw) ? placementRaw : null;
-                    if ((isArrestCategory || isInvDetentionCategory) && eventDefendantIds.length) {
-                        nextDefendantsAfterArrest = nextDefendantsAfterArrest.map((d) => {
-                            if (!eventDefendantIds.includes(d.id)) return d;
-                            if (Boolean((d as any).isJuvenile)) {
-                                const placementCode =
-                                    detentionPlacement ??
-                                    (isInvDetentionCategory ? ('juvenile_observation' as const) : null);
-                                if (!placementCode && isArrestCategory) return d;
-                                return {
-                                    ...d,
-                                    status: 'juvenile_detention' as DefendantStatus,
-                                    detentionAuthority: isInvDetentionCategory
-                                        ? investigationJuvenileDetentionAuthorityLabel()
-                                        : juvenileDetentionPlacementLabel(placementCode!),
-                                    detentionExpiryDate: isInvDetentionCategory
-                                        ? String((event as any)?.detentionEndDate ?? d.detentionExpiryDate ?? '')
-                                        : d.detentionExpiryDate,
-                                };
-                            }
-                            if (isInvDetentionCategory) {
-                                return {
-                                    ...d,
-                                    status: 'موقوف' as DefendantStatus,
-                                    detentionExpiryDate: String(
-                                        (event as any)?.detentionEndDate ?? d.detentionExpiryDate ?? '',
-                                    ),
-                                };
-                            }
-                            return d;
-                        });
-                    }
-
-                    const juvenileSessionConfidential =
-                        isCourtSession &&
-                        (eventDefendantIds.length
-                            ? eventDefendantIds.some((defId) => {
-                                  const hit = nextDefendantsAfterArrest.find((d) => d.id === defId);
-                                  return Boolean((hit as any)?.isJuvenile);
-                              })
-                            : nextDefendantsAfterArrest.some((d) => Boolean((d as any).isJuvenile)));
-
-                    if (juvenileSessionConfidential) {
-                        (nextEvent as any).isConfidential = true;
-                    }
-
-                    const nextDefendants =
-                        eventDefendantIds.length &&
-                        (Boolean(guarantorDetails) || isBailForfeiture || isInAbsentiaNotification)
-                            ? nextDefendantsAfterArrest.map((d) => {
-                                  if (!eventDefendantIds.includes(d.id)) return d;
-
-                                  const existingGuarantor = normalizeGuarantorDetails((d as any).guarantorDetails);
-                                  const nextGuarantor = (() => {
-                                      if (guarantorDetails) return guarantorDetails;
-                                      if (isBailForfeiture && existingGuarantor) {
-                                          const note = '⛔ مصادرة الكفالة وتحصيلها';
-                                          const info = existingGuarantor.guarantorInfo.trim();
-                                          return {
-                                              ...existingGuarantor,
-                                              guarantorInfo: info.includes('مصادرة') ? info : `${info ? `${info}\n` : ''}${note}`.trim(),
-                                          };
-                                      }
-                                      return existingGuarantor;
-                                  })();
-
-                                  const next: CriminalDefendant = {
-                                      ...d,
-                                      guarantorDetails: nextGuarantor,
-                                  };
-                                  if (isInAbsentiaNotification) {
-                                      const det = (d as any).inAbsentiaDetails as InAbsentiaDetails | undefined;
-                                      if (det && !det.isObjectionFiled) {
-                                          const notifiedDate = String((event as any)?.notifiedDate ?? '').trim();
-                                          const method = String((event as any)?.notificationMethod ?? '').trim();
-                                          const computed = computeObjectionDeadlineFromNotifiedDate(
-                                              notifiedDate,
-                                              String((target as any)?.basics?.crimeType ?? ''),
-                                          );
-                                          if (notifiedDate && computed) {
-                                              (next as any).inAbsentiaDetails = {
-                                                  ...det,
-                                                  notifiedDate,
-                                                  notificationMethod: method || undefined,
-                                                  objectionDeadline: computed,
-                                              };
-                                          }
-                                      }
-                                  }
-                                  return next;
-                              })
-                            : nextDefendantsAfterArrest;
-
-                    const isVerdictEvent = target.basics.stage === 'محكمة الجنح' || target.basics.stage === 'محكمة الجنايات';
-                    const verdictDate =
-                        isVerdictEvent && /نطق بالقرار|قرار حكم/.test(category)
-                            ? String((nextEvent as any)?.date ?? '').trim()
-                            : '';
-
-                    const autoWaivePrivateRight = isPrivateRightWaiverTimelineCategory(category);
-                    const waiverDate = autoWaivePrivateRight
-                        ? String((nextEvent as any)?.date ?? '').trim() || new Date().toISOString().slice(0, 10)
-                        : target.waiverDate;
-
-                    const activeNodeId = resolveCurrentJourneyNodeId(target.stageJourney);
-                    const stampedEvent = stampProceduralNodeId(nextEvent, activeNodeId);
-
-                    const patchedCase = syncJuvenileInvestigationCaseFlags({
-                        ...target,
-                        defendants: nextDefendants,
-                        timelineEvents: [...(target.timelineEvents ?? []), stampedEvent],
-                        verdictDate: verdictDate ? verdictDate : target.verdictDate,
-                        ...(autoWaivePrivateRight ? { isPrivateRightWaived: true, waiverDate } : {}),
-                    });
+                    const result = applyTimelineEventInsertion(target, event);
+                    if (!result.ok) return state;
                     return {
                         casesById: {
                             ...state.casesById,
-                            [caseId]: patchedCase,
+                            [caseId]: result.nextCase,
                         },
                     };
                 }),
@@ -5068,14 +3732,12 @@ export const useCriminalStore = create<CriminalStoreState>()(
                 set((state) => {
                     const target = state.casesById[caseId];
                     if (!target) return state;
-                    if (investigationLogsMutationBlocked(target)) return state;
+                    const result = applyInvestigationLogInsertion(target, log);
+                    if (!result.ok) return state;
                     return {
                         casesById: {
                             ...state.casesById,
-                            [caseId]: {
-                                ...target,
-                                investigationLogs: [...(target.investigationLogs ?? []), log],
-                            },
+                            [caseId]: result.nextCase,
                         },
                     };
                 }),
@@ -5083,15 +3745,12 @@ export const useCriminalStore = create<CriminalStoreState>()(
                 set((state) => {
                     const target = state.casesById[caseId];
                     if (!target) return state;
-                    if (investigationLogsMutationBlocked(target)) return state;
-                    const list = Array.isArray(target.investigationLogs) ? target.investigationLogs : [];
-                    const idx = list.findIndex((l) => l.id === logId);
-                    if (idx < 0) return state;
-                    const next = list.map((l, i) => (i === idx ? { ...l, ...updatedData, id: l.id } : l));
+                    const result = applyInvestigationLogUpdate(target, logId, updatedData);
+                    if (!result.ok) return state;
                     return {
                         casesById: {
                             ...state.casesById,
-                            [caseId]: { ...target, investigationLogs: next },
+                            [caseId]: result.nextCase,
                         },
                     };
                 }),
@@ -5103,46 +3762,15 @@ export const useCriminalStore = create<CriminalStoreState>()(
                         err = 'الإضبارة غير موجودة.';
                         return state;
                     }
-                    if (investigationLogsMutationBlocked(target)) {
-                        err = 'الإضبارة مقفلة.';
+                    const result = applyCompleteInvestigationLetter(target, logId, payload);
+                    if (!result.ok) {
+                        err = result.error;
                         return state;
                     }
-                    const list = Array.isArray(target.investigationLogs) ? target.investigationLogs : [];
-                    const idx = list.findIndex((l) => l.id === logId);
-                    if (idx < 0) {
-                        err = 'السجل غير موجود.';
-                        return state;
-                    }
-                    const current = list[idx]!;
-                    const cat = String(current.category ?? '');
-                    if (cat !== 'official_letter' && cat !== 'forensic_report') {
-                        err = 'هذا الإجراء ليس من ديوان المخاطبات.';
-                        return state;
-                    }
-                    if (current.status === 'response_received') {
-                        err = 'تم تسجيل الورود مسبقاً.';
-                        return state;
-                    }
-                    const receivedAt =
-                        String(payload.receivedDate ?? '').trim() || new Date().toISOString().slice(0, 10);
-                    const notes = String(payload.responseNotes ?? '').trim();
-                    const next = list.map((l, i) =>
-                        i === idx
-                            ? {
-                                  ...l,
-                                  status: 'response_received' as const,
-                                  responseReceivedAt: receivedAt,
-                                  responseNotes: notes || l.responseNotes,
-                                  details: notes
-                                      ? `${String(l.details ?? '').trim()}\n\n📥 ورود التقرير (${receivedAt}): ${notes}`.trim()
-                                      : l.details,
-                              }
-                            : l,
-                    );
                     return {
                         casesById: {
                             ...state.casesById,
-                            [caseId]: { ...target, investigationLogs: next },
+                            [caseId]: result.nextCase,
                         },
                     };
                 });
@@ -5156,29 +3784,15 @@ export const useCriminalStore = create<CriminalStoreState>()(
                         err = 'الإضبارة غير موجودة.';
                         return state;
                     }
-                    if (investigationLogsMutationBlocked(target)) {
-                        err = 'الإضبارة مقفلة.';
+                    const result = applyInvestigationLogExhibitLifecycleUpdate(target, logId, lifecycle);
+                    if (!result.ok) {
+                        err = result.error;
                         return state;
                     }
-                    const list = Array.isArray(target.investigationLogs) ? target.investigationLogs : [];
-                    const idx = list.findIndex((l) => l.id === logId);
-                    if (idx < 0) {
-                        err = 'السجل غير موجود.';
-                        return state;
-                    }
-                    const current = list[idx]!;
-                    const cat = String(current.category ?? '');
-                    if (cat !== 'exhibit_seizure' && cat !== 'site_inspection') {
-                        err = 'هذا السجل ليس من خزانة المبرزات.';
-                        return state;
-                    }
-                    const next = list.map((l, i) =>
-                        i === idx ? { ...l, exhibitLifecycle: lifecycle } : l,
-                    );
                     return {
                         casesById: {
                             ...state.casesById,
-                            [caseId]: { ...target, investigationLogs: next },
+                            [caseId]: result.nextCase,
                         },
                     };
                 });
@@ -5957,12 +4571,6 @@ export const useCriminalStore = create<CriminalStoreState>()(
                 } else {
                     get().addOrUpdateRequest(caseId, request);
                 }
-                publishCriminalActivityAudit(
-                    get().casesById[caseId],
-                    caseId,
-                    isJudicial ? 'قرار في الإضبارة الجزائية' : 'طلب في الإضبارة الجزائية',
-                    String(resolved.type ?? '').trim() || 'إجراء',
-                );
                 return { error: null, requestId: request.id };
             },
             finalizeLawyerRequest: (caseId, requestId, input) => {
@@ -6003,12 +4611,6 @@ export const useCriminalStore = create<CriminalStoreState>()(
                 if (isWaiverDecision && input.status === 'approved') {
                     get().waivePrivateRight(caseId, decisionDate || requestDate);
                 }
-                publishCriminalActivityAudit(
-                    get().casesById[caseId],
-                    caseId,
-                    'اعتماد قرار/طلب',
-                    `${String(current.type ?? '').trim() || 'إجراء'} — ${input.status === 'approved' ? 'قبول' : 'رفض'}`,
-                );
                 return null;
             },
             extendDetentionOnDecision: (caseId, decisionId, newEndDate) => {
@@ -6889,21 +5491,6 @@ export const useCriminalStore = create<CriminalStoreState>()(
                         },
                     };
                 });
-                // Audit log: تمت إضافة جلسة جزائية
-                if (!err) {
-                    try {
-                        void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                            const created = get().casesById[caseId];
-                            const { caseNo, clientName } = resolveCriminalAuditContext(created);
-                            AuditLog.criminal.sessionAdded({
-                                caseId,
-                                sessionDate: String(sessionData.date),
-                                caseNo,
-                                clientName,
-                            });
-                        });
-                    } catch { /* silent */ }
-                }
                 return err;
             },
             updateTrialSession: (caseId, sessionId, sessionData) => {
@@ -10090,27 +8677,6 @@ export const useCriminalStore = create<CriminalStoreState>()(
                         },
                     };
                 });
-                try {
-                    void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                        const created = useCriminalStore.getState().casesById[caseId];
-                        const caseNo =
-                            String(
-                                (created as { courtCaseNumber?: string } | undefined)?.courtCaseNumber ??
-                                    (created as { location?: { caseNumber?: string } } | undefined)?.location
-                                        ?.caseNumber ??
-                                    (created as { location?: { investigationDossierNumber?: string } } | undefined)
-                                        ?.location?.investigationDossierNumber ??
-                                    '',
-                            ).trim() || undefined;
-                        const clientName =
-                            created?.defendants?.[0]?.fullName?.trim() ||
-                            created?.complainants?.[0]?.fullName?.trim() ||
-                            undefined;
-                        AuditLog.criminal.caseCreated({ caseId, caseNo, clientName });
-                    });
-                } catch {
-                    /* silent */
-                }
                 return caseId;
             },
             deleteCase: (id) => {
@@ -10483,21 +9049,6 @@ export const useCriminalStore = create<CriminalStoreState>()(
                     };
                 });
 
-                // Audit log اختياري — لا يكسر الـ flow عند الفشل.
-                try {
-                    void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                        const created = get().casesById[newCaseId];
-                        AuditLog.criminal.caseCreated?.({
-                            caseId: newCaseId,
-                            caseNo: resolveOfficialCaseNumber(created) || undefined,
-                            clientName:
-                                created?.defendants?.[0]?.fullName?.trim() ||
-                                created?.complainants?.[0]?.fullName?.trim() ||
-                                undefined,
-                        });
-                    });
-                } catch { /* silent */ }
-
                 return newCaseId;
             },
 
@@ -10523,977 +9074,13 @@ export const useCriminalStore = create<CriminalStoreState>()(
                 }),
         }),
         {
-            name: 'hami:criminal:store',
-            version: 49,
-            migrate: (persistedState: unknown) => {
-                if (!persistedState || typeof persistedState !== 'object') return persistedState as any;
-                const s = persistedState as any;
-
-                if (s.pendingSeveranceContext?.formDraft) {
-                    s.draft = makeInitialDraft();
-                }
-                if (s.pendingSeveranceContext) {
-                    const ctx = s.pendingSeveranceContext;
-                    const normDef = (d: unknown) => {
-                        if (!d || typeof d !== 'object') return d;
-                        const row = d as Record<string, unknown>;
-                        return {
-                            ...row,
-                            fullName: resolveDefendantFullName(row as CriminalDefendant),
-                        };
-                    };
-                    if (Array.isArray(ctx.defendantSnapshots)) {
-                        ctx.defendantSnapshots = ctx.defendantSnapshots.map((d) =>
-                            normDef(d),
-                        ) as CriminalDefendant[];
-                    }
-                    if (ctx.formDraft && Array.isArray(ctx.formDraft.defendants)) {
-                        ctx.formDraft = {
-                            ...ctx.formDraft,
-                            defendants: ctx.formDraft.defendants.map((d) =>
-                                normDef(d),
-                            ) as CriminalDefendant[],
-                        };
-                    }
-                    if (!ctx.lockedCaseStage && ctx.formDraft?.basics?.stage) {
-                        ctx.lockedCaseStage = normalizeLegacyCriminalStage(
-                            String(ctx.formDraft.basics.stage),
-                            ctx.formDraft.basics?.crimeType,
-                        ) || 'مرحلة التحقيق';
-                    }
-                    if (ctx.lockedCaseStage && ctx.formDraft?.basics) {
-                        ctx.formDraft = {
-                            ...ctx.formDraft,
-                            basics: {
-                                ...ctx.formDraft.basics,
-                                stage: ctx.lockedCaseStage,
-                            },
-                        };
-                    }
-                }
-
-                const normalizeStatements = (arr: unknown): Statement[] => {
-                    if (!Array.isArray(arr)) return [];
-                    return arr.map((it) => {
-                        if (!it || typeof it !== 'object') {
-                            return {
-                                id: createId(),
-                                date: new Date().toISOString().slice(0, 10),
-                                giverType: 'informant',
-                                giverName: '',
-                                content: String(it ?? ''),
-                            };
-                        }
-                        const o = it as any;
-                        if (typeof o.date === 'string' && typeof o.giverType === 'string') {
-                            const giverType = o.giverType as Statement['giverType'];
-                            const witnessNameRaw =
-                                typeof o.witnessName === 'string'
-                                    ? String(o.witnessName).trim()
-                                    : giverType === 'witness'
-                                      ? String(o.giverName ?? '').trim()
-                                      : '';
-                            const content = String(o.content ?? '').trim();
-                            return {
-                                ...(o as Statement),
-                                giverType,
-                                content,
-                                witnessName: witnessNameRaw || undefined,
-                                witnessDetails:
-                                    typeof o.witnessDetails === 'string' && String(o.witnessDetails).trim()
-                                        ? String(o.witnessDetails).trim()
-                                        : undefined,
-                                giverName:
-                                    giverType === 'witness' && witnessNameRaw
-                                        ? witnessNameRaw
-                                        : String(o.giverName ?? '').trim(),
-                                isJudiciallyRatified: o.isJudiciallyRatified === true ? true : undefined,
-                                statementRecordingPlace:
-                                    o.statementRecordingPlace === 'investigation_officer' ||
-                                    o.statementRecordingPlace === 'judicial_investigator'
-                                        ? o.statementRecordingPlace
-                                        : undefined,
-                                contentHighlights: (() => {
-                                    const hl = sanitizeContentHighlights(o.contentHighlights, content.length);
-                                    return hl.length ? hl : undefined;
-                                })(),
-                                witnessPartySide:
-                                    o.witnessPartySide === 'complainant' || o.witnessPartySide === 'defendant'
-                                        ? o.witnessPartySide
-                                        : o.witnessKind === 'prosecution'
-                                          ? 'complainant'
-                                          : o.witnessKind === 'defense'
-                                            ? 'defendant'
-                                            : undefined,
-                                witnessPartyIds: Array.isArray(o.witnessPartyIds)
-                                    ? o.witnessPartyIds.map((id: unknown) => String(id).trim()).filter(Boolean)
-                                    : undefined,
-                            };
-                        }
-                        const isRatified = o.certified === true || o.isJudiciallyRatified === true;
-                        return {
-                            id: String(o.id ?? createId()),
-                            date: String(o.recordedAt ?? o.date ?? new Date().toISOString().slice(0, 10)),
-                            giverType: 'informant',
-                            giverName: String(o.ownerName ?? o.giverName ?? ''),
-                            content: String(o.text ?? o.content ?? ''),
-                            notes: typeof o.notes === 'string' ? o.notes : isRatified ? 'مُصدّقة' : undefined,
-                            isJudiciallyRatified: isRatified ? true : undefined,
-                        };
-                    });
-                };
-
-                const normalizeTimeline = (arr: unknown): TimelineEvent[] => {
-                    if (!Array.isArray(arr)) return [];
-                    const mapped = arr.map((it) => {
-                        if (!it || typeof it !== 'object') return it as any;
-                        const o = it as any;
-                        const legacyId = typeof o.relatedDefendantId === 'string' ? o.relatedDefendantId.trim() : '';
-                        const rawIds = Array.isArray(o.defendantIds) ? o.defendantIds : legacyId ? [legacyId] : [];
-                        const ids = Array.isArray(rawIds)
-                            ? rawIds.map((x: unknown) => String(x ?? '').trim()).filter((x: string) => x.length > 0)
-                            : [];
-                        const rawCategory = typeof o.category === 'string' ? o.category : '';
-                        const category = normalizeTimelineCategoryForDisplay(rawCategory);
-                        const eventDate = String(o.date ?? '').trim();
-                        const rawNext = String(o.nextDate ?? '').trim();
-                        const nextDate =
-                            rawNext && eventDate && !isTimelineNextDateInvalid(eventDate, rawNext) ? rawNext : undefined;
-                        const rawTitle = String(o.title ?? '').trim();
-                        const rawDesc = String(o.description ?? o.details ?? '').trim();
-                        return {
-                            ...o,
-                            category,
-                            title: resolveTimelineEventTitle(category, rawTitle),
-                            description: rawDesc,
-                            nextDate,
-                            defendantIds: ids.length ? Array.from(new Set(ids)) : undefined,
-                            appealedDecision: typeof o.appealedDecision === 'string' ? o.appealedDecision : undefined,
-                            postponementReason:
-                                typeof o.postponementReason === 'string' ? o.postponementReason : undefined,
-                            guarantorDetails: normalizeGuarantorDetails(o.guarantorDetails),
-                            extensionDays: typeof o.extensionDays === 'number' ? o.extensionDays : undefined,
-                            socialWorkerPresent:
-                                typeof o.socialWorkerPresent === 'boolean' ? o.socialWorkerPresent : undefined,
-                            suspendedExecution: typeof o.suspendedExecution === 'boolean' ? o.suspendedExecution : undefined,
-                            probationYears: typeof o.probationYears === 'number' ? o.probationYears : undefined,
-                            transferredToStage: typeof o.transferredToStage === 'string' ? o.transferredToStage : undefined,
-                            notifiedDate: typeof o.notifiedDate === 'string' ? o.notifiedDate : undefined,
-                            notificationMethod: typeof o.notificationMethod === 'string' ? o.notificationMethod : undefined,
-                            summonsStatus:
-                                o.summonsStatus === 'served_valid' ||
-                                o.summonsStatus === 'not_served_invalid' ||
-                                o.summonsStatus === 'served_to_official'
-                                    ? o.summonsStatus
-                                    : undefined,
-                            summonsDate: typeof o.summonsDate === 'string' ? o.summonsDate : undefined,
-                            summonsDocumentRef:
-                                typeof o.summonsDocumentRef === 'string' ? o.summonsDocumentRef : undefined,
-                            targetDefendantId: (() => {
-                                if (o.targetDefendantId === null) return null;
-                                const tid = String(o.targetDefendantId ?? '').trim();
-                                return tid || undefined;
-                            })(),
-                        } as TimelineEvent;
-                    });
-                    return mapped.filter((ev) => !isCorruptTimelineEvent(ev));
-                };
-
-                const normalizeInvestigationLogs = (arr: unknown): InvestigationLog[] => {
-                    if (!Array.isArray(arr)) return [];
-                    return arr.map((it) => {
-                        if (!it || typeof it !== 'object') {
-                            return {
-                                id: createId(),
-                                date: new Date().toISOString().slice(0, 10),
-                                category: 'other',
-                                title: String(it ?? ''),
-                                details: '',
-                                status: 'awaiting_response',
-                            };
-                        }
-                        const o = it as any;
-                        const catRaw = String(o.category ?? 'other');
-                        const cat = catRaw === 'lawyer_request' ? 'other' : catRaw;
-                        const statusRaw = String(o.status ?? 'awaiting_response');
-                        const status =
-                            statusRaw === 'completed' || statusRaw === 'response_received'
-                                ? 'response_received'
-                                : statusRaw === 'returned_for_revision'
-                                  ? 'returned_for_revision'
-                                  : statusRaw === 'pending' || statusRaw === 'awaiting_response'
-                                    ? 'awaiting_response'
-                                    : 'awaiting_response';
-                        const rawIds = Array.isArray(o.defendantIds) ? o.defendantIds : [];
-                        const ids = Array.isArray(rawIds)
-                            ? rawIds.map((x: unknown) => String(x ?? '').trim()).filter((x: string) => x.length > 0)
-                            : [];
-                        return {
-                            id: String(o.id ?? createId()),
-                            date: String(o.date ?? new Date().toISOString().slice(0, 10)),
-                            category: [
-                                'official_letter',
-                                'forensic_report',
-                                'site_inspection',
-                                'exhibit_seizure',
-                                'other',
-                            ].includes(cat)
-                                ? (cat as InvestigationLog['category'])
-                                : 'other',
-                            title: String(o.title ?? ''),
-                            details: String(o.details ?? ''),
-                            status: status as InvestigationLog['status'],
-                            attachmentRef: typeof o.attachmentRef === 'string' ? o.attachmentRef : undefined,
-                            defendantIds: ids.length ? Array.from(new Set(ids)) : undefined,
-                            seizureRecordNumber:
-                                typeof o.seizureRecordNumber === 'string' ? o.seizureRecordNumber : undefined,
-                            forensicLetterRef:
-                                typeof o.forensicLetterRef === 'string' ? o.forensicLetterRef : undefined,
-                            linkedPartyId:
-                                typeof o.linkedPartyId === 'string'
-                                    ? String(o.linkedPartyId).trim() || undefined
-                                    : ids[0],
-                            exhibitDescription:
-                                typeof o.exhibitDescription === 'string' ? o.exhibitDescription : undefined,
-                            exhibitQuantity:
-                                typeof o.exhibitQuantity === 'string' ? o.exhibitQuantity : undefined,
-                            exhibitLifecycle:
-                                o.exhibitLifecycle === 'seized_at_station' ||
-                                o.exhibitLifecycle === 'sent_to_lab' ||
-                                o.exhibitLifecycle === 'lab_result_received'
-                                    ? o.exhibitLifecycle
-                                    : cat === 'exhibit_seizure'
-                                      ? 'seized_at_station'
-                                      : undefined,
-                            responseReceivedAt:
-                                typeof o.responseReceivedAt === 'string' ? o.responseReceivedAt : undefined,
-                            responseNotes: typeof o.responseNotes === 'string' ? o.responseNotes : undefined,
-                        };
-                    });
-                };
-
-                const normalizeOtherEvidenceItems = (arr: unknown): OtherEvidenceItem[] => {
-                    if (!Array.isArray(arr)) return [];
-                    return arr
-                        .map((it) => {
-                            if (!it || typeof it !== 'object') return null;
-                            const o = it as any;
-                            const evidenceType = String(o.evidenceType ?? '').trim();
-                            if (!evidenceType) return null;
-                            const isLinkedToDossier = o.isLinkedToDossier === true;
-                            const attachmentDateRaw = String(o.attachmentDate ?? '').trim();
-                            return {
-                                id: String(o.id ?? createId()),
-                                evidenceType,
-                                isLinkedToDossier,
-                                attachmentDate: isLinkedToDossier && attachmentDateRaw ? attachmentDateRaw : undefined,
-                                notes: String(o.notes ?? '').trim(),
-                                createdAt: String(o.createdAt ?? attachmentDateRaw ?? '').trim() || undefined,
-                                proceduralNodeId:
-                                    typeof o.proceduralNodeId === 'string' && String(o.proceduralNodeId).trim()
-                                        ? String(o.proceduralNodeId).trim()
-                                        : undefined,
-                            } as OtherEvidenceItem;
-                        })
-                        .filter(Boolean) as OtherEvidenceItem[];
-                };
-
-                const normalizeLawyerRequests = (arr: unknown): LawyerRequest[] => {
-                    if (!Array.isArray(arr)) return [];
-                    return arr.map((it) => {
-                        if (!it || typeof it !== 'object') {
-                            return {
-                                id: createId(),
-                                requestDate: new Date().toISOString().slice(0, 10),
-                                type: '',
-                                lawyerNote: String(it ?? ''),
-                                status: 'pending',
-                            };
-                        }
-                        const o = it as any;
-                        const statusRaw = String(o.status ?? 'pending');
-                        const status: LawyerRequest['status'] =
-                            statusRaw === 'approved' || statusRaw === 'rejected' || statusRaw === 'executed'
-                                ? statusRaw
-                                : 'pending';
-                        const rawIds = Array.isArray(o.defendantIds) ? o.defendantIds : [];
-                        const ids = Array.isArray(rawIds)
-                            ? rawIds.map((x: unknown) => String(x ?? '').trim()).filter((x: string) => x.length > 0)
-                            : [];
-                        const judgeMargin =
-                            typeof o.judgeMargin === 'string' && o.judgeMargin.trim()
-                                ? o.judgeMargin.trim()
-                                : undefined;
-                        const decisionDate =
-                            typeof o.decisionDate === 'string' && o.decisionDate.trim()
-                                ? o.decisionDate.trim()
-                                : undefined;
-                        const hasRecordedFinalDecision =
-                            isLawyerRequestFinalStatus(status) &&
-                            Boolean(judgeMargin) &&
-                            Boolean(decisionDate);
-                        const isLocked =
-                            o.isLocked === true ||
-                            o.decisionArchived === true ||
-                            hasRecordedFinalDecision;
-                        return {
-                            id: String(o.id ?? createId()),
-                            requestDate: String(o.requestDate ?? new Date().toISOString().slice(0, 10)),
-                            type: String(o.type ?? ''),
-                            lawyerNote: String(o.lawyerNote ?? ''),
-                            status,
-                            judgeMargin,
-                            decisionDate,
-                            defendantIds: ids.length ? Array.from(new Set(ids)) : undefined,
-                            isLocked,
-                            decisionArchived:
-                                o.decisionArchived === true || hasRecordedFinalDecision ? true : undefined,
-                            proceduralTemplate:
-                                typeof o.proceduralTemplate === 'string' ? o.proceduralTemplate : undefined,
-                            isAppealable: o.isAppealable === true ? true : undefined,
-                            detentionStartDate:
-                                typeof o.detentionStartDate === 'string' && o.detentionStartDate.trim()
-                                    ? o.detentionStartDate.trim()
-                                    : undefined,
-                            detentionEndDate:
-                                typeof o.detentionEndDate === 'string' && o.detentionEndDate.trim()
-                                    ? o.detentionEndDate.trim()
-                                    : undefined,
-                            legalArticleBasis:
-                                typeof o.legalArticleBasis === 'string' && o.legalArticleBasis.trim()
-                                    ? o.legalArticleBasis.trim()
-                                    : undefined,
-                            orderEnforcement: normalizeOrderEnforcementTracking(o.orderEnforcement),
-                            margins: (() => {
-                                if (!Array.isArray(o.margins)) return undefined;
-                                const rows = o.margins
-                                    .map((m: unknown) => {
-                                        if (!m || typeof m !== 'object') return null;
-                                        const row = m as Record<string, unknown>;
-                                        const text = String(row.text ?? '').trim();
-                                        if (!text) return null;
-                                        return {
-                                            id: String(row.id ?? createId()),
-                                            date: String(row.date ?? new Date().toISOString().slice(0, 10)),
-                                            text,
-                                        };
-                                    })
-                                    .filter(Boolean) as { id: string; date: string; text: string }[];
-                                return rows.length ? rows : undefined;
-                            })(),
-                            attachments: (() => {
-                                if (!Array.isArray(o.attachments)) return undefined;
-                                const rows = o.attachments
-                                    .map((a: unknown) => {
-                                        if (!a || typeof a !== 'object') return null;
-                                        const row = a as Record<string, unknown>;
-                                        const name = String(row.name ?? '').trim();
-                                        if (!name) return null;
-                                        return { id: String(row.id ?? createId()), name };
-                                    })
-                                    .filter(Boolean) as { id: string; name: string }[];
-                                return rows.length ? rows : undefined;
-                            })(),
-                            isStarred: o.isStarred === true ? true : undefined,
-                        };
-                    });
-                };
-
-                const normalizeLegalArticleHistory = (caseObj: any): LegalArticleChange[] => {
-                    const history = caseObj?.legalArticleHistory;
-                    if (Array.isArray(history)) {
-                        return history
-                            .map((h: any) => ({
-                                id: String(h?.id ?? createId()),
-                                article: String(h?.article ?? ''),
-                                changedAtDate: String(h?.changedAtDate ?? new Date().toISOString().slice(0, 10)),
-                                changedBy:
-                                    h?.changedBy === 'police' || h?.changedBy === 'investigation_judge' || h?.changedBy === 'trial_court'
-                                        ? h.changedBy
-                                        : 'trial_court',
-                            }))
-                            .filter((h: any) => String(h.article ?? '').trim().length > 0);
-                    }
-                    const legacy = String(caseObj?.basics?.legalArticle ?? '').trim();
-                    if (!legacy) return [];
-                    return [
-                        {
-                            id: createId(),
-                            article: legacy,
-                            changedAtDate: new Date().toISOString().slice(0, 10),
-                            changedBy: 'trial_court',
-                        },
-                    ];
-                };
-
-                const normalizeFinalDecision = (caseObj: any): StageConclusion | undefined => {
-                    const fd = caseObj?.finalDecision;
-                    if (!fd || typeof fd !== 'object') return undefined;
-                    const stageType = String((fd as any).stageType ?? '');
-                    const decisionType = String((fd as any).decisionType ?? '');
-                    const defendantStatusAtDecision = String((fd as any).defendantStatusAtDecision ?? '');
-                    if (
-                        !['investigation', 'misdemeanor', 'felony', 'juvenile', 'cassation'].includes(stageType) ||
-                        ![
-                            'referral',
-                            'closing',
-                            'temporary_closing',
-                            'conviction',
-                            'juvenile_deliver_guardian',
-                            'juvenile_behavioral_surveillance',
-                            'juvenile_reform_boys',
-                            'juvenile_youth_school',
-                            'juvenile_fine',
-                            'juvenile_severance_referral',
-                            'acquittal',
-                            'release',
-                            'expiration',
-                            'cassation_confirm',
-                            'cassation_quash_remand',
-                            'cassation_quash_reduce',
-                            'cassation_quash_acquit_release',
-                            'return_investigation_deficiency',
-                            'misdemeanor_to_felony_jurisdiction',
-                            'felony_to_misdemeanor_jurisdiction',
-                            'trial_cassation_appeal',
-                            'cassation_quash_investigation',
-                            'cassation_quash_trial_misdemeanor',
-                            'cassation_quash_trial_felony',
-                            'case_split_fugitive_referral',
-                            'temporary_release_insufficient_evidence',
-                            'postpone_article_183',
-                            'default_judgment_issue',
-                            'default_judgment_opposition',
-                        ].includes(decisionType) ||
-                        !['detained', 'bailed', 'fugitive'].includes(defendantStatusAtDecision)
-                    ) {
-                        return undefined;
-                    }
-                    return {
-                        id: String((fd as any).id ?? createId()),
-                        stageType: stageType as any,
-                        decisionType: decisionType as any,
-                        date: String((fd as any).date ?? ''),
-                        details: String((fd as any).details ?? ''),
-                        defendantStatusAtDecision: defendantStatusAtDecision as any,
-                        defendantIds: Array.isArray((fd as any).defendantIds)
-                            ? (fd as any).defendantIds.map((x: any) => String(x ?? '').trim()).filter((x: string) => x.length > 0)
-                            : undefined,
-                        punishmentType:
-                            (fd as any).punishmentType === 'death' ||
-                            (fd as any).punishmentType === 'life' ||
-                            (fd as any).punishmentType === 'other'
-                                ? (fd as any).punishmentType
-                                : undefined,
-                        expirationReason: isStageExpirationReason(String((fd as any).expirationReason ?? ''))
-                            ? (fd as any).expirationReason
-                            : undefined,
-                    };
-                };
-
-                const stripLegacyComplainant = (c: any) => {
-                    const { isCivilClaimant: _legacy, ...rest } = c && typeof c === 'object' ? c : {};
-                    return {
-                        ...rest,
-                        isJuvenile: typeof c?.isJuvenile === 'boolean' ? c.isJuvenile : false,
-                        isUnderSeven: typeof (c as any)?.isUnderSeven === 'boolean' ? (c as any).isUnderSeven : false,
-                        birthDate: typeof c?.birthDate === 'string' ? c.birthDate : '',
-                        guardianName: typeof c?.guardianName === 'string' ? c.guardianName : '',
-                        guardianRelationship: typeof c?.guardianRelationship === 'string' ? c.guardianRelationship : '',
-                    };
-                };
-
-                const nextDraft = s.draft && typeof s.draft === 'object' ? { ...s.draft } : undefined;
-                if (nextDraft) {
-                    const complainantsRaw = Array.isArray((nextDraft as any).complainants) ? (nextDraft as any).complainants : [];
-                    const complainants = complainantsRaw.map(stripLegacyComplainant);
-                    (nextDraft as any).complainants = complainants;
-                    delete (nextDraft as any).civilClaimantDetails;
-                    const draftBasics = (nextDraft as any).basics && typeof (nextDraft as any).basics === 'object' ? { ...(nextDraft as any).basics } : {};
-                    const incoming = String(draftBasics.ourRepresentation ?? '').trim();
-                    const draftRole = String(draftBasics.role ?? '').trim();
-                    const normalized = normalizeOurRepresentation(incoming, draftRole);
-                    const draftStage = normalizeLegacyCriminalStage(
-                        String(draftBasics.stage ?? ''),
-                        String(draftBasics.crimeType ?? '') as CrimeType | '',
-                    );
-                    (nextDraft as any).basics = { ...draftBasics, ourRepresentation: normalized, stage: draftStage };
-                    const plIncoming = String((nextDraft as any).physicalLocation ?? '').trim();
-                    const plValid =
-                        plIncoming === 'judge_desk' ||
-                        plIncoming === 'investigator_room' ||
-                        plIncoming === 'prosecution' ||
-                        plIncoming === 'police_station' ||
-                        plIncoming === 'archive' ||
-                        plIncoming === 'custom';
-                    if (!plValid) {
-                        (nextDraft as any).physicalLocation = 'custom';
-                        (nextDraft as any).physicalLocationCustomName = '';
-                    } else {
-                        (nextDraft as any).physicalLocation = plIncoming;
-                        (nextDraft as any).physicalLocationCustomName =
-                            typeof (nextDraft as any).physicalLocationCustomName === 'string'
-                                ? (nextDraft as any).physicalLocationCustomName
-                                : '';
-                    }
-                    (nextDraft as any).isArticle3Offense = (nextDraft as any).isArticle3Offense === true ? true : false;
-                    (nextDraft as any).crimeDiscoveryDate =
-                        typeof (nextDraft as any).crimeDiscoveryDate === 'string' ? String((nextDraft as any).crimeDiscoveryDate) : '';
-                    (nextDraft as any).isMutualComplaint = (nextDraft as any).isMutualComplaint === true ? true : false;
-                    nextDraft.statements = normalizeStatements(nextDraft.statements);
-                    (nextDraft as any).otherEvidenceItems = normalizeOtherEvidenceItems(
-                        (nextDraft as any).otherEvidenceItems,
-                    );
-                    nextDraft.timelineEvents = normalizeTimeline(nextDraft.timelineEvents);
-                    nextDraft.investigationLogs = normalizeInvestigationLogs((nextDraft as any).investigationLogs);
-                    const draftContainers = (nextDraft as any).proceduralContainers;
-                    const draftLegacyPaths = (nextDraft as any).proceduralPaths;
-                    nextDraft.proceduralContainers = Array.isArray(draftContainers)
-                        ? normalizeProceduralContainers(draftContainers)
-                        : migrateLegacyPathsToContainers(draftLegacyPaths);
-                    delete (nextDraft as any).proceduralPaths;
-                    nextDraft.lawyerRequests = normalizeLawyerRequests((nextDraft as any).lawyerRequests);
-                    nextDraft.trials = normalizeTrialSessions((nextDraft as any).trials);
-                    nextDraft.trialDepositions = normalizeTrialDepositions((nextDraft as any).trialDepositions);
-                    nextDraft.location = normalizeCriminalCaseLocation(nextDraft.location);
-                }
-
-                const nextCasesById = s.casesById && typeof s.casesById === 'object' ? { ...s.casesById } : undefined;
-                if (nextCasesById) {
-                    Object.keys(nextCasesById).forEach((k) => {
-                        const c = nextCasesById[k];
-                        if (!c || typeof c !== 'object') return;
-                        const defendants = Array.isArray((c as any).defendants) ? (c as any).defendants : [];
-                        const complainantsRaw = Array.isArray((c as any).complainants) ? (c as any).complainants : [];
-                        const complainants = complainantsRaw.map(stripLegacyComplainant);
-                        const legalArticleHistory = normalizeLegalArticleHistory(c);
-                        const finalDecision = normalizeFinalDecision(c);
-                        const { civilClaimantDetails: _ccd, ...caseRest } = c as Record<string, unknown>;
-                        nextCasesById[k] = {
-                            ...caseRest,
-                            location: normalizeCriminalCaseLocation((c as any).location),
-                            complainants,
-                            finalDecision,
-                            defendants: (() => {
-                                const normalizedDefendants = defendants.map((d: any) => ({
-                                    ...d,
-                                    fullName: resolveDefendantFullName(d),
-                                    address: typeof d?.address === 'string' ? d.address : '',
-                                    isJuvenile: typeof d?.isJuvenile === 'boolean' ? d.isJuvenile : false,
-                                    isUnderSeven:
-                                        typeof (d as any)?.isUnderSeven === 'boolean' ? (d as any).isUnderSeven : false,
-                                    birthDate: typeof d?.birthDate === 'string' ? d.birthDate : '',
-                                    guardianName: typeof d?.guardianName === 'string' ? d.guardianName : '',
-                                    guardianRelationship: typeof d?.guardianRelationship === 'string' ? d.guardianRelationship : '',
-                                    socialInquiryReport: normalizeSocialInquiryReport(d?.socialInquiryReport),
-                                    totalDetentionDays: Number.isFinite(Number(d?.totalDetentionDays)) ? Number(d.totalDetentionDays) : 0,
-                                    hasFelonyCourtPermit: d?.hasFelonyCourtPermit === true ? true : false,
-                                    guarantorDetails: normalizeGuarantorDetails(d?.guarantorDetails),
-                                    inAbsentiaDetails:
-                                        d?.inAbsentiaDetails && typeof d.inAbsentiaDetails === 'object'
-                                            ? (() => {
-                                                  const det = d.inAbsentiaDetails as any;
-                                                  const verdictDate = String(det.verdictDate ?? '').trim();
-                                                  const notifiedDate = typeof det.notifiedDate === 'string' ? det.notifiedDate : '';
-                                                  const objectionDeadline =
-                                                      notifiedDate.trim() && typeof det.objectionDeadline === 'string'
-                                                          ? String(det.objectionDeadline)
-                                                          : '';
-                                                  return {
-                                                      verdictDate,
-                                                      objectionDeadline,
-                                                      isObjectionFiled: det.isObjectionFiled === true,
-                                                      notifiedDate: notifiedDate.trim() ? notifiedDate : undefined,
-                                                      notificationMethod:
-                                                          typeof det.notificationMethod === 'string' && String(det.notificationMethod).trim()
-                                                              ? String(det.notificationMethod)
-                                                              : undefined,
-                                                  } as InAbsentiaDetails;
-                                              })()
-                                            : undefined,
-                                    detentionExpiryDate: typeof d?.detentionExpiryDate === 'string' ? d.detentionExpiryDate : '',
-                                    detentionHistoryLog: Array.isArray(d?.detentionHistoryLog)
-                                        ? d.detentionHistoryLog
-                                              .map((h: any) => ({
-                                                  id: String(h?.id ?? createId()),
-                                                  location: String(h?.location ?? ''),
-                                                  startDate: String(h?.startDate ?? ''),
-                                                  endDate: typeof h?.endDate === 'string' ? h.endDate : undefined,
-                                              }))
-                                              .filter((h: any) => String(h.startDate ?? '').trim().length > 0)
-                                        : [],
-                                    seizedAssets: normalizeSeizedAssets((d as any)?.seizedAssets),
-                                }));
-                                const isSeveredChild = (c as any).isSeveredChild === true;
-                                const hasActiveDefendant = normalizedDefendants.some(
-                                    (d: any) => normalizeInvestigationDefendantStatus(d?.investigationStatus) === 'active',
-                                );
-                                const hasClosure = Boolean((c as any).investigationDossierClosure);
-                                if (isSeveredChild && normalizedDefendants.length > 0 && !hasActiveDefendant && !hasClosure) {
-                                    return normalizedDefendants.map((d: any) => ({
-                                        ...d,
-                                        investigationStatus: DEFAULT_INVESTIGATION_DEFENDANT_STATUS,
-                                    }));
-                                }
-                                return normalizedDefendants;
-                            })(),
-                            statements: normalizeStatements((c as any).statements),
-                            otherEvidenceItems: normalizeOtherEvidenceItems((c as any).otherEvidenceItems),
-                            timelineEvents: (() => {
-                                const stage = String((c as any).basics?.stage ?? '').trim();
-                                const events = normalizeTimeline((c as any).timelineEvents);
-                                if (!isInvestigationStoredStage(stage)) return events;
-                                return events.map((ev) => {
-                                    const { nextDate: _drop, ...rest } = ev as TimelineEvent & {
-                                        nextDate?: string;
-                                    };
-                                    return rest as TimelineEvent;
-                                });
-                            })(),
-                            investigationLogs: normalizeInvestigationLogs((c as any).investigationLogs),
-                            proceduralContainers: (() => {
-                                const raw = (c as any).proceduralContainers;
-                                if (Array.isArray(raw)) return normalizeProceduralContainers(raw);
-                                return migrateLegacyPathsToContainers((c as any).proceduralPaths);
-                            })(),
-                            proceduralCanvasAudit: normalizeProceduralCanvasAudit((c as any).proceduralCanvasAudit),
-                            lawyerRequests: normalizeLawyerRequests((c as any).lawyerRequests),
-                            trials: normalizeTrialSessions((c as any).trials),
-                            trialDepositions: normalizeTrialDepositions((c as any).trialDepositions),
-                            ...normalizeTrialChargeFieldsOnCase(c as CriminalCase),
-                            trashBin: normalizeTrashBin((c as any).trashBin),
-                            isFrozen: typeof (c as any).isFrozen === 'boolean' ? (c as any).isFrozen : undefined,
-                            isPrejudicialPostponed:
-                                typeof (c as any).isPrejudicialPostponed === 'boolean'
-                                    ? (c as any).isPrejudicialPostponed
-                                    : undefined,
-                            isDefaultJudgmentArchived:
-                                typeof (c as any).isDefaultJudgmentArchived === 'boolean'
-                                    ? (c as any).isDefaultJudgmentArchived
-                                    : undefined,
-                            parentCaseId:
-                                typeof (c as any).parentCaseId === 'string' && String((c as any).parentCaseId).trim()
-                                    ? String((c as any).parentCaseId).trim()
-                                    : undefined,
-                            isSeveredChild: (c as any).isSeveredChild === true,
-                            severanceReason: isSeveranceReasonValue(String((c as any).severanceReason ?? ''))
-                                ? ((c as any).severanceReason as SeveranceReason)
-                                : undefined,
-                            severanceReasonDetail:
-                                typeof (c as any).severanceReasonDetail === 'string' &&
-                                String((c as any).severanceReasonDetail).trim()
-                                    ? String((c as any).severanceReasonDetail).trim()
-                                    : undefined,
-                            severedAt:
-                                typeof (c as any).severedAt === 'string' && String((c as any).severedAt).trim()
-                                    ? String((c as any).severedAt).trim()
-                                    : undefined,
-                            severedChildCaseIds: Array.isArray((c as any).severedChildCaseIds)
-                                ? (c as any).severedChildCaseIds
-                                      .map((x: unknown) => String(x ?? '').trim())
-                                      .filter((x: string) => x.length > 0)
-                                : undefined,
-                            verdictDate: typeof (c as any).verdictDate === 'string' ? (c as any).verdictDate : undefined,
-                            isSentToCassation:
-                                typeof (c as any).isSentToCassation === 'boolean' ? (c as any).isSentToCassation : undefined,
-                            cassationCaseDetails:
-                                (c as any).cassationCaseDetails && typeof (c as any).cassationCaseDetails === 'object'
-                                    ? {
-                                          cassationNumber: String((c as any).cassationCaseDetails.cassationNumber ?? ''),
-                                          sentDate: String((c as any).cassationCaseDetails.sentDate ?? ''),
-                                          panelName: String((c as any).cassationCaseDetails.panelName ?? ''),
-                                      }
-                                    : undefined,
-                            isArchived: typeof (c as any).isArchived === 'boolean' ? (c as any).isArchived : undefined,
-                            notes: typeof (c as any).notes === 'string' ? (c as any).notes : undefined,
-                            legalArticleHistory,
-                            basics: {
-                                ...(c as any).basics,
-                                stage: normalizeLegacyCriminalStage(
-                                    String((c as any).basics?.stage ?? ''),
-                                    String((c as any).basics?.crimeType ?? '') as CrimeType | '',
-                                ),
-                                legalArticle:
-                                    legalArticleHistory.length > 0
-                                        ? legalArticleHistory[legalArticleHistory.length - 1].article
-                                        : String((c as any).basics?.legalArticle ?? ''),
-                                ourRepresentation: normalizeOurRepresentation(
-                                    String((c as any).basics?.ourRepresentation ?? ''),
-                                    String((c as any).basics?.role ?? ''),
-                                ),
-                            },
-                            isPrivateRightWaived:
-                                typeof (c as any).isPrivateRightWaived === 'boolean' ? (c as any).isPrivateRightWaived : undefined,
-                            waiverDate: typeof (c as any).waiverDate === 'string' ? (c as any).waiverDate : undefined,
-                            physicalLocation: ((): PhysicalLocation => {
-                                const incoming = String((c as any).physicalLocation ?? (c as any).physicalLocation?.key ?? '').trim();
-                                const valid =
-                                    incoming === 'judge_desk' ||
-                                    incoming === 'investigator_room' ||
-                                    incoming === 'prosecution' ||
-                                    incoming === 'police_station' ||
-                                    incoming === 'archive' ||
-                                    incoming === 'custom';
-                                if (valid) return incoming as PhysicalLocation;
-                                const stage = String((c as any).basics?.stage ?? '').trim();
-                                const isArchivedAny = Boolean((c as any).isArchived) || Boolean(String((c as any).mergedIntoCaseId ?? '').trim());
-                                if (isArchivedAny) return 'archive';
-                                if (isInvestigationStoredStage(stage)) {
-                                    const at = String((c as any).location?.investigationPapersAt ?? '').trim();
-                                    if (at === 'مركز شرطة') return 'police_station';
-                                    return 'investigator_room';
-                                }
-                                return 'judge_desk';
-                            })(),
-                            physicalLocationCustomName:
-                                typeof (c as any).physicalLocationCustomName === 'string'
-                                    ? (c as any).physicalLocationCustomName
-                                    : undefined,
-                            isArticle3Offense: (c as any).isArticle3Offense === true ? true : undefined,
-                            crimeDiscoveryDate:
-                                typeof (c as any).crimeDiscoveryDate === 'string' ? String((c as any).crimeDiscoveryDate) : undefined,
-                            isMutualComplaint: (c as any).isMutualComplaint === true ? true : false,
-                            isPublicProsecutionComplainant:
-                                (c as any).isPublicProsecutionComplainant === true ? true : undefined,
-                            articleIncludesPublicRight:
-                                (c as any).articleIncludesPublicRight === true ? true : undefined,
-                            dossierStatus: ((): CriminalDossierStatus | undefined => {
-                                const raw = String((c as any).dossierStatus ?? '').trim();
-                                if (raw === 'merged' || raw === 'active') return raw;
-                                const mergedInto = String((c as any).mergedIntoCaseId ?? '').trim();
-                                if (mergedInto) return 'merged';
-                                return 'active';
-                            })(),
-                            mergedCasesTexts: Array.isArray((c as any).mergedCasesTexts)
-                                ? (c as any).mergedCasesTexts
-                                      .map((x: unknown) => String(x ?? '').trim())
-                                      .filter((x: string) => x.length > 0)
-                                : undefined,
-                            mergedIntoCaseId:
-                                typeof (c as any).mergedIntoCaseId === 'string' && String((c as any).mergedIntoCaseId).trim()
-                                    ? String((c as any).mergedIntoCaseId).trim()
-                                    : undefined,
-                            mergedIntoCaseNumber:
-                                typeof (c as any).mergedIntoCaseNumber === 'string' &&
-                                String((c as any).mergedIntoCaseNumber).trim()
-                                    ? String((c as any).mergedIntoCaseNumber).trim()
-                                    : undefined,
-                            mergedCaseIds: resolveMergedCaseIds(c as CriminalCase),
-                        };
-                        nextCasesById[k] = repairUnknownDefendantCaseRecord(nextCasesById[k] as CriminalCase);
-                    });
-                }
-
-                if (nextDraft) {
-                    const draftDefendants = Array.isArray((nextDraft as any).defendants) ? (nextDraft as any).defendants : [];
-                    (nextDraft as any).defendants = draftDefendants.map((d: any) => ({
-                        ...d,
-                        address: typeof d?.address === 'string' ? d.address : '',
-                        isJuvenile: typeof d?.isJuvenile === 'boolean' ? d.isJuvenile : false,
-                        isUnderSeven: typeof (d as any)?.isUnderSeven === 'boolean' ? (d as any).isUnderSeven : false,
-                        birthDate: typeof d?.birthDate === 'string' ? d.birthDate : '',
-                        guardianName: typeof d?.guardianName === 'string' ? d.guardianName : '',
-                        guardianRelationship: typeof d?.guardianRelationship === 'string' ? d.guardianRelationship : '',
-                        socialInquiryReport: normalizeSocialInquiryReport(d?.socialInquiryReport),
-                        totalDetentionDays: Number.isFinite(Number(d?.totalDetentionDays)) ? Number(d.totalDetentionDays) : 0,
-                        hasFelonyCourtPermit: d?.hasFelonyCourtPermit === true ? true : false,
-                        guarantorDetails: normalizeGuarantorDetails(d?.guarantorDetails),
-                        detentionExpiryDate: typeof d?.detentionExpiryDate === 'string' ? d.detentionExpiryDate : '',
-                        detentionHistoryLog: Array.isArray(d?.detentionHistoryLog)
-                            ? d.detentionHistoryLog
-                                  .map((h: any) => ({
-                                      id: String(h?.id ?? createId()),
-                                      location: String(h?.location ?? ''),
-                                      startDate: String(h?.startDate ?? ''),
-                                      endDate: typeof h?.endDate === 'string' ? h.endDate : undefined,
-                                  }))
-                                  .filter((h: any) => String(h.startDate ?? '').trim().length > 0)
-                            : [],
-                        seizedAssets: normalizeSeizedAssets((d as any)?.seizedAssets),
-                    }));
-                }
-
-                let casesOut = nextCasesById ?? s.casesById;
-                if (casesOut && typeof casesOut === 'object') {
-                    const map = { ...(casesOut as Record<string, CriminalCase>) };
-                    for (const [caseId, raw] of Object.entries(map)) {
-                        const c = raw as CriminalCase;
-                        let patched = { ...c };
-
-                        const mergedIds = resolveMergedCaseIds(c);
-                        if (mergedIds.length > 0) {
-                            const texts = sanitizeMergedCasesTexts(
-                                Array.isArray(c.mergedCasesTexts) ? c.mergedCasesTexts : [],
-                            );
-                            for (const childId of mergedIds) {
-                                const child = map[childId];
-                                const num = resolveOfficialCaseNumber(child);
-                                if (num !== '—' && !texts.includes(num)) texts.push(num);
-                            }
-                            if (texts.length) patched = { ...patched, mergedCasesTexts: texts };
-                            const events = Array.isArray(patched.timelineEvents) ? patched.timelineEvents : [];
-                            const cleanEvents = sanitizeMergeTimelineEvents(events, mergedIds, map);
-                            if (cleanEvents !== events) patched = { ...patched, timelineEvents: cleanEvents };
-                        }
-
-                        const mergedIntoId = String(c.mergedIntoCaseId ?? '').trim();
-                        if (mergedIntoId) {
-                            const parent = map[mergedIntoId];
-                            const parentNum = resolveOfficialCaseNumber(parent);
-                            patched = {
-                                ...patched,
-                                dossierStatus: 'merged' as const,
-                                mergedIntoCaseNumber: String(c.mergedIntoCaseNumber ?? '').trim() || parentNum,
-                            };
-                        }
-
-                        patched = ensureStageJourneyOnCase(patched);
-                        patched = {
-                            ...patched,
-                            judicialDecisions: mergeJudicialDecisionsFromRequests(
-                                (Array.isArray(patched.judicialDecisions)
-                                    ? patched.judicialDecisions
-                                          .map((d) => normalizeJudicialDecision(d))
-                                          .filter((x): x is JudicialDecision => Boolean(x))
-                                    : undefined) as JudicialDecision[] | undefined,
-                                patched.lawyerRequests,
-                            ),
-                        };
-                        const migratedProceeding = migrateLegacyCassationToProceeding(patched);
-                        if (migratedProceeding) {
-                            patched = { ...patched, cassationProceeding: migratedProceeding };
-                        }
-                        if (Array.isArray(patched.defendants)) {
-                            patched = {
-                                ...patched,
-                                defendants: patched.defendants.map((d) => normalizeDefendantPersonalFields(d)),
-                            };
-                        }
-                        const stageResolved = resolveCaseStageFromRecord(patched);
-                        patched = { ...patched, caseStage: stageResolved };
-                        if (stageResolved === 'misdemeanor' || stageResolved === 'felony') {
-                            if (!patched.isInvestigationLocked) patched = { ...patched, isInvestigationLocked: true };
-                            const courtNum =
-                                String(patched.courtCaseNumber ?? '').trim() ||
-                                String(patched.location?.caseNumber ?? '').trim();
-                            if (courtNum) {
-                                patched = {
-                                    ...patched,
-                                    courtCaseNumber: courtNum,
-                                    location: { ...patched.location, caseNumber: courtNum },
-                                };
-                            }
-                            const invSnap =
-                                String(patched.investigationCaseNumber ?? '').trim() ||
-                                resolveInvestigationCaseNumberSnapshot(patched);
-                            if (invSnap && invSnap !== '—') {
-                                patched = { ...patched, investigationCaseNumber: invSnap };
-                            }
-                        }
-
-                        map[caseId] = migrateVerdictCardsOnCase(patched);
-                    }
-                    casesOut = map;
-                }
-
-                return { ...s, draft: nextDraft ?? s.draft, casesById: casesOut };
-            },
+            name: CRIMINAL_STORE_KEY,
+            version: CRIMINAL_STORE_PERSIST_VERSION,
+            migrate: migrateCriminalPersistState,
             storage: criminalPersistStorage,
-            partialize: (state) => ({
-                casesById: state.casesById,
-                pendingSeveranceContext: state.pendingSeveranceContext,
-                draft:
-                    state.pendingSeveranceContext != null
-                        ? makeInitialDraft()
-                        : state.draft,
-            }),
+            partialize: criminalStorePartialize,
         },
     ),
 );
 
-function mergeTimelineEventsFromPersisted(
-    live: TimelineEvent[] | undefined,
-    persisted: TimelineEvent[] | undefined,
-): TimelineEvent[] {
-    const liveList = Array.isArray(live) ? live : [];
-    const persistedList = Array.isArray(persisted) ? persisted : [];
-    if (!persistedList.length) return liveList;
-    const byId = new Map(liveList.map((e) => [e.id, e]));
-    for (const ev of persistedList) {
-        const id = String(ev.id ?? '').trim();
-        if (!id) continue;
-        const prior = byId.get(id);
-        byId.set(id, prior ? ({ ...prior, ...ev } as TimelineEvent) : ev);
-    }
-    const seen = new Set<string>();
-    const merged: TimelineEvent[] = [];
-    for (const e of liveList) {
-        merged.push(byId.get(e.id) ?? e);
-        seen.add(e.id);
-    }
-    for (const e of persistedList) {
-        const id = String(e.id ?? '').trim();
-        if (!id || seen.has(id)) continue;
-        merged.push(byId.get(id) ?? e);
-    }
-    return merged;
-}
-
-function mergeTrialSessionsFromPersisted(
-    live: TrialSession[] | undefined,
-    persisted: TrialSession[] | undefined,
-): TrialSession[] {
-    const liveList = normalizeTrialSessions(live);
-    const persistedList = normalizeTrialSessions(persisted);
-    if (!persistedList.length) return liveList;
-    const byId = new Map(liveList.map((s) => [s.id, s]));
-    for (const session of persistedList) {
-        const id = String(session.id ?? '').trim();
-        if (!id) continue;
-        const prior = byId.get(id);
-        byId.set(id, prior ? ({ ...prior, ...session } as TrialSession) : session);
-    }
-    return liveList.map((s) => byId.get(s.id) ?? s);
-}
-
-/** دمج حقول مزامنة التقويم فقط — دون استبدال الإضبارة الحية بنسخة قديمة من IndexedDB. */
-function mergePersistedCriminalCaseWithLive(existing: CriminalCase, raw: CriminalCase): CriminalCase {
-    const persistedLocation = normalizeCriminalCaseLocation(raw.location);
-    const liveLocation = existing.location;
-    const nextHearingDate = String(persistedLocation.nextHearingDate ?? '').trim();
-    const location =
-        nextHearingDate !== String(liveLocation.nextHearingDate ?? '').trim()
-            ? { ...liveLocation, nextHearingDate: persistedLocation.nextHearingDate }
-            : liveLocation;
-    return {
-        ...existing,
-        location,
-        timelineEvents: mergeTimelineEventsFromPersisted(existing.timelineEvents, raw.timelineEvents),
-        trials: mergeTrialSessionsFromPersisted(existing.trials, raw.trials),
-    };
-}
-
-function mergeCriminalCasesFromPersistedStorage(caseId?: string): void {
-    const rows = loadCriminalCasesRaw();
-    if (!rows.length) return;
-    useCriminalStore.setState((state) => {
-        const next = { ...state.casesById };
-        for (const raw of rows) {
-            const id = String(raw.id ?? '').trim();
-            if (!id) continue;
-            if (caseId && id !== String(caseId)) continue;
-            const existing = next[id];
-            next[id] = existing
-                ? mergePersistedCriminalCaseWithLive(existing, raw as CriminalCase)
-                : (raw as CriminalCase);
-        }
-        return { casesById: next };
-    });
-}
-
-if (typeof window !== 'undefined') {
-    window.addEventListener(CRIMINAL_STORAGE_PATCHED_EVENT, (ev) => {
-        const detail = (ev as CustomEvent<{ caseId?: string }>).detail;
-        mergeCriminalCasesFromPersistedStorage(detail?.caseId);
-    });
-}
+installCriminalStorePersistMergeListener(useCriminalStore.setState);

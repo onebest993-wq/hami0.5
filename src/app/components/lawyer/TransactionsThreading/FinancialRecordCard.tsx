@@ -53,7 +53,7 @@ export function FinancialRecordCard({
           {!readOnly && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button type="button" className={TX_ICON_BTN + ' !w-9 !h-9'} aria-label="خيارات الحركة">
+                <button type="button" className={TX_ICON_BTN} aria-label="خيارات الحركة">
                   <MoreVertical className="w-4 h-4" />
                 </button>
               </DropdownMenuTrigger>

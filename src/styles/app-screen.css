@@ -1,0 +1,160 @@
+/** انتقالات شاشات App — opacity فقط (transform يكسر position:fixed للـ overlays) */
+@keyframes hami-screen-enter {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.hami-app-screen {
+    animation: hami-screen-enter 0.35s cubic-bezier(0.25, 0.1, 0.25, 1) both;
+}
+
+/** أول فتح — بدون fade من opacity:0 (كان يظهر فراغ أسود خلف الشاشة) */
+html[data-hami-initial-boot='1'] .hami-app-screen {
+    animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hami-app-screen {
+        animation: none;
+    }
+}
+
+/** احترام تقليل الحركة — نظام التشغيل + إعداد حامي (data-hami-reduce-motion) */
+@media (prefers-reduced-motion: reduce) {
+    html:not([data-hami-reduce-motion='0']) *,
+    html:not([data-hami-reduce-motion='0']) *::before,
+    html:not([data-hami-reduce-motion='0']) *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+html[data-hami-reduce-motion='1'] *,
+html[data-hami-reduce-motion='1'] *::before,
+html[data-hami-reduce-motion='1'] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+}
+
+/**
+ * وضع الأداء الخفيف — أجهزة متواضعة أو اختيار المستخدم.
+ * backdrop-filter مكلف جداً على GPU الهواتف البسيطة.
+ */
+html[data-hami-lite='1'] *,
+html[data-hami-lite='1'] *::before,
+html[data-hami-lite='1'] *::after {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+html[data-hami-lite='1'] .hami-wallpaper-layer {
+    filter: none !important;
+    transform: none !important;
+    will-change: auto !important;
+}
+
+html[data-hami-lite='1'] .hami-app-screen {
+    animation: none !important;
+}
+
+/* ── وضع الأداء الخفيف — تخفيف تأثيرات لوحة المحامي على GPU الهاتف ── */
+html[data-hami-lite='1'] [data-hami-lawyer-dashboard] .hami-home-block-minimal {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+html[data-hami-lite='1'] [data-hami-lawyer-dashboard] .hami-sovereign-rim,
+html[data-hami-lite='1'] [data-hami-lawyer-dashboard] .hami-sovereign-glass {
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        0 6px 20px rgba(0, 0, 0, 0.28) !important;
+}
+
+html[data-hami-lite='1'] .hami-sovereign-aurora,
+html[data-hami-lite='1'] .hami-sovereign-shine::after,
+html[data-hami-lite='1'] .hami-sovereign-breathe,
+html[data-hami-lite='1'] .hami-sovereign-float,
+html[data-hami-lite='1'] .hami-home-shimmer::after,
+html[data-hami-lite='1'] .hami-home-pulse-ring {
+    animation: none !important;
+}
+
+html[data-hami-lite='1'] button,
+html[data-hami-lite='1'] a,
+html[data-hami-lite='1'] [role='button'] {
+    touch-action: manipulation;
+}
+
+html[data-hami-lite='1'] .hami-home-scroll-root,
+html[data-hami-lite='1'] [data-hami-lawyer-dashboard] {
+    -webkit-overflow-scrolling: touch;
+}
+
+/**
+ * حماية الإطارات — يُفعَّل تلقائياً عند هبوط FPS (framePacingGuard.ts)
+ * أو أثناء التمرير / إخفاء التبويب.
+ */
+html[data-hami-jank-guard='1'] *,
+html[data-hami-jank-guard='1'] *::before,
+html[data-hami-jank-guard='1'] *::after,
+html[data-hami-page-hidden='1'] [data-hami-lawyer-dashboard] *,
+html[data-hami-page-hidden='1'] [data-hami-lawyer-dashboard] *::before,
+html[data-hami-page-hidden='1'] [data-hami-lawyer-dashboard] *::after {
+    animation-play-state: paused !important;
+}
+
+html[data-hami-jank-guard='1'] *,
+html[data-hami-jank-guard='1'] *::before,
+html[data-hami-jank-guard='1'] *::after {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+html[data-hami-jank-guard='1'] .hami-sovereign-aurora,
+html[data-hami-jank-guard='1'] .hami-sovereign-shine,
+html[data-hami-jank-guard='1'] .hami-sovereign-shine::after,
+html[data-hami-jank-guard='1'] .hami-sovereign-breathe,
+html[data-hami-jank-guard='1'] .hami-sovereign-float,
+html[data-hami-jank-guard='1'] .hami-home-shimmer::after,
+html[data-hami-jank-guard='1'] .hami-home-pulse-ring,
+html[data-hami-jank-guard='1'] .hami-sovereign-grain {
+    animation: none !important;
+    display: none !important;
+}
+
+html[data-hami-jank-guard='1'] .hami-wallpaper-layer {
+    filter: none !important;
+    transform: translateZ(0) !important;
+}
+
+.hami-home-scroll-root[data-hami-scrolling='1'] *,
+.hami-home-scroll-root[data-hami-scrolling='1'] *::before,
+.hami-home-scroll-root[data-hami-scrolling='1'] *::after {
+    animation-play-state: paused !important;
+    transition-duration: 0.01ms !important;
+}
+
+.hami-home-scroll-root[data-hami-scrolling='1'] .hami-sovereign-shine,
+.hami-home-scroll-root[data-hami-scrolling='1'] .hami-home-pulse-ring,
+.hami-home-scroll-root[data-hami-scrolling='1'] .hami-sovereign-aurora {
+    animation: none !important;
+}
+
+/** تخطّي paint للودجات خارج viewport — يُعاد رسمها عند التمرير */
+[data-hami-lawyer-dashboard] [data-hami-block] {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 12rem;
+}
+
+[data-hami-lawyer-dashboard] [data-hami-block='dockShell'],
+[data-hami-lawyer-dashboard] [data-hami-block='alerts'] {
+    contain-intrinsic-size: auto 16rem;
+}

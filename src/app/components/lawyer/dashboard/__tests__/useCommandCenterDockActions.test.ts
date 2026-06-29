@@ -10,68 +10,9 @@ vi.mock('@/app/components/ui/SmartToast', () => ({
     },
 }));
 
-describe('useCommandCenterDockActions — المفكرة السريعة', () => {
+describe('useCommandCenterDockActions — المفكرة', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-    });
-    it('يرفض حفظ ملاحظة بدون تسجيل دخول', () => {
-        const onAddNote = vi.fn();
-        const { result } = renderHook(() => useCommandCenterDockActions({ onAddNote }));
-
-        act(() => {
-            result.current.saveQuickNote('ملاحظة مهمة');
-        });
-
-        expect(onAddNote).not.toHaveBeenCalled();
-    });
-
-    it('يحفظ ملاحظة نصية للمستخدم المسجّل', () => {
-        const onAddNote = vi.fn();
-        const { result } = renderHook(() =>
-            useCommandCenterDockActions({ userId: 'lawyer-1', onAddNote }),
-        );
-
-        act(() => {
-            result.current.saveQuickNote('ملاحظة عن العقد');
-        });
-
-        expect(onAddNote).toHaveBeenCalledTimes(1);
-        expect(onAddNote.mock.calls[0]![0].type).toBe('text');
-        expect(onAddNote.mock.calls[0]![0].content).toBe('ملاحظة عن العقد');
-    });
-
-    it('يصنّف موعداً عند كلمات الجدولة', () => {
-        const onAddNote = vi.fn();
-        const { result } = renderHook(() =>
-            useCommandCenterDockActions({ userId: 'lawyer-1', onAddNote }),
-        );
-
-        act(() => {
-            result.current.saveQuickNote('موعد جلسة غداً');
-        });
-
-        expect(onAddNote.mock.calls[0]![0].type).toBe('schedule');
-    });
-
-    it('يحفظ التسجيل الصوتي في المفكرة', async () => {
-        const onAddNote = vi.fn();
-        const { result } = renderHook(() =>
-            useCommandCenterDockActions({ userId: 'lawyer-1', onAddNote }),
-        );
-
-        await act(async () => {
-            await result.current.saveVoiceNote({
-                blob: new Blob(['audio'], { type: 'audio/webm' }),
-                durationSeconds: 12,
-                transcript: 'ملاحظة صوتية',
-            });
-        });
-
-        expect(onAddNote).toHaveBeenCalledTimes(1);
-        expect(onAddNote.mock.calls[0]![0].type).toBe('voice');
-        expect(onAddNote.mock.calls[0]![0].transcript).toBe('ملاحظة صوتية');
-        expect(onAddNote.mock.calls[0]![0].content).toContain('hami-voice-ref:');
-        expect(result.current.showVoiceModal).toBe(false);
     });
 
     it('يرفض فتح المفكرة بدون تسجيل دخول', () => {
@@ -86,6 +27,35 @@ describe('useCommandCenterDockActions — المفكرة السريعة', () => 
 
         expect(onOpenFullNotepad).not.toHaveBeenCalled();
     });
+
+    it('يرفض فتح المفكرة للضيف', () => {
+        const onOpenFullNotepad = vi.fn();
+        const { result } = renderHook(() =>
+            useCommandCenterDockActions({
+                userId: 'guest-lawyer-1',
+                onOpenFullNotepad,
+            }),
+        );
+
+        act(() => {
+            result.current.resolveDockWidgetClick('dockNotepad', false)?.();
+        });
+
+        expect(onOpenFullNotepad).not.toHaveBeenCalled();
+    });
+
+    it('يفتح المفكرة للمستخدم المسجّل', () => {
+        const onOpenFullNotepad = vi.fn();
+        const { result } = renderHook(() =>
+            useCommandCenterDockActions({ userId: 'lawyer-1', onOpenFullNotepad }),
+        );
+
+        act(() => {
+            result.current.resolveDockWidgetClick('dockNotepad', false)?.();
+        });
+
+        expect(onOpenFullNotepad).toHaveBeenCalledTimes(1);
+    });
 });
 
 describe('useCommandCenterDockActions — المخزن الذكي', () => {
@@ -94,25 +64,27 @@ describe('useCommandCenterDockActions — المخزن الذكي', () => {
     });
 
     it('يرفض فتح المخزن بدون تسجيل دخول', () => {
-        const { result } = renderHook(() => useCommandCenterDockActions({}));
+        const onOpenVault = vi.fn();
+        const { result } = renderHook(() => useCommandCenterDockActions({ onOpenVault }));
 
         act(() => {
             result.current.resolveDockWidgetClick('dockVault', false)?.();
         });
 
-        expect(result.current.showVault).toBe(false);
+        expect(onOpenVault).not.toHaveBeenCalled();
     });
 
     it('يفتح المخزن للمستخدم المسجّل', async () => {
+        const onOpenVault = vi.fn();
         const { result } = renderHook(() =>
-            useCommandCenterDockActions({ userId: 'lawyer-1' }),
+            useCommandCenterDockActions({ userId: 'lawyer-1', onOpenVault }),
         );
 
         await act(async () => {
             result.current.resolveDockWidgetClick('dockVault', false)?.();
         });
 
-        expect(result.current.showVault).toBe(true);
+        expect(onOpenVault).toHaveBeenCalledTimes(1);
     });
 });
 
@@ -142,6 +114,22 @@ describe('useCommandCenterDockActions — مهام اليوم', () => {
 
         await act(async () => {
             result.current.resolveDockWidgetClick('dockTasks', false)?.();
+        });
+
+        expect(onOpenFieldTasksSheet).toHaveBeenCalledTimes(1);
+    });
+
+    it('يتجاهل النقر السريع المتكرر على مهام اليوم', () => {
+        const onOpenFieldTasksSheet = vi.fn();
+        const { result } = renderHook(() =>
+            useCommandCenterDockActions({ userId: 'lawyer-1', onOpenFieldTasksSheet }),
+        );
+        const click = result.current.resolveDockWidgetClick('dockTasks', false)!;
+
+        act(() => {
+            click();
+            click();
+            click();
         });
 
         expect(onOpenFieldTasksSheet).toHaveBeenCalledTimes(1);
@@ -303,12 +291,10 @@ describe('useCommandCenterDockActions — hub tiles', () => {
 
     it('يفتح التنفيذ للمستخدم المسجّل', () => {
         const onOpenArchive = vi.fn();
-        const onPrefetchExecution = vi.fn();
         const { result } = renderHook(() =>
             useCommandCenterDockActions({
                 userId: 'lawyer-1',
                 onOpenArchive,
-                onPrefetchExecution,
             }),
         );
 
@@ -316,7 +302,6 @@ describe('useCommandCenterDockActions — hub tiles', () => {
             result.current.resolveDockWidgetClick('hubExecution', false)?.();
         });
 
-        expect(onPrefetchExecution).toHaveBeenCalledTimes(1);
         expect(onOpenArchive).toHaveBeenCalledWith('execution');
     });
 
@@ -331,6 +316,30 @@ describe('useCommandCenterDockActions — hub tiles', () => {
         });
 
         expect(onOpenArchive).toHaveBeenCalledWith('lawsuit');
+    });
+
+    it('يرفض فتح المعاملات بدون تسجيل دخول', () => {
+        const onOpenArchive = vi.fn();
+        const { result } = renderHook(() => useCommandCenterDockActions({ onOpenArchive }));
+
+        act(() => {
+            result.current.resolveDockWidgetClick('hubTransaction', false)?.();
+        });
+
+        expect(onOpenArchive).not.toHaveBeenCalled();
+    });
+
+    it('يفتح المعاملات للمستخدم المسجّل', () => {
+        const onOpenArchive = vi.fn();
+        const { result } = renderHook(() =>
+            useCommandCenterDockActions({ userId: 'lawyer-1', onOpenArchive }),
+        );
+
+        act(() => {
+            result.current.resolveDockWidgetClick('hubTransaction', false)?.();
+        });
+
+        expect(onOpenArchive).toHaveBeenCalledWith('transaction');
     });
 });
 

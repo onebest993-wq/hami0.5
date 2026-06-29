@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'motion/react';
 import { X, Loader2, Save, Trash2 } from 'lucide-react';
 import type { EventFormData } from './utils';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
-import { RADAR_GLASS_PANEL, RADAR_INPUT, RADAR_LABEL, RADAR_BTN_GOLD } from './radarTheme';
+import { RADAR_GLASS_PANEL, RADAR_INPUT, RADAR_LABEL, RADAR_BTN_GOLD, RADAR_FORM_OVERLAY } from './radarTheme';
 
 interface EventFormProps {
     show: boolean;
@@ -26,6 +26,17 @@ export const EventForm = React.memo(function EventForm({
     onSave,
     onDelete,
 }: EventFormProps) {
+    useEffect(() => {
+        if (!show) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key !== 'Escape' || saving) return;
+            e.preventDefault();
+            onClose();
+        };
+        window.addEventListener('keydown', onKey, true);
+        return () => window.removeEventListener('keydown', onKey, true);
+    }, [show, saving, onClose]);
+
     if (!show) return null;
 
     return (
@@ -33,7 +44,8 @@ export const EventForm = React.memo(function EventForm({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[99999] bg-[#071221]/75 backdrop-blur-md flex items-end sm:items-center justify-center"
+            className={RADAR_FORM_OVERLAY}
+            data-testid="radar-event-form-overlay"
             onClick={() => {
                 if (!saving) onClose();
             }}
@@ -43,21 +55,23 @@ export const EventForm = React.memo(function EventForm({
                 animate={{ y: 0, opacity: 1 }}
                 exit={{ y: '100%', opacity: 0 }}
                 transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                className={`w-full sm:max-w-lg ${RADAR_GLASS_PANEL} rounded-t-2xl sm:rounded-2xl p-5 max-h-[90vh] overflow-y-auto border-t sm:border border-[#64748b]/25`}
+                className={`w-full sm:max-w-lg ${RADAR_GLASS_PANEL} rounded-t-2xl sm:rounded-2xl p-5 max-h-[90vh] overflow-y-auto border-t sm:border border-[#F5EDE0]/12`}
+                data-testid="radar-event-form"
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#C9A227]/40 to-transparent" />
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#C4956A]/45 to-transparent" />
 
                 <div className="flex items-center justify-between mb-5">
-                    <h2 className="text-white font-bold text-lg">
+                    <h2 className="text-[#F5EDE0] font-bold text-lg">
                         {editingEvent ? 'تعديل الموعد' : 'إضافة موعد جديد'}
                     </h2>
                     <button
                         type="button"
+                        data-testid="radar-event-form-close"
                         onClick={() => {
                             if (!saving) onClose();
                         }}
-                        className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                        className="p-1.5 rounded-lg hover:bg-[#F5EDE0]/10 text-[#E8DCC8]/55 hover:text-[#F5EDE0] transition-colors"
                     >
                         <X size={20} />
                     </button>
@@ -67,6 +81,7 @@ export const EventForm = React.memo(function EventForm({
                     <div>
                         <label className={RADAR_LABEL}>العنوان *</label>
                         <input
+                            data-testid="radar-event-title"
                             value={formData.title}
                             onChange={(e) => onFormChange('title', e.target.value)}
                             placeholder="مثال: جلسة مرافعة - قضية إرث"
@@ -131,12 +146,13 @@ export const EventForm = React.memo(function EventForm({
                     )}
                     <button
                         type="button"
+                        data-testid="radar-event-save"
                         onClick={onSave}
                         disabled={saving || !formData.title.trim() || !formData.date}
                         className={`flex-1 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all ${
                             saving || !formData.title.trim() || !formData.date
-                                ? 'bg-[#64748b]/20 text-slate-500 cursor-not-allowed border border-[#64748b]/20'
-                                : `${RADAR_BTN_GOLD} w-full shadow-[0_0_24px_rgba(201,162,39,0.18)]`
+                                ? 'bg-[#F5EDE0]/[0.06] text-[#E8DCC8]/35 cursor-not-allowed border border-[#F5EDE0]/10'
+                                : `${RADAR_BTN_GOLD} w-full shadow-[0_0_24px_rgba(196,149,106,0.18)]`
                         }`}
                     >
                         {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}

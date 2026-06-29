@@ -17,12 +17,19 @@ import {
 import {
     isExecutorDecisionsStorageKey,
     readExecutorDecisionsFromActiveNamespace,
+    readExecutorDecisionsUnionForExecution,
+    resolveDecisionRowNamespaceSlug,
     writeExecutorDecisionsArray,
+    writeExecutorDecisionsUnionForExecution,
+    executionDecisionsNamespaceStorageKey,
 } from '@/app/utils/executionDecisionsNamespace';
 import {
     dispatchDomainIsolationBlocked,
     gateExecutorRequestPersist,
+    readExecutionDataForDomainGate,
 } from '@/app/utils/executionDomainIsolation';
+import { resolveDecisionsStorageExecutionId } from '@/app/components/lawyer/DecisionsAndAppealsEngine/engine/resolveDecisionsStorageExecutionId';
+import { executionStorageKey } from '@/app/utils/executionStorageKeys';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import {
@@ -61,11 +68,22 @@ export function dispatchDecisionsReload(): void {
     }
 }
 
+function readActiveExecutorDecisionsForMutate(
+    executionId: string | undefined
+): Record<string, unknown>[] {
+    return readExecutorDecisionsFromActiveNamespace(
+        executionId,
+        readExecutionDataForDomainGate(executionId)
+    );
+}
+
 function persistExecutorDecisionsArray(
     executionId: string | undefined,
     arr: Record<string, unknown>[]
 ): void {
-    writeExecutorDecisionsArray(executionId, arr);
+    const data = readExecutionDataForDomainGate(executionId);
+    const persistId = resolveDecisionsStorageExecutionId(executionId, data);
+    writeExecutorDecisionsArray(persistId !== 'default' ? persistId : executionId, arr, data);
     dispatchDecisionsReload();
 }
 
@@ -238,7 +256,7 @@ export function closeSeizureSubtypeDecisionCycle(input: {
     if (!executionId) return;
     const matches = buildSeizureSubtypeMatcher(input.subtype);
     try {
-        let arr = readExecutorDecisionsArray(executionId);
+        let arr = readActiveExecutorDecisionsForMutate(executionId);
         arr = supersedePriorExecutorHubRows(arr, matches);
         persistExecutorDecisionsArray(executionId, arr);
     } catch {
@@ -278,7 +296,7 @@ export function appendSpecialFollowupRequest(input: {
     const body = `بتاريخ ${input.requestDate}:\n\n${trimmed}`;
     const rowId = newExecutorDecisionId('special_followup');
     try {
-        const arr = readExecutorDecisionsArray(input.executionId);
+        const arr = readActiveExecutorDecisionsForMutate(input.executionId);
         const titleTrim = String(input.decisionTitle ?? '').trim();
         const resolvedTitle = titleTrim || 'طلب تنفيذي خاص';
         const dupPending = arr.some((r) => {
@@ -324,7 +342,7 @@ export function appendGuarantorFollowupRequest(input: {
         return { ok: false };
     }
     try {
-        const arr = readExecutorDecisionsArray(input.executionId);
+        const arr = readActiveExecutorDecisionsForMutate(input.executionId);
         const isPending = (x: Record<string, unknown>) =>
             x.executorOutcome === 'pending' || x.executorOutcome === undefined;
         const dup = arr.some((x) => isPending(x) && isGuarantorRequestDecisionRow(x));
@@ -361,7 +379,7 @@ export function appendTrustDisburseRequest(input: {
         return { ok: false };
     }
     try {
-        const arr = readExecutorDecisionsArray(input.executionId);
+        const arr = readActiveExecutorDecisionsForMutate(input.executionId);
         const isPending = (x: Record<string, unknown>) =>
             x.executorOutcome === 'pending' || x.executorOutcome === undefined;
         const dup = arr.some((x) => isPending(x) && x.requestKind === 'trust_disburse');
@@ -403,7 +421,7 @@ export function appendThirdPartyFundsReceivedDecision(input: {
         return { ok: false };
     }
     try {
-        const arr = readExecutorDecisionsArray(input.executionId);
+        const arr = readActiveExecutorDecisionsForMutate(input.executionId);
         const isPending = (x: Record<string, unknown>) =>
             x.executorOutcome === 'pending' || x.executorOutcome === undefined;
         const dup = arr.some((x) => {
@@ -481,7 +499,7 @@ export function appendPersonalCoerciveExecutorRequest(input: {
         return Boolean(primaryDebtorKey) && targetDebtorKey === primaryDebtorKey;
     };
     try {
-        let arr = readExecutorDecisionsArray(input.executionId);
+        let arr = readActiveExecutorDecisionsForMutate(input.executionId);
         const matchesPersonalCoerciveScope = (x: Record<string, unknown>) => {
             if (String(x.requestKind || '') !== 'personal_coercive') return false;
             if (!rowMatchesDebtorScope(x)) return false;
@@ -568,7 +586,7 @@ export function appendExecutiveDetentionJudgeDecision(input: {
     const targetDebtorKey = normalizeDebtorKey(input.debtorKey);
 
     try {
-        let arr = readExecutorDecisionsArray(executionId);
+        let arr = readActiveExecutorDecisionsForMutate(executionId);
         const now = new Date().toISOString();
         arr = arr.map((row) => {
             if (String(row.personalCoerciveSubtype || '') !== 'executive_detention_judge') {
@@ -669,7 +687,7 @@ export function appendPendingExecutorSeizureDecision(input: {
     try {
         const targetB = String(input.seizureTarget || 'debtor').trim() as SeizureRequestTarget;
         const subtypeB = String(input.seizureSubtype || '').trim();
-        let arr = readExecutorDecisionsArray(input.executionId);
+        let arr = readActiveExecutorDecisionsForMutate(input.executionId);
         arr = supersedeRejectedFinalExecutorHubRows(arr, (r) => {
             if (String(r.requestKind || '') !== 'seizure') return false;
             if (readSeizureRequestTarget(r) !== targetB) return false;
@@ -751,15 +769,34 @@ export function patchExecutorDecisionRow(
     const did = String(decisionId || '').trim();
     if (!did) return false;
     try {
-        const arr = readExecutorDecisionsArray(executionId);
+        const data = readExecutionDataForDomainGate(executionId);
+        const union = readExecutorDecisionsUnionForExecution(executionId, data);
+        const target = union.find((row) => String((row as { id?: string }).id ?? '') === did);
+        if (!target) return false;
+
+        const slug = resolveDecisionRowNamespaceSlug(target, data, executionId);
+        const bucketKey = executionDecisionsNamespaceStorageKey(executionId, slug);
+        const bucketRaw = SecureStoreService.getItemSync(bucketKey);
+        const bucket = parseStoredDecisionsArray(bucketRaw) as Record<string, unknown>[];
         let found = false;
-        const next = arr.map((row) => {
+        const nextBucket = bucket.map((row) => {
             if (String((row as { id?: string }).id ?? '') !== did) return row;
             found = true;
             return { ...row, ...patch };
         });
-        if (!found) return false;
-        persistExecutorDecisionsArray(executionId, next);
+        if (!found) {
+            const active = readActiveExecutorDecisionsForMutate(executionId);
+            const nextActive = active.map((row) => {
+                if (String((row as { id?: string }).id ?? '') !== did) return row;
+                found = true;
+                return { ...row, ...patch };
+            });
+            if (!found) return false;
+            persistExecutorDecisionsArray(executionId, nextActive);
+            return true;
+        }
+        SecureStoreService.setItemSync(bucketKey, JSON.stringify(nextBucket));
+        dispatchDecisionsReload();
         return true;
     } catch {
         return false;
@@ -776,7 +813,7 @@ export function patchExecutorDecisionRowReliable(
     if (preferred && patchExecutorDecisionRow(preferred, decisionId, patch)) {
         return { ok: true, storageExecutionId: preferred };
     }
-    const everywhere = patchExecutorDecisionRowEverywhere(decisionId, patch);
+    const everywhere = patchExecutorDecisionRowEverywhere(decisionId, patch, preferred);
     if (everywhere.ok) {
         const ctx = resolveExecutorDecisionRowContext(preferred, decisionId);
         return {
@@ -789,16 +826,20 @@ export function patchExecutorDecisionRowReliable(
 
 export function patchExecutorDecisionRowEverywhere(
     decisionId: string,
-    patch: Record<string, unknown>
+    patch: Record<string, unknown>,
+    scopeExecutionId?: string,
 ): { ok: boolean; patchedKeys: number } {
     const did = String(decisionId || '').trim();
     if (!did) return { ok: false, patchedKeys: 0 };
+    const scopeId = String(scopeExecutionId ?? '').trim();
+    const scopePrefix = scopeId ? `${executionStorageKey(scopeId)}` : '';
     try {
         const keys = SecureStoreService.listKeysSync();
         let touched = 0;
         for (const k of keys) {
             const key = String(k || '').trim();
             if (!key || !isExecutorDecisionsStorageKey(key)) continue;
+            if (scopePrefix && !key.startsWith(scopePrefix)) continue;
             const raw = SecureStoreService.getItemSync(key);
             const arr = parseStoredDecisionsArray(raw) as Record<string, unknown>[];
             if (!arr.length) continue;
@@ -824,7 +865,7 @@ export function findLatestHeirSubstitutionDecisionNeedingEntry(
     party: 'creditor' | 'debtor'
 ): string | null {
     try {
-        const arr = readExecutorDecisionsArray(executionId);
+        const arr = readActiveExecutorDecisionsForMutate(executionId);
         const list = arr.filter((row) => {
             const kind = String(row.requestKind || '');
             if (party === 'creditor') {
@@ -1000,7 +1041,7 @@ export function appendCreditorPartyDeathRequest(input: {
     }
     const decisionId = newExecutorDecisionId('creditor_death_req');
     try {
-        const arr = readExecutorDecisionsArray(input.executionId);
+        const arr = readActiveExecutorDecisionsForMutate(input.executionId);
         const storedPayload = {
             action: input.action,
             creditorNameSnapshot: input.creditorNameSnapshot,
@@ -1083,7 +1124,7 @@ export function appendDebtorHeirSubstitutionRequest(input: {
         heir_names: [],
     });
     try {
-        const arr = readExecutorDecisionsArray(input.executionId);
+        const arr = readActiveExecutorDecisionsForMutate(input.executionId);
         const row = {
             id: decisionId,
             title: 'طلب — إحلال الورثة محل المدين المتوفى',
@@ -1120,9 +1161,13 @@ export function getDebtorHeirSubstitutionRequestStatus(
     return 'none';
 }
 
-export function readExecutorDecisionsArray(executionId: string | undefined): Record<string, unknown>[] {
+export function readExecutorDecisionsArray(
+    executionId: string | undefined,
+    executionData?: Record<string, unknown> | null
+): Record<string, unknown>[] {
     try {
-        return readExecutorDecisionsFromActiveNamespace(executionId);
+        const data = executionData ?? readExecutionDataForDomainGate(executionId);
+        return readExecutorDecisionsUnionForExecution(executionId, data);
     } catch {
         return [];
     }
@@ -1403,7 +1448,6 @@ function supersedeRejectedFinalExecutorHubRows(
             ...row,
             requestCycleSuperseded: true,
             requestCycleSupersededAt: now,
-            isArchived: true,
         };
     });
 }
@@ -1426,7 +1470,6 @@ function supersedePriorExecutorHubRows(
             ...row,
             requestCycleSuperseded: true,
             requestCycleSupersededAt: now,
-            isArchived: true,
         };
     });
 }
@@ -1613,7 +1656,7 @@ export function archiveExecutiveDetentionCycleDecisions(input: {
         return Boolean(primaryDebtorKey) && targetDebtorKey === primaryDebtorKey;
     };
     try {
-        const arr = readExecutorDecisionsArray(executionId);
+        const arr = readActiveExecutorDecisionsForMutate(executionId);
         const now = new Date().toISOString();
         const next = arr.map((row) => {
             if (String(row.requestKind || '') !== 'personal_coercive') return row;
@@ -1698,7 +1741,7 @@ export function closePersonalCoerciveSubtypeDecisionCycle(input: {
     if (!executionId) return;
     const matches = buildPersonalCoerciveSubtypeMatcher(input);
     try {
-        let arr = readExecutorDecisionsArray(executionId);
+        let arr = readActiveExecutorDecisionsForMutate(executionId);
         arr = supersedePriorExecutorHubRows(arr, matches);
         persistExecutorDecisionsArray(input.executionId, arr);
     } catch {
@@ -1735,7 +1778,7 @@ export function appendPersonalCoerciveByExecutorOrder(input: {
     const targetDebtorKey = normalizeDebtorKey(input.debtorKey);
     const matches = buildPersonalCoerciveSubtypeMatcher(input);
     try {
-        let arr = readExecutorDecisionsArray(input.executionId);
+        let arr = readActiveExecutorDecisionsForMutate(input.executionId);
         arr = supersedePriorExecutorHubRows(arr, matches);
         arr = supersedeRejectedFinalExecutorHubRows(arr, matches);
         const nowIso = new Date().toISOString();
@@ -1801,7 +1844,7 @@ export function getPersonalCoerciveSubtypeOutcome(
 /** إغلاق صفوف طلب الكفيل عند استبدال/فك الكفالة — يفتح دورة طلب جديدة في المحضر */
 export function supersedeGuarantorRequestDecisionsForExecution(executionId: string | undefined): number {
     try {
-        const arr = readExecutorDecisionsArray(executionId);
+        const arr = readActiveExecutorDecisionsForMutate(executionId);
         const now = new Date().toISOString();
         let count = 0;
         const next = arr.map((row) => {
@@ -2278,7 +2321,7 @@ export function appendEvictionExecutorRequest(input: {
         return false;
     }
     try {
-        let arr: Record<string, unknown>[] = readExecutorDecisionsArray(input.executionId);
+        let arr: Record<string, unknown>[] = readActiveExecutorDecisionsForMutate(input.executionId);
 
         const isPending = (x: Record<string, unknown>) =>
             x.executorOutcome === 'pending' || x.executorOutcome === undefined;
@@ -2398,11 +2441,52 @@ export function appendEvictionExecutorRequest(input: {
 
 /**
  * دمج موافقة الكفيل من تخزين القرارات إلى ملف التنفيذ — يُستدعى من ExecutionDashboard.
- * TODO: استكمال المنطق عند توفر مواصفات الدمج الكاملة.
  */
 export function computeGuarantorApprovalMergePatch(
-    _decisionsStorageExecutionId: string | undefined,
-    _executionData: unknown,
+    decisionsStorageExecutionId: string | undefined,
+    executionData: unknown,
 ): Record<string, unknown> {
-    return {};
+    const execId = String(decisionsStorageExecutionId ?? '').trim();
+    const data = executionData as Record<string, unknown> | null | undefined;
+    if (!execId || !data) return {};
+
+    const gf = data.guarantor_followup as Record<string, unknown> | undefined;
+    if (gf?.executor_approved === true) return {};
+
+    const decisions = readExecutorDecisionsArray(execId);
+    const approvedRow = decisions.find((row) => {
+        if (!isGuarantorRequestDecisionRow(row as Record<string, unknown>)) return false;
+        const outcome = String((row as { executorOutcome?: string }).executorOutcome || '');
+        return outcome === 'approved' || outcome === 'alternative';
+    });
+    if (!approvedRow) return {};
+
+    const prevGf = gf;
+    const merge: Record<string, unknown> = {
+        hasGuarantor: true,
+        guarantor_followup: {
+            executor_approved: true,
+            channel: 'financial',
+            details_saved: prevGf?.details_saved === true,
+            guarantee_type: prevGf?.guarantee_type ?? 'amount',
+            guarantor_name: prevGf?.guarantor_name,
+            guarantor_workplace: prevGf?.guarantor_workplace,
+            guarantor_salary_iqd: prevGf?.guarantor_salary_iqd ?? null,
+            guarantor_deduction_iqd: prevGf?.guarantor_deduction_iqd ?? null,
+            creditor_notation_registered: prevGf?.creditor_notation_registered === true,
+        },
+    };
+
+    const debtors = data.debtors;
+    if (Array.isArray(debtors) && debtors.length > 0 && debtors[0]) {
+        merge.debtors = [{ ...(debtors[0] as object), hasGuarantor: true }, ...debtors.slice(1)];
+    }
+    const creditors = data.creditors;
+    if (Array.isArray(creditors) && creditors.length > 0 && creditors[0]) {
+        merge.creditors = [
+            { ...(creditors[0] as object), guarantorExecutionNotation: true },
+            ...creditors.slice(1),
+        ];
+    }
+    return merge;
 }

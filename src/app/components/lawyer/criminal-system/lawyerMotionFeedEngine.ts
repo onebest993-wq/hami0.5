@@ -1,5 +1,5 @@
 import type { JudicialDecision } from '@/app/types/criminal';
-import type { LawyerRequest } from './criminalStore';
+import type { LawyerRequest } from './criminalCaseModel';
 import { parseEventDateKey } from './stageJourney';
 
 export type LawyerMotionFeedRow =

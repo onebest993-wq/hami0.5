@@ -72,17 +72,9 @@ function saveSeen(seen: Map<string, number>): void {
     }
 }
 
-/** طلب صلاحية الإشعارات مرة واحدة عند وجود تنبيهات حرجة */
-export async function ensurePushPermissionForCriticalAlerts(alerts: SecretaryAlert[]): Promise<void> {
-    if (typeof window === 'undefined' || !('Notification' in window)) return;
-    const hasCritical = alerts.some((a) => a.priority <= 1);
-    if (!hasCritical) return;
-    if (PushNotificationService.getPermission() !== 'default') return;
-    try {
-        await PushNotificationService.requestPermission();
-    } catch {
-        /* user dismissed */
-    }
+/** لا نطلب صلاحية المتصفح تلقائياً — التنبيهات داخل التطبيق تكفي حتى يفعّل المستخدم الإشعارات من الإعدادات. */
+export async function ensurePushPermissionForCriticalAlerts(_alerts: SecretaryAlert[]): Promise<void> {
+    return;
 }
 
 /** إشعار محلي للتنبيهات الحرجة الجديدة فقط (بدون تكرار في الجلسة) */

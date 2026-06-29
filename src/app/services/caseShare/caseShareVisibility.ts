@@ -7,6 +7,10 @@ export const DEFAULT_SECTION_VISIBILITY: Record<ShareSectionKey, 'all' | 'none' 
     parties: 'all',
     court: 'all',
     meta: 'all',
+    followup: 'none',
+    decisions: 'none',
+    appointments: 'none',
+    financial: 'none',
 };
 
 export function isShareItemVisible(

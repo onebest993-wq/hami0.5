@@ -5,6 +5,7 @@ import {
     isEvictionClaim,
     isSpecificDeliveryClaim,
 } from '@/app/utils/executionModuleStrategies';
+import { resolveSpecificDeliveryDebtTotal } from '@/app/utils/specificDeliveryItemsUtils';
 import {
     isFinancialDebtCollectionClaim,
     isMaritalFurnitureClaim,
@@ -90,12 +91,16 @@ function isNonFinancialClaimType(ct: string, data: ExecutionClaimContext): boole
     if (isEncroachmentRemovalClaim(ct)) return true;
     if (isEvictionClaim(ct)) return true;
     if (isMaritalFurnitureClaim(ct)) return true;
-    if (
-        isSpecificDeliveryClaim(ct) &&
-        !(data as { specificDeliveryFinancialized?: boolean } | null | undefined)
-            ?.specificDeliveryFinancialized
-    ) {
-        return true;
+    if (isSpecificDeliveryClaim(ct)) {
+        const debt = resolveSpecificDeliveryDebtTotal(data ?? {});
+        if (debt > 0) return false;
+        if (
+            !(data as { specificDeliveryFinancialized?: boolean } | null | undefined)
+                ?.specificDeliveryFinancialized
+        ) {
+            return true;
+        }
+        return false;
     }
     return NON_FINANCIAL_CLAIM_FRAGMENTS.some((frag) => ct.includes(frag));
 }

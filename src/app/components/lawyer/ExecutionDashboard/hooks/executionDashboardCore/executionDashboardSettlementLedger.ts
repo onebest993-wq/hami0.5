@@ -53,8 +53,8 @@ export function clearActiveSalarySeizurePathStorage(args: {
     } = args;
     const exId = String(decisionsStorageExecutionId ?? executionId ?? '').trim();
     const nextAssets = releaseSalarySeizedAssets(
-        seizedAssets as Array<Record<string, unknown>>,
-    ) as SeizedAsset[];
+        seizedAssets as unknown as Array<Record<string, unknown>>,
+    ) as unknown as SeizedAsset[];
     setSeizedAssets(nextAssets);
     persistExecutionMerge({ seizedAssets: nextAssets });
     if (exId) {

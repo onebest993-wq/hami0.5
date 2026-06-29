@@ -113,8 +113,10 @@ describe('executionArchiveFilterUtils', () => {
 
         const active = getExecutionArchiveBasePool(files, 'active');
         const trash = getExecutionArchiveBasePool(files, 'trash');
+        const archived = getExecutionArchiveBasePool(files, 'archived');
         expect(active).toHaveLength(2);
         expect(trash).toHaveLength(1);
+        expect(archived).toHaveLength(0);
         expect(buildExecutionJurisdictionCounts(active)).toEqual({
             all: 2,
             civil: 1,
@@ -125,6 +127,26 @@ describe('executionArchiveFilterUtils', () => {
             civil: 1,
             sharia: 0,
         });
+    });
+
+    it('getExecutionArchiveBasePool separates active, archived, and trash', () => {
+        const files = [
+            { id: 'a1', claimType: 'استحصال دين مالي' },
+            {
+                id: 'a2',
+                claimType: 'استحصال دين مالي',
+                executionArchivedAt: '2026-02-01T00:00:00.000Z',
+            },
+            {
+                id: 't1',
+                claimType: 'استحصال دين مالي',
+                executionTrashDeletedAt: '2026-01-01T00:00:00.000Z',
+            },
+        ] as LooseArchiveFile[];
+
+        expect(getExecutionArchiveBasePool(files, 'active')).toHaveLength(1);
+        expect(getExecutionArchiveBasePool(files, 'archived')).toHaveLength(1);
+        expect(getExecutionArchiveBasePool(files, 'trash')).toHaveLength(1);
     });
 
     it('filterExecutionArchiveFiles applies lifecycle, jurisdiction, perspective, and search', () => {

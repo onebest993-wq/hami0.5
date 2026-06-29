@@ -5,7 +5,7 @@
  *  n1) addNotification يُضيف للقائمة ويُحدّث unreadCount
  *  n2) markAsRead يُحدّث isRead ويُنقص unreadCount
  *  n3) markAllAsRead يصفّر unreadCount
- *  n4) cap 200 — لا تتجاوز القائمة 200
+ *  n4) cap 400 — لا تتجاوز القائمة 400
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useNotificationStore } from '../notificationStore';
@@ -21,6 +21,7 @@ vi.mock('@/app/infrastructure/NotificationRepository', async (importOriginal) =>
             markAsRead: vi.fn().mockResolvedValue(undefined),
             markAllAsRead: vi.fn().mockResolvedValue(undefined),
             replaceAllNotifications: vi.fn().mockResolvedValue([]),
+            saveNotifications: vi.fn().mockResolvedValue([]),
             addNotification: (...args: unknown[]) => persistMock(...args),
         },
     };
@@ -45,6 +46,7 @@ describe('notificationStore', () => {
             unreadCount: 0,
             isLoading: false,
             currentUserId: null,
+            hasHydratedOnce: false,
         });
     });
 
@@ -77,16 +79,16 @@ describe('notificationStore', () => {
         expect(state.notifications.every((n) => n.isRead)).toBe(true);
     });
 
-    it('n4) القائمة لا تتجاوز 200 (cap)', () => {
+    it('n4) القائمة لا تتجاوز 400 (cap)', () => {
         const store = useNotificationStore.getState();
-        for (let i = 0; i < 250; i++) {
+        for (let i = 0; i < 450; i++) {
             store.addNotification(makeNotif(`n-${i}`));
         }
         const state = useNotificationStore.getState();
-        expect(state.notifications.length).toBe(200);
-        // أحدث 200 (n-249 → n-50) — n-249 في المقدمة
-        expect(state.notifications[0]!.id).toBe('n-249');
-        expect(state.notifications[199]!.id).toBe('n-50');
+        expect(state.notifications.length).toBe(400);
+        // أحدث 400 (n-449 → n-50) — n-449 في المقدمة
+        expect(state.notifications[0]!.id).toBe('n-449');
+        expect(state.notifications[399]!.id).toBe('n-50');
     });
 
     it('n5) Persistence: addNotification يستدعي repository.addNotification عند تسجيل userId', () => {
@@ -94,6 +96,18 @@ describe('notificationStore', () => {
         useNotificationStore.getState().addNotification(makeNotif('persist-1'));
         expect(persistMock).toHaveBeenCalledTimes(1);
         expect(persistMock).toHaveBeenCalledWith('user-xyz', expect.objectContaining({ id: 'persist-1' }));
+    });
+
+    it('setUserId يُصفّر القائمة عند تبديل الحساب', () => {
+        useNotificationStore.getState().setUserId('user-a');
+        useNotificationStore.getState().addNotification(makeNotif('a'));
+        expect(useNotificationStore.getState().notifications).toHaveLength(1);
+
+        useNotificationStore.getState().setUserId('user-b');
+        const state = useNotificationStore.getState();
+        expect(state.currentUserId).toBe('user-b');
+        expect(state.notifications).toEqual([]);
+        expect(state.unreadCount).toBe(0);
     });
 
     it('n6) لا يستدعي persistence إن لم يكن هناك userId', () => {
@@ -117,5 +131,19 @@ describe('notificationStore', () => {
             direction: 'outgoing',
         });
         expect(useNotificationStore.getState().notifications).toHaveLength(0);
+    });
+
+    it('n9) upsertNotification يدمج isRead عند تكرار المعرّف', () => {
+        useNotificationStore.getState().addNotification(makeNotif('upsert-1'));
+        useNotificationStore.getState().upsertNotification({
+            ...makeNotif('upsert-1'),
+            isRead: true,
+            message: 'محدّث',
+        });
+        const state = useNotificationStore.getState();
+        expect(state.notifications).toHaveLength(1);
+        expect(state.notifications[0]!.isRead).toBe(true);
+        expect(state.notifications[0]!.message).toBe('محدّث');
+        expect(state.unreadCount).toBe(0);
     });
 });

@@ -212,10 +212,7 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
         void (async () => {
             if (!pushAllowed) return;
             try {
-                const initialized = await PushNotificationService.initialize();
-                if (initialized && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-                    await PushNotificationService.requestPermission();
-                }
+                await PushNotificationService.initialize();
             } catch (e) {
                 debug.error('[LawyerDashboard] Push init failed:', e);
             }

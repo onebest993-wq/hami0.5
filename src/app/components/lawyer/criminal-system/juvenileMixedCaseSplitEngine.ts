@@ -1,4 +1,4 @@
-import type { CriminalCaseDraft, CriminalDefendant } from './criminalStore';
+import type { CriminalCaseDraft, CriminalDefendant } from './criminalCaseModel';
 import { formatCriminalStageLabel } from './criminalStageUtils';
 import { getIdentifiedDefendants } from './criminalUnknownDefendant';
 import {

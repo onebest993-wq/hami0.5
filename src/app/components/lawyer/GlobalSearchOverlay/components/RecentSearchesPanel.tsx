@@ -4,26 +4,11 @@ import { Clock, RotateCcw } from 'lucide-react';
 
 export interface RecentSearchesPanelProps {
     recentSearches: string[];
-    isLoadingIndex: boolean;
     onSelect: (value: string) => void;
     onClear: () => void;
 }
 
-export function RecentSearchesPanel({ recentSearches, isLoadingIndex, onSelect, onClear }: RecentSearchesPanelProps) {
-    if (isLoadingIndex && recentSearches.length === 0) {
-        return (
-            <div className="px-5 py-4 flex flex-wrap gap-2" aria-hidden>
-                {[0, 1, 2].map((i) => (
-                    <div
-                        key={i}
-                        className="h-9 rounded-xl bg-white/[0.03] border border-white/5 animate-pulse"
-                        style={{ width: `${72 + i * 28}px` }}
-                    />
-                ))}
-            </div>
-        );
-    }
-
+export function RecentSearchesPanel({ recentSearches, onSelect, onClear }: RecentSearchesPanelProps) {
     if (recentSearches.length === 0) return null;
 
     return (
@@ -43,7 +28,8 @@ export function RecentSearchesPanel({ recentSearches, isLoadingIndex, onSelect, 
                     onClick={onClear}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className="text-[10px] text-white/30 hover:text-[#E6C673] flex items-center gap-1 transition-colors"
+                    className="text-[10px] text-white/30 hover:text-[#E6C673] flex items-center gap-1 transition-colors min-h-[44px] px-2 touch-manipulation"
+                    data-testid="global-search-clear-recent"
                 >
                     <RotateCcw size={10} />
                     مسح

@@ -4,7 +4,7 @@ import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import { resolveAlertNavigation } from '@/app/services/alertNavigation';
 import { parseWorkspaceRoute } from '@/app/workspace/workspaceRoutes';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { prefetchArchivePortal, prefetchExecutionDashboard } from '@/app/utils/lazyComponents';
+import { prefetchArchivePortal, warmExecutionWorkspace } from '@/app/utils/lazyComponents';
 import { markAlertSeenForPush } from '@/app/services/appAlertPushSync';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
@@ -18,12 +18,13 @@ import {
     isRecord,
 } from '@/app/components/lawyer/LawyerDashboardParts/utils';
 
-import type { LegalTask } from '@/app/types/TaskEngine';
+import { getQuantumPendingSnapshot } from '@/app/utils/quantumTasksMetrics';
+
+import type { OpenNotepadOptions } from '@/app/hooks/lawyerDashboard/useLawyerDashboardRepository';
 
 export type UseLawyerDashboardNavigationParams = {
     files: FileData[];
     executionFiles: ExecutionFile[];
-    quantumTasks: LegalTask[];
     setActiveTab: Dispatch<SetStateAction<LawyerDashboardTab>>;
     setShowCommunity: Dispatch<SetStateAction<boolean>>;
     setCommunityDeepLink: Dispatch<
@@ -32,16 +33,14 @@ export type UseLawyerDashboardNavigationParams = {
     setArchiveType: Dispatch<SetStateAction<LawyerArchiveOverlay>>;
     setActiveFile: Dispatch<SetStateAction<FileData | ExecutionFile | null>>;
     setShowNotifications: Dispatch<SetStateAction<boolean>>;
-    setNotepadMode: Dispatch<SetStateAction<'list' | 'create'>>;
-    setNotepadFocusNoteId: Dispatch<SetStateAction<string | undefined>>;
-    setIsNotepadOpen: Dispatch<SetStateAction<boolean>>;
+    openNotepad: (opts?: OpenNotepadOptions) => void;
     setTransactionsFocusId: Dispatch<SetStateAction<string | undefined>>;
-    setUrgentFocusCaseId: Dispatch<SetStateAction<string | undefined>>;
-    setShowUrgentDashboard: Dispatch<SetStateAction<boolean>>;
+    openUrgentInLawsuitsWorkspace: (caseId?: string) => void;
     openVaultModal: (opts?: { scanner?: boolean }) => void;
     openTransactionsHub: (focusId?: string) => void;
     openCommunityTab: () => void;
     openFieldTasksSheet: () => void;
+    openScheduleTab: (opts?: { date?: string; eventId?: string }) => void;
     openCriminalCase: (caseId: string, options?: OpenCriminalCaseOptions) => void;
     openTasksManager: (focusTaskId?: string) => void;
 };
@@ -49,30 +48,27 @@ export type UseLawyerDashboardNavigationParams = {
 export function useLawyerDashboardNavigation({
     files,
     executionFiles,
-    quantumTasks,
     setActiveTab,
     setShowCommunity,
     setCommunityDeepLink,
     setArchiveType,
     setActiveFile,
     setShowNotifications,
-    setNotepadMode,
-    setNotepadFocusNoteId,
-    setIsNotepadOpen,
+    openNotepad,
     setTransactionsFocusId,
-    setUrgentFocusCaseId,
-    setShowUrgentDashboard,
+    openUrgentInLawsuitsWorkspace,
     openVaultModal,
     openTransactionsHub,
     openCommunityTab,
     openFieldTasksSheet,
+    openScheduleTab,
     openCriminalCase,
     openTasksManager,
 }: UseLawyerDashboardNavigationParams) {
     const handleNotificationRouting = useCallback(
         (path: string, payload: Record<string, unknown> | null) => {
             if (path === 'schedule') {
-                setActiveTab('schedule');
+                openScheduleTab();
                 return;
             }
             if (path === 'case_details') {
@@ -82,16 +78,13 @@ export function useLawyerDashboardNavigation({
                     const executionTarget = executionFiles.find((f) => String(f.id) === caseId);
                     const target = lawsuitTarget || executionTarget;
                     if (target) {
-                        if (isRecord(target) && target.type === 'execution') prefetchExecutionDashboard();
+                        if (isRecord(target) && target.type === 'execution') warmExecutionWorkspace();
                         setActiveFile(coerceActiveFileTarget(target));
                         SmartToast.info(`جاري فتح القضية...`);
                     }
                 } else {
                     setArchiveType('all');
                 }
-            } else if (path === 'ai_drafter') {
-                setArchiveType('all');
-                SmartToast.info('افتح الإضبارة من الأرشيف');
             } else if (path === 'community') {
                 setShowCommunity(true);
                 if (payload && typeof payload.postId === 'string') {
@@ -121,23 +114,26 @@ export function useLawyerDashboardNavigation({
             setShowNotifications(false);
             const nav = resolveAlertNavigation(a, {
                 lawsuitFiles: files,
-                fieldTasks: quantumTasks,
+                fieldTasks: getQuantumPendingSnapshot(),
             });
 
             switch (nav.kind) {
                 case 'tab':
                     if (nav.tab === 'community') {
                         openCommunityTab();
+                    } else if (nav.tab === 'schedule') {
+                        openScheduleTab();
                     } else {
                         setShowCommunity(false);
                         setActiveTab(nav.tab);
                     }
                     return;
                 case 'notepad':
-                    setNotepadMode('list');
-                    if (nav.noteId) setNotepadFocusNoteId(nav.noteId);
-                    else if (a.entityId) setNotepadFocusNoteId(String(a.entityId));
-                    setIsNotepadOpen(true);
+                    openNotepad({
+                        mode: 'list',
+                        focusNoteId:
+                            nav.noteId ?? (a.entityId ? String(a.entityId) : undefined),
+                    });
                     return;
                 case 'client_requests':
                     setArchiveType('client_requests');
@@ -162,11 +158,11 @@ export function useLawyerDashboardNavigation({
                     setActiveTab('home');
                     openTransactionsHub(nav.entityId);
                     return;
-                case 'urgent_dashboard':
-                    if (nav.entityId) setUrgentFocusCaseId(nav.entityId);
-                    else if (a.entityId) setUrgentFocusCaseId(String(a.entityId));
-                    setShowUrgentDashboard(true);
+                case 'urgent_dashboard': {
+                    const id = nav.entityId ?? (a.entityId != null ? String(a.entityId) : undefined);
+                    openUrgentInLawsuitsWorkspace(id);
                     return;
+                }
                 case 'open_lawsuit': {
                     const f = files.find((file) => String(file.id) === nav.entityId);
                     if (f && isFileData(f)) {
@@ -202,26 +198,23 @@ export function useLawyerDashboardNavigation({
             openCommunityTab,
             openCriminalCase,
             openFieldTasksSheet,
+            openScheduleTab,
             openTransactionsHub,
-            quantumTasks,
             setActiveFile,
             setActiveTab,
             setArchiveType,
-            setIsNotepadOpen,
-            setNotepadFocusNoteId,
-            setNotepadMode,
+            openNotepad,
             setShowCommunity,
             setShowNotifications,
-            setShowUrgentDashboard,
             setTransactionsFocusId,
-            setUrgentFocusCaseId,
+            openUrgentInLawsuitsWorkspace,
         ],
     );
 
     const navigateWorkspaceRoute = useCallback(
         (routePath: string) => {
             if (routePath === 'workspace:schedule:calendar') {
-                setActiveTab('schedule');
+                openScheduleTab();
                 return;
             }
             const parsed = parseWorkspaceRoute(routePath);
@@ -231,7 +224,7 @@ export function useLawyerDashboardNavigation({
                     const section = parsed.id as 'lawsuit' | 'execution' | 'transaction';
                     if (section === 'execution' || section === 'lawsuit' || section === 'transaction') {
                         prefetchArchivePortal();
-                        if (section === 'execution') prefetchExecutionDashboard();
+                        if (section === 'execution') warmExecutionWorkspace();
                         setArchiveType(section);
                     }
                     return;
@@ -258,8 +251,7 @@ export function useLawyerDashboardNavigation({
                     openCriminalCase(parsed.id);
                     return;
                 case 'urgent':
-                    setUrgentFocusCaseId(parsed.id);
-                    setShowUrgentDashboard(true);
+                    openUrgentInLawsuitsWorkspace(parsed.id);
                     return;
                 case 'transaction': {
                     const f = files.find((file) => String(file.id) === parsed.id);
@@ -274,9 +266,7 @@ export function useLawyerDashboardNavigation({
                     openTransactionsHub(parsed.id);
                     return;
                 case 'notepad':
-                    setNotepadFocusNoteId(parsed.id);
-                    setNotepadMode('list');
-                    setIsNotepadOpen(true);
+                    openNotepad({ mode: 'list', focusNoteId: parsed.id });
                     return;
                 case 'task':
                     openTasksManager(parsed.id);
@@ -289,15 +279,13 @@ export function useLawyerDashboardNavigation({
             executionFiles,
             files,
             openCriminalCase,
+            openScheduleTab,
             openTasksManager,
             openTransactionsHub,
             setActiveFile,
             setActiveTab,
-            setIsNotepadOpen,
-            setNotepadFocusNoteId,
-            setNotepadMode,
-            setShowUrgentDashboard,
-            setUrgentFocusCaseId,
+            openNotepad,
+            openUrgentInLawsuitsWorkspace,
         ],
     );
 

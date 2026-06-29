@@ -28,8 +28,16 @@ export function useExecutionAICopilot(params: UseExecutionAICopilotParams) {
         return null;
     }, [decisionsStorageExecutionId, decisionsReloadEpoch]);
 
+    const hasApprovedCollectionDecision = useMemo(() => {
+        if (!Array.isArray(executionCopilotDecisions)) return false;
+        return executionCopilotDecisions.some(
+            (r) => r?.requestKind === 'unified_collection' && r?.executorOutcome === 'approved',
+        );
+    }, [executionCopilotDecisions]);
+
     return {
         executionCopilotDecisions,
         firstActiveAppealDecisionId,
+        hasApprovedCollectionDecision,
     };
 }

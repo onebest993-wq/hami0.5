@@ -13,7 +13,7 @@ export async function POST(request: Request): Promise<Response> {
         const auth = await requireForumAuthAndUnbanned(request);
         if ('response' in auth) return auth.response;
 
-        if (!checkForumActionRateLimit(auth.userId, 'upvote')) {
+        if (!(await checkForumActionRateLimit(auth.userId, 'upvote'))) {
             return jsonResponse(429, { ok: false, error: 'تجاوزت حد التصويت' });
         }
 

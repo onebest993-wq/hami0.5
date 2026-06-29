@@ -102,7 +102,7 @@ async function expectExecutionArchiveLayer(page: Page) {
 }
 
 async function waitForExecutionDossierClosed(page: Page) {
-    await expect(page.getByRole('button', { name: 'محضر المتابعة' })).toHaveCount(0, { timeout: 25_000 });
+    await expect(page.getByTestId('execution-dashboard-dossier')).toHaveCount(0, { timeout: 25_000 });
 }
 
 async function openFirstExecutionDossier(page: Page) {
@@ -111,21 +111,21 @@ async function openFirstExecutionDossier(page: Page) {
     await expect(row).toBeVisible({ timeout: 25_000 });
     await row.scrollIntoViewIfNeeded();
     await row.click();
-    await expect(page.getByRole('button', { name: 'محضر المتابعة' })).toBeVisible({ timeout: 25_000 });
+    await expect(page.getByTestId('execution-dashboard-dossier')).toBeVisible({ timeout: 25_000 });
+    await expect(page.getByTestId('execution-followup-memo')).toBeVisible({ timeout: 25_000 });
 }
 
 async function closeExecutionDossier(page: Page) {
-    await expect(async () => {
-        if ((await page.getByRole('button', { name: 'محضر المتابعة' }).count()) === 0) {
-            return;
+    const dossier = page.getByTestId('execution-dashboard-dossier');
+    if (await dossier.isVisible().catch(() => false)) {
+        const closeBtn = dossier.getByTestId('execution-dashboard-close');
+        if (await closeBtn.isVisible().catch(() => false)) {
+            await closeBtn.click();
+        } else {
+            await page.keyboard.press('Escape');
         }
-        await page.keyboard.press('Escape');
-        const dossierClose = page.getByRole('button', { name: 'إغلاق', exact: true }).first();
-        if (await dossierClose.isVisible().catch(() => false)) {
-            await dossierClose.click();
-        }
-        await expect(page.getByRole('button', { name: 'محضر المتابعة' })).toHaveCount(0, { timeout: 3_000 });
-    }).toPass({ timeout: 30_000 });
+        await waitForExecutionDossierClosed(page);
+    }
     await expectExecutionArchiveLayer(page);
 }
 

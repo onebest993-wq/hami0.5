@@ -7,7 +7,7 @@ import {
   wifeUnauthorizedResponse,
 } from '../../security/wifeValidator.ts';
 import { sanitizePayload } from '../../security/sanitizer.ts';
-import { NotificationDB } from '../../../services/lawyer-cloud.ts';
+import { ServerNotificationDB } from '@/app/services/notifications/notificationForumStorage.server';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object';
@@ -23,8 +23,8 @@ export async function GET(request: Request): Promise<Response> {
     const userId = await getVerifiedTokenSubject(userToken);
     if (!userId) return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
 
-    const notifications = await NotificationDB.getNotifications(userId);
-    const unreadCount = await NotificationDB.getUnreadCount(userId);
+    const notifications = await ServerNotificationDB.getNotifications(userId);
+    const unreadCount = await ServerNotificationDB.getUnreadCount(userId);
 
     return new Response(JSON.stringify({ ok: true, notifications, unreadCount }), {
       status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8' },
@@ -54,9 +54,9 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     if (payload.action === 'mark_read' && typeof payload.notificationId === 'string') {
-      await NotificationDB.markAsRead(payload.notificationId, userId);
+      await ServerNotificationDB.markAsRead(payload.notificationId, userId);
     } else if (payload.action === 'mark_all_read') {
-      await NotificationDB.markAllAsRead(userId);
+      await ServerNotificationDB.markAllAsRead(userId);
     } else {
       return new Response(JSON.stringify({ ok: false, error: 'إجراء غير معروف' }), {
         status: 400, headers: { 'Content-Type': 'application/json; charset=utf-8' },

@@ -1,0 +1,50 @@
+/* —— غبار النجوم (stardust) —— */
+.profile-text-canvas__stardust {
+    position: absolute;
+    inset: 0;
+    z-index: 7;
+    touch-action: none;
+    overflow: hidden;
+    cursor: grab;
+}
+
+.profile-text-canvas__stardust:active {
+    cursor: grabbing;
+}
+
+.profile-text-canvas__stardust[data-interactive='false'] {
+    pointer-events: none;
+    touch-action: auto;
+    cursor: default;
+}
+
+.profile-text-canvas__stardust-particle {
+    position: absolute;
+    width: 0.55rem;
+    height: 0.55rem;
+    margin: -0.28rem 0 0 -0.28rem;
+    background: linear-gradient(
+        135deg,
+        #fffef5,
+        color-mix(in srgb, var(--canvas-accent, #e6c673) 88%, #fff8e8)
+    );
+    clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+    transform: rotate(var(--petal-rot, 0deg));
+    box-shadow: 0 0 14px color-mix(in srgb, var(--canvas-accent, #e6c673) 45%, transparent);
+    transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s ease;
+    opacity: 0.9;
+    animation: profile-stardust-twinkle 3.6s ease-in-out infinite;
+    animation-delay: var(--petal-delay, 0s);
+}
+
+@keyframes profile-stardust-twinkle {
+    0%,
+    100% {
+        opacity: 0.65;
+        scale: 0.92;
+    }
+    50% {
+        opacity: 1;
+        scale: 1.08;
+    }
+}

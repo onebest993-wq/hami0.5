@@ -8,6 +8,7 @@ export const HOME_WIDGET_IDS = [
     'hubLawsuit',
     'hubTransaction',
     'forum',
+    'dockRepository',
     'dockNotepad',
     'dockCalendar',
     'dockVault',
@@ -26,6 +27,23 @@ export interface HomeWidgetPlacement {
 
 export type HomeWidgetPlacements = Record<HomeWidgetId, HomeWidgetPlacement>;
 
+/** دُمجت في المستودع الذكي — تُخفى من العرض العادي وتبقى في وضع تخصيص التخطيط */
+export const REPOSITORY_LEGACY_WIDGET_IDS = ['dockNotepad', 'dockVault'] as const satisfies readonly HomeWidgetId[];
+
+export type RepositoryLegacyWidgetId = (typeof REPOSITORY_LEGACY_WIDGET_IDS)[number];
+
+export function isRepositoryLegacyWidget(id: HomeWidgetId): id is RepositoryLegacyWidgetId {
+    return (REPOSITORY_LEGACY_WIDGET_IDS as readonly HomeWidgetId[]).includes(id);
+}
+
+export function filterDisplayHomeWidgets(
+    ids: HomeWidgetId[],
+    layoutEditMode: boolean,
+): HomeWidgetId[] {
+    if (layoutEditMode) return ids;
+    return ids.filter((id) => !isRepositoryLegacyWidget(id));
+}
+
 export function buildDefaultPlacements(): HomeWidgetPlacements {
     return {
         alerts: { zone: 'main', order: 0 },
@@ -33,11 +51,12 @@ export function buildDefaultPlacements(): HomeWidgetPlacements {
         hubLawsuit: { zone: 'main', order: 2 },
         hubTransaction: { zone: 'main', order: 3 },
         forum: { zone: 'main', order: 4 },
-        dockNotepad: { zone: 'dock', order: 0 },
+        dockRepository: { zone: 'dock', order: 0 },
+        dockNotepad: { zone: 'dock', order: 98 },
         dockCalendar: { zone: 'dock', order: 1 },
-        dockVault: { zone: 'dock', order: 2 },
-        dockTasks: { zone: 'dock', order: 3 },
-        dockQuickNote: { zone: 'dock', order: 4 },
+        dockVault: { zone: 'dock', order: 99 },
+        dockTasks: { zone: 'dock', order: 2 },
+        dockQuickNote: { zone: 'dock', order: 3 },
     };
 }
 
@@ -49,12 +68,13 @@ export function isHomeWidgetId(id: string): id is HomeWidgetId {
 export const DOCK_SHELL_WIDGET_IDS: HomeWidgetId[] = ['dockQuickNote'];
 
 export function isDockShellOrderWidget(id: HomeWidgetId): boolean {
-    return !DOCK_SHELL_WIDGET_IDS.includes(id);
+    return !DOCK_SHELL_WIDGET_IDS.includes(id) && !isRepositoryLegacyWidget(id);
 }
 
 /** عناصر الدوك الأصلية — أيقونة + تسمية فقط */
 export function isDockCompactWidget(id: HomeWidgetId): boolean {
     return (
+        id === 'dockRepository' ||
         id === 'dockNotepad' ||
         id === 'dockCalendar' ||
         id === 'dockVault' ||
@@ -166,7 +186,7 @@ export function migrateLegacyOrdersToPlacements(raw: {
                 base[id] = { zone: p.zone, order: p.order };
             }
         }
-        return reindexZone(reindexZone(base, 'main'), 'dock');
+        return consolidateLegacyRepositoryDock(reindexZone(reindexZone(base, 'main'), 'dock'));
     }
 
     const base = buildDefaultPlacements();
@@ -191,15 +211,61 @@ export function migrateLegacyOrdersToPlacements(raw: {
 
     const dockOrder = Array.isArray(raw.dockItemOrder)
         ? raw.dockItemOrder
-        : ['dockNotepad', 'dockCalendar', 'dockVault', 'dockTasks', 'dockQuickNote'];
+        : ['dockRepository', 'dockCalendar', 'dockTasks', 'dockQuickNote'];
     dockOrder.forEach((id, i) => {
         if (isHomeWidgetId(id as string)) base[id as HomeWidgetId] = { zone: 'dock', order: i };
     });
 
-    return reindexZone(reindexZone(base, 'main'), 'dock');
+    return consolidateLegacyRepositoryDock(reindexZone(reindexZone(base, 'main'), 'dock'));
+}
+
+function stashRepositoryLegacyWidgets(placements: HomeWidgetPlacements): {
+    placements: HomeWidgetPlacements;
+    changed: boolean;
+} {
+    const next = { ...placements };
+    let changed = false;
+    for (const id of REPOSITORY_LEGACY_WIDGET_IDS) {
+        const zone = next[id]?.zone;
+        if (zone !== 'main' && zone !== 'dock') continue;
+        next[id] = { zone: 'dock', order: 98 + REPOSITORY_LEGACY_WIDGET_IDS.indexOf(id) };
+        changed = true;
+    }
+    return { placements: next, changed };
+}
+
+/** دمج أيقونتي المفكرة والمخزن القديمتين في المستودع الذكي */
+export function consolidateLegacyRepositoryDock(
+    placements: HomeWidgetPlacements,
+): HomeWidgetPlacements {
+    const dockIds = getWidgetsInZone(placements, 'dock');
+    const mainIds = getWidgetsInZone(placements, 'main');
+    const hasLegacyOnSurface =
+        dockIds.some(isRepositoryLegacyWidget) || mainIds.some(isRepositoryLegacyWidget);
+
+    if (dockIds.includes('dockRepository')) {
+        if (!hasLegacyOnSurface) return placements;
+        const stashed = stashRepositoryLegacyWidgets(placements);
+        return stashed.changed
+            ? reindexZone(reindexZone(stashed.placements, 'main'), 'dock')
+            : placements;
+    }
+
+    const hasLegacy = dockIds.includes('dockNotepad') || dockIds.includes('dockVault');
+    if (!hasLegacy) return placements;
+
+    const next = { ...placements };
+    const legacyOrder = Math.min(
+        dockIds.includes('dockNotepad') ? placements.dockNotepad?.order ?? 0 : 99,
+        dockIds.includes('dockVault') ? placements.dockVault?.order ?? 0 : 99,
+    );
+    next.dockRepository = { zone: 'dock', order: legacyOrder };
+    const stashed = stashRepositoryLegacyWidgets(next);
+    return reindexZone(reindexZone(stashed.placements, 'main'), 'dock');
 }
 
 export const DOCK_ONLY_WIDGETS: DockItemId[] = [
+    'dockRepository',
     'dockNotepad',
     'dockCalendar',
     'dockVault',

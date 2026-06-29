@@ -7,6 +7,10 @@ import {
     buildManualExecutorAppealFilePatch,
     buildManualExecutorGrievanceOutcomePatch,
     buildManualExecutorCassationFilePatch,
+    buildManualExecutorCassationNaqdPatch,
+    buildManualExecutorCassationRadLaheezaPatch,
+    manualExecutorAwaitingCassationParty,
+    manualExecutorCassationEntryButtonLabel,
     CASSATION_APPEAL_WINDOW_DAYS,
     GRIEVANCE_APPEAL_WINDOW_DAYS,
     resolveAppealDeadlineExpiryKind,
@@ -43,20 +47,20 @@ describe('إضافة قرار — سيناريو سطر بسطر (قرار بت�
         vi.useRealTimers();
     });
 
-    it('يوم الإصدار: علم 1 — لا تظلم ولا تمييز ولا إنهاء مدة', () => {
+    it('يوم الإصدار: علم 1 — تظلم وتمييز مفتوحان', () => {
         atYmd('2026-06-01');
         const row = manualLedger();
         const w = appealWindowsForDecision(row);
         expect(resolveExecutorDecisionStatusFlag(row)).toBe(1);
-        expect(w.canTadhallum).toBe(false);
-        expect(w.canTamyeez).toBe(false);
+        expect(w.canTadhallum).toBe(true);
+        expect(w.canTamyeez).toBe(true);
         expect(shouldShowAppealDeadlineLapseActions(row)).toBe(false);
     });
 
     it.each([
-        ['2026-06-02', 0],
-        ['2026-06-03', 1],
-        ['2026-06-04', 2],
+        ['2026-06-01', 0],
+        ['2026-06-02', 1],
+        ['2026-06-03', 2],
     ])('اليوم %s: مهلة التظلم مفتوحة (يوم %i)', (ymd, elapsed) => {
         atYmd(ymd);
         const row = manualLedger();
@@ -66,8 +70,8 @@ describe('إضافة قرار — سيناريو سطر بسطر (قرار بت�
         expect(shouldShowAppealDeadlineLapseActions(row)).toBe(false);
     });
 
-    it('اليوم 2026-06-05: آخر يوم تظلم مباشر — لا إنهاء مدة (بدون تظلم معلّق)', () => {
-        atYmd('2026-06-05');
+    it('اليوم 2026-06-04: آخر يوم تظلم مباشر — لا إنهاء مدة (بدون تظلم معلّق)', () => {
+        atYmd('2026-06-04');
         const row = manualLedger();
         expect(appealWindowsForDecision(row).grievanceDaysElapsed).toBe(
             GRIEVANCE_APPEAL_WINDOW_DAYS
@@ -75,8 +79,8 @@ describe('إضافة قرار — سيناريو سطر بسطر (قرار بت�
         expect(shouldShowAppealDeadlineLapseActions(row)).toBe(false);
     });
 
-    it('بعد التظلم: التمييز المباشر من القرار — يوم 2026-06-09 إنهاء مدة التمييز', () => {
-        atYmd('2026-06-09');
+    it('بعد التظلم: التمييز المباشر من القرار — يوم 2026-06-08 إنهاء مدة التمييز', () => {
+        atYmd('2026-06-08');
         const row = manualLedger();
         expect(appealWindowsForDecision(row).cassationDaysElapsed).toBe(
             CASSATION_APPEAL_WINDOW_DAYS
@@ -86,7 +90,7 @@ describe('إضافة قرار — سيناريو سطر بسطر (قرار بت�
     });
 
     it('اليوم التالي لانتهاء التمييز: لا تظهر لوحة إنهاء المدة', () => {
-        atYmd('2026-06-10');
+        atYmd('2026-06-09');
         const row = manualLedger();
         expect(shouldShowAppealDeadlineLapseActions(row)).toBe(false);
     });
@@ -128,7 +132,7 @@ describe('مسار التظلم → نتيجة → تمييز', () => {
     });
 
     it('يوم انتهاء مهلة التظلم مع تظلم معلّق: إنهاء مدة التظلم فقط', () => {
-        atYmd('2026-06-05');
+        atYmd('2026-06-04');
         const pending = {
             ...manualLedger(),
             executorDecisionStatusFlag: 2,
@@ -154,7 +158,7 @@ describe('مسار التظلم → نتيجة → تمييز', () => {
         expect(resolveCassationAppealClockYmd(afterOutcome)).toBe(outcomeYmd);
         expect(resolveManualExecutorWorkflowPhase(afterOutcome)).toBe('cassation_unlocked');
 
-        atYmd('2026-06-12');
+        atYmd('2026-06-11');
         const w = appealWindowsForDecision(afterOutcome);
         expect(w.cassationDaysElapsed).toBe(CASSATION_APPEAL_WINDOW_DAYS);
         expect(shouldShowAppealDeadlineLapseActions(afterOutcome)).toBe(true);
@@ -168,12 +172,69 @@ describe('مسار التظلم → نتيجة → تمييز', () => {
             manualExecutorAppealKind: 'tadhallum',
             manualExecutorAppealAppellant: 'lawyer',
             manualExecutorGrievanceOutcome: 'rejected',
+            appealResult: 'رد التظلم',
+            awaitingCassationEntryBy: 'lawyer',
+            grievanceRejectedAwaitingTamyeez: true,
             grievanceOutcomeIssuedYmd: '2026-06-04',
             cassationAppealClockYmd: '2026-06-04',
         } as Decision;
         const filed = buildManualExecutorCassationFilePatch(unlocked);
         expect(filed.manualExecutorWorkflowPhase).toBe('cassation_pending');
         expect(filed.manualExecutorAppealKind).toBe('tamyeez');
+        expect(filed.manualExecutorAppealAppellant).toBe('lawyer');
+    });
+
+    it('شجرة القرارات: الدائن تظلم + رد → تمييز الدائن فقط', () => {
+        const pending = {
+            ...manualLedger(),
+            ...buildManualExecutorAppealFilePatch(manualLedger(), 'lawyer', 'tadhallum'),
+        } as Decision;
+        const afterReject = {
+            ...pending,
+            ...buildManualExecutorGrievanceOutcomePatch(pending, false, '2026-06-04'),
+        } as Decision;
+        expect(manualExecutorAwaitingCassationParty(afterReject)).toBe('lawyer');
+        expect(manualExecutorCassationEntryButtonLabel('lawyer')).toBe('تمييز من قبل الدائن');
+    });
+
+    it('شجرة القرارات: المدين تظلم + قبول → تمييز الدائن فقط', () => {
+        const base = {
+            ...manualLedger(),
+            ...buildManualExecutorAppealFilePatch(manualLedger(), 'debtor', 'tadhallum'),
+        } as Decision;
+        const afterAccept = {
+            ...base,
+            ...buildManualExecutorGrievanceOutcomePatch(base, true, '2026-06-04'),
+        } as Decision;
+        expect(manualExecutorAwaitingCassationParty(afterAccept)).toBe('lawyer');
+        expect(manualExecutorCassationEntryButtonLabel('lawyer')).toBe('تمييز من قبل الدائن');
+    });
+
+    it('نتيجة التمييز: خياران فقط — نقض القرار ورد اللائحة', () => {
+        const pending = manualLedger({
+            executorDecisionStatusFlag: 2,
+            manualExecutorWorkflowPhase: 'cassation_pending',
+            manualExecutorAppealKind: 'tamyeez',
+            manualExecutorAppealAppellant: 'lawyer',
+        });
+        const naqd = buildManualExecutorCassationNaqdPatch(pending);
+        const rad = buildManualExecutorCassationRadLaheezaPatch(pending);
+        expect(naqd.appealResult).toBe('نقض القرار');
+        expect(rad.appealResult).toBe('رد اللائحة');
+    });
+
+    it('لا يُعرض إنهاء مدة التمييز بعد تسجيل الطعن — بانتظار نتيجة المحكمة', () => {
+        atYmd('2026-06-11');
+        const pending = manualLedger({
+            executorDecisionStatusFlag: 2,
+            manualExecutorWorkflowPhase: 'cassation_pending',
+            manualExecutorAppealKind: 'tamyeez',
+            manualExecutorAppealAppellant: 'lawyer',
+            grievanceOutcomeIssuedYmd: '2026-06-04',
+            cassationAppealClockYmd: '2026-06-04',
+        });
+        expect(shouldShowAppealDeadlineLapseActions(pending)).toBe(false);
+        expect(manualExecutorAwaitingCassationParty(pending)).toBeNull();
     });
 });
 
@@ -194,6 +255,7 @@ describe('إنهاء المدة يدوياً', () => {
             executorDecisionStatusFlag: 2,
             manualExecutorWorkflowPhase: 'grievance_pending',
             manualExecutorAppealKind: 'tadhallum',
+            manualExecutorAppealAppellant: 'lawyer',
         });
         const patch = buildGrievanceDeadlineLapsePatch(row, []);
         expect(patch.manualExecutorWorkflowPhase).toBe('cassation_unlocked');

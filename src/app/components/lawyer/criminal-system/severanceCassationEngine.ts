@@ -1,6 +1,6 @@
 // @ts-nocheck
 import type { JudicialDecision } from '@/app/types/criminal';
-import type { CriminalCase, CriminalDefendant, InvestigationLog, LawyerRequest, Statement, TimelineEvent } from './criminalStore';
+import type { CriminalCase, CriminalDefendant, InvestigationLog, LawyerRequest, Statement, TimelineEvent } from './criminalCaseModel';
 import { resolveDefendantFullName } from './criminalUnknownDefendant';
 import { isInvestigationSeveranceJudicialTemplate } from './proceduralRequestTypes';
 import {

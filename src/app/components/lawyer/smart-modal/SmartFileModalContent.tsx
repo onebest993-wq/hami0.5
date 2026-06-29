@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SmartFileModalsPortal } from './layout/SmartFileModalsPortal';
 import { SmartFileMainPanel } from './layout/SmartFileMainPanel';
@@ -15,12 +15,20 @@ import {
     PERSONAL_STATUS_DOSSIER_ROOT,
 } from '@/app/components/lawyer/personal-status/personalStatusVisualTheme';
 import { SmartFileModalThemeProvider } from './smartFile/smartFileModalTheme';
+import { useReduceMotion } from '@/app/hooks/useReduceMotion';
+import { prefetchSmartFileModalShellWidgets } from './lazySmartFileModalWidgets';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 export type { SmartFileModalProps } from './smartFile/smartFileModalTypes';
 
 export const SmartFileModalContent = (props: import('./smartFile/smartFileModalTypes').SmartFileModalProps) => {
+    const reduceMotion = useReduceMotion();
     const { layout, consolidationNavActive, caseLinkNavActive } = useSmartFileModalOrchestrator(props);
     const isPersonalDossier = isPersonalStatusFile(props.file);
+
+    useEffect(() => {
+        prefetchSmartFileModalShellWidgets();
+    }, []);
+
     const shareSource = useMemo(() => {
         const file = props.file as unknown as FileData;
         const stageIndex = file.activeStageIndex ?? 0;
@@ -28,7 +36,9 @@ export const SmartFileModalContent = (props: import('./smartFile/smartFileModalT
         return extractLawsuitShareSource(file, stage);
     }, [props.file]);
 
-    if (!layout) return null;
+    if (!layout) {
+        return null;
+    }
 
     const rootClass = isPersonalDossier
         ? `${PERSONAL_STATUS_DOSSIER_ROOT} ${consolidationNavActive || caseLinkNavActive ? 'pt-12' : ''}`
@@ -48,15 +58,16 @@ export const SmartFileModalContent = (props: import('./smartFile/smartFileModalT
         <ColleagueConsultationProvider source={shareSource}>
         <AnimatePresence>
             <motion.div
+                key="smart-file-modal-root"
                 className={rootClass}
                 data-testid={CIVIL_LAWSUIT_TEST_IDS.dossier}
                 data-dossier-variant={isPersonalDossier ? 'personal' : 'civil'}
             >
                 <motion.div
-                    initial={{ opacity: 0 }}
+                    initial={reduceMotion ? false : { opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.15 }}
+                    exit={reduceMotion ? undefined : { opacity: 0 }}
+                    transition={reduceMotion ? { duration: 0 } : { duration: 0.08 }}
                     className={panelClass}
                 >
                     <div className={innerClass}>

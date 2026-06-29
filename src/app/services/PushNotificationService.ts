@@ -162,12 +162,24 @@ export class PushNotificationService {
   }
 
   /**
-   * طلب صلاحية الإشعارات
+   * طلب صلاحية الإشعارات — يُستدعى فقط من إيماءة مستخدم (زر/تبديل في الإعدادات).
+   * استدعاء تلقائي عند التحميل يُطلق [Violation] في Chrome.
    */
-  static async requestPermission(): Promise<NotificationPermission> {
+  static async requestPermission(options?: { fromUserGesture?: boolean }): Promise<NotificationPermission> {
     if (!('Notification' in window)) {
       debug.warn('[PushNotification] Notifications not supported');
       return 'denied';
+    }
+
+    const current = Notification.permission as NotificationPermission;
+    if (current !== 'default') {
+      this.permissionStatus = current;
+      return current;
+    }
+
+    if (!options?.fromUserGesture) {
+      debug.log('[PushNotification] Permission prompt skipped — requires user gesture');
+      return 'default';
     }
 
     try {

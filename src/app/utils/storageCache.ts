@@ -3,6 +3,10 @@
  * طبقة تخزين مؤقت لتحسين أداء LocalStorage (بدون تأثير على التصميم)
  */
 import SecureStoreService from '@/app/services/SecureStoreService';
+import {
+  applyExecutionDossierBlobSet,
+  registerExecutionBlobCacheTouch,
+} from '@/app/utils/executionDossierBlobPersistence';
 
 interface CacheEntry {
   value: any;
@@ -33,29 +37,53 @@ class StorageCacheClass {
     }
 
     const cached = this.cache.get(key);
-    
-    if (!cached) {
-      // قراءة من localStorage
-      const value = this.readFromLocalStorage(key);
-      if (value !== null) {
-        this.set(key, value);
+
+    if (cached) {
+      if (Date.now() - cached.timestamp > this.TTL) {
+        this.cache.delete(key);
+        return this.get(key);
       }
-      return value;
+      // إن حُذف المفتاح من SecureStore مباشرةً — لا نُرجع قيمة قديمة من الذاكرة
+      try {
+        if (SecureStoreService.getItemSync(key) === null) {
+          this.cache.delete(key);
+          return null;
+        }
+      } catch {
+        this.cache.delete(key);
+        return null;
+      }
+      return cached.value;
     }
-    
-    // التحقق من انتهاء الصلاحية
-    if (Date.now() - cached.timestamp > this.TTL) {
-      this.cache.delete(key);
-      return this.get(key); // إعادة القراءة من localStorage
+
+    const value = this.readFromLocalStorage(key);
+    if (value !== null) {
+      this.cache.set(key, {
+        value,
+        timestamp: Date.now(),
+      });
     }
-    
-    return cached.value;
+    return value;
+  }
+
+  /**
+   * تحديث الذاكرة المؤقتة فقط — بعد كتابة SecureStore مباشرة
+   */
+  touchCacheEntry(key: string, value: any): void {
+    if (!this.isEnabled) return;
+    this.cache.set(key, {
+      value,
+      timestamp: Date.now(),
+    });
   }
 
   /**
    * الكتابة إلى الـ Cache و LocalStorage
    */
   set(key: string, value: any): void {
+    if (applyExecutionDossierBlobSet(key, value, (k, v) => this.touchCacheEntry(k, v))) {
+      return;
+    }
     // الكتابة إلى localStorage
     try {
       SecureStoreService.setItemSync(key, JSON.stringify(value));
@@ -195,6 +223,8 @@ class StorageCacheClass {
 
 // Singleton Instance
 export const storageCache = new StorageCacheClass();
+
+registerExecutionBlobCacheTouch((key, value) => storageCache.touchCacheEntry(key, value));
 
 if (typeof window !== 'undefined') {
   const w = window as unknown as {

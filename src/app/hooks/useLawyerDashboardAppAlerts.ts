@@ -3,6 +3,8 @@ import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import { useDismissedAlertIds } from '@/app/hooks/useDismissedAlertIds';
 import { filterVisibleAlerts } from '@/app/services/appAlertDismiss';
 import { markAlertSeenForPush } from '@/app/services/appAlertPushSync';
+import { peekHomeHubSecretaryAlertsCache } from '@/app/services/alerts/homeHubSecretaryAlertsWarmCache';
+import { resolveCalendarUserId } from '@/app/services/calendarBridge';
 import { useNotificationStore } from '@/app/stores/notificationStore';
 
 type AlertsSlice = {
@@ -21,10 +23,14 @@ function alertsSliceEqual(a: AlertsSlice, b: AlertsSlice): boolean {
 }
 
 export function useLawyerDashboardAppAlerts(userId: string | undefined) {
-    const [alertsSlice, setAlertsSlice] = useState<AlertsSlice>({
-        alerts: [],
-        loading: false,
-        error: null,
+    const calendarUserId = resolveCalendarUserId(userId ?? null);
+    const [alertsSlice, setAlertsSlice] = useState<AlertsSlice>(() => {
+        const cached = peekHomeHubSecretaryAlertsCache(calendarUserId);
+        return {
+            alerts: cached ?? [],
+            loading: false,
+            error: null,
+        };
     });
     const refreshAppAlertsRef = useRef<() => void>(() => {});
 

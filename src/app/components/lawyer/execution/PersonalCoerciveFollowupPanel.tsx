@@ -29,7 +29,6 @@ import {
 } from '@/app/utils/executorSeizureDecisionQueue';
 import { timelineDebtorMetadata } from '@/app/utils/timelineDebtorScope';
 import { ExecutionInlineExecutorDecisionActions } from '@/app/components/lawyer/ExecutionDashboard/components/ExecutionInlineAccordion';
-import { InlineActionGate } from '@/app/components/lawyer/ExecutionDashboard/components/InlineActionGate';
 import {
     EXEC_MODAL_BACKDROP_STRONG,
     EXEC_MODAL_Z,
@@ -123,6 +122,10 @@ export interface PersonalCoerciveFollowupPanelProps {
     isHistoricalMode?: boolean;
     /** استحصال مالي + موظف: إخفاء عرض الإضبارة على قاضي البداءة وقرار الحبس */
     hideDossierJudgePresentation?: boolean;
+    /** إخفاء بطاقة قرار القاضي بالحبس فقط (≥ 500,000 د.ع في مسار المركز المالي) */
+    hideExecutiveDetentionJudgeCard?: boolean;
+    /** مسار كاسب + مركز مالي > 250,000 — إجراءات متبقية اختيارية (منع سفر / عرض إضبارة) */
+    earnerFinancialPersonalCoerciveActive?: boolean;
     /** استحصال مالي + موظف: إخفاء تفعيل الإحضار بقرار المنفذ */
     hideExecutorForcedBringActivation?: boolean;
     /** المدين موظف — لا مفاتحة تحقيق ولا عرض إضبارة ولا حبس */
@@ -246,6 +249,8 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
     primaryDebtorKey = 'primary_debtor',
     isHistoricalMode = false,
     hideDossierJudgePresentation = false,
+    hideExecutiveDetentionJudgeCard = false,
+    earnerFinancialPersonalCoerciveActive = false,
     hideExecutorForcedBringActivation = false,
     activeDebtorIsEmployee = false,
     embeddedHiddenPath,
@@ -285,6 +290,7 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
     const [forcedBringWithdrawBusy, setForcedBringWithdrawBusy] = useState(false);
     const [judgeDetailsOpen, setJudgeDetailsOpen] = useState(false);
     const [travelPanelOpen, setTravelPanelOpen] = useState(false);
+    const [optionalRemainingProceduresOpen, setOptionalRemainingProceduresOpen] = useState(false);
     React.useEffect(() => {
         if (!embeddedHiddenPath) return;
         if (embeddedHiddenPath === 'executive_detention_judge') setJudgeDetailsOpen(true);
@@ -481,9 +487,9 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
     const travelShowInitialSubmit =
         !travel.alternative &&
         !travel.pending &&
-        (!travelLaneSettled || travelBanRequestCycleWithdrawn) &&
+        !(travel.rejected && travelCycleActive) &&
         (!travelBanEnforced || travelBanRequestCycleWithdrawn) &&
-        !(travel.rejected && travelCycleActive);
+        (!travelCycleActive || travelBanRequestCycleWithdrawn);
     const travelActive = travelBanEnforced && travelCycleActive;
     const wanted = executionData?.debtor_wanted_arrest_warrant === true;
     const detentionActive = isExecutiveDetentionPeriodActive(executionData);
@@ -2062,6 +2068,8 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
             ? 'رفع منع السفر'
             : travelBanEnforced && !travelBanWithdrawn
               ? 'منع سفر — مفعّل'
+              : travel.approved && travelCycleActive && !travelBanEnforced
+                ? 'منع سفر — موافق عليه'
               : travel.rejected && travelCycleActive
                 ? 'منع سفر — مرفوض'
                 : 'تقديم طلب منع سفر';
@@ -2102,6 +2110,26 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
             dossierPhase === 'judge_decided' ||
             dossierPhase === 'detention_active');
 
+    const optionalRemainingProceduresUnlocked =
+        optionalRemainingProceduresOpen ||
+        travelCycleActive ||
+        dossierCycleActive ||
+        travelBanEnforced ||
+        detentionActive ||
+        dossierExecutorPhaseComplete;
+
+    const showOptionalRemainingProceduresEntry =
+        earnerFinancialPersonalCoerciveActive &&
+        !embeddedHiddenPath &&
+        !optionalRemainingProceduresUnlocked;
+
+    const showTravelBanInMainFlow =
+        showTravelBanSection &&
+        (!earnerFinancialPersonalCoerciveActive || optionalRemainingProceduresUnlocked);
+
+    const dossierPresentationGloballyAllowed =
+        !hideDossierJudgePresentation && !employeeDetentionRestricted;
+
     const dossierAwaitingJudge =
         dossierExecutorPhaseComplete &&
         dossierPhase === 'handed_to_judge' &&
@@ -2133,8 +2161,8 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
         !judgeSync.cycleSuperseded;
 
     const showDossierPresentationCard =
-        !hideDossierJudgePresentation &&
-        !employeeDetentionRestricted &&
+        dossierPresentationGloballyAllowed &&
+        (!earnerFinancialPersonalCoerciveActive || optionalRemainingProceduresUnlocked) &&
         !dossierExecutorPhaseComplete &&
         (dossier.pending ||
             dossier.rejected ||
@@ -2178,17 +2206,26 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
         judgeCassationOverturnVisible;
 
     const showJudgeDetentionCard =
+        !hideExecutiveDetentionJudgeCard &&
         !hideDossierJudgePresentation &&
         !employeeDetentionRestricted &&
         !detentionLaneEnded &&
         dossierExecutorPhaseComplete &&
         judgeHasActionablePanel;
 
+    const dossierPhaseSyncRef = React.useRef<string | null>(null);
+
+    useEffect(() => {
+        dossierPhaseSyncRef.current = null;
+    }, [exId]);
+
     useEffect(() => {
         if (detentionLaneEnded || !exId) return;
         if (judgeDetention === 'approved' || judgeDetention === 'rejected') {
             if (!judgeHasActionablePanel) return;
             if (dossierPhase !== 'judge_decided' && dossierPhase !== 'detention_active') {
+                if (dossierPhaseSyncRef.current === 'judge_decided') return;
+                dossierPhaseSyncRef.current = 'judge_decided';
                 persistExecutionMerge({ executive_dossier_phase: 'judge_decided' });
             }
             return;
@@ -2201,6 +2238,8 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
             dossierPhase !== 'judge_decided' &&
             dossierPhase !== 'detention_active'
         ) {
+            if (dossierPhaseSyncRef.current === 'handed_to_judge') return;
+            dossierPhaseSyncRef.current = 'handed_to_judge';
             const govId = findGoverningDossierDecisionId();
             persistExecutionMerge({
                 executive_dossier_phase: 'handed_to_judge',
@@ -2776,8 +2815,33 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
                 </div>
             ) : null}
 
+            {showOptionalRemainingProceduresEntry ? (
+                <div className="relative pt-1">
+                    <button
+                        type="button"
+                        disabled={coerciveUiLocked || isHistoricalMode}
+                        onClick={() => setOptionalRemainingProceduresOpen(true)}
+                        className={`w-full ${BTN_BASE} bg-gradient-to-l from-violet-500/10 to-transparent hover:from-violet-500/16 ${coerciveUiLocked || isHistoricalMode ? BTN_DISABLED : ''}`}
+                    >
+                        <div className="flex flex-row-reverse items-center gap-3">
+                            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5">
+                                <ChevronDown className="h-6 w-6 text-violet-200/80" />
+                            </span>
+                            <div className="min-w-0 flex-1 text-right">
+                                <p className="text-sm font-bold text-violet-100">
+                                    إظهار الإجراءات المتبقية
+                                </p>
+                                <p className="mt-0.5 text-[10px] text-slate-400">
+                                    خطوة اختيارية: منع سفر أو طلب عرض الإضبارة على قاضي البداءة
+                                </p>
+                            </div>
+                        </div>
+                    </button>
+                </div>
+            ) : null}
+
             {/* 3 — منع سفر */}
-            {showTravelBanSection ? (
+            {showTravelBanInMainFlow ? (
             <div className="relative space-y-2">
             <div className="overflow-visible rounded-2xl border border-violet-500/25 bg-violet-950/15 text-right">
                 <div className="relative">
@@ -2979,7 +3043,7 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
                     className={`overflow-visible rounded-2xl border border-violet-500/25 bg-violet-950/15 text-right ${kasabCoerciveEmphasis ? 'ring-2 ring-[#E6C673]/45 border-[#E6C673]/35' : ''}`}
                 >
                     <div className="relative">
-                        {dossierHasExpandablePanel ? (
+                        {dossierHasExpandablePanel && !dossierIdle ? (
                             <div
                                 className={`w-full ${BTN_BASE} bg-gradient-to-l from-orange-500/12 to-transparent`}
                             >
@@ -3079,20 +3143,11 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
                                 {renderAppealSyncFollowup(dossierSync)}
                             </div>
                         ) : null}
+                        {renderInlineGate('executive_dossier_presentation', () => {
+                            void runDossierPresentationSubmit();
+                        })}
                     </div>
                 </div>
-                <InlineActionGate
-                    gateKey="hidden_pc_dossier"
-                    activeKey={
-                        confirmingKey === 'executive_dossier_presentation'
-                            ? 'hidden_pc_dossier'
-                            : null
-                    }
-                    onConfirm={() => {
-                        void runDossierPresentationSubmit();
-                    }}
-                    onCancel={() => setConfirmingKey(null)}
-                />
                 </div>
             ) : null}
 

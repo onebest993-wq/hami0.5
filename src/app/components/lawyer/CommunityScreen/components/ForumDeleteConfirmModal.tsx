@@ -39,6 +39,7 @@ export const ForumDeleteConfirmModal = ({
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 16, scale: 0.98 }}
                         transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+                        data-testid="forum-delete-confirm-modal"
                         className="w-full max-w-md rounded-2xl border border-white/10 bg-[#1A1D2D] shadow-2xl shadow-black/40 overflow-hidden"
                         onClick={(e) => e.stopPropagation()}
                         role="alertdialog"

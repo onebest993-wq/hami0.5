@@ -213,6 +213,7 @@ export const LegalActionsMenu = ({
             {isOpen && (
                 <>
                     <motion.div
+                        key="legal-actions-backdrop"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
@@ -220,6 +221,7 @@ export const LegalActionsMenu = ({
                         className={isPearl ? 'fixed inset-0 bg-[#131211]/60 backdrop-blur-[2px] z-[100]' : 'fixed inset-0 bg-[#05060D]/60 backdrop-blur-[3px] z-[100]'}
                     />
                     <motion.div
+                        key="legal-actions-sheet"
                         initial={{ y: '100%' }}
                         animate={{ y: 0 }}
                         exit={{ y: '100%' }}

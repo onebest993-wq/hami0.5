@@ -31,7 +31,7 @@ export async function POST(request: Request): Promise<Response> {
             return jsonResponse(400, { ok: false, error: 'postId و reason مطلوبان' });
         }
 
-        if (!checkForumActionRateLimit(auth.userId, 'report', { postId: payload.postId })) {
+        if (!(await checkForumActionRateLimit(auth.userId, 'report', { postId: payload.postId }))) {
             return jsonResponse(429, { ok: false, error: 'لقد أبلغت عن هذا المنشور مسبقاً أو انتظر' });
         }
 

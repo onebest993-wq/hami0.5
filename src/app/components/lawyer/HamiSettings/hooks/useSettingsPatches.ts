@@ -1,25 +1,37 @@
 import { useCallback } from 'react';
-import { useLawyerSettings } from '@/app/context/LawyerSettingsContext';
-import type { AppSettingsState } from '@/app/services/settings';
+import { useLawyerSettingsActions } from '@/app/context/LawyerSettingsContext';
+import { invalidateLawyerSettingsCache, type AppSettingsState } from '@/app/services/settings';
 import type { HomeWidgetId } from '@/app/services/settings/homeLayout';
 
 export function useSettingsPatches() {
-    const { setSettings } = useLawyerSettings();
+    const { setSettings } = useLawyerSettingsActions();
 
     const patchAppearance = useCallback((partial: Partial<AppSettingsState['appearance']>) => {
-        setSettings((prev) => ({ ...prev, appearance: { ...prev.appearance, ...partial } }));
+        setSettings((prev) => {
+            invalidateLawyerSettingsCache();
+            return { ...prev, appearance: { ...prev.appearance, ...partial } };
+        });
     }, [setSettings]);
 
     const patchPerformance = useCallback((partial: Partial<AppSettingsState['performance']>) => {
-        setSettings((prev) => ({ ...prev, performance: { ...prev.performance, ...partial } }));
+        setSettings((prev) => {
+            invalidateLawyerSettingsCache();
+            return { ...prev, performance: { ...prev.performance, ...partial } };
+        });
     }, [setSettings]);
 
     const patchData = useCallback((partial: Partial<AppSettingsState['data']>) => {
-        setSettings((prev) => ({ ...prev, data: { ...prev.data, ...partial } }));
+        setSettings((prev) => {
+            invalidateLawyerSettingsCache();
+            return { ...prev, data: { ...prev.data, ...partial } };
+        });
     }, [setSettings]);
 
     const patchSecurity = useCallback((partial: Partial<AppSettingsState['security']>) => {
-        setSettings((prev) => ({ ...prev, security: { ...prev.security, ...partial } }));
+        setSettings((prev) => {
+            invalidateLawyerSettingsCache();
+            return { ...prev, security: { ...prev.security, ...partial } };
+        });
     }, [setSettings]);
 
     const patchHomeLayout = useCallback(

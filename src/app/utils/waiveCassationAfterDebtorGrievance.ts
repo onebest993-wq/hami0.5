@@ -13,7 +13,8 @@ import {
 import { applyEvictionAppealClosure } from '@/app/utils/evictionAppealSync';
 import { applyPersonalCoerciveAppealClosure } from '@/app/utils/personalCoerciveAppealSync';
 import { dispatchDecisionsReload, readExecutorDecisionsArray } from '@/app/utils/executorSeizureDecisionQueue';
-import { writeExecutorDecisionsArray } from '@/app/utils/executionDecisionsNamespace';
+import { writeExecutorDecisionsUnionForExecution } from '@/app/utils/executionDecisionsNamespace';
+import { readExecutionDataForDomainGate } from '@/app/utils/executionDomainIsolation';
 import SecureStoreService from '@/app/services/SecureStoreService';
 
 export type WaiveCassationApplyResult = {
@@ -83,7 +84,11 @@ function persistWaiveCassationMerge(input: {
     outcomeLine: string;
 }): WaiveCassationApplyResult {
     const { executionId, row, next, mergedRowId, outcomeLine } = input;
-    writeExecutorDecisionsArray(executionId, next as unknown as Record<string, unknown>[]);
+    writeExecutorDecisionsUnionForExecution(
+        executionId,
+        next as unknown as Record<string, unknown>[],
+        readExecutionDataForDomainGate(executionId)
+    );
     dispatchDecisionsReload();
 
     const mergedRow = next.find((x) => x.id === mergedRowId);

@@ -1,16 +1,9 @@
 import React from 'react';
 
 // --- UTILS ---
-export const normalizeArabic = (text: string) => {
-    if (!text) return "";
-    return text
-        .replace(/[أإآ]/g, 'ا')
-        .replace(/ة/g, 'ه')
-        .replace(/ى/g, 'ي')
-        .replace(/[\u064B-\u065F]/g, '') // Tashkeel
-        .replace(/\s+/g, ' ') // Collapse spaces
-        .trim();
-};
+export { normalizeArabicSearch as normalizeArabic } from '@/app/services/search/normalizeArabicSearch';
+import { normalizeArabicSearch } from '@/app/services/search/normalizeArabicSearch';
+import { buildSafeHighlightPattern } from '@/app/services/search/globalSearchHighlightPattern';
 
 interface HighlightedTextProps {
     text: string | undefined;
@@ -20,23 +13,23 @@ interface HighlightedTextProps {
 
 export const HighlightedText = ({ text, query, className }: HighlightedTextProps) => {
     if (!query || !text) return <span className={className}>{text || ''}</span>;
+
+    const safeQuery = query.slice(0, 64);
     
     // 1. Normalize both text and query for comparison
-    const normText = normalizeArabic(text).toLowerCase();
-    const normQuery = normalizeArabic(query).toLowerCase();
+    const normText = normalizeArabicSearch(text).toLowerCase();
+    const normQuery = normalizeArabicSearch(safeQuery).toLowerCase();
     
     // 2. If no match found in normalized version, return original
     if (!normText.includes(normQuery)) return <span className={className}>{text}</span>;
 
-    // 3. Find start index of match
-    const startIndex = normText.indexOf(normQuery);
-    if (startIndex === -1) return <span className={className}>{text}</span>;
+    const pattern = buildSafeHighlightPattern(safeQuery);
+    if (!pattern) return <span className={className}>{text}</span>;
 
-    // 4. Slice original text based on indices (Approximation: assumes length parity)
     return (
         <span className={className}>
-            {text.split(new RegExp(`(${query.split('').join('.*?')})`, 'gi')).map((part:string, i:number) => {
-                 return normalizeArabic(part).includes(normQuery) ? 
+            {text.split(pattern).map((part: string, i: number) => {
+                 return normalizeArabicSearch(part).includes(normQuery) ? 
                     <span key={i} className="bg-[#E6C673] text-[#0B1021] px-0.5 rounded font-bold">{part}</span> : 
                     part
             })}

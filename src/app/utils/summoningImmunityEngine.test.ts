@@ -70,6 +70,23 @@ describe('summoningImmunityEngine', () => {
         expect(r.badges.some((b) => b.id === 'earner_monetary_seizures_only')).toBe(true);
     });
 
+    it('earner + financial + monetaryExecutionStrict + 250k gate: allows summon after grace', () => {
+        const r = canBeForcefullySummoned({
+            notificationDate: pastNotice,
+            employmentType: 'كاسب',
+            claimNature: 'مالي',
+            isAlimony: false,
+            salaryCoversAlimony: true,
+            hasGuarantor: false,
+            hasAttendanceHistory: false,
+            forcedAttendanceIssued: false,
+            monetaryExecutionStrict: true,
+            earnerPersonalCoerciveFinancialThresholdMet: true,
+        });
+        expect(r.canForceSummon).toBe(true);
+        expect(r.badges.some((b) => b.id === 'earner_monetary_seizures_only')).toBe(false);
+    });
+
     it('employee + financial + alimony shortfall: allows summon', () => {
         const r = canBeForcefullySummoned({
             notificationDate: pastNotice,

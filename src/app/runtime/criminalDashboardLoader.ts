@@ -13,10 +13,31 @@ export function resetCriminalDashboardModuleCache(): void {
 
 function prefetchCriminalStore(): Promise<unknown> {
     if (!criminalStorePrefetch) {
-        criminalStorePrefetch = import('@/app/components/lawyer/criminal-system/criminalStore').catch((err) => {
-            criminalStorePrefetch = null;
-            throw err;
-        });
+        criminalStorePrefetch = import('@/app/components/lawyer/criminal-system/criminalStore')
+            .then((mod) => {
+                const scheduleSlicePrefetch = () => {
+                    void import('@/app/components/lawyer/criminal-system/trialSessionsEngine').catch(() => undefined);
+                    void import('@/app/components/lawyer/criminal-system/cassationEngine').catch(() => undefined);
+                    void import('@/app/components/lawyer/criminal-system/proceduralContainersEngine').catch(
+                        () => undefined,
+                    );
+                    void import('@/app/components/lawyer/criminal-system/criminalDashboardLazyRegistry').then((m) => {
+                        m.prefetchCriminalPartiesGrid();
+                        m.prefetchCriminalJudicialDecisionsLedger();
+                        m.prefetchCriminalDashboardDefaultTab();
+                    }).catch(() => undefined);
+                };
+                if (typeof requestIdleCallback !== 'undefined') {
+                    requestIdleCallback(scheduleSlicePrefetch, { timeout: 4000 });
+                } else {
+                    window.setTimeout(scheduleSlicePrefetch, 1200);
+                }
+                return mod;
+            })
+            .catch((err) => {
+                criminalStorePrefetch = null;
+                throw err;
+            });
     }
     return criminalStorePrefetch;
 }

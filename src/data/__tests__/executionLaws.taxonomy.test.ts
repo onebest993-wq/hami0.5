@@ -1,15 +1,24 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, beforeAll } from 'vitest';
 import {
-    executionLawData,
     filterExecutionLawsByHierarchy,
+    filterExecutionLawsByScope,
+    ALL_EXECUTION_ARTICLES_SCOPE,
     resolveExecutionLawLeaf,
+    type ExecutionLawArticle,
 } from '../executionLaws';
+import { loadExecutionLawSeedData } from '../executionLawsLoader';
 import {
     EXECUTION_LAW_HIERARCHY,
     buildExecutionLawAdminBrowseFilters,
 } from '../executionLawHierarchy';
 
 describe('executionLawHierarchy', () => {
+    let executionLawData: ExecutionLawArticle[];
+
+    beforeAll(async () => {
+        executionLawData = await loadExecutionLawSeedData();
+    });
+
     it('defines 6 task-oriented parent tabs', () => {
         expect(EXECUTION_LAW_HIERARCHY).toHaveLength(6);
         expect(EXECUTION_LAW_HIERARCHY[0].id).toBe('instruments_prelude');
@@ -40,12 +49,24 @@ describe('executionLawHierarchy', () => {
         expect(leaf.parentId).toBe('distribution_appeals');
     });
 
+    it('filters all articles scope from first to last article', () => {
+        const allArticles = filterExecutionLawsByScope(
+            executionLawData,
+            ALL_EXECUTION_ARTICLES_SCOPE,
+            'all_in_parent',
+            '',
+        );
+        expect(allArticles.length).toBe(130);
+        expect(allArticles[0]?.number).toBe(1);
+        expect(allArticles[allArticles.length - 1]?.number).toBe(130);
+    });
+
     it('filters by parent and leaf without cross-tab bleed', () => {
         const parentOnly = filterExecutionLawsByHierarchy(
             executionLawData,
             'instruments_prelude',
             'all_in_parent',
-            ''
+            '',
         );
         expect(parentOnly.every((a) => a.parentId === 'instruments_prelude')).toBe(true);
         expect(parentOnly.some((a) => a.number === 1)).toBe(true);
@@ -55,7 +76,7 @@ describe('executionLawHierarchy', () => {
             executionLawData,
             'settlements_emergency',
             'bail_travel_ban',
-            ''
+            '',
         );
         expect(leafOnly.every((a) => a.number === 30)).toBe(true);
     });
@@ -63,10 +84,10 @@ describe('executionLawHierarchy', () => {
     it('exports admin browse filters aligned with leaf taxonomy', () => {
         const filters = buildExecutionLawAdminBrowseFilters();
         expect(filters.length).toBe(
-            EXECUTION_LAW_HIERARCHY.reduce((n, p) => n + p.children.length, 0)
+            EXECUTION_LAW_HIERARCHY.reduce((n, p) => n + p.children.length, 0),
         );
         expect(filters.some((f) => f.id === 'exec-movables_seizure' && f.from === 63 && f.to === 70)).toBe(
-            true
+            true,
         );
     });
 

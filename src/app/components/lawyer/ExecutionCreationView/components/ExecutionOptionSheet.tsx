@@ -1,4 +1,5 @@
 import React from 'react';
+import { SmartToast } from '@/app/components/ui/SmartToast';
 import { Check } from 'lucide-react';
 import { ecg } from './executionCreationGlassUi';
 
@@ -82,13 +83,18 @@ function ExecutionOptionSheet({
                 <div className="mt-2 border-t border-white/6 pt-2 space-y-1.5">
                     <p className="px-1 pb-1 text-[10px] font-bold text-slate-500">{comingSoonCaption}</p>
                     {comingSoonOptions.map((opt) => (
-                        <div
+                        <button
                             key={opt.label}
-                            aria-disabled="true"
-                            className="w-full text-right rounded-2xl px-4 py-3 text-sm font-medium text-slate-500/75 border border-white/5 bg-white/[0.02] cursor-not-allowed select-none"
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                SmartToast.info(`«${opt.label}» — ${comingSoonCaption}`, 3500);
+                            }}
+                            className="w-full text-right rounded-2xl px-4 py-3 text-sm font-medium text-slate-500/85 border border-white/5 bg-white/[0.02] cursor-pointer select-none transition-colors hover:border-amber-500/20 hover:bg-amber-500/[0.04] hover:text-slate-400 active:scale-[0.99]"
+                            aria-label={`${opt.label} — ${comingSoonCaption}`}
                         >
                             {opt.label}
-                        </div>
+                        </button>
                     ))}
                 </div>
             ) : null}

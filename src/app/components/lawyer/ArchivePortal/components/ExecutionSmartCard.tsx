@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Trash2, Scale, Link2, Eye, RotateCcw } from 'lucide-react';
+import { Archive, Trash2, Scale, Link2, Eye, RotateCcw } from 'lucide-react';
+import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { dossierLifecycleBadgeClass } from '@/app/components/lawyer/ExecutionDashboard/helpers/dossierLifecycleUtils';
 import { isEvictionClaim } from '@/app/utils/executionModuleStrategies';
 import { executionTrashDaysRemaining } from '@/app/utils/executionTrash';
@@ -9,15 +10,20 @@ import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
 import { buildExecutionWorkspacePin } from '@/app/workspace/workspacePinBuilders';
 import { resolveExecutionArchiveCardView } from '../utils';
 import { ExecutionArchivePartyBlock } from './ExecutionArchivePartyBlock';
+import { warmExecutionWorkspace } from '@/app/utils/lazyComponents';
 
 interface ExecutionSmartCardProps {
     file: any;
+    liveRevision?: number;
     lawsuitFilesForCluster?: unknown[];
     onOpen: () => void;
     onPreview: () => void;
-    variant: 'active' | 'trash';
+    variant: 'active' | 'archived' | 'trash';
     onRequestMoveToTrash?: () => void;
+    onRequestArchive?: () => void;
     onRestoreFromTrash?: () => void;
+    onRestoreFromArchive?: () => void;
+    onRequestPermanentDelete?: () => void;
     trashDaysRemaining?: number;
     selected?: boolean;
     onToggleSelect?: () => void;
@@ -58,31 +64,52 @@ function getClaimStyle(type: string) {
 
 function ExecutionSmartCard({
     file,
+    liveRevision = 0,
     lawsuitFilesForCluster = [],
     onOpen,
     onPreview,
     variant,
     onRequestMoveToTrash,
+    onRequestArchive,
     onRestoreFromTrash,
+    onRestoreFromArchive,
+    onRequestPermanentDelete,
     trashDaysRemaining,
     selected,
     onToggleSelect,
 }: ExecutionSmartCardProps) {
-    const [liveRevision, setLiveRevision] = React.useState(0);
+    const reduceMotion = useReduceMotion();
+    const prefetchFiredRef = React.useRef(false);
 
-    React.useEffect(() => {
-        const bump = () => setLiveRevision((n) => n + 1);
-        window.addEventListener('hami-unified-ledger-updated', bump);
-        window.addEventListener('hami-unified-ledger-external-collect', bump);
-        window.addEventListener('hami-unified-ledger-payment-undo', bump);
-        window.addEventListener('focus', bump);
-        return () => {
-            window.removeEventListener('hami-unified-ledger-updated', bump);
-            window.removeEventListener('hami-unified-ledger-external-collect', bump);
-            window.removeEventListener('hami-unified-ledger-payment-undo', bump);
-            window.removeEventListener('focus', bump);
-        };
+    const warmExecutionDossier = React.useCallback(() => {
+        if (prefetchFiredRef.current) return;
+        prefetchFiredRef.current = true;
+        warmExecutionWorkspace();
     }, []);
+
+    const handleOpen = React.useCallback(() => {
+        warmExecutionDossier();
+        onOpen();
+    }, [onOpen, warmExecutionDossier]);
+
+    const handleToolbarAction = React.useCallback(
+        (event: React.MouseEvent, action?: () => void) => {
+            event.preventDefault();
+            event.stopPropagation();
+            action?.();
+        },
+        [],
+    );
+
+    const handleCardClick = React.useCallback(
+        (e: React.MouseEvent) => {
+            const target = e.target;
+            if (!(target instanceof Element)) return;
+            if (target.closest('button,a,[role="checkbox"],input,textarea,select,label')) return;
+            handleOpen();
+        },
+        [handleOpen],
+    );
 
     const loose = file as LooseArchiveFile;
     const unifiedCount = Number((file as any)?.unifiedCount || 0);
@@ -110,20 +137,18 @@ function ExecutionSmartCard({
     const pinPayload =
         variant === 'active' ? buildExecutionWorkspacePin(cardView.snap, lawsuitFilesForCluster) : null;
 
-    return (
-        <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileHover={{ y: -6 }}
-            onClick={onOpen}
-            className={`
+    const cardClassName = `
                 group relative cursor-pointer overflow-hidden rounded-3xl
                 border border-white/10 bg-gradient-to-br from-[#0B1120]/95 to-[#05060D]/90
                 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl
                 transition-all duration-300 hover:border-[#E6C673]/35 hover:shadow-[0_22px_60px_rgba(230,198,115,0.08)]
+                [content-visibility:auto] [contain-intrinsic-size:auto_280px]
                 ${variant === 'trash' ? 'opacity-95 ring-1 ring-rose-500/25' : ''}
-            `}
-        >
+                ${variant === 'archived' ? 'opacity-90 ring-1 ring-amber-500/20' : ''}
+            `;
+
+    const cardBody = (
+        <>
             <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-white/[0.04] to-transparent" />
 
             {variant === 'trash' && (
@@ -191,9 +216,23 @@ function ExecutionSmartCard({
                                             استرجاع
                                         </button>
                                     ) : null}
+                                    {variant === 'archived' && onRestoreFromArchive ? (
+                                        <button
+                                            type="button"
+                                            onClick={onRestoreFromArchive}
+                                            className="flex items-center gap-1.5 rounded-lg border border-emerald-500/35 bg-emerald-950/30 px-2.5 py-1.5 text-[10px] font-bold text-emerald-300 hover:text-emerald-200"
+                                        >
+                                            <RotateCcw size={12} />
+                                            إعادة للنشطة
+                                        </button>
+                                    ) : null}
                                     <button
                                         type="button"
-                                        onClick={onPreview}
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                            warmExecutionDossier();
+                                            onPreview();
+                                        }}
                                         className="flex items-center gap-1.5 rounded-lg border border-[#E6C673]/30 bg-[#E6C673]/10 px-2.5 py-1.5 text-[10px] font-bold text-[#E6C673] hover:bg-[#E6C673]/15"
                                     >
                                         <Eye size={12} />
@@ -210,7 +249,11 @@ function ExecutionSmartCard({
                             >
                                 <button
                                     type="button"
-                                    onClick={onPreview}
+                                    onClick={(event) => {
+                                        event.stopPropagation();
+                                        warmExecutionDossier();
+                                        onPreview();
+                                    }}
                                     className="flex items-center gap-1.5 rounded-lg border border-[#E6C673]/30 bg-[#E6C673]/10 px-2.5 py-1.5 text-[10px] font-bold text-[#E6C673] hover:bg-[#E6C673]/15"
                                 >
                                     <Eye size={12} />
@@ -221,8 +264,9 @@ function ExecutionSmartCard({
                     </div>
 
                     <div
-                        className="flex shrink-0 items-center gap-1.5"
+                        className="relative z-20 flex shrink-0 items-center gap-1.5"
                         onClick={(e) => e.stopPropagation()}
+                        onPointerDown={(e) => e.stopPropagation()}
                         onKeyDown={(e) => e.stopPropagation()}
                         role="presentation"
                     >
@@ -244,13 +288,38 @@ function ExecutionSmartCard({
                         {variant === 'active' && pinPayload ? (
                             <WorkspacePinButton item={pinPayload} />
                         ) : null}
+                        {variant === 'active' && onRequestArchive ? (
+                            <button
+                                type="button"
+                                title="أرشفة الإضبارة"
+                                aria-label="أرشفة الإضبارة"
+                                data-testid="execution-smart-card-archive"
+                                onClick={(event) => handleToolbarAction(event, onRequestArchive)}
+                                className="flex h-8 w-8 items-center justify-center rounded-lg border border-amber-500/35 bg-amber-950/40 text-amber-200 transition-colors hover:bg-amber-900/50 touch-manipulation"
+                            >
+                                <Archive size={16} />
+                            </button>
+                        ) : null}
                         {variant === 'active' && onRequestMoveToTrash ? (
                             <button
                                 type="button"
                                 title="نقل إلى سلة المهملات"
                                 aria-label="نقل إلى سلة المهملات"
-                                onClick={onRequestMoveToTrash}
-                                className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-500/35 bg-rose-950/50 text-rose-200 transition-colors hover:bg-rose-900/60"
+                                data-testid="execution-smart-card-trash"
+                                onClick={(event) => handleToolbarAction(event, onRequestMoveToTrash)}
+                                className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-500/35 bg-rose-950/50 text-rose-200 transition-colors hover:bg-rose-900/60 touch-manipulation"
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                        ) : null}
+                        {variant === 'trash' && onRequestPermanentDelete ? (
+                            <button
+                                type="button"
+                                title="حذف نهائي"
+                                aria-label="حذف نهائي"
+                                data-testid="execution-smart-card-permanent-delete"
+                                onClick={(event) => handleToolbarAction(event, onRequestPermanentDelete)}
+                                className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-500/50 bg-rose-900/70 text-rose-100 transition-colors hover:bg-rose-800 touch-manipulation"
                             >
                                 <Trash2 size={16} />
                             </button>
@@ -282,6 +351,33 @@ function ExecutionSmartCard({
                 </div>
             ) : null}
 
+        </>
+    );
+
+    if (reduceMotion) {
+        return (
+            <div
+                onPointerEnter={warmExecutionDossier}
+                onFocus={warmExecutionDossier}
+                onClick={handleCardClick}
+                className={cardClassName}
+            >
+                {cardBody}
+            </div>
+        );
+    }
+
+    return (
+        <motion.div
+            initial={false}
+            animate={{ opacity: 1, y: 0 }}
+            whileHover={reduceMotion ? undefined : { y: -6 }}
+            onPointerEnter={warmExecutionDossier}
+            onFocus={warmExecutionDossier}
+            onClick={handleCardClick}
+            className={cardClassName}
+        >
+            {cardBody}
         </motion.div>
     );
 }

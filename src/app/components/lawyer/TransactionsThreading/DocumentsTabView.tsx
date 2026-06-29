@@ -78,7 +78,7 @@ export function DocumentsTabView({ transaction, readOnly }: { transaction: Trans
           type="button"
           disabled={!!readOnly}
           onClick={() => setOpen(true)}
-          className={`${TX_GOLD_BTN} !h-10 !px-4 disabled:opacity-50 disabled:cursor-not-allowed`}
+          className={`${TX_GOLD_BTN} !px-4 disabled:opacity-50 disabled:cursor-not-allowed`}
         >
           <span className="inline-flex items-center gap-2">
             <Plus className="w-4 h-4" />

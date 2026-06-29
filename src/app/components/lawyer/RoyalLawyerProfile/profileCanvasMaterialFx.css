@@ -1,0 +1,300 @@
+/* ── خامات لوحة النص: طبقات ملمس + عمق + تلوين ديناميكي ── */
+
+.profile-text-canvas-material-stack {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    overflow: hidden;
+    pointer-events: none;
+    isolation: isolate;
+}
+
+.profile-text-canvas-material-stack--mini {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    height: 100%;
+    min-height: 3.25rem;
+    border-radius: 0.55rem;
+}
+
+.profile-text-canvas__material-base,
+.profile-text-canvas__material-grain,
+.profile-text-canvas__material-sheen,
+.profile-text-canvas__material-bevel,
+.profile-text-canvas__material-depth {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+}
+
+/* ── زجاج: انكسار، حافة مضيئة، عمق ── */
+.profile-text-canvas-material-stack[data-material='glass'] .profile-text-canvas__material-base {
+    background:
+        linear-gradient(
+            148deg,
+            color-mix(in srgb, var(--canvas-bg) 42%, white) 0%,
+            color-mix(in srgb, var(--canvas-bg) 78%, black) 100%
+        );
+    backdrop-filter: blur(18px) saturate(1.35);
+    -webkit-backdrop-filter: blur(18px) saturate(1.35);
+}
+
+.profile-text-canvas-material-stack[data-material='glass'] .profile-text-canvas__material-grain {
+    opacity: 0.35;
+    background-image:
+        radial-gradient(circle at 20% 15%, rgba(255, 255, 255, 0.14) 0 1px, transparent 1px 100%),
+        radial-gradient(circle at 78% 62%, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 100%);
+    background-size: 4px 4px, 6px 6px;
+}
+
+.profile-text-canvas-material-stack[data-material='glass'] .profile-text-canvas__material-sheen {
+    background:
+        linear-gradient(125deg, transparent 30%, rgba(255, 255, 255, 0.22) 48%, transparent 62%),
+        radial-gradient(ellipse 90% 55% at 12% 0%, color-mix(in srgb, var(--canvas-accent) 28%, transparent), transparent 58%);
+    mix-blend-mode: screen;
+}
+
+.profile-text-canvas-material-stack[data-material='glass'] .profile-text-canvas__material-bevel {
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        inset 0 -2px 10px rgba(0, 0, 0, 0.28),
+        inset 2px 0 8px color-mix(in srgb, var(--canvas-accent) 10%, transparent);
+}
+
+.profile-text-canvas-material-stack[data-material='glass'] .profile-text-canvas__material-depth {
+    box-shadow:
+        0 10px 28px rgba(0, 0, 0, 0.32),
+        0 0 0 1px color-mix(in srgb, var(--canvas-accent) 22%, rgba(255, 255, 255, 0.12));
+}
+
+/* ── ورقي: ألياف، تجاعيد، لون من الخلفية ── */
+.profile-text-canvas-material-stack[data-material='paper'] .profile-text-canvas__material-base {
+    background:
+        repeating-linear-gradient(
+            0deg,
+            color-mix(in srgb, var(--canvas-bg) 88%, black) 0 1px,
+            transparent 1px 22px
+        ),
+        repeating-linear-gradient(
+            90deg,
+            color-mix(in srgb, var(--canvas-accent) 6%, transparent) 0 1px,
+            transparent 1px 18px
+        ),
+        linear-gradient(
+            168deg,
+            color-mix(in srgb, var(--canvas-bg) 70%, white),
+            color-mix(in srgb, var(--canvas-bg) 92%, black)
+        );
+}
+
+.profile-text-canvas-material-stack[data-material='paper'] .profile-text-canvas__material-grain {
+    opacity: 0.55;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.45'/%3E%3C/svg%3E");
+    background-size: 120px 120px;
+    mix-blend-mode: multiply;
+}
+
+.profile-text-canvas-material-stack[data-material='paper'] .profile-text-canvas__material-sheen {
+    background:
+        radial-gradient(ellipse 70% 45% at 85% 12%, rgba(255, 255, 255, 0.35), transparent 55%),
+        linear-gradient(180deg, transparent 72%, color-mix(in srgb, var(--canvas-bg) 40%, black) 100%);
+}
+
+.profile-text-canvas-material-stack[data-material='paper'] .profile-text-canvas__material-bevel {
+    box-shadow:
+        inset 0 2px 0 rgba(255, 255, 255, 0.45),
+        inset 0 -3px 12px color-mix(in srgb, var(--canvas-bg) 35%, black),
+        inset 4px 0 10px color-mix(in srgb, var(--canvas-accent) 8%, transparent);
+}
+
+.profile-text-canvas-material-stack[data-material='paper'] .profile-text-canvas__material-depth {
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
+}
+
+/* ── رق: عتق، حواف محروقة، شمع ── */
+.profile-text-canvas-material-stack[data-material='parchment'] .profile-text-canvas__material-base {
+    background:
+        radial-gradient(ellipse 120% 80% at 50% 100%, color-mix(in srgb, var(--canvas-accent) 22%, var(--canvas-bg)), transparent 62%),
+        linear-gradient(
+            142deg,
+            color-mix(in srgb, var(--canvas-bg) 55%, #f0e2c8),
+            color-mix(in srgb, var(--canvas-bg) 85%, #8a6d42)
+        );
+}
+
+.profile-text-canvas-material-stack[data-material='parchment'] .profile-text-canvas__material-grain {
+    opacity: 0.5;
+    background:
+        repeating-conic-gradient(
+            from 0deg at 50% 50%,
+            color-mix(in srgb, var(--canvas-bg) 70%, black) 0deg 2deg,
+            transparent 2deg 7deg
+        );
+    mix-blend-mode: overlay;
+}
+
+.profile-text-canvas-material-stack[data-material='parchment'] .profile-text-canvas__material-sheen {
+    background:
+        radial-gradient(circle at 18% 22%, color-mix(in srgb, var(--canvas-accent) 35%, white), transparent 38%),
+        linear-gradient(0deg, color-mix(in srgb, var(--canvas-accent) 18%, transparent), transparent 28%);
+    mix-blend-mode: soft-light;
+}
+
+.profile-text-canvas-material-stack[data-material='parchment'] .profile-text-canvas__material-bevel {
+    box-shadow:
+        inset 0 0 0 1px color-mix(in srgb, var(--canvas-accent) 28%, rgba(80, 55, 25, 0.45)),
+        inset 0 3px 14px color-mix(in srgb, var(--canvas-bg) 50%, black);
+}
+
+.profile-text-canvas-material-stack[data-material='parchment'] .profile-text-canvas__material-depth {
+    filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.28));
+}
+
+/* ── مخمل: وبر، تموج، بريق ── */
+.profile-text-canvas-material-stack[data-material='velvet'] .profile-text-canvas__material-base {
+    background:
+        linear-gradient(
+            168deg,
+            color-mix(in srgb, var(--canvas-bg) 35%, var(--canvas-accent)),
+            color-mix(in srgb, var(--canvas-bg) 88%, black)
+        );
+}
+
+.profile-text-canvas-material-stack[data-material='velvet'] .profile-text-canvas__material-grain {
+    background:
+        repeating-linear-gradient(
+            118deg,
+            rgba(255, 255, 255, 0.04) 0 1px,
+            transparent 1px 5px
+        ),
+        repeating-linear-gradient(
+            28deg,
+            color-mix(in srgb, var(--canvas-accent) 12%, transparent) 0 1px,
+            transparent 1px 7px
+        );
+    opacity: 0.75;
+}
+
+.profile-text-canvas-material-stack[data-material='velvet'] .profile-text-canvas__material-sheen {
+    background:
+        radial-gradient(ellipse 55% 38% at 22% 18%, color-mix(in srgb, var(--canvas-accent) 32%, white), transparent 58%),
+        linear-gradient(200deg, transparent 40%, color-mix(in srgb, var(--canvas-accent) 14%, transparent) 100%);
+    mix-blend-mode: color-dodge;
+    opacity: 0.65;
+}
+
+.profile-text-canvas-material-stack[data-material='velvet'] .profile-text-canvas__material-bevel {
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 -8px 22px rgba(0, 0, 0, 0.55);
+}
+
+.profile-text-canvas-material-stack[data-material='velvet'] .profile-text-canvas__material-depth {
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+}
+
+/* ── حجري: فتوق، بردة، برد ── */
+.profile-text-canvas-material-stack[data-material='slate'] .profile-text-canvas__material-base {
+    background:
+        linear-gradient(
+            155deg,
+            color-mix(in srgb, var(--canvas-bg) 62%, #6a7580),
+            color-mix(in srgb, var(--canvas-bg) 90%, black)
+        );
+}
+
+.profile-text-canvas-material-stack[data-material='slate'] .profile-text-canvas__material-grain {
+    background:
+        repeating-linear-gradient(
+            93deg,
+            rgba(255, 255, 255, 0.05) 0 2px,
+            transparent 2px 14px
+        ),
+        repeating-linear-gradient(
+            3deg,
+            color-mix(in srgb, var(--canvas-accent) 8%, transparent) 0 1px,
+            transparent 1px 11px
+        );
+    opacity: 0.7;
+}
+
+.profile-text-canvas-material-stack[data-material='slate'] .profile-text-canvas__material-sheen {
+    background: linear-gradient(108deg, transparent 42%, rgba(220, 228, 238, 0.16) 50%, transparent 58%);
+}
+
+.profile-text-canvas-material-stack[data-material='slate'] .profile-text-canvas__material-bevel {
+    box-shadow:
+        inset 0 2px 0 rgba(255, 255, 255, 0.14),
+        inset 0 -4px 14px rgba(0, 0, 0, 0.42),
+        inset 3px 0 8px color-mix(in srgb, var(--canvas-accent) 12%, transparent);
+}
+
+.profile-text-canvas-material-stack[data-material='slate'] .profile-text-canvas__material-depth {
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.38);
+}
+
+/* ── ليلي: سديم، نجوم، عمق فضائي ── */
+.profile-text-canvas-material-stack[data-material='night'] .profile-text-canvas__material-base {
+    background:
+        radial-gradient(ellipse 95% 70% at 50% -8%, color-mix(in srgb, var(--canvas-accent) 28%, #1a2540), transparent 58%),
+        radial-gradient(ellipse 80% 55% at 80% 100%, color-mix(in srgb, var(--canvas-bg) 40%, black), transparent 62%),
+        linear-gradient(180deg, color-mix(in srgb, var(--canvas-bg) 55%, #0a1020), color-mix(in srgb, var(--canvas-bg) 95%, black));
+}
+
+.profile-text-canvas-material-stack[data-material='night'] .profile-text-canvas__material-grain {
+    background-image:
+        radial-gradient(circle at 12% 22%, rgba(255, 255, 255, 0.75) 0 0.6px, transparent 0.7px),
+        radial-gradient(circle at 68% 38%, color-mix(in srgb, var(--canvas-accent) 80%, white) 0 0.5px, transparent 0.6px),
+        radial-gradient(circle at 44% 72%, rgba(255, 255, 255, 0.55) 0 0.45px, transparent 0.55px),
+        radial-gradient(circle at 86% 18%, rgba(255, 255, 255, 0.4) 0 0.4px, transparent 0.5px);
+    background-size: 100% 100%;
+    opacity: 0.85;
+}
+
+.profile-text-canvas-material-stack[data-material='night'] .profile-text-canvas__material-sheen {
+    background: radial-gradient(ellipse 60% 40% at 30% 0%, color-mix(in srgb, var(--canvas-accent) 22%, transparent), transparent 70%);
+    mix-blend-mode: screen;
+}
+
+.profile-text-canvas-material-stack[data-material='night'] .profile-text-canvas__material-bevel {
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, var(--canvas-accent) 18%, rgba(255, 255, 255, 0.08)),
+        inset 0 -6px 18px rgba(0, 0, 0, 0.5);
+}
+
+.profile-text-canvas-material-stack[data-material='night'] .profile-text-canvas__material-depth {
+    box-shadow:
+        0 12px 32px rgba(0, 0, 0, 0.48),
+        0 0 24px color-mix(in srgb, var(--canvas-accent) 12%, transparent);
+}
+
+/* ── جذر اللوحة: الخلفية من الطبقات لا لون مسطح ── */
+.profile-text-canvas[class*='profile-text-canvas--material-'] {
+    background-color: transparent;
+    background-image: none;
+}
+
+.profile-text-canvas--material-glass {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+/* نص قابل للقراءة حسب الخامة واللون */
+.profile-text-canvas--material-paper .hami-profile-free-text-line,
+.profile-text-canvas--material-parchment .hami-profile-free-text-line {
+    color: color-mix(in srgb, var(--canvas-bg) 12%, #1c1610) !important;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.profile-text-canvas--material-slate .hami-profile-free-text-line {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+/* تخفيف أثناء الاستوديو */
+[data-lawyer-profile-root][data-profile-settings-open='true'] .profile-text-canvas-material-stack[data-material='glass'] .profile-text-canvas__material-base {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}

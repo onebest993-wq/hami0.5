@@ -4,6 +4,10 @@ import {
     type GlobalSearchEntry,
 } from '@/app/services/globalSearchIndex';
 import { computeGlobalSearchIndexKey } from '@/app/services/globalSearchIndexPrepare';
+import {
+    buildGlobalSearchIndexOffThread,
+    prefetchGlobalSearchIndexWorker,
+} from '@/app/services/search/globalSearchIndexWorkerClient';
 
 const indexCache = new Map<string, GlobalSearchEntry[]>();
 const MAX_INDEX_CACHE = 4;
@@ -18,7 +22,9 @@ function trimIndexCache(): void {
 
 function buildOnIdleThread(input: BuildGlobalSearchIndexInput): Promise<GlobalSearchEntry[]> {
     return new Promise((resolve) => {
-        const run = () => resolve(buildGlobalSearchIndex(input));
+        const run = () => {
+            void buildGlobalSearchIndexOffThread(input).then(resolve);
+        };
         if (typeof requestIdleCallback !== 'undefined') {
             requestIdleCallback(run, { timeout: 160 });
         } else {
@@ -27,13 +33,20 @@ function buildOnIdleThread(input: BuildGlobalSearchIndexInput): Promise<GlobalSe
     });
 }
 
-/** بناء الفهرس مع كاش — يُؤجَّل عبر idle callback لتفادي حجب الواجهة. */
-export async function resolveGlobalSearchIndex(input: BuildGlobalSearchIndexInput): Promise<GlobalSearchEntry[]> {
+/** بناء الفهرس مع كاش — Worker عند الإمكان، idle للتسخين، تفاعلي عند فتح البحث. */
+export async function resolveGlobalSearchIndex(
+    input: BuildGlobalSearchIndexInput,
+    priority: 'interactive' | 'idle' = 'idle',
+): Promise<GlobalSearchEntry[]> {
     const key = computeGlobalSearchIndexKey(input);
     const hit = indexCache.get(key);
     if (hit) return hit;
 
-    const index = await buildOnIdleThread(input);
+    const index =
+        priority === 'interactive'
+            ? await buildGlobalSearchIndexOffThread(input)
+            : await buildOnIdleThread(input);
+
     indexCache.set(key, index);
     trimIndexCache();
     return index;
@@ -47,6 +60,4 @@ export function getCachedGlobalSearchIndex(key: string): GlobalSearchEntry[] | n
     return indexCache.get(key) ?? null;
 }
 
-export function prefetchGlobalSearchIndexWorker(): void {
-    /* محجوز — Worker غير متاح بسبب expo-secure-store في شجرة الاستيراد */
-}
+export { prefetchGlobalSearchIndexWorker };

@@ -1,13 +1,16 @@
-// @ts-nocheck
 import type Fuse from 'fuse.js';
+import type { IFuseOptions } from 'fuse.js';
 import type { GlobalSearchEntry } from '@/app/services/globalSearchIndex';
 import { PERFORMANCE } from '@/app/utils/constants';
 
-let fuseModulePromise: Promise<typeof import('fuse.js')> | null = null;
-const fuseCache = new Map<string, Fuse<GlobalSearchEntry>>();
+type FuseInstance = Fuse<GlobalSearchEntry>;
+
+let fuseModulePromise: Promise<{ default: typeof Fuse }> | null = null;
+
+const fuseCache = new Map<string, FuseInstance>();
 const MAX_FUSE_CACHE = 4;
 
-const FUSE_OPTIONS = {
+const FUSE_OPTIONS: IFuseOptions<GlobalSearchEntry> = {
     keys: [
         { name: 'title', weight: 2.5 },
         { name: 'subtitle', weight: 1.5 },
@@ -17,7 +20,7 @@ const FUSE_OPTIONS = {
     threshold: PERFORMANCE.FUSE_THRESHOLD,
     ignoreLocation: true,
     minMatchCharLength: 1,
-} as const;
+};
 
 export function prefetchFuseModule(): void {
     if (typeof window === 'undefined') return;
@@ -32,16 +35,16 @@ function trimFuseCache(): void {
     }
 }
 
-export async function createGlobalSearchFuse(index: GlobalSearchEntry[]): Promise<Fuse<GlobalSearchEntry>> {
+export async function createGlobalSearchFuse(index: GlobalSearchEntry[]): Promise<FuseInstance> {
     if (!fuseModulePromise) fuseModulePromise = import('fuse.js');
     const mod = await fuseModulePromise;
-    return new mod.default(index, FUSE_OPTIONS);
+    return new mod.default<GlobalSearchEntry>(index, FUSE_OPTIONS);
 }
 
 export async function getOrCreateGlobalSearchFuse(
     cacheKey: string,
     index: GlobalSearchEntry[],
-): Promise<Fuse<GlobalSearchEntry>> {
+): Promise<FuseInstance> {
     const hit = fuseCache.get(cacheKey);
     if (hit) return hit;
     const fuse = await createGlobalSearchFuse(index);
@@ -56,4 +59,12 @@ export function invalidateGlobalSearchFuseCache(): void {
 
 export function hasCachedGlobalSearchFuse(key: string): boolean {
     return fuseCache.has(key);
+}
+
+export function hasAnyCachedGlobalSearchFuse(): boolean {
+    return fuseCache.size > 0;
+}
+
+export function getCachedGlobalSearchFuse(key: string): FuseInstance | null {
+    return fuseCache.get(key) ?? null;
 }

@@ -11,11 +11,11 @@ export const MONTHS = [
 ];
 
 export const TYPE_STYLES: Record<CalendarEventType, { label: string; color: string; bg: string; border: string; icon: React.ElementType }> = {
-    hearing: { label: 'جلسة', color: 'text-[#E6C673]', bg: 'bg-[#C9A227]/12', border: 'border-[#C9A227]/30', icon: Gavel },
+    hearing: { label: 'جلسة', color: 'text-[#D4A87A]', bg: 'bg-[#C4956A]/15', border: 'border-[#C4956A]/35', icon: Gavel },
     deadline: { label: 'موعد نهائي', color: 'text-rose-300', bg: 'bg-rose-500/10', border: 'border-rose-500/25', icon: AlertTriangle },
-    consultation: { label: 'استشارة', color: 'text-[#93c5fd]', bg: 'bg-[#1e3a5f]/40', border: 'border-[#5b8fd4]/30', icon: DollarSign },
-    execution: { label: 'تنفيذ', color: 'text-slate-200', bg: 'bg-[#64748b]/15', border: 'border-[#64748b]/30', icon: Scale },
-    custom: { label: 'موعد', color: 'text-slate-300', bg: 'bg-[#64748b]/10', border: 'border-[#64748b]/25', icon: Clock },
+    consultation: { label: 'استشارة', color: 'text-[#F5EDE0]/85', bg: 'bg-[#F5EDE0]/[0.08]', border: 'border-[#F5EDE0]/15', icon: DollarSign },
+    execution: { label: 'تنفيذ', color: 'text-[#E8DCC8]/80', bg: 'bg-[#3d2e22]/60', border: 'border-[#A67B5B]/30', icon: Scale },
+    custom: { label: 'موعد', color: 'text-[#E8DCC8]/70', bg: 'bg-[#F5EDE0]/[0.05]', border: 'border-[#F5EDE0]/12', icon: Clock },
 };
 
 export type EventFormData = {
@@ -91,11 +91,11 @@ export function dotColorsForDate(events: UnifiedEvent[]): string[] {
             continue;
         }
         switch (e.type) {
-            case 'hearing': colors.push('bg-[#C9A227]'); break;
+            case 'hearing': colors.push('bg-[#C4956A]'); break;
             case 'deadline': colors.push('bg-rose-400'); break;
-            case 'consultation': colors.push('bg-[#5b8fd4]'); break;
-            case 'execution': colors.push('bg-slate-400'); break;
-            default: colors.push('bg-[#64748b]'); break;
+            case 'consultation': colors.push('bg-[#F5EDE0]/70'); break;
+            case 'execution': colors.push('bg-[#A67B5B]'); break;
+            default: colors.push('bg-[#E8DCC8]/50'); break;
         }
     }
     return colors.length > 3 ? colors.slice(0, 3) : colors;

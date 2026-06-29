@@ -2,7 +2,21 @@ import {
     resolveSpecificDeliveryItemNature,
     type SpecificDeliveryItemNature,
 } from '@/app/utils/executionModuleStrategies';
-import { isSpecificDeliveryConversionDecisionRow } from '@/app/utils/specificDeliveryConversionRequest';
+import {
+    isSpecificDeliveryConversionDecisionRow,
+    parseSpecificDeliveryConversionPayload,
+} from '@/app/utils/specificDeliveryConversionRequest';
+import {
+    allSpecificDeliveryItemsFinancialized,
+    getPendingSpecificDeliveryItems,
+    readSpecificDeliveryItems,
+    type SpecificDeliveryItem,
+} from '@/app/utils/specificDeliveryItemsUtils';
+import {
+    isExecutorHubRowSuperseded,
+    isExecutorRowEffectivelyApproved,
+    isExecutorRowRejectedAndFinal,
+} from '@/app/utils/executorSeizureDecisionQueue';
 
 export function resolveSpecificDeliveryNature(
     raw: string | undefined | null
@@ -30,19 +44,91 @@ export function hasSpecificDeliveryConversionDecision(
     return list.some((d) => isSpecificDeliveryConversionDecisionRow(d));
 }
 
-/** خبير المنقول — فقط بعد زر استحالة التنفيذ وعند غياب قيمة الحكم */
+/** موافقة المنفذ على طلب التحويل / هلاك — شرط ظهور خبير المنقول */
+export function hasApprovedSpecificDeliveryConversionDecision(
+    decisions: Record<string, unknown>[]
+): boolean {
+    const list = Array.isArray(decisions) ? decisions : [];
+    for (const d of list) {
+        if (!isSpecificDeliveryConversionDecisionRow(d)) continue;
+        if (isExecutorHubRowSuperseded(d)) continue;
+        if (isExecutorRowRejectedAndFinal(d)) continue;
+        if (Boolean(String(d.specificDeliveryConversionSavedAt || '').trim())) return true;
+        if (isExecutorRowEffectivelyApproved(d)) return true;
+    }
+    return false;
+}
+
+function isItemLinkedToApprovedConversion(
+    item: SpecificDeliveryItem,
+    decisions: Record<string, unknown>[]
+): boolean {
+    for (const d of decisions) {
+        if (!isSpecificDeliveryConversionDecisionRow(d)) continue;
+        if (isExecutorHubRowSuperseded(d)) continue;
+        if (isExecutorRowRejectedAndFinal(d)) continue;
+        const saved = Boolean(String(d.specificDeliveryConversionSavedAt || '').trim());
+        if (!saved && !isExecutorRowEffectivelyApproved(d)) continue;
+        const payload = parseSpecificDeliveryConversionPayload(d);
+        if (payload.itemId && payload.itemId === item.id) return true;
+        const payloadName = String(payload.itemName || '').trim();
+        if (payloadName && payloadName === String(item.name || '').trim()) return true;
+    }
+    return false;
+}
+
+function pendingMovableItemsNeedingExpert(
+    input: {
+        specificDeliveryItemNature?: string | null;
+        specificDeliveryItems?: SpecificDeliveryItem[] | null;
+    },
+    decisions: Record<string, unknown>[]
+): SpecificDeliveryItem[] {
+    const items = readSpecificDeliveryItems(input);
+    if (items.length > 0) {
+        return items.filter(
+            (item) =>
+                item.status === 'pending' &&
+                item.nature === 'movable' &&
+                (item.declaredDestroyed || isItemLinkedToApprovedConversion(item, decisions))
+        );
+    }
+    if (resolveSpecificDeliveryNature(input.specificDeliveryItemNature) === 'movable') {
+        return [{ id: 'legacy', name: '', nature: 'movable', status: 'pending' }];
+    }
+    return [];
+}
+
+/** خبير المنقول — بعد موافقة المنفذ على طلب التحويل/الهلاك وعند وجود منقول pending */
 export function shouldShowSpecificDeliveryMovableValuationExpert(input: {
     specificDeliveryItemNature?: string | null;
+    specificDeliveryItems?: SpecificDeliveryItem[] | null;
     specificDeliveryFinancialized?: boolean;
     debtAmount?: number | null;
     totalAmount?: number | null;
     specificDeliveryConvertedAmount?: number | null;
     decisions: Record<string, unknown>[];
 }): boolean {
-    const nature = resolveSpecificDeliveryNature(input.specificDeliveryItemNature);
-    if (nature !== 'movable') return false;
-    if (input.specificDeliveryFinancialized) return false;
+    const items = readSpecificDeliveryItems(input);
+    const pendingMovable = pendingMovableItemsNeedingExpert(input, input.decisions);
+    if (pendingMovable.length === 0) return false;
+    if (items.length > 0 ? allSpecificDeliveryItemsFinancialized(items) : input.specificDeliveryFinancialized) {
+        return false;
+    }
     if (
+        pendingMovable.every(
+            (item) => Math.max(0, Math.trunc(Number(item.judgmentValueIqd) || 0)) > 0
+        )
+    ) {
+        return false;
+    }
+    if (!hasApprovedSpecificDeliveryConversionDecision(input.decisions)) {
+        return false;
+    }
+    const hasExplicitMultiItems =
+        Array.isArray(input.specificDeliveryItems) && input.specificDeliveryItems.length > 0;
+    if (
+        !hasExplicitMultiItems &&
         isSpecificDeliveryJudgmentValuePredetermined({
             debtAmount: input.debtAmount,
             totalAmount: input.totalAmount,
@@ -51,14 +137,19 @@ export function shouldShowSpecificDeliveryMovableValuationExpert(input: {
     ) {
         return false;
     }
-    return hasSpecificDeliveryConversionDecision(input.decisions);
+    return true;
 }
 
 /** خبير العقار — غير منقول فقط */
 export function shouldShowSpecificDeliveryPropertyExpert(input: {
     specificDeliveryItemNature?: string | null;
+    specificDeliveryItems?: SpecificDeliveryItem[] | null;
     showPropertyExpertCardFlag?: boolean;
 }): boolean {
     if (!input.showPropertyExpertCardFlag) return false;
+    const items = readSpecificDeliveryItems(input);
+    if (items.length > 0) {
+        return getPendingSpecificDeliveryItems(items).some((item) => item.nature === 'immovable');
+    }
     return resolveSpecificDeliveryNature(input.specificDeliveryItemNature) === 'immovable';
 }

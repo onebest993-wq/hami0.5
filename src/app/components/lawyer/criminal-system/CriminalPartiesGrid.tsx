@@ -11,6 +11,7 @@ import type {
 } from './criminalStore';
 import { isGuarantorForfeited, normalizeGuarantorDetails, useCriminalStore } from './criminalStore';
 import { ConfirmActionModal } from './ConfirmActionModal';
+import { CriminalModalPortal, CRIMINAL_MODAL_Z } from './criminalModalPortal';
 import {
     defaultPersonalStage,
 } from './partyPersonalStage';
@@ -1303,7 +1304,7 @@ export const CriminalPartiesGrid = ({
             </div>
 
             {activeProfile ? (
-                <div className="fixed inset-0 z-[230] bg-black/80 backdrop-blur-sm p-4 flex items-center justify-center print:hidden">
+                <CriminalModalPortal zIndex={CRIMINAL_MODAL_Z.severance}>
                     {(() => {
                         const profileData = activeProfile.data as Record<string, unknown>;
                         const profileIsJuvenile = Boolean(profileData.isJuvenile);
@@ -1487,7 +1488,7 @@ export const CriminalPartiesGrid = ({
                             </div>
                         );
                     })()}
-                </div>
+                </CriminalModalPortal>
             ) : null}
 
             <ConfirmActionModal

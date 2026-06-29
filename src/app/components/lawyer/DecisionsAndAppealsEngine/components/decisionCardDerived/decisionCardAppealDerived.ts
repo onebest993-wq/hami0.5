@@ -35,7 +35,8 @@ export function deriveDecisionCardAppealContext({
 }: BuildDecisionCardAppealDerivedParams) {
     const isManualLedgerCard = decision.manualExecutorLedgerEntry === true;
     const hubStatus = deriveDecisionHubStatus(decision, requestNeedsExecutorOutcome);
-    const showExecutorPendingFooter = hubStatus === 'pending';
+    const showExecutorPendingFooter =
+        !isManualLedgerCard && hubStatus === 'pending';
     const windows = appealWindowsForDecision(decision);
     const appealWindowClosed = !windows.canTamyeez;
     const appealBusyOnCopy = Boolean(decision.activeAppealCopyId);
@@ -46,7 +47,7 @@ export function deriveDecisionCardAppealContext({
     const { statusPillEl } = buildDecisionCardStatus(decision, appealWindowClosed, decisions);
     const pipelineRow = appealPipelineRowForCard(decision, decisions);
     const appealProceedings = buildAppealProceedingsForDecision(pipelineRow, appealPerspective);
-    const showRegisteredAppealPathLine = appealProceedings.length > 0 && !appealBusyOnCopy;
+    const showRegisteredAppealPathLine = appealProceedings.length > 0;
     const requestAppealGate = resolveCreditorRequestAppealGate(
         decision,
         pipelineRow,
@@ -63,7 +64,9 @@ export function deriveDecisionCardAppealContext({
         appealPerspective,
     );
     const legacyAppealActionsVisible =
-        requestAppealGate.kind === 'continue' && !appealBusyOnCopy;
+        !isManualLedgerCard &&
+        requestAppealGate.kind === 'continue' &&
+        !appealBusyOnCopy;
     const awaitingCreditorCassationEntry =
         appealPerspective === 'debtor_agent' &&
         requestAppealGate.kind === 'paused' &&

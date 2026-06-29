@@ -2,6 +2,7 @@ import { useEffect, useCallback, type RefObject } from 'react';
 import type { GlobalSearchEntry } from '@/app/services/globalSearchIndex';
 
 export function useSearchKeyboard(
+    overlayOpen: boolean,
     overlayRef: RefObject<HTMLDivElement | null>,
     flatResults: GlobalSearchEntry[],
     activeIndex: number,
@@ -10,12 +11,16 @@ export function useSearchKeyboard(
     onPick: (entry: GlobalSearchEntry) => void,
 ) {
     useEffect(() => {
+        if (!overlayOpen) return;
         const onKey = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
+            if (e.key !== 'Escape') return;
+            e.preventDefault();
+            e.stopPropagation();
+            onClose();
         };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [onClose]);
+        window.addEventListener('keydown', onKey, true);
+        return () => window.removeEventListener('keydown', onKey, true);
+    }, [overlayOpen, onClose]);
 
     const focusResultAt = useCallback(
         (index: number) => {
@@ -59,24 +64,29 @@ export function useSearchKeyboard(
                 return;
             }
 
-            const isInput = (e.target as HTMLElement | null)?.tagName === 'INPUT';
+            const target = e.target as HTMLElement | null;
+            const tag = target?.tagName;
+            const isTextEntry =
+                tag === 'INPUT' ||
+                tag === 'TEXTAREA' ||
+                target?.isContentEditable === true;
+
             if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
                 if (!flatResults.length) return;
-                if (isInput || (overlayRef.current?.contains(document.activeElement) ?? false)) {
-                    e.preventDefault();
-                    setActiveIndex((prev) => {
-                        const next =
-                            e.key === 'ArrowDown'
-                                ? Math.min(flatResults.length - 1, Math.max(0, prev + 1))
-                                : Math.max(0, prev - 1);
-                        queueMicrotask(() => focusResultAt(next));
-                        return next;
-                    });
-                }
+                e.preventDefault();
+                setActiveIndex((prev) => {
+                    const next =
+                        e.key === 'ArrowDown'
+                            ? Math.min(flatResults.length - 1, Math.max(0, prev + 1))
+                            : Math.max(0, prev - 1);
+                    queueMicrotask(() => focusResultAt(next));
+                    return next;
+                });
                 return;
             }
 
             if (e.key === 'Enter') {
+                if (isTextEntry && activeIndex < 0) return;
                 if (activeIndex >= 0 && activeIndex < flatResults.length) {
                     e.preventDefault();
                     onPick(flatResults[activeIndex]);

@@ -5,6 +5,7 @@ import { saveScannedImageToVault } from '@/app/services/vaultUploadService';
 import { SmartVaultDB, type SmartVaultDoc } from '@/app/services/lawyer-cloud';
 import { extractTextFromDocumentImage, ocrFallbackMessage } from '@/app/services/documentOcrService';
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import { beginPrivacySensitiveSurface, endPrivacySensitiveSurface } from '@/app/runtime/privacyScreenSession';
 import { isBuiltInAutoSummaryEnabled } from '@/app/services/settings/settingsRuntime';
 import { VaultCategoryPicker } from '@/app/components/lawyer/SmartVaultModal/VaultCategoryPicker';
 import { VAULT_SHEET, VAULT_INPUT } from '@/app/components/lawyer/SmartVaultModal/vaultDustyRoseTheme';
@@ -61,6 +62,7 @@ export const SmartVaultScannerPanel: React.FC<SmartVaultScannerPanelProps> = ({
     useEffect(() => {
         return () => {
             stream?.getTracks().forEach((t) => t.stop());
+            void endPrivacySensitiveSurface();
         };
     }, [stream]);
 
@@ -75,6 +77,7 @@ export const SmartVaultScannerPanel: React.FC<SmartVaultScannerPanelProps> = ({
     const stopCamera = useCallback(() => {
         stream?.getTracks().forEach((t) => t.stop());
         setStream(null);
+        void endPrivacySensitiveSurface();
     }, [stream]);
 
     const ensureSignedIn = useCallback((): boolean => {
@@ -86,6 +89,7 @@ export const SmartVaultScannerPanel: React.FC<SmartVaultScannerPanelProps> = ({
     const startCamera = useCallback(async () => {
         if (!ensureSignedIn()) return;
         setError(null);
+        await beginPrivacySensitiveSurface();
         try {
             const mediaStream = await navigator.mediaDevices.getUserMedia({
                 video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
@@ -93,6 +97,7 @@ export const SmartVaultScannerPanel: React.FC<SmartVaultScannerPanelProps> = ({
             setStream(mediaStream);
             setPhase('camera');
         } catch {
+            await endPrivacySensitiveSurface();
             setError('تعذر الوصول إلى الكاميرا. يمكنك رفع صورة من الجهاز.');
             setPhase('idle');
         }

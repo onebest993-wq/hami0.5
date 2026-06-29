@@ -1,27 +1,25 @@
 /**
- * ═══════════════════════════════════════════════════════════════════════════
- * 📝 SMART LOGGER - نظام السجلات الذكي
- * ═══════════════════════════════════════════════════════════════════════════
- * 
- * Production-safe logging system
- * Auto-removed in production builds via Vite config
- * 
- * @version 2.0.0
- * @author Hami Legal System
+ * Smart logger — verbose in development only when opt-in console is enabled.
+ * Errors always surface. Enable: hamiVerboseConsole(true) then reload.
  */
+
+import { isVerboseConsoleEnabled } from '@/app/utils/consoleHygiene';
 
 const isDevelopment = import.meta.env.DEV;
+const isTest =
+    import.meta.env.MODE === 'test' ||
+    (typeof process !== 'undefined' && process.env.NODE_ENV === 'test');
 
-/**
- * Smart logger that only logs in development
- * Completely removed in production builds
- */
+function allowVerbose(): boolean {
+    return isDevelopment && !isTest && isVerboseConsoleEnabled();
+}
+
 export const logger = {
     /**
      * Log general information
      */
     log: (...args: unknown[]) => {
-        if (isDevelopment) {
+        if (allowVerbose()) {
             console.log(...args);
         }
     },
@@ -30,7 +28,7 @@ export const logger = {
      * Log warnings
      */
     warn: (...args: unknown[]) => {
-        if (isDevelopment) {
+        if (allowVerbose()) {
             console.warn(...args);
         }
     },
@@ -50,7 +48,7 @@ export const logger = {
      * Log debug information (development only)
      */
     debug: (...args: unknown[]) => {
-        if (isDevelopment) {
+        if (allowVerbose()) {
             console.debug(...args);
         }
     },
@@ -59,7 +57,7 @@ export const logger = {
      * Group logs together
      */
     group: (label: string, ...args: unknown[]) => {
-        if (isDevelopment) {
+        if (allowVerbose()) {
             console.group(label);
             args.forEach(arg => console.log(arg));
             console.groupEnd();
@@ -70,7 +68,7 @@ export const logger = {
      * Log with timestamp
      */
     timestamped: (message: string, ...args: unknown[]) => {
-        if (isDevelopment) {
+        if (allowVerbose()) {
             const timestamp = new Date().toISOString();
             console.log(`[${timestamp}] ${message}`, ...args);
         }
@@ -80,7 +78,7 @@ export const logger = {
      * Performance logging
      */
     performance: (label: string, callback: () => void) => {
-        if (isDevelopment) {
+        if (allowVerbose()) {
             const start = performance.now();
             callback();
             const end = performance.now();
@@ -94,7 +92,7 @@ export const logger = {
      * Conditional logging based on condition
      */
     logIf: (condition: boolean, ...args: unknown[]) => {
-        if (isDevelopment && condition) {
+        if (allowVerbose() && condition) {
             console.log(...args);
         }
     },
@@ -103,7 +101,7 @@ export const logger = {
      * Log with color (development only)
      */
     colored: (color: string, message: string, ...args: unknown[]) => {
-        if (isDevelopment) {
+        if (allowVerbose()) {
             console.log(`%c${message}`, `color: ${color}`, ...args);
         }
     },
@@ -112,7 +110,7 @@ export const logger = {
      * Success log (green)
      */
     success: (message: string, ...args: unknown[]) => {
-        if (isDevelopment) {
+        if (allowVerbose()) {
             console.log(`%c✅ ${message}`, 'color: #22c55e', ...args);
         }
     },
@@ -121,7 +119,7 @@ export const logger = {
      * Info log (blue)
      */
     info: (message: string, ...args: unknown[]) => {
-        if (isDevelopment) {
+        if (allowVerbose()) {
             console.log(`%cℹ️ ${message}`, 'color: #3b82f6', ...args);
         }
     },
@@ -130,7 +128,7 @@ export const logger = {
      * Table logging for arrays/objects
      */
     table: (data: unknown) => {
-        if (isDevelopment) {
+        if (allowVerbose()) {
             console.table(data);
         }
     },
@@ -143,7 +141,7 @@ export function measurePerformance(_target: unknown, propertyKey: string, descri
     const originalMethod = descriptor.value;
     
     descriptor.value = function (...args: unknown[]) {
-        if (isDevelopment) {
+        if (allowVerbose()) {
             const start = performance.now();
             const result = originalMethod.apply(this, args);
             const end = performance.now();
@@ -160,7 +158,7 @@ export function measurePerformance(_target: unknown, propertyKey: string, descri
  * Component render logger
  */
 export const logRender = (componentName: string, props?: unknown) => {
-    if (isDevelopment) {
+    if (allowVerbose()) {
         logger.group(`🔄 ${componentName} rendered`, props);
     }
 };
@@ -169,7 +167,7 @@ export const logRender = (componentName: string, props?: unknown) => {
  * State change logger
  */
 export const logStateChange = (stateName: string, oldValue: unknown, newValue: unknown) => {
-    if (isDevelopment) {
+    if (allowVerbose()) {
         logger.log(`📊 State "${stateName}" changed:`, {
             from: oldValue,
             to: newValue,

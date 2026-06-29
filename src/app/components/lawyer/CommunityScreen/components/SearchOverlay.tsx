@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowRight, Search, Paperclip, ImageIcon, FolderOpen, User, EyeOff, BookOpen, FileText, Zap } from 'lucide-react';
+import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import type { CommunityPost, RepositoryDocument } from '@/app/services/lawyer-cloud';
 import { formatRelativeTime } from '../utils';
 import { getRepositoryMediaKind } from './repositoryMedia';
@@ -46,6 +47,7 @@ export const SearchOverlay = ({
     allTags, filteredPosts, filteredDocuments, onClose,
     onOpenPost, onOpenDocument,
 }: SearchOverlayProps) => {
+    const reduceMotion = useReduceMotion();
     const hasActiveFilters = searchQuery !== '' || filterHasPdf || filterHasImage || selectedTag !== null;
     const totalResults = filteredPosts.length + filteredDocuments.length;
 
@@ -54,16 +56,17 @@ export const SearchOverlay = ({
             {isOpen && (
                 <motion.div
                     key="search-overlay"
-                    initial={{ x: "100%" }}
+                    data-testid="forum-search-overlay"
+                    initial={reduceMotion ? false : { x: '100%' }}
                     animate={{ x: 0 }}
-                    exit={{ x: "100%" }}
-                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    exit={reduceMotion ? undefined : { x: '100%' }}
+                    transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 300, damping: 30 }}
                     className={`${FORUM_LAYER} z-[70] flex flex-col`}
                 >
                     <div className="px-4 py-4 flex items-center gap-3 border-b border-[#4A3D52]/40">
                         <button type="button"
                             onClick={onClose}
-                            className={`w-10 h-10 flex items-center justify-center ${FORUM_TEXT_MUTED} hover:text-[#F0B896] active:scale-95 transition-transform`}
+                            className={`${FORUM_ICON_BTN} ${FORUM_TEXT_MUTED} hover:text-[#F0B896] active:scale-95 transition-transform`}
                         >
                             <ArrowRight size={24} />
                         </button>

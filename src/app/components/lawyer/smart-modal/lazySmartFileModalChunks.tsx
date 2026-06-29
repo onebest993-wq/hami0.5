@@ -1,11 +1,11 @@
-/** Lazy chunks for SmartFileModal — loaded on first open, not on initial case modal paint */
+/** Lazy chunks for SmartFileModal — cold paths stay lazy; hot paths prefetch on intent */
 import { lazy } from 'react';
+import { AddTaskModal } from './modals/contentEntryModals';
 
+export { AddTaskModal };
+export const LazyAddTaskModal = AddTaskModal;
 export const LazyEditCaseInfoModal = lazy(() =>
     import('./modals/EditCaseInfoModal').then((m) => ({ default: m.EditCaseInfoModal }))
-);
-export const LazyAddTaskModal = lazy(() =>
-    import('./modals/contentEntryModals').then((m) => ({ default: m.AddTaskModal }))
 );
 export const LazyAddDocumentModal = lazy(() =>
     import('./modals/contentEntryModals').then((m) => ({ default: m.AddDocumentModal }))
@@ -13,14 +13,14 @@ export const LazyAddDocumentModal = lazy(() =>
 export const LazyAddNoteModal = lazy(() =>
     import('./modals/contentEntryModals').then((m) => ({ default: m.AddNoteModal }))
 );
+export const LazyAddAppointmentModal = lazy(() =>
+    import('./modals/contentEntryModals').then((m) => ({ default: m.AddAppointmentModal }))
+);
 export const LazyAddPaymentModal = lazy(() =>
     import('./modals/contentEntryModals').then((m) => ({ default: m.AddPaymentModal }))
 );
 export const LazyAddIncidentalCaseModal = lazy(() =>
     import('./modals/flow-modals/AddIncidentalCaseModal').then((m) => ({ default: m.AddIncidentalCaseModal }))
-);
-export const LazyAddAppointmentModal = lazy(() =>
-    import('./modals/contentEntryModals').then((m) => ({ default: m.AddAppointmentModal }))
 );
 export const LazyPauseCaseModal = lazy(() =>
     import('./modals/flow-modals/PauseCaseModal').then((m) => ({ default: m.PauseCaseModal }))

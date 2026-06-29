@@ -1,6 +1,6 @@
 import type { CaseFile } from '@/app/types/common';
 import type { ComputedSmartStatus, ArchiveEnrichedRow, LooseArchiveFile, StageWithCaseMeta } from './types';
-import { isExecutionInTrash } from '@/app/utils/executionTrash';
+import { isExecutionArchived, isExecutionInTrash } from '@/app/utils/executionTrash';
 import { executionTotalDemandEstimate } from './utils';
 
 const DEFAULT_ARCHIVE_SMART_STATUS: ComputedSmartStatus = {
@@ -141,7 +141,8 @@ export function computeArchiveEnrichedFiles(
                         ? (files as any[]).filter(
                               (x: any) =>
                                   String(x?.parentId || '').trim() === baseId &&
-                                  !isExecutionInTrash(x as LooseArchiveFile)
+                                  !isExecutionInTrash(x as LooseArchiveFile) &&
+                                  !isExecutionArchived(x as LooseArchiveFile)
                           )
                         : [];
                     const baseDemand = executionTotalDemandEstimate(loose);

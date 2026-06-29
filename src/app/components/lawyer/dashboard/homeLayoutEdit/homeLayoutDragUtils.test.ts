@@ -77,9 +77,9 @@ describe('computeDockPlacementIndex', () => {
 
     it('inserts after last shell icon before quick note in placement order', () => {
         const items = [
-            rect('dockNotepad', 280, 800, 70, 70),
+            rect('dockCalendar', 280, 800, 70, 70),
             rect('dockQuickNote', 20, 760, 360, 40),
         ];
-        expect(computeDockPlacementIndex(50, 830, items, ['dockNotepad', 'dockQuickNote'])).toBe(1);
+        expect(computeDockPlacementIndex(50, 830, items, ['dockCalendar', 'dockQuickNote'])).toBe(1);
     });
 });

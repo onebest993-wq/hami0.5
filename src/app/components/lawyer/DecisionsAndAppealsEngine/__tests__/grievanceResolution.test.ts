@@ -40,12 +40,24 @@ describe('grievanceResolution', () => {
     it('lawyer grievance after executor rejection: reject → rejected pending cassation', () => {
         const d = baseDecision();
         expect(grievancePetitionGranted(d, false)).toBe(false);
-        const patch = buildGrievanceResolutionPatch(d, false);
+        const patch = buildGrievanceResolutionPatch(d, false, undefined, '2026-06-05');
         expect(patch.appealStatus).toBe('pending');
         expect(patch.executorOutcome).toBe('rejected');
         expect(patch.appealResult).toBe('رد التظلم');
         expect(patch.grievanceRejectedAwaitingTamyeez).toBe(true);
         expect(patch.awaitingCassationEntryBy).toBe('lawyer');
+        expect(patch.grievanceOutcomeIssuedYmd).toBe('2026-06-05');
+        expect(patch.cassationAppealClockYmd).toBe('2026-06-05');
+    });
+
+    it('queue request grievance outcome resets cassation window from outcome date', () => {
+        const d = baseDecision({
+            requestKind: 'seizure',
+            manualExecutorLedgerEntry: undefined,
+        });
+        const patch = buildGrievanceResolutionPatch(d, false, undefined, '2026-06-05');
+        expect(patch.cassationAppealClockYmd).toBe('2026-06-05');
+        expect(patch.grievanceOutcomeIssuedYmd).toBe('2026-06-05');
     });
 
     it('debtor grievance after approval: accept → approval kept + creditor cassation window', () => {

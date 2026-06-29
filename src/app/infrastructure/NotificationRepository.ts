@@ -1,15 +1,25 @@
-import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import SecureStoreService from '@/app/services/SecureStoreService';
+import { capNotificationList } from '@/app/services/notifications/notificationLimits';
+import {
+    capMergedNotificationLists,
+    mergeNotificationRecord,
+} from '@/app/services/notifications/notificationMerge';
+import { appendNotificationClient } from '@/app/services/notifications/notificationClientAppend';
+import {
+    mergeNotificationsClient,
+    syncMarkAllReadClient,
+    syncMarkReadClient,
+    fetchNotificationsClient,
+} from '@/app/services/notifications/notificationClientPersist';
+import { isNotificationServerSyncEnabled } from '@/app/services/notifications/notificationServerSync';
 
-const KV_PROXY_URL = '/api/kv-proxy';
 /**
  * أنواع الإشعارات (events). كل واحدة تُشير إلى حدث ماضٍ يستحق علم المستخدم.
  *
- * - audit_log_*: نشاطات داخل أقسام التطبيق (إضافة قضية، تحديث مرحلة، إكمال إجراء)
  * - forum_*: أحداث المنتدى (رد، إشارة، إجابة محلولة)
- * - ai_insight, new_document: ذكاء + مستندات (للتوافق الخلفي)
+ * - ai_insight, new_document: أنواع قديمة (للتوافق الخلفي)
  * - system_alert: إشعارات النظام
- * - deadline (legacy): محتفظ بها للتوافق مع التنبيهات القديمة (لكن المنتجات الجديدة تستخدم audit_log_*)
+ * - audit_log_* / deadline: legacy — تُصفّى عند العرض (isActivityLogNotification)
  */
 export type NotificationType =
     | 'deadline' // legacy
@@ -175,38 +185,80 @@ function saveLocal(userId: string, list: NotificationModel[]) {
     } catch { /* ignore */ }
 }
 
-/**
- * يحفظ إشعاراً جديداً محلياً (و يُحاول مزامنته مع الخادم في prod).
- * يُستخدم من `notificationStore.addNotification` لضمان عدم ضياع الإشعار عند الـ fetch التالي.
- */
-async function persistAddedNotification(userId: string, notif: NotificationModel): Promise<void> {
-    try {
-        const existing = loadLocal(userId);
-        // dedupe على الـ id حتى لو نُشر مرّتين بسرعة
-        const exists = existing.some((n) => n.id === notif.id);
-        const next = exists ? existing : [notif, ...existing];
-        const capped = next.length > 400 ? next.slice(0, 400) : next;
-        saveLocal(userId, capped);
+/** قراءة sync من التخزين المحلي — عرض فوري قبل اكتمال الجلب الشبكي */
+export function peekLocalNotifications(userId: string): NotificationModel[] {
+    return loadLocal(userId);
+}
 
-        if (import.meta.env.DEV) return; // dev: محلياً فقط
-        // prod: مزامنة مع KV proxy (محاولة non-blocking)
-        try {
-            const headers = { 'Content-Type': 'application/json' };
-            await SecureAPIClient.fetchSecure(
-                KV_PROXY_URL,
-                {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({
-                        action: 'set',
-                        key: `notifications_${userId}`,
-                        value: capped,
-                    }),
-                },
-                '127.0.0.1',
-            );
-        } catch { /* shrug — local already saved */ }
-    } catch { /* ignore */ }
+async function fetchRemoteKv(_userId: string): Promise<NotificationModel[]> {
+    if (!isNotificationServerSyncEnabled()) return [];
+    const fromApi = await fetchNotificationsClient();
+    return fromApi ?? [];
+}
+
+async function persistMergedList(
+    userId: string,
+    list: NotificationModel[],
+    options?: { skipRemote?: boolean },
+): Promise<NotificationModel[]> {
+    const capped = capNotificationList(list);
+    saveLocal(userId, capped);
+
+    if (!isNotificationServerSyncEnabled() || options?.skipRemote) return capped;
+
+    const serverMerged = await mergeNotificationsClient(capped);
+    if (serverMerged) {
+        saveLocal(userId, serverMerged);
+        return serverMerged;
+    }
+
+    return capped;
+}
+
+/**
+ * يحفظ إشعاراً — في الإنتاج: append خادمي أولاً، ثم دمج محلي (الخادم مصدر موثوق).
+ */
+async function persistAddedNotification(
+    userId: string,
+    notif: NotificationModel,
+): Promise<NotificationModel | null> {
+    try {
+        const dedupeKey =
+            notif.actionPayload && typeof notif.actionPayload === 'object'
+                ? String((notif.actionPayload as Record<string, unknown>).dedupeKey ?? '').trim() ||
+                  undefined
+                : undefined;
+
+        const serverNotif = await appendNotificationClient({
+            title: notif.title,
+            message: notif.message,
+            type: notif.type,
+            category: notif.category,
+            dedupeKey,
+            actionPayload: notif.actionPayload,
+        });
+
+        const authoritative = serverNotif ?? notif;
+        const local = loadLocal(userId);
+        const remote = serverNotif ? [] : await fetchRemoteKv(userId);
+        const merged = capMergedNotificationLists(local, remote);
+        const existing = merged.find(
+            (n) =>
+                n.id === authoritative.id ||
+                (dedupeKey &&
+                    (n.actionPayload as Record<string, unknown> | undefined)?.dedupeKey === dedupeKey),
+        );
+        const next = existing
+            ? merged.map((n) =>
+                  n.id === existing.id ? mergeNotificationRecord(n, authoritative) : n,
+              )
+            : capNotificationList([authoritative, ...merged]);
+
+        await persistMergedList(userId, next, { skipRemote: Boolean(serverNotif) });
+        return authoritative;
+    } catch {
+        return null;
+    }
 }
 
 export const NotificationRepository = {
@@ -215,121 +267,76 @@ export const NotificationRepository = {
     addNotification: persistAddedNotification,
 
     fetchNotifications: async (userId: string): Promise<NotificationModel[]> => {
-        if (import.meta.env.DEV) {
-            return loadLocal(userId);
-        }
-        try {
-            const headers = { 'Content-Type': 'application/json' };
-            const data = await SecureAPIClient.fetchSecure<{ value?: unknown }>(
-                KV_PROXY_URL,
-                {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({ action: 'get', key: `notifications_${userId}` }),
-                },
-                '127.0.0.1',
-            );
-
-            const raw = data?.value;
-            const remote = Array.isArray(raw) ? (raw as NotificationModel[]) : [];
-
-            if (remote.length > 0) {
-                saveLocal(userId, remote);
-                return remote;
-            }
-
-            const local = loadLocal(userId);
+        const local = loadLocal(userId);
+        if (!isNotificationServerSyncEnabled()) {
             return local;
+        }
+
+        try {
+            const remote = await fetchRemoteKv(userId);
+            const merged = capMergedNotificationLists(remote, local);
+            saveLocal(userId, merged);
+            return merged;
         } catch {
-            const local = loadLocal(userId);
             return local;
         }
     },
 
     markAsRead: async (userId: string, notificationId: string, currentList: NotificationModel[]) => {
-        const updatedList = currentList.map(n =>
-            n.id === notificationId ? { ...n, isRead: true } : n
+        const serverList = await syncMarkReadClient(notificationId);
+        if (serverList) {
+            const local = loadLocal(userId);
+            const merged = capMergedNotificationLists(local, serverList, currentList);
+            saveLocal(userId, merged);
+            return true;
+        }
+
+        const local = loadLocal(userId);
+        const remote = await fetchRemoteKv(userId);
+        const base = capMergedNotificationLists(local, remote, currentList);
+        const updatedList = base.map((n) =>
+            n.id === notificationId ? { ...n, isRead: true } : n,
         );
 
-        saveLocal(userId, updatedList);
-
-        if (import.meta.env.DEV) {
-            return true;
-        }
-        try {
-            const headers = { 'Content-Type': 'application/json' };
-            await SecureAPIClient.fetchSecure(
-                KV_PROXY_URL,
-                {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({
-                        action: 'set',
-                        key: `notifications_${userId}`,
-                        value: updatedList,
-                    }),
-                },
-                '127.0.0.1',
-            );
-            return true;
-        } catch {
-            return true;
-        }
+        await persistMergedList(userId, updatedList);
+        return true;
     },
 
     markAllAsRead: async (userId: string, currentList: NotificationModel[]) => {
-        const updatedList = currentList.map(n => ({ ...n, isRead: true }));
-
-        saveLocal(userId, updatedList);
-
-        if (import.meta.env.DEV) {
+        const serverList = await syncMarkAllReadClient();
+        if (serverList) {
+            const local = loadLocal(userId);
+            const merged = capMergedNotificationLists(local, serverList, currentList);
+            saveLocal(userId, merged);
             return true;
         }
-        try {
-            const headers = { 'Content-Type': 'application/json' };
-            await SecureAPIClient.fetchSecure(
-                KV_PROXY_URL,
-                {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({
-                        action: 'set',
-                        key: `notifications_${userId}`,
-                        value: updatedList,
-                    }),
-                },
-                '127.0.0.1',
-            );
-            return true;
-        } catch {
-            return true;
-        }
+
+        const local = loadLocal(userId);
+        const remote = await fetchRemoteKv(userId);
+        const base = capMergedNotificationLists(local, remote, currentList);
+        const updatedList = base.map((n) => ({ ...n, isRead: true }));
+
+        await persistMergedList(userId, updatedList);
+        return true;
     },
 
-    /** استبدال القائمة كاملة — يُستخدم عند تنظيف سجل النشاطات المحفوظ. */
+    /** استبدال القائمة كاملة — للـ migration/purge (كتابة حاسمة). */
     replaceAllNotifications: async (userId: string, list: NotificationModel[]) => {
-        const capped = list.length > 400 ? list.slice(0, 400) : list;
-        saveLocal(userId, capped);
+        return persistMergedList(userId, list);
+    },
 
-        if (import.meta.env.DEV) {
-            return capped;
+    /** حفظ مع دمج المحلي/البعيد — للمزامنة اليومية (isRead أحادي). */
+    saveNotifications: async (userId: string, list: NotificationModel[]) => {
+        const local = loadLocal(userId);
+        const remote = await fetchRemoteKv(userId);
+        const merged = capMergedNotificationLists(local, remote, list);
+
+        const serverMerged = await mergeNotificationsClient(merged);
+        if (serverMerged) {
+            saveLocal(userId, serverMerged);
+            return serverMerged;
         }
-        try {
-            const headers = { 'Content-Type': 'application/json' };
-            await SecureAPIClient.fetchSecure(
-                KV_PROXY_URL,
-                {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({
-                        action: 'set',
-                        key: `notifications_${userId}`,
-                        value: capped,
-                    }),
-                },
-                '127.0.0.1',
-            );
-        } catch { /* local already saved */ }
-        return capped;
+
+        return persistMergedList(userId, merged);
     },
 };

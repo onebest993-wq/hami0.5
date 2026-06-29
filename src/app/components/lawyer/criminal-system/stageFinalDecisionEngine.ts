@@ -10,7 +10,7 @@ import {
     resolveAppealPeriodStartExclusive,
     resolveCassationCorrectionRemainingDaysForAnchor,
 } from './decisionAppealPeriodEngine';
-import type { StageConclusion } from './criminalStore';
+import type { StageConclusion } from './criminalCaseModel';
 import type { VerdictCard, VerdictCardOutcome } from './verdictCardsEngine';
 import {
     canShowVerdictCassationCorrection,

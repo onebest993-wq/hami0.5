@@ -54,6 +54,7 @@ import {
     resolvePetitionVoidMenuLabel,
 } from '../../smartFile/petitionVoidFlow';
 import { buildLawsuitCalendarContext } from './lawsuitCalendarContext';
+import { emitDossierNotesChanged } from '@/app/services/dossier-notes/dossierNoteSyncEvents';
 
 
 export function useProceduralTimelineActions(options: UseSmartFileProceduralActionsOptions) {
@@ -398,14 +399,16 @@ const handleAddNote = (data: { text: string; date: string; [key: string]: unknow
     }
     
     const noteTags = Array.isArray(data.tags) ? (data.tags as string[]) : undefined;
+    let savedNoteId = String(data.id ?? '');
     if (data.id) {
         updatedStages[activeStageIndex].timeline = stageTimeline(currentStage).map((e: TimelineEvent) => 
             e.id === data.id ? { ...e, type: 'note', title: noteTitle, details: noteDetails, tags: noteTags } : e
         );
         setEditingEvent(null);
     } else {
+        savedNoteId = `note_${Date.now()}`;
         updatedStages[activeStageIndex].timeline = [{
-            id: `note_${Date.now()}`,
+            id: savedNoteId,
             type: 'note',
             date: getLocalTodayYmd(),
             title: noteTitle,
@@ -416,6 +419,14 @@ const handleAddNote = (data: { text: string; date: string; [key: string]: unknow
     }
     setStages(updatedStages);
     saveToCloud(updatedStages);
+
+    if (savedNoteId) {
+        emitDossierNotesChanged({
+            dossierId: String(parentData.id ?? ''),
+            dossierKind: 'lawsuit',
+            noteId: savedNoteId,
+        });
+    }
 
     if (autoLock) {
         SmartToast.success("تم حجز الدعوى للقرار تلقائياً 🔒");

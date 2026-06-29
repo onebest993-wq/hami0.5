@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
 import { MessagesSquare, BookOpen, Users } from 'lucide-react';
+import { prefetchCommunityRepositorySection } from '../communityScreenLazySections';
 import { FORUM_SECTION_ACTIVE, FORUM_SECTION_IDLE, FORUM_TEXT_MUTED, FORUM_TEXT_PRIMARY } from '../forumPlumTheme';
 
 export type ForumSectionId = 'forum' | 'groups' | 'repository';
@@ -21,6 +22,7 @@ export const ForumSectionSwitch = memo(function ForumSectionSwitch({
 }: ForumSectionSwitchProps) {
     return (
         <div
+            data-testid="forum-section-switch"
             className="grid grid-cols-3 gap-1.5 p-1.5 rounded-2xl bg-[#140A18] border border-[#4A3D52]/45"
             role="tablist"
             aria-label="تبديل بين أقسام المنتدى"
@@ -32,8 +34,12 @@ export const ForumSectionSwitch = memo(function ForumSectionSwitch({
                         key={id}
                         type="button"
                         role="tab"
+                        data-testid={`forum-section-tab-${id}`}
                         aria-selected={isActive}
                         onClick={() => onSectionChange(id)}
+                        onPointerEnter={() => {
+                            if (id === 'repository') prefetchCommunityRepositorySection();
+                        }}
                         className={`relative min-h-[52px] rounded-xl px-2 py-2 flex flex-col items-center justify-center gap-1 text-center transition-colors duration-150 ${
                             isActive ? FORUM_TEXT_PRIMARY : `${FORUM_TEXT_MUTED} hover:text-[#E6E0E4]`
                         } ${isActive ? FORUM_SECTION_ACTIVE : ''}`}

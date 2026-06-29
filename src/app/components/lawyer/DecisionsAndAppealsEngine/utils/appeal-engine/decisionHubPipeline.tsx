@@ -4,7 +4,7 @@ import type { Decision } from '../../types';
 import type { ExecutionDecisionHubStatus } from '@/app/types/execution';
 import type { AppealUiPerspective } from '../../appealUiLabels';
 import { isCreditorPartyRequest, isDecisionLikeRow } from '../appealRequestOrigin';
-import { isManualExecutorLedgerDecision, isAppealDeadlinePerpetuallyEnforced } from './manualExecutorIdentity';
+import { isManualExecutorLedgerDecision, isAppealDeadlinePerpetuallyEnforced, resolveExecutorDecisionStatusFlag } from './manualExecutorIdentity';
 import type { DecisionHubStatusPillTone } from './appealTypes';
 import { compareDecisionsNewestFirst } from './appealsHubCatalog';
 import { isExecutorSideAwaitingAppealEntry } from './manualExecutorLedger';
@@ -17,6 +17,10 @@ export function deriveDecisionHubStatus(
     d: Decision,
     needsExecutor: (x: Decision) => boolean
 ): ExecutionDecisionHubStatus {
+    if (isManualExecutorLedgerDecision(d)) {
+        if (resolveExecutorDecisionStatusFlag(d) === 3) return 'rejected';
+        return 'accepted';
+    }
     if (d.appealRequestOrigin === 'executor_side') {
         if (d.appealStatus === 'final') return d.status === 'rejected' ? 'rejected' : 'accepted';
         return 'accepted';
@@ -150,6 +154,18 @@ export function renderDecisionHubStatusPill(
         );
     }
     return createElement('span', { className: base }, label);
+}
+
+/** شارة موحّدة للبطاقات: نافذ / غير نافذ فقط */
+export function renderBinaryEnforcementStatusPill(
+    enforced: boolean,
+    onClick?: () => void
+): ReactNode {
+    return renderDecisionHubStatusPill(
+        enforced ? 'نافذ' : 'غير نافذ',
+        enforced ? 'emerald' : 'red',
+        enforced ? onClick : undefined
+    );
 }
 
 export function isLawyerCassationNaqdResume(pipe: Decision, hub: Decision): boolean {

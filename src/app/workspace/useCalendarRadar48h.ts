@@ -6,6 +6,7 @@ import { buildWorkspaceRoute } from './workspaceRoutes';
 import type { WorkspacePinType } from './types';
 import { calendarEventToTimestamp } from '@/app/utils/calendarDateTime';
 import { addBaghdadDays, baghdadDayRange, todayBaghdadYmd } from '@/app/utils/baghdadTime';
+import { peekHomeHubRadarCache } from '@/app/services/alerts/homeHubRadarWarmCache';
 import { isUserAuthoredBridgedCalendarEvent } from '@/app/services/calendarAuthenticity';
 
 const BRIDGED_ROUTE_MODULES: WorkspacePinType[] = [
@@ -70,13 +71,19 @@ export function useCalendarRadar48h(lawyerId: string | null): {
 
     const fetchEvents = useCallback(() => {
         if (!lawyerId) {
-            fetchTokenRef.current += 1; // إلغاء أي جلب سابق
+            fetchTokenRef.current += 1;
             setRaw([]);
             setLoading(false);
             hasLoadedOnceRef.current = false;
             return;
         }
-        if (!hasLoadedOnceRef.current) setLoading(true);
+        const cached = peekHomeHubRadarCache(lawyerId);
+        if (cached && !hasLoadedOnceRef.current) {
+            setRaw(cached);
+            setLoading(false);
+        } else if (!hasLoadedOnceRef.current) {
+            setLoading(true);
+        }
         const token = ++fetchTokenRef.current;
         void CalendarDB.getEvents(lawyerId)
             .then((list) => {

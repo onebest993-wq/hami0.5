@@ -31,7 +31,7 @@ export const ForumGroupsDirectory = memo(function ForumGroupsDirectory({
     joiningGroupId,
 }: ForumGroupsDirectoryProps) {
     return (
-        <div className="px-4 pt-2 pb-28 space-y-4">
+        <div className="px-4 pt-2 pb-28 space-y-4" data-testid="forum-groups-directory">
             <div className="relative">
                 <Search
                     size={16}

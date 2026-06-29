@@ -1,21 +1,14 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { renderHook } from '@testing-library/react';
 import { useLawyerDashboardOverlays } from '../useLawyerDashboardOverlays';
 
-describe('useLawyerDashboardOverlays — المنتدى', () => {
-    beforeEach(() => {
-        vi.clearAllMocks();
-    });
+describe('useLawyerDashboardOverlays — لا يملك حالة المنتدى', () => {
+    it('لا يعرّض openCommunityTab', () => {
+        const { result } = renderHook(() =>
+            useLawyerDashboardOverlays({ setArchiveType: vi.fn() }),
+        );
 
-    it('يفتح شاشة المنتدى مع إغلاق overlays العابرة', () => {
-    const { result } = renderHook(() =>
-        useLawyerDashboardOverlays({ setArchiveType: vi.fn(), userId: 'lawyer-1' }),
-    );
-
-        act(() => {
-            result.current.openCommunityTab();
-        });
-
-        expect(result.current.showCommunity).toBe(true);
+        expect('openCommunityTab' in result.current).toBe(false);
+        expect('showCommunity' in result.current).toBe(false);
     });
 });

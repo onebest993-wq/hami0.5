@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ForumNotificationStreamService } from '@/app/services/forum/ForumNotificationStreamService';
 import { useVisibilityAwareInterval } from '@/app/hooks/useVisibilityAwareInterval';
+import { resolveForumStreamHealthCheckMs } from '@/app/components/lawyer/CommunityScreen/communityFeedPolicy';
 
 /** بث SSE لتنبيهات المنتدى — يُعوّض الاستطلاع المتكرر عند الاتصال */
 export function useForumNotificationStream(userId: string | null, enabled = true): boolean {
@@ -8,13 +9,12 @@ export function useForumNotificationStream(userId: string | null, enabled = true
 
     useEffect(() => {
         if (!enabled || !userId) {
-            ForumNotificationStreamService.stop();
             setConnected(false);
             return;
         }
 
-        setConnected(true);
-        void ForumNotificationStreamService.start(userId);
+        const release = ForumNotificationStreamService.acquire(userId);
+        setConnected(ForumNotificationStreamService.isRunning());
 
         const unsub = ForumNotificationStreamService.subscribe(() => {
             setConnected(ForumNotificationStreamService.isRunning());
@@ -22,7 +22,7 @@ export function useForumNotificationStream(userId: string | null, enabled = true
 
         return () => {
             unsub();
-            ForumNotificationStreamService.stop();
+            release();
             setConnected(false);
         };
     }, [enabled, userId]);
@@ -32,7 +32,7 @@ export function useForumNotificationStream(userId: string | null, enabled = true
         if (!ForumNotificationStreamService.isRunning()) {
             void ForumNotificationStreamService.start(userId);
         }
-    }, 30_000, enabled && Boolean(userId));
+    }, resolveForumStreamHealthCheckMs(), enabled && Boolean(userId));
 
     return connected;
 }

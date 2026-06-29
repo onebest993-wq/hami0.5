@@ -3,10 +3,12 @@ import type { ExecutionFile } from '@/app/types/execution';
 import {
     formatClaimTypeArabic,
     inferEvictionPremisesUse,
-    specificDeliveryNatureLabelAr,
-    resolveSpecificDeliveryItemNature,
     type EvictionPremisesUse,
 } from '@/app/utils/executionModuleStrategies';
+import {
+    readSpecificDeliveryItems,
+    formatSpecificDeliveryNatureSummary,
+} from '@/app/utils/specificDeliveryItemsUtils';
 
 const PLACEHOLDER = '—';
 
@@ -117,6 +119,19 @@ export function resolveDossierHeaderFields(
     const claimTypeDisplay =
         claimLabels.length > 0 ? [...new Set(claimLabels)].join(' · ') : '';
 
+    const deliveryItems = readSpecificDeliveryItems(file);
+    const deliveryNamesFromItems = deliveryItems
+        .map((item) => item.name.trim())
+        .filter(Boolean)
+        .join('؛ ');
+    const legacyDeliveryName = trimOrEmpty(
+        (file as { specificDeliveryItemName?: string }).specificDeliveryItemName,
+    );
+    const resolvedDeliveryNature = formatSpecificDeliveryNatureSummary(
+        deliveryItems,
+        (file as { specificDeliveryItemNature?: string }).specificDeliveryItemNature,
+    );
+
     return {
         directorate,
         fileNumber,
@@ -129,16 +144,10 @@ export function resolveDossierHeaderFields(
         claimTypeDisplay,
         docNumber: trimOrEmpty(file.docNumber),
         judgmentDate: trimOrEmpty(file.judgmentDate),
-        specificDeliveryItemName: trimOrEmpty(
-            (file as { specificDeliveryItemName?: string }).specificDeliveryItemName
-        ),
+        specificDeliveryItemName: legacyDeliveryName || deliveryNamesFromItems,
         specificDeliveryItemNature: trimOrEmpty(
-            (file as { specificDeliveryItemNature?: string }).specificDeliveryItemNature
+            (file as { specificDeliveryItemNature?: string }).specificDeliveryItemNature,
         ),
-        specificDeliveryItemNatureDisplay: specificDeliveryNatureLabelAr(
-            resolveSpecificDeliveryItemNature(
-                (file as { specificDeliveryItemNature?: string }).specificDeliveryItemNature
-            )
-        ),
+        specificDeliveryItemNatureDisplay: resolvedDeliveryNature,
     };
 }

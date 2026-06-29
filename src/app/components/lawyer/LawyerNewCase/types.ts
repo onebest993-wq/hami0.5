@@ -2,8 +2,6 @@ export type MainCategory = 'lawsuit' | 'transaction' | 'execution';
 
 export type CaseType = 'civil' | 'criminal' | 'personal' | 'administrative' | 'cassation' | 'special' | null;
 
-export type CivilSubView = 'main-form' | 'urgent-dashboard' | 'urgent-form';
-
 export interface Party {
     id: string;
     name: string;

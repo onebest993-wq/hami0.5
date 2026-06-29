@@ -10,16 +10,17 @@ export const TASKS_PAGE =
 
 export const TASKS_HEADER =
     'shrink-0 px-5 py-4 flex items-center justify-between gap-3 ' +
-    'border-b border-[#A67C52]/20 bg-[#0c0c0e]/55 backdrop-blur-xl';
+    'border-b border-[#A67C52]/20 bg-[#0c0c0e]/88';
 
-export const TASKS_BODY = 'flex-1 overflow-y-auto px-4 py-6 pb-16 max-w-3xl mx-auto w-full space-y-8';
+export const TASKS_BODY =
+    'flex-1 overflow-y-auto overscroll-y-contain px-4 py-6 pb-16 max-w-3xl mx-auto w-full space-y-8';
 
 export const TASKS_GLASS_PANEL =
-    'rounded-2xl border border-white/[0.07] bg-[#0c0c0e]/50 backdrop-blur-xl ' +
+    'rounded-2xl border border-white/[0.07] bg-[#0c0c0e]/72 ' +
     'shadow-[0_12px_40px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.04)]';
 
 export const TASKS_DAY_PANEL =
-    `${TASKS_GLASS_PANEL} relative p-5 mb-2 border-[#A67C52]/15 hover:border-[#A67C52]/28 transition-all duration-300`;
+    `${TASKS_GLASS_PANEL} relative p-5 mb-2 border-[#A67C52]/15 hover:border-[#A67C52]/28`;
 
 export const TASKS_INPUT =
     'w-full rounded-xl border border-[#A67C52]/22 bg-[#0c0c0e]/45 px-4 py-2.5 text-sm text-[#E8F5F0] ' +
@@ -44,13 +45,13 @@ export const TASKS_BRONZE_LINE = 'h-px bg-gradient-to-r from-transparent via-[#A
 export const CURTAIN_SHEET =
     "fixed bottom-0 left-0 right-0 z-[215] max-h-[min(88dvh,640px)] flex flex-col rounded-t-[24px] " +
     "border border-[#A67C52]/28 border-b-0 font-['Tajawal','Cairo',sans-serif] " +
-    'bg-gradient-to-b from-[#0D4A3C]/95 via-[#0A2E25]/92 to-[#061612]/96 ' +
-    'shadow-[0_-16px_56px_rgba(0,0,0,0.5)] backdrop-blur-xl overflow-hidden';
+    'bg-gradient-to-b from-[#0D4A3C]/98 via-[#0A2E25]/96 to-[#061612]/98 ' +
+    'shadow-[0_-16px_56px_rgba(0,0,0,0.5)] overflow-hidden';
 
 export const CURTAIN_GLASS_INNER =
-    'rounded-xl border border-white/[0.08] bg-[#0c0c0e]/45 backdrop-blur-md';
+    'rounded-xl border border-white/[0.08] bg-[#0c0c0e]/72';
 
-export const CURTAIN_BACKDROP = 'fixed inset-0 z-[214] bg-[#051410]/70 backdrop-blur-[8px] border-0 cursor-default';
+export const CURTAIN_BACKDROP = 'fixed inset-0 z-[214] bg-[#051410]/75 border-0 cursor-default';
 
 export const CURTAIN_BTN_MANAGE =
     'w-full py-3.5 rounded-xl font-extrabold text-sm text-[#061612] ' +
@@ -58,7 +59,7 @@ export const CURTAIN_BTN_MANAGE =
     'shadow-[0_4px_20px_rgba(166,124,82,0.2)] active:scale-[0.99] transition-transform';
 
 export const TASK_CARD_BASE =
-    'relative backdrop-blur-md border rounded-xl flex flex-col transition-all duration-300 overflow-hidden bg-[#0c0c0e]/48';
+    'relative border rounded-xl flex flex-col overflow-hidden bg-[#0c0c0e]/72';
 
 export const TASK_CARD_DEFAULT = 'border-[#A67C52]/18 hover:border-[#A67C52]/32';
 
@@ -67,4 +68,4 @@ export const TASK_CARD_DONE = 'border-[#1A7059]/35 bg-[#0c0c0e]/55';
 export const TASK_CARD_FATAL = 'border-rose-500/55 shadow-[0_0_24px_rgba(244,63,94,0.22)]';
 
 export const TASK_TOOL_BTN =
-    'flex flex-row-reverse items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-extrabold border transition';
+    'flex flex-row-reverse items-center justify-center gap-1 rounded-lg px-3 py-2 min-h-[44px] text-[10px] font-extrabold border transition touch-manipulation';

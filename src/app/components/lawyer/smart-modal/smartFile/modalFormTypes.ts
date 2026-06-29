@@ -87,6 +87,10 @@ export type AddDocumentModalProps = ModalShellProps &
 export type AddNoteModalProps = ModalShellProps &
     EditDataProps<{ id?: string; title?: string; details?: string; tags?: string[] }> & {
         onAdd: (data: Record<string, unknown>) => void;
+        dossierContext?: import('@/app/services/dossier-notes/dossierLawArticleTooltips').DossierNoteContext;
+        voiceUserId?: string;
+        savedNotes?: import('@/app/components/lawyer/dossier-notes/DossierNotesVault').DossierVaultNote[];
+        onDeleteNote?: (id: string) => void;
     };
 
 export type AddPaymentModalProps = ModalShellProps & {

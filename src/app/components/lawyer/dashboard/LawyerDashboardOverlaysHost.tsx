@@ -14,9 +14,9 @@ export function LawyerDashboardOverlaysHost(props: LawyerDashboardOverlaysHostPr
                 data={props.data}
                 overlays={props.overlays}
                 notepad={props.notepad}
-                urgent={props.urgent}
-                client={props.client}
                 nav={props.nav}
+                dossier={props.dossier}
+                archive={props.archive}
             />
             <LawyerDashboardCaseOverlays
                 shell={props.shell}

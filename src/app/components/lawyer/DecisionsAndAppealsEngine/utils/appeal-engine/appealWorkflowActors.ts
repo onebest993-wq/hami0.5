@@ -32,6 +32,7 @@ import {
     manualExecutorCassationPartyAfterGrievance,
     resolveManualExecutorGrievanceFiler,
 } from './manualExecutorLedger';
+import { appealGrievanceOutcomeClockPatch } from './appealDates';
 import {
     appellantLabelFromLogMessage,
     resolveAppealActorLabel,
@@ -170,15 +171,28 @@ export function cassationEntryPartyAfterGrievanceGrant(d: Decision): 'lawyer' | 
     return null;
 }
 
+function attachGrievanceOutcomeCassationClock(
+    patch: Partial<Decision>,
+    outcomeIssuedYmd?: string
+): Partial<Decision> {
+    const needsClock =
+        Boolean(patch.awaitingCassationEntryBy) ||
+        patch.grievanceRejectedAwaitingTamyeez === true ||
+        patch.grievanceAcceptedAwaitingDebtorTamyeez === true;
+    if (!needsClock) return patch;
+    return { ...patch, ...appealGrievanceOutcomeClockPatch(outcomeIssuedYmd) };
+}
+
 export function buildGrievanceResolutionPatch(
     d: Decision,
     grievanceAccepted: boolean,
-    all?: Decision[]
+    all?: Decision[],
+    outcomeIssuedYmd?: string
 ): Partial<Decision> {
     const underlying =
         all && all.length > 0 ? resolveUnderlyingDecisionHub(d, all) : d;
     if (isManualExecutorLedgerDecision(d) || isManualExecutorLedgerDecision(underlying)) {
-        return buildManualExecutorGrievanceOutcomePatch(d, grievanceAccepted);
+        return buildManualExecutorGrievanceOutcomePatch(d, grievanceAccepted, outcomeIssuedYmd);
     }
     const hub = hubWithInferredAppealOrigin(d);
     const granted = grievancePetitionGranted(d, grievanceAccepted);
@@ -197,19 +211,22 @@ export function buildGrievanceResolutionPatch(
         branch === 'after_approval' &&
         resolveGrievanceFilerActor(d) === 'debtor'
     ) {
-        return {
-            appealPhase: null,
-            appealStatus: 'pending',
-            appealResult,
-            appealWorkflowState: 'PENDING_APPEAL_LAWYER',
-            executorOutcome: phys,
-            status: 'accepted',
-            awaitingCassationEntryBy: 'lawyer',
-            grievanceRejectedAwaitingTamyeez: false,
-            grievanceAcceptedAwaitingDebtorTamyeez: false,
-            appealMethod: 'tadhallum',
-            noAppealChosen: false,
-        };
+        return attachGrievanceOutcomeCassationClock(
+            {
+                appealPhase: null,
+                appealStatus: 'pending',
+                appealResult,
+                appealWorkflowState: 'PENDING_APPEAL_LAWYER',
+                executorOutcome: phys,
+                status: 'accepted',
+                awaitingCassationEntryBy: 'lawyer',
+                grievanceRejectedAwaitingTamyeez: false,
+                grievanceAcceptedAwaitingDebtorTamyeez: false,
+                appealMethod: 'tadhallum',
+                noAppealChosen: false,
+            },
+            outcomeIssuedYmd
+        );
     }
 
     if (granted) {
@@ -219,21 +236,24 @@ export function buildGrievanceResolutionPatch(
                 : { executorOutcome: 'approved' as const, status: 'accepted' as const };
         const cassationParty = cassationEntryPartyAfterGrievanceGrant(d);
         if (cassationParty) {
-            return {
-                appealPhase: null,
-                appealStatus: 'pending',
-                appealResult,
-                appealWorkflowState:
-                    cassationParty === 'debtor'
-                        ? ('PENDING_APPEAL_DEBTOR' as const)
-                        : ('PENDING_APPEAL_LAWYER' as const),
-                ...outcome,
-                awaitingCassationEntryBy: cassationParty,
-                grievanceRejectedAwaitingTamyeez: false,
-                grievanceAcceptedAwaitingDebtorTamyeez: cassationParty === 'debtor',
-                appealMethod: 'tadhallum',
-                noAppealChosen: false,
-            };
+            return attachGrievanceOutcomeCassationClock(
+                {
+                    appealPhase: null,
+                    appealStatus: 'pending',
+                    appealResult,
+                    appealWorkflowState:
+                        cassationParty === 'debtor'
+                            ? ('PENDING_APPEAL_DEBTOR' as const)
+                            : ('PENDING_APPEAL_LAWYER' as const),
+                    ...outcome,
+                    awaitingCassationEntryBy: cassationParty,
+                    grievanceRejectedAwaitingTamyeez: false,
+                    grievanceAcceptedAwaitingDebtorTamyeez: cassationParty === 'debtor',
+                    appealMethod: 'tadhallum',
+                    noAppealChosen: false,
+                },
+                outcomeIssuedYmd
+            );
         }
         return {
             appealPhase: null,
@@ -256,32 +276,38 @@ export function buildGrievanceResolutionPatch(
             : { executorOutcome: 'approved' as const, status: 'accepted' as const };
 
     if (branch === 'after_approval') {
-        return {
+        return attachGrievanceOutcomeCassationClock(
+            {
+                appealPhase: null,
+                appealStatus: 'pending',
+                appealResult,
+                appealWorkflowState: 'PENDING_APPEAL_DEBTOR',
+                ...standing,
+                awaitingCassationEntryBy: 'debtor',
+                grievanceRejectedAwaitingTamyeez: true,
+                grievanceAcceptedAwaitingDebtorTamyeez: false,
+                appealMethod: null,
+                noAppealChosen: false,
+            },
+            outcomeIssuedYmd
+        );
+    }
+
+    return attachGrievanceOutcomeCassationClock(
+        {
             appealPhase: null,
             appealStatus: 'pending',
             appealResult,
-            appealWorkflowState: 'PENDING_APPEAL_DEBTOR',
+            appealWorkflowState: 'NONE',
             ...standing,
-            awaitingCassationEntryBy: 'debtor',
             grievanceRejectedAwaitingTamyeez: true,
             grievanceAcceptedAwaitingDebtorTamyeez: false,
+            awaitingCassationEntryBy: d.appealActor ?? null,
             appealMethod: null,
             noAppealChosen: false,
-        };
-    }
-
-    return {
-        appealPhase: null,
-        appealStatus: 'pending',
-        appealResult,
-        appealWorkflowState: 'NONE',
-        ...standing,
-        grievanceRejectedAwaitingTamyeez: true,
-        grievanceAcceptedAwaitingDebtorTamyeez: false,
-        awaitingCassationEntryBy: d.appealActor ?? null,
-        appealMethod: null,
-        noAppealChosen: false,
-    };
+        },
+        outcomeIssuedYmd
+    );
 }
 
 export function petitionGrantedAfterCassation(d: Decision, choice: 'rad_laheeza' | 'naqd'): boolean {

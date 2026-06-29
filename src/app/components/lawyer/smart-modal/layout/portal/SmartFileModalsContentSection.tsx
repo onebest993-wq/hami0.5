@@ -2,6 +2,8 @@ import React from 'react';
 import type { SmartFileModalsPortalProps } from './smartFileModalsPortalTypes';
 import { LazyEditCaseInfoModal, LazyAddDocumentModal, LazyAddNoteModal, LazyAddPaymentModal, LazyAddIncidentalCaseModal, LazyFastTrackModal, LazyAttachmentShieldModal, LazyAddAppointmentModal } from '../../lazySmartFileModalChunks';
 import type { SmartFileCaseFormData } from '../../smartFile/modalFormTypes';
+import { inferLawsuitTypeFromDocType } from '@/app/services/dossier-notes/dossierLawArticleTooltips';
+import { resolveCalendarUserId } from '@/app/services/calendarBridge';
 
 export function SmartFileModalsContentSection(props: SmartFileModalsPortalProps) {
     const {
@@ -74,6 +76,24 @@ export function SmartFileModalsContentSection(props: SmartFileModalsPortalProps)
                         onAdd={h.handleAddNote}
                         editMode={!!editingEvent}
                         editData={editingEvent}
+                        dossierContext={{
+                            kind: 'lawsuit',
+                            lawsuitType: inferLawsuitTypeFromDocType(parentData.docType || displayStage.type),
+                        }}
+                        voiceUserId={resolveCalendarUserId()}
+                        savedNotes={(displayStage.timeline ?? [])
+                            .filter(
+                                (event) =>
+                                    event.type === 'note' &&
+                                    !(event as { isDeleted?: boolean }).isDeleted,
+                            )
+                            .map((event) => ({
+                                id: String(event.id),
+                                title: String(event.title ?? 'ملاحظة').trim() || 'ملاحظة',
+                                body: String(event.details ?? ''),
+                                date: event.date,
+                            }))}
+                        onDeleteNote={(id) => h.handleDeleteEvent(id)}
                     />
                 )}
                 {showPaymentModal && (

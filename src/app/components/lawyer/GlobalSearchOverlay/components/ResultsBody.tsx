@@ -5,7 +5,6 @@ import {
     type GroupedSearchResults,
 } from '@/app/services/globalSearchIndex';
 import { CATEGORY_META, SEARCH_SECTION_ORDER } from '@/app/components/lawyer/GlobalSearchOverlay/constants';
-import { flattenGroupedResults } from '@/app/components/lawyer/GlobalSearchOverlay/utils/flattenGroupedResults';
 import { ResultRow } from '@/app/components/lawyer/GlobalSearchOverlay/components/ResultRow';
 import {
     buildPinFromSearchEntry,
@@ -17,6 +16,7 @@ import type { ClusterScanRecord } from '@/app/workspace/types';
 
 export interface ResultsBodyProps {
     grouped: GroupedSearchResults;
+    flatResults: GlobalSearchEntry[];
     query: string;
     onPick: (e: GlobalSearchEntry) => void;
     pinLookup: WorkspacePinLookupContext;
@@ -27,6 +27,7 @@ export interface ResultsBodyProps {
 
 export function ResultsBody({
     grouped,
+    flatResults,
     query,
     onPick,
     pinLookup,
@@ -34,26 +35,24 @@ export function ResultsBody({
     activeIndex,
     onActiveIndexChange,
 }: ResultsBodyProps) {
-    const flat = useMemo(() => flattenGroupedResults(grouped), [grouped]);
-
     const idToIndex = useMemo(() => {
         const map = new Map<string, number>();
-        flat.forEach((e, i) => map.set(e.id, i));
+        flatResults.forEach((e, i) => map.set(e.id, i));
         return map;
-    }, [flat]);
+    }, [flatResults]);
 
     const enriched = useMemo(() => {
         const map = new Map<
             string,
             { pinItem: ReturnType<typeof buildPinFromSearchEntry>; relatedLinkCount: number }
         >();
-        for (const e of flat) {
+        for (const e of flatResults) {
             const pinItem = canPinSearchEntry(e) ? buildPinFromSearchEntry(e, pinLookup) : null;
             const relatedLinkCount = pinItem ? findCrossSectionLinks(pinItem, scanIndex).length : 0;
             map.set(e.id, { pinItem, relatedLinkCount });
         }
         return map;
-    }, [flat, pinLookup, scanIndex]);
+    }, [flatResults, pinLookup, scanIndex]);
 
     return (
         <div className="space-y-6 pb-5 px-2">

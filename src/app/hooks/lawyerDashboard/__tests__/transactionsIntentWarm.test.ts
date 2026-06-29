@@ -1,0 +1,38 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+    warmTransactionsOnHover,
+    warmTransactionsOnOpen,
+} from '@/app/hooks/lawyerDashboard/transactionsIntentWarm';
+
+const loadTransactionsHubModule = vi.fn(() => Promise.resolve({}));
+const warmTransactionsThreadingStore = vi.fn(() => Promise.resolve());
+
+vi.mock('@/app/runtime/transactionsHubLoader', () => ({
+    loadTransactionsHubModule: () => loadTransactionsHubModule(),
+}));
+
+vi.mock('@/app/modules/transactionsThreading/store', () => ({
+    warmTransactionsThreadingStore: (...args: unknown[]) => warmTransactionsThreadingStore(...args),
+}));
+
+describe('transactionsIntentWarm', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('يحمّل chunk المعاملات عند hover', () => {
+        warmTransactionsOnHover();
+        expect(loadTransactionsHubModule).toHaveBeenCalledTimes(1);
+    });
+
+    it('يُحمّي المخزن عند الفتح مع userId', () => {
+        warmTransactionsOnOpen('lawyer-1');
+        expect(loadTransactionsHubModule).toHaveBeenCalled();
+        expect(warmTransactionsThreadingStore).toHaveBeenCalledWith('lawyer-1');
+    });
+
+    it('يتخطى warm المخزن بدون userId', () => {
+        warmTransactionsOnOpen(null);
+        expect(warmTransactionsThreadingStore).not.toHaveBeenCalled();
+    });
+});

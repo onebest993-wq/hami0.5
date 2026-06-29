@@ -4,6 +4,7 @@ import type { ExecutionFile } from '@/app/types/execution';
 import { ExecutionPinnedNotesTray } from './ExecutionPinnedNotesTray';
 import { prefetchLawReferencePanel, prefetchExecutionDashboardShell } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShell';
 import { prefetchExecutionActionGridTile } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardOverlayPrefetch';
+import { EXECUTION_DOSSIER_TEST_IDS } from '@/app/components/lawyer/ExecutionDashboard/executionDossierTestIds';
 import { useExecutionDashboardStore } from '@/app/stores/executionDashboardStore';
 
 type CaseNoteLogRow = NonNullable<ExecutionFile['caseNotesLog']>[number];
@@ -249,6 +250,9 @@ export const ActionGridSection = memo(function ActionGridSection({
                         <button
                             type="button"
                             disabled={tile.locked}
+                            data-testid={
+                                tile.key === 'followup' ? EXECUTION_DOSSIER_TEST_IDS.followupMemo : undefined
+                            }
                             onPointerEnter={() => prefetchExecutionActionGridTile(tile.key)}
                             onClick={tile.onClick}
                             className={`group flex min-h-[100px] w-full flex-col items-center justify-center gap-2 rounded-xl border px-2 py-4 text-center backdrop-blur-md transition-all duration-200 focus:outline-none focus-visible:ring-2 ${tile.tone} ${

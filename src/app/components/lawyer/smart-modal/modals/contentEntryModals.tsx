@@ -10,6 +10,11 @@ import {
     X,
 } from 'lucide-react';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { resolveCalendarUserId } from '@/app/services/calendarBridge';
+import { inferLawsuitTypeFromDocType } from '@/app/services/dossier-notes/dossierLawArticleTooltips';
+import { DossierFastNoteComposer } from '@/app/components/lawyer/dossier-notes/DossierFastNoteComposer';
+import { DossierNotesVault, type DossierVaultNote } from '@/app/components/lawyer/dossier-notes/DossierNotesVault';
+import { SmartToast } from '@/app/components/ui/SmartToast';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../smartFile/civilLawsuitTestIds';
 import type {
     AddAppointmentModalProps,
@@ -250,77 +255,108 @@ export const AddDocumentModal = ({ isOpen, onClose, onAdd, editMode = false, edi
 };
 
 
-export const AddNoteModal = ({ isOpen, onClose, onAdd, editMode = false, editData }: AddNoteModalProps) => {
+export const AddNoteModal = ({
+    isOpen,
+    onClose,
+    onAdd,
+    editMode = false,
+    editData,
+    dossierContext,
+    voiceUserId,
+    savedNotes = [],
+    onDeleteNote,
+}: AddNoteModalProps) => {
     const T = useSmartFileModalTheme();
     const [title, setTitle] = useState('');
-    const [details, setDetails] = useState('');
-    const [selectedTags, setSelectedTags] = useState<string[]>([]);
+    const [bodyHtml, setBodyHtml] = useState('');
+    const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+
+    const noteContext =
+        dossierContext ??
+        ({
+            kind: 'lawsuit',
+            lawsuitType: 'civil',
+        } as const);
+
+    const isEditing = Boolean(editingNoteId || (editMode && editData?.id));
 
     React.useEffect(() => {
         if (editMode && editData) {
             setTitle(editData.title || '');
-            setDetails(editData.details || '');
-            setSelectedTags(
-                (editData.tags || [])
-                    .map((tag) => normalizeManualClassificationTag(String(tag)))
-                    .filter(Boolean),
-            );
-        } else {
+            setBodyHtml(editData.details || '');
+            setEditingNoteId(editData.id ? String(editData.id) : null);
+        } else if (isOpen) {
             setTitle('');
-            setDetails('');
-            setSelectedTags([]);
+            setBodyHtml('');
+            setEditingNoteId(null);
         }
-    }, [editMode, editData]);
+    }, [editMode, editData, isOpen]);
 
-    const handleSubmit = () => {
-        onAdd({
-            title,
-            details,
-            tags: selectedTags,
-            ...(editMode && editData ? { id: editData.id } : {}),
-        });
-        onClose();
+    const resetComposer = () => {
         setTitle('');
-        setDetails('');
-        setSelectedTags([]);
+        setBodyHtml('');
+        setEditingNoteId(null);
+    };
+
+    const commitNote = (payload: { title: string; bodyHtml: string }) => {
+        onAdd({
+            title: payload.title,
+            details: payload.bodyHtml,
+            ...(editingNoteId ? { id: editingNoteId } : editMode && editData?.id ? { id: editData.id } : {}),
+        });
+        resetComposer();
+        SmartToast.success(isEditing ? 'تم تحديث الملاحظة' : 'تم حفظ الملاحظة في مخزن الإضبارة');
+    };
+
+    const handleVaultEdit = (note: DossierVaultNote) => {
+        setTitle(note.title);
+        setBodyHtml(note.body);
+        setEditingNoteId(note.id);
     };
 
     if (!isOpen) return null;
 
     return (
         <MoroccanGlassShell onOverlayClick={onClose}>
-            <SmartModalHeader T={T} icon={FileText} title={editMode ? 'تعديل ملاحظة' : 'إضافة ملاحظة'} onClose={onClose} />
-            <div className={T.useMoroccanCorners ? 'p-5 space-y-4' : T.body}>
-                        <input
-                            type="text"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            placeholder="عنوان الملاحظة"
-                            className={T.field}
-                            autoFocus
-                        />
-                        <textarea
-                            value={details}
-                            onChange={(e) => setDetails(e.target.value)}
-                            rows={5}
-                            className={`${T.field} resize-none min-h-[120px]`}
-                            placeholder="اكتب الملاحظة هنا..."
-                        />
-
-                        <ManualClassificationPicker
-                            mode="multi"
-                            selected={selectedTags}
-                            onSelectedChange={setSelectedTags}
-                            placeholder="مثال: #محضر"
-                            inputTestId={CIVIL_LAWSUIT_TEST_IDS.noteTagManualInput}
-                            addTestId={CIVIL_LAWSUIT_TEST_IDS.noteTagManualAdd}
-                            chipTestId={CIVIL_LAWSUIT_TEST_IDS.noteTagTemplateChip}
-                            removeTestId={CIVIL_LAWSUIT_TEST_IDS.noteTagTemplateRemove}
-                        />
-
-                        <button type="button" onClick={handleSubmit} className={T.btn}>
-                            {editMode ? 'تحديث الملاحظة' : 'حفظ الملاحظة'}
-                        </button>
+            <SmartModalHeader
+                T={T}
+                icon={FileText}
+                title={isEditing ? 'تعديل ملاحظة' : 'ملاحظات الإضبارة'}
+                onClose={onClose}
+            />
+            <div className={T.useMoroccanCorners ? 'p-5 space-y-4 max-h-[min(82dvh,720px)] overflow-y-auto' : T.body}>
+                <DossierNotesVault
+                    notes={savedNotes}
+                    onEdit={handleVaultEdit}
+                    onDelete={onDeleteNote}
+                    variant="repo"
+                    heading="مخزن الملاحظات"
+                    emptyLabel="لا توجد ملاحظات محفوظة بعد — اكتب ملاحظة جديدة أدناه."
+                    lawContext={noteContext}
+                />
+                <div className="border-t border-white/[0.08] pt-4">
+                    <p className="mb-3 text-xs font-bold text-[#E6C673]/85">
+                        {isEditing ? 'تعديل الملاحظة' : 'ملاحظة جديدة'}
+                    </p>
+                    <DossierFastNoteComposer
+                        title={title}
+                        onTitleChange={setTitle}
+                        bodyHtml={bodyHtml}
+                        onBodyChange={setBodyHtml}
+                        context={noteContext}
+                        onSave={commitNote}
+                        onCancel={() => {
+                            if (isEditing) resetComposer();
+                            else onClose();
+                        }}
+                        saveLabel={isEditing ? 'تحديث الملاحظة' : 'حفظ الملاحظة'}
+                        voiceUserId={voiceUserId ?? resolveCalendarUserId()}
+                        onVoiceNote={(voicePayload) => {
+                            commitNote({ title: voicePayload.title, bodyHtml: voicePayload.body });
+                        }}
+                        expanded
+                    />
+                </div>
             </div>
         </MoroccanGlassShell>
     );

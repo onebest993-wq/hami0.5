@@ -2,6 +2,9 @@ import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { GlobalSearchNavigate } from '@/app/services/globalSearchIndex';
 
 export interface GlobalSearchOverlayProps {
+    /** يتحكم في حركة الدخول/الخروج — يبقى المكوّن mounted حتى ينتهي exit */
+    open?: boolean;
+    onExitComplete?: () => void;
     onClose: () => void;
     onNavigate: (navigate: GlobalSearchNavigate) => void;
     files: FileData[];
@@ -12,6 +15,7 @@ export interface GlobalSearchOverlayProps {
     userId: string | null;
     initialQuery?: string;
     indexVersion?: number;
+    searchSessionKey?: number;
 }
 
 export type { GlobalSearchNavigate };

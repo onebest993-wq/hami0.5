@@ -148,8 +148,10 @@ const toneRing: Record<PartyInteractiveBadge['tone'], string> = {
     violet: 'bg-violet-900/30 border-violet-500/50 text-violet-300',
 };
 
-const BADGE_PILL_CLASS =
-    'group inline-flex flex-row-reverse items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-bold transition-all hover:brightness-110 hover:shadow-[0_0_16px_rgba(0,0,0,0.25)] cursor-pointer';
+import {
+    PARTY_BADGE_ICON_SIZE,
+    PARTY_BADGE_PILL_CLASS,
+} from './partyBadgeShell';
 
 /** ترتيب ثابت للشارات — المهل والسياق القانوني أولاً، ثم الجبري الشخصي، ثم المالي */
 const BADGE_DISPLAY_ORDER: Record<string, number> = {
@@ -497,23 +499,19 @@ export function buildPartyBadgeDefinitions(args: {
         });
     }
 
-    /** إخفاء إحضار جبري عند أي تفعيل لمسار مذكرة القبض (لا تكديس مع شارة القبض) */
     if (debtorPrimary && coerciveStack?.showForcedAttendance) {
-        const statusLine = coerciveStack.forcedNeedsOutcome
-            ? 'إحضار جبري نافذ — سجّل النتيجة (تم الإحضار / متخفي).'
-            : 'مسار إحضار جبري نافذ — راجع محضر المتابعة.';
         out.push({
             id: 'forced_attendance',
-            shortLabel: coerciveStack.forcedNeedsOutcome
-                ? 'الإحضار الجبري — تسجيل النتيجة'
-                : 'إحضار جبري',
+            shortLabel: 'إحضار جبري',
             Icon: Gavel,
             tone: 'rose',
             dismissMode: 'local',
             detailLines: [
                 {
                     k: 'الحالة',
-                    v: statusLine,
+                    v: coerciveStack.forcedNeedsOutcome
+                        ? 'بانتظار تسجيل نتيجة الإحضار'
+                        : 'مسار إحضار جبري نافذ',
                 },
             ],
         });
@@ -594,6 +592,9 @@ export type ExecutionPartyInteractiveBadgesProps = {
     isHistoricalMode?: boolean;
     /** داخل صف موحّد مع شارات المحجوزات — بدون غلاف flex منفصل */
     embeddedInRow?: boolean;
+    /** حالة حضور محلية — تسبق executionData عند التسجيل الفوري */
+    debtorAttendedVoluntarily?: boolean;
+    voluntaryAttendanceCount?: number;
 };
 
 export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractiveBadgesProps> = ({
@@ -641,6 +642,8 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
     isHistoricalMode = false,
     debtorIsEmployee = false,
     embeddedInRow = false,
+    debtorAttendedVoluntarily: debtorAttendedVoluntarilyProp,
+    voluntaryAttendanceCount: voluntaryAttendanceCountProp,
 }) => {
     const [hiddenLocal, setHiddenLocal] = useState<string[]>(() => loadHidden(executionId));
     const [openId, setOpenId] = useState<string | null>(null);
@@ -819,7 +822,9 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
     const extraDefs = useMemo(() => {
         const extra: PartyInteractiveBadge[] = [];
         const nowMs = Date.now();
-        const isAttendedGlobal = Boolean(executionData?.debtorAttendedVoluntarily);
+        const isAttendedGlobal =
+            Boolean(debtorAttendedVoluntarilyProp ?? executionData?.debtorAttendedVoluntarily) ||
+            (voluntaryAttendanceCountProp ?? executionData?.voluntaryAttendanceCount ?? 0) > 0;
         const dossierUpdatedAt = String(executionData?.updatedAt ?? '').trim();
         const isOneDayPassedFrom = (isoOrYmd: string): boolean => {
             const s = String(isoOrYmd || '').trim();
@@ -884,7 +889,7 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
             const recordedAt = String(publicationNoticeBadge.recordedAt ?? '').trim();
             const isOneDayPassed = recordedAt ? isOneDayPassedFrom(recordedAt) : false;
             if (
-                !shouldShowStrict({
+                shouldShowStrict({
                     isAttended: false,
                     isPeriodEnded,
                     periodEndedAt: publicationNoticeBadge.periodEndedAt,
@@ -892,32 +897,31 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
                     isOneDayPassed,
                 })
             ) {
-                return extra;
+                extra.push({
+                    id: 'publication_notice',
+                    shortLabel: 'مُبلَّغ بالصحف',
+                    Icon: Newspaper,
+                    tone: publicationNoticeBadge.graceExpired ? 'amber' : 'violet',
+                    dismissMode: 'callback',
+                    onDismiss: onDismissPublicationNoticeBadge,
+                    onActivate: onPublicationNoticeActivate,
+                    detailLines: [
+                        { k: 'تاريخ النشر', v: publicationNoticeBadge.publicationDateYmd },
+                        { k: 'الجريدة ١', v: publicationNoticeBadge.newspaper1 },
+                        { k: 'الجريدة ٢', v: publicationNoticeBadge.newspaper2 },
+                        {
+                            k: 'آخر يوم للمدة',
+                            v: publicationNoticeBadge.deadlineYmd,
+                        },
+                        {
+                            k: 'المتبقي',
+                            v: publicationNoticeBadge.graceExpired
+                                ? 'انتهت المدة'
+                                : `${publicationNoticeBadge.remaining} يوماً`,
+                        },
+                    ],
+                });
             }
-            extra.push({
-                id: 'publication_notice',
-                shortLabel: 'مُبلَّغ بالصحف',
-                Icon: Newspaper,
-                tone: publicationNoticeBadge.graceExpired ? 'amber' : 'violet',
-                dismissMode: 'callback',
-                onDismiss: onDismissPublicationNoticeBadge,
-                onActivate: onPublicationNoticeActivate,
-                detailLines: [
-                    { k: 'تاريخ النشر', v: publicationNoticeBadge.publicationDateYmd },
-                    { k: 'الجريدة ١', v: publicationNoticeBadge.newspaper1 },
-                    { k: 'الجريدة ٢', v: publicationNoticeBadge.newspaper2 },
-                    {
-                        k: 'آخر يوم للمدة',
-                        v: publicationNoticeBadge.deadlineYmd,
-                    },
-                    {
-                        k: 'المتبقي',
-                        v: publicationNoticeBadge.graceExpired
-                            ? 'انتهت المدة'
-                            : `${publicationNoticeBadge.remaining} يوماً`,
-                    },
-                ],
-            });
         }
         if (
             party === 'debtor' &&
@@ -947,7 +951,7 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
             const recordedAt = String(regularTablighBadge.recordedAt ?? '').trim();
             const isOneDayPassed = recordedAt ? isOneDayPassedFrom(recordedAt) : false;
             if (
-                !shouldShowStrict({
+                shouldShowStrict({
                     isAttended: false,
                     isPeriodEnded,
                     periodEndedAt: regularTablighBadge.periodEndedAt,
@@ -955,24 +959,23 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
                     isOneDayPassed,
                 })
             ) {
-                return extra;
+                extra.push({
+                    id: 'summons_attendance',
+                    shortLabel: 'مُبلَّغ',
+                    Icon: Bell,
+                    tone: 'indigo',
+                    dismissMode: 'callback',
+                    onDismiss: onDismissRegularTablighBadge,
+                    onActivate: onSummonsActivate,
+                    detailLines: [
+                        {
+                            k: 'تاريخ التبليغ',
+                            v: formatDateAr(regularTablighBadge.noticeDateYmd),
+                        },
+                        { k: 'الغاية', v: regularTablighBadge.purpose.trim() || 'تبليغ' },
+                    ],
+                });
             }
-            extra.push({
-                id: 'summons_attendance',
-                shortLabel: 'مُبلَّغ',
-                Icon: Bell,
-                tone: 'indigo',
-                dismissMode: 'callback',
-                onDismiss: onDismissRegularTablighBadge,
-                onActivate: onSummonsActivate,
-                detailLines: [
-                    {
-                        k: 'تاريخ التبليغ',
-                        v: formatDateAr(regularTablighBadge.noticeDateYmd),
-                    },
-                    { k: 'الغاية', v: regularTablighBadge.purpose.trim() || 'تبليغ' },
-                ],
-            });
         }
         if (party === 'debtor' && taklifAssignmentBadge) {
             const tb = taklifAssignmentBadge;
@@ -982,7 +985,7 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
             const confirmedAt = String(tb.confirmedAt ?? '').trim();
             const isOneDayPassed = confirmedAt ? isOneDayPassedFrom(confirmedAt) : false;
             if (
-                !shouldShowStrict({
+                shouldShowStrict({
                     isAttended: false,
                     isPeriodEnded,
                     periodEndedAt: tb.periodEndedAt,
@@ -990,44 +993,43 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
                     isOneDayPassed,
                 })
             ) {
-                return extra;
+                const phaseAr =
+                    tb.phase === 'active'
+                        ? 'تكليف سارٍ'
+                        : tb.phase === 'absent_declared'
+                          ? 'عدم حضور — متابعة مفاتحة/تنفيذ'
+                          : tb.phase === 'investigation_pending'
+                            ? 'مفاتحة التحقيق قيد البتّ'
+                            : 'أمر قبض — إحضار أو إنهاء';
+                const remAr =
+                    tb.remainingDays === null
+                        ? '—'
+                        : tb.remainingDays === 0
+                          ? 'انتهت المدة التقويمية'
+                          : `${tb.remainingDays} يوماً`;
+                extra.push({
+                    id: 'taklif_attendance',
+                    shortLabel: 'مكلف بالحضور',
+                    Icon: Calendar,
+                    tone: 'amber',
+                    dismissMode: 'callback',
+                    onDismiss: onDismissTaklifAssignmentBadge,
+                    onActivate: onTaklifAssignmentActivate,
+                    detailLines: [
+                        { k: 'الغاية', v: tb.purpose.trim() || '—' },
+                        { k: 'تاريخ التكليف', v: formatDateAr(tb.notifyDateYmd) },
+                        { k: 'آخر أجل للمدة', v: formatDateAr(tb.deadlineYmd) },
+                        { k: 'المتبقي', v: remAr },
+                        { k: 'المرحلة', v: phaseAr },
+                        ...(typeof tb.durationDays === 'number' && tb.durationDays > 0
+                            ? [{ k: 'المدة', v: `${tb.durationDays} يوماً` }]
+                            : []),
+                        ...(typeof tb.cycleGeneration === 'number' && tb.cycleGeneration > 0
+                            ? [{ k: 'دورة التكليف', v: String(tb.cycleGeneration) }]
+                            : []),
+                    ],
+                });
             }
-            const phaseAr =
-                tb.phase === 'active'
-                    ? 'تكليف سارٍ'
-                    : tb.phase === 'absent_declared'
-                      ? 'عدم حضور — متابعة مفاتحة/تنفيذ'
-                      : tb.phase === 'investigation_pending'
-                        ? 'مفاتحة التحقيق قيد البتّ'
-                        : 'أمر قبض — إحضار أو إنهاء';
-            const remAr =
-                tb.remainingDays === null
-                    ? '—'
-                    : tb.remainingDays === 0
-                      ? 'انتهت المدة التقويمية'
-                      : `${tb.remainingDays} يوماً`;
-            extra.push({
-                id: 'taklif_attendance',
-                shortLabel: 'مكلف بالحضور',
-                Icon: Calendar,
-                tone: 'amber',
-                dismissMode: 'callback',
-                onDismiss: onDismissTaklifAssignmentBadge,
-                onActivate: onTaklifAssignmentActivate,
-                detailLines: [
-                    { k: 'الغاية', v: tb.purpose.trim() || '—' },
-                    { k: 'تاريخ التكليف', v: formatDateAr(tb.notifyDateYmd) },
-                    { k: 'آخر أجل للمدة', v: formatDateAr(tb.deadlineYmd) },
-                    { k: 'المتبقي', v: remAr },
-                    { k: 'المرحلة', v: phaseAr },
-                    ...(typeof tb.durationDays === 'number' && tb.durationDays > 0
-                        ? [{ k: 'المدة', v: `${tb.durationDays} يوماً` }]
-                        : []),
-                    ...(typeof tb.cycleGeneration === 'number' && tb.cycleGeneration > 0
-                        ? [{ k: 'دورة التكليف', v: String(tb.cycleGeneration) }]
-                        : []),
-                ],
-            });
         }
 
         if (party === 'debtor' && isPrimaryDebtor && evictionGraceBadge) {
@@ -1095,6 +1097,8 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
         onCompletePoliceAssistance,
         executionData,
         executionId,
+        debtorAttendedVoluntarilyProp,
+        voluntaryAttendanceCountProp,
         personalCoerciveDecisionBadges,
         debtorArrested,
         forcedAttendancePending,
@@ -1412,9 +1416,9 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
                                     if (isHistoricalMode) return;
                                     setOpenId((id) => (id === b.id ? null : b.id));
                                 }}
-                                className={`${BADGE_PILL_CLASS} ${toneRing[b.tone]}`}
+                                className={`${PARTY_BADGE_PILL_CLASS} ${toneRing[b.tone]}`}
                             >
-                                <Icon size={14} className="shrink-0 opacity-90" strokeWidth={2} />
+                                <Icon size={PARTY_BADGE_ICON_SIZE} className="shrink-0 opacity-90" strokeWidth={2} />
                                 <span className="whitespace-nowrap">{b.shortLabel}</span>
                             </button>
                         </div>

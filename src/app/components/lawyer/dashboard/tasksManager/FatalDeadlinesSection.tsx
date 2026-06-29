@@ -8,35 +8,45 @@ export type FatalDeadlinesSectionProps = {
     renderTaskCard: (task: LegalTask, fatalPulse: boolean) => React.ReactNode;
 };
 
-export function FatalDeadlinesSection({ fatalTasks, renderTaskCard }: FatalDeadlinesSectionProps) {
+export const FatalDeadlinesSection = React.memo(function FatalDeadlinesSection({
+    fatalTasks,
+    renderTaskCard,
+}: FatalDeadlinesSectionProps) {
+    const hasTasks = fatalTasks.length > 0;
+
     return (
         <section
             className={
-                fatalTasks.length === 0
-                    ? `${TASKS_GLASS_PANEL} border-rose-900/30 px-5 py-4`
-                    : `${TASKS_GLASS_PANEL} border-rose-500/40 px-5 py-6 shadow-[0_0_32px_rgba(244,63,94,0.12)]`
+                hasTasks
+                    ? `${TASKS_GLASS_PANEL} border-[#A67C52]/35 px-5 py-6 shadow-[0_0_28px_rgba(166,124,82,0.1)]`
+                    : `${TASKS_GLASS_PANEL} border-[#A67C52]/20 px-5 py-4`
             }
             aria-labelledby="fatal-deadlines-heading"
+            data-testid="tasks-fatal-section"
         >
+            <div className="h-px bg-gradient-to-r from-transparent via-[#A67C52]/30 to-transparent mb-3" />
             <h2
                 id="fatal-deadlines-heading"
                 className={`font-extrabold flex flex-row-reverse items-center gap-2 mb-3 ${
-                    fatalTasks.length === 0 ? 'text-sm text-rose-200/75' : 'text-lg text-rose-100'
+                    hasTasks ? 'text-lg text-[#E8F5F0]' : 'text-sm text-[#D4B896]/85'
                 }`}
             >
                 <ShieldAlert
-                    className={`shrink-0 ${fatalTasks.length === 0 ? 'size-4 text-rose-400/70' : 'size-6 text-rose-400'}`}
+                    className={`shrink-0 ${hasTasks ? 'size-6 text-[#A67C52]' : 'size-4 text-[#A67C52]/70'}`}
                     aria-hidden
                 />
                 مواعيد حتمية قاطعة
             </h2>
-            {fatalTasks.length === 0 ? (
-                <span className="text-[#6BC4A8]/50 text-sm font-medium block text-center py-2">
+            {hasTasks ? (
+                <ul className="space-y-4 mt-2">{fatalTasks.map((t) => renderTaskCard(t, true))}</ul>
+            ) : (
+                <span
+                    className="text-[#6BC4A8]/50 text-sm font-medium block text-center py-2"
+                    data-testid="tasks-fatal-empty"
+                >
                     لا توجد مواعيد حتمية قريبة.
                 </span>
-            ) : (
-                <ul className="space-y-4 mt-2">{fatalTasks.map((t) => renderTaskCard(t, true))}</ul>
             )}
         </section>
     );
-}
+});

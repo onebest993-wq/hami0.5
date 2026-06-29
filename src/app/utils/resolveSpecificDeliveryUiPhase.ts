@@ -2,6 +2,14 @@ import {
     resolveSpecificDeliveryItemNature,
     type SpecificDeliveryItemNature,
 } from '@/app/utils/executionModuleStrategies';
+import {
+    aggregateSpecificDeliveryFinancializedAmount,
+    allSpecificDeliveryItemsFinancialized,
+    getPendingSpecificDeliveryItems,
+    readSpecificDeliveryItems,
+    resolvePrimarySpecificDeliveryNature,
+    type SpecificDeliveryItem,
+} from '@/app/utils/specificDeliveryItemsUtils';
 
 /** مرحلة واجهة تسليم شيء معين */
 export type SpecificDeliveryUiPhase = 'needs_nature' | 'pre_delivery' | 'post_financialization';
@@ -9,6 +17,7 @@ export type SpecificDeliveryUiPhase = 'needs_nature' | 'pre_delivery' | 'post_fi
 export interface SpecificDeliveryUiPhaseInput {
     specificDeliveryItemNature?: string | null;
     specificDeliveryFinancialized?: boolean;
+    specificDeliveryItems?: SpecificDeliveryItem[] | null;
     isEmployee: boolean;
 }
 
@@ -33,6 +42,7 @@ export interface SpecificDeliveryUiPhaseResult {
     hideCoerciveGraceNotice: boolean;
     hideCoerciveFinancialBanners: boolean;
     hideCoerciveSeizureTools: boolean;
+    hideFollowupSeizureRequestsTab: boolean;
     hideEvictionCustodianProcedure: boolean;
     hideEncroachmentEvictionExtras: boolean;
 }
@@ -55,6 +65,7 @@ const needsNatureResult = (isEmployee: boolean): SpecificDeliveryUiPhaseResult =
     hideCoerciveGraceNotice: true,
     hideCoerciveFinancialBanners: true,
     hideCoerciveSeizureTools: true,
+    hideFollowupSeizureRequestsTab: false,
     hideEvictionCustodianProcedure: true,
     hideEncroachmentEvictionExtras: true,
 });
@@ -62,16 +73,34 @@ const needsNatureResult = (isEmployee: boolean): SpecificDeliveryUiPhaseResult =
 export function resolveSpecificDeliveryUiPhase(
     input: SpecificDeliveryUiPhaseInput
 ): SpecificDeliveryUiPhaseResult {
-    const nature = resolveSpecificDeliveryItemNature(input.specificDeliveryItemNature);
-    const financialized = Boolean(input.specificDeliveryFinancialized);
+    const items = readSpecificDeliveryItems(input);
+    const pendingItems = getPendingSpecificDeliveryItems(items);
+    const hasPending =
+        pendingItems.length > 0 ||
+        (items.length === 0 && !Boolean(input.specificDeliveryFinancialized));
+    const financializedTotal =
+        items.length > 0
+            ? aggregateSpecificDeliveryFinancializedAmount(items)
+            : 0;
+    const anyFinancialized =
+        financializedTotal > 0 ||
+        (items.length === 0 && Boolean(input.specificDeliveryFinancialized));
+    const allFinancialized =
+        items.length > 0
+            ? allSpecificDeliveryItemsFinancialized(items)
+            : Boolean(input.specificDeliveryFinancialized);
     const isEmployee = Boolean(input.isEmployee);
 
-    if (!nature) {
+    const naturePool = pendingItems.length > 0 ? pendingItems : items;
+    const nature =
+        resolvePrimarySpecificDeliveryNature(naturePool, input.specificDeliveryItemNature) ??
+        resolveSpecificDeliveryItemNature(input.specificDeliveryItemNature);
+
+    if (!nature && items.length === 0) {
         return needsNatureResult(isEmployee);
     }
 
-    if (financialized) {
-        const earnerMovable = !isEmployee && nature === 'movable';
+    if (allFinancialized && !hasPending) {
         return {
             phase: 'post_financialization',
             nature,
@@ -80,40 +109,44 @@ export function resolveSpecificDeliveryUiPhase(
             showBreakInventoryCard: false,
             showHiddenBreakInventoryRequest: false,
             showConversionCard: false,
-            showPersonalCoerciveTab: earnerMovable,
-            hidePersonalDetentionCard: false,
-            hidePersonalForcedBringCard: false,
+            showPersonalCoerciveTab: false,
+            hidePersonalDetentionCard: true,
+            hidePersonalForcedBringCard: true,
             activateFinancialSeizurePath: true,
             hideCoerciveFollowupTab: isEmployee,
             showFinancialGuarantorRequestOnly: !isEmployee,
             hideGuarantorSeizureSubTab: true,
             hideCoerciveGraceNotice: true,
-            hideCoerciveFinancialBanners: false,
-            hideCoerciveSeizureTools: false,
+            hideCoerciveFinancialBanners: true,
+            hideCoerciveSeizureTools: true,
+            hideFollowupSeizureRequestsTab: false,
             hideEvictionCustodianProcedure: true,
             hideEncroachmentEvictionExtras: true,
         };
     }
 
-    const immovable = nature === 'immovable';
+    const pendingImmovable = pendingItems.some((item) => item.nature === 'immovable');
+    const effectiveNature = nature ?? pendingItems[0]?.nature ?? 'movable';
+
     return {
-        phase: 'pre_delivery',
-        nature,
-        showFieldProcedures: true,
-        showSurveyorCard: immovable,
+        phase: hasPending ? 'pre_delivery' : 'post_financialization',
+        nature: effectiveNature,
+        showFieldProcedures: hasPending,
+        showSurveyorCard: pendingImmovable,
         showBreakInventoryCard: false,
-        showHiddenBreakInventoryRequest: immovable,
-        showConversionCard: true,
+        showHiddenBreakInventoryRequest: pendingImmovable,
+        showConversionCard: hasPending,
         showPersonalCoerciveTab: false,
-        hidePersonalDetentionCard: immovable || isEmployee,
-        hidePersonalForcedBringCard: immovable,
-        activateFinancialSeizurePath: false,
+        hidePersonalDetentionCard: anyFinancialized || pendingImmovable || isEmployee,
+        hidePersonalForcedBringCard: anyFinancialized || pendingImmovable,
+        activateFinancialSeizurePath: anyFinancialized,
         hideCoerciveFollowupTab: false,
         showFinancialGuarantorRequestOnly: false,
         hideGuarantorSeizureSubTab: isEmployee,
         hideCoerciveGraceNotice: true,
         hideCoerciveFinancialBanners: true,
         hideCoerciveSeizureTools: true,
+        hideFollowupSeizureRequestsTab: !anyFinancialized,
         hideEvictionCustodianProcedure: true,
         hideEncroachmentEvictionExtras: true,
     };

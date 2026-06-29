@@ -23,6 +23,7 @@ export function useDecisionsAppealsMutations(params: DecisionsAppealsMutationsCo
         applyWaiveInitialAppeal,
         transitionAppealWorkflow,
         commitExecutorSideAppealEntry,
+        commitQueueRequestAppealEntry,
         applyLawyerCassationEntry,
     } = useDecisionsAppealsAppealWorkflowMutations(params);
 
@@ -39,6 +40,7 @@ export function useDecisionsAppealsMutations(params: DecisionsAppealsMutationsCo
         handleAddDecision,
         transitionAppealWorkflow,
         commitExecutorSideAppealEntry,
+        commitQueueRequestAppealEntry,
         applyLawyerCassationEntry,
     };
 }

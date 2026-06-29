@@ -1,4 +1,4 @@
-import type { InvestigationPapersAt } from './criminalStore';
+import type { InvestigationPapersAt } from './criminalCaseModel';
 
 /** مكان تدوين الإفادة — مرحلة التحقيق فقط. */
 export type StatementRecordingPlace = 'investigation_officer' | 'judicial_investigator';

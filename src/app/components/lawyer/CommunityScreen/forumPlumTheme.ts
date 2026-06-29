@@ -12,7 +12,8 @@ export const FORUM_PAGE_BG: React.CSSProperties = {
     background: 'linear-gradient(155deg, #0E0812 0%, #140A18 48%, #1A1020 100%)',
 };
 
-export const FORUM_LAYER = 'fixed inset-0 z-[95] h-[100dvh] bg-[#0E0812]';
+export const FORUM_LAYER =
+    'fixed inset-0 z-[95] h-[100dvh] bg-[#0E0812] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]';
 
 export const FORUM_FEED_CARD =
     'group rounded-xl p-4 border bg-[#38303E] border-[#4A3D52]/55 text-[#E6E0E4] ' +
@@ -20,7 +21,7 @@ export const FORUM_FEED_CARD =
     'transition-[border-color,background-color] duration-150 relative';
 
 export const FORUM_INTERACT_BTN =
-    'flex items-center gap-1 rounded-lg px-2 py-1.5 text-[#9A9098] ' +
+    'flex items-center gap-1 rounded-lg px-3 py-2.5 min-h-[44px] touch-manipulation text-[#9A9098] ' +
     'hover:text-[#F0B896] hover:bg-[#F0B896]/10 active:bg-[#F0B896]/16 active:text-[#F8C4A8] ' +
     'transition-[color,background-color] duration-150';
 
@@ -56,9 +57,12 @@ export const FORUM_SHEET = 'bg-[#221A28] border-t border-[#4A3D52]/50 rounded-t-
 export const FORUM_MODAL = 'bg-[#38303E] border border-[#4A3D52]/55 rounded-2xl shadow-lg';
 
 export const FORUM_ICON_BTN =
-    'rounded-full bg-[#342C3A] text-[#9A9098] flex items-center justify-center ' +
+    'min-h-[44px] min-w-[44px] w-11 h-11 touch-manipulation rounded-full bg-[#342C3A] text-[#9A9098] flex items-center justify-center ' +
     'hover:text-[#F0B896] hover:bg-[#3A3040] active:bg-[#403848] ' +
     'transition-[color,background-color] duration-150';
+
+export const FORUM_APP_BAR_ICON =
+    'min-h-[44px] min-w-[44px] w-11 h-11 touch-manipulation rounded-full flex items-center justify-center transition-colors';
 
 export const FORUM_GHOST_BTN =
     'rounded-xl bg-[#342C3A] border border-[#4A3D52]/50 text-[#B4AEB6] ' +
@@ -75,15 +79,6 @@ export const FORUM_TEXT_PRIMARY = 'text-[#E6E0E4]';
 export const FORUM_TEXT_MUTED = 'text-[#9A9098]';
 export const FORUM_TEXT_APRICOT = 'text-[#F0B896]';
 
-export const FORUM_ENTRY_BTN =
-    'w-full rounded-2xl border border-[#F0B896]/22 bg-[#140A18] px-4 py-4 ' +
-    'flex items-center justify-between hover:bg-[#1A1020] hover:border-[#F0B896]/35 ' +
-    'transition-[background-color,border-color] duration-150 active:bg-[#1A1020]/90';
-
-export const FORUM_ENTRY_ICON_WRAP =
-    'w-10 h-10 rounded-xl flex items-center justify-center border border-[#F0B896]/20 ' +
-    'bg-[#F0B896]/8 text-[#F0B896]';
-
 export const FORUM_SECTION_ACTIVE =
     'bg-[#F0B896]/14 border border-[#F0B896]/35 text-[#F0B896]';
 
@@ -93,15 +88,18 @@ export const FORUM_SECTION_IDLE =
 export function ForumPlumPage({
     children,
     className = '',
+    'data-testid': dataTestId = 'forum-screen',
 }: {
     children: React.ReactNode;
     className?: string;
+    'data-testid'?: string;
 }) {
     return React.createElement(
         'div',
         {
             dir: 'rtl',
-            className: `w-full h-full flex flex-col relative overflow-hidden z-0 ${className}`,
+            'data-testid': dataTestId,
+            className: `w-full h-full flex flex-col relative overflow-hidden z-0 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] ${className}`,
             style: FORUM_PAGE_BG,
         },
         children,

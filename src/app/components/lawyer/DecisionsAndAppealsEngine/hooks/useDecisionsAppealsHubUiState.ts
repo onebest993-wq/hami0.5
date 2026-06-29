@@ -16,7 +16,7 @@ export type UseDecisionsAppealsHubUiStateParams = {
     appealsScrollToIdOnBoot?: string;
     domainVisibleDecisionsLength: number;
     setDecisions: React.Dispatch<React.SetStateAction<Decision[]>>;
-    persistDecisionsToStorage: (next: Decision[]) => void;
+    persistDecisionsToStorage: (next: Decision[], opts?: import('@/app/utils/executionDecisionsNamespace').ExecutorDecisionsPersistOptions) => Decision[] | null;
 };
 
 export function useDecisionsAppealsHubUiState({
@@ -71,14 +71,12 @@ export function useDecisionsAppealsHubUiState({
                 const { rows, mutated } = reconcileAppealDeadlineEnforcement(prev);
                 if (!mutated) return prev;
                 try {
-                    persistDecisionsToStorage(rows);
+                    return persistDecisionsToStorage(rows) ?? prev;
                 } catch {
-                    /* ignore */
+                    return prev;
                 }
-                return rows;
             });
         };
-        tick();
         const intervalId = window.setInterval(tick, 60_000);
         return () => window.clearInterval(intervalId);
     }, [isHistoricalMode, persistDecisionsToStorage, setDecisions]);

@@ -51,7 +51,22 @@ describe('badge enforceability', () => {
 
     it('does not show travel ban badge before debtor_travel_ban_active', () => {
         expect(isTravelBanEnforceable({ debtor_travel_ban_active: false })).toBe(false);
-        expect(isTravelBanEnforceable({ debtor_travel_ban_active: true })).toBe(true);
+        expect(isTravelBanEnforceable({ debtor_travel_ban_active: true })).toBe(false);
+    });
+
+    it('shows travel ban badge only when governing row is enforced', () => {
+        const row = {
+            id: 'tb1',
+            requestKind: 'personal_coercive',
+            personalCoerciveSubtype: 'travel_ban',
+            executorOutcome: 'approved',
+        };
+        expect(
+            isTravelBanEnforceable(
+                { debtor_travel_ban_active: true },
+                { travelDecisionRow: row, allDecisions: [row] }
+            )
+        ).toBe(true);
     });
 
     it('does not treat dossier handoff alone as enforceable detention badge', () => {

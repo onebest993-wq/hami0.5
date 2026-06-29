@@ -1,0 +1,77 @@
+import { debug } from '@/app/utils/debug';
+
+const MARK_PREFIX = 'hami:boot:';
+
+export type BootPhase =
+    | 'start'
+    | 'static-shell-visible'
+    | 'overlay-removed'
+    | 'app-render'
+    | 'shell-visible'
+    | 'dashboard-chunk-loaded'
+    | 'dashboard-interactive';
+
+export type BootTimelineRow = { phase: BootPhase; ms: number | null };
+
+export function markBootPhase(phase: BootPhase): void {
+    if (typeof performance === 'undefined' || typeof performance.mark !== 'function') return;
+    try {
+        performance.mark(`${MARK_PREFIX}${phase}`);
+    } catch {
+        /* ignore */
+    }
+}
+
+export function getBootTimeline(origin: 'start' | 'navigation' = 'start'): BootTimelineRow[] {
+    if (typeof performance === 'undefined') return [];
+
+    const phases: BootPhase[] = [
+        'start',
+        'static-shell-visible',
+        'overlay-removed',
+        'app-render',
+        'shell-visible',
+        'dashboard-chunk-loaded',
+        'dashboard-interactive',
+    ];
+
+    let originMs = 0;
+    if (origin === 'start') {
+        const startEntry = performance.getEntriesByName(`${MARK_PREFIX}start`, 'mark')[0];
+        originMs = startEntry?.startTime ?? 0;
+    }
+
+    return phases.map((phase) => {
+        const entry = performance.getEntriesByName(`${MARK_PREFIX}${phase}`, 'mark')[0];
+        return {
+            phase,
+            ms:
+                entry == null
+                    ? null
+                    : Math.round(
+                          origin === 'start' ? entry.startTime - originMs : entry.startTime,
+                      ),
+        };
+    });
+}
+
+export function getBootPhaseMs(phase: BootPhase): number | null {
+    return getBootTimeline().find((row) => row.phase === phase)?.ms ?? null;
+}
+
+/** TTFI — وقت الجاهزية التفاعلية للوحة (ms من hami:boot:start) */
+export function getDashboardInteractiveMs(): number | null {
+    return getBootPhaseMs('dashboard-interactive');
+}
+
+export function reportBootTimeline(): void {
+    if (!import.meta.env.DEV) return;
+
+    const rows = getBootTimeline();
+    if (rows.some((r) => r.ms !== null)) {
+        debug.log('[BootMetrics] timeline (ms from start)', rows);
+        if (typeof window !== 'undefined') {
+            (window as Window & { __hamiBootTimeline?: BootTimelineRow[] }).__hamiBootTimeline = rows;
+        }
+    }
+}

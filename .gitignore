@@ -9,6 +9,9 @@ api/_routeManifest.ts
 
 # Local / generated artifacts
 .trae/
+.tmp-*
+build-output.txt
+perf-reports/
 
 # Environment & secrets
 .env
@@ -19,6 +22,10 @@ api/_routeManifest.ts
 playwright-report/
 test-results/
 coverage/
+
+# Capacitor native projects (generated via npx cap add)
+android/
+ios/
 
 # Flutter mobile stub — not part of the Vite web app
 hami/
@@ -31,3 +38,5 @@ Thumbs.db
 
 # Dev-only local law injection (no service_role)
 data/dev-iraqi-laws.json
+
+.vercel

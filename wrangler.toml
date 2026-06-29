@@ -2,6 +2,8 @@
 #
 # Pages (Git): build = npm run build, output = dist, deploy command = (empty)
 # CLI Workers static assets: npm run build && npx wrangler deploy
+#
+# Brotli + gzip: Cloudflare يضغط assets تلقائياً عند التسليم (Accept-Encoding: br)
 
 name = "hami-app"
 compatibility_date = "2024-06-20"

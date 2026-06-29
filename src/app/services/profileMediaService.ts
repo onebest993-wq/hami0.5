@@ -1,8 +1,19 @@
 import { LawyerStorage } from '@/app/services/lawyer-cloud';
+import { sanitizeProfileMediaUrl } from '@/app/services/profile/profileUrlSanitize';
 
 const MAX_EDGE = 1280;
 const JPEG_QUALITY = 0.82;
 const MAX_DATA_URL_BYTES = 900_000;
+
+const WALLPAPER_MAX_EDGE = 960;
+const WALLPAPER_JPEG_QUALITY = 0.72;
+const WALLPAPER_MAX_BYTES = 480_000;
+
+type CompressImageOptions = {
+    maxEdge?: number;
+    quality?: number;
+    maxBytes?: number;
+};
 
 export type ProfileMediaUploadResult = {
     displayUrl: string;
@@ -10,7 +21,10 @@ export type ProfileMediaUploadResult = {
     source: 'cloud' | 'local';
 };
 
-export async function compressImageToDataUrl(file: File): Promise<string> {
+export async function compressImageToDataUrl(file: File, opts?: CompressImageOptions): Promise<string> {
+    const maxEdge = opts?.maxEdge ?? MAX_EDGE;
+    const initialQuality = opts?.quality ?? JPEG_QUALITY;
+    const maxBytes = opts?.maxBytes ?? MAX_DATA_URL_BYTES;
     let sourceWidth = 0;
     let sourceHeight = 0;
     let drawSource: (ctx: CanvasRenderingContext2D, w: number, h: number) => void;
@@ -50,7 +64,7 @@ export async function compressImageToDataUrl(file: File): Promise<string> {
 
     let w = sourceWidth;
     let h = sourceHeight;
-    const ratio = Math.min(1, MAX_EDGE / Math.max(w, h));
+    const ratio = Math.min(1, maxEdge / Math.max(w, h));
     w = Math.round(w * ratio);
     h = Math.round(h * ratio);
 
@@ -61,26 +75,51 @@ export async function compressImageToDataUrl(file: File): Promise<string> {
     if (!ctx) throw new Error('canvas unavailable');
     drawSource(ctx, w, h);
 
-    let quality = JPEG_QUALITY;
+    let quality = initialQuality;
     let dataUrl = canvas.toDataURL('image/jpeg', quality);
-    while (dataUrl.length > MAX_DATA_URL_BYTES && quality > 0.45) {
+    while (dataUrl.length > maxBytes && quality > 0.42) {
         quality -= 0.08;
         dataUrl = canvas.toDataURL('image/jpeg', quality);
     }
-    if (dataUrl.length > MAX_DATA_URL_BYTES) {
+    if (dataUrl.length > maxBytes) {
         throw new Error('image too large');
     }
     return dataUrl;
 }
 
-/** رفع صورة الملف: سحابة أولاً، ثم تخزين محلي مضغوط عند الفشل */
-export async function uploadProfileMedia(userId: string, file: File): Promise<ProfileMediaUploadResult> {
+/** ضغط أخف لخلفية اللوحة — أداء أفضل في localStorage والرسم */
+export async function compressWallpaperToDataUrl(file: File): Promise<string> {
+    return compressImageToDataUrl(file, {
+        maxEdge: WALLPAPER_MAX_EDGE,
+        quality: WALLPAPER_JPEG_QUALITY,
+        maxBytes: WALLPAPER_MAX_BYTES,
+    });
+}
+
+/** رفع صورة الملف: ضغط أولاً ثم سحابة، ثم تخزين محلي مضغوط عند الفشل */
+export async function uploadProfileMedia(
+    userId: string,
+    file: File,
+    opts?: { variant?: 'default' | 'canvasBg' },
+): Promise<ProfileMediaUploadResult> {
     if (!file.type.startsWith('image/')) {
         throw new Error('نوع الملف غير مدعوم');
     }
 
+    const compress =
+        opts?.variant === 'canvasBg' ? compressWallpaperToDataUrl : compressImageToDataUrl;
+    const dataUrl = await compress(file);
+    const safe = sanitizeProfileMediaUrl(dataUrl);
+    if (!safe) throw new Error('image too large');
+
     try {
-        const res = await LawyerStorage.uploadSmartFile(userId, file, 'repository');
+        const blob = await (await fetch(safe)).blob();
+        const compressedFile = new File(
+            [blob],
+            (file.name.replace(/\.[^.]+$/, '') || 'profile') + '.jpg',
+            { type: 'image/jpeg' },
+        );
+        const res = await LawyerStorage.uploadSmartFile(userId, compressedFile, 'repository');
         if (res.downloadUrl) {
             return {
                 displayUrl: res.downloadUrl,
@@ -92,8 +131,7 @@ export async function uploadProfileMedia(userId: string, file: File): Promise<Pr
         // fallback below
     }
 
-    const dataUrl = await compressImageToDataUrl(file);
-    return { displayUrl: dataUrl, source: 'local' };
+    return { displayUrl: safe, source: 'local' };
 }
 
 export async function refreshProfileMediaUrl(

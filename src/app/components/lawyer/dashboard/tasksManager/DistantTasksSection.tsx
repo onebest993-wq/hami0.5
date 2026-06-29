@@ -21,7 +21,7 @@ export type DistantTasksSectionProps = {
     renderTaskCard: (task: LegalTask, fatalPulse: boolean) => React.ReactNode;
 };
 
-export function DistantTasksSection({
+export const DistantTasksSection = React.memo(function DistantTasksSection({
     distantTasks,
     snoozePanelOpen,
     setSnoozePanelOpen,
@@ -51,7 +51,7 @@ export function DistantTasksSection({
             />
         </section>
     );
-}
+});
 
 function DistantTasksBody(props: DistantTasksSectionProps) {
     const {

@@ -14,6 +14,7 @@ import {
 import type { AppSettingsState } from './types';
 import { SETTINGS_SCHEMA_VERSION } from './types';
 import { normalizeHomeLayout } from './homeLayout';
+import { normalizeLitePerformanceMode } from '@/app/runtime/devicePerformanceTier';
 
 
 
@@ -135,6 +136,10 @@ function normalizeAppSettings(merged: AppSettingsState): AppSettingsState {
 
             homeContainerBorder: merged.appearance.homeContainerBorder !== false,
 
+            wallpaper: undefined,
+
+            wallpaperStamp: merged.appearance.wallpaperStamp,
+
         },
 
         security: {
@@ -147,7 +152,10 @@ function normalizeAppSettings(merged: AppSettingsState): AppSettingsState {
 
         data: { ...merged.data },
 
-        performance: { ...merged.performance },
+        performance: {
+            ...merged.performance,
+            litePerformance: normalizeLitePerformanceMode(merged.performance.litePerformance),
+        },
 
         homeLayout: normalizeHomeLayout(merged.homeLayout),
 
@@ -197,7 +205,12 @@ export function migrateLawyerSettings(
 
                 language: obj.language ?? LAWYER_SETTINGS_V2_DEFAULTS.appearance.language,
 
-                fontSize: typeof obj.fontSize === 'number' ? obj.fontSize : LAWYER_SETTINGS_V2_DEFAULTS.appearance.fontSize,
+                fontSize:
+                    typeof obj.fontSize === 'number'
+                        ? obj.fontSize > 18
+                            ? 18
+                            : obj.fontSize
+                        : LAWYER_SETTINGS_V2_DEFAULTS.appearance.fontSize,
 
                 glassOpacity: normalizeGlassOpacity(obj.glassOpacity ?? LAWYER_SETTINGS_V2_DEFAULTS.appearance.glassOpacity),
 

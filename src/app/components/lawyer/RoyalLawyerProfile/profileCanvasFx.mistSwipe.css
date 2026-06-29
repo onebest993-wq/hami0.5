@@ -1,0 +1,65 @@
+.profile-text-canvas__mist-canvas-wrap {
+    position: absolute;
+    inset: 0;
+    z-index: 7;
+    touch-action: none;
+    cursor: crosshair;
+}
+
+.profile-text-canvas__mist-canvas-wrap[data-interactive='false'] {
+    touch-action: auto;
+    cursor: default;
+    pointer-events: none;
+}
+
+.profile-text-canvas__petals[data-interactive='false'] {
+    pointer-events: none;
+    touch-action: auto;
+    cursor: default;
+}
+
+.profile-text-canvas__mist-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.profile-text-canvas__mist-shimmer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(
+        120deg,
+        transparent 38%,
+        rgba(255, 255, 255, 0.03) 46%,
+        rgba(230, 198, 115, 0.08) 50%,
+        rgba(255, 255, 255, 0.02) 54%,
+        transparent 62%
+    );
+    animation: profile-mist-shimmer 7s ease-in-out infinite;
+}
+
+.profile-text-canvas__mist-gold-haze {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(
+        ellipse 90% 70% at 50% 100%,
+        color-mix(in srgb, var(--canvas-accent, #e6c673) 14%, transparent),
+        transparent 58%
+    );
+    opacity: 0.55;
+    mix-blend-mode: screen;
+}
+
+@keyframes profile-mist-shimmer {
+    0%,
+    100% {
+        transform: translateX(-12%);
+        opacity: 0.2;
+    }
+    50% {
+        transform: translateX(12%);
+        opacity: 0.45;
+    }
+}

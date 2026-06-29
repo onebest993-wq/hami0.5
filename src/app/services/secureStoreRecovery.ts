@@ -9,7 +9,8 @@ import {
     LAWSUIT_FILES_STORAGE_KEY,
     LAWSUIT_FILES_STORAGE_KEYS_LEGACY,
 } from '@/app/services/dossierPersistence/dossierStorageKeys';
-import { STORAGE_KEYS } from '@/app/utils/constants';
+
+const LAWYER_NOTES_STORAGE_KEY = 'lawyer_notes';
 
 const ENCRYPTED_PREFIX = 'hami_enc_v2:';
 const decryptRecoveryAttempted = new Set<string>();
@@ -79,7 +80,7 @@ export async function recoverPlaintextAfterDecryptFailure(storageKey: string): P
         return readBackup(backupDomain);
     }
 
-    if (storageKey === STORAGE_KEYS.LAWYER_NOTES) return readBackup('notes');
+    if (storageKey === LAWYER_NOTES_STORAGE_KEY) return readBackup('notes');
     if (storageKey === 'hami:community:posts:v1') return readBackup('community');
     if (storageKey === 'hami:smartvault:docs:v1') return readBackup('vault');
     if (storageKey === 'hami:calendar:events:v1') return readBackup('calendar');

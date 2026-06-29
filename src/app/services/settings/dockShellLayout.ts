@@ -7,6 +7,8 @@ export type DockShellMetrics = {
     iconStrokePx: number;
     labelPx: number;
     rowMinHeightPx: number;
+    /** حشوة عمودية للحاوية (pt + pb) بالبكسل */
+    shellVerticalPaddingPx: number;
     gapRem: number;
     shellPaddingClass: string;
     showLabels: boolean;
@@ -24,6 +26,7 @@ export function resolveDockShellMetrics(itemCount: number): DockShellMetrics {
             iconStrokePx: 19,
             labelPx: 9.5,
             rowMinHeightPx: 76,
+            shellVerticalPaddingPx: 26,
             gapRem: 0.625,
             shellPaddingClass: 'px-3 pt-3 pb-3.5',
             showLabels: true,
@@ -37,6 +40,7 @@ export function resolveDockShellMetrics(itemCount: number): DockShellMetrics {
             iconStrokePx: 17,
             labelPx: 9,
             rowMinHeightPx: 84,
+            shellVerticalPaddingPx: 26,
             gapRem: 0.375,
             shellPaddingClass: 'px-2 pt-2.5 pb-4',
             showLabels: true,
@@ -50,6 +54,7 @@ export function resolveDockShellMetrics(itemCount: number): DockShellMetrics {
             iconStrokePx: 17,
             labelPx: 8.5,
             rowMinHeightPx: 74,
+            shellVerticalPaddingPx: 24,
             gapRem: 0.375,
             shellPaddingClass: 'px-2 pt-2.5 pb-3.5',
             showLabels: true,
@@ -62,6 +67,7 @@ export function resolveDockShellMetrics(itemCount: number): DockShellMetrics {
         iconStrokePx: 15,
         labelPx: 8,
         rowMinHeightPx: 70,
+        shellVerticalPaddingPx: 22,
         gapRem: 0.25,
         shellPaddingClass: 'px-1.5 pt-2 pb-3.5',
         showLabels: n <= 6,
@@ -78,6 +84,7 @@ export function scaleDockShellMetrics(metrics: DockShellMetrics, scale: number):
         iconStrokePx: Math.round(metrics.iconStrokePx * scale),
         labelPx: Math.round(metrics.labelPx * scale * 10) / 10,
         rowMinHeightPx: Math.round(metrics.rowMinHeightPx * scale),
+        shellVerticalPaddingPx: Math.round(metrics.shellVerticalPaddingPx * scale),
         gapRem: Math.round(metrics.gapRem * scale * 1000) / 1000,
         iconRadiusRem: Math.round(metrics.iconRadiusRem * scale * 100) / 100,
     };

@@ -13,6 +13,7 @@ import {
     Forward, Shuffle, RefreshCw, MessageSquare,
 } from 'lucide-react';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
+import { EXECUTION_DOSSIER_TEST_IDS } from '@/app/components/lawyer/ExecutionDashboard/executionDossierTestIds';
 import { ExecutionToast } from './ExecutionToast';
 import { GuarantorExternalHub } from './GuarantorExternalHub';
 import { DossierSwitcher } from './DossierSwitcher';
@@ -569,6 +570,7 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
                         <button
                             type="button"
                             onClick={onClose}
+                            data-testid={EXECUTION_DOSSIER_TEST_IDS.close}
                             className="inline-flex h-9 w-9 items-center justify-center justify-self-start rounded-xl border border-white/8 bg-hami-navy/45 text-slate-400 backdrop-blur-md transition-all duration-200 hover:border-rose-400/25 hover:bg-rose-500/10 hover:text-rose-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
                             aria-label="إغلاق"
                         >

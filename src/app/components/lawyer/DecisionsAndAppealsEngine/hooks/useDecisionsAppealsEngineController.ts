@@ -58,12 +58,14 @@ export function useDecisionsAppealsEngineController({
     const policies = useDecisionsAppealsAppealPolicies();
 
     const mutations = useDecisionsAppealsMutations({
-        executionId,
+        executionId: storage.resolvedExecutionId,
         decisions: storage.decisions,
         setDecisions: storage.setDecisions,
         persistDecisionsToStorage: storage.persistDecisionsToStorage,
         appealPerspective: storage.appealPerspective,
         reloadFromStorage: storage.reloadFromStorage,
+        getEffectiveExecutionData: storage.getEffectiveExecutionData,
+        resolveWritableExecutionId: storage.resolveWritableExecutionId,
         onTimelineUpdate,
         getMilestoneTimelineSnapshot,
         resolveDecision,
@@ -100,6 +102,7 @@ export function useDecisionsAppealsEngineController({
         getAppealStatus: policies.getAppealStatus,
         transitionAppealWorkflow: mutations.transitionAppealWorkflow,
         commitExecutorSideAppealEntry: mutations.commitExecutorSideAppealEntry,
+        commitQueueRequestAppealEntry: mutations.commitQueueRequestAppealEntry,
         applyWaiveInitialAppeal: mutations.applyWaiveInitialAppeal,
         applyCassationCourtDecision: mutations.applyCassationCourtDecision,
         applyGrievanceCourtOutcome: mutations.applyGrievanceCourtOutcome,
@@ -116,7 +119,7 @@ export function useDecisionsAppealsEngineController({
         decisions: storage.decisions,
         decisionsHubTab: ui.decisionsHubTab,
         dispatcherHub,
-        executionId,
+        executionId: storage.resolvedExecutionId,
         appealPerspective: storage.appealPerspective,
         requestNeedsExecutorOutcome: policies.requestNeedsExecutorOutcome,
         renderers,
@@ -136,6 +139,8 @@ export function useDecisionsAppealsEngineController({
     const hubView: DecisionsAppealsHubViewProps = {
         isHistoricalMode,
         decisions: storage.decisions,
+        decisionsHydrated: storage.decisionsHydrated,
+        hubVisibleDecisions: storage.domainVisibleDecisions,
         decisionsHubTab: ui.decisionsHubTab,
         setDecisionsHubTab: ui.setDecisionsHubTab,
         setShowAddModal: ui.setShowAddModal,

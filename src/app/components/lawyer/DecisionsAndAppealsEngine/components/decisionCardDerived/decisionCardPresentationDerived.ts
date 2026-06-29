@@ -10,6 +10,7 @@ import {
 import {
     cleanTitle,
     formatDateNumeric,
+    EXECUTOR_QUEUE_REQUEST_KINDS,
     shouldShowDecisionHubBody,
     stripRedundantLeadingLinesFromHubBody,
 } from '../../utils';
@@ -80,6 +81,15 @@ export function deriveDecisionCardDebtorContext(
 }
 
 export function deriveDecisionCardHubBodyText(decision: Decision, titleClean: string): string {
+    const requestKind = String(decision.requestKind || '').trim();
+    const outcome = String(decision.executorOutcome ?? '').trim();
+    if (
+        requestKind &&
+        (!outcome || outcome === 'pending')
+    ) {
+        return '';
+    }
+
     const hubBodyResolved =
         decision.requestKind === 'creditor_party_death'
             ? (() => {
@@ -90,6 +100,19 @@ export function deriveDecisionCardHubBodyText(decision: Decision, titleClean: st
                   return p ? formatCreditorPartyDeathSummaryAr(p) : String(decision.body ?? '');
               })()
             : String(decision.body ?? '');
+
+    if (
+        requestKind &&
+        EXECUTOR_QUEUE_REQUEST_KINDS.includes(
+            requestKind as (typeof EXECUTOR_QUEUE_REQUEST_KINDS)[number],
+        ) &&
+        requestKind !== 'creditor_party_death' &&
+        outcome &&
+        outcome !== 'pending'
+    ) {
+        return '';
+    }
+
     const hubBodyTrimmed = stripRedundantLeadingLinesFromHubBody(titleClean, hubBodyResolved);
     const hubBodyTextFull = shouldShowDecisionHubBody(titleClean, hubBodyTrimmed) ? hubBodyTrimmed : '';
     const t = hubBodyTextFull;

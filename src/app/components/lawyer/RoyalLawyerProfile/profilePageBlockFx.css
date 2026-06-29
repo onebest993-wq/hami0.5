@@ -1,0 +1,147 @@
+[data-profile-media-shell] {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    margin-inline: auto;
+    overflow: hidden;
+    isolation: isolate;
+}
+
+[data-profile-media-shell][data-borderless='true'] {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+}
+
+[data-profile-media-frame] {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+[data-profile-media-frame][data-borderless='true'] {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+}
+
+[data-profile-media-frame] img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+}
+
+[data-profile-media-frame][data-template='perspective'][data-borderless='true'] {
+    position: relative;
+    inset: auto;
+    transform: perspective(520px) rotateY(-8deg) rotateX(4deg);
+    filter: drop-shadow(0 16px 28px rgba(0, 0, 0, 0.42));
+}
+
+[data-profile-blocks-canvas] {
+    isolation: isolate;
+}
+
+[data-profile-blocks-canvas][data-editable='true'] {
+    background: transparent;
+}
+
+[data-profile-block-shell][data-block-kind='text'],
+[data-profile-block-shell][data-block-kind='image'] {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    backdrop-filter: none;
+}
+
+.hami-profile-free-text {
+    width: 100%;
+    padding: 0.15rem 0;
+}
+
+.hami-profile-free-text-line {
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 0;
+    padding: 0.12rem 0;
+}
+
+.hami-profile-font-tajawal {
+    font-family: 'Tajawal', 'Cairo', sans-serif;
+}
+
+.hami-profile-font-cairo {
+    font-family: 'Cairo', 'Tajawal', sans-serif;
+}
+
+.hami-profile-font-literary {
+    font-family: 'Amiri', 'Noto Naskh Arabic', serif;
+}
+
+.profile-block-drag-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    width: 100%;
+    margin-bottom: 0.35rem;
+    padding: 0.3rem 0.5rem;
+    border-radius: 0.55rem;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--profile-accent) 75%, white);
+    background: color-mix(in srgb, var(--profile-accent) 8%, rgba(0, 0, 0, 0.35));
+    border: 1px solid color-mix(in srgb, var(--profile-accent) 22%, transparent);
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+}
+
+.profile-block-drag-handle:active {
+    cursor: grabbing;
+}
+
+[data-profile-block-item][data-dragging='true'] {
+    z-index: 20;
+    filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.45));
+}
+
+.profile-block-drag-hint {
+    display: none;
+}
+
+[data-profile-block-shell][data-block-shape='diamond'] {
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+    padding: 1.25rem;
+}
+
+[data-profile-block-shell][data-block-shape='hexagon'] {
+    clip-path: polygon(25% 5%, 75% 5%, 100% 50%, 75% 95%, 25% 95%, 0% 50%);
+}
+
+.hami-profile-block-text--glow {
+    text-shadow: 0 0 14px var(--profile-block-text-color, var(--profile-accent));
+}
+
+.hami-profile-block-text--shadow {
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
+}
+
+.hami-profile-block-text--underline {
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--profile-block-text-color, var(--profile-accent)) 65%, transparent);
+    text-underline-offset: 3px;
+}
+
+.hami-profile-block-text--gradient {
+    background: linear-gradient(90deg, var(--profile-accent), #ffffff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}

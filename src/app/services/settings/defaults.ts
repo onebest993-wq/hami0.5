@@ -77,6 +77,8 @@ export const LAWYER_SETTINGS_V2_DEFAULTS: AppSettingsState = {
 
         prefetchScreens: true,
 
+        litePerformance: 'auto',
+
     },
 
     homeLayout: { ...HOME_LAYOUT_DEFAULTS, overrides: {} },

@@ -1,11 +1,22 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { CaseShareRecord } from '@/app/services/caseShare/caseShareTypes';
 import { CaseShareApiService } from '@/app/services/caseShare/caseShareApiService';
+import { CASE_SHARE_CHANGED_EVENT } from '@/app/services/caseShare/caseShareSession';
 import { TIMING } from '@/app/utils/constants';
 
-const CASE_SHARE_CHANGED = 'hami:case-share-changed';
+const CASE_SHARE_CHANGED = CASE_SHARE_CHANGED_EVENT;
 
-export function useIncomingCaseShares(userId: string | null, enabled = true) {
+export type UseIncomingCaseSharesOptions = {
+    /** null = بدون interval — أحداث + visibility فقط (شارة الجرس) */
+    pollIntervalMs?: number | null;
+};
+
+export function useIncomingCaseShares(
+    userId: string | null,
+    enabled = true,
+    options?: UseIncomingCaseSharesOptions,
+) {
+    const pollIntervalMs = options?.pollIntervalMs ?? TIMING.NOTIFICATION_POLL;
     const [shares, setShares] = useState<CaseShareRecord[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -31,9 +42,12 @@ export function useIncomingCaseShares(userId: string | null, enabled = true) {
 
         void refresh();
 
-        const intervalId = window.setInterval(() => {
-            void refresh();
-        }, TIMING.NOTIFICATION_POLL);
+        const intervalId =
+            pollIntervalMs != null && pollIntervalMs > 0
+                ? window.setInterval(() => {
+                      void refresh();
+                  }, pollIntervalMs)
+                : null;
 
         const onChanged = () => {
             void refresh();
@@ -46,11 +60,11 @@ export function useIncomingCaseShares(userId: string | null, enabled = true) {
         document.addEventListener('visibilitychange', onVisibility);
 
         return () => {
-            window.clearInterval(intervalId);
+            if (intervalId != null) window.clearInterval(intervalId);
             window.removeEventListener(CASE_SHARE_CHANGED, onChanged);
             document.removeEventListener('visibilitychange', onVisibility);
         };
-    }, [enabled, userId, refresh]);
+    }, [enabled, pollIntervalMs, userId, refresh]);
 
     const incoming = shares.filter((s) => s.recipientId === userId);
     const pending = incoming.filter((s) => s.status === 'pending');

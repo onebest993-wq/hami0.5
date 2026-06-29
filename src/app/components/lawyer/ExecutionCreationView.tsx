@@ -6,6 +6,7 @@ import {
     ChevronDown, Scale, Package, Building2, Sparkles
 } from 'lucide-react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { motion, AnimatePresence } from 'motion/react';
 import { debug } from '@/app/utils/debug';
 import logger from '@/app/utils/logger';
@@ -13,6 +14,12 @@ import { SupabaseService } from '@/app/services/SupabaseService';
 import { deriveMonetaryClaimNature } from '@/app/utils/summoningImmunityEngine';
 import { isEvictionClaim } from '@/app/utils/executionModuleStrategies';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import {
+    formatMoneyIntegerDisplay,
+    handleMoneyInputChange,
+    isPartialMoneyInput,
+    stripMoneyGrouping,
+} from '@/app/utils/moneyInput';
 import {
     isLegalEntityDebtorKind,
     normalizeDebtorEntityKind,
@@ -35,6 +42,15 @@ import {
     createEmptyVisitationScheduleDraft,
 } from './ExecutionCreationView/components/VisitationScheduleSetupSection';
 import { MaritalFurnitureSetupSection } from './ExecutionCreationView/components/MaritalFurnitureSetupSection';
+import { SpecificDeliveryItemsSetupSection } from './ExecutionCreationView/components/SpecificDeliveryItemsSetupSection';
+import {
+    aggregateSpecificDeliveryDebtExposure,
+    applyIntakeDestroyedFinancialization,
+    aggregateSpecificDeliveryFinancializedAmount,
+    normalizeSpecificDeliveryItemsForSave,
+    syncSpecificDeliveryLegacyFields,
+    type SpecificDeliveryItem,
+} from '@/app/utils/specificDeliveryItemsUtils';
 import { ExecutionSaveButton } from './ExecutionCreationView/components/ExecutionSaveButton';
 import {
     capManualIndependentDebtRaw,
@@ -81,6 +97,7 @@ interface ExecutionCreationViewProps extends ModalProps {
 }
 
 export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ isOpen, onClose, onSave }) => {
+    const reduceMotion = useReduceMotion();
     // === SECTION 1: DIRECTORATE INFO ===
     const [directorate, setDirectorate] = useState('');
     // Merged File Number/Year logic
@@ -184,9 +201,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
     const [evictionFullAddress, setEvictionFullAddress] = useState('');
     /** تجاري: لا مهلة تخلية سكنية طويلة | سكني: مهلة المنفذ حتى 90 يوماً */
     const [evictionPremisesUse, setEvictionPremisesUse] = useState<'commercial' | 'residential'>('residential');
-    const [specificDeliveryItemNature, setSpecificDeliveryItemNature] = useState<
-        'movable' | 'immovable' | ''
-    >('');
+    const [specificDeliveryItems, setSpecificDeliveryItems] = useState<SpecificDeliveryItem[]>([]);
     
     // === PHASE 28: COMMERCIAL PAPER DUE DATE ===
     const [dueDate, setDueDate] = useState('');
@@ -336,16 +351,10 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
     );
 
     // === FORMATTING ===
-    const formatCurrency = (value: string) => {
-        const number = value.replace(/\D/g, '');
-        return number.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    };
+    const formatCurrency = formatMoneyIntegerDisplay;
 
     const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void) => {
-        const rawValue = e.target.value.replace(/,/g, '');
-        if (!isNaN(Number(rawValue))) {
-            setter(rawValue);
-        }
+        handleMoneyInputChange(e.target.value, setter);
     };
 
     const {
@@ -866,8 +875,8 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
 
     const handleDebtorManualDebtChange = useCallback(
         (debtorKey: string, raw: string) => {
-            const cleaned = String(raw || '').replace(/,/g, '');
-            if (cleaned !== '' && isNaN(Number(cleaned))) return;
+            const cleaned = stripMoneyGrouping(String(raw || ''));
+            if (cleaned !== '' && !isPartialMoneyInput(cleaned)) return;
 
             const debtorSolidaryFlags = [
                 Boolean(debtors[0]?.isSolidaryLiability),
@@ -904,8 +913,8 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
 
     const handleDebtorLawyerFeesChange = useCallback(
         (debtorKey: string, raw: string) => {
-            const cleaned = String(raw || '').replace(/,/g, '');
-            if (cleaned !== '' && isNaN(Number(cleaned))) return;
+            const cleaned = stripMoneyGrouping(String(raw || ''));
+            if (cleaned !== '' && !isPartialMoneyInput(cleaned)) return;
 
             const debtorSolidaryFlags = [
                 Boolean(debtors[0]?.isSolidaryLiability),
@@ -1140,12 +1149,36 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
             }
         }
 
-        if (
-            pendingClaimTypes.includes('تسليم شيء معين') &&
-            !specificDeliveryItemNature
-        ) {
-            SmartToast.error('⚠️ يرجى تحديد طبيعة الشيء (منقول أو غير منقول)');
-            return;
+        if (pendingClaimTypes.includes('تسليم شيء معين')) {
+            if (specificDeliveryItems.length === 0) {
+                SmartToast.error(
+                    '⚠️ أضف شيئاً واحداً على الأقل وحدّد نوعه (منقول أو غير منقول)',
+                );
+                return;
+            }
+            for (const item of specificDeliveryItems) {
+                if (!String(item.name || '').trim()) {
+                    SmartToast.error(
+                        item.nature === 'immovable'
+                            ? '⚠️ أدخل رقم العقار لكل شيء غير منقول'
+                            : '⚠️ أدخل وصف الشيء المنقول'
+                    );
+                    return;
+                }
+                if (item.declaredDestroyed && !(Math.trunc(Number(item.judgmentValueIqd) || 0) > 0)) {
+                    SmartToast.error(
+                        `⚠️ أدخل القيمة المحكوم بها للشيء الهالك: ${item.name.trim() || '—'}`,
+                    );
+                    return;
+                }
+            }
+            const normalizedItems = normalizeSpecificDeliveryItemsForSave(specificDeliveryItems);
+            if (normalizedItems.length === 0) {
+                SmartToast.error(
+                    '⚠️ أضف شيئاً واحداً على الأقل وحدّد نوعه (منقول أو غير منقول)',
+                );
+                return;
+            }
         }
 
         if (isEvictionClaim(claimType)) {
@@ -1619,11 +1652,13 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
             (executionData as any).eviction_lawyer_fee_waived_at_intake = !includeLawyerFees;
         }
 
-        if (
-            savedClaimTypes.includes('تسليم شيء معين') &&
-            (specificDeliveryItemNature === 'movable' || specificDeliveryItemNature === 'immovable')
-        ) {
-            executionData.specificDeliveryItemNature = specificDeliveryItemNature;
+        if (savedClaimTypes.includes('تسليم شيء معين')) {
+            let normalizedItems = normalizeSpecificDeliveryItemsForSave(specificDeliveryItems);
+            if (normalizedItems.length > 0) {
+                normalizedItems = applyIntakeDestroyedFinancialization(normalizedItems);
+                executionData.specificDeliveryItems = normalizedItems;
+                Object.assign(executionData, syncSpecificDeliveryLegacyFields(normalizedItems));
+            }
         }
         
         // Furniture details
@@ -1705,6 +1740,18 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
             (executionData as any).total_remaining_balance = globalClaimTotal;
             (executionData as any).paidDebt = 0;
         }
+
+        if (savedClaimTypes.includes('تسليم شيء معين')) {
+            const sdItems = executionData.specificDeliveryItems as SpecificDeliveryItem[] | undefined;
+            const finTotal = sdItems?.length ? aggregateSpecificDeliveryDebtExposure(sdItems) : 0;
+            if (finTotal > 0) {
+                executionData.debtAmount = finTotal;
+                executionData.totalAmount = finTotal;
+                (executionData as { total_remaining_balance?: number }).total_remaining_balance =
+                    finTotal;
+                (executionData as { paidDebt?: number }).paidDebt = 0;
+            }
+        }
         
         // Add classification (from unified dropdown) — executionType للشريط الجوزي (ليس docType)
         if (classification && classification !== 'none') {
@@ -1751,14 +1798,8 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
 
     if (!isOpen) return null;
 
-    return (
-        <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            dir="rtl"
-            className={ecg.modalShell}
-        >
+    const shellContent = (
+        <>
                 <div className={ecg.modalHeader}>
                     <div className="flex items-center gap-3">
                         <h1 className={ecg.modalTitle}>
@@ -2225,88 +2266,10 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                 )}
 
                                 {hasActiveClaim('تسليم شيء معين') && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 8 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.28 }}
-                                        className="relative overflow-hidden rounded-2xl border border-[#E6C673]/20 bg-gradient-to-br from-[#0A0F1C]/95 via-[#0B1120]/90 to-[#05060D]/95 p-4 shadow-[0_8px_32px_rgba(0,0,0,0.45)] ring-1 ring-white/5 backdrop-blur-xl"
-                                    >
-                                        <div
-                                            className="pointer-events-none absolute -top-12 -left-12 h-32 w-32 rounded-full bg-[#E6C673]/8 blur-3xl"
-                                            aria-hidden
-                                        />
-                                        <div
-                                            className="pointer-events-none absolute -bottom-10 -right-8 h-28 w-28 rounded-full bg-sky-500/10 blur-3xl"
-                                            aria-hidden
-                                        />
-                                        <div className="relative flex flex-row-reverse items-center justify-between gap-2 mb-3">
-                                            <div className="flex flex-row-reverse items-center gap-2">
-                                                <Sparkles className="h-4 w-4 text-[#E6C673]/80" />
-                                                <p className="text-sm font-bold tracking-wide text-[#F5E6B8]">
-                                                    طبيعة الشيء
-                                                </p>
-                                            </div>
-                                            <span className="rounded-full border border-[#E6C673]/25 bg-[#E6C673]/8 px-2 py-0.5 text-[9px] font-bold text-[#E6C673]/90">
-                                                مطلوب
-                                            </span>
-                                        </div>
-                                        <p className="relative mb-3 text-[10px] leading-relaxed text-slate-400/90 text-right">
-                                            يحدد مسار الإجراءات الميدانية والجبرية في محضر المتابعة.
-                                        </p>
-                                        <div className="relative grid grid-cols-2 gap-2.5">
-                                            {(
-                                                [
-                                                    {
-                                                        value: 'movable' as const,
-                                                        label: 'منقول',
-                                                        hint: 'سيارة، آلة، منقولات…',
-                                                        Icon: Package,
-                                                    },
-                                                    {
-                                                        value: 'immovable' as const,
-                                                        label: 'غير منقول',
-                                                        hint: 'عقار، أرض، بناء…',
-                                                        Icon: Building2,
-                                                    },
-                                                ] as const
-                                            ).map(({ value, label, hint, Icon }) => {
-                                                const selected = specificDeliveryItemNature === value;
-                                                return (
-                                                    <button
-                                                        key={value}
-                                                        type="button"
-                                                        onClick={() => setSpecificDeliveryItemNature(value)}
-                                                        className={`group relative flex flex-col items-end gap-2 rounded-2xl border px-3 py-3.5 text-right transition-all duration-300 ${
-                                                            selected
-                                                                ? ecg.choiceBtnActive +
-                                                                  ' border-[#E6C673]/50 shadow-[0_0_24px_-8px_rgba(230,198,115,0.55)]'
-                                                                : ecg.choiceBtnIdle +
-                                                                  ' border-white/10 bg-white/[0.02] hover:border-[#E6C673]/20'
-                                                        }`}
-                                                    >
-                                                        <span
-                                                            className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-all ${
-                                                                selected
-                                                                    ? 'border-[#E6C673]/40 bg-[#E6C673]/12 text-[#F5E6B8]'
-                                                                    : 'border-white/10 bg-black/20 text-slate-400 group-hover:text-[#E6C673]/80'
-                                                            }`}
-                                                        >
-                                                            <Icon className="h-5 w-5" />
-                                                        </span>
-                                                        <span className="text-sm font-extrabold text-inherit">
-                                                            {label}
-                                                        </span>
-                                                        <span className="text-[9px] font-medium text-slate-500 group-hover:text-slate-400">
-                                                            {hint}
-                                                        </span>
-                                                        {selected ? (
-                                                            <span className="absolute top-2 left-2 h-2 w-2 rounded-full bg-[#E6C673] shadow-[0_0_8px_rgba(230,198,115,0.9)]" />
-                                                        ) : null}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </motion.div>
+                                    <SpecificDeliveryItemsSetupSection
+                                        items={specificDeliveryItems}
+                                        onChange={setSpecificDeliveryItems}
+                                    />
                                 )}
 
                                 {claimType === 'أثاث زوجية' && (
@@ -2874,6 +2837,20 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                         </div>
                     </div>
                 )}
-            </motion.div>
+        </>
+    );
+
+    if (reduceMotion) {
+        return (
+            <div dir="rtl" className={ecg.modalShell}>
+                {shellContent}
+            </div>
+        );
+    }
+
+    return (
+        <motion.div initial={false} animate={{ opacity: 1 }} dir="rtl" className={ecg.modalShell}>
+            {shellContent}
+        </motion.div>
     );
 };

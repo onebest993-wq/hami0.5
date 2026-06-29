@@ -1,7 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import {
+    completeSpecificDeliveryConversionApproval,
     finalizeSpecificDeliveryConversionRequest,
+    isSpecificDeliveryConversionCycleComplete,
     isSpecificDeliveryConversionDecisionRow,
     sendInitialSpecificDeliveryConversionRequest,
     SPECIFIC_DELIVERY_CONVERSION_TITLE,
@@ -52,6 +54,24 @@ describe('specificDeliveryConversionRequest', () => {
         expect(isSpecificDeliveryConversionDecisionRow({ requestKind: 'other' })).toBe(false);
     });
 
+    it('completes conversion approval without cash value (expert determines value)', async () => {
+        const { patchExecutorDecisionRow } = await import('@/app/utils/executorSeizureDecisionQueue');
+        const result = completeSpecificDeliveryConversionApproval({
+            executionId: 'ex-1',
+            decisionId: 'dec-1',
+            itemName: 'سيارة',
+        });
+        expect(result.ok).toBe(true);
+        expect(patchExecutorDecisionRow).toHaveBeenCalledWith(
+            'ex-1',
+            'dec-1',
+            expect.objectContaining({
+                specificDeliveryConversionSavedAt: expect.any(String),
+                specificDeliveryConversionAmount: null,
+            })
+        );
+    });
+
     it('finalizes conversion with cash value', async () => {
         const { patchExecutorDecisionRow } = await import('@/app/utils/executorSeizureDecisionQueue');
         const result = finalizeSpecificDeliveryConversionRequest({
@@ -69,5 +89,45 @@ describe('specificDeliveryConversionRequest', () => {
                 specificDeliveryConversionAmount: 1_500_000,
             })
         );
+    });
+
+    it('marks cycle complete after saved cash or rejection only', () => {
+        expect(
+            isSpecificDeliveryConversionCycleComplete({
+                specificDeliveryConversionSavedAt: new Date().toISOString(),
+            })
+        ).toBe(true);
+        expect(
+            isSpecificDeliveryConversionCycleComplete(
+                { executorOutcome: 'approved' },
+                { allDecisions: [{ executorOutcome: 'approved' }] }
+            )
+        ).toBe(false);
+        expect(
+            isSpecificDeliveryConversionCycleComplete(
+                { executorOutcome: 'approved' },
+                { requiresCashValue: true }
+            )
+        ).toBe(false);
+    });
+
+    it('allows resubmit after superseding completed hub row', () => {
+        const stored: Record<string, unknown>[] = [
+            {
+                id: 'old',
+                requestKind: 'special_followup',
+                title: SPECIFIC_DELIVERY_CONVERSION_TITLE,
+                executorOutcome: 'approved',
+                specificDeliveryConversionSavedAt: new Date().toISOString(),
+            },
+        ];
+        vi.mocked(SecureStoreService.getItemSync).mockReturnValue(JSON.stringify(stored));
+        const blocked = sendInitialSpecificDeliveryConversionRequest({ executionId: 'ex-1' });
+        expect(blocked.ok).toBe(false);
+        const resubmit = sendInitialSpecificDeliveryConversionRequest({
+            executionId: 'ex-1',
+            supersedeCompletedHub: true,
+        });
+        expect(resubmit.ok).toBe(true);
     });
 });

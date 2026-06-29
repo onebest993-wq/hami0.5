@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
-import { createGuestLawyerSession } from '@/app/utils/guestLawyerSession';
+import { resolveDevMockLawyerUser } from '@/app/services/auth/devMockLawyerAuth';
 import { maybeShowWeeklyBackupReminder } from '@/app/services/settings/backupReminder';
 
 export type UseLawyerDashboardAuthParams = {
@@ -12,14 +12,11 @@ export function useLawyerDashboardAuth({
     authUser,
     weeklyBackupReminder,
 }: UseLawyerDashboardAuthParams) {
-    const guest = createGuestLawyerSession();
-    const [user, setUser] = useState<User | null>(authUser ?? guest.user);
+    const [user, setUser] = useState<User | null>(() => resolveDevMockLawyerUser(authUser));
     const authLoading = false;
 
     useEffect(() => {
-        if (authUser) {
-            setUser(authUser);
-        }
+        setUser(resolveDevMockLawyerUser(authUser));
     }, [authUser]);
 
     useEffect(() => {

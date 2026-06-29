@@ -26,6 +26,7 @@ export type UseLawyerDashboardWorkspaceParams = {
     onOpenCriminalDashboard: (caseId: string) => void;
     bumpSearchIndex: () => void;
     selectCase: (caseId: string) => void;
+    closeNotepad: () => void;
 };
 
 export function useLawyerDashboardWorkspace({
@@ -40,6 +41,7 @@ export function useLawyerDashboardWorkspace({
     onOpenCriminalDashboard,
     bumpSearchIndex,
     selectCase,
+    closeNotepad,
 }: UseLawyerDashboardWorkspaceParams) {
     const [activeFile, setActiveFile] = useState<FileData | ExecutionFile | null>(null);
 
@@ -74,6 +76,7 @@ export function useLawyerDashboardWorkspace({
         bumpSearchIndex,
         setFiles,
         openNormalNewCaseModal: lawsuitNewCase.openNormalNewCaseModal,
+        closeNotepad,
     });
 
     const execution = useLawyerExecutionFiles({

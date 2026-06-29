@@ -1,11 +1,13 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import './styles/index.css';
-/** Dev: static import — dynamic import('./app/App') breaks with Vite HMR stale modules */
-import App from './app/App';
-import SecureStoreService from '@/app/services/SecureStoreService';
-import { runDeferredBootTasks } from '@/app/bootstrap/deferredBoot';
+import { markBootPhase } from '@/app/bootstrap/bootMetrics';
+import { removeStaticBootShell } from '@/app/bootstrap/bootStaticShell';
+import { appModulePromise } from '@/boot/appModule';
+import { scheduleDeferredAppStyles } from '@/app/runtime/deferredAppStyles';
+import { installConsoleHygiene } from '@/app/utils/consoleHygiene';
+import './styles/critical-shell.css';
 
+installConsoleHygiene();
+
+/** chunk اللوحة يُحمَّل عند LawyerDashboardGate / LawyerBootShell فقط — لا تنافس إقلاع التطبيق */
 /** Vite dev: إعادة تحميل واحدة عند فشل dynamic import (HMR stale) */
 if (import.meta.env.DEV) {
     const STALE_IMPORT_RELOAD_KEY = 'hami:vite-stale-import-reload';
@@ -33,30 +35,16 @@ if (import.meta.env.DEV) {
     });
 }
 
-function removeBootLoader(): void {
-    const w = window as Window & { removeLoader?: () => void };
-    if (typeof w.removeLoader === 'function') {
-        w.removeLoader();
-        return;
-    }
-    const loader = document.getElementById('loading-overlay');
-    if (loader) {
-        loader.style.opacity = '0';
-        window.setTimeout(() => loader.remove(), 400);
-    }
-}
-
 function renderFatalBootError(e: unknown): void {
     console.error('❌ [System] Fatal Boot Error:', e);
-    const loader = document.getElementById('loading-overlay');
-    if (loader) loader.remove();
+    removeStaticBootShell();
 
-    while (document.body.firstChild) {
-        document.body.removeChild(document.body.firstChild);
-    }
     const wrap = document.createElement('div');
+    wrap.setAttribute('data-testid', 'app-boot-fatal-error');
+    wrap.setAttribute('role', 'alertdialog');
+    wrap.setAttribute('aria-label', 'خطأ في إقلاع التطبيق');
     wrap.style.cssText =
-        'color:#E6C673;background:#000;padding:30px;text-align:center;font-family:monospace;direction:rtl;';
+        'color:#E6C673;background:#05060d;min-height:100vh;padding:30px;text-align:center;font-family:monospace;direction:rtl;';
     const h1 = document.createElement('h1');
     h1.style.cssText = 'color:#ff4444;margin-bottom:20px;';
     h1.textContent = '⚠️ خطأ في تحميل النظام';
@@ -65,7 +53,7 @@ function renderFatalBootError(e: unknown): void {
     p.textContent = 'فشل في تحميل التطبيق. يرجى المحاولة مرة أخرى.';
     const pre = document.createElement('pre');
     pre.style.cssText =
-        'background:#111;padding:15px;border-radius:8px;overflow:auto;text-align:left;direction:ltr;border:1px solid #333;';
+        'background:#111;padding:15px;border-radius:8px;overflow:auto;text-align:left;direction:ltr;border:1px solid #333;max-width:92vw;margin:0 auto;';
     const errText =
         e instanceof Error ? (e.stack ?? e.message) : typeof e === 'string' ? e : String(e);
     pre.textContent = errText;
@@ -73,6 +61,7 @@ function renderFatalBootError(e: unknown): void {
     btn.style.cssText =
         'margin-top:20px;padding:12px 24px;background:#E6C673;color:#000;border:none;border-radius:8px;font-size:16px;font-weight:bold;cursor:pointer;';
     btn.textContent = 'المحاولة مرة أخرى';
+    btn.setAttribute('data-testid', 'app-boot-fatal-retry');
     btn.onclick = () => {
         try {
             sessionStorage.removeItem('hami:vite-stale-import-reload');
@@ -81,46 +70,77 @@ function renderFatalBootError(e: unknown): void {
         }
         window.location.reload();
     };
+    const onEscape = (event: KeyboardEvent) => {
+        if (event.key !== 'Escape') return;
+        event.preventDefault();
+        btn.click();
+    };
+    window.addEventListener('keydown', onEscape, true);
     wrap.appendChild(h1);
     wrap.appendChild(p);
     wrap.appendChild(pre);
     wrap.appendChild(btn);
-    document.body.appendChild(wrap);
+
+    const root = document.getElementById('root');
+    if (root) {
+        root.replaceChildren(wrap);
+    } else {
+        document.body.appendChild(wrap);
+    }
 }
 
-function bootApp(): void {
-    const rootElement = document.getElementById('root');
-    if (!rootElement) throw new Error('Root element missing');
+function runBackgroundBootTasks(): void {
+    void import('@/app/services/SecureStoreService')
+        .then(({ default: SecureStoreService }) => {
+            SecureStoreService.kickoffBootShellSync();
+            void SecureStoreService.ensureBootShellReady().catch(() => {});
+            void SecureStoreService.ensurePersistedReady().catch(() => {});
+        })
+        .catch(() => {});
 
-    const root = ReactDOM.createRoot(rootElement);
-    root.render(
-        import.meta.env.DEV ? (
-            <React.StrictMode>
-                <App />
-            </React.StrictMode>
-        ) : (
-            <App />
-        ),
-    );
+    void import('@/app/runtime/sameOriginApiProbe').then((m) => m.probeSameOriginApi());
+    void import('@/app/bootstrap/deferredBoot').then((m) => m.runDeferredBootTasks());
+}
+
+async function mountApplication(): Promise<void> {
+    markBootPhase('start');
+    document.documentElement.dataset.hamiInitialBoot = '1';
 
     try {
-        sessionStorage.removeItem('hami:vite-stale-import-reload');
-    } catch {
-        /* ignore */
+        const [appMod, ReactMod, ReactDOMMod] = await Promise.all([
+            appModulePromise,
+            import('react'),
+            import('react-dom/client'),
+        ]);
+
+        const rootElement = document.getElementById('root');
+        if (!rootElement) throw new Error('Root element missing');
+
+        const App = appMod.default;
+        const React = ReactMod.default;
+        const { createRoot } = ReactDOMMod;
+        const root = createRoot(rootElement);
+
+        root.render(
+            import.meta.env.DEV
+                ? React.createElement(React.StrictMode, null, React.createElement(App))
+                : React.createElement(App),
+        );
+
+        markBootPhase('app-render');
+        removeStaticBootShell();
+        document.documentElement.removeAttribute('data-hami-initial-boot');
+        scheduleDeferredAppStyles();
+
+        try {
+            sessionStorage.removeItem('hami:vite-stale-import-reload');
+        } catch {
+            /* ignore */
+        }
+    } catch (e) {
+        renderFatalBootError(e);
     }
-
-    removeBootLoader();
-    requestAnimationFrame(removeBootLoader);
-
-    void SecureStoreService.ensurePersistedReady().catch((e) => {
-        console.error('[Boot] فشل تهيئة التخزين المحلي:', e);
-    });
-
-    runDeferredBootTasks();
 }
 
-try {
-    bootApp();
-} catch (e) {
-    renderFatalBootError(e);
-}
+void mountApplication();
+runBackgroundBootTasks();

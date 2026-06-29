@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { X, Bell, Calendar, CheckCircle, Gavel, Newspaper, Pencil, PauseCircle } from 'lucide-react';
 import {
@@ -24,6 +24,15 @@ import { parseLocalNotificationDate } from '@/app/utils/executionStateMachine';
 import { getExecutionSummons7DayWindow } from '@/app/utils/executionSummonsWorkflow';
 import { headingForSubsequentNotice } from './Modal_Unified_Summons_Hub/utils';
 import ConfirmAttendanceModal from './Modal_Unified_Summons_Hub/components/ConfirmAttendanceModal';
+import { SummonsInlineDateField } from '@/app/components/lawyer/execution/SummonsInlineDateField';
+
+function todayLocalYmd(): string {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
 
 type SummonsProfile = 'employee_monetary' | 'earner_like' | 'hybrid_fees_non_monetary';
 
@@ -201,7 +210,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
     const [memoDateOptimistic, setMemoDateOptimistic] = useState<string>('');
     const [memoError, setMemoError] = useState<string>('');
     const [memoArchivedOptimistic, setMemoArchivedOptimistic] = useState(false);
-    const memoDateInputRef = useRef<HTMLInputElement | null>(null);
+    const [memoDateEditing, setMemoDateEditing] = useState(false);
     const [tablighMode, setTablighMode] = useState<'memo' | 'regular'>('memo');
     const [executionMemoRegisterMode, setExecutionMemoRegisterMode] = useState(false);
     const [confirmAttendanceWithoutNoticeOpen, setConfirmAttendanceWithoutNoticeOpen] = useState(false);
@@ -230,6 +239,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
             setExecutionMemoRegisterMode(false);
             setMemoDateOptimistic('');
             setMemoError('');
+            setMemoDateEditing(false);
             setTablighMode('memo');
             setHubMainTab('tabligh');
             setTaklifPurpose('');
@@ -254,6 +264,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
         setMemoDateOptimistic('');
         setMemoError('');
         setMemoArchivedOptimistic(false);
+        setMemoDateEditing(false);
         setExecutionMemoRegisterMode(false);
     }, [executionId]);
 
@@ -336,6 +347,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
 
     const memoNoticeDateYmd = String(memoDateOptimistic || executionSummonsNoticeDateYmd || '').trim();
     const memoWindow = memoNoticeDateYmd ? getExecutionSummons7DayWindow(memoNoticeDateYmd) : null;
+    const summonsTodayYmdMax = useMemo(() => todayLocalYmd(), [isOpen]);
     /** شمول الأتعاب — مرة واحدة قبل تسجيل تاريخ أول مذكرة إخبار */
     const showLawyerFeesIncludeCheckbox =
         summonsEvictionSimplifiedUi && showInitialNoticeLawyerFeesMemoOption && !memoNoticeDateYmd;
@@ -392,22 +404,6 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
         []
     );
 
-    const openMemoDatePicker = useCallback(() => {
-        const el = memoDateInputRef.current;
-        if (!el) return;
-        try {
-            (el as any).showPicker?.();
-        } catch {
-            /* ignore */
-        }
-        try {
-            el.focus();
-            el.click();
-        } catch {
-            /* ignore */
-        }
-    }, []);
-
     const submitExecutionSummonsDate = useCallback(
         (nextYmd: string) => {
             const ymd = String(nextYmd || '').trim();
@@ -420,6 +416,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
             onDebtorNotification(ymd, '', false, undefined, initialFeesFlag, { forceExecutionMemo: forceMemo });
             setMemoDateOptimistic(ymd);
             setMemoArchivedOptimistic(false);
+            setMemoDateEditing(false);
         },
         [
             initialNoticeLawyerFeesIncluded,
@@ -440,6 +437,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                 } else {
                     evictionDebtorExecutionStrip.onRegisterAttendance?.();
                 }
+                onClose();
                 return;
             }
             if (summonsEvictionSimplifiedUi) {
@@ -450,6 +448,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
         },
         [
             evictionDebtorExecutionStrip,
+            onClose,
             onEvictionVoluntaryPeriodEnd,
             onNoticeVoluntaryPeriodEnd,
             onRegisterDebtorVoluntaryAttendance,
@@ -581,7 +580,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                 </div>
 
                 {/* CONTENT */}
-                <div className="flex-1 overflow-y-auto p-5">
+                <div className="flex-1 overflow-y-auto overscroll-contain p-5">
                     {hubTabOptions.length > 1 && !(!memoArchivedResolved && notificationCount <= 1) && (
                         <div className="mb-4">
                             <label
@@ -619,14 +618,6 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                         >
                             {!memoArchivedResolved && notificationCount <= 1 ? (
                                 <div className="rounded-2xl border border-indigo-500/20 bg-gradient-to-br from-[#0B1120]/70 via-slate-950/50 to-indigo-950/25 p-4 shadow-lg shadow-black/30 backdrop-blur-xl" dir="rtl">
-                                    <input
-                                        ref={memoDateInputRef}
-                                        type="date"
-                                        value={memoNoticeDateYmd}
-                                        onChange={(e) => submitExecutionSummonsDate(e.target.value)}
-                                        className="sr-only"
-                                    />
-
                                     {memoArchivedResolved ? (
                                         <div className="rounded-xl border border-emerald-500/25 bg-emerald-950/15 px-3 py-3">
                                             <div className="flex flex-row-reverse items-center justify-between gap-2">
@@ -638,7 +629,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                                                 ) : null}
                                             </div>
                                         </div>
-                                    ) : memoNoticeDateYmd ? (
+                                    ) : memoNoticeDateYmd && !memoDateEditing ? (
                                         <div className="space-y-3">
                                             <div className="rounded-xl border border-white/10 bg-black/25 px-3 py-3">
                                                 <div className="flex flex-row-reverse items-center justify-between gap-2">
@@ -652,8 +643,8 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                                                     </div>
                                                     <button
                                                         type="button"
-                                                        onClick={openMemoDatePicker}
-                                                        className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] p-2 text-slate-200 hover:bg-white/[0.06]"
+                                                        onClick={() => setMemoDateEditing(true)}
+                                                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-slate-200 hover:bg-white/[0.06]"
                                                         aria-label="تعديل التاريخ"
                                                         title="تعديل التاريخ"
                                                     >
@@ -711,6 +702,31 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                                                 </button>
                                             ) : null}
                                         </div>
+                                    ) : memoDateEditing ? (
+                                        <div className="space-y-3">
+                                            <SummonsInlineDateField
+                                                id="execution-memo-notice-date-edit"
+                                                label="تعديل تاريخ التبليغ بمذكرة الإخبار"
+                                                value={memoNoticeDateYmd}
+                                                max={summonsTodayYmdMax}
+                                                error={memoError}
+                                                accent="indigo"
+                                                onChange={(next) => {
+                                                    if (!next) return;
+                                                    submitExecutionSummonsDate(next);
+                                                }}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setMemoDateEditing(false);
+                                                    setMemoError('');
+                                                }}
+                                                className="w-full rounded-xl border border-white/10 bg-white/[0.03] py-2.5 text-[11px] font-bold text-slate-300 hover:bg-white/[0.06]"
+                                            >
+                                                إلغاء التعديل
+                                            </button>
+                                        </div>
                                     ) : (
                                         <div className="space-y-3">
                                             {showLawyerFeesIncludeCheckbox ? (
@@ -726,21 +742,18 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                                                     />
                                                 </label>
                                             ) : null}
-                                            {memoError ? (
-                                                <div className="text-right text-[11px] font-bold text-rose-300">
-                                                    {memoError}
-                                                </div>
-                                            ) : null}
-                                            <button
-                                                type="button"
-                                                onClick={openMemoDatePicker}
-                                                className="w-full rounded-xl border border-indigo-500/35 bg-gradient-to-r from-indigo-950/55 to-purple-950/40 py-3 text-[12px] font-black text-indigo-50 shadow-[0_0_22px_rgba(99,102,241,0.14)] hover:from-indigo-900/60 hover:to-purple-900/55"
-                                            >
-                                                <span className="flex flex-row-reverse items-center justify-center gap-2">
-                                                    <Calendar size={18} className="text-indigo-200" />
-                                                    تحديد تاريخ التبليغ بمذكرة الإخبار
-                                                </span>
-                                            </button>
+                                            <SummonsInlineDateField
+                                                id="execution-memo-notice-date"
+                                                label="تاريخ التبليغ بمذكرة الإخبار"
+                                                value={memoNoticeDateYmd}
+                                                max={summonsTodayYmdMax}
+                                                error={memoError}
+                                                accent="indigo"
+                                                onChange={(next) => {
+                                                    if (!next) return;
+                                                    submitExecutionSummonsDate(next);
+                                                }}
+                                            />
                                             {!suppressPublicationNotice ? (
                                             <button
                                                 type="button"
@@ -834,22 +847,15 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                                             </div>
                                         ) : (
                                             <div className="space-y-3">
-                                                <div>
-                                                    <label className="mb-1 block text-right text-[10px] font-bold text-slate-400">
-                                                        تاريخ التبليغ
-                                                    </label>
-                                                    <input
-                                                        type="date"
-                                                        value={debtorDate}
-                                                        onChange={(e) => setDebtorDate(e.target.value)}
-                                                        className="w-full rounded-xl border border-cyan-500/25 bg-slate-900/40 px-4 py-2.5 text-right text-sm text-white"
-                                                    />
-                                                    {dateError ? (
-                                                        <div className="mt-1 text-right text-[11px] font-bold text-rose-300">
-                                                            {dateError}
-                                                        </div>
-                                                    ) : null}
-                                                </div>
+                                                <SummonsInlineDateField
+                                                    id="execution-subsequent-tabligh-date"
+                                                    label="تاريخ التبليغ"
+                                                    value={debtorDate}
+                                                    max={summonsTodayYmdMax}
+                                                    error={dateError}
+                                                    accent="cyan"
+                                                    onChange={setDebtorDate}
+                                                />
                                                 <div>
                                                     <label className="mb-1 block text-right text-[10px] font-bold text-slate-400">
                                                         الغاية (اختياري)
@@ -985,16 +991,15 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                             ) : (
                                 <>
                             <div>
-                                <label className="block text-gray-300 text-sm font-semibold mb-2 text-right">
-                                            تاريخ النشر في الجريدة
-                                </label>
-                                <input
-                                    type="date"
-                                            value={nashrDate}
-                                            onChange={(e) => setNashrDate(e.target.value)}
-                                            className="w-full bg-slate-800/50 border border-violet-500/30 rounded-xl px-4 py-2.5 text-white text-right"
-                                        />
-                                    </div>
+                                <SummonsInlineDateField
+                                    id="execution-nashr-publication-date"
+                                    label="تاريخ النشر في الجريدة"
+                                    value={nashrDate}
+                                    max={summonsTodayYmdMax}
+                                    accent="violet"
+                                    onChange={setNashrDate}
+                                />
+                            </div>
                                     <div>
                                         <label className="block text-gray-300 text-sm font-semibold mb-2 text-right">
                                             اسم الجريدة الأولى
@@ -1113,17 +1118,14 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                                     rows={3}
                                 />
                             </div>
-                                    <div>
-                                        <label className="block text-gray-300 text-sm font-semibold mb-2 text-right">
-                                            تاريخ التبليغ بالتكليف
-                                        </label>
-                                        <input
-                                            type="date"
-                                            value={taklifDate}
-                                            onChange={(e) => setTaklifDate(e.target.value)}
-                                            className="w-full bg-slate-800/50 border border-indigo-500/30 rounded-xl px-4 py-2.5 text-white text-right"
-                                        />
-                                    </div>
+                                    <SummonsInlineDateField
+                                        id="execution-taklif-notice-date"
+                                        label="تاريخ التبليغ بالتكليف"
+                                        value={taklifDate}
+                                        max={summonsTodayYmdMax}
+                                        accent="amber"
+                                        onChange={setTaklifDate}
+                                    />
                                     <div className="rounded-xl border border-slate-600/40 bg-slate-900/40 p-3">
                                         <p className="text-slate-300 text-xs font-semibold mb-2 text-right">
                                             مدة التكليف (بالأيام)
@@ -1317,20 +1319,17 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                                 dir="rtl"
                             >
                                 <p className="text-amber-200 font-bold text-sm">تبليغ / تكليف الكفيل بالحضور</p>
-                                <div>
-                                    <label className="mb-2 block text-right text-xs font-semibold text-gray-300">
-                                        تاريخ التبليغ
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={guarantorNoticeDate}
-                                        onChange={(e) => {
-                                            setGuarantorNoticeDate(e.target.value);
-                                            setGuarantorFormError('');
-                                        }}
-                                        className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-right text-sm text-white"
-                                    />
-                                </div>
+                                <SummonsInlineDateField
+                                    id="execution-guarantor-notice-date"
+                                    label="تاريخ التبليغ"
+                                    value={guarantorNoticeDate}
+                                    max={summonsTodayYmdMax}
+                                    accent="amber"
+                                    onChange={(next) => {
+                                        setGuarantorNoticeDate(next);
+                                        setGuarantorFormError('');
+                                    }}
+                                />
                                 <div>
                                     <label className="mb-2 block text-right text-xs font-semibold text-gray-300">
                                         سبب التبليغ / التكليف

@@ -2,6 +2,7 @@
 import React from 'react';
 import { DollarSign, Zap, Scale, AlertTriangle } from 'lucide-react';
 import { ecg } from './executionCreationGlassUi';
+import { formatMoneyIntegerDisplay, handleMoneyInputChange } from '@/app/utils/moneyInput';
 import type { AlimonyPastLawSystem } from '../hooks/useAlimonyCalculator';
 
 export interface PastAlimonyCalculationSlice {
@@ -28,16 +29,10 @@ interface PastAlimonyFieldsSectionProps {
     calculated?: PastAlimonyCalculationSlice | null;
 }
 
-const formatCurrency = (value: string) => {
-    const number = value.replace(/\D/g, '');
-    return number.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-};
+const formatCurrency = formatMoneyIntegerDisplay;
 
 const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void) => {
-    const rawValue = e.target.value.replace(/,/g, '');
-    if (!isNaN(Number(rawValue))) {
-        setter(rawValue);
-    }
+    handleMoneyInputChange(e.target.value, setter);
 };
 
 export const PastAlimonyFieldsSection: React.FC<PastAlimonyFieldsSectionProps> = ({

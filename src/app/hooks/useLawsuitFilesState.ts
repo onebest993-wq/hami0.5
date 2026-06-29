@@ -8,8 +8,6 @@ import { STORAGE_KEYS, PERSIST_DEBOUNCE_MS } from '@/app/utils/constants';
 
 import {
 
-    loadInitialLawsuitFiles,
-
     loadInitialLawsuitFilesAsync,
 
     persistLawsuitFiles,
@@ -46,7 +44,7 @@ export function useLawsuitFilesState({
 
 }: UseLawsuitFilesStateOptions) {
 
-    const [files, setFiles] = useState<FileData[]>(() => loadInitialLawsuitFiles());
+    const [files, setFiles] = useState<FileData[]>([]);
 
     const [storageHydrated, setStorageHydrated] = useState(false);
 

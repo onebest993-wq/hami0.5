@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import type { MutableRefObject } from 'react';
 import {
     EXEC_SECTION_LAZY_FALLBACK,
@@ -6,6 +6,9 @@ import {
     LazyExecutionDashboardShellOverlays,
 } from '../executionDashboardLazyShell';
 import { ExecutionDashboardChunkScopeProvider } from '../hooks/executionDashboardChunkScope';
+import { LazyExecutionDashboardHandlerClusterBridge } from '../executionDashboardHandlerClusterBridgeLazy';
+import { prefetchExecutionCoreHandlers } from '../executionCoreHandlersPrefetch';
+import type { ExecutionDashboardCoreHandlerClusterInput } from '../hooks/executionDashboardCore/executionDashboardCoreHandlerClusterTypes';
 
 const PHONE_BODY_PLACEHOLDER_CLASS =
     'bg-slate-900/95 w-full max-w-md h-full flex flex-col shadow-2xl border border-slate-700/30';
@@ -24,6 +27,10 @@ export type ExecutionDashboardChunkHostProps = {
     chunkScopeRef: MutableRefObject<Record<string, unknown>>;
     phoneBodyFingerprint: string;
     showUnifiedExecutionModal: boolean;
+    loadHandlerCluster: boolean;
+    handlerClusterInput: ExecutionDashboardCoreHandlerClusterInput;
+    handlerClusterMountKey: string;
+    onHandlerClusterReady: (cluster: Record<string, unknown>) => void;
 };
 
 /** جسم الإضبارة lazy + shell overlays عند الحاجة */
@@ -33,13 +40,31 @@ export function ExecutionDashboardChunkHost({
     chunkScopeRef,
     phoneBodyFingerprint,
     showUnifiedExecutionModal,
+    loadHandlerCluster,
+    handlerClusterInput,
+    handlerClusterMountKey,
+    onHandlerClusterReady,
 }: ExecutionDashboardChunkHostProps) {
+    useEffect(() => {
+        if (loadHandlerCluster) prefetchExecutionCoreHandlers();
+    }, [loadHandlerCluster]);
+
     if (!phoneBodyReady && !shellOverlaysReady) {
         return <PhoneBodyLoadingShell />;
     }
 
     return (
         <ExecutionDashboardChunkScopeProvider scopeRef={chunkScopeRef}>
+            {loadHandlerCluster ? (
+                <Suspense fallback={null}>
+                    <LazyExecutionDashboardHandlerClusterBridge
+                        key={handlerClusterMountKey}
+                        input={handlerClusterInput}
+                        mountKey={handlerClusterMountKey}
+                        onCluster={onHandlerClusterReady}
+                    />
+                </Suspense>
+            ) : null}
             {shellOverlaysReady ? (
                 <Suspense fallback={null}>
                     <LazyExecutionDashboardShellOverlays

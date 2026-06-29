@@ -1,88 +1,100 @@
 {
-  "capturedAt": "2026-06-26T21:11:08.788Z",
+  "capturedAt": "2026-06-27T21:19:10.503Z",
   "rows": [
     {
-      "file": "execution-dashboard-core-CHxSE_6x.js",
-      "rawKb": 615
+      "file": "execution-dashboard-core-D2NkfL7q.js",
+      "rawKb": 516.8
     },
     {
-      "file": "execution-helpers-D4XogOMa.js",
-      "rawKb": 362.9
+      "file": "execution-helpers-BFZMW7JQ.js",
+      "rawKb": 367.8
     },
     {
-      "file": "criminal-store-BixrpkOo.js",
-      "rawKb": 222.1
+      "file": "criminal-store-D-x6V1OC.js",
+      "rawKb": 220.5
     },
     {
-      "file": "CriminalDashboard-Cn3ibAIG.js",
-      "rawKb": 196.4
+      "file": "CriminalDashboard-DZG9uD4m.js",
+      "rawKb": 196.5
     },
     {
-      "file": "criminal-store-slices-C2IqvA1u.js",
-      "rawKb": 181.1
+      "file": "execution-core-handlers-CDhLgcIB.js",
+      "rawKb": 191
     },
     {
-      "file": "execution-phone-body-DLkR5cI-.js",
-      "rawKb": 137.7
+      "file": "criminal-store-slices-BnkO6mw9.js",
+      "rawKb": 183
     },
     {
-      "file": "LawyerDashboard-Dc3fbl_y.js",
-      "rawKb": 122.4
+      "file": "execution-hooks-DelSGs1T.js",
+      "rawKb": 172.7
     },
     {
-      "file": "criminal-dashboard-parties-DZ2aKYKw.js",
+      "file": "execution-core-scope-CJIyRYZG.js",
+      "rawKb": 138.7
+    },
+    {
+      "file": "LawyerDashboard-CWM29wZN.js",
+      "rawKb": 126.5
+    },
+    {
+      "file": "criminal-dashboard-parties-CnU-B995.js",
       "rawKb": 106.1
     },
     {
-      "file": "CommunityScreen-1F7hsHsY.js",
-      "rawKb": 91.2
+      "file": "CommunityScreen-DFJUuFjd.js",
+      "rawKb": 96.2
     },
     {
       "file": "execution-law-articles-BPSyJILg.js",
       "rawKb": 82
     },
     {
-      "file": "community-overlays-DpGQsOEW.js",
-      "rawKb": 59.1
+      "file": "community-overlays-C5p4EBor.js",
+      "rawKb": 59.5
     },
     {
-      "file": "criminal-tab-procedural-canvas-8qhtENHK.js",
+      "file": "criminal-tab-procedural-canvas-VZH8CHNT.js",
       "rawKb": 57.2
     },
     {
-      "file": "global-search-overlay-sqg4e5NJ.js",
-      "rawKb": 51.6
+      "file": "global-search-overlay-F0FrexNh.js",
+      "rawKb": 56.2
     },
     {
-      "file": "execution-lazy-registry-Bgk2GPwX.js",
-      "rawKb": 42.6
+      "file": "execution-lazy-registry-CKhs8an0.js",
+      "rawKb": 42.8
     },
     {
-      "file": "community-repository-DD1oqzFr.js",
-      "rawKb": 38
+      "file": "community-repository-HDv9RkFW.js",
+      "rawKb": 39.6
     },
     {
-      "file": "criminal-tab-new-case-BbY2R4Zi.js",
+      "file": "execution-phone-body-BA1-5cJT.js",
+      "rawKb": 36.4
+    },
+    {
+      "file": "criminal-tab-new-case-BB11Z9UD.js",
       "rawKb": 31.9
     },
     {
-      "file": "criminal-dashboard-request-ui-BAOJ02xw.js",
+      "file": "criminal-dashboard-request-ui-BNrEhnC9.js",
       "rawKb": 31.5
     },
     {
-      "file": "LawyerDashboardHomeTab-BFRNgE8Y.js",
-      "rawKb": 26.5
+      "file": "LawyerDashboardHomeTab-DoMbCAVH.js",
+      "rawKb": 27.3
     },
     {
-      "file": "criminal-tab-judicial-ledger-Dz0WqEKO.js",
+      "file": "criminal-tab-judicial-ledger-D3ApKmNL.js",
       "rawKb": 25.4
     },
     {
-      "file": "global-search-index-build-Bs67H_Ob.js",
+      "file": "global-search-index-build-BwMGnSGk.js",
       "rawKb": 24.9
     },
     {
-      "file": "criminal-tab-legal-codes-ijvoXkDs.js",
+      "file": "criminal-tab-legal-codes-BwVvCHPC.js",
       "rawKb": 23.9
     },
     {
@@ -90,55 +102,59 @@
       "rawKb": 23.8
     },
     {
-      "file": "global-search-index-runtime-BucN0D0c.js",
+      "file": "LawyerDashboardBackgroundServices-DmOVQ3-h.js",
+      "rawKb": 20.2
+    },
+    {
+      "file": "global-search-index-runtime-D2Vh5p0j.js",
       "rawKb": 20.1
     },
     {
-      "file": "criminal-tab-trials-BKyulJS5.js",
+      "file": "criminal-tab-trials-D-Lyen3n.js",
       "rawKb": 19.2
     },
     {
-      "file": "LawyerDashboardBackgroundServices-xfbAzXFe.js",
-      "rawKb": 18.9
+      "file": "execution-overlays-shell-CRBT9cfG.js",
+      "rawKb": 18.7
     },
     {
-      "file": "execution-overlays-shell-U_rSpQdW.js",
-      "rawKb": 18.5
-    },
-    {
-      "file": "execution-overlays-heavy-DxbGyhGa.js",
+      "file": "execution-overlays-heavy-DqXOxjkk.js",
       "rawKb": 15.3
     },
     {
-      "file": "global-search-results-panel-DxL9VsPM.js",
+      "file": "global-search-results-panel-D5QDaBrl.js",
       "rawKb": 10.1
     },
     {
-      "file": "execution-followup-shared-tlah1eki.js",
-      "rawKb": 9.6
+      "file": "execution-followup-shared-B91oRikH.js",
+      "rawKb": 9.5
     },
     {
-      "file": "criminal-legal-codes-A9h35Ft_.js",
+      "file": "execution-orchestrators-BsqunLjj.js",
+      "rawKb": 8.3
+    },
+    {
+      "file": "criminal-legal-codes-Blb2Axjt.js",
       "rawKb": 4.9
     },
     {
-      "file": "CommunityScreenOverlays-BlH3pKwX.js",
+      "file": "CommunityScreenOverlays-BClqAc_-.js",
       "rawKb": 4.2
     },
     {
-      "file": "LawyerDashboardScheduleTab-CJmBi0BN.js",
-      "rawKb": 2.8
+      "file": "LawyerDashboardScheduleTab-BI_pZBIw.js",
+      "rawKb": 3.1
     },
     {
-      "file": "global-search-extras-DdZDpnme.js",
+      "file": "global-search-extras-DRhWk8iV.js",
       "rawKb": 2.7
     },
     {
-      "file": "iraqi-law-loader-B-XxkYg6.js",
+      "file": "iraqi-law-loader-B5VokGUP.js",
       "rawKb": 2.7
     },
     {
-      "file": "execution-overlays-edit-B3AJh59u.js",
+      "file": "execution-overlays-edit-CtVYJATG.js",
       "rawKb": 2.3
     },
     {
@@ -146,23 +162,23 @@
       "rawKb": 1.7
     },
     {
-      "file": "execution-dashboard-static-scope-Cukfw2fW.js",
+      "file": "execution-dashboard-static-scope-KiV3k9m-.js",
       "rawKb": 1.4
     },
     {
-      "file": "global-search-loader-CydVU2y0.js",
+      "file": "global-search-loader-CEr_xV_b.js",
       "rawKb": 0.7
     },
     {
-      "file": "execution-overlays-executor-DpNeakGt.js",
+      "file": "execution-overlays-executor-CL8-LNgn.js",
       "rawKb": 0.5
     },
     {
-      "file": "execution-overlays-notes-n7cxpOPx.js",
+      "file": "execution-overlays-notes-CIdH5LAX.js",
       "rawKb": 0.4
     },
     {
-      "file": "execution-overlays-solidary-BOclYWLG.js",
+      "file": "execution-overlays-solidary-DLsd8tBg.js",
       "rawKb": 0.4
     }
   ]

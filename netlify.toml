@@ -1,0 +1,15 @@
+# Hami — Netlify (واجهة Vite ثابتة من dist/)
+# API (/api/*) مُصمَّمة لـ Vercel Functions — انظر README النشر أو استخدم VITE_BFF_AUTH=false للتجربة المحلية فقط.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+  NPM_FLAGS = "--legacy-peer-deps"
+  # Static demo على Netlify — بدون Vercel Functions؛ يُفعّل كشف API السريع ويقلّل انتظار الجلسة
+  VITE_SHELL_AUTH_OPEN = "true"
+  VITE_BFF_AUTH = "false"
+
+# SPA fallback + security headers: public/_redirects و public/_headers (تُنسَخ إلى dist عبر Vite)

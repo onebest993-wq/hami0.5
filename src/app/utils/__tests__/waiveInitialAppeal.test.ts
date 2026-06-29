@@ -75,6 +75,37 @@ describe('waiveInitialAppeal', () => {
         expect(canWaiveInitialAppeal(row, [row])).toBe(true);
     });
 
+    it('does not allow creditor waive when debtor holds appeal right on approved request', () => {
+        const row: Decision = {
+            id: 'personal_coercive_waive_fav_1',
+            title: 'طلب إحضار جبري',
+            body: '',
+            date: '2026-06-04',
+            requestKind: 'personal_coercive',
+            personalCoerciveSubtype: 'forced_bring_in',
+            appealRequestOrigin: 'creditor_side',
+            executorOutcome: 'approved',
+            appealStatus: 'pending',
+        };
+        expect(canWaiveInitialAppeal(row, [row], 'creditor_agent')).toBe(false);
+        expect(canWaiveInitialAppeal(row, [row], 'debtor_agent')).toBe(true);
+    });
+
+    it('allows waive on executor_side decision when lawyer is harmed', () => {
+        const row: Decision = {
+            id: 'executor_side_waive_1',
+            title: 'قرار منفذ',
+            body: '',
+            date: '2026-06-01',
+            appealRequestOrigin: 'executor_side',
+            executorOutcome: 'rejected',
+            appealStatus: 'pending',
+            appealBaseBranch: 'after_rejection',
+        };
+        expect(canWaiveInitialAppeal(row, [row], 'creditor_agent')).toBe(true);
+        expect(canWaiveInitialAppeal(row, [row], 'debtor_agent')).toBe(false);
+    });
+
     it('seals rejected request without filing appeal', () => {
         const row = rejectedEviction();
         writeExecutorDecisionsArray(executionId, [row as unknown as Record<string, unknown>], evictionData);

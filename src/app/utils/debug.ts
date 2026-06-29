@@ -1,62 +1,59 @@
 /**
- * Debug Utility - Console Logging Helper
- * Automatically disables debug logs in production build
+ * Debug Utility — opt-in verbose logging in development.
+ * Default dev console stays clean; enable via hamiVerboseConsole(true) or debug_mode in localStorage.
  */
+
+import { isVerboseConsoleEnabled } from '@/app/utils/consoleHygiene';
+import { isBenignSecureFetchError } from '@/app/services/secureFetchErrors';
 
 const isDev = import.meta.env.DEV === true;
 const isTest =
     import.meta.env.MODE === 'test' ||
     (typeof process !== 'undefined' && process.env.NODE_ENV === 'test');
 
-/** تطوير حقيقي فقط — لا إنتاج ولا Vitest (يقلل آلاف السطور في CI) */
-const allowVerboseConsole = isDev && !isTest;
+function allowVerboseConsole(): boolean {
+    return isDev && !isTest && isVerboseConsoleEnabled();
+}
+
+export { isVerboseConsoleEnabled, setVerboseConsoleEnabled } from '@/app/utils/consoleHygiene';
 
 export const debug = {
-    /**
-     * Log messages only in development mode
-     */
-    log: (...args: any[]) => {
-        if (allowVerboseConsole) {
+    log: (...args: unknown[]) => {
+        if (allowVerboseConsole()) {
             console.log(...args);
         }
     },
 
-    /**
-     * Warning messages only in development mode
-     */
-    warn: (...args: any[]) => {
-        if (allowVerboseConsole) {
+    warn: (...args: unknown[]) => {
+        if (allowVerboseConsole()) {
             console.warn(...args);
         }
     },
 
-    /**
-     * Error messages (always logged, even in production)
-     */
-    error: (...args: any[]) => {
+    error: (...args: unknown[]) => {
+        if (args.some((arg) => isBenignSecureFetchError(arg))) {
+            if (allowVerboseConsole()) {
+                console.log(...args);
+            }
+            return;
+        }
         console.error(...args);
     },
 
-    /**
-     * Info messages only in development mode
-     */
-    info: (...args: any[]) => {
-        if (isDev) {
+    info: (...args: unknown[]) => {
+        if (allowVerboseConsole()) {
             console.info(...args);
         }
     },
 
-    /**
-     * Performance timing helper
-     */
     time: (label: string) => {
-        if (allowVerboseConsole) {
+        if (allowVerboseConsole()) {
             console.time(label);
         }
     },
 
     timeEnd: (label: string) => {
-        if (allowVerboseConsole) {
+        if (allowVerboseConsole()) {
             console.timeEnd(label);
         }
     },

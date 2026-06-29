@@ -1,0 +1,184 @@
+.profile-text-canvas {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    isolation: isolate;
+    border-style: solid;
+    border-color: color-mix(in srgb, var(--canvas-accent, #e6c673) 42%, rgba(255, 255, 255, 0.1));
+    background-color: var(--canvas-bg, rgba(10, 15, 28, 0.62));
+    background-size: cover;
+    background-position: center;
+    transition: box-shadow 0.45s ease, border-color 0.45s ease;
+}
+
+.profile-text-canvas[data-interactive='true'][data-revealed='false'] {
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.profile-text-canvas--masked {
+    box-shadow:
+        inset 0 0 0 1px color-mix(in srgb, var(--canvas-accent, #e6c673) 18%, transparent),
+        0 12px 36px rgba(0, 0, 0, 0.28);
+}
+
+.profile-text-canvas[data-interactive='true'][data-revealed='false']:active {
+    transform: scale(0.995);
+    transition: transform 0.12s ease;
+}
+
+.profile-text-canvas__rim {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 1;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        inset 0 0 0 1px color-mix(in srgb, var(--canvas-accent, #e6c673) 12%, transparent);
+}
+
+.profile-text-canvas--rounded {
+    border-radius: 1.15rem;
+}
+
+.profile-text-canvas--arch {
+    border-radius: 1.15rem 1.15rem 2.5rem 2.5rem;
+}
+
+.profile-text-canvas--scroll {
+    border-radius: 0.35rem 1rem 1rem 0.35rem;
+    border-right-width: 4px;
+    border-right-color: color-mix(in srgb, var(--canvas-accent, #e6c673) 55%, transparent);
+}
+
+.profile-text-canvas--door {
+    border-radius: 0.85rem;
+    perspective: 900px;
+}
+
+/* خامات اللوحة — انظر profileCanvasMaterialFx.css */
+
+.profile-text-canvas--glow-soft {
+    box-shadow:
+        0 0 calc(18px * var(--canvas-glow, 0.55)) color-mix(in srgb, var(--canvas-accent, #e6c673) 22%, transparent),
+        0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+.profile-text-canvas--glow-gold {
+    box-shadow:
+        0 0 calc(28px * var(--canvas-glow, 0.55)) color-mix(in srgb, var(--canvas-accent, #e6c673) 45%, transparent),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.profile-text-canvas--glow-aurora {
+    box-shadow:
+        0 0 calc(32px * var(--canvas-glow, 0.55)) color-mix(in srgb, #67e8f9 25%, transparent),
+        0 0 calc(48px * var(--canvas-glow, 0.55)) color-mix(in srgb, var(--canvas-accent, #e6c673) 20%, transparent);
+}
+
+.profile-text-canvas--glow-bloom {
+    box-shadow:
+        0 0 calc(24px * var(--canvas-glow, 0.55)) color-mix(in srgb, #f472b6 18%, transparent),
+        0 0 calc(40px * var(--canvas-glow, 0.55)) color-mix(in srgb, var(--canvas-accent, #e6c673) 28%, transparent);
+}
+
+.profile-text-canvas__inner {
+    position: relative;
+    z-index: 2;
+    min-height: inherit;
+}
+
+.profile-text-canvas__content {
+    transition:
+        opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+        filter 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.profile-text-canvas[data-revealed='false'] .profile-text-canvas__content--interactive {
+    opacity: 0.22;
+    filter: blur(5px) brightness(0.72) saturate(0.85);
+    transform: scale(0.982);
+    pointer-events: none;
+    user-select: none;
+}
+
+.profile-text-canvas[data-revealed='true'] .profile-text-canvas__content--interactive {
+    opacity: 1;
+    filter: none;
+    transform: none;
+}
+
+.profile-text-canvas--revealing .profile-text-canvas__content--interactive {
+    animation: profile-canvas-reveal-bloom 0.78s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes profile-canvas-reveal-bloom {
+    0% {
+        opacity: 0.45;
+        filter: blur(2px);
+        transform: scale(0.99);
+    }
+    45% {
+        filter: blur(0) brightness(1.04);
+    }
+    100% {
+        opacity: 1;
+        filter: none;
+        transform: scale(1);
+    }
+}
+
+/* Silk veil — tap reveal */
+
+.profile-text-canvas__bloom {
+    position: absolute;
+    inset: -20%;
+    z-index: 0;
+    pointer-events: none;
+    background: radial-gradient(
+        circle at 50% 100%,
+        color-mix(in srgb, var(--canvas-accent, #e6c673) 16%, transparent),
+        transparent 58%
+    );
+    opacity: calc(0.35 + var(--canvas-glow, 0.55) * 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .profile-text-canvas__silk-veil-glow,
+    .profile-text-canvas__silk-veil-sheen,
+    .profile-text-canvas__petal,
+    .profile-text-canvas__stardust-particle,
+    .profile-text-canvas__mist-shimmer,
+    .profile-text-canvas__mist-gold-haze,
+    .profile-text-canvas[data-interactive='true'][data-revealed='false'][data-interaction='luminousFold']
+        .profile-text-canvas__luminous-fold {
+        animation: none !important;
+    }
+}
+
+
+/* يوقف حركات الكتل خارج viewport */
+.profile-text-canvas[data-canvas-in-view='false'] *,
+.profile-text-canvas[data-canvas-in-view='false']::before,
+.profile-text-canvas[data-canvas-in-view='false']::after {
+    animation-play-state: paused !important;
+}
+
+[data-lawyer-profile-root][data-profile-reduce-motion='true'] .profile-text-canvas__silk-veil-glow,
+[data-lawyer-profile-root][data-profile-reduce-motion='true'] .profile-text-canvas__silk-veil-sheen,
+[data-lawyer-profile-root][data-profile-reduce-motion='true'] .profile-text-canvas__petal,
+[data-lawyer-profile-root][data-profile-reduce-motion='true'] .profile-text-canvas__stardust-particle,
+[data-lawyer-profile-root][data-profile-reduce-motion='true'] .profile-text-canvas__mist-shimmer,
+[data-lawyer-profile-root][data-profile-reduce-motion='true'] .profile-text-canvas__mist-gold-haze,
+[data-lawyer-profile-root][data-profile-reduce-motion='true'] .profile-text-canvas[data-interactive='true'][data-revealed='false'][data-interaction='luminousFold'] .profile-text-canvas__luminous-fold {
+    animation: none !important;
+}
+
+.profile-text-canvas[data-canvas-slot-active='false'][data-interactive='true'] *,
+.profile-text-canvas[data-canvas-slot-active='false'][data-interactive='true']::before,
+.profile-text-canvas[data-canvas-slot-active='false'][data-interactive='true']::after {
+    animation-play-state: paused !important;
+}
+

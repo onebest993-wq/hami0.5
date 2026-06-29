@@ -14,6 +14,25 @@ export const EXECUTION_TIMELINE_FILTER_OPTIONS = [
 
 export type ExecutionTimelineFilterLabel = (typeof EXECUTION_TIMELINE_FILTER_OPTIONS)[number];
 
+/** تسميات مختصرة لشبكة التصفية على الشاشات الضيقة */
+export const EXECUTION_TIMELINE_FILTER_SHORT_LABELS: Record<ExecutionTimelineFilterLabel, string> = {
+    الكل: 'الكل',
+    'تبليغات وإخبار': 'تبليغ',
+    مواعيد: 'مواعيد',
+    'حركة الأموال والرسوم': 'مالي',
+    'محجوزات وتنفيذ جبري': 'حجز',
+    'قرارات ومحاضر': 'قرارات',
+    'تحركات الطرف الآخر': 'الطرف الآخر',
+    'مستندات وملاحظات': 'ملاحظات',
+};
+
+export function executionTimelineFilterShortLabel(label: string): string {
+    return (
+        EXECUTION_TIMELINE_FILTER_SHORT_LABELS[label as ExecutionTimelineFilterLabel] ??
+        label
+    );
+}
+
 /** مزامنة مع إظهار/إخفاء أقسام لوحة التنفيذ */
 export type ExecutionTimelineVisibilityContext = {
     hideDossierFinancialTools: boolean;

@@ -12,7 +12,7 @@ export const ARCHIVE_SEGMENT_SHELL =
     'flex items-center gap-1 rounded-xl border border-white/[0.08] bg-[#080C16]/80 p-1 overflow-x-auto scrollbar-hide';
 
 export const ARCHIVE_SEGMENT_BTN_BASE =
-    'h-9 px-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap';
+    'h-9 px-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap touch-manipulation';
 
 export const ARCHIVE_SEGMENT_BTN_ACTIVE =
     'bg-[#E6C673] text-[#0B1021] shadow-[0_2px_10px_rgba(230,198,115,0.2)]';

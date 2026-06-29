@@ -1,8 +1,9 @@
-import React, { Suspense } from 'react';
+import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { LazyTasksManager } from '@/app/utils/lazyComponents';
-import { TASKS_MANAGER_FALLBACK } from '@/app/components/lawyer/LawyerDashboardParts/LazyFallback';
+import { TasksManager } from '@/app/components/lawyer/dashboard/TasksManager';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
+import { getHamiOverlayPortalRoot } from '@/app/utils/overlayPortal';
+import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
 
 export type TasksManagerOverlayProps = {
     open: boolean;
@@ -13,23 +14,7 @@ export type TasksManagerOverlayProps = {
 };
 
 function getOverlayPortalRoot(): HTMLElement {
-    if (typeof document === 'undefined') return null as unknown as HTMLElement;
-    let root = document.getElementById('hami-overlay-portal');
-    if (!root) {
-        root = document.createElement('div');
-        root.id = 'hami-overlay-portal';
-        root.setAttribute('aria-hidden', 'true');
-        Object.assign(root.style, {
-            position: 'fixed',
-            inset: '0',
-            width: '100vw',
-            height: '100dvh',
-            pointerEvents: 'none',
-            zIndex: '229',
-        });
-        document.body.appendChild(root);
-    }
-    return root;
+    return getHamiOverlayPortalRoot({ id: 'hami-overlay-portal', zIndex: 229 });
 }
 
 /** Portal على طبقة مستقلة — تغطية كاملة دون تقسيم الشاشة مع #root */
@@ -41,6 +26,19 @@ export function TasksManagerOverlay({
     executionFiles = [],
 }: TasksManagerOverlayProps) {
     useBodyScrollLock(open);
+    const keyboardInsetPx = useMobileKeyboardInset();
+
+    useEffect(() => {
+        if (!open) return;
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            event.stopPropagation();
+            onClose();
+        };
+        window.addEventListener('keydown', onKeyDown, true);
+        return () => window.removeEventListener('keydown', onKeyDown, true);
+    }, [open, onClose]);
 
     if (!open || typeof document === 'undefined') return null;
 
@@ -48,15 +46,15 @@ export function TasksManagerOverlay({
         <div
             className="pointer-events-auto fixed inset-0 z-[230] w-[100vw] max-w-[100vw] h-[100dvh] min-h-[100dvh] overflow-hidden"
             role="presentation"
+            data-testid="tasks-manager-overlay"
         >
-            <Suspense fallback={TASKS_MANAGER_FALLBACK}>
-                <LazyTasksManager
-                    onClose={onClose}
-                    focusTaskId={focusTaskId}
-                    lawsuitFiles={lawsuitFiles}
-                    executionFiles={executionFiles}
-                />
-            </Suspense>
+            <TasksManager
+                onClose={onClose}
+                focusTaskId={focusTaskId}
+                lawsuitFiles={lawsuitFiles}
+                executionFiles={executionFiles}
+                keyboardInsetPx={keyboardInsetPx}
+            />
         </div>,
         getOverlayPortalRoot(),
     );

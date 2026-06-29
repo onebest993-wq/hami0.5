@@ -34,7 +34,7 @@ import {
     type HiddenPersonalCoerciveRequestKey,
 } from '@/app/components/lawyer/ExecutionDashboard/components/hiddenFollowupRequestsUtils';
 import { isCustodyRemovalExecutionClaim } from '@/app/utils/executionClaimIsolation';
-import { hasActiveFinancialGuarantorFollowup } from '@/app/components/lawyer/ExecutionDashboard/components/guarantorExternalUtils';
+import { hasActiveFinancialGuarantorFollowup } from '@/app/utils/execution/guarantorFollowup';
 
 export interface CreditorMirrorWorkflowContext {
     executionId?: string;

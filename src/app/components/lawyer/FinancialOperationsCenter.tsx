@@ -50,7 +50,7 @@ import {
 } from '@/app/utils/alimonyBeneficiaryDeathUtils';
 import type { PastAlimonyClaimSnapshot } from '@/app/utils/alimonyFinancialBreakdown';
 import type { ExecutionFile } from '@/app/types/execution';
-import { isEvictionClaim } from '@/app/utils/executionModuleStrategies';
+import { isEvictionClaim, isSpecificDeliveryClaim } from '@/app/utils/executionModuleStrategies';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import { publishFinancialCenterTimelineNote } from '@/app/utils/financialCenterTimeline';
 import type { TimelineEventType } from '@/app/types/execution';
@@ -2808,7 +2808,11 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                                                     />
                                                 </div>
                                             ) : null}
-                                            {evictionLawyerFeeWaivedAtIntake && sumLawyer <= 0 && (
+                                            {evictionLawyerFeeWaivedAtIntake &&
+                                                sumLawyer <= 0 &&
+                                                !isSpecificDeliveryClaim(claimType) &&
+                                                !(Array.isArray(claimTypes) &&
+                                                    claimTypes.some((ct) => isSpecificDeliveryClaim(ct))) && (
                                                 <p className="text-[10px] text-slate-500 text-center leading-relaxed px-1">
                                                     لم تُسجَّل أتعاب محكومة عند فتح الإضبارة — استخدم «تعديل» ثم «إضافة
                                                     بند أتعاب» لإدراجها في الوعاء وتحديث بيانات الإضبارة.

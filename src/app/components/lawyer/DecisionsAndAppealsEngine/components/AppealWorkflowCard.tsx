@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { AppealOriginBadge } from './AppealOriginBadge';
 import GlowingDot from './GlowingDot';
-import { DECISION_META_CHIP } from '../decisionCardPresentation';
 import { DECISION_GLASS_CARD } from '../utils';
 import { DecisionDebtorFateLine } from './DecisionDebtorFateLine';
 import {
@@ -32,6 +31,7 @@ function AppealWorkflowCard({
         titleClean,
         phaseLabel,
         isAppealCopy,
+        compactAppealCopyChrome,
         statusPillEl,
         dateStr,
         underlyingHub,
@@ -52,21 +52,29 @@ function AppealWorkflowCard({
             dir="rtl"
         >
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-                <div className="mb-1 flex flex-wrap items-center justify-end gap-1.5">
-                    {appealCardRank === 0 && appealCardsTotal > 1 ? (
+                {!compactAppealCopyChrome ? (
+                    <div className="mb-1 flex flex-wrap items-center justify-end gap-1.5">
+                        {appealCardRank === 0 && appealCardsTotal > 1 ? (
+                            <span className="rounded-md border border-amber-400/35 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-100">
+                                الأحدث
+                            </span>
+                        ) : null}
+                        <span className="rounded-md border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[9px] font-semibold text-slate-300">
+                            {phaseLabel}
+                        </span>
+                        {isAppealCopy ? (
+                            <span className="rounded-md border border-violet-400/25 bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-violet-100">
+                                نسخة طعن
+                            </span>
+                        ) : null}
+                    </div>
+                ) : appealCardRank === 0 && appealCardsTotal > 1 ? (
+                    <div className="mb-1 flex flex-wrap items-center justify-end gap-1.5">
                         <span className="rounded-md border border-amber-400/35 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-100">
                             الأحدث
                         </span>
-                    ) : null}
-                    <span className="rounded-md border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[9px] font-semibold text-slate-300">
-                        {phaseLabel}
-                    </span>
-                    {isAppealCopy ? (
-                        <span className="rounded-md border border-violet-400/25 bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-violet-100">
-                            نسخة طعن
-                        </span>
-                    ) : null}
-                </div>
+                    </div>
+                ) : null}
                 <div className="mb-1 flex items-center justify-between gap-2">
                     <div className="flex min-w-0 flex-1 items-center gap-2 text-right">
                         <GlowingDot
@@ -83,31 +91,28 @@ function AppealWorkflowCard({
                     <div className="flex shrink-0 items-center gap-1.5">{statusPillEl}</div>
                 </div>
 
-                <div className="mb-2 flex flex-col gap-1.5 text-[10px] text-slate-400">
-                    <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                            <span>{dateStr}</span>
-                            <AppealOriginBadge decision={underlyingHub} perspective={perspective} />
+                {!compactAppealCopyChrome ? (
+                    <div className="mb-2 flex flex-col gap-1.5 text-[10px] text-slate-400">
+                        <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                                <span>{dateStr}</span>
+                                <AppealOriginBadge decision={underlyingHub} perspective={perspective} />
+                            </div>
                         </div>
-                        {decision.tamyeezDecisionNumber?.trim() ? (
-                            <span className={DECISION_META_CHIP}>
-                                تمييز: {decision.tamyeezDecisionNumber}
-                            </span>
+                        {debtorFateLine ? (
+                            <DecisionDebtorFateLine
+                                enforcementState={enforcementState}
+                                fateLine={debtorFateLine}
+                            />
+                        ) : null}
+                        {showHubLink ? (
+                            <p className="text-[10px] leading-relaxed text-slate-500">
+                                القرار الأصلي:{' '}
+                                <span className="font-semibold text-slate-300">{hubTitleClean}</span>
+                            </p>
                         ) : null}
                     </div>
-                    {debtorFateLine ? (
-                        <DecisionDebtorFateLine
-                            enforcementState={enforcementState}
-                            fateLine={debtorFateLine}
-                        />
-                    ) : null}
-                    {showHubLink ? (
-                        <p className="text-[10px] leading-relaxed text-slate-500">
-                            القرار الأصلي:{' '}
-                            <span className="font-semibold text-slate-300">{hubTitleClean}</span>
-                        </p>
-                    ) : null}
-                </div>
+                ) : null}
 
                 <AppealWorkflowCardDetailsSection
                     appealPerspective={perspective}

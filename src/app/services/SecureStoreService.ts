@@ -5,6 +5,8 @@ type ExpoSecureStoreModule = {
   deleteItemAsync: (key: string) => Promise<void>;
 };
 
+import { debug } from '@/app/utils/debug';
+
 const KEY_INDEX = '__hami_secure_store_keys__';
 const ENCRYPTED_PREFIX = 'hami_enc_v2:';
 
@@ -12,12 +14,17 @@ const __DEV__ = import.meta.env.DEV;
 const _log = (...a: unknown[]) => { if (__DEV__) console.log('[SecureStore]', ...a); };
 const _warn = (...a: unknown[]) => { if (__DEV__) console.warn('[SecureStore]', ...a); };
 const _err = (...a: unknown[]) => { if (__DEV__) console.error('[SecureStore]', ...a); };
+const _guard = (...a: unknown[]) => { debug.warn('[SecureStore]', ...a); };
 
 let webMigrationDone = false;
 let webSyncMigrationDone = false;
+let webDbInitPromise: Promise<boolean> | null = null;
 let secureStoreModulePromise: Promise<ExpoSecureStoreModule | null> | null = null;
 let webReadyPromise: Promise<void> | null = null;
 let webReady = false;
+let bootShellReady = false;
+let bootShellSyncDone = false;
+let bootShellPromise: Promise<void> | null = null;
 
 const webFallbackStore = new Map<string, string>();
 const decryptedCache = new Map<string, string>();
@@ -57,7 +64,7 @@ function installHeavyPersistFlushHook(): void {
   window.addEventListener('pagehide', flush);
 }
 const WEB_DB_NAME = 'hami-secure-store';
-const WEB_DB_VERSION = 1;
+const WEB_DB_VERSION = 2;
 const WEB_STORE = 'secure_kv';
 const WEB_MIGRATION_PREFIXES = [
   'hami:',
@@ -78,7 +85,14 @@ const isWebEnvironment = (): boolean =>
 
 import { isSensitiveStorageKey, shouldEncryptValue } from './secureStorageKeys';
 import { shouldRejectDossierWipe } from '@/app/services/dossierPersistence/dossierWipeGuard';
-import { PROTECTED_WARM_KEYS } from '@/app/services/dossierPersistence/protectedStorageKeys';
+import {
+  isExecutionDossierMainBlobKey,
+  shouldRejectExecutionDossierBlobWipe,
+} from '@/app/utils/executionDossierBlobPersistence';
+import {
+  BOOT_SHELL_WARM_KEYS,
+  PROTECTED_WARM_KEYS,
+} from '@/app/services/dossierPersistence/protectedStorageKeys';
 import { scheduleProtectedBackupFromRaw } from '@/app/services/dossierPersistence/protectedBackupService';
 import { recoverPlaintextAfterDecryptFailure } from '@/app/services/secureStoreRecovery';
 
@@ -165,28 +179,100 @@ class SecureStoreService {
     return WEB_MIGRATION_PREFIXES.some((prefix) => key.startsWith(prefix));
   }
 
+  private static deleteWebDatabase(): Promise<void> {
+    if (typeof indexedDB === 'undefined') return Promise.resolve();
+    return new Promise((resolve) => {
+      const req = indexedDB.deleteDatabase(WEB_DB_NAME);
+      const finish = () => resolve();
+      req.onsuccess = finish;
+      req.onerror = finish;
+      req.onblocked = finish;
+    });
+  }
+
+  /** تهيئة واحدة متسلسلة — يمنع سباق فتح IDB قبل اكتمال onupgradeneeded */
+  private static ensureWebDatabaseInitialized(retry = true): Promise<boolean> {
+    if (!isWebEnvironment() || typeof indexedDB === 'undefined') {
+      return Promise.resolve(false);
+    }
+    if (!webDbInitPromise) {
+      webDbInitPromise = (async () => {
+        try {
+          await new Promise<void>((resolve, reject) => {
+            const req = indexedDB.open(WEB_DB_NAME, WEB_DB_VERSION);
+            req.onupgradeneeded = () => {
+              const db = req.result;
+              if (!db.objectStoreNames.contains(WEB_STORE)) {
+                db.createObjectStore(WEB_STORE);
+              }
+            };
+            req.onsuccess = () => {
+              const db = req.result;
+              if (!db.objectStoreNames.contains(WEB_STORE)) {
+                db.close();
+                reject(new Error('IndexedDB object store missing after open'));
+                return;
+              }
+              db.close();
+              resolve();
+            };
+            req.onerror = () => reject(req.error ?? new Error('IndexedDB open failed'));
+            req.onblocked = () => {
+              _warn('IndexedDB upgrade blocked — close other tabs using this app');
+            };
+          });
+          return true;
+        } catch (error) {
+          webDbInitPromise = null;
+          if (retry) {
+            _log('IndexedDB init retry — rebuilding store');
+            await this.deleteWebDatabase();
+            return this.ensureWebDatabaseInitialized(false);
+          }
+          _err('IndexedDB init failed permanently:', error);
+          return false;
+        }
+      })();
+    }
+    return webDbInitPromise;
+  }
+
   private static openWebDatabase(): Promise<IDBDatabase | null> {
     if (!isWebEnvironment() || typeof indexedDB === 'undefined') {
       return Promise.resolve(null);
     }
-    return new Promise((resolve) => {
-      const req = indexedDB.open(WEB_DB_NAME, WEB_DB_VERSION);
-      req.onupgradeneeded = () => {
-        const db = req.result;
-        if (!db.objectStoreNames.contains(WEB_STORE)) {
-          db.createObjectStore(WEB_STORE);
-        }
-      };
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => resolve(null);
+    return this.ensureWebDatabaseInitialized().then((ready) => {
+      if (!ready) return null;
+      return new Promise((resolve) => {
+        const req = indexedDB.open(WEB_DB_NAME);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(null);
+      });
     });
+  }
+
+  private static beginWebDbTransaction(
+    db: IDBDatabase,
+    mode: IDBTransactionMode,
+  ): IDBTransaction | null {
+    try {
+      return db.transaction(WEB_STORE, mode);
+    } catch (error) {
+      if (__DEV__) _log('IndexedDB transaction skipped:', error);
+      return null;
+    }
   }
 
   private static async webDbGetAllKeys(): Promise<string[]> {
     const db = await this.openWebDatabase();
     if (!db) return [];
     return new Promise((resolve) => {
-      const tx = db.transaction(WEB_STORE, 'readonly');
+      const tx = this.beginWebDbTransaction(db, 'readonly');
+      if (!tx) {
+        db.close();
+        resolve([]);
+        return;
+      }
       const req = tx.objectStore(WEB_STORE).getAllKeys();
       req.onsuccess = () => {
         const keys = (req.result as unknown[]).filter((k): k is string => typeof k === 'string');
@@ -204,7 +290,12 @@ class SecureStoreService {
     const db = await this.openWebDatabase();
     if (!db) return;
     await new Promise<void>((resolve) => {
-      const tx = db.transaction(WEB_STORE, 'readonly');
+      const tx = this.beginWebDbTransaction(db, 'readonly');
+      if (!tx) {
+        db.close();
+        resolve();
+        return;
+      }
       const store = tx.objectStore(WEB_STORE);
       const req = store.getAll();
       const keyReq = store.getAllKeys();
@@ -251,7 +342,12 @@ class SecureStoreService {
     const db = await this.openWebDatabase();
     if (!db) return;
     await new Promise<void>((resolve) => {
-      const tx = db.transaction(WEB_STORE, 'readwrite');
+      const tx = this.beginWebDbTransaction(db, 'readwrite');
+      if (!tx) {
+        db.close();
+        resolve();
+        return;
+      }
       tx.objectStore(WEB_STORE).put(value, key);
       tx.oncomplete = () => {
         db.close();
@@ -272,7 +368,11 @@ class SecureStoreService {
     const db = await this.openWebDatabase();
     if (!db) return null;
     const result = await new Promise<string | null>((resolve) => {
-      const tx = db.transaction(WEB_STORE, 'readonly');
+      const tx = this.beginWebDbTransaction(db, 'readonly');
+      if (!tx) {
+        resolve(null);
+        return;
+      }
       const req = tx.objectStore(WEB_STORE).get(key);
       req.onsuccess = () => {
         const value = req.result;
@@ -290,7 +390,12 @@ class SecureStoreService {
     const db = await this.openWebDatabase();
     if (!db) return;
     await new Promise<void>((resolve) => {
-      const tx = db.transaction(WEB_STORE, 'readwrite');
+      const tx = this.beginWebDbTransaction(db, 'readwrite');
+      if (!tx) {
+        db.close();
+        resolve();
+        return;
+      }
       tx.objectStore(WEB_STORE).delete(key);
       tx.oncomplete = () => {
         db.close();
@@ -312,7 +417,42 @@ class SecureStoreService {
     webReadyPromise = this.ensureWebReady();
   }
 
-  /** انتظار تحميل IndexedDB قبل قراءة/كتابة البيانات المحلية (يمنع فقدان الإضابير عند التحديث). */
+  /** تهيئة متزامنة فورية — localStorage + مفاتيح الواجهة (لا تُحجب React) */
+  static kickoffBootShellSync(): void {
+    if (!isWebEnvironment() || bootShellSyncDone) return;
+    bootShellSyncDone = true;
+    this.ensureWebMigrationSync();
+    this.warmBootShellKeysSync();
+  }
+
+  private static warmBootShellKeysSync(): void {
+    for (const key of BOOT_SHELL_WARM_KEYS) {
+      if (decryptedCache.has(key)) continue;
+      const raw = webFallbackStore.get(key) ?? null;
+      if (raw === null || raw.startsWith(ENCRYPTED_PREFIX)) continue;
+      touchDecryptedCache(key, raw);
+    }
+  }
+
+  /** إعدادات الواجهة من IndexedDB — خلفية بعد أول إطار */
+  static async ensureBootShellReady(): Promise<void> {
+    if (!isWebEnvironment() || bootShellReady) return;
+    if (import.meta.env.VITEST) {
+      bootShellReady = true;
+      bootShellSyncDone = true;
+      webReady = true;
+      return;
+    }
+    if (bootShellPromise) return bootShellPromise;
+    bootShellPromise = (async () => {
+      this.kickoffBootShellSync();
+      await this.warmPersistedKeys(BOOT_SHELL_WARM_KEYS);
+      bootShellReady = true;
+    })();
+    await bootShellPromise;
+  }
+
+  /** انتظار تحميل IndexedDB + كل الإضابير — يُستدعى في الخلفية بعد أول إطار */
   static async ensurePersistedReady(): Promise<void> {
     if (!isWebEnvironment()) return;
     await this.ensureWebReady();
@@ -322,18 +462,14 @@ class SecureStoreService {
     if (!isWebEnvironment() || webReady) return;
     if (import.meta.env.VITEST) {
       webReady = true;
+      bootShellReady = true;
       return;
     }
     if (webReadyPromise) return webReadyPromise;
     webReadyPromise = (async () => {
+      await this.ensureBootShellReady();
       await this.ensureWebMigration();
-      try {
-        const { CryptoService } = await import('./CryptoService');
-        await CryptoService.initialize();
-      } catch {
-        /* crypto init best-effort before dossier warm */
-      }
-      await this.warmDossierKeysFromPersistedStore();
+      await this.warmPersistedKeys(PROTECTED_WARM_KEYS);
       webReady = true;
     })();
     await webReadyPromise;
@@ -444,15 +580,18 @@ class SecureStoreService {
       if (trimmed === '' || trimmed === '{}' || trimmed === 'null') return true;
     }
     if (shouldRejectDossierWipe(key, incoming, existing)) return true;
+    if (isExecutionDossierMainBlobKey(key) && shouldRejectExecutionDossierBlobWipe(key, incoming, existing)) {
+      return true;
+    }
     const trimmed = incoming.trim();
     if (trimmed === '' || trimmed === '{}' || trimmed === 'null') return true;
     return false;
   }
 
-  /** تحميل مفاتيح البيانات المحمية من IndexedDB وفك التشفير — بدون getItem (يتجنّب deadlock مع ensureWebReady) */
-  private static async warmDossierKeysFromPersistedStore(): Promise<void> {
+  /** تحميل مفاتيح محددة من IndexedDB وفك التشفير — بدون getItem (يتجنّب deadlock مع ensureWebReady) */
+  private static async warmPersistedKeys(keys: readonly string[]): Promise<void> {
     if (!isWebEnvironment()) return;
-    for (const key of PROTECTED_WARM_KEYS) {
+    for (const key of keys) {
       if (decryptedCache.has(key)) continue;
       try {
         let raw: string | null = webFallbackStore.get(key) ?? null;
@@ -476,7 +615,7 @@ class SecureStoreService {
         const existing = webFallbackStore.get(key) ?? (await this.webDbGetItem(key));
         if (existing && this.shouldRejectEmptyOverwrite(key, value, existing)) {
           if (!key.startsWith('hami_notes_sync_map_')) {
-            _warn(`Refused empty overwrite for "${key}" — existing data preserved.`);
+            _guard(`Refused empty overwrite for "${key}" — existing data preserved.`);
           }
           return;
         }
@@ -626,6 +765,7 @@ class SecureStoreService {
     if (isWebEnvironment()) {
       this.ensureWebMigrationSync();
       this.ensureWebReadySyncKickoff();
+      deleteDecryptedCacheKey(key);
       webFallbackStore.delete(key);
     }
     void this.deleteItem(key);
@@ -637,6 +777,10 @@ class SecureStoreService {
     this.ensureWebReadySyncKickoff();
     return Array.from(webFallbackStore.keys());
   }
+}
+
+if (typeof window !== 'undefined' && !import.meta.env.VITEST) {
+  SecureStoreService.kickoffBootShellSync();
 }
 
 export default SecureStoreService;

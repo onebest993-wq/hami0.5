@@ -1,41 +1,26 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useLawyerDashboardOverlays } from '../useLawyerDashboardOverlays';
+import { useLawyerDashboardSettings } from '@/app/hooks/lawyerDashboard/useLawyerDashboardSettings';
 
 vi.mock('@/app/components/ui/SmartToast', () => ({
-    SmartToast: {
-        error: vi.fn(),
-        info: vi.fn(),
-        success: vi.fn(),
-    },
+    SmartToast: { error: vi.fn(), info: vi.fn(), success: vi.fn() },
 }));
 
-describe('useLawyerDashboardOverlays — الإعدادات', () => {
-    beforeEach(() => {
-        vi.clearAllMocks();
-    });
+vi.mock('@/app/runtime/hamiSettingsLoader', () => ({
+    loadHamiSettingsModule: vi.fn(() => Promise.resolve({})),
+    prefetchHamiSettingsModule: vi.fn(),
+}));
 
-    it('يفتح الإعدادات للمستخدم المسجّل', () => {
-        const { result } = renderHook(() =>
-            useLawyerDashboardOverlays({ setArchiveType: vi.fn(), userId: 'lawyer-1' }),
-        );
+/** @deprecated — استخدم useLawyerDashboardSettings.test.ts */
+describe('useLawyerDashboardOverlays — الإعدادات (legacy)', () => {
+    beforeEach(() => vi.clearAllMocks());
 
-        act(() => {
+    it('يُعاد توجيه الاختبار إلى useLawyerDashboardSettings', async () => {
+        const { result } = renderHook(() => useLawyerDashboardSettings('lawyer-1'));
+        await act(async () => {
             result.current.openSettings();
+            await Promise.resolve();
         });
-
         expect(result.current.showSettings).toBe(true);
-    });
-
-    it('يرفض فتح الإعدادات بدون تسجيل دخول', () => {
-        const { result } = renderHook(() =>
-            useLawyerDashboardOverlays({ setArchiveType: vi.fn(), userId: null }),
-        );
-
-        act(() => {
-            result.current.openSettings();
-        });
-
-        expect(result.current.showSettings).toBe(false);
     });
 });

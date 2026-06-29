@@ -11,6 +11,7 @@
  */
 
 import { lazyWithRetry, type LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
+import type { ExecutionDashboardPrefetchMode } from '@/app/runtime/executionDashboardLoader';
 import { LazyLawyerNewCase } from '@/app/utils/lazy/lawyerNewCaseModal';
 
 export { LazyLawyerNewCase };
@@ -18,10 +19,6 @@ export { LazyLawyerNewCase };
 // ═══════════════════════════════════════════════════════════════════════════
 // HEAVY MODALS (Lazy Loaded)
 // ═══════════════════════════════════════════════════════════════════════════
-
-export const LazySmartFileModal = lazyWithRetry(
-    () => import('@/app/components/lawyer/SmartFileModal').then((m) => ({ default: m.SmartFileModal as unknown as LazyComponent }))
-);
 
 export const LazyClientRequestsHub = lazyWithRetry(() =>
     import('@/app/components/lawyer/ClientRequestsHub').then((m) => ({
@@ -39,14 +36,6 @@ export const LazyExecutionDashboard = lazyWithRetry(() =>
             default: mod.ExecutionDashboard as unknown as LazyComponent,
         })),
     ),
-);
-
-export const LazySmartContractGenerator = lazyWithRetry(() =>
-    import('@/app/components/lawyer/SmartContractGenerator.tsx').then((m) => ({ default: m.SmartContractGenerator as unknown as LazyComponent }))
-);
-
-export const LazyNotepadModal = lazyWithRetry(() =>
-    import('@/app/components/lawyer/NotepadModal').then((m) => ({ default: m.NotepadModal as unknown as LazyComponent }))
 );
 
 export const LazyArchivePortal = lazyWithRetry(() =>
@@ -76,6 +65,39 @@ export function prefetchArchivePortal(): void {
 export const LazyLawsuitsWorkspace = lazyWithRetry(() =>
     import('@/app/components/lawyer/LawsuitsWorkspace').then((m) => ({ default: m.LawsuitsWorkspace as unknown as LazyComponent }))
 );
+
+let lawsuitsWorkspacePrefetch: Promise<unknown> | null = null;
+
+export function resetLawsuitsWorkspacePrefetch(): void {
+    lawsuitsWorkspacePrefetch = null;
+}
+
+/** أرشيف الدعاوى + الإضبارة + workspace — يُستدعى قبل/عند فتح قسم الدعاوى */
+export function warmLawsuitWorkspace(): void {
+    if (typeof window === 'undefined') return;
+    prefetchArchivePortal();
+    void import('@/app/components/lawyer/SmartFileModal');
+    void import('@/app/components/lawyer/smart-modal/lazySmartFileModalWidgets').then((m) =>
+        m.prefetchSmartFileModalShellWidgets(),
+    );
+    void import('@/app/runtime/smartFileModalLoader').then((m) => {
+        void m.loadSmartFileModalModule().catch(() => undefined);
+        m.prefetchSmartFileModalPhased();
+    });
+    if (!lawsuitsWorkspacePrefetch) {
+        lawsuitsWorkspacePrefetch = import('@/app/components/lawyer/LawsuitsWorkspace').catch((err) => {
+            lawsuitsWorkspacePrefetch = null;
+            throw err;
+        });
+    }
+    void lawsuitsWorkspacePrefetch.catch(() => undefined);
+}
+
+/** تحميل مسبق مسار الدعاوى — workspace + أرشيف + إضبارة الدعوى */
+export function prefetchLawsuitsWorkspace(): void {
+    warmLawsuitWorkspace();
+}
+
 let urgentOrdersViewPrefetch: Promise<unknown> | null = null;
 
 /** تحميل مسبق خفيف لقائمة الطلبات المستعجلة (بدون ملف الإضبارة الثقيل) */
@@ -96,9 +118,117 @@ export const LazyViewUrgentAndOrdersDashboard = lazyWithRetry(() =>
         default: m.View_Urgent_And_Orders_Dashboard as unknown as LazyComponent,
     }))
 );
-export const LazySmartVaultModal = lazyWithRetry(() =>
-    import('@/app/components/lawyer/SmartVaultModal.tsx').then((m) => ({ default: m.SmartVaultModal as unknown as LazyComponent }))
+export const LazySmartRepositoryModal = lazyWithRetry(() =>
+    import('@/app/components/lawyer/SmartRepositoryModal').then((m) => ({
+        default: m.SmartRepositoryModal as unknown as LazyComponent,
+    })),
 );
+
+let smartRepositoryModalPrefetch: Promise<unknown> | null = null;
+
+export function prefetchSmartRepositoryModal(): void {
+    if (typeof window === 'undefined') return;
+    if (!smartRepositoryModalPrefetch) {
+        smartRepositoryModalPrefetch = import('@/app/components/lawyer/SmartRepositoryModal').catch((err) => {
+            smartRepositoryModalPrefetch = null;
+            throw err;
+        });
+    }
+    void smartRepositoryModalPrefetch.catch(() => undefined);
+}
+
+let profileSettingsSheetPrefetch: Promise<unknown> | null = null;
+
+let profileSettingsStudioTabsPrefetched = false;
+
+/** تبويبات الاستوديو — تُحمَّل بالتوازي لتسريع التنقل الداخلي */
+export function prefetchProfileSettingsStudioTabs(): void {
+    if (typeof window === 'undefined' || profileSettingsStudioTabsPrefetched) return;
+    profileSettingsStudioTabsPrefetched = true;
+    void import('@/app/components/lawyer/RoyalLawyerProfile/components/settings/ProfileSettingsPrivacyTab').catch(
+        () => undefined,
+    );
+    void import('@/app/components/lawyer/RoyalLawyerProfile/components/settings/ProfileSettingsAppearanceTab').catch(
+        () => undefined,
+    );
+    void import('@/app/components/lawyer/RoyalLawyerProfile/components/settings/ProfileSettingsContainersTab').catch(
+        () => undefined,
+    );
+}
+
+export function resetProfileSettingsPrefetchForTests(): void {
+    profileSettingsSheetPrefetch = null;
+    profileSettingsStudioTabsPrefetched = false;
+}
+
+/** استوديو الملف المهني — chunk منفصل داخل ProfileContent */
+export function prefetchProfileSettingsSheet(): void {
+    if (typeof window === 'undefined') return;
+    prefetchProfileSettingsStudioTabs();
+    if (!profileSettingsSheetPrefetch) {
+        profileSettingsSheetPrefetch = import(
+            '@/app/components/lawyer/RoyalLawyerProfile/components/ProfileSettingsSheet'
+        ).catch((err) => {
+            profileSettingsSheetPrefetch = null;
+            throw err;
+        });
+    }
+    void profileSettingsSheetPrefetch.catch(() => undefined);
+    void import('@/app/components/lawyer/RoyalLawyerProfile/components/TextBlockStudioEditor').catch(() => undefined);
+    void import('@/app/components/lawyer/RoyalLawyerProfile/components/ImageBlockStudioEditor').catch(() => undefined);
+}
+
+export function loadProfileSettingsSheetModule(): Promise<
+    typeof import('@/app/components/lawyer/RoyalLawyerProfile/components/ProfileSettingsSheet')
+> {
+    prefetchProfileSettingsSheet();
+    return profileSettingsSheetPrefetch as Promise<
+        typeof import('@/app/components/lawyer/RoyalLawyerProfile/components/ProfileSettingsSheet')
+    >;
+}
+
+/** المستودع + الملف المهني — chunk + بيانات الملف */
+export function warmNotepadAndProfile(userId?: string | null): void {
+    if (typeof window === 'undefined') return;
+    prefetchSmartRepositoryModal();
+    prefetchProfileSettingsSheet();
+    void import('@/app/runtime/royalLawyerProfileLoader').then((m) => m.prefetchRoyalLawyerProfile(userId));
+}
+
+/** الإعدادات فقط — بلا مستودع */
+export function warmSettingsShell(): void {
+    if (typeof window === 'undefined') return;
+    prefetchHamiSettings();
+}
+
+/** المستودع + ذاكرة الوثائق — عند hover/فتح المخزن فقط */
+export function warmVaultWorkspace(userId?: string | null): void {
+    if (typeof window === 'undefined') return;
+    prefetchSmartRepositoryModal();
+    void import('@/app/services/vault/vaultDocsWarmCache').then((m) => m.prefetchSmartVaultDocs(userId));
+}
+
+/** الإعدادات + المستودع — للمسارات التي تحتاج الاثنين صراحةً */
+export function warmSettingsAndVault(userId?: string | null): void {
+    warmSettingsShell();
+    warmVaultWorkspace(userId);
+}
+
+let voiceRecorderModalPrefetch: Promise<unknown> | null = null;
+
+export function prefetchVoiceRecorderModal(): void {
+    if (typeof window === 'undefined') return;
+    if (!voiceRecorderModalPrefetch) {
+        voiceRecorderModalPrefetch = import('@/app/components/lawyer/ActionModals/VoiceRecorderModal').catch(
+            (err) => {
+                voiceRecorderModalPrefetch = null;
+                throw err;
+            },
+        );
+    }
+    void voiceRecorderModalPrefetch.catch(() => undefined);
+}
+
 let smartFileModalPrefetch: Promise<unknown> | null = null;
 
 /** تحميل مسبق لوحة الإضبارة الجزائية — store ثم dashboard */
@@ -109,23 +239,66 @@ export function prefetchCriminalDashboard(): void {
     });
 }
 
-/** تحميل مسبق إضبارة المدني قبل النقر */
+/** تحميل مسبق إضبارة الدعوى — chunk رئيسي + shell + widgets */
 export function prefetchSmartFileModal(): void {
     if (typeof window === 'undefined') return;
+    void import('@/app/runtime/smartFileModalLoader').then((m) => {
+        void m.loadSmartFileModalModule().catch(() => undefined);
+        m.prefetchSmartFileModalPhased();
+    });
     if (!smartFileModalPrefetch) {
-        smartFileModalPrefetch = Promise.all([
-            import('@/app/components/lawyer/SmartFileModal'),
-            import('@/app/components/lawyer/smart-modal/SmartFileModalContent'),
-        ]);
+        smartFileModalPrefetch = import('@/app/runtime/smartFileModalLoader')
+            .then((m) => m.loadSmartFileModalModule())
+            .catch((err) => {
+                smartFileModalPrefetch = null;
+                throw err;
+            });
     }
+    void smartFileModalPrefetch.catch(() => undefined);
 }
 
-/** تحميل مسبق إضبارة التنفيذ — مرحلي (shell → body → modals) */
-export function prefetchExecutionDashboard(): void {
+export function waitForSmartFileModalPrefetch(): Promise<void> {
+    prefetchSmartFileModal();
+    return (smartFileModalPrefetch ?? Promise.resolve()).then(() => undefined);
+}
+
+let executionDashboardPrefetch: Promise<void> | null = null;
+
+export function resetExecutionDashboardPrefetch(): void {
+    executionDashboardPrefetch = null;
+    void import('@/app/runtime/executionDashboardLoader').then((m) => m.resetExecutionDashboardModuleCache());
+}
+
+/** تحميل مسبق إضبارة التنفيذ — deferred | intent | urgent */
+export function prefetchExecutionDashboard(mode: ExecutionDashboardPrefetchMode = 'urgent'): void {
     if (typeof window === 'undefined') return;
-    void import('@/app/runtime/executionDashboardLoader').then((m) => {
-        m.prefetchExecutionDashboardPhased();
+    const run = import('@/app/runtime/executionDashboardLoader').then((m) => {
+        m.prefetchExecutionDashboardByMode(mode);
+        if (mode === 'urgent') {
+            return m.loadExecutionDashboardModule().then(() => undefined);
+        }
+        return undefined;
     });
+    if (mode === 'urgent' || !executionDashboardPrefetch) {
+        executionDashboardPrefetch = run.catch((err) => {
+            executionDashboardPrefetch = null;
+            throw err;
+        });
+    }
+    void executionDashboardPrefetch.catch(() => undefined);
+}
+
+export function waitForExecutionDashboardPrefetch(): Promise<void> {
+    prefetchExecutionDashboard('urgent');
+    return (executionDashboardPrefetch ?? Promise.resolve()).then(() => undefined);
+}
+
+/** أرشيف التنفيذ + الإضبارة — يُستدعى قبل/عند فتح قسم التنفيذ */
+export function warmExecutionWorkspace(): void {
+    if (typeof window === 'undefined') return;
+    prefetchArchivePortal();
+    prefetchExecutionDashboard('urgent');
+    prefetchExecutionCreationView();
 }
 
 /** تحميل مسبق كل أنواع الإضابير (مدني + جزائي + تنفيذ) */
@@ -133,7 +306,7 @@ export function prefetchDossierShells(): void {
     prefetchArchivePortal();
     prefetchSmartFileModal();
     prefetchCriminalDashboard();
-    prefetchExecutionDashboard();
+    prefetchExecutionDashboard('deferred');
 }
 
 export function resetCriminalDashboardPrefetch(): void {
@@ -144,6 +317,7 @@ export function resetCriminalDashboardPrefetch(): void {
 
 export function resetSmartFileModalPrefetch(): void {
     smartFileModalPrefetch = null;
+    void import('@/app/runtime/smartFileModalLoader').then((m) => m.resetSmartFileModalModuleCache());
 }
 
 /** النظام الجزائي — chunk منفصل (CriminalDashboard + store ثقيل) */
@@ -155,11 +329,15 @@ export const LazyCriminalDashboard = lazyWithRetry(() =>
     ),
 );
 export const LazyHamiSettings = lazyWithRetry(() =>
-    import('@/app/components/lawyer/HamiSettings/index').then((m) => ({ default: m.HamiSettings as unknown as LazyComponent }))
+    import('@/app/runtime/hamiSettingsLoader').then((m) =>
+        m.loadHamiSettingsModule().then((mod) => ({
+            default: mod.HamiSettings as unknown as LazyComponent,
+        })),
+    ),
 );
 export function prefetchHamiSettings(): void {
     if (typeof window === 'undefined') return;
-    void import('@/app/components/lawyer/HamiSettings/index');
+    void import('@/app/runtime/hamiSettingsLoader').then((m) => m.prefetchHamiSettingsModule());
 }
 export const LazyRoyalLawyerProfile = lazyWithRetry(() =>
     import('@/app/runtime/royalLawyerProfileLoader').then((m) =>
@@ -168,9 +346,9 @@ export const LazyRoyalLawyerProfile = lazyWithRetry(() =>
         })),
     ),
 );
-export function prefetchRoyalLawyerProfile(): void {
+export function prefetchRoyalLawyerProfile(userId?: string | null): void {
     if (typeof window === 'undefined') return;
-    void import('@/app/runtime/royalLawyerProfileLoader').then((m) => m.prefetchRoyalLawyerProfile());
+    void import('@/app/runtime/royalLawyerProfileLoader').then((m) => m.prefetchRoyalLawyerProfile(userId));
 }
 export const LazySmartLegalRadar = lazyWithRetry(() =>
     import('@/app/components/lawyer/SmartLegalRadar.tsx').then((m) => ({ default: m.SmartLegalRadar as unknown as LazyComponent }))
@@ -182,33 +360,110 @@ export function prefetchSmartLegalRadar(): void {
 export const LazyExecutionCreationView = lazyWithRetry(() =>
     import('@/app/components/lawyer/ExecutionCreationView.tsx').then((m) => ({ default: m.ExecutionCreationView as unknown as LazyComponent }))
 );
+export function prefetchExecutionCreationView(): void {
+    if (typeof window === 'undefined') return;
+    void import('@/app/components/lawyer/ExecutionCreationView.tsx');
+}
 export const LazyGlobalSearchOverlay = lazyWithRetry(() =>
-    import('@/app/runtime/globalSearchLoader').then((m) =>
-        m.loadGlobalSearchOverlayModule().then((mod) => ({
-            default: mod.GlobalSearchOverlay as unknown as LazyComponent,
-        })),
-    ),
+    import('@/app/components/lawyer/GlobalSearchOverlay').then((m) => ({
+        default: m.GlobalSearchOverlay as unknown as LazyComponent,
+    })),
 );
 export function prefetchGlobalSearchOverlay(): void {
     if (typeof window === 'undefined') return;
     void import('@/app/runtime/globalSearchLoader').then((m) => m.prefetchGlobalSearchOverlay());
-}
-export const LazyUnifiedCommandHub = lazyWithRetry(() =>
-    import('@/app/components/lawyer/dashboard/UnifiedCommandHub').then((m) => ({ default: m.UnifiedCommandHub as unknown as LazyComponent }))
-);
-export function prefetchLawyerHomeHubCard(): void {
-    if (import.meta.env.DEV || typeof window === 'undefined') return;
-    void import('@/app/runtime/lawyerDashboardLoader').then((m) => m.prefetchLawyerDashboardEntry());
+    void import('@/app/components/lawyer/GlobalSearchOverlay');
 }
 
-export const LazyLawyerHomeHubCard = lazyWithRetry(() =>
-    import('@/app/components/lawyer/LawyerHomeHubCard').then((m) => ({
-        default: m.LawyerHomeHubCard as unknown as LazyComponent,
+export function warmTasksWorkspace(): void {
+    if (typeof window === 'undefined') return;
+    void import('@/app/components/lawyer/dashboard/FieldTasksBottomSheet');
+    void import('@/app/components/lawyer/dashboard/TasksManagerOverlay');
+    void import('@/app/components/lawyer/dashboard/TasksManager');
+}
+
+/** overlays الإنتاجية — مهام، معاملات، إشعارات، تقويم */
+export function warmDashboardOverlays(): void {
+    if (typeof window === 'undefined') return;
+    warmTasksWorkspace();
+    prefetchTransactionsHub();
+    void import('@/app/components/lawyer/View_Urgent_And_Orders_Dashboard');
+    void import('@/app/components/lawyer/NotificationPanel');
+    void import('@/app/components/lawyer/SmartLegalRadar.tsx');
+}
+
+export function prefetchProductivityOverlays(): void {
+    if (typeof window === 'undefined') return;
+    warmSettingsShell();
+    warmNotepadAndProfile();
+    prefetchVoiceRecorderModal();
+    warmDashboardOverlays();
+}
+
+let transactionsHubPrefetch: Promise<unknown> | null = null;
+
+export function resetTransactionsHubPrefetch(): void {
+    transactionsHubPrefetch = null;
+}
+
+/** تحميل مسبق مسار المعاملات — الواجهة + مخزن البيانات */
+export function prefetchTransactionsHub(): void {
+    if (typeof window === 'undefined') return;
+    if (!transactionsHubPrefetch) {
+        transactionsHubPrefetch = Promise.all([
+            import('@/app/runtime/transactionsHubLoader').then((m) => m.loadTransactionsHubModule()),
+            import('@/app/modules/transactionsThreading/store').catch(() => undefined),
+        ]).catch((err) => {
+            transactionsHubPrefetch = null;
+            throw err;
+        });
+    }
+    void transactionsHubPrefetch.catch(() => undefined);
+}
+
+export const LazyTransactionsThreadingSystem = lazyWithRetry(() =>
+    import('@/app/components/lawyer/TransactionsThreading/TransactionsThreadingSystem').then((m) => ({
+        default: m.TransactionsThreadingSystem as unknown as LazyComponent,
     })),
 );
-export const LazyLegalCommandCenterDock = lazyWithRetry(() =>
-    import('@/app/components/lawyer/LegalCommandCenterDock').then((m) => ({ default: m.LegalCommandCenterDock as unknown as LazyComponent }))
+
+export const LazyTasksManagerOverlay = lazyWithRetry(() =>
+    import('@/app/components/lawyer/dashboard/TasksManagerOverlay').then((m) => ({
+        default: m.TasksManagerOverlay as unknown as LazyComponent,
+    })),
 );
+
+export const LazyFieldTasksBottomSheet = lazyWithRetry(() =>
+    import('@/app/components/lawyer/dashboard/FieldTasksBottomSheet').then((m) => ({
+        default: m.FieldTasksBottomSheet as unknown as LazyComponent,
+    })),
+);
+
+export function prefetchLawyerHomeHubCard(): void {
+    if (typeof window === 'undefined') return;
+    void import('@/app/components/lawyer/LawyerHomeHubCard');
+}
+
+/** حاويات الرئيسية — chunk + مكوّنات الرئيسية فوراً */
+export function warmLawyerHomeShell(): void {
+    if (typeof window === 'undefined') return;
+    void import('@/app/components/lawyer/LawyerDashboardParts/components/Header').catch(() => undefined);
+    prefetchLawyerHomeHubCard();
+    void import('@/app/components/lawyer/LegalCommandCenterDock');
+    void import('@/app/components/lawyer/dashboard/commandHub/CommandHubTiles');
+}
+
+/** حاويات الرئيسية — تُحمَّل فوراً (تنبيهات + دوك + شريط الأوامر) */
+export function prefetchLawyerHomeShellCritical(): void {
+    warmLawyerHomeShell();
+}
+
+export function prefetchLawyerHomeShellWidgets(): void {
+    if (typeof window === 'undefined') return;
+    prefetchLawyerHomeShellCritical();
+    prefetchSmartRepositoryModal();
+}
+
 export const LazyTasksManager = lazyWithRetry(() =>
     import('@/app/components/lawyer/dashboard/TasksManager.tsx').then((m) => ({ default: m.TasksManager as unknown as LazyComponent }))
 );

@@ -1,4 +1,5 @@
-import { FollowDB, type FollowRecord } from '@/app/services/lawyer-cloud';
+import { FollowDB } from '@/app/services/cloud/lawyerCommunityCloud';
+import type { FollowRecord } from '@/app/services/cloud/lawyerCommunityTypes';
 import { getForumSupabaseAdmin } from './supabaseAdmin';
 
 import type { ForumFollowPrefs, ForumFollowRecord } from './forumFollowTypes';

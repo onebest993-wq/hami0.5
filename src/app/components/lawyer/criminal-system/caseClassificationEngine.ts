@@ -1,4 +1,4 @@
-import type { CriminalCase, CrimeType } from './criminalStore';
+import type { CriminalCase, CrimeType } from './criminalCaseModel';
 import { extractArticleNumber } from './trialChargeEngine';
 
 /** تصنيف الجريمة السيادي للمرحلة. */

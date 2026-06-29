@@ -1,5 +1,6 @@
 import type { TransactionsThreadingRepository } from './repository';
 import { createThreadingId } from './ids';
+import { sanitizeTransactionCreateFields } from '@/app/services/transactions/transactionsInputSecurity';
 import {
   FinanceRecordType,
   TransactionStatus,
@@ -72,8 +73,14 @@ export class TransactionsThreadingService {
 
   async createTransaction(input: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>): Promise<Transaction> {
     const now = this.now();
+    const sanitized = sanitizeTransactionCreateFields({
+      title: input.title,
+      clientName: input.clientName,
+      targetDepartment: input.targetDepartment,
+    });
     const tx: Transaction = {
       ...input,
+      ...sanitized,
       id: this.idFactory(),
       createdAt: now,
       updatedAt: now,

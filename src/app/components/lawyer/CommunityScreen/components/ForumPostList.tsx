@@ -2,6 +2,7 @@ import React, { memo } from 'react';
 import { ChevronDown, Loader2, MessageSquare } from 'lucide-react';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 import { QuestionCard } from './QuestionCard';
+import { useForumFeedWindow } from '../hooks/useForumFeedWindow';
 import {
     FORUM_GHOST_BTN,
     FORUM_INTERACT_BTN,
@@ -38,6 +39,7 @@ interface ForumPostListProps {
     emptyHint?: string;
     threadFollowingIds?: Set<string>;
     onToggleThreadFollow?: (postId: string) => void;
+    onOpenProfile?: (userId: string, displayName?: string) => void;
 }
 
 export const ForumPostList = memo(function ForumPostList({
@@ -50,11 +52,14 @@ export const ForumPostList = memo(function ForumPostList({
     emptyHint,
     threadFollowingIds,
     onToggleThreadFollow,
+    onOpenProfile,
 }: ForumPostListProps) {
+    const { windowedPosts, sentinelRef, hiddenCount } = useForumFeedWindow(visiblePosts);
+
     if (visiblePosts.length === 0) {
         return (
-            <div className="px-4 pb-4 space-y-4">
-                <div className="py-14 text-center">
+            <div className="px-4 pb-4 space-y-4" data-testid="forum-post-list">
+                <div className="py-14 text-center" data-testid={loadingPosts ? undefined : 'forum-post-empty'}>
                     {loadingPosts ? (
                         <>
                             <Loader2 size={36} className="text-[#F0B896]/40 animate-spin mx-auto mb-4" aria-hidden />
@@ -78,16 +83,23 @@ export const ForumPostList = memo(function ForumPostList({
     }
 
     return (
-        <div className="px-4 pb-4 space-y-4">
+        <div className="px-4 pb-4 space-y-4" data-testid="forum-post-list">
             {loadingPosts ? (
                 <div className="flex items-center justify-center gap-2 py-1 text-[#F0B896]/50 text-[11px] font-bold">
                     <Loader2 size={14} className="animate-spin shrink-0" aria-hidden />
                     <span>جاري التحديث...</span>
                 </div>
             ) : null}
-            {visiblePosts.map((post) => (
-                <QuestionCard
+            {windowedPosts.map((post, index) => (
+                <div
                     key={post.id}
+                    style={
+                        index > 1
+                            ? { contentVisibility: 'auto', containIntrinsicSize: '0 420px' }
+                            : undefined
+                    }
+                >
+                <QuestionCard
                     post={post}
                     currentUserId={currentUserId}
                     onToggleUpvote={onToggleUpvote}
@@ -110,8 +122,14 @@ export const ForumPostList = memo(function ForumPostList({
                     onMuteUser={onMuteUser}
                     isThreadFollowing={threadFollowingIds?.has(post.id) ?? false}
                     onToggleThreadFollow={onToggleThreadFollow}
+                    onOpenProfile={onOpenProfile}
                 />
+                </div>
             ))}
+
+            {hiddenCount > 0 ? (
+                <div ref={sentinelRef} className="h-1" aria-hidden data-testid="forum-feed-window-sentinel" />
+            ) : null}
 
             {hasMore && (
                 <div className="flex justify-center pt-2 pb-4">

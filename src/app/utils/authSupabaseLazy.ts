@@ -1,10 +1,23 @@
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
+import { projectId } from '@/utils/supabase/info';
 
 let clientPromise: Promise<SupabaseClient> | null = null;
+
+function ensureSupabasePreconnect(): void {
+    if (typeof document === 'undefined') return;
+    const href = `https://${projectId}.supabase.co`;
+    if (document.querySelector(`link[rel="preconnect"][href="${href}"]`)) return;
+    const link = document.createElement('link');
+    link.rel = 'preconnect';
+    link.href = href;
+    link.crossOrigin = '';
+    document.head.appendChild(link);
+}
 
 /** يحمّل عميل Supabase عند الحاجة فقط — لا يُسحب vendor-supabase في مسار الضيف. */
 export async function getAuthSupabase(): Promise<SupabaseClient> {
     if (!clientPromise) {
+        ensureSupabasePreconnect();
         clientPromise = import('@/lib/supabase').then((m) => m.supabase);
     }
     return clientPromise;

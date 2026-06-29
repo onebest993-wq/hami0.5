@@ -1,9 +1,8 @@
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
-import { STORAGE_KEYS } from '@/app/utils/constants';
 
-/** المفتاح الموحّد — lawyer_notes هو مصدر الحقيقة الوحيد */
-export const GLOBAL_NOTES_STORAGE_KEY = STORAGE_KEYS.LAWYER_NOTES;
+/** المفتاح الموحّد — lawyer_notes هو مصدر الحقيقة الوحيد (مطابق لـ STORAGE_KEYS.LAWYER_NOTES) */
+export const GLOBAL_NOTES_STORAGE_KEY = 'lawyer_notes';
 
 /** مفاتيح قديمة — تُقرأ للترحيل فقط، لا تُكتب إليها بعد الآن */
 export const GLOBAL_NOTES_STORAGE_KEYS_LEGACY = ['globalNotes', 'global_notes'] as const;
@@ -29,7 +28,7 @@ function readSyncKey(key: string): unknown[] | null {
 
 /** تحميل الملاحظات — lawyer_notes أولاً ثم ترحيل من المفاتيح القديمة */
 export function loadGlobalNotesRaw(): unknown[] {
-    const fromPrimary = readSyncKey(STORAGE_KEYS.LAWYER_NOTES);
+    const fromPrimary = readSyncKey(GLOBAL_NOTES_STORAGE_KEY);
     if (fromPrimary && fromPrimary.length > 0) return fromPrimary;
 
     for (const legacyKey of GLOBAL_NOTES_STORAGE_KEYS_LEGACY) {
@@ -45,9 +44,9 @@ export function loadGlobalNotesRaw(): unknown[] {
 /** حفظ الملاحظات — lawyer_notes فقط (محمي + نسخة احتياطية) */
 export function saveGlobalNotesRaw(next: unknown[]): void {
     const payload = Array.isArray(next) ? next : [];
-    SecureStoreService.setItemSync(STORAGE_KEYS.LAWYER_NOTES, JSON.stringify(payload));
+    SecureStoreService.setItemSync(GLOBAL_NOTES_STORAGE_KEY, JSON.stringify(payload));
     try {
-        persistenceRepository.save(STORAGE_KEYS.LAWYER_NOTES, payload);
+        persistenceRepository.save(GLOBAL_NOTES_STORAGE_KEY, payload);
     } catch {
         /* بيئات mock بدون persistenceRepository */
     }

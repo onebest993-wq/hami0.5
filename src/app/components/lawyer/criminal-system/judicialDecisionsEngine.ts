@@ -17,7 +17,7 @@ import {
     type CassationAppealAudienceContext,
     type CriminalCaseUserRole,
 } from './complainantCassationGovernance';
-import type { DefendantStatus } from './criminalStore';
+import type { DefendantStatus } from './criminalCaseModel';
 import {
     BAIL_RELEASE_TEMPLATE,
     DETENTION_DECISION_TEMPLATE,

@@ -1,4 +1,8 @@
 import { lazy } from 'react';
+import { LegalActionsMenu } from './parts/LegalActionsMenu';
+
+export { LegalActionsMenu };
+export const LazyLegalActionsMenu = LegalActionsMenu;
 
 export const LazySmartHeader = lazy(() =>
   import('./parts/SmartHeader').then((m) => ({ default: m.SmartHeader }))
@@ -29,6 +33,16 @@ export const LazyIncidentalCasesManager = lazy(() =>
 export const LazyTimelineFeed = lazy(() =>
   import('./parts/TimelineFeed').then((m) => ({ default: m.TimelineFeed }))
 );
-export const LazyLegalActionsMenu = lazy(() =>
-  import('./parts/LegalActionsMenu').then((m) => ({ default: m.LegalActionsMenu }))
-);
+
+/** تحميل مسبق — يُستدعى من smartFileModalLoader عند فتح/قرب الدعوى */
+export function prefetchSmartFileModalShellWidgets(): void {
+  if (typeof window === 'undefined') return;
+  void import('./parts/SmartHeader').catch(() => undefined);
+  void import('./parts/QuickActions').catch(() => undefined);
+  void import('./parts/ToDoList').catch(() => undefined);
+  void import('./parts/SessionAndRequestsHub').catch(() => undefined);
+  void import('./parts/TimelineFeed').catch(() => undefined);
+  void import('./parts/IncidentalCasesManager').catch(() => undefined);
+  void import('./parts/CivilLawReferenceHub').catch(() => undefined);
+  void import('./parts/LegalActionsMenu').catch(() => undefined);
+}

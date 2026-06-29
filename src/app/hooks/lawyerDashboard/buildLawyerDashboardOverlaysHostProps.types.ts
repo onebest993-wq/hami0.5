@@ -17,7 +17,5 @@ export type BuildLawyerDashboardOverlaysHostParams = {
     overlays: LawyerDashboardOverlaysHostProps['overlays'];
     criminalBridge: LawyerDashboardOverlaysHostProps['criminalBridge'];
     workspace: ReturnType<typeof useLawyerDashboardWorkspace>;
-    urgent: LawyerDashboardOverlaysHostProps['urgent'];
-    client: LawyerDashboardOverlaysHostProps['client'];
     nav: LawyerDashboardOverlaysHostProps['nav'];
 };

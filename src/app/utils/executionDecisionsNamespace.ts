@@ -18,6 +18,7 @@ import {
     executionStorageKey,
     normalizeExecutionStorageId,
 } from '@/app/utils/executionStorageKeys';
+import { collectDecisionsStorageCandidateIds } from '@/app/components/lawyer/DecisionsAndAppealsEngine/engine/resolveDecisionsStorageExecutionId';
 
 export const DECISIONS_NAMESPACE_INDEX_VERSION = 1;
 
@@ -144,6 +145,17 @@ export function stampDecisionRowsWithNamespace(
     });
 }
 
+export function resolveDecisionRowNamespaceSlug(
+    row: Record<string, unknown>,
+    executionData?: Record<string, unknown> | null,
+    executionId?: string | undefined
+): string {
+    const id = normalizeExecutionStorageId(executionId);
+    const data = executionData ?? readExecutionDataForDomainGate(id);
+    const ctx = resolveExecutionDomainContext(data ?? {}, id);
+    return inferLegacyRowNamespaceSlug(row, ctx);
+}
+
 function inferLegacyRowNamespaceSlug(
     row: Record<string, unknown>,
     ctx: ExecutionDomainContext
@@ -240,7 +252,7 @@ export function ensureDecisionsNamespaceMigrated(
     for (const [slug, rows] of buckets) {
         const nsKey = executionDecisionsNamespaceStorageKey(id, slug);
         const prev = parseStoredDecisionsArray(SecureStoreService.getItemSync(nsKey));
-        const merged = stampDecisionRowsWithNamespace(mergeRowsById(prev, rows), slug);
+        const merged = stampDecisionRowsWithNamespace(rows, slug);
         SecureStoreService.setItemSync(nsKey, JSON.stringify(merged));
     }
 
@@ -282,6 +294,269 @@ export function readExecutorDecisionsFromActiveNamespace(
     }
 }
 
+function listDecisionsNamespaceStorageKeys(executionId: string): string[] {
+    const id = normalizeExecutionStorageId(executionId);
+    const prefix = `${executionStorageKey(id)}_decisions_ns_`;
+    try {
+        return SecureStoreService.listKeysSync().filter((k) => k.startsWith(prefix));
+    } catch {
+        return [];
+    }
+}
+
+function mergeDecisionRowsById(
+    target: Map<string, Record<string, unknown>>,
+    rows: Record<string, unknown>[]
+): void {
+    for (const row of rows) {
+        const rid = String(row.id ?? '').trim();
+        if (!rid) continue;
+        const prev = target.get(rid);
+        if (!prev) {
+            target.set(rid, row);
+            continue;
+        }
+        const pd = String(prev.resolvedAt ?? prev.date ?? '');
+        const nd = String(row.resolvedAt ?? row.date ?? '');
+        const cmp = nd.localeCompare(pd, undefined, { numeric: true });
+        if (cmp > 0) {
+            target.set(rid, row);
+        } else if (cmp < 0) {
+            /* keep prev */
+        } else {
+            // نفس التاريخ — اللقطة الواردة تحمل تحديثاً (مثلاً تسجيل طعن يدوي)
+            target.set(rid, { ...prev, ...row });
+        }
+    }
+}
+
+/** قراءة موحّدة لكل سلات namespace — يعرض طلبات محضر المتابعة في مركز القرارات */
+export function readExecutorDecisionsUnionForExecution(
+    executionId: string | undefined,
+    executionData?: Record<string, unknown> | null
+): Record<string, unknown>[] {
+    const id = normalizeExecutionStorageId(executionId);
+    if (!id || id === 'default') return [];
+
+    ensureDecisionsNamespaceMigrated(id, executionData);
+
+    const byId = new Map<string, Record<string, unknown>>();
+
+    try {
+        mergeDecisionRowsById(
+            byId,
+            parseStoredDecisionsArray(SecureStoreService.getItemSync(executionDecisionsStorageKey(id)))
+        );
+    } catch {
+        /* ignore */
+    }
+
+    for (const key of listDecisionsNamespaceStorageKeys(id)) {
+        try {
+            mergeDecisionRowsById(
+                byId,
+                parseStoredDecisionsArray(SecureStoreService.getItemSync(key))
+            );
+        } catch {
+            /* ignore */
+        }
+    }
+
+    const merged = Array.from(byId.values());
+    merged.sort((a, b) => {
+        const ad = String(a.resolvedAt ?? a.date ?? '');
+        const bd = String(b.resolvedAt ?? b.date ?? '');
+        return bd.localeCompare(ad, undefined, { numeric: true });
+    });
+    return merged;
+}
+
+/** قراءة اتحاد من كل مفاتيح التخزين المحتملة — يمنع فقدان صفوف عند اختلاف parent/child id */
+export function readExecutorDecisionsUnionAcrossCandidateIds(
+    executionId: string | undefined,
+    executionData?: Record<string, unknown> | null,
+    extraIds?: string[]
+): Record<string, unknown>[] {
+    const candidateIds = collectDecisionsStorageCandidateIds(executionId, executionData, extraIds);
+    const byId = new Map<string, Record<string, unknown>>();
+
+    for (const cid of candidateIds) {
+        mergeDecisionRowsById(byId, readExecutorDecisionsUnionForExecution(cid, executionData));
+    }
+
+    const merged = Array.from(byId.values());
+    merged.sort((a, b) => {
+        const ad = String(a.resolvedAt ?? a.date ?? '');
+        const bd = String(b.resolvedAt ?? b.date ?? '');
+        return bd.localeCompare(ad, undefined, { numeric: true });
+    });
+    return merged;
+}
+
+/**
+ * يوحّد كل صفوف المرشحين تحت المعرّف الأب ويزيل سلال التخزين الفرعية المكررة.
+ * يُستدعى بعد كل حفظ ناجح لمنع المفاتيح اليتيمة.
+ */
+export function pruneRedundantDecisionsStorageAliases(
+    canonicalId: string | undefined,
+    executionData?: Record<string, unknown> | null
+): { prunedDossierIds: string[] } {
+    const canonical = normalizeExecutionStorageId(canonicalId);
+    if (!canonical || canonical === 'default') {
+        return { prunedDossierIds: [] };
+    }
+
+    const union = readExecutorDecisionsUnionAcrossCandidateIds(canonical, executionData);
+    const unionIds = new Set(
+        union.map((r) => String(r.id ?? '').trim()).filter(Boolean)
+    );
+    if (unionIds.size === 0) {
+        return { prunedDossierIds: [] };
+    }
+
+    writeExecutorDecisionsUnionForExecution(canonical, union, executionData);
+
+    const candidates = collectDecisionsStorageCandidateIds(canonical, executionData);
+    const prunedDossierIds: string[] = [];
+
+    for (const cid of candidates) {
+        if (cid === canonical) continue;
+        const childRows = readExecutorDecisionsUnionForExecution(cid, executionData);
+        if (childRows.length === 0) continue;
+        const childIds = childRows
+            .map((r) => String(r.id ?? '').trim())
+            .filter(Boolean);
+        if (childIds.length === 0) continue;
+        const subset = childIds.every((id) => unionIds.has(id));
+        if (!subset) continue;
+
+        try {
+            SecureStoreService.deleteItemSync(executionDecisionsNamespaceIndexKey(cid));
+            SecureStoreService.deleteItemSync(executionDecisionsLegacyArchiveKey(cid));
+            SecureStoreService.deleteItemSync(executionDecisionsStorageKey(cid));
+            const keys = SecureStoreService.listKeysSync();
+            for (const k of keys) {
+                const key = String(k || '').trim();
+                if (key.startsWith(`${executionStorageKey(cid)}_decisions_ns_`)) {
+                    SecureStoreService.deleteItemSync(key);
+                }
+            }
+            prunedDossierIds.push(cid);
+        } catch {
+            /* ignore */
+        }
+    }
+
+    return { prunedDossierIds };
+}
+
+export type ExecutorDecisionsPersistOptions = {
+    /** معرّفات إضافية لقراءة الاتحاد المخزّن قبل الدمج */
+    extraIds?: string[];
+    /** معرّفات صفوف حُذفت عمداً من اللقطة الواردة */
+    removedIds?: string[];
+};
+
+/**
+ * يدمج صفوفاً واردة من واجهة القرارات مع الاتحاد المخزّن — يمنع فقدان طلبات المحضر
+ * عند حفظ بحالة React ناقصة (مثلاً إضافة قرار قبل اكتمال التحميل).
+ */
+export function mergeExecutorDecisionsUnionForPersist(
+    executionId: string | undefined,
+    incoming: Record<string, unknown>[],
+    executionData?: Record<string, unknown> | null,
+    opts?: Pick<ExecutorDecisionsPersistOptions, 'removedIds' | 'extraIds'>
+): Record<string, unknown>[] {
+    const id = normalizeExecutionStorageId(executionId);
+    if (!id || id === 'default') return incoming;
+
+    const stored = readExecutorDecisionsUnionAcrossCandidateIds(id, executionData, opts?.extraIds);
+    const byId = new Map<string, Record<string, unknown>>();
+    mergeDecisionRowsById(byId, stored);
+
+    for (const rid of opts?.removedIds ?? []) {
+        const t = String(rid ?? '').trim();
+        if (t) byId.delete(t);
+    }
+
+    mergeDecisionRowsById(byId, incoming);
+
+    const merged = Array.from(byId.values());
+    merged.sort((a, b) => {
+        const ad = String(a.resolvedAt ?? a.date ?? '');
+        const bd = String(b.resolvedAt ?? b.date ?? '');
+        return bd.localeCompare(ad, undefined, { numeric: true });
+    });
+    return merged;
+}
+
+/**
+ * يكتب كل صف في سلته حسب domainNamespace / requestKind — يمنع فقدان البيانات عند حفظ مركز القرارات.
+ */
+export function writeExecutorDecisionsUnionForExecution(
+    executionId: string | undefined,
+    arr: Record<string, unknown>[],
+    executionData?: Record<string, unknown> | null
+): void {
+    const id = normalizeExecutionStorageId(executionId);
+    if (!id || id === 'default') return;
+
+    ensureDecisionsNamespaceMigrated(id, executionData);
+    const data = executionData ?? readExecutionDataForDomainGate(id);
+    const activeSlug = resolveActiveDecisionsNamespaceSlug(id, data);
+
+    const bySlug = new Map<string, Record<string, unknown>[]>();
+    for (const row of arr) {
+        const slug = resolveDecisionRowNamespaceSlug(row, data, id);
+        const stamped =
+            String((row as { domainNamespace?: string }).domainNamespace || '').trim() === slug
+                ? row
+                : { ...row, domainNamespace: slug };
+        const list = bySlug.get(slug) ?? [];
+        list.push(stamped);
+        bySlug.set(slug, list);
+    }
+
+    const slugsToWrite = new Set(bySlug.keys());
+    slugsToWrite.add(activeSlug);
+    for (const key of listDecisionsNamespaceStorageKeys(id)) {
+        const slug = key.replace(`${executionStorageKey(id)}_decisions_ns_`, '');
+        if (slug) slugsToWrite.add(slug);
+    }
+
+    for (const slug of slugsToWrite) {
+        const incoming = bySlug.get(slug);
+        const key = executionDecisionsNamespaceStorageKey(id, slug);
+        /** لا نكتب [] فوق سلّة فيها بيانات عند غياب صفوف واردة لهذا الـ namespace */
+        if (incoming === undefined) {
+            continue;
+        }
+        /** استبدال محتوى السلّة بصفوف الاتحاد الوارد — لا دمج بالمعرّف يُبقي نسخ طعن محذوفة */
+        const merged = stampDecisionRowsWithNamespace(incoming, slug);
+        try {
+            SecureStoreService.setItemSync(key, JSON.stringify(merged));
+        } catch {
+            /* ignore */
+        }
+    }
+
+    try {
+        SecureStoreService.setItemSync(executionDecisionsStorageKey(id), JSON.stringify([]));
+    } catch {
+        /* ignore */
+    }
+
+    const index = readDecisionsNamespaceIndex(id);
+    if (!index || index.active !== activeSlug) {
+        writeDecisionsNamespaceIndex(id, {
+            v: DECISIONS_NAMESPACE_INDEX_VERSION,
+            active: activeSlug,
+            legacyMigrated: index?.legacyMigrated ?? true,
+            migratedAt: index?.migratedAt ?? new Date().toISOString(),
+        });
+    }
+}
+
 export function writeExecutorDecisionsArray(
     executionId: string | undefined,
     arr: Record<string, unknown>[],
@@ -291,20 +566,16 @@ export function writeExecutorDecisionsArray(
     if (!id || id === 'default') return;
 
     ensureDecisionsNamespaceMigrated(id, executionData);
-    const slug = resolveActiveDecisionsNamespaceSlug(id, executionData);
-    const stamped = stampDecisionRowsWithNamespace(arr, slug);
-    const key = executionDecisionsNamespaceStorageKey(id, slug);
-    SecureStoreService.setItemSync(key, JSON.stringify(stamped));
+    const data = executionData ?? readExecutionDataForDomainGate(id);
+    const activeSlug = resolveActiveDecisionsNamespaceSlug(id, data);
+    const stampedIncoming = stampDecisionRowsWithNamespace(arr, activeSlug);
 
-    const index = readDecisionsNamespaceIndex(id);
-    if (!index || index.active !== slug) {
-        writeDecisionsNamespaceIndex(id, {
-            v: DECISIONS_NAMESPACE_INDEX_VERSION,
-            active: slug,
-            legacyMigrated: index?.legacyMigrated ?? true,
-            migratedAt: index?.migratedAt ?? new Date().toISOString(),
-        });
-    }
+    const union = readExecutorDecisionsUnionForExecution(id, data);
+    const withoutActiveBucket = union.filter(
+        (row) => resolveDecisionRowNamespaceSlug(row, data, id) !== activeSlug
+    );
+    const next = [...withoutActiveBucket, ...stampedIncoming];
+    writeExecutorDecisionsUnionForExecution(id, next, data);
 }
 
 /** تهيئة namespace فارغ لإضبارة جديدة */
@@ -333,14 +604,14 @@ export function clearDecisionsNamespaceForTests(executionId: string | undefined)
     const id = normalizeExecutionStorageId(executionId);
     if (!id || id === 'default') return;
     try {
-        SecureStoreService.removeItemSync(executionDecisionsNamespaceIndexKey(id));
-        SecureStoreService.removeItemSync(executionDecisionsLegacyArchiveKey(id));
-        SecureStoreService.removeItemSync(executionDecisionsStorageKey(id));
+        SecureStoreService.deleteItemSync(executionDecisionsNamespaceIndexKey(id));
+        SecureStoreService.deleteItemSync(executionDecisionsLegacyArchiveKey(id));
+        SecureStoreService.deleteItemSync(executionDecisionsStorageKey(id));
         const keys = SecureStoreService.listKeysSync();
         for (const k of keys) {
             const key = String(k || '').trim();
             if (key.startsWith(`${executionStorageKey(id)}_decisions_ns_`)) {
-                SecureStoreService.removeItemSync(key);
+                SecureStoreService.deleteItemSync(key);
             }
         }
     } catch {

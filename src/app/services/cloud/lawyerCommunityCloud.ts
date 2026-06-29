@@ -1,0 +1,1095 @@
+import { SecureAPIClient } from '@/app/services/SecureAPIClient';
+import { UserRole } from '@/app/types/admin-types';
+import SecureStoreService from '@/app/services/SecureStoreService';
+import { isKvProxyNetworkEnabled } from '@/app/services/kvProxyConfig';
+import { lawyerCloudKv as kv, uuidv4 } from '@/app/services/cloud/lawyerCloudKv';
+import { isVaultIdbStoragePath } from '@/app/services/vaultBlobStore';
+import { compareCommunityPostsForFeed } from '@/app/services/forum/forumUrgentConsultation';
+import type {
+    BanRecord,
+    CommunityAttachment,
+    CommunityComment,
+    CommunityPost,
+    CommunityReport,
+    FollowRecord,
+    ForumEditHistoryEntry,
+    ForumNotification,
+    NotificationType,
+} from '@/app/services/cloud/lawyerCommunityTypes';
+
+export type {
+    BanRecord,
+    CommunityAttachment,
+    CommunityComment,
+    CommunityPost,
+    CommunityReport,
+    FollowRecord,
+    ForumEditHistoryEntry,
+    ForumNotification,
+    NotificationType,
+} from '@/app/services/cloud/lawyerCommunityTypes';
+
+function isRemoteStorageObjectPath(path: string): boolean {
+    const p = path.trim();
+    if (!p) return false;
+    if (p.startsWith('idb:') || p.startsWith('local:')) return false;
+    if (isVaultIdbStoragePath(p)) return false;
+    return true;
+}
+
+async function removeStoragePathsBestEffort(paths: string[]): Promise<void> {
+    const toRemove = [...new Set(paths.map((p) => p.trim()).filter(isRemoteStorageObjectPath))];
+    if (toRemove.length === 0) return;
+    try {
+        await SecureAPIClient.fetchSecure('/api/upload/remove', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ paths: toRemove }),
+        });
+    } catch {
+        console.warn('[LawyerStorage] فشل حذف ملف(ات) من المخزن:', toRemove.join(', '));
+    }
+}
+
+const COMMUNITY_LOCAL_KEY = 'hami:community:posts:v1';
+const COMMUNITY_DELETED_IDS_KEY = 'hami:community:deleted-ids:v1';
+const COMMUNITY_SECURE_READY_MS = 4_000;
+const ANONYMOUS_FORUM_AUTHOR_ID = '__anonymous__';
+const DEV_SERVER_FORUM_STORE = Symbol.for('HAMI_DEV_COMMUNITY_POSTS_V1');
+const DEV_SERVER_DELETED_STORE = Symbol.for('HAMI_DEV_COMMUNITY_DELETED_IDS_V1');
+
+function getServerDevForumPosts(): CommunityPost[] {
+    const g = globalThis as unknown as Record<symbol, CommunityPost[]>;
+    if (!Array.isArray(g[DEV_SERVER_FORUM_STORE])) {
+        g[DEV_SERVER_FORUM_STORE] = [];
+    }
+    return g[DEV_SERVER_FORUM_STORE];
+}
+
+function parseCommunityPostsRaw(raw: string | null | undefined): CommunityPost[] | null {
+    if (raw == null) return null;
+    try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed as CommunityPost[];
+    } catch {
+        return null;
+    }
+}
+
+/** قراءة فورية — localStorage mirror ثم SecureStore sync cache */
+function readCommunityPostsFromMirrors(): CommunityPost[] | null {
+    if (typeof localStorage !== 'undefined') {
+        try {
+            if (localStorage.getItem(COMMUNITY_LOCAL_KEY) !== null) {
+                return parseCommunityPostsRaw(localStorage.getItem(COMMUNITY_LOCAL_KEY)) ?? [];
+            }
+        } catch {
+            /* fall through */
+        }
+    }
+    try {
+        const syncRaw = SecureStoreService.getItemSync(COMMUNITY_LOCAL_KEY);
+        if (syncRaw != null) {
+            return parseCommunityPostsRaw(syncRaw) ?? [];
+        }
+    } catch {
+        /* fall through */
+    }
+    return null;
+}
+
+async function loadLocalCommunityPosts(): Promise<CommunityPost[]> {
+    if (typeof window === 'undefined') {
+        return getServerDevForumPosts();
+    }
+
+    const mirrored = readCommunityPostsFromMirrors();
+    if (mirrored !== null) return mirrored;
+
+    try {
+        await Promise.race([
+            SecureStoreService.ensurePersistedReady(),
+            new Promise<void>((resolve) => setTimeout(resolve, COMMUNITY_SECURE_READY_MS)),
+        ]);
+        const syncRaw = SecureStoreService.getItemSync(COMMUNITY_LOCAL_KEY);
+        const fromSync = parseCommunityPostsRaw(syncRaw);
+        if (fromSync !== null) return fromSync;
+        const raw = await SecureStoreService.getItem(COMMUNITY_LOCAL_KEY);
+        return parseCommunityPostsRaw(raw) ?? [];
+    } catch {
+        return readCommunityPostsFromMirrors() ?? [];
+    }
+}
+
+async function persistCommunityPostsToSecureStore(payload: string): Promise<void> {
+    try {
+        await Promise.race([
+            SecureStoreService.ensurePersistedReady(),
+            new Promise<void>((resolve) => setTimeout(resolve, COMMUNITY_SECURE_READY_MS)),
+        ]);
+        const existing = await SecureStoreService.getItem(COMMUNITY_LOCAL_KEY);
+        if (existing === payload) return;
+        await SecureStoreService.setItem(COMMUNITY_LOCAL_KEY, payload);
+    } catch {
+        /* localStorage mirror already written */
+    }
+}
+
+async function saveLocalCommunityPosts(posts: CommunityPost[]): Promise<void> {
+    if (typeof window === 'undefined') {
+        const g = globalThis as unknown as Record<symbol, CommunityPost[]>;
+        g[DEV_SERVER_FORUM_STORE] = posts;
+        return;
+    }
+    const payload = JSON.stringify(posts);
+    try {
+        window.localStorage.setItem(COMMUNITY_LOCAL_KEY, payload);
+    } catch {
+        /* optional mirror */
+    }
+    void persistCommunityPostsToSecureStore(payload);
+}
+
+let communityPostsWriteChain: Promise<void> = Promise.resolve();
+
+function withCommunityPostsWriteLock<T>(operation: () => Promise<T>): Promise<T> {
+    const run = communityPostsWriteChain.then(operation, operation);
+    communityPostsWriteChain = run.then(
+        () => undefined,
+        () => undefined,
+    );
+    return run;
+}
+
+function getServerDevDeletedIds(): Set<string> {
+    const g = globalThis as unknown as Record<symbol, Set<string>>;
+    if (!(g[DEV_SERVER_DELETED_STORE] instanceof Set)) {
+        g[DEV_SERVER_DELETED_STORE] = new Set<string>();
+    }
+    return g[DEV_SERVER_DELETED_STORE] as Set<string>;
+}
+
+function parseDeletedCommunityPostIdsRaw(raw: string | null | undefined): Set<string> {
+    if (!raw) return new Set();
+    try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return new Set();
+        return new Set(parsed.filter((id): id is string => typeof id === 'string' && id.length > 0));
+    } catch {
+        return new Set();
+    }
+}
+
+/** قراءة فورية — localStorage mirror ثم SecureStore sync cache */
+function readDeletedCommunityPostIdsFromMirrors(): Set<string> | null {
+    if (typeof localStorage !== 'undefined') {
+        try {
+            if (localStorage.getItem(COMMUNITY_DELETED_IDS_KEY) !== null) {
+                return parseDeletedCommunityPostIdsRaw(localStorage.getItem(COMMUNITY_DELETED_IDS_KEY));
+            }
+        } catch {
+            /* fall through */
+        }
+    }
+    try {
+        const syncRaw = SecureStoreService.getItemSync(COMMUNITY_DELETED_IDS_KEY);
+        if (syncRaw != null) {
+            return parseDeletedCommunityPostIdsRaw(syncRaw);
+        }
+    } catch {
+        /* fall through */
+    }
+    return null;
+}
+
+async function persistDeletedCommunityPostIdsToSecureStore(payload: string): Promise<void> {
+    try {
+        await Promise.race([
+            SecureStoreService.ensurePersistedReady(),
+            new Promise<void>((resolve) => setTimeout(resolve, COMMUNITY_SECURE_READY_MS)),
+        ]);
+        const existing = await SecureStoreService.getItem(COMMUNITY_DELETED_IDS_KEY);
+        if (existing === payload) return;
+        await SecureStoreService.setItem(COMMUNITY_DELETED_IDS_KEY, payload);
+    } catch {
+        /* localStorage mirror already written */
+    }
+}
+
+async function loadDeletedCommunityPostIds(): Promise<Set<string>> {
+    if (typeof window === 'undefined') {
+        return new Set(getServerDevDeletedIds());
+    }
+
+    if (typeof localStorage !== 'undefined') {
+        try {
+            const raw = localStorage.getItem(COMMUNITY_DELETED_IDS_KEY);
+            if (raw !== null) {
+                return parseDeletedCommunityPostIdsRaw(raw);
+            }
+            return new Set();
+        } catch {
+            /* fall through */
+        }
+    }
+
+    const mirrored = readDeletedCommunityPostIdsFromMirrors();
+    if (mirrored !== null) return mirrored;
+
+    try {
+        await Promise.race([
+            SecureStoreService.ensurePersistedReady(),
+            new Promise<void>((resolve) => setTimeout(resolve, COMMUNITY_SECURE_READY_MS)),
+        ]);
+        const syncRaw = SecureStoreService.getItemSync(COMMUNITY_DELETED_IDS_KEY);
+        if (syncRaw != null) {
+            return parseDeletedCommunityPostIdsRaw(syncRaw);
+        }
+        const raw = await SecureStoreService.getItem(COMMUNITY_DELETED_IDS_KEY);
+        return parseDeletedCommunityPostIdsRaw(raw);
+    } catch {
+        return new Set();
+    }
+}
+
+async function saveDeletedCommunityPostIds(ids: Set<string>): Promise<void> {
+    if (typeof window === 'undefined') {
+        const g = globalThis as unknown as Record<symbol, Set<string>>;
+        g[DEV_SERVER_DELETED_STORE] = new Set(ids);
+        return;
+    }
+    const payload = JSON.stringify([...ids]);
+    try {
+        window.localStorage.setItem(COMMUNITY_DELETED_IDS_KEY, payload);
+    } catch {
+        /* optional mirror */
+    }
+    void persistDeletedCommunityPostIdsToSecureStore(payload);
+}
+
+export async function markCommunityPostDeleted(postId: string): Promise<void> {
+    const ids = await loadDeletedCommunityPostIds();
+    ids.add(postId);
+    await saveDeletedCommunityPostIds(ids);
+}
+
+export async function getDeletedCommunityPostIds(): Promise<Set<string>> {
+    return loadDeletedCommunityPostIds();
+}
+
+export function filterDeletedCommunityPosts(
+    posts: CommunityPost[],
+    deletedIds: Set<string>,
+): CommunityPost[] {
+    if (deletedIds.size === 0) return posts;
+    return posts.filter((p) => !deletedIds.has(p.id));
+}
+
+function resolveCommunityPostOwnerId(
+    stored: CommunityPost | undefined,
+    authorHint?: string,
+): string {
+    const fromStored = stored?.author_id ?? stored?.authorId ?? '';
+    if (fromStored && fromStored !== ANONYMOUS_FORUM_AUTHOR_ID) return fromStored;
+    if (authorHint && authorHint !== ANONYMOUS_FORUM_AUTHOR_ID) return authorHint;
+    return fromStored || authorHint || '';
+}
+
+function canActOnCommunityPost(
+    requesterId: string | undefined,
+    ownerId: string,
+    authorHint: string | undefined,
+    requesterRole?: UserRole,
+): boolean {
+    if (!requesterId) return false;
+    const isAdmin =
+        requesterRole === UserRole.SUPER_ADMIN || requesterRole === UserRole.MODERATOR;
+    if (isAdmin) return true;
+    if (ownerId && requesterId === ownerId) return true;
+    if (authorHint && requesterId === authorHint) return true;
+    return false;
+}
+
+function normalizeCommunityPost(raw: unknown): CommunityPost | null {
+    if (!raw || typeof raw !== 'object') return null;
+    const o = raw as Record<string, unknown>;
+    const id = typeof o.id === 'string' ? o.id : null;
+    const authorIdRaw = typeof o.authorId === 'string' ? o.authorId : typeof o.author_id === 'string' ? o.author_id : null;
+    const authorName = typeof o.authorName === 'string' ? o.authorName : null;
+    const content = typeof o.content === 'string' ? o.content : null;
+    const createdAt = typeof o.createdAt === 'string' ? o.createdAt : null;
+    const updatedAt = typeof o.updatedAt === 'string' ? o.updatedAt : createdAt;
+    if (!id || !authorIdRaw || !authorName || !content || !createdAt || !updatedAt) return null;
+    const tags = Array.isArray(o.tags) ? (o.tags.filter((t) => typeof t === 'string') as string[]) : [];
+    const upvoterIds = Array.isArray(o.upvoterIds) ? (o.upvoterIds.filter((t) => typeof t === 'string') as string[]) : [];
+    const comments = Array.isArray(o.comments)
+        ? (o.comments
+              .map((c) => {
+                  if (!c || typeof c !== 'object') return null;
+                  const cc = c as Record<string, unknown>;
+                  const cid = typeof cc.id === 'string' ? cc.id : null;
+                  const postId = typeof cc.postId === 'string' ? cc.postId : id;
+                  const cauthorIdRaw =
+                      typeof cc.authorId === 'string' ? cc.authorId : typeof cc.author_id === 'string' ? cc.author_id : null;
+                  const cauthorName = typeof cc.authorName === 'string' ? cc.authorName : null;
+                  const ccontent = typeof cc.content === 'string' ? cc.content : null;
+                  const ccreatedAt = typeof cc.createdAt === 'string' ? cc.createdAt : null;
+                  if (!cid || !postId || !cauthorIdRaw || !cauthorName || !ccontent || !ccreatedAt) return null;
+                  const parentId = typeof cc.parentId === 'string' ? cc.parentId : undefined;
+                  return {
+                      id: cid,
+                      postId,
+                      authorId: cauthorIdRaw,
+                      author_id: cauthorIdRaw,
+                      authorName: cauthorName,
+                      content: ccontent,
+                      createdAt: ccreatedAt,
+                      parentId,
+                  } as CommunityComment;
+              })
+              .filter((x) => x !== null) as CommunityComment[])
+        : [];
+    const attachment =
+        o.attachment && typeof o.attachment === 'object'
+            ? (() => {
+                  const a = o.attachment as Record<string, unknown>;
+                  const type: CommunityAttachment['type'] | null =
+                      a.type === 'image'
+                          ? 'image'
+                          : a.type === 'document'
+                            ? 'document'
+                            : a.type === 'audio'
+                              ? 'audio'
+                              : null;
+                  const url = typeof a.url === 'string' ? a.url : null;
+                  const name = typeof a.name === 'string' ? a.name : null;
+                  if (!type || !url || !name) return null;
+                  const mimeType = typeof a.mimeType === 'string' ? a.mimeType : undefined;
+                  const storagePath = typeof a.storagePath === 'string' ? a.storagePath : undefined;
+                  return { type, url, name, mimeType, storagePath };
+              })()
+            : null;
+    const bestCommentId =
+        typeof o.bestCommentId === 'string'
+            ? o.bestCommentId
+            : o.bestCommentId === null
+              ? null
+              : null;
+    const isUrgent = typeof o.isUrgent === 'boolean' ? o.isUrgent : undefined;
+    const isAnonymous = typeof o.isAnonymous === 'boolean' ? o.isAnonymous : undefined;
+    const isEdited = typeof o.isEdited === 'boolean' ? o.isEdited : undefined;
+    const editCount = typeof o.editCount === 'number' && o.editCount >= 0 ? o.editCount : undefined;
+    const editHistory = Array.isArray(o.editHistory)
+        ? (o.editHistory
+              .map((entry) => {
+                  if (!entry || typeof entry !== 'object') return null;
+                  const e = entry as Record<string, unknown>;
+                  const content = typeof e.content === 'string' ? e.content : null;
+                  const editedAt = typeof e.editedAt === 'string' ? e.editedAt : null;
+                  if (!content || !editedAt) return null;
+                  return { content, editedAt };
+              })
+              .filter((x): x is ForumEditHistoryEntry => x !== null))
+        : undefined;
+    const isPinned = typeof o.isPinned === 'boolean' ? o.isPinned : undefined;
+    const isLocked = typeof o.isLocked === 'boolean' ? o.isLocked : undefined;
+    const groupId =
+        typeof o.groupId === 'string'
+            ? o.groupId
+            : typeof o.group_id === 'string'
+              ? o.group_id
+              : o.groupId === null || o.group_id === null
+                ? null
+                : undefined;
+    return {
+        id,
+        authorId: authorIdRaw,
+        author_id: authorIdRaw,
+        authorName,
+        content,
+        tags,
+        createdAt,
+        updatedAt,
+        attachment,
+        upvoterIds,
+        comments,
+        bestCommentId,
+        isUrgent,
+        isAnonymous,
+        isEdited,
+        editCount,
+        editHistory,
+        isPinned,
+        isLocked,
+        groupId,
+    };
+}
+
+function mergeCommunityComments(
+    left: CommunityComment[],
+    right: CommunityComment[],
+): CommunityComment[] {
+    const map = new Map<string, CommunityComment>();
+    for (const c of left) map.set(c.id, c);
+    for (const c of right) {
+        const prev = map.get(c.id);
+        if (!prev) {
+            map.set(c.id, c);
+            continue;
+        }
+        map.set(c.id, c.content.length >= prev.content.length ? c : prev);
+    }
+    return Array.from(map.values()).sort(
+        (a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt),
+    );
+}
+
+function pickBestCommunityAttachment(
+    local: CommunityPost,
+    remote: CommunityPost,
+): CommunityPost['attachment'] {
+    const la = local.attachment;
+    const ra = remote.attachment;
+    if (la && !ra) return la;
+    if (ra && !la) return ra;
+    if (!la && !ra) return null;
+    if (la!.storagePath && !ra!.storagePath) return la;
+    if (ra!.storagePath && !la!.storagePath) return ra;
+    if (la!.storagePath?.startsWith('idb:forum:') && !ra!.storagePath?.startsWith('idb:forum:')) return la;
+    return la!.url && !ra!.url ? la : ra!.url && !la!.url ? ra : la;
+}
+
+function mergeSingleCommunityPost(local: CommunityPost, remote: CommunityPost): CommunityPost {
+    const localTime = Number.isFinite(Date.parse(local.updatedAt)) ? Date.parse(local.updatedAt) : 0;
+    const remoteTime = Number.isFinite(Date.parse(remote.updatedAt)) ? Date.parse(remote.updatedAt) : 0;
+    const newer = remoteTime >= localTime ? remote : local;
+    const older = remoteTime >= localTime ? local : remote;
+
+    let content = local.content;
+    let isEdited = Boolean(local.isEdited || remote.isEdited);
+    let editCount = Math.max(local.editCount ?? 0, remote.editCount ?? 0);
+    let editHistory =
+        (local.editHistory?.length ?? 0) >= (remote.editHistory?.length ?? 0)
+            ? local.editHistory
+            : remote.editHistory;
+    if (local.content !== remote.content) {
+        if (local.isEdited && !remote.isEdited) {
+            content = local.content;
+        } else if (!local.isEdited && remote.isEdited) {
+            content = remote.content;
+        } else if (remoteTime > localTime) {
+            content = remote.content;
+        } else {
+            content = local.content;
+        }
+    }
+
+    const upvoterIds = [...new Set([...(local.upvoterIds ?? []), ...(remote.upvoterIds ?? [])])];
+    const comments = mergeCommunityComments(local.comments ?? [], remote.comments ?? []);
+    const tags = Array.from(new Set([...(local.tags ?? []), ...(remote.tags ?? [])]));
+
+    return {
+        ...newer,
+        content,
+        tags,
+        isEdited,
+        editCount: editCount || undefined,
+        editHistory,
+        attachment: pickBestCommunityAttachment(local, remote),
+        upvoterIds,
+        comments,
+        bestCommentId: newer.bestCommentId ?? older.bestCommentId ?? null,
+        isPinned: local.isPinned || remote.isPinned,
+        isLocked: local.isLocked || remote.isLocked,
+        isUrgent: local.isUrgent || remote.isUrgent,
+        isAnonymous: local.isAnonymous || remote.isAnonymous,
+        updatedAt: new Date(Math.max(localTime, remoteTime)).toISOString(),
+    };
+}
+
+export function mergeCommunityPostsById(
+    localPosts: CommunityPost[],
+    remotePosts: CommunityPost[],
+): CommunityPost[] {
+    const map = new Map<string, CommunityPost>();
+    for (const p of localPosts) map.set(p.id, p);
+    for (const p of remotePosts) {
+        const prev = map.get(p.id);
+        if (!prev) {
+            map.set(p.id, p);
+            continue;
+        }
+        map.set(p.id, mergeSingleCommunityPost(prev, p));
+    }
+    return Array.from(map.values());
+}
+
+export function sortCommunityPosts(posts: CommunityPost[]): CommunityPost[] {
+    return [...posts].sort((a, b) => compareCommunityPostsForFeed(a, b));
+}
+
+function mergePostsById(localPosts: CommunityPost[], remotePosts: CommunityPost[]): CommunityPost[] {
+    return mergeCommunityPostsById(localPosts, remotePosts);
+}
+
+export const CommunityDB = {
+    async listPosts(): Promise<CommunityPost[]> {
+        const deletedIds = await loadDeletedCommunityPostIds();
+        const localPosts = (await loadLocalCommunityPosts()).map((p) => normalizeCommunityPost(p)).filter((p): p is CommunityPost => p !== null);
+        const withoutDeleted = filterDeletedCommunityPosts(localPosts, deletedIds);
+        if (!isKvProxyNetworkEnabled()) {
+            return sortCommunityPosts(withoutDeleted);
+        }
+        try {
+            const res = await kv.getByPrefix('community:posts:');
+            const remotePosts = Array.isArray(res) ? res.map((p) => normalizeCommunityPost(p)).filter((p): p is CommunityPost => p !== null) : [];
+            const merged = filterDeletedCommunityPosts(
+                mergePostsById(withoutDeleted, remotePosts),
+                deletedIds,
+            ).sort((a, b) => {
+                const aPin = a.isPinned ? 1 : 0;
+                const bPin = b.isPinned ? 1 : 0;
+                return bPin - aPin || Date.parse(b.createdAt) - Date.parse(a.createdAt);
+            });
+            await saveLocalCommunityPosts(merged);
+            return merged;
+        } catch {
+            return withoutDeleted.sort((a, b) => {
+                const aPin = a.isPinned ? 1 : 0;
+                const bPin = b.isPinned ? 1 : 0;
+                return bPin - aPin || Date.parse(b.createdAt) - Date.parse(a.createdAt);
+            });
+        }
+    },
+
+    async savePost(post: CommunityPost): Promise<void> {
+        return withCommunityPostsWriteLock(async () => {
+            const normalized = normalizeCommunityPost(post);
+            if (!normalized) throw new Error('بيانات المنشور غير صالحة');
+            const localPosts = await loadLocalCommunityPosts();
+            const merged = mergePostsById(localPosts, [normalized]).sort((a, b) => {
+                const aPin = a.isPinned ? 1 : 0;
+                const bPin = b.isPinned ? 1 : 0;
+                return bPin - aPin || Date.parse(b.createdAt) - Date.parse(a.createdAt);
+            });
+            await saveLocalCommunityPosts(merged);
+            if (isKvProxyNetworkEnabled()) {
+                try {
+                    await kv.set(`community:posts:${normalized.id}`, normalized);
+                } catch {
+                    /* المحلي محفوظ — kv اختياري في التطوير */
+                }
+            }
+        });
+    },
+
+    /** حفظ دفعي آمن — يمنع فقدان منشورات عند المزامنة */
+    async persistPostsBatch(posts: CommunityPost[]): Promise<void> {
+        return withCommunityPostsWriteLock(async () => {
+            const deletedIds = await loadDeletedCommunityPostIds();
+            const normalized = posts
+                .map((p) => normalizeCommunityPost(p))
+                .filter((p): p is CommunityPost => p !== null);
+            const filtered = filterDeletedCommunityPosts(normalized, deletedIds);
+            await saveLocalCommunityPosts(sortCommunityPosts(filtered));
+        });
+    },
+
+    async deletePost(postId: string): Promise<void> {
+        return withCommunityPostsWriteLock(async () => {
+            await markCommunityPostDeleted(postId);
+            const localPosts = (await loadLocalCommunityPosts()).filter((p) => p?.id !== postId);
+            await saveLocalCommunityPosts(localPosts);
+
+        let attachmentPath: string | null = null;
+        try {
+            const raw = await kv.get(`community:posts:${postId}`);
+            const post = normalizeCommunityPost(raw);
+            if (post?.attachment?.storagePath) {
+                attachmentPath = post.attachment.storagePath;
+            }
+        } catch {
+            // لا يمكن جلب بيانات المنشور — نكمل الحذف على أي حال
+        }
+
+        if (attachmentPath) {
+            await removeStoragePathsBestEffort([attachmentPath]);
+        }
+
+        if (isKvProxyNetworkEnabled()) {
+            try {
+                await kv.del(`community:posts:${postId}`);
+            } catch {
+                /* المحلي محدّث — kv اختياري في التطوير */
+            }
+        }
+        });
+    },
+
+    async saveReport(report: CommunityReport): Promise<void> {
+        if (!isKvProxyNetworkEnabled()) return;
+        try {
+            await kv.set(`community:reports:${report.id}`, report);
+        } catch {
+            /* ignore */
+        }
+    },
+};
+
+const FORUM_BOOKMARKS_KEY = 'hami:forum:bookmarks:v1';
+const DEV_SERVER_BOOKMARKS = Symbol.for('HAMI_DEV_FORUM_BOOKMARKS_V1');
+
+type ForumBookmarkStore = Record<string, string[]>;
+
+function getServerBookmarkStore(): ForumBookmarkStore {
+    const g = globalThis as unknown as Record<symbol, ForumBookmarkStore>;
+    if (!g[DEV_SERVER_BOOKMARKS] || typeof g[DEV_SERVER_BOOKMARKS] !== 'object') {
+        g[DEV_SERVER_BOOKMARKS] = {};
+    }
+    return g[DEV_SERVER_BOOKMARKS];
+}
+
+async function loadForumBookmarkStore(): Promise<ForumBookmarkStore> {
+    if (typeof window === 'undefined') {
+        return getServerBookmarkStore();
+    }
+    try {
+        const raw = await SecureStoreService.getItem(FORUM_BOOKMARKS_KEY);
+        if (!raw) return {};
+        const parsed = JSON.parse(raw) as unknown;
+        if (!parsed || typeof parsed !== 'object') return {};
+        return parsed as ForumBookmarkStore;
+    } catch {
+        return {};
+    }
+}
+
+async function saveForumBookmarkStore(store: ForumBookmarkStore): Promise<void> {
+    if (typeof window === 'undefined') {
+        const g = globalThis as unknown as Record<symbol, ForumBookmarkStore>;
+        g[DEV_SERVER_BOOKMARKS] = store;
+        return;
+    }
+    try {
+        await SecureStoreService.setItem(FORUM_BOOKMARKS_KEY, JSON.stringify(store));
+    } catch {
+    }
+}
+
+/** حفظ المنشورات للقراءة لاحقاً — محلي per-user (يعمل بدون Supabase). */
+export const ForumBookmarkDB = {
+    async listPostIds(userId: string): Promise<string[]> {
+        if (!userId) return [];
+        const store = await loadForumBookmarkStore();
+        const ids = store[userId];
+        return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string' && id.length > 0) : [];
+    },
+
+    async toggle(userId: string, postId: string): Promise<boolean> {
+        if (!userId || !postId) throw new Error('معرّف المستخدم أو المنشور غير صالح');
+        const store = await loadForumBookmarkStore();
+        const current = new Set(
+            Array.isArray(store[userId]) ? store[userId].filter((id) => typeof id === 'string') : [],
+        );
+        let bookmarked: boolean;
+        if (current.has(postId)) {
+            current.delete(postId);
+            bookmarked = false;
+        } else {
+            current.add(postId);
+            bookmarked = true;
+        }
+        store[userId] = [...current];
+        await saveForumBookmarkStore(store);
+        return bookmarked;
+    },
+};
+
+async function listCommunityPostsFromApi(limit: number, offset: number): Promise<{ posts: CommunityPost[]; total: number } | null> {
+    if (typeof window === 'undefined') return null;
+    try {
+        const { ForumApiService } = await import('@/app/services/forumApiService');
+        return await ForumApiService.listPostsPaginated(limit, offset);
+    } catch {
+        return null;
+    }
+}
+
+export async function getCommunityPosts() {
+    const fromApi = await listCommunityPostsFromApi(500, 0);
+    if (fromApi) return fromApi.posts;
+    return await CommunityDB.listPosts();
+}
+
+export async function getCommunityPostsPaginated(limit: number, offset: number): Promise<{ posts: CommunityPost[]; total: number }> {
+    const fromApi = await listCommunityPostsFromApi(limit, offset);
+    if (fromApi) return fromApi;
+    const all = await CommunityDB.listPosts();
+    return {
+        posts: all.slice(offset, offset + limit),
+        total: all.length,
+    };
+}
+
+export async function getCommunityPostById(postId: string): Promise<CommunityPost | null> {
+    if (typeof window !== 'undefined') {
+        try {
+            const { ForumApiService } = await import('@/app/services/forumApiService');
+            return await ForumApiService.getPostById(postId);
+        } catch {
+            /* fallback */
+        }
+    }
+    const all = await CommunityDB.listPosts();
+    return all.find((p) => p.id === postId) ?? null;
+}
+
+export async function addCommunityPost(post: CommunityPost) {
+    await CommunityDB.savePost(post);
+}
+
+export async function addCommunityComment(postId: string, comment: CommunityComment): Promise<CommunityPost> {
+    const posts = await CommunityDB.listPosts();
+    const post = posts.find((p) => p.id === postId);
+    if (!post) throw new Error('المنشور غير موجود');
+    const updated: CommunityPost = { ...post, comments: [...post.comments, comment], updatedAt: new Date().toISOString() };
+    await CommunityDB.savePost(updated);
+    return updated;
+}
+
+export async function deleteCommunityComment(
+    postId: string,
+    commentId: string,
+    requesterId: string,
+    requesterRole?: UserRole,
+): Promise<CommunityPost> {
+    const posts = await CommunityDB.listPosts();
+    const post = posts.find((p) => p.id === postId);
+    if (!post) throw new Error('المنشور غير موجود');
+    const comment = post.comments.find((c) => c.id === commentId);
+    if (!comment) throw new Error('التعليق غير موجود');
+    const isAdmin =
+        requesterRole === UserRole.SUPER_ADMIN || requesterRole === UserRole.MODERATOR;
+    if (comment.authorId !== requesterId && post.authorId !== requesterId && !isAdmin) {
+        throw new Error('ليس لديك صلاحية لحذف هذا التعليق');
+    }
+    const updated: CommunityPost = {
+        ...post,
+        comments: post.comments.filter((c) => c.id !== commentId && c.parentId !== commentId),
+        updatedAt: new Date().toISOString(),
+    };
+    await CommunityDB.savePost(updated);
+    return updated;
+}
+
+export async function editCommunityComment(
+    postId: string,
+    commentId: string,
+    newContent: string,
+    requesterId: string,
+): Promise<CommunityPost> {
+    const posts = await CommunityDB.listPosts();
+    const post = posts.find((p) => p.id === postId);
+    if (!post) throw new Error('المنشور غير موجود');
+    const comment = post.comments.find((c) => c.id === commentId);
+    if (!comment) throw new Error('التعليق غير موجود');
+    if (comment.authorId !== requesterId) {
+        throw new Error('ليس لديك صلاحية لتعديل هذا التعليق');
+    }
+    const trimmed = newContent.trim();
+    if (trimmed.length < 2) throw new Error('نص التعليق قصير جداً');
+    const updated: CommunityPost = {
+        ...post,
+        comments: post.comments.map((c) => (c.id === commentId ? { ...c, content: trimmed } : c)),
+        updatedAt: new Date().toISOString(),
+    };
+    await CommunityDB.savePost(updated);
+    return updated;
+}
+
+export async function deleteCommunityPost(
+    postId: string,
+    requesterId?: string,
+    requesterRole?: UserRole,
+    authorId?: string,
+): Promise<void> {
+    const rawPosts = await loadLocalCommunityPosts();
+    const stored = rawPosts.find((p) => p?.id === postId);
+    const ownerId = resolveCommunityPostOwnerId(
+        stored ? normalizeCommunityPost(stored) ?? undefined : undefined,
+        authorId,
+    );
+    if (!canActOnCommunityPost(requesterId, ownerId, authorId, requesterRole)) {
+        throw new Error('ليس لديك صلاحية لحذف هذا المنشور');
+    }
+    await CommunityDB.deletePost(postId);
+}
+
+export async function updateCommunityPost(postId: string, newContent: string, requesterId?: string) {
+    const posts = await CommunityDB.listPosts();
+    const post = posts.find((p) => p.id === postId);
+    if (!post) throw new Error('المنشور غير موجود');
+    const postAuthorId = post.author_id ?? post.authorId ?? '';
+    if (requesterId && requesterId !== postAuthorId) {
+        throw new Error('ليس لديك صلاحية لتعديل هذا المنشور');
+    }
+    const { buildForumEditPatch } = await import('@/app/services/forum/forumEditUtils');
+    const updated: CommunityPost = {
+        ...post,
+        ...buildForumEditPatch(post, newContent),
+    };
+    await CommunityDB.savePost(updated);
+    return updated;
+}
+
+export async function toggleLockCommunityPost(
+    postId: string,
+    locked: boolean,
+    requesterId: string,
+    requesterIsAdmin: boolean,
+    authorHint?: string,
+): Promise<CommunityPost> {
+    const posts = await CommunityDB.listPosts();
+    const post = posts.find((p) => p.id === postId);
+    if (!post) throw new Error('المنشور غير موجود');
+    const ownerId = resolveCommunityPostOwnerId(post, authorHint);
+    const adminRole = requesterIsAdmin ? UserRole.SUPER_ADMIN : undefined;
+    if (!canActOnCommunityPost(requesterId, ownerId, authorHint, adminRole)) {
+        throw new Error('ليس لديك صلاحية لقفل النقاش');
+    }
+    const updated: CommunityPost = {
+        ...post,
+        isLocked: locked || undefined,
+        updatedAt: new Date().toISOString(),
+    };
+    await CommunityDB.savePost(updated);
+    return updated;
+}
+
+export async function togglePinCommunityPost(
+    postId: string,
+    pinned: boolean,
+    requesterRole?: UserRole,
+): Promise<CommunityPost> {
+    if (
+        requesterRole !== UserRole.SUPER_ADMIN &&
+        requesterRole !== UserRole.MODERATOR
+    ) {
+        throw new Error('ليس لديك صلاحية تثبيت المنشورات');
+    }
+    const posts = await CommunityDB.listPosts();
+    const post = posts.find((p) => p.id === postId);
+    if (!post) throw new Error('المنشور غير موجود');
+    const updated: CommunityPost = {
+        ...post,
+        isPinned: pinned || undefined,
+        updatedAt: new Date().toISOString(),
+    };
+    await CommunityDB.savePost(updated);
+    return updated;
+}
+
+// --- COMMUNITY REPORT TYPES ---
+
+export async function reportCommunityPost(
+    postId: string,
+    reason: string,
+    requesterId?: string,
+): Promise<{ ok: boolean; postId: string; reason: string; duplicate?: boolean }> {
+    if (!requesterId) {
+        return { ok: true, postId, reason };
+    }
+    const existing = await getCommunityReports();
+    if (
+        existing.some(
+            (r) =>
+                r.postId === postId &&
+                r.reporterId === requesterId &&
+                r.status === 'pending',
+        )
+    ) {
+        return { ok: false, postId, reason, duplicate: true };
+    }
+    const reportId = uuidv4();
+    const report: CommunityReport = {
+        id: reportId,
+        postId,
+        reporterId: requesterId,
+        reason,
+        createdAt: new Date().toISOString(),
+        status: 'pending',
+    };
+    try {
+        await CommunityDB.saveReport(report);
+    } catch {
+        // silent — الأفضل أن نكمل حتى لو فشل التخزين
+    }
+    return { ok: true, postId, reason };
+}
+
+export async function getCommunityReports(): Promise<CommunityReport[]> {
+    try {
+        const res = await kv.getByPrefix('community:reports:');
+        return Array.isArray(res) ? res.filter((r): r is CommunityReport => {
+            if (!r || typeof r !== 'object') return false;
+            const o = r as Record<string, unknown>;
+            return typeof o.id === 'string' && typeof o.postId === 'string' && typeof o.reason === 'string' && typeof o.status === 'string';
+        }) : [];
+    } catch {
+        return [];
+    }
+}
+
+export async function dismissCommunityReport(reportId: string, reviewerId: string): Promise<void> {
+    try {
+        const raw = await kv.get(`community:reports:${reportId}`);
+        if (!raw) return;
+        const report = raw as CommunityReport;
+        report.status = 'dismissed';
+        report.reviewedById = reviewerId;
+        report.reviewedAt = new Date().toISOString();
+        await kv.set(`community:reports:${reportId}`, report);
+    } catch {
+        // silent
+    }
+}
+
+// --- BAN SYSTEM ---
+
+export const BanDB = {
+    async banUser(record: BanRecord): Promise<void> {
+        await kv.set(`banned:users:${record.userId}`, record);
+    },
+
+    async unbanUser(userId: string): Promise<void> {
+        await kv.del(`banned:users:${userId}`);
+    },
+
+    async isBanned(userId: string): Promise<BanRecord | null> {
+        try {
+            const raw = await kv.get(`banned:users:${userId}`);
+            if (!raw || typeof raw !== 'object') return null;
+            const r = raw as BanRecord;
+            if (r.expiresAt && Date.now() > Date.parse(r.expiresAt)) {
+                await kv.del(`banned:users:${userId}`);
+                return null;
+            }
+            return r.userId ? (raw as BanRecord) : null;
+        } catch {
+            return null;
+        }
+    },
+
+    async listBannedUsers(): Promise<BanRecord[]> {
+        try {
+            const res = await kv.getByPrefix('banned:users:');
+            return Array.isArray(res) ? res.filter((r): r is BanRecord => {
+                if (!r || typeof r !== 'object') return false;
+                const o = r as Record<string, unknown>;
+                return typeof o.userId === 'string';
+            }) : [];
+        } catch {
+            return [];
+        }
+    },
+};
+
+// --- FOLLOW SYSTEM ---
+
+export const FollowDB = {
+    async follow(followerId: string, followingId: string): Promise<void> {
+        if (followerId === followingId) return;
+        const record: FollowRecord = { followerId, followingId, createdAt: new Date().toISOString() };
+        await kv.set(`follow:${followerId}:${followingId}`, record);
+    },
+
+    async unfollow(followerId: string, followingId: string): Promise<void> {
+        await kv.del(`follow:${followerId}:${followingId}`);
+    },
+
+    async isFollowing(followerId: string, followingId: string): Promise<boolean> {
+        try {
+            const raw = await kv.get(`follow:${followerId}:${followingId}`);
+            return !!raw && typeof raw === 'object' && !!(raw as FollowRecord).followerId;
+        } catch {
+            return false;
+        }
+    },
+
+    async getFollowers(userId: string): Promise<FollowRecord[]> {
+        try {
+            const all = await kv.getByPrefix('follow:');
+            if (!Array.isArray(all)) return [];
+            return all.filter((r): r is FollowRecord => {
+                if (!r || typeof r !== 'object') return false;
+                const o = r as Record<string, unknown>;
+                return typeof o.followerId === 'string' && typeof o.followingId === 'string' && o.followingId === userId;
+            }).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+        } catch {
+            return [];
+        }
+    },
+
+    async getFollowing(userId: string): Promise<FollowRecord[]> {
+        try {
+            const all = await kv.getByPrefix('follow:');
+            if (!Array.isArray(all)) return [];
+            return all.filter((r): r is FollowRecord => {
+                if (!r || typeof r !== 'object') return false;
+                const o = r as Record<string, unknown>;
+                return typeof o.followerId === 'string' && typeof o.followingId === 'string' && o.followerId === userId;
+            }).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+        } catch {
+            return [];
+        }
+    },
+
+    async getFollowerCount(userId: string): Promise<number> {
+        const followers = await this.getFollowers(userId);
+        return followers.length;
+    },
+
+    async getFollowingCount(userId: string): Promise<number> {
+        const following = await this.getFollowing(userId);
+        return following.length;
+    },
+};
+
+export async function getUserPostCount(userId: string): Promise<number> {
+    try {
+        const posts = await CommunityDB.listPosts();
+        return posts.filter((p) => (p.author_id ?? p.authorId ?? '') === userId).length;
+    } catch {
+        return 0;
+    }
+}
+
+export async function notifyFollowers(userId: string, type: 'new_post' | 'new_document', title: string, message: string, postId?: string): Promise<void> {
+    try {
+        if (type === 'new_document') {
+            const { dispatchFollowedUserNewDocument } = await import('@/app/services/forum/forumNotificationDispatch');
+            await dispatchFollowedUserNewDocument({ authorId: userId, title, message, docId: postId });
+            return;
+        }
+        const { ForumFollowRepository } = await import('@/app/services/forum/forumFollowRepository');
+        const { NotificationDB } = await import('@/app/services/notifications/notificationForumStorage');
+        const followers = await ForumFollowRepository.getFollowers(userId);
+        for (const f of followers) {
+            if (!f.notifyPosts) continue;
+            await NotificationDB.addNotification({
+                id: uuidv4(),
+                userId: f.followerId,
+                type,
+                title,
+                message,
+                postId,
+                read: false,
+                createdAt: new Date().toISOString(),
+                dedupeKey: postId ? `forum:legacy-post:${postId}:${f.followerId}` : undefined,
+            });
+        }
+    } catch {
+        // silent
+    }
+}

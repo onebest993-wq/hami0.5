@@ -24,8 +24,6 @@ export function AppealWorkflowCardDetailsSection({
         showAppealDetailsToggle,
         pipelineRow,
         showDebtorGrievanceNotice,
-        appealWindowClosed,
-        isFinalLocked,
         showExecutorPendingFooter,
     } = derived;
 
@@ -45,11 +43,6 @@ export function AppealWorkflowCardDetailsSection({
                 <span className={`${DECISION_BTN_DEBTOR_APPEAL_NOTICE} pointer-events-none`}>
                     {appealDebtorGrievanceNoticeLabel(appealPerspective)}
                 </span>
-            ) : null}
-            {appealWindowClosed && !isFinalLocked ? (
-                <p className="text-[10px] leading-relaxed text-slate-300">
-                    انتهت مهلة الطعن وأصبح القرار باتاً.
-                </p>
             ) : null}
             {showExecutorPendingFooter ? (
                 <p className="text-[10px] leading-relaxed text-blue-400/80">قيد المعالجة</p>

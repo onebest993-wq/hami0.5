@@ -14,10 +14,22 @@ export function useViewportShellScale(): number {
     );
 
     useEffect(() => {
+        let rafId = 0;
         const update = () => setScale(resolveViewportShellScale(window.innerWidth));
+        const scheduleUpdate = () => {
+            if (rafId) return;
+            rafId = requestAnimationFrame(() => {
+                rafId = 0;
+                update();
+            });
+        };
+
         update();
-        window.addEventListener('resize', update, { passive: true });
-        return () => window.removeEventListener('resize', update);
+        window.addEventListener('resize', scheduleUpdate, { passive: true });
+        return () => {
+            if (rafId) cancelAnimationFrame(rafId);
+            window.removeEventListener('resize', scheduleUpdate);
+        };
     }, []);
 
     return scale;

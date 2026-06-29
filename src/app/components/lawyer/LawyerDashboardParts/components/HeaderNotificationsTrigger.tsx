@@ -7,12 +7,14 @@ interface HeaderNotificationsTriggerProps {
     unreadCount: number;
     onClick: () => void;
     onPointerEnter?: () => void;
+    onPointerDown?: () => void;
 }
 
 export function HeaderNotificationsTrigger({
     unreadCount,
     onClick,
     onPointerEnter,
+    onPointerDown,
 }: HeaderNotificationsTriggerProps) {
     const label =
         unreadCount > 0 ? `الإشعارات (${unreadCount})` : 'الإشعارات';
@@ -24,6 +26,7 @@ export function HeaderNotificationsTrigger({
             label={label}
             onClick={onClick}
             onPointerEnter={onPointerEnter}
+            onPointerDown={onPointerDown}
             testId="header-notifications-trigger"
             badge={
                 badgeText ? (

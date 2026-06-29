@@ -1,0 +1,105 @@
+.profile-text-canvas__door-light {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    background: radial-gradient(
+        ellipse 22% 78% at 50% 50%,
+        color-mix(in srgb, var(--canvas-accent, #e6c673) 42%, white),
+        transparent 72%
+    );
+    opacity: 0;
+    filter: blur(6px);
+    transition: opacity 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+}
+
+.profile-text-canvas[data-revealed='true'] .profile-text-canvas__door-light {
+    opacity: 0.65;
+}
+
+.profile-text-canvas__doors {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    display: flex;
+    pointer-events: none;
+}
+
+.profile-text-canvas__door {
+    position: relative;
+    flex: 1;
+    background: linear-gradient(
+        168deg,
+        color-mix(in srgb, var(--canvas-accent, #e6c673) 24%, #1a1520),
+        color-mix(in srgb, var(--canvas-accent, #e6c673) 8%, #070910)
+    );
+    border: 1px solid color-mix(in srgb, var(--canvas-accent, #e6c673) 38%, transparent);
+    box-shadow:
+        inset 0 0 28px rgba(0, 0, 0, 0.48),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        0 0 24px color-mix(in srgb, var(--canvas-accent, #e6c673) 12%, transparent);
+    transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.profile-text-canvas__door-inlay {
+    position: absolute;
+    inset: 16% 20%;
+    border: 1px solid color-mix(in srgb, var(--canvas-accent, #e6c673) 28%, transparent);
+    border-radius: 0.3rem;
+    opacity: 0.55;
+}
+
+.profile-text-canvas__door-knob {
+    position: absolute;
+    top: 50%;
+    inset-inline-end: 14%;
+    width: 0.45rem;
+    height: 0.45rem;
+    margin-top: -0.22rem;
+    border-radius: 50%;
+    background: radial-gradient(
+        circle at 35% 30%,
+        color-mix(in srgb, var(--canvas-accent, #e6c673) 90%, white),
+        color-mix(in srgb, var(--canvas-accent, #e6c673) 40%, #2a2218)
+    );
+    box-shadow: 0 0 8px color-mix(in srgb, var(--canvas-accent, #e6c673) 35%, transparent);
+}
+
+.profile-text-canvas__door--left {
+    border-radius: 0.85rem 0 0 0.85rem;
+    transform-origin: left center;
+}
+
+.profile-text-canvas__door--right {
+    border-radius: 0 0.85rem 0.85rem 0;
+    transform-origin: right center;
+}
+
+.profile-text-canvas[data-interactive='true'][data-revealed='false'][data-interaction='doorOpen'] .profile-text-canvas__door {
+    animation: profile-door-invite 2.6s ease-in-out infinite;
+}
+
+@keyframes profile-door-invite {
+    0%,
+    100% {
+        filter: brightness(1);
+        box-shadow:
+            inset 0 0 28px rgba(0, 0, 0, 0.48),
+            inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+    50% {
+        filter: brightness(1.14);
+        box-shadow:
+            inset 0 0 28px rgba(0, 0, 0, 0.42),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1),
+            0 0 32px color-mix(in srgb, var(--canvas-accent, #e6c673) 22%, transparent);
+    }
+}
+
+.profile-text-canvas[data-revealed='true'] .profile-text-canvas__door--left {
+    transform: perspective(720px) rotateY(52deg) translateX(-4%);
+}
+
+.profile-text-canvas[data-revealed='true'] .profile-text-canvas__door--right {
+    transform: perspective(720px) rotateY(-52deg) translateX(4%);
+}

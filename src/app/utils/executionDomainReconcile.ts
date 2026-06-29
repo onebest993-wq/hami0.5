@@ -11,7 +11,7 @@ import {
     isDecisionVisibleInDomainContext,
     resolveExecutionDomainContext,
 } from '@/app/utils/executionDomainIsolation';
-import { writeExecutorDecisionsArray } from '@/app/utils/executionDecisionsNamespace';
+import { writeExecutorDecisionsUnionForExecution } from '@/app/utils/executionDecisionsNamespace';
 import {
     dispatchDecisionsReload,
     isExecutorHubRowSuperseded,
@@ -26,6 +26,8 @@ export interface DomainReconcileResult {
 function isRowProtectedFromDomainReconcile(row: Record<string, unknown>): boolean {
     if (row.manualExecutorLedgerEntry === true) return true;
     if (String(row.appealRequestOrigin || '').trim() === 'executor_side') return true;
+    if (String(row.requestKind || '').trim()) return true;
+    if (String((row as { domainNamespace?: string }).domainNamespace || '').trim()) return true;
     if (isExecutorHubRowSuperseded(row)) return true;
     if ((row as { domainIsolationSuppressed?: boolean }).domainIsolationSuppressed === true) {
         return true;
@@ -121,7 +123,7 @@ export function reconcileDomainViolatingDecisions(
     }
 
     try {
-        writeExecutorDecisionsArray(id, next, executionData);
+        writeExecutorDecisionsUnionForExecution(id, next, executionData);
         SecureStoreService.setItemSync(markerKey, signature);
         dispatchDecisionsReload();
     } catch {
@@ -136,7 +138,7 @@ export function clearDomainReconcileMarker(executionId: string | undefined): voi
     const id = normalizeExecutionStorageId(executionId);
     if (!id || id === 'default') return;
     try {
-        SecureStoreService.removeItemSync(`domain-isolation-reconcile:${id}`);
+        SecureStoreService.deleteItemSync(`domain-isolation-reconcile:${id}`);
     } catch {
         /* ignore */
     }

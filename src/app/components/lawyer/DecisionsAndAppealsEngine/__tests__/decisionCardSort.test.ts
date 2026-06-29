@@ -23,6 +23,7 @@ import {
     compareDecisionsTerminatedManualLast,
     purgeManualExecutorAppealArtifacts,
     canArchiveExecutorDecisionCard,
+    deriveDecisionHubStatus,
 } from '../utils';
 
 function base(overrides: Partial<Decision> = {}): Decision {
@@ -244,6 +245,15 @@ describe('manual executor ledger (إضافة قرار)', () => {
         expect(resolveManualExecutorWorkflowPhase(afterCassationFile)).toBe('cassation_pending');
         expect(afterCassationFile.manualExecutorAppealKind).toBe('tamyeez');
         vi.useRealTimers();
+    });
+
+    it('manual ledger hub status is accepted when flag 1 (not pending)', () => {
+        const manual = base({
+            manualExecutorLedgerEntry: true,
+            executorDecisionStatusFlag: 1,
+            appealStatus: 'pending',
+        });
+        expect(deriveDecisionHubStatus(manual, () => true)).toBe('accepted');
     });
 
     it('appeal won/lost transitions follow appellant rules', () => {

@@ -1,14 +1,18 @@
-// @ts-nocheck
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { X, FileImage, FileText } from 'lucide-react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { RepositoryDocument } from '@/app/services/lawyer-cloud';
 import { getRepositoryMediaKind, inferRepositoryMimeType, repositoryMediaLabel } from './repositoryMedia';
 import { REPOSITORY_SUGGESTED_TAGS, formatRepositoryTag } from '../repositoryTagUtils';
+import {
+    type RepositoryUploadKind,
+    repositoryUploadAcceptValue,
+    sanitizeRepositoryUploadDescription,
+    sanitizeRepositoryUploadTitle,
+    validateRepositoryUploadFile,
+} from '../repositoryUploadValidation';
 
 const DOCUMENT_TYPES = ['عقد', 'قرار حكم', 'عريضة', 'بحث قانوني', 'أخرى'] as const;
-
-type UploadKind = 'image' | 'document';
 
 interface UploadDocumentModalProps {
     isOpen: boolean;
@@ -25,10 +29,6 @@ interface UploadDocumentModalProps {
     editDoc?: RepositoryDocument | null;
 }
 
-const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'] as const;
-const DOCUMENT_EXTENSIONS = ['.pdf', '.docx'] as const;
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
-
 export const UploadDocumentModal = ({
     isOpen,
     onClose,
@@ -40,28 +40,12 @@ export const UploadDocumentModal = ({
     const [type, setType] = useState<string>('عقد');
     const [description, setDescription] = useState('');
     const [pickedTags, setPickedTags] = useState<string[]>([]);
-    const [uploadKind, setUploadKind] = useState<UploadKind>('document');
+    const [uploadKind, setUploadKind] = useState<RepositoryUploadKind>('document');
     const [file, setFile] = useState<File | null>(null);
     const [fileError, setFileError] = useState<string | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-    const allowedExtensions = uploadKind === 'image' ? IMAGE_EXTENSIONS : DOCUMENT_EXTENSIONS;
-    const acceptValue = allowedExtensions.join(',');
-
-    const validateFile = (f: File, kind: UploadKind): string | null => {
-        const ext = '.' + f.name.split('.').pop()?.toLowerCase();
-        const allowed = kind === 'image' ? IMAGE_EXTENSIONS : DOCUMENT_EXTENSIONS;
-        if (!allowed.includes(ext as (typeof allowed)[number])) {
-            return kind === 'image'
-                ? 'اختر صورة بصيغة JPG أو PNG أو WEBP'
-                : 'اختر ملفاً بصيغة PDF أو DOCX';
-        }
-        if (f.size > MAX_FILE_SIZE) {
-            const mb = (f.size / (1024 * 1024)).toFixed(1);
-            return `حجم الملف كبير جداً (${mb}MB). الحد الأقصى هو 10MB`;
-        }
-        return null;
-    };
+    const acceptValue = repositoryUploadAcceptValue(uploadKind);
 
     useEffect(() => {
         if (!file || getRepositoryMediaKind(inferRepositoryMimeType(file), file.name) !== 'image') {
@@ -74,29 +58,28 @@ export const UploadDocumentModal = ({
     }, [file]);
 
     useEffect(() => {
-        if (isOpen) {
-            if (editDoc) {
-                setTitle(editDoc.title);
-                setType(editDoc.type);
-                setDescription(editDoc.description);
-                setPickedTags(
-                    REPOSITORY_SUGGESTED_TAGS.filter((label) =>
-                        (editDoc.tags ?? []).some((t) => formatRepositoryTag(t) === formatRepositoryTag(label)),
-                    ),
-                );
-                setUploadKind(getRepositoryMediaKind(editDoc.mimeType, editDoc.fileName) === 'image' ? 'image' : 'document');
-                setFile(null);
-                setFileError(null);
-            } else {
-                setTitle('');
-                setType('عقد');
-                setDescription('');
-                setPickedTags([]);
-                setUploadKind('document');
-                setFile(null);
-                setFileError(null);
-            }
+        if (!isOpen) return;
+        if (editDoc) {
+            setTitle(editDoc.title);
+            setType(editDoc.type);
+            setDescription(editDoc.description);
+            setPickedTags(
+                REPOSITORY_SUGGESTED_TAGS.filter((label) =>
+                    (editDoc.tags ?? []).some((t) => formatRepositoryTag(t) === formatRepositoryTag(label)),
+                ),
+            );
+            setUploadKind(getRepositoryMediaKind(editDoc.mimeType, editDoc.fileName) === 'image' ? 'image' : 'document');
+            setFile(null);
+            setFileError(null);
+            return;
         }
+        setTitle('');
+        setType('عقد');
+        setDescription('');
+        setPickedTags([]);
+        setUploadKind('document');
+        setFile(null);
+        setFileError(null);
     }, [isOpen, editDoc]);
 
     const selectedKindLabel = useMemo(() => {
@@ -108,7 +91,7 @@ export const UploadDocumentModal = ({
         const f = e.target.files?.[0] ?? null;
         setFileError(null);
         if (f) {
-            const error = validateFile(f, uploadKind);
+            const error = validateRepositoryUploadFile(f, uploadKind);
             if (error) {
                 setFileError(error);
                 SmartToast.warning(error);
@@ -120,7 +103,7 @@ export const UploadDocumentModal = ({
         setFile(f);
     };
 
-    const switchUploadKind = (kind: UploadKind) => {
+    const switchUploadKind = (kind: RepositoryUploadKind) => {
         setUploadKind(kind);
         setFile(null);
         setFileError(null);
@@ -138,7 +121,9 @@ export const UploadDocumentModal = ({
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        if (!title.trim() || !description.trim()) {
+        const safeTitle = sanitizeRepositoryUploadTitle(title);
+        const safeDescription = sanitizeRepositoryUploadDescription(description);
+        if (!safeTitle || !safeDescription) {
             SmartToast.warning('يرجى ملء جميع الحقول المطلوبة');
             return;
         }
@@ -149,14 +134,14 @@ export const UploadDocumentModal = ({
 
         try {
             await onSubmit({
-                title: title.trim(),
+                title: safeTitle,
                 type,
-                description: description.trim(),
+                description: safeDescription,
                 file,
                 tags: selectedTags,
             });
         } catch {
-            // parent shows toast — keep modal open
+            /* parent shows toast — keep modal open */
         }
     };
 

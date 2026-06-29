@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Building2, ChevronLeft } from 'lucide-react';
 import type { Transaction } from '@/app/modules/transactionsThreading/types';
 import { TransactionStatus } from '@/app/modules/transactionsThreading/types';
@@ -25,7 +26,7 @@ function statusBadgeClass(status: TransactionStatus) {
     return TX_STATUS_COMPLETED;
 }
 
-export function TransactionCard({
+export const TransactionCard = memo(function TransactionCard({
     transaction,
     onPress,
 }: {
@@ -60,7 +61,7 @@ export function TransactionCard({
                             {statusLabelAr(transaction.status)}
                         </span>
                         {clusterPin ? (
-                            <WorkspacePinButton item={clusterPin} className="!w-8 !h-8" size={14} />
+                            <WorkspacePinButton item={clusterPin} className="!min-w-[44px] !min-h-[44px] !w-11 !h-11" size={16} />
                         ) : null}
                     </div>
                 </div>
@@ -75,4 +76,4 @@ export function TransactionCard({
             </button>
         </TxGlassPanel>
     );
-}
+});

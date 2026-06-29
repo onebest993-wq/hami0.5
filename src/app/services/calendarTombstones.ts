@@ -53,6 +53,10 @@ async function saveLocalTombstones(store: LocalTombstoneStore): Promise<void> {
     const payload = JSON.stringify(store);
     try {
         await SecureStoreService.setItem(LOCAL_TOMBSTONES_KEY, payload);
+        const { mirrorCalendarTombstonesToLocalStorage } = await import(
+            '@/app/services/calendar/calendarLocalSnapshot'
+        );
+        mirrorCalendarTombstonesToLocalStorage(payload);
     } catch {
         try {
             localStorage.setItem(LOCAL_TOMBSTONES_KEY, payload);

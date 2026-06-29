@@ -160,4 +160,25 @@ describe('calendar cleanup — محذوف ومختلق', () => {
             SecureStoreService.getItemSync(CAL_KEY) ?? localStorage.getItem(CAL_KEY);
         expect(stored).toBeTruthy();
     });
+
+    it('getEvents لا يمسح أحداث مستخدم آخر عند مزامنة مستخدم بلا أحداث', async () => {
+        const USER_A = 'cleanup-user-a';
+        const USER_B = 'cleanup-user-b';
+        const now = new Date().toISOString();
+        await CalendarDB.saveEvent({
+            id: 'evt-user-b',
+            userId: USER_B,
+            title: 'موعد مستخدم ب',
+            date: '2026-06-01',
+            type: 'personal',
+            createdAt: now,
+            updatedAt: now,
+        });
+
+        const eventsA = await CalendarDB.getEvents(USER_A);
+        expect(eventsA).toHaveLength(0);
+
+        const all = await CalendarDB.getAllStoredEvents();
+        expect(all.some((e) => e.id === 'evt-user-b' && e.userId === USER_B)).toBe(true);
+    });
 });

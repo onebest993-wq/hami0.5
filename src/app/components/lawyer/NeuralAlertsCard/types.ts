@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 
 export type AlertPriority = 'critical' | 'high' | 'medium' | 'low';
-export type ActionType = 'openDrafter' | 'openScanner' | 'openChecklist' | 'sendWhatsApp' | 'sendAutoReminder';
+export type ActionType = 'openNotepad' | 'openScanner' | 'openChecklist' | 'sendWhatsApp' | 'sendAutoReminder';
 
 export interface SmartAlert {
     id: string;

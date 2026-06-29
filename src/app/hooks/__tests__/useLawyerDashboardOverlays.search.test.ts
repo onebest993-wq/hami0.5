@@ -1,42 +1,15 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { renderHook } from '@testing-library/react';
 import { useLawyerDashboardOverlays } from '../useLawyerDashboardOverlays';
 
-vi.mock('@/app/components/ui/SmartToast', () => ({
-    SmartToast: {
-        error: vi.fn(),
-        info: vi.fn(),
-        success: vi.fn(),
-    },
-}));
-
-describe('useLawyerDashboardOverlays — البحث الشامل', () => {
-    beforeEach(() => {
-        vi.clearAllMocks();
-    });
-
-    it('يفتح البحث للمستخدم المسجّل', () => {
+describe('useLawyerDashboardOverlays — لا يملك حالة البحث الشامل', () => {
+    it('لا يعرّض openGlobalSearch', () => {
         const { result } = renderHook(() =>
-            useLawyerDashboardOverlays({ setArchiveType: vi.fn(), userId: 'lawyer-1' }),
+            useLawyerDashboardOverlays({ setArchiveType: vi.fn() }),
         );
 
-        act(() => {
-            result.current.openGlobalSearch('جلسة');
-        });
-
-        expect(result.current.showGlobalSearch).toBe(true);
-        expect(result.current.globalSearchInitialQuery).toBe('جلسة');
-    });
-
-    it('يرفض فتح البحث بدون تسجيل دخول', () => {
-        const { result } = renderHook(() =>
-            useLawyerDashboardOverlays({ setArchiveType: vi.fn(), userId: null }),
-        );
-
-        act(() => {
-            result.current.openGlobalSearch();
-        });
-
-        expect(result.current.showGlobalSearch).toBe(false);
+        expect('openGlobalSearch' in result.current).toBe(false);
+        expect('showGlobalSearch' in result.current).toBe(false);
+        expect('globalSearchShellMounted' in result.current).toBe(false);
     });
 });

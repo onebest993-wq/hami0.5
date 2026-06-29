@@ -8,7 +8,7 @@ import type { CaseStage } from '@/app/components/lawyer/LawyerShared';
 describe('lawsuit appointment → calendar', () => {
     beforeEach(() => {
         vi.spyOn(CalendarDB, 'getEvents').mockResolvedValue([]);
-        vi.spyOn(CalendarDB, 'saveEvent').mockResolvedValue(undefined as never);
+        vi.spyOn(CalendarDB, 'saveEventsBatch').mockResolvedValue(undefined as never);
     });
 
     it('syncs new appointment without throwing (lawsuitCalendarContext defined)', async () => {
@@ -81,8 +81,8 @@ describe('lawsuit appointment → calendar', () => {
             await flushPendingCalendarSyncs();
         });
 
-        expect(CalendarDB.saveEvent).toHaveBeenCalled();
-        const saved = vi.mocked(CalendarDB.saveEvent).mock.calls[0]?.[0];
+        expect(CalendarDB.saveEventsBatch).toHaveBeenCalled();
+        const saved = vi.mocked(CalendarDB.saveEventsBatch).mock.calls[0]?.[0]?.[0];
         expect(saved?.userId).toBe('lawyer-1');
         expect(saved?.date).toBe('2026-08-20');
         expect(saved?.sourceModule).toBe('lawsuit');

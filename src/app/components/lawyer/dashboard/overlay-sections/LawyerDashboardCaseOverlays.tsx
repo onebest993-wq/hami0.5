@@ -1,16 +1,10 @@
 // @ts-nocheck
-import React, { Suspense } from 'react';
+import React, { Suspense, useCallback } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { ConsolidationNavBar } from '@/app/components/lawyer/smart-modal/parts/ConsolidationNavBar';
-import { ArchivePortal } from '@/app/components/lawyer/ArchivePortal';
-import {
-    LazyClientRequestsHub,
-    LazyExecutionCreationView,
-    LazyExecutionDashboard,
-    LazyLawsuitsWorkspace,
-    LazySmartFileModal,
-} from '@/app/utils/lazyComponents';
+import { LazyClientRequestsHub, LazyArchivePortal, LazyLawsuitsWorkspace } from '@/app/utils/lazyComponents';
+import { SmartFileModalPortal } from '@/app/components/lawyer/dashboard/SmartFileModalPortal';
 import { LazyLawyerNewCase } from '@/app/utils/lazy/lawyerNewCaseModal';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ThemeConfig } from '@/app/types/common';
@@ -19,12 +13,16 @@ import {
     resolveOpenableFileData,
     isRecord,
 } from '@/app/components/lawyer/LawyerDashboardParts/utils';
-import DossierOpeningFallbackComponent from '@/app/components/lawyer/LawyerDashboardParts/components/DossierOpeningFallback';
-import { LAWYER_LAZY_FALLBACK } from '@/app/components/lawyer/LawyerDashboardParts/constants';
+import {
+    LAWYER_LAZY_FALLBACK,
+    LAWSUITS_WORKSPACE_FALLBACK,
+    ARCHIVE_PORTAL_FALLBACK,
+} from '@/app/components/lawyer/LawyerDashboardParts/constants';
+import { ExecutionDashboardPortal } from '@/app/components/lawyer/dashboard/ExecutionDashboardPortal';
+import { ExecutionCreationPortal } from '@/app/components/lawyer/dashboard/ExecutionCreationPortal';
+import { prefetchExecutionCreationView } from '@/app/utils/lazyComponents';
+import { useLawyerExecutionOverlayEscape } from '@/app/hooks/lawyerDashboard/useLawyerExecutionOverlayEscape';
 import type { LawyerDashboardOverlaysHostProps } from '../lawyerDashboardOverlaysHostBundles';
-
-const DOSSIER_OPENING_FALLBACK = <DossierOpeningFallbackComponent />;
-
 export function LawyerDashboardCaseOverlays({
     shell,
     data,
@@ -48,7 +46,7 @@ export function LawyerDashboardCaseOverlays({
     | 'nav'
 >) {
     const { shapeClass, theme } = shell;
-    const { files, executionFiles, criminalCasesForCluster } = data;
+    const { files, executionFiles, executionFilesHydrating, criminalCasesForCluster } = data;
     const {
         activeFile,
         setActiveFile,
@@ -72,6 +70,8 @@ export function LawyerDashboardCaseOverlays({
         handleRestoreFile,
         moveExecutionToTrash,
         restoreExecutionFromTrash,
+        archiveExecution,
+        restoreArchivedExecution,
         permanentlyDeleteExecutions,
         moveLawsuitToTrash,
         restoreLawsuitFromTrash,
@@ -96,43 +96,58 @@ export function LawyerDashboardCaseOverlays({
         setShowLawsuitsWorkspace,
         lawsuitsWorkspaceTab,
         lawsuitsDossierSection,
+        urgentFocusCaseId,
+        setUrgentFocusCaseId,
         openCriminalCase,
     } = overlays;
 
+    const closeArchive = useCallback(() => setArchiveType(null), [setArchiveType]);
+    const closeExecutionFile = useCallback(() => setActiveFile(null), [setActiveFile]);
+    const closeExecutionCreate = useCallback(() => {
+        setIsExecutionModalOpen(false);
+    }, [setIsExecutionModalOpen]);
+    const executionArchiveOpen = Boolean(archiveType && archiveType !== 'client_requests');
+    const executionFileOpen = Boolean(activeFile?.type === 'execution');
+
+    useLawyerExecutionOverlayEscape({
+        archiveOpen: executionArchiveOpen,
+        executionFileOpen,
+        executionCreateOpen: isExecutionModalOpen,
+        onCloseArchive: closeArchive,
+        onCloseExecutionFile: closeExecutionFile,
+        onCloseExecutionCreate: closeExecutionCreate,
+    });
+
     return (
         <>
-            {activeFile && (
-                <Suspense fallback={DOSSIER_OPENING_FALLBACK}>
-                    {activeFile.type === 'execution' ? (
-                        <LazyExecutionDashboard
-                            key={`exec-${activeFile.id}`}
-                            file={activeFile}
-                            onClose={() => setActiveFile(null)}
-                            onUpdate={handleUpdateExecutionFile}
-                        />
-                    ) : (
-                        <LazySmartFileModal
-                            key={`lawsuit-${activeFile.id}`}
-                            file={activeFile}
-                            onClose={() => setActiveFile(null)}
-                            onUpdate={handleUpdateFile}
-                            onDelete={() => handleDeleteFile(activeFile as FileData)}
-                            theme={theme}
-                            shapeClass={shapeClass}
-                            onAddStage={initiateSubFile}
-                            onAddAlert={() => void refreshAppAlerts()}
-                            onSpawnLinkedIncidentalCase={handleSpawnLinkedIncidentalCase}
-                            onOpenLinkedFile={handleOpenLinkedFile}
-                            lawsuitFiles={files}
-                            onStartConsolidationNewCase={handleStartConsolidationNewCase}
-                            onConsolidateWithExisting={handleConsolidateWithExisting}
-                            onLinkWithExistingCase={handleLinkWithExistingCase}
-                            consolidationNavActive={consolidationNavActive && !isNewCaseModalOpen}
-                            caseLinkNavActive={Boolean(caseLinkNav) && !consolidationNavActive}
-                        />
-                    )}
-                </Suspense>
-            )}
+            {activeFile ? (
+                activeFile.type === 'execution' ? (
+                    <ExecutionDashboardPortal
+                        file={activeFile}
+                        onClose={closeExecutionFile}
+                        onUpdate={handleUpdateExecutionFile}
+                    />
+                ) : (
+                    <SmartFileModalPortal
+                        file={activeFile}
+                        onClose={() => setActiveFile(null)}
+                        onUpdate={handleUpdateFile}
+                        onDelete={() => handleDeleteFile(activeFile as FileData)}
+                        theme={theme}
+                        shapeClass={shapeClass}
+                        onAddStage={initiateSubFile}
+                        onAddAlert={() => void refreshAppAlerts()}
+                        onSpawnLinkedIncidentalCase={handleSpawnLinkedIncidentalCase}
+                        onOpenLinkedFile={handleOpenLinkedFile}
+                        lawsuitFiles={files}
+                        onStartConsolidationNewCase={handleStartConsolidationNewCase}
+                        onConsolidateWithExisting={handleConsolidateWithExisting}
+                        onLinkWithExistingCase={handleLinkWithExistingCase}
+                        consolidationNavActive={consolidationNavActive && !isNewCaseModalOpen}
+                        caseLinkNavActive={Boolean(caseLinkNav) && !consolidationNavActive}
+                    />
+                )
+            ) : null}
 
             {archiveType === 'client_requests' ? (
                 <Suspense fallback={LAWYER_LAZY_FALLBACK}>
@@ -144,9 +159,9 @@ export function LawyerDashboardCaseOverlays({
                         }}
                     />
                 </Suspense>
-            ) : (
-                archiveType && (
-                    <ArchivePortal
+            ) : archiveType ? (
+                <Suspense fallback={ARCHIVE_PORTAL_FALLBACK}>
+                    <LazyArchivePortal
                         type={lawyerOverlayToArchivePortalType(archiveType)}
                         files={
                             archiveType === 'execution'
@@ -157,10 +172,10 @@ export function LawyerDashboardCaseOverlays({
                         }
                         theme={theme as ThemeConfig}
                         shapeClass={shapeClass}
-                        onClose={() => setArchiveType(null)}
+                        onClose={closeArchive}
                         onFileClick={(f: unknown) => {
                             if (isRecord(f) && f.type === 'execution') {
-                                if (openArchiveFile(f)) setArchiveType(null);
+                                openArchiveFile(f);
                                 return;
                             }
                             const resolved = resolveOpenableFileData(f, files);
@@ -176,6 +191,7 @@ export function LawyerDashboardCaseOverlays({
                         }}
                         onAddAction={() => {
                             if (archiveType === 'execution') {
+                                prefetchExecutionCreationView();
                                 setIsExecutionModalOpen(true);
                             } else {
                                 openNormalNewCaseModal();
@@ -193,45 +209,57 @@ export function LawyerDashboardCaseOverlays({
                         onRestoreExecutionFromTrash={
                             archiveType === 'execution' ? restoreExecutionFromTrash : undefined
                         }
+                        onArchiveExecution={
+                            archiveType === 'execution' ? archiveExecution : undefined
+                        }
+                        onRestoreArchivedExecution={
+                            archiveType === 'execution' ? restoreArchivedExecution : undefined
+                        }
                         onPermanentlyDeleteExecutions={
                             archiveType === 'execution' ? permanentlyDeleteExecutions : undefined
                         }
+                        executionFilesHydrating={
+                            archiveType === 'execution' ? Boolean(executionFilesHydrating) : false
+                        }
                     />
-                )
-            )}
+                </Suspense>
+            ) : null}
 
-            <AnimatePresence>
-                {showLawsuitsWorkspace && (
-                    <Suspense key="lawsuits-workspace" fallback={LAWYER_LAZY_FALLBACK}>
-                        <LazyLawsuitsWorkspace
-                            files={files as FileData[]}
-                            criminalCases={criminalCasesForCluster}
-                            theme={theme as ThemeConfig}
-                            shapeClass={shapeClass}
-                            defaultTab={lawsuitsWorkspaceTab}
-                            initialDossierSection={lawsuitsDossierSection}
-                            onClose={() => setShowLawsuitsWorkspace(false)}
-                            onOpenCriminalCase={(id: string) => {
-                                openCriminalCase(id, { fromLawsuitsWorkspace: true });
-                            }}
-                            onDeleteCriminalCase={(id: string) => criminalBridge.deleteCriminalCase(id)}
-                            onOpenFile={(f: unknown) => {
-                                if (openArchiveFile(f)) {
-                                    setShowLawsuitsWorkspace(false);
-                                }
-                            }}
-                            onAddNewCase={() => {
-                                openNormalNewCaseModal();
-                            }}
-                            onMoveLawsuitToTrash={moveLawsuitToTrash}
-                            onRestoreLawsuitFromTrash={restoreLawsuitFromTrash}
-                            onArchiveLawsuit={archiveLawsuit}
-                            onRestoreArchivedLawsuit={restoreArchivedLawsuit}
-                            onPermanentlyDeleteLawsuits={permanentlyDeleteLawsuits}
-                        />
-                    </Suspense>
-                )}
-            </AnimatePresence>
+            {showLawsuitsWorkspace ? (
+                <Suspense fallback={LAWSUITS_WORKSPACE_FALLBACK}>
+                    <LazyLawsuitsWorkspace
+                        key="lawsuits-workspace"
+                        files={files as FileData[]}
+                        criminalCases={criminalCasesForCluster}
+                        theme={theme as ThemeConfig}
+                        shapeClass={shapeClass}
+                        defaultTab={lawsuitsWorkspaceTab}
+                        urgentFocusCaseId={urgentFocusCaseId}
+                        initialDossierSection={lawsuitsDossierSection}
+                        onClose={() => {
+                            setShowLawsuitsWorkspace(false);
+                            setUrgentFocusCaseId(undefined);
+                        }}
+                        onOpenCriminalCase={(id: string) => {
+                            openCriminalCase(id, { fromLawsuitsWorkspace: true });
+                        }}
+                        onDeleteCriminalCase={(id: string) => criminalBridge.deleteCriminalCase(id)}
+                        onOpenFile={(f: unknown) => {
+                            if (openArchiveFile(f)) {
+                                setShowLawsuitsWorkspace(false);
+                            }
+                        }}
+                        onAddNewCase={() => {
+                            openNormalNewCaseModal();
+                        }}
+                        onMoveLawsuitToTrash={moveLawsuitToTrash}
+                        onRestoreLawsuitFromTrash={restoreLawsuitFromTrash}
+                        onArchiveLawsuit={archiveLawsuit}
+                        onRestoreArchivedLawsuit={restoreArchivedLawsuit}
+                        onPermanentlyDeleteLawsuits={permanentlyDeleteLawsuits}
+                    />
+                </Suspense>
+            ) : null}
 
             <AnimatePresence>
                 {consolidationSpawnNav ? (
@@ -256,18 +284,17 @@ export function LawyerDashboardCaseOverlays({
                     />
                 ) : null}
 
-                {isExecutionModalOpen && (
-                    <Suspense key="execution-create" fallback={LAWYER_LAZY_FALLBACK}>
-                        <LazyExecutionCreationView
-                            isOpen={isExecutionModalOpen}
-                            onClose={() => {
-                                setIsExecutionModalOpen(false);
-                                setArchiveType(null);
-                            }}
-                            onSave={handleAddExecutionFile}
-                        />
-                    </Suspense>
-                )}
+                {isExecutionModalOpen ? (
+                    <ExecutionCreationPortal
+                        key="execution-create"
+                        isOpen={isExecutionModalOpen}
+                        onClose={() => {
+                            setIsExecutionModalOpen(false);
+                            setArchiveType(null);
+                        }}
+                        onSave={handleAddExecutionFile}
+                    />
+                ) : null}
 
                 {isNewCaseModalOpen ? (
                     <Suspense fallback={LAWYER_LAZY_FALLBACK}>

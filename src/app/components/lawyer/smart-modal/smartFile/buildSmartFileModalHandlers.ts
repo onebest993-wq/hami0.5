@@ -22,6 +22,7 @@ export type SmartFileModalHandlerSources = {
     handleOpponentAbsentObjection: (...args: unknown[]) => void;
     handleRestoreEvent: (...args: unknown[]) => void;
     handleHardDeleteEvent: (...args: unknown[]) => void;
+    handleDeleteEvent: (...args: unknown[]) => void;
     handleEmptyTrash: (...args: unknown[]) => void;
     handleJudgmentConfirm: (...args: unknown[]) => void;
     handleAppealRegistration: (...args: unknown[]) => void;
@@ -69,6 +70,7 @@ export function buildSmartFileModalHandlers(
         handleOpponentAbsentObjection: src.handleOpponentAbsentObjection,
         handleRestoreEvent: src.handleRestoreEvent,
         handleHardDeleteEvent: src.handleHardDeleteEvent,
+        handleDeleteEvent: src.handleDeleteEvent,
         handleEmptyTrash: src.handleEmptyTrash,
         handleJudgmentConfirm: src.handleJudgmentConfirm,
         handleAppealRegistration: src.handleAppealRegistration,

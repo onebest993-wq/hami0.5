@@ -36,7 +36,7 @@ export function DocumentCard({
         <div className="absolute top-3 left-3">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button type="button" className={TX_ICON_BTN + ' !w-8 !h-8'} aria-label="خيارات المستمسك">
+              <button type="button" className={TX_ICON_BTN} aria-label="خيارات المستمسك">
                 <MoreVertical className="w-4 h-4" />
               </button>
             </DropdownMenuTrigger>

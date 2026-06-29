@@ -1,0 +1,242 @@
+import React from 'react';
+import { User, EyeOff, UserPlus, UserCheck } from 'lucide-react';
+import type { CommunityPost } from '@/app/services/lawyer-cloud';
+import { formatRelativeTime } from '../utils';
+import { QuestionCardToolbar } from './QuestionCardToolbar';
+import {
+    FORUM_ACCENT_CHIP,
+    FORUM_PANEL,
+    FORUM_STAT_BOX,
+    FORUM_TEXT_APRICOT,
+    FORUM_TEXT_MUTED,
+    FORUM_TEXT_PRIMARY,
+} from '../forumPlumTheme';
+
+export type QuestionCardHeaderProps = {
+    post: CommunityPost;
+    displayName: string;
+    isAnonymous: boolean;
+    isAdmin: boolean;
+    isFollowing: boolean;
+    canFollow: boolean;
+    followerCount: number;
+    postCount: number;
+    isEdited: boolean;
+    editCount: number;
+    isOwner: boolean;
+    isPinned: boolean;
+    isLocked: boolean;
+    canLockUnlock: boolean;
+    isBookmarked: boolean;
+    isThreadFollowing: boolean;
+    currentUserId: string | null;
+    showUserPopup: boolean;
+    setShowUserPopup: (open: boolean) => void;
+    showEditInfo: boolean;
+    setShowEditInfo: (open: boolean | ((v: boolean) => boolean)) => void;
+    onFollow: (targetUserId: string) => void;
+    onOpenProfile?: (userId: string, displayName?: string) => void;
+    onToggleLock?: (postId: string) => void;
+    onSaveToNotes?: (postId: string) => void;
+    onSaveToVault?: (postId: string) => void;
+    onToggleBookmark?: (postId: string) => void;
+    onToggleThreadFollow?: (postId: string) => void;
+    onMuteUser?: (userId: string) => void;
+    onTogglePin: (postId: string) => void;
+    onEdit: (postId: string) => void;
+    onDelete: (postId: string) => void;
+    onReport: (postId: string) => void;
+};
+
+export function QuestionCardHeader({
+    post,
+    displayName,
+    isAnonymous,
+    isAdmin,
+    isFollowing,
+    canFollow,
+    followerCount,
+    postCount,
+    isEdited,
+    editCount,
+    isOwner,
+    isPinned,
+    isLocked,
+    canLockUnlock,
+    isBookmarked,
+    isThreadFollowing,
+    currentUserId,
+    showUserPopup,
+    setShowUserPopup,
+    showEditInfo,
+    setShowEditInfo,
+    onFollow,
+    onOpenProfile,
+    onToggleLock,
+    onSaveToNotes,
+    onSaveToVault,
+    onToggleBookmark,
+    onToggleThreadFollow,
+    onMuteUser,
+    onTogglePin,
+    onEdit,
+    onDelete,
+    onReport,
+}: QuestionCardHeaderProps) {
+    return (
+        <div className="flex items-center gap-2 mb-3">
+            <div className={`p-1.5 rounded-full ${isAnonymous ? `${FORUM_ACCENT_CHIP}` : 'bg-[#342C3E] text-[#9A9098]'}`}>
+                {isAnonymous ? <EyeOff size={16} /> : <User size={16} />}
+            </div>
+            <div className="relative">
+                <button
+                    type="button"
+                    data-testid={isAnonymous ? undefined : 'forum-open-author-profile'}
+                    onClick={() => {
+                        if (isAnonymous) return;
+                        if (onOpenProfile) {
+                            onOpenProfile(post.authorId, post.authorName);
+                            return;
+                        }
+                        setShowUserPopup(!showUserPopup);
+                    }}
+                    className={`text-sm font-bold ${isAnonymous ? `${FORUM_TEXT_MUTED} cursor-default` : `${FORUM_TEXT_PRIMARY} hover:text-[#F0B896] transition-colors`}`}
+                >
+                    {displayName}
+                </button>
+                {showUserPopup && !isAnonymous && (
+                    <>
+                        <div className="fixed inset-0 z-40" onClick={() => setShowUserPopup(false)} />
+                        <div className={`absolute top-full right-0 mt-2 z-50 w-64 ${FORUM_PANEL} shadow-2xl p-4 animate-in fade-in slide-in-from-top-2 duration-200`}>
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white/60 border border-white/10">
+                                    <User size={24} />
+                                </div>
+                                <div>
+                                    <p className="text-white font-bold text-sm">{displayName}</p>
+                                    {isAdmin && <p className="text-gray-500 text-[10px]">معرّف داخلي (إدارة)</p>}
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 mb-4">
+                                <div className={`${FORUM_STAT_BOX}`}>
+                                    <p className={`${FORUM_TEXT_PRIMARY} font-bold text-lg`}>{followerCount}</p>
+                                    <p className={`${FORUM_TEXT_MUTED} text-[10px]`}>متابعون</p>
+                                </div>
+                                <div className={`${FORUM_STAT_BOX}`}>
+                                    <p className={`${FORUM_TEXT_PRIMARY} font-bold text-lg`}>{postCount}</p>
+                                    <p className={`${FORUM_TEXT_MUTED} text-[10px]`}>منشورات</p>
+                                </div>
+                            </div>
+                            {canFollow && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        onFollow(post.authorId);
+                                        setShowUserPopup(false);
+                                    }}
+                                    className={`w-full text-xs flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg transition-colors mb-2 ${
+                                        isFollowing
+                                            ? 'text-emerald-400 bg-emerald-950/30 border border-emerald-500/20 hover:bg-emerald-950/50'
+                                            : `${FORUM_ACCENT_CHIP} text-xs flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg`
+                                    }`}
+                                >
+                                    {isFollowing ? <UserCheck size={14} /> : <UserPlus size={14} />}
+                                    <span>{isFollowing ? 'متابَع' : 'متابعة'}</span>
+                                    <span className="text-[10px] opacity-60">({followerCount})</span>
+                                </button>
+                            )}
+                            {onOpenProfile ? (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        onOpenProfile(post.authorId, post.authorName);
+                                        setShowUserPopup(false);
+                                    }}
+                                    className="w-full text-xs font-bold py-2 rounded-lg bg-white/[0.06] border border-white/10 text-white/80 hover:bg-white/10"
+                                >
+                                    عرض الملف الشخصي
+                                </button>
+                            ) : null}
+                        </div>
+                    </>
+                )}
+            </div>
+            {canFollow && (
+                <button
+                    type="button"
+                    onClick={() => onFollow(post.authorId)}
+                    className={`text-xs flex items-center gap-1 px-2 py-0.5 rounded-full transition-colors ${
+                        isFollowing
+                            ? 'text-emerald-400 bg-emerald-950/30 border border-emerald-500/20 hover:bg-emerald-950/50'
+                            : `${FORUM_ACCENT_CHIP} text-xs flex items-center gap-1 px-2 py-0.5 rounded-full transition-colors`
+                    }`}
+                    title={isFollowing ? 'إلغاء المتابعة' : 'متابعة'}
+                >
+                    {isFollowing ? <UserCheck size={12} /> : <UserPlus size={12} />}
+                    <span>{isFollowing ? 'متابَع' : 'متابعة'}</span>
+                </button>
+            )}
+            <span className="text-gray-500 text-xs">•</span>
+            <span className="text-gray-500 text-xs">{formatRelativeTime(post.createdAt)}</span>
+            {isEdited && (
+                <div className="relative">
+                    <button
+                        type="button"
+                        onClick={() => setShowEditInfo((v) => !v)}
+                        className={`text-xs ${FORUM_TEXT_APRICOT} hover:text-[#F8C4A8] transition-colors underline-offset-2 hover:underline`}
+                        aria-expanded={showEditInfo}
+                    >
+                        (مُعدّل{editCount > 0 ? ` · ${editCount}` : ''})
+                    </button>
+                    {showEditInfo && (
+                        <>
+                            <div className="fixed inset-0 z-40" onClick={() => setShowEditInfo(false)} aria-hidden />
+                            <div className={`absolute top-full right-0 mt-2 z-50 w-[min(320px,calc(100vw-2rem))] ${FORUM_PANEL} shadow-2xl p-4`}>
+                                <p className={`${FORUM_TEXT_PRIMARY} font-bold text-sm mb-1`}>سجل التعديل</p>
+                                <p className={`${FORUM_TEXT_MUTED} text-[11px] mb-3`}>
+                                    عدد مرات التعديل:{' '}
+                                    <span className={`${FORUM_TEXT_APRICOT} font-bold`}>{editCount || 1}</span>
+                                </p>
+                                <p className={`${FORUM_TEXT_MUTED} text-[10px] mb-1`}>النص الحالي (بعد التعديل):</p>
+                                <p className={`${FORUM_TEXT_PRIMARY} text-[13px] leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto`}>
+                                    {post.content}
+                                </p>
+                                {(post.editHistory?.length ?? 0) > 0 && (
+                                    <div className="mt-3 pt-3 border-t border-white/5">
+                                        <p className="text-white/40 text-[10px] mb-2">آخر نسخة قبل التعديل:</p>
+                                        <p className="text-white/60 text-[12px] leading-relaxed whitespace-pre-wrap line-clamp-4">
+                                            {post.editHistory![post.editHistory!.length - 1]?.content}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </div>
+            )}
+            <div className="flex-1" />
+            <QuestionCardToolbar
+                post={post}
+                currentUserId={currentUserId}
+                isOwner={isOwner}
+                isAdmin={isAdmin}
+                isAnonymous={isAnonymous}
+                isPinned={isPinned}
+                isLocked={isLocked}
+                isBookmarked={isBookmarked}
+                isThreadFollowing={isThreadFollowing}
+                canLockUnlock={canLockUnlock}
+                onToggleLock={onToggleLock}
+                onSaveToNotes={onSaveToNotes}
+                onSaveToVault={onSaveToVault}
+                onToggleBookmark={onToggleBookmark}
+                onToggleThreadFollow={onToggleThreadFollow}
+                onMuteUser={onMuteUser}
+                onTogglePin={onTogglePin}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                onReport={onReport}
+            />
+        </div>
+    );
+}

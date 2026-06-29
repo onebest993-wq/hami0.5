@@ -19,6 +19,17 @@ describe('kv-proxy ownership — PRIVATE keys', () => {
         expect(isKeyOwnedBy(`vault:docs:${ME}:doc-1`, ME, 'write')).toBe(true);
         expect(isKeyOwnedBy(`hami:push:${ME}`, ME, 'write')).toBe(true);
         expect(isKeyOwnedBy(`hami:calendar:events:${ME}:v1`, ME, 'write')).toBe(true);
+        expect(isKeyOwnedBy(`profile:${ME}`, ME, 'write')).toBe(true);
+    });
+
+    it('يرفض الكتابة على مفتاح profile لمستخدم آخر', () => {
+        expect(isKeyOwnedBy(`profile:${OTHER}`, ME, 'write')).toBe(false);
+        expect(isKeyOwnedBy(`profile:${ME}`, OTHER, 'write')).toBe(false);
+    });
+
+    it('يسمح بالقراءة العامة ويمنع الكتابة على profile لمستخدم آخر', () => {
+        expect(isKeyOwnedBy(`profile:${OTHER}`, ME, 'read')).toBe(true);
+        expect(isKeyOwnedBy(`profile:${OTHER}`, ME, 'write')).toBe(false);
     });
 
     it('يرفض الكتابة على مفتاح مستخدم آخر', () => {

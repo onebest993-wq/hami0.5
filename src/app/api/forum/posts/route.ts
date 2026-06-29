@@ -1,9 +1,13 @@
 import { sanitizePayload } from '../../security/sanitizer.ts';
 import { ForumRepository } from '../../../services/forum/forumRepository.ts';
 import { checkForumActionRateLimit } from '../../../services/forum/forumRateLimitServer.ts';
-import { redactAnonymousAuthor } from '../../../services/forum/forumMapper.ts';
+import { forumAuthorDisplayName, redactAnonymousAuthor } from '../../../services/forum/forumMapper.ts';
+import { sanitizeCommunityPostForCreate } from '../../../services/forum/forumPostCreateGuard.ts';
+import { computeAllowedUpvoterIds, resolveSyncBestCommentId } from '../../../services/forum/forumPostSyncGuard.ts';
+import { resolveForumAuthorDisplayName } from '../../../services/forum/forumAuthorResolver.ts';
 import type { CommunityPost } from '../../../services/lawyer-cloud.ts';
 import { requireForumAuth, requireForumAuthAndUnbanned, jsonResponse } from '../_auth.ts';
+import { canViewForumGroupPost } from '../../../services/forum/forumBffAccessPolicy.ts';
 import { ForumGroupRepository } from '../../../services/forum/forumGroupRepository.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -18,6 +22,28 @@ export async function GET(request: Request): Promise<Response> {
         }
 
         const url = new URL(request.url);
+        const postIdParam = url.searchParams.get('postId')?.trim() || url.searchParams.get('id')?.trim() || '';
+        if (postIdParam) {
+            const banned = await ForumRepository.isBanned(auth.userId);
+            if (banned) {
+                return jsonResponse(403, { ok: false, error: 'حسابك محظور من المنتدى' });
+            }
+            const post = await ForumRepository.getPostById(postIdParam);
+            if (!post) {
+                return jsonResponse(404, { ok: false, error: 'المنشور غير موجود' });
+            }
+            if (post.groupId) {
+                const isMember = await ForumGroupRepository.isMember(post.groupId, auth.userId);
+                if (!canViewForumGroupPost(post, isMember, auth.isAdmin)) {
+                    return jsonResponse(403, { ok: false, error: 'يجب الانضمام للمجموعة لعرض منشوراتها' });
+                }
+            }
+            return jsonResponse(200, {
+                ok: true,
+                post: redactAnonymousAuthor(post, auth.userId, auth.isAdmin),
+            });
+        }
+
         const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') ?? '20') || 20));
         const offset = Math.max(0, Number(url.searchParams.get('offset') ?? '0') || 0);
         const groupId = url.searchParams.get('groupId')?.trim() || url.searchParams.get('group_id')?.trim() || '';
@@ -65,7 +91,7 @@ export async function POST(request: Request): Promise<Response> {
         }
 
         if (payload.action === 'create') {
-            if (!checkForumActionRateLimit(auth.userId, 'post')) {
+            if (!(await checkForumActionRateLimit(auth.userId, 'post'))) {
                 return jsonResponse(429, { ok: false, error: 'تجاوزت حد النشر، انتظر قليلاً' });
             }
             const post = payload.post as CommunityPost | undefined;
@@ -91,11 +117,19 @@ export async function POST(request: Request): Promise<Response> {
                     return jsonResponse(403, { ok: false, error: 'يجب الانضمام للمجموعة قبل النشر فيها' });
                 }
             }
-            const saved = await ForumRepository.savePost({ ...post, groupId });
+            const safePost = sanitizeCommunityPostForCreate(
+                {
+                    ...post,
+                    groupId: groupId ?? undefined,
+                    authorName: await resolveForumAuthorDisplayName(auth.userId),
+                },
+                auth.userId,
+            );
+            const saved = await ForumRepository.savePost(safePost);
             void import('../../../services/forum/forumNotificationDispatch').then(({ dispatchFollowedUserNewPost }) =>
                 dispatchFollowedUserNewPost({
                     authorId: auth.userId,
-                    authorName: saved.authorName,
+                    authorName: forumAuthorDisplayName(saved),
                     post: saved,
                 }),
             );
@@ -116,41 +150,51 @@ export async function POST(request: Request): Promise<Response> {
                 return jsonResponse(404, { ok: false, error: 'المنشور غير موجود' });
             }
             const isOwner = existing.authorId === auth.userId;
-            const upvoteChanged =
-                JSON.stringify(existing.upvoterIds) !== JSON.stringify(post.upvoterIds ?? []);
-            const bestChanged = existing.bestCommentId !== (post.bestCommentId ?? null);
+            const upvoteResult = computeAllowedUpvoterIds(
+                existing.upvoterIds ?? [],
+                post.upvoterIds,
+                auth.userId,
+            );
+            if (!upvoteResult.ok) {
+                return jsonResponse(403, { ok: false, error: upvoteResult.ok === false ? upvoteResult.error : 'forbidden' });
+            }
+            const bestResult = resolveSyncBestCommentId(
+                existing.bestCommentId,
+                post.bestCommentId,
+                isOwner,
+                auth.isAdmin,
+            );
+            if (!bestResult.ok) {
+                return jsonResponse(403, { ok: false, error: bestResult.ok === false ? bestResult.error : 'forbidden' });
+            }
 
-            if (upvoteChanged) {
-                if (!checkForumActionRateLimit(auth.userId, 'upvote')) {
+            if (upvoteResult.changed) {
+                if (!(await checkForumActionRateLimit(auth.userId, 'upvote'))) {
                     return jsonResponse(429, { ok: false, error: 'تجاوزت حد التصويت' });
                 }
-                if (post.upvoterIds?.includes(auth.userId) && existing.authorId === auth.userId) {
+                if (upvoteResult.upvoterIds.includes(auth.userId) && existing.authorId === auth.userId) {
                     return jsonResponse(400, { ok: false, error: 'لا يمكنك التصويت على منشورك' });
                 }
             }
 
-            if (bestChanged && !isOwner && !auth.isAdmin) {
-                return jsonResponse(403, { ok: false, error: 'فقط صاحب المنشور يحدد أفضل إجابة' });
-            }
-
-            if (!isOwner && !auth.isAdmin && !upvoteChanged) {
+            if (!isOwner && !auth.isAdmin && !upvoteResult.changed) {
                 return jsonResponse(403, { ok: false, error: 'غير مصرح بتعديل هذا المنشور' });
             }
 
             const merged: CommunityPost = {
                 ...existing,
-                upvoterIds: post.upvoterIds ?? existing.upvoterIds,
-                bestCommentId: post.bestCommentId ?? null,
+                upvoterIds: upvoteResult.upvoterIds,
+                bestCommentId: bestResult.bestCommentId,
                 updatedAt: new Date().toISOString(),
             };
             const saved = await ForumRepository.savePost(merged);
 
-            if (upvoteChanged && post.upvoterIds?.includes(auth.userId)) {
+            if (upvoteResult.changed && upvoteResult.upvoterIds.includes(auth.userId)) {
                 void import('../../../services/forum/forumNotificationDispatch').then(({ dispatchPostUpvoteNotification }) =>
                     dispatchPostUpvoteNotification({ post: saved, voterId: auth.userId }),
                 );
             }
-            if (bestChanged && saved.bestCommentId) {
+            if (bestResult.changed && saved.bestCommentId) {
                 const bestComment = saved.comments.find((c) => c.id === saved.bestCommentId);
                 if (bestComment) {
                     void import('../../../services/forum/forumNotificationDispatch').then(({ dispatchBestAnswerNotification }) =>

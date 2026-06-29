@@ -1,5 +1,5 @@
 // @ts-nocheck
-/** عرض رفيع — chunk execution-dashboard-state */
+/** عرض رفيع — chunk execution-dashboard-core */
 import React from 'react';
 import { ColleagueConsultationProvider } from '@/app/components/lawyer/caseShare/ColleagueConsultationContext';
 import { extractExecutionShareSource } from '@/app/services/caseShare/caseShareExtractors';
@@ -52,6 +52,10 @@ export const ExecutionDashboardView = React.memo(function ExecutionDashboardView
                     chunkScopeRef={vm.chunkScopeRef}
                     phoneBodyFingerprint={vm.phoneBodyFingerprint}
                     showUnifiedExecutionModal={vm.showUnifiedExecutionModal}
+                    loadHandlerCluster={vm.loadHandlerCluster}
+                    handlerClusterInput={vm.handlerClusterInput}
+                    handlerClusterMountKey={vm.handlerClusterMountKey}
+                    onHandlerClusterReady={vm.onHandlerClusterReady}
                 />
             </ExecutionDashboardRootFrame>
         </ColleagueConsultationProvider>

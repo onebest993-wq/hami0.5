@@ -1,17 +1,18 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'motion/react';
-import { CheckCircle2, ChevronDown, MapPin, PanelBottom, X, ClipboardList } from 'lucide-react';
+import { CheckCircle2, MapPin, PanelBottom, X, ClipboardList } from 'lucide-react';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
+import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
 import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
 import { buildTaskWorkspacePin } from '@/app/workspace/workspacePinBuilders';
 import type { LegalTask } from '@/app/types/TaskEngine';
-import { listActiveFieldCurtainTasks } from '@/app/services/tasks/fieldCurtainTasks';
-import { useQuantumTasksContext } from '@/app/hooks/useQuantumTasksContext';
+import { listFieldDaySheetTasks } from '@/app/services/tasks/fieldCurtainTasks';
+import { useQuantumTasksActions, useQuantumTasksData } from '@/app/hooks/useQuantumTasksContext';
 import { useFatalTaskComplete } from '@/app/hooks/useFatalTaskComplete';
 import { isTaskAgendaReadOnly, isTaskMarkedDone } from '@/app/components/lawyer/dashboard/tasksManager/utils';
+import { TaskSubTasksCollapsible } from '@/app/components/lawyer/dashboard/tasksManager/TaskSubTasksCollapsible';
+import { TaskVoicePlayback } from '@/app/components/lawyer/dashboard/tasksManager/TaskVoicePlayback';
 import {
-    CURTAIN_BACKDROP,
     CURTAIN_BTN_MANAGE,
     CURTAIN_GLASS_INNER,
     CURTAIN_SHEET,
@@ -25,6 +26,9 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/app/components/ui/dialog';
+
+const CURTAIN_LAYER_Z = 214;
+const CURTAIN_SHEET_Z = 215;
 
 type FieldTasksBottomSheetProps = {
     open: boolean;
@@ -44,7 +48,20 @@ type FieldCurtainTaskCardProps = {
     onToggleSubComplete: (parentId: string, subId: string) => void;
 };
 
-function FieldCurtainTaskCard({
+function taskCardSignature(task: LegalTask): string {
+    return [
+        task.id,
+        task.title,
+        task.location ?? '',
+        task.isFatalDeadline ? '1' : '0',
+        task.pinnedToFieldCurtain ? '1' : '0',
+        task.completedAt?.getTime() ?? '',
+        task.subTasks.map((st) => `${st.id}:${st.isCompleted}:${st.title}`).join('|'),
+        task.voiceRef ?? '',
+    ].join('~');
+}
+
+const FieldCurtainTaskCard = memo(function FieldCurtainTaskCard({
     task,
     now,
     lawsuitFiles,
@@ -53,16 +70,18 @@ function FieldCurtainTaskCard({
     onReopenTask,
     onToggleSubComplete,
 }: FieldCurtainTaskCardProps) {
-    const [branchOpen, setBranchOpen] = useState(false);
     const markedDone = isTaskMarkedDone(task);
     const readOnly = isTaskAgendaReadOnly(task, now);
     const fatal = task.isFatalDeadline;
-    const activeSubs = task.subTasks.filter((s) => !s.isCompleted);
     const hasSubs = task.subTasks.length > 0;
-    const clusterPin = buildTaskWorkspacePin(task, lawsuitFiles, executionFiles);
+    const clusterPin = useMemo(
+        () => buildTaskWorkspacePin(task, lawsuitFiles, executionFiles),
+        [task, lawsuitFiles, executionFiles],
+    );
 
     return (
         <li
+            data-testid={`field-tasks-curtain-card-${task.id}`}
             className={`relative ${CURTAIN_GLASS_INNER} px-3 py-2.5 text-right ${
                 fatal
                     ? 'border-rose-500/40 shadow-[0_0_12px_rgba(239,68,68,0.15)]'
@@ -95,6 +114,11 @@ function FieldCurtainTaskCard({
                             {task.location}
                         </p>
                     ) : null}
+                    {task.voiceRef ? (
+                        <div className="mt-2">
+                            <TaskVoicePlayback voiceRef={task.voiceRef} compact />
+                        </div>
+                    ) : null}
                 </div>
                 <div className="flex flex-col items-center gap-1.5 shrink-0">
                     {clusterPin ? (
@@ -125,8 +149,9 @@ function FieldCurtainTaskCard({
                     ) : (
                         <button
                             type="button"
+                            data-testid={`field-tasks-complete-${task.id}`}
                             onClick={() => onCompleteRequest(task)}
-                            className="px-2.5 py-1 rounded-lg bg-[#1A7059]/70 hover:bg-[#1A7059] border border-[#1A7059]/50 text-[#E8F5F0] text-[10px] font-extrabold transition whitespace-nowrap"
+                            className="min-h-[44px] px-2.5 py-1 rounded-lg bg-[#1A7059]/70 hover:bg-[#1A7059] border border-[#1A7059]/50 text-[#E8F5F0] text-[10px] font-extrabold whitespace-nowrap touch-manipulation"
                         >
                             إنهاء المهمة
                         </button>
@@ -135,101 +160,88 @@ function FieldCurtainTaskCard({
             </div>
 
             {hasSubs ? (
-                <div className="mt-2 border-t border-[#A67C52]/15 pt-2">
-                    <button
-                        type="button"
-                        onClick={() => setBranchOpen((v) => !v)}
-                        className="w-full flex flex-row-reverse items-center justify-between gap-2 rounded-md px-1 py-0.5 hover:bg-[#0c0c0e]/30 transition"
-                        aria-expanded={branchOpen}
-                    >
-                        <span className="text-[11px] font-bold text-[#B8956A]/90">
-                            إجراءات فرعية ({task.subTasks.length}
-                            {activeSubs.length > 0 ? ` · ${activeSubs.length} متبق` : ''})
-                        </span>
-                        <ChevronDown
-                            className={`size-4 text-[#A67C52]/70 shrink-0 transition-transform duration-200 ${
-                                branchOpen ? 'rotate-180' : ''
-                            }`}
-                            aria-hidden
-                        />
-                    </button>
-                    {branchOpen ? (
-                        <ul className="mt-1.5 space-y-1">
-                            {task.subTasks.map((st, idx) => (
-                                <li
-                                    key={st.id}
-                                    className={`rounded-lg border px-2 py-1.5 flex flex-row items-center gap-2 ${
-                                        st.isCompleted
-                                            ? 'border-[#1A7059]/25 bg-[#1A7059]/10'
-                                            : `${CURTAIN_GLASS_INNER} border-white/[0.06]`
-                                    }`}
-                                >
-                                    <div className="flex-1 min-w-0 text-right">
-                                        <div className="flex flex-row-reverse items-center gap-1">
-                                            <span className="text-[10px] text-[#A67C52]/50 tabular-nums">{idx + 1}.</span>
-                                            <span
-                                                className={`text-sm font-bold leading-snug ${
-                                                    st.isCompleted ? 'text-[#E8F5F0]/40 line-through' : 'text-[#E8F5F0]'
-                                                }`}
-                                            >
-                                                {st.title}
-                                            </span>
-                                        </div>
-                                        {st.location ? (
-                                            <p className="mt-0.5 text-[10px] text-[#6BC4A8]/75 truncate">{st.location}</p>
-                                        ) : null}
-                                    </div>
-                                    {st.isCompleted ? (
-                                        <span className="shrink-0 text-[10px] font-extrabold text-[#6BC4A8]">تم</span>
-                                    ) : readOnly ? null : (
-                                        <button
-                                            type="button"
-                                            onClick={() => onToggleSubComplete(task.id, st.id)}
-                                            className="shrink-0 px-2 py-0.5 rounded-md bg-[#1A7059]/75 hover:bg-[#1A7059] text-[#E8F5F0] text-[10px] font-extrabold transition whitespace-nowrap"
-                                        >
-                                            تم الإجراء
-                                        </button>
-                                    )}
-                                </li>
-                            ))}
-                        </ul>
-                    ) : null}
-                </div>
+                <TaskSubTasksCollapsible
+                    subTasks={task.subTasks}
+                    readOnly={readOnly}
+                    onToggleSubComplete={(subId) => onToggleSubComplete(task.id, subId)}
+                    compactActions
+                    testIdPrefix={`field-tasks-curtain-card-${task.id}`}
+                />
             ) : null}
         </li>
     );
-}
+}, (prev, next) => {
+    if (prev.now.toDateString() !== next.now.toDateString()) return false;
+    if (prev.lawsuitFiles !== next.lawsuitFiles || prev.executionFiles !== next.executionFiles) return false;
+    if (taskCardSignature(prev.task) !== taskCardSignature(next.task)) return false;
+    return true;
+});
 
-export const FieldTasksBottomSheet: React.FC<FieldTasksBottomSheetProps> = ({
+export const FieldTasksBottomSheet = memo(function FieldTasksBottomSheet({
     open,
     onClose,
     onManageAll,
     lawsuitFiles = [],
     executionFiles = [],
-}) => {
-    const { pendingTasks, completeTask, reopenTask, toggleSubTaskComplete } = useQuantumTasksContext();
+}: FieldTasksBottomSheetProps) {
+    const { pendingTasks } = useQuantumTasksData();
+    const { completeTask, reopenTask, toggleSubTaskComplete } = useQuantumTasksActions();
+    const keyboardInsetPx = useMobileKeyboardInset();
     const { fatalOpen, requestComplete, confirmFatalComplete, cancelFatalComplete } =
         useFatalTaskComplete(completeTask);
 
-    const curtainTasks = useMemo(() => listActiveFieldCurtainTasks(pendingTasks), [pendingTasks]);
+    const now = useMemo(() => new Date(), [open]);
+    const curtainTasks = useMemo(
+        () => listFieldDaySheetTasks(pendingTasks, now),
+        [pendingTasks, now],
+    );
+
+    const [sheetVisible, setSheetVisible] = useState(false);
+
+    useEffect(() => {
+        if (!open) {
+            setSheetVisible(false);
+            return;
+        }
+        const frame = window.requestAnimationFrame(() => setSheetVisible(true));
+        return () => window.cancelAnimationFrame(frame);
+    }, [open]);
 
     useBodyScrollLock(open);
 
-    useEffect(() => {
-        if (!open) return;
-        const onKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
-        };
-        window.addEventListener('keydown', onKeyDown);
-        return () => window.removeEventListener('keydown', onKeyDown);
-    }, [open, onClose]);
+    const handleClose = useCallback(() => {
+        onClose();
+    }, [onClose]);
 
-    if (typeof document === 'undefined') return null;
+    const handleReopenTask = useCallback(
+        (task: LegalTask) => {
+            reopenTask(task.id);
+        },
+        [reopenTask],
+    );
+
+    useEffect(() => {
+        if (!open && !fatalOpen) return;
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key !== 'Escape') return;
+            e.preventDefault();
+            e.stopPropagation();
+            if (fatalOpen) {
+                cancelFatalComplete();
+                return;
+            }
+            if (open) handleClose();
+        };
+        window.addEventListener('keydown', onKeyDown, true);
+        return () => window.removeEventListener('keydown', onKeyDown, true);
+    }, [open, fatalOpen, cancelFatalComplete, handleClose]);
+
+    if (typeof document === 'undefined' || (!open && !fatalOpen)) return null;
 
     return createPortal(
         <>
             <Dialog
-                open={open && fatalOpen}
+                open={fatalOpen}
                 onOpenChange={(o) => {
                     if (!o) cancelFatalComplete();
                 }}
@@ -247,14 +259,14 @@ export const FieldTasksBottomSheet: React.FC<FieldTasksBottomSheetProps> = ({
                         <button
                             type="button"
                             onClick={confirmFatalComplete}
-                            className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-extrabold transition-colors"
+                            className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-extrabold"
                         >
                             تأكيد الإكمال
                         </button>
                         <button
                             type="button"
                             onClick={cancelFatalComplete}
-                            className="px-4 py-2 rounded-lg border border-[#A67C52]/30 bg-[#0c0c0e]/40 hover:bg-[#0c0c0e]/60 text-[#E8F5F0] text-xs font-bold transition-colors"
+                            className="px-4 py-2 rounded-lg border border-[#A67C52]/30 bg-[#0c0c0e]/40 hover:bg-[#0c0c0e]/60 text-[#E8F5F0] text-xs font-bold"
                         >
                             إلغاء
                         </button>
@@ -262,47 +274,33 @@ export const FieldTasksBottomSheet: React.FC<FieldTasksBottomSheetProps> = ({
                 </DialogContent>
             </Dialog>
 
-            <AnimatePresence>
-                {open ? (
-                    <motion.button
-                        key="ft-backdrop"
+            {open ? (
+                <>
+                    <button
                         type="button"
                         aria-label="إغلاق الستارة"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className={CURTAIN_BACKDROP}
-                        onClick={onClose}
+                        className={`fixed inset-0 bg-[#051410]/75 border-0 cursor-default transition-opacity duration-150 ${
+                            sheetVisible ? 'opacity-100' : 'opacity-0'
+                        }`}
+                        style={{ zIndex: CURTAIN_LAYER_Z }}
+                        onClick={handleClose}
                     />
-                ) : null}
-                {open ? (
-                    <motion.div
-                        key="ft-sheet"
+                    <div
                         role="dialog"
                         aria-modal="true"
                         aria-labelledby="field-tasks-sheet-title"
-                        initial={{ y: '105%' }}
-                        animate={{ y: 0 }}
-                        exit={{ y: '105%' }}
-                        transition={{ type: 'spring', damping: 32, stiffness: 380 }}
-                        className={CURTAIN_SHEET}
+                        data-testid="field-tasks-sheet"
+                        className={`${CURTAIN_SHEET} pb-[max(0px,env(safe-area-inset-bottom))] transition-transform duration-200 ease-out will-change-transform ${
+                            sheetVisible ? 'translate-y-0' : 'translate-y-full'
+                        }`}
+                        style={{
+                            zIndex: CURTAIN_SHEET_Z,
+                            marginBottom: keyboardInsetPx > 0 ? keyboardInsetPx : undefined,
+                        }}
                     >
-                        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
-                            <div className="absolute -top-16 right-8 w-40 h-40 rounded-full bg-[#1A7059]/15 blur-3xl" />
-                        </div>
-
-                        <motion.div
-                            className="shrink-0 flex flex-col items-center cursor-grab active:cursor-grabbing touch-pan-y pt-2.5 pb-1 relative z-[1]"
-                            drag="y"
-                            dragConstraints={{ top: 0, bottom: 140 }}
-                            dragElastic={0.12}
-                            onDragEnd={(_, info) => {
-                                if (info.offset.y > 48 || info.velocity.y > 420) onClose();
-                            }}
-                        >
+                        <div className="shrink-0 flex flex-col items-center pt-2.5 pb-1 relative z-[1]">
                             <div className="w-12 h-1 rounded-full bg-[#A67C52]/40" />
-                        </motion.div>
+                        </div>
 
                         <div className="shrink-0 flex items-center justify-between gap-3 px-4 pb-3 border-b border-[#A67C52]/18 relative z-[1]">
                             <div className="flex items-center gap-2 min-w-0">
@@ -313,25 +311,36 @@ export const FieldTasksBottomSheet: React.FC<FieldTasksBottomSheetProps> = ({
                                     <h2 id="field-tasks-sheet-title" className="text-[#E8F5F0] font-extrabold text-base truncate">
                                         مهام اليوم الميدانية
                                     </h2>
-                                    <p className="text-[10px] text-[#6BC4A8]/60 font-bold">الستارة الذكية</p>
+                                    <p className="text-[10px] text-[#6BC4A8]/60 font-bold">
+                                        {curtainTasks.length > 0
+                                            ? `${curtainTasks.length} مهمة — الستارة الذكية`
+                                            : 'الستارة الذكية'}
+                                    </p>
                                 </div>
                             </div>
                             <button
                                 type="button"
-                                onClick={onClose}
-                                className="shrink-0 w-10 h-10 rounded-xl border border-[#A67C52]/22 bg-[#0c0c0e]/40 flex items-center justify-center text-[#E8F5F0]/80 hover:bg-[#0c0c0e]/60 transition-colors"
+                                onClick={handleClose}
+                                data-testid="field-tasks-close"
+                                className="shrink-0 w-11 h-11 rounded-xl border border-[#A67C52]/22 bg-[#0c0c0e]/40 flex items-center justify-center text-[#E8F5F0]/80 hover:bg-[#0c0c0e]/60 touch-manipulation"
                                 aria-label="إغلاق"
                             >
                                 <X size={20} />
                             </button>
                         </div>
 
-                        <div dir="rtl" className="flex-1 overflow-y-auto px-4 py-3 min-h-0 relative z-[1]">
+                        <div
+                            dir="rtl"
+                            className="flex-1 overflow-y-auto overscroll-y-contain px-4 py-3 min-h-0 relative z-[1]"
+                        >
                             {curtainTasks.length === 0 ? (
-                                <div className={`${CURTAIN_GLASS_INNER} flex flex-col items-center py-12 px-4 text-center`}>
+                                <div
+                                    className={`${CURTAIN_GLASS_INNER} flex flex-col items-center py-12 px-4 text-center`}
+                                    data-testid="field-tasks-empty"
+                                >
                                     <PanelBottom size={32} className="text-[#A67C52]/50 mb-3" />
                                     <p className="text-[#E8F5F0]/55 text-sm font-medium leading-relaxed max-w-xs">
-                                        لا مهام مثبتة على الستارة. اضغط «ستارة الميدان» في مدير المهام لتثبيت مهمة هنا.
+                                        لا مهام ميدانية لليوم. أضف مهمة من مدير المهام أو ثبّتها على الستارة للوصول السريع.
                                     </p>
                                     <div className={`mt-4 w-20 ${TASKS_BRONZE_LINE}`} />
                                 </div>
@@ -341,11 +350,11 @@ export const FieldTasksBottomSheet: React.FC<FieldTasksBottomSheetProps> = ({
                                         <FieldCurtainTaskCard
                                             key={task.id}
                                             task={task}
-                                            now={new Date()}
+                                            now={now}
                                             lawsuitFiles={lawsuitFiles}
                                             executionFiles={executionFiles}
                                             onCompleteRequest={requestComplete}
-                                            onReopenTask={(t) => reopenTask(t.id)}
+                                            onReopenTask={handleReopenTask}
                                             onToggleSubComplete={toggleSubTaskComplete}
                                         />
                                     ))}
@@ -356,6 +365,7 @@ export const FieldTasksBottomSheet: React.FC<FieldTasksBottomSheetProps> = ({
                         <div className="shrink-0 p-4 pt-2 border-t border-[#A67C52]/18 bg-[#0c0c0e]/30 relative z-[1]">
                             <button
                                 type="button"
+                                data-testid="field-tasks-manage-all"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onManageAll();
@@ -365,10 +375,10 @@ export const FieldTasksBottomSheet: React.FC<FieldTasksBottomSheetProps> = ({
                                 عرض وإدارة جميع المهام ←
                             </button>
                         </div>
-                    </motion.div>
-                ) : null}
-            </AnimatePresence>
+                    </div>
+                </>
+            ) : null}
         </>,
         document.body,
     );
-};
+});

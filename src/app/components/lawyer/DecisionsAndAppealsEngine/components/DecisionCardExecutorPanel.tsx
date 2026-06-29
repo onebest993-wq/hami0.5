@@ -33,7 +33,9 @@ export function DecisionCardExecutorPanel({
     showReasoning,
     setShowReasoning,
 }: DecisionCardExecutorPanelProps) {
-                {requestNeedsExecutorOutcome(decision) && dispatcherHub && (
+    return (
+        <>
+            {requestNeedsExecutorOutcome(decision) && dispatcherHub ? (
                     <div className="space-y-2">
                         {isCassated ? (
                             <p className="text-[10px] text-red-400/80 text-right leading-relaxed">
@@ -125,8 +127,8 @@ export function DecisionCardExecutorPanel({
                             )}
                         </div>
                     </div>
-                )}
-                {requestNeedsExecutorOutcome(decision) && !dispatcherHub && (
+            ) : null}
+            {requestNeedsExecutorOutcome(decision) && !dispatcherHub ? (
                     <div className="space-y-2">
                         {isCassated ? (
                             <p className="text-[10px] text-red-400/80 text-right leading-relaxed">
@@ -158,5 +160,7 @@ export function DecisionCardExecutorPanel({
                             </button>
                         </div>
                     </div>
-                )}
+            ) : null}
+        </>
+    );
 }

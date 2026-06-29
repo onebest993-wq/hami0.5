@@ -7,6 +7,7 @@ import {
 } from '@/app/services/forum/forumNotificationBridge';
 import { ForumNotificationStreamService } from '@/app/services/forum/ForumNotificationStreamService';
 import { useVisibilityAwareInterval } from '@/app/hooks/useVisibilityAwareInterval';
+import { resolveForumUnreadPollMs } from '@/app/components/lawyer/CommunityScreen/communityFeedPolicy';
 
 /** عدّاد تنبيهات المنتدى غير المقروءة — للشارة على بطاقة الرئيسية */
 export function useForumUnreadCount(userId: string | null, enabled = true): number {
@@ -29,12 +30,13 @@ export function useForumUnreadCount(userId: string | null, enabled = true): numb
     }, [userId]);
 
     useEffect(() => {
+        if (!enabled) return;
         void refresh();
-    }, [refresh]);
+    }, [enabled, refresh]);
 
     useVisibilityAwareInterval(() => {
         void refresh();
-    }, ForumNotificationStreamService.isRunning() ? 45_000 : 12_000, enabled && Boolean(userId));
+    }, resolveForumUnreadPollMs(ForumNotificationStreamService.isRunning()), enabled && Boolean(userId));
 
     useEffect(() => {
         const onExternal = (e: Event) => {

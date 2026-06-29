@@ -1,5 +1,4 @@
 import {
-    ALL_IRAQI_LAW_BUNDLE_SLUGS,
     LAW_NAME_TO_BUNDLE_SLUG,
     lawNameForBundleSlug,
     type IraqiLawBundleArticle,
@@ -7,11 +6,27 @@ import {
     type IraqiLawBundleSlug,
 } from '@/app/constants/iraqiLawBundleRegistry';
 
+export type BundledLawRow = {
+    id: string;
+    law_name: string;
+    article_number: string;
+    content: string;
+};
+
 type BundleModule = { default: IraqiLawBundleFile };
 
-const bundleModules = import.meta.glob<BundleModule>('@/data/laws/*.articles.json', {
-    eager: true,
-});
+/** تحميل كسول — كل ملف قانون chunk مستقل عند أول طلب */
+const bundleLoaders = import.meta.glob<BundleModule>('@/data/laws/*.articles.json');
+
+const bundlePathBySlug = new Map<IraqiLawBundleSlug, string>();
+for (const path of Object.keys(bundleLoaders)) {
+    const match = path.match(/\/([^/]+)\.articles\.json$/);
+    if (!match) continue;
+    bundlePathBySlug.set(match[1] as IraqiLawBundleSlug, path);
+}
+
+const bundleBySlug = new Map<IraqiLawBundleSlug, IraqiLawBundleFile>();
+const bundleInflight = new Map<IraqiLawBundleSlug, Promise<IraqiLawBundleFile>>();
 
 function normalizeBundle(raw: unknown, expectedLawName: string): IraqiLawBundleFile {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
@@ -38,35 +53,7 @@ function normalizeBundle(raw: unknown, expectedLawName: string): IraqiLawBundleF
     };
 }
 
-const bundleBySlug = new Map<IraqiLawBundleSlug, IraqiLawBundleFile>();
-
-for (const slug of ALL_IRAQI_LAW_BUNDLE_SLUGS) {
-    const fileName = `${slug}.articles.json`;
-    const mod = Object.entries(bundleModules).find(([path]) => path.endsWith(fileName));
-    const expectedLawName = lawNameForBundleSlug(slug);
-    const bundle = normalizeBundle(mod?.[1]?.default, expectedLawName);
-    if (bundle.law_name !== expectedLawName) {
-        bundle.law_name = expectedLawName;
-    }
-    bundleBySlug.set(slug, bundle);
-}
-
-export function getBundledLawArticles(lawName: string): IraqiLawBundleArticle[] {
-    const slug = LAW_NAME_TO_BUNDLE_SLUG[String(lawName ?? '').trim()];
-    if (!slug) return [];
-    return bundleBySlug.get(slug)?.articles ?? [];
-}
-
-export function getBundledLawRows(lawName: string): Array<{
-    id: string;
-    law_name: string;
-    article_number: string;
-    content: string;
-}> {
-    const slug = LAW_NAME_TO_BUNDLE_SLUG[String(lawName ?? '').trim()];
-    if (!slug) return [];
-    const bundle = bundleBySlug.get(slug);
-    if (!bundle) return [];
+function rowsFromBundle(bundle: IraqiLawBundleFile): BundledLawRow[] {
     return bundle.articles.map((article) => ({
         id: `${bundle.law_name}::${article.article_number}`,
         law_name: bundle.law_name,
@@ -75,10 +62,70 @@ export function getBundledLawRows(lawName: string): Array<{
     }));
 }
 
-export function hasBundledLawArticles(lawName: string): boolean {
-    return getBundledLawArticles(lawName).length > 0;
+async function loadBundle(slug: IraqiLawBundleSlug): Promise<IraqiLawBundleFile> {
+    const cached = bundleBySlug.get(slug);
+    if (cached) return cached;
+
+    const pending = bundleInflight.get(slug);
+    if (pending) return pending;
+
+    const expectedLawName = lawNameForBundleSlug(slug);
+    const path = bundlePathBySlug.get(slug);
+    const loader = path ? bundleLoaders[path] : undefined;
+
+    const promise = (async () => {
+        if (!loader) {
+            const empty = normalizeBundle(null, expectedLawName);
+            bundleBySlug.set(slug, empty);
+            return empty;
+        }
+        const mod = await loader();
+        const bundle = normalizeBundle(mod.default, expectedLawName);
+        if (bundle.law_name !== expectedLawName) {
+            bundle.law_name = expectedLawName;
+        }
+        bundleBySlug.set(slug, bundle);
+        return bundle;
+    })();
+
+    bundleInflight.set(slug, promise);
+    try {
+        return await promise;
+    } finally {
+        bundleInflight.delete(slug);
+    }
+}
+
+export function isBundledLawRegistered(lawName: string): boolean {
+    const slug = LAW_NAME_TO_BUNDLE_SLUG[String(lawName ?? '').trim()];
+    return Boolean(slug && bundlePathBySlug.has(slug));
+}
+
+export async function loadBundledLawArticles(lawName: string): Promise<IraqiLawBundleArticle[]> {
+    const slug = LAW_NAME_TO_BUNDLE_SLUG[String(lawName ?? '').trim()];
+    if (!slug) return [];
+    const bundle = await loadBundle(slug);
+    return bundle.articles;
+}
+
+export async function loadBundledLawRows(lawName: string): Promise<BundledLawRow[]> {
+    const slug = LAW_NAME_TO_BUNDLE_SLUG[String(lawName ?? '').trim()];
+    if (!slug) return [];
+    const bundle = await loadBundle(slug);
+    return rowsFromBundle(bundle);
+}
+
+export async function hasBundledLawArticles(lawName: string): Promise<boolean> {
+    const articles = await loadBundledLawArticles(lawName);
+    return articles.length > 0;
 }
 
 export function bundledLawBundleSlugForLawName(lawName: string): IraqiLawBundleSlug | null {
     return LAW_NAME_TO_BUNDLE_SLUG[String(lawName ?? '').trim()] ?? null;
+}
+
+/** للاختبارات — إعادة ضبط الكاش بين الحالات */
+export function resetBundledLawLoaderCacheForTests(): void {
+    bundleBySlug.clear();
+    bundleInflight.clear();
 }

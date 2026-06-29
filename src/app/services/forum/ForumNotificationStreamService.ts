@@ -13,6 +13,8 @@ export type ForumStreamPayload = {
 type StreamHandler = (payload: ForumStreamPayload) => void;
 
 let running = false;
+let refCount = 0;
+let streamUserId: string | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let lastPushedId: string | null = null;
 const handlers = new Set<StreamHandler>();
@@ -37,11 +39,11 @@ function parseSseChunk(buffer: string): { events: ForumStreamPayload[]; rest: st
 }
 
 async function consumeStream(onPayload: StreamHandler, signal: AbortSignal): Promise<void> {
-        const response = await SecureAPIClient.fetchSecureResponse('/api/forum/notifications/stream', {
-            method: 'GET',
-            signal,
-            headers: { Accept: 'text/event-stream' },
-        });
+    const response = await SecureAPIClient.fetchSecureResponse('/api/forum/notifications/stream', {
+        method: 'GET',
+        signal,
+        headers: { Accept: 'text/event-stream' },
+    });
 
     if (!response.ok || !response.body) {
         throw new Error(`stream ${response.status}`);
@@ -84,8 +86,14 @@ function scheduleReconnect(userId: string): void {
     if (reconnectTimer) clearTimeout(reconnectTimer);
     reconnectTimer = setTimeout(() => {
         reconnectTimer = null;
-        if (running) void ForumNotificationStreamService.start(userId);
+        if (running && refCount > 0) void ForumNotificationStreamService.start(userId);
     }, 3_000);
+}
+
+function abortActiveStream(): void {
+    const abort = (ForumNotificationStreamService as { _abort?: AbortController })._abort;
+    abort?.abort();
+    (ForumNotificationStreamService as { _abort?: AbortController })._abort = undefined;
 }
 
 export const ForumNotificationStreamService = {
@@ -98,20 +106,52 @@ export const ForumNotificationStreamService = {
         return () => handlers.delete(handler);
     },
 
+    acquire(userId: string): () => void {
+        if (!userId) return () => undefined;
+
+        refCount += 1;
+        const userChanged = streamUserId !== userId;
+        streamUserId = userId;
+
+        if (userChanged && running) {
+            abortActiveStream();
+            running = false;
+        }
+        if (!running) {
+            void ForumNotificationStreamService.start(userId);
+        }
+
+        return () => {
+            refCount = Math.max(0, refCount - 1);
+            if (refCount === 0) {
+                streamUserId = null;
+                ForumNotificationStreamService.stop();
+            }
+        };
+    },
+
     async start(userId: string | null): Promise<void> {
         if (!userId || typeof window === 'undefined') return;
-        this.stop();
+        if (running && streamUserId === userId) return;
+
+        abortActiveStream();
+        if (reconnectTimer) {
+            clearTimeout(reconnectTimer);
+            reconnectTimer = null;
+        }
+
         running = true;
+        streamUserId = userId;
 
         const controller = new AbortController();
-        (this as { _abort?: AbortController })._abort = controller;
+        (ForumNotificationStreamService as { _abort?: AbortController })._abort = controller;
 
         try {
             await consumeStream(dispatchPayload, controller.signal);
         } catch {
             /* reconnect below */
         } finally {
-            if (running && !controller.signal.aborted) {
+            if (running && !controller.signal.aborted && refCount > 0) {
                 scheduleReconnect(userId);
             }
         }
@@ -123,8 +163,15 @@ export const ForumNotificationStreamService = {
             clearTimeout(reconnectTimer);
             reconnectTimer = null;
         }
-        const abort = (this as { _abort?: AbortController })._abort;
-        abort?.abort();
-        (this as { _abort?: AbortController })._abort = undefined;
+        abortActiveStream();
+    },
+
+    /** @internal — إعادة حالة الخدمة في الاختبارات فقط */
+    _resetForTests(): void {
+        refCount = 0;
+        streamUserId = null;
+        lastPushedId = null;
+        handlers.clear();
+        this.stop();
     },
 };

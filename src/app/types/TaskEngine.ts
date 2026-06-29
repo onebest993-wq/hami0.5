@@ -49,4 +49,8 @@ export interface LegalTask {
     documentRequirements: DocumentRequirementItem[];
     /** مصروفات مسجلة */
     expenses: TaskExpenseEntry[];
+    /** مرجع تسجيل صوتي (hami-voice-ref:task-voice-{id}) — blob في IndexedDB */
+    voiceRef: string | null;
+    voiceTranscript: string | null;
+    voiceDurationSec: number | null;
 }

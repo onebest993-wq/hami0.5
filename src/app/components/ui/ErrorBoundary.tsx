@@ -50,8 +50,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
     componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
         // Log error to console
-        console.error('ðŸš¨ [ErrorBoundary] Caught error:', error);
-        console.error('ðŸš¨ [ErrorBoundary] Component stack:', errorInfo.componentStack);
+        console.error('[ErrorBoundary] Caught error:', error);
+        console.error('[ErrorBoundary] Component stack:', errorInfo.componentStack);
 
         // Update state with error info
         this.setState({

@@ -26,9 +26,11 @@ export function NotificationList({
                 if (items.length === 0) return null;
                 return (
                     <section key={bucket}>
-                        <h3 className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2.5 px-1">
-                            {BUCKET_LABELS[bucket]}{' '}
-                            <span className="text-slate-500 font-normal">({items.length})</span>
+                        <h3 className="text-[10px] font-bold text-white/40 uppercase tracking-[0.14em] mb-2.5 px-1 flex items-center gap-2">
+                            <span className="h-px flex-1 bg-gradient-to-l from-white/10 to-transparent" aria-hidden />
+                            {BUCKET_LABELS[bucket]}
+                            <span className="text-white/30 font-normal normal-case tracking-normal">({items.length})</span>
+                            <span className="h-px flex-1 bg-gradient-to-r from-white/10 to-transparent" aria-hidden />
                         </h3>
                         <div className="space-y-2">
                             {items.map((notif) => (

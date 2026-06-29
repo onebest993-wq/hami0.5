@@ -1,6 +1,5 @@
 // @ts-nocheck
 import { useState, useEffect, useRef } from 'react';
-import { debug } from '@/app/utils/debug';
 import type { CaseStage } from '../../LawyerShared';
 import { buildInitialStagesFromFile } from '../smartFile/stageInit';
 import { buildInitialParentDataFromFile } from '../smartFile/parentDataInit';
@@ -137,15 +136,6 @@ export function useSmartFileModalOrchestrator(props: SmartFileModalProps) {
         lawsuitFileId,
         onCalendarUnlink,
         modalFlags,
-    });
-
-    debug.log('📊 Stage Isolation Check:', {
-        activeStageIndex,
-        viewingStageIndex,
-        isViewingArchived,
-        activeStageTimeline: currentStage?.timeline?.length || 0,
-        viewedStageTimeline: viewedStage?.timeline?.length || 0,
-        displayTimelineCount: displayTimeline.length,
     });
 
     useEffect(() => {

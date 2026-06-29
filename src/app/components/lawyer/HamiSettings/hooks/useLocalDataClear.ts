@@ -2,8 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { wipeAllApplicationData } from '@/app/services/settings/applicationWipe';
+import { verifySensitiveSettingsAction } from '@/app/services/settings/verifySensitiveSettingsAction';
 
 const COUNTDOWN_SECONDS = 10;
+const WIPE_CONFIRM_PHRASE = 'مسح نهائي';
 
 export function useLocalDataClear(resetToDefaults: () => void) {
     const countdownTimerRef = useRef<number | null>(null);
@@ -63,6 +65,13 @@ export function useLocalDataClear(resetToDefaults: () => void) {
             { title: 'مسح كل البيانات؟', confirmText: 'متابعة', cancelText: 'إلغاء' },
         );
         if (!okFirst) return;
+
+        const verified = await verifySensitiveSettingsAction({
+            confirmPhrase: WIPE_CONFIRM_PHRASE,
+            title: 'تحقق قبل المسح',
+            promptMessage: `اكتب «${WIPE_CONFIRM_PHRASE}» للمتابعة:`,
+        });
+        if (!verified) return;
 
         SmartToast.warning(`انتظر ${COUNTDOWN_SECONDS} ثوانٍ قبل التأكيد النهائي`);
         const completed = await waitCountdown();

@@ -70,10 +70,9 @@ describe('ManualExecutorSmartCardPanel — grievance_pending', () => {
         expect(
             screen.getByLabelText('تاريخ إصدار قرار التظلم (معيار بدء احتساب مهلة التمييز)')
         ).toBeInTheDocument();
-        expect(screen.getByText(/سجّل نتيجة قرار المنفذ في التظلم المعلّق/)).toBeInTheDocument();
-        expect(screen.getByText(/القرار الأصلي صدر بتاريخ/)).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: /قُبل التظلم/ })).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: /رُدّ التظلم/ })).toBeInTheDocument();
+        expect(screen.getByText(/سجّل نتيجة قرار المنفذ:/)).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /^قبول التظلم$/ })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /^رد التظلم$/ })).toBeInTheDocument();
     });
 
     it('يمرّر تاريخ الإصدار المُختار عند قبول التظلم', () => {
@@ -83,7 +82,7 @@ describe('ManualExecutorSmartCardPanel — grievance_pending', () => {
         ) as HTMLInputElement;
 
         fireEvent.change(dateInput, { target: { value: '2026-06-04' } });
-        fireEvent.click(screen.getByRole('button', { name: /قُبل التظلم/ }));
+        fireEvent.click(screen.getByRole('button', { name: /^قبول التظلم$/ }));
 
         expect(patchDecisionRow).toHaveBeenCalledTimes(1);
         expect(patchDecisionRow).toHaveBeenCalledWith(
@@ -104,7 +103,7 @@ describe('ManualExecutorSmartCardPanel — grievance_pending', () => {
         ) as HTMLInputElement;
 
         fireEvent.change(dateInput, { target: { value: '2026-06-05' } });
-        fireEvent.click(screen.getByRole('button', { name: /رُدّ التظلم/ }));
+        fireEvent.click(screen.getByRole('button', { name: /^رد التظلم$/ }));
 
         expect(patchDecisionRow).toHaveBeenCalledWith(
             'ledger-ui-1',
@@ -126,6 +125,35 @@ describe('ManualExecutorSmartCardPanel — grievance_pending', () => {
     });
 });
 
+describe('ManualExecutorSmartCardPanel — cassation_pending', () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2026-06-12T12:00:00'));
+    });
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it('يعرض أزرار حسم التمييز بعد التسجيل حتى لو انتهت مهلة التقديم', () => {
+        const pending = baseDecision({
+            executorDecisionStatusFlag: 2,
+            manualExecutorWorkflowPhase: 'cassation_pending',
+            manualExecutorAppealKind: 'tamyeez',
+            manualExecutorAppealAppellant: 'lawyer',
+            manualExecutorGrievanceOutcome: 'rejected',
+            grievanceOutcomeIssuedYmd: '2026-06-04',
+            cassationAppealClockYmd: '2026-06-04',
+        });
+
+        renderPanel(pending);
+
+        expect(screen.getByText('قام الدائن بتمييز القرار')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /^نقض القرار$/ })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /^رد اللائحة$/ })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /تسجيل الطعن/ })).not.toBeInTheDocument();
+    });
+});
+
 describe('ManualExecutorSmartCardPanel — cassation_unlocked', () => {
     beforeEach(() => {
         vi.useFakeTimers();
@@ -142,21 +170,21 @@ describe('ManualExecutorSmartCardPanel — cassation_unlocked', () => {
             manualExecutorAppealKind: 'tadhallum',
             manualExecutorAppealAppellant: 'lawyer',
             manualExecutorGrievanceOutcome: 'rejected',
+            appealResult: 'رد التظلم',
+            awaitingCassationEntryBy: 'lawyer',
+            grievanceRejectedAwaitingTamyeez: true,
             grievanceOutcomeIssuedYmd: '2026-06-04',
             cassationAppealClockYmd: '2026-06-04',
         });
 
         renderPanel(unlocked);
 
-        expect(
-            screen.getByText('تاريخ إصدار القرار (معيار احتساب مهلة التمييز)')
-        ).toBeInTheDocument();
-        expect(screen.getByText(/2026-06-04/)).toBeInTheDocument();
+        expect(screen.getByText(/آخر موعد ل/)).toBeInTheDocument();
         expect(
             screen.queryByLabelText('تاريخ إصدار قرار التظلم (معيار بدء احتساب مهلة التمييز)')
         ).not.toBeInTheDocument();
         expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
-        expect(screen.getByRole('button', { name: /تسجيل التمييز/ })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /تمييز من قبل الدائن/ })).toBeInTheDocument();
     });
 });
 
@@ -176,7 +204,7 @@ describe('ManualExecutorSmartCardPanel — حالات إخفاء اللوحة', 
 
     it('لا يعرض اللوحة الذكية في يوم إنهاء المدة (تُعرض AppealDeadlineLapsePanel خارجاً)', () => {
         vi.useFakeTimers();
-        vi.setSystemTime(new Date('2026-06-09T12:00:00'));
+        vi.setSystemTime(new Date('2026-06-08T12:00:00'));
 
         const { container } = renderPanel(baseDecision());
         expect(container.firstChild).toBeNull();
@@ -194,11 +222,74 @@ describe('ManualExecutorSmartCardPanel — مسار أولي', () => {
         vi.useRealTimers();
     });
 
+    it('لا ينتقل تلقائياً إلى سجل الطعون بعد حفظ تسجيل الطعن الأولي', () => {
+        const { patchDecisionRow, goToAppealsWithScroll } = renderPanel(baseDecision());
+        fireEvent.click(screen.getByRole('button', { name: /تسجيل الطعن/ }));
+        fireEvent.click(screen.getByRole('button', { name: /^حفظ$/ }));
+
+        expect(patchDecisionRow).toHaveBeenCalledTimes(1);
+        expect(patchDecisionRow).toHaveBeenCalledWith(
+            'ledger-ui-1',
+            expect.objectContaining({
+                executorDecisionStatusFlag: 2,
+                manualExecutorWorkflowPhase: 'grievance_pending',
+            })
+        );
+        expect(goToAppealsWithScroll).not.toHaveBeenCalled();
+    });
+
     it('يعرض زر تسجيل الطعن للقرار الساري دون تظلم معلّق', () => {
         renderPanel(baseDecision());
         expect(screen.getByRole('button', { name: /تسجيل الطعن/ })).toBeInTheDocument();
         expect(
             screen.queryByLabelText('تاريخ إصدار قرار التظلم (معيار بدء احتساب مهلة التمييز)')
         ).not.toBeInTheDocument();
+    });
+
+    it('يعرض نتيجة التظلم عندما تكون البطاقة في مرحلة grievance_pending', () => {
+        renderPanel(
+            baseDecision({
+                executorDecisionStatusFlag: 2,
+                manualExecutorWorkflowPhase: 'grievance_pending',
+                manualExecutorAppealKind: 'tadhallum',
+                manualExecutorAppealAppellant: 'lawyer',
+                grievanceIssuedYmd: '2026-06-03',
+            })
+        );
+        expect(screen.queryByRole('button', { name: /تسجيل الطعن/ })).not.toBeInTheDocument();
+        expect(screen.getByText(/سجّل نتيجة قرار المنفذ:/)).toBeInTheDocument();
+    });
+
+    it('يعرض خيار التظلم والتمييز مع آخر موعد عند فتح النموذج', () => {
+        renderPanel(baseDecision());
+        fireEvent.click(screen.getByRole('button', { name: /تسجيل الطعن/ }));
+
+        expect(screen.getByText(/آخر موعد ل/)).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /تظلم أمام المنفذ/ })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /تمييز أمام الاستئناف/ })).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('button', { name: /تمييز أمام الاستئناف/ }));
+        expect(screen.getByText(/آخر موعد ل/)).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /تمييز أمام الاستئناف/ })).toHaveClass(
+            'text-[#E6C673]'
+        );
+    });
+
+    it('يُبقي خيار التظلم معطّلاً بعد انتهاء مهلة 3 أيام', () => {
+        vi.setSystemTime(new Date('2026-06-05T12:00:00'));
+        renderPanel(baseDecision());
+        fireEvent.click(screen.getByRole('button', { name: /تسجيل الطعن/ }));
+
+        const tadhallumBtn = screen.getByRole('button', { name: /تظلم أمام المنفذ/ });
+        expect(tadhallumBtn).toBeDisabled();
+    });
+
+    it('لا يعرض تسجيل الطعن بعد انتهاء مهلتي التظلم والتمييز', () => {
+        vi.setSystemTime(new Date('2026-06-10T12:00:00'));
+        const { container } = renderPanel(
+            baseDecision({ date: '2026-06-01', executorDecisionStatusFlag: 1 })
+        );
+        expect(screen.queryByRole('button', { name: /تسجيل الطعن/ })).not.toBeInTheDocument();
+        expect(container.firstChild).toBeNull();
     });
 });

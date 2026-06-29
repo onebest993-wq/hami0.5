@@ -84,6 +84,8 @@ interface CaseState {
   cases: LegalCase[];
   selectedCaseId: string | null;
   addCase: (newCase: LegalCase) => void;
+  /** ملء أولي من ملفات الدعاوى — كتابة persist واحدة بدل N استدعاء addCase */
+  hydrateCasesFromLawsuitFiles: (mapped: LegalCase[]) => void;
   updateCase: (id: string, updates: Partial<LegalCase>) => void;
   deleteCase: (id: string) => void;
   selectCase: (id: string | null) => void;
@@ -110,110 +112,25 @@ export const useCaseStore = create<CaseState>()(
       
       addCase: (newCase) => set((state) => {
         const exists = state.cases.some((c) => c.id === newCase.id);
-        if (!exists) {
-          try {
-            const caseNo = (newCase as { caseNumber?: string }).caseNumber || String(newCase.id);
-            const clientName = (newCase as { clientName?: string }).clientName;
-            void Promise.all([
-              import('@/app/services/auditLogPublisher'),
-              import('@/app/domain/lawsuit/lawsuitJurisdiction'),
-            ]).then(([{ AuditLog }, { resolveLawsuitJurisdiction }]) => {
-              const j = resolveLawsuitJurisdiction(newCase as unknown as Record<string, unknown>);
-              if (j === 'personal') {
-                AuditLog.personal.caseCreated({ caseId: newCase.id, caseNo, clientName });
-              } else {
-                AuditLog.civil.caseCreated({ caseId: newCase.id, caseNo, clientName });
-              }
-            });
-          } catch { /* silent */ }
-        }
         return { cases: exists ? state.cases : [newCase, ...state.cases] };
+      }),
+
+      hydrateCasesFromLawsuitFiles: (mapped) => set((state) => {
+        if (state.cases.length > 0 || mapped.length === 0) return state;
+        const existingIds = new Set(state.cases.map((c) => c.id));
+        const toAdd = mapped.filter((c) => !existingIds.has(c.id));
+        if (toAdd.length === 0) return state;
+        return { cases: [...toAdd, ...state.cases] };
       }),
       
       updateCase: (id, updates) => set((state) => {
-        const before = state.cases.find((c) => c.id === id);
         const next = state.cases.map((c) => 
           c.id === id ? { ...c, ...updates, updatedAt: new Date().toISOString() } : c
         );
-        // Audit log ذكي: ننشر فقط عند تغييرات ذات قيمة (status/currentStage)، لا عند كل تحرير حقل
-        if (before) {
-          const beforeAny = before as unknown as Record<string, unknown>;
-          const updAny = updates as unknown as Record<string, unknown>;
-          try {
-            void Promise.all([
-              import('@/app/services/auditLogPublisher'),
-              import('@/app/domain/lawsuit/lawsuitJurisdiction'),
-            ]).then(([{ AuditLog }, { resolveLawsuitJurisdiction }]) => {
-              const caseNo =
-                (beforeAny.caseNumber as string | undefined) || String(before.id);
-              const j = resolveLawsuitJurisdiction(beforeAny);
-              const isPersonal = j === 'personal';
-              if (
-                typeof updAny.status === 'string' &&
-                updAny.status !== beforeAny.status &&
-                updAny.status !== 'deleted'
-              ) {
-                if (isPersonal) {
-                  AuditLog.personal.statusChanged({
-                    caseId: before.id,
-                    caseNo,
-                    fromStatus: String(beforeAny.status ?? ''),
-                    toStatus: String(updAny.status),
-                  });
-                } else {
-                  AuditLog.civil.statusChanged({
-                    caseId: before.id,
-                    caseNo,
-                    fromStatus: String(beforeAny.status ?? ''),
-                    toStatus: String(updAny.status),
-                  });
-                }
-              }
-              if (
-                typeof updAny.currentStage === 'string' &&
-                updAny.currentStage !== beforeAny.currentStage &&
-                beforeAny.currentStage
-              ) {
-                if (isPersonal) {
-                  AuditLog.personal.stageAdvanced({
-                    caseId: before.id,
-                    caseNo,
-                    fromStage: String(beforeAny.currentStage),
-                    toStage: String(updAny.currentStage),
-                  });
-                } else {
-                  AuditLog.civil.stageAdvanced({
-                    caseId: before.id,
-                    caseNo,
-                    fromStage: String(beforeAny.currentStage),
-                    toStage: String(updAny.currentStage),
-                  });
-                }
-              }
-            });
-          } catch { /* silent */ }
-        }
         return { cases: next };
       }),
       
       deleteCase: (id) => set((state) => {
-        const before = state.cases.find((c) => c.id === id);
-        if (before && (before as { status?: string }).status !== 'deleted') {
-          try {
-            const caseNo = (before as { caseNumber?: string }).caseNumber || String(before.id);
-            void Promise.all([
-              import('@/app/services/auditLogPublisher'),
-              import('@/app/domain/lawsuit/lawsuitJurisdiction'),
-            ]).then(([{ AuditLog }, { resolveLawsuitJurisdiction }]) => {
-              const j = resolveLawsuitJurisdiction(before as unknown as Record<string, unknown>);
-              if (j === 'personal') {
-                AuditLog.personal.archived({ caseId: before.id, caseNo });
-              } else {
-                AuditLog.civil.archived({ caseId: before.id, caseNo });
-              }
-            });
-          } catch { /* silent */ }
-        }
         return {
           cases: state.cases.map((c) => 
             c.id === id ? { ...c, status: 'deleted', updatedAt: new Date().toISOString() } : c

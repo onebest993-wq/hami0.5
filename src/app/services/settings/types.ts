@@ -18,7 +18,10 @@ export interface AppearanceSettings {
     glassOpacity: number;
     /** إظهار إطار ثابت لبطاقات لوحة القيادة — يبقى مرئياً عند الشفافية المنخفضة */
     homeContainerBorder: boolean;
+    /** @deprecated — تُخزَّن في lawyer_wallpaper فقط، لا في حالة React */
     wallpaper?: string;
+    /** نبضة تحديث بعد رفع/حذف الخلفية دون تخزين blob في الذاكرة */
+    wallpaperStamp?: number;
     /** زخرفة خلفية خفيفة للوحة — بدل ألوان صلبة */
     backgroundPreset: BackgroundPresetId;
     /** شفافية طبقة الزخرفة 0.12–0.72 */
@@ -48,9 +51,13 @@ export interface DataSettings {
     weeklyBackupReminder: boolean;
 }
 
+export type LitePerformanceMode = 'auto' | 'on' | 'off';
+
 export interface PerformanceSettings {
     enableAnimations: boolean;
     prefetchScreens: boolean;
+    /** auto = يُفعّل على الأجهزة المتواضعة — يقلّل الضبابية والتحميل المسبق */
+    litePerformance: LitePerformanceMode;
 }
 
 /** Unified lawyer app settings (schema v2). */

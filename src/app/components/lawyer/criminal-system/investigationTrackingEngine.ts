@@ -1,4 +1,4 @@
-import type { InvestigationLog } from './criminalStore';
+import type { InvestigationLog } from './criminalCaseModel';
 
 export const LETTER_SLA_WARNING_DAYS = 15;
 

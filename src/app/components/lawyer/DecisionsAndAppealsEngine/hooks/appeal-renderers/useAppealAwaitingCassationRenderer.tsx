@@ -29,23 +29,18 @@ export function useAppealAwaitingCassationRenderer(args: UseDecisionsAppealsAppe
             manageAppealGate: boolean
         ) => {
             if (!manageAppealGate) return null;
+            const appealHub = resolveUnderlyingDecisionHub(decision, decisions);
+            const isManualLedger =
+                decision.manualExecutorLedgerEntry === true ||
+                appealHub.manualExecutorLedgerEntry === true;
+            if (isManualLedger) return null;
             const lawyerBtnClass =
                 variant === 'appealsTab'
                     ? DECISION_BTN_PRIMARY_WFULL
                     : `mb-3 ${DECISION_BTN_PRIMARY_WFULL}`;
             const awaitingParty = resolveEffectiveAwaitingCassationParty(decision, undefined, decisions);
             if (!awaitingParty) return null;
-            const appealHub = resolveUnderlyingDecisionHub(decision, decisions);
-            const isManualLedger =
-                decision.manualExecutorLedgerEntry === true ||
-                appealHub.manualExecutorLedgerEntry === true;
             const cassationWindowOpen = !appealWindowClosed;
-            const manualCassationExtra = isManualLedger
-                ? { manualCassationAppellants: ['debtor'] as const }
-                : {};
-            const manualCassationLawyerExtra = isManualLedger
-                ? { manualCassationAppellants: ['lawyer'] as const }
-                : {};
             return (
                 <>
                     {awaitingParty === 'debtor' &&
@@ -67,7 +62,6 @@ export function useAppealAwaitingCassationRenderer(args: UseDecisionsAppealsAppe
                                             grievanceRejectedAwaitingTamyeez: false,
                                             grievanceAcceptedAwaitingDebtorTamyeez: false,
                                             awaitingCassationEntryBy: null,
-                                            ...manualCassationExtra,
                                         },
                                         labels.timelineTitle,
                                         labels.timelineDescription,
@@ -105,7 +99,6 @@ export function useAppealAwaitingCassationRenderer(args: UseDecisionsAppealsAppe
                                                 grievanceRejectedAwaitingTamyeez: false,
                                                 grievanceAcceptedAwaitingDebtorTamyeez: false,
                                                 awaitingCassationEntryBy: null,
-                                                ...manualCassationLawyerExtra,
                                             },
                                             labels.timelineTitle,
                                             labels.timelineDescription,

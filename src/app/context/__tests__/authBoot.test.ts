@@ -2,7 +2,7 @@ import { describe, expect, it, vi, afterEach, beforeEach } from 'vitest';
 import { GUEST_LAWYER_ID } from '@/app/utils/guestLawyerSession';
 import { resolveInitialAuthState, shouldApplyGuestFallbackSession } from '../authBoot';
 
-vi.mock('@/app/utils/bffAuthClient', () => ({
+vi.mock('@/app/utils/bffAuthFlags', () => ({
     isBffAuthEnabled: vi.fn(() => false),
 }));
 

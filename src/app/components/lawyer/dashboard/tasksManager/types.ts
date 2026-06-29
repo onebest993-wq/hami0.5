@@ -2,7 +2,7 @@ import type { WORK_WEEK } from './constants';
 
 export type WeekAddState = {
     dayKey: (typeof WORK_WEEK)[number]['key'];
-    step: 'location' | 'actions';
+    details: string;
     location: string;
     actionLines: string[];
     lineDraft: string;

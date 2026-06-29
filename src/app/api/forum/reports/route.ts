@@ -1,9 +1,9 @@
+import { sanitizePayload } from '../../security/sanitizer.ts';
 import {
   extractUserTokenFromRequest,
   getVerifiedTokenSubject,
   isTokenAuthorized,
   assertWifeSignatureRequest,
-  wifeForbiddenResponse, wifeSignatureFailedResponse,
   wifeUnauthorizedResponse,
 } from '../../security/wifeValidator.ts';
 import { ForumRepository } from '../../../services/forum/forumRepository.ts';
@@ -81,7 +81,7 @@ export async function POST(request: Request): Promise<Response> {
 
     let payload: unknown = null;
     try {
-      payload = await request.json();
+      payload = sanitizePayload(await request.json());
     } catch {
       payload = null;
     }

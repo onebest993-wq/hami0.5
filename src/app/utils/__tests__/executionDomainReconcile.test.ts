@@ -18,7 +18,7 @@ describe('executionDomainReconcile', () => {
         clearDomainReconcileMarker(execId);
     });
 
-    it('suppresses seizure hub row in active visitation namespace', () => {
+    it('does not suppress executor queue rows that carry requestKind', () => {
         const visitationData = {
             id: execId,
             claimType: 'مشاهدة',
@@ -44,19 +44,18 @@ describe('executionDomainReconcile', () => {
 
         const result = reconcileDomainViolatingDecisions(execId, visitationData);
 
-        expect(result.suppressed).toBe(1);
+        expect(result.suppressed).toBe(0);
         const stored = readExecutorDecisionsFromActiveNamespace(execId, visitationData) as Array<
             Record<string, unknown>
         >;
         const seizure = stored.find((r) => r.id === 'sz-1');
         const executor = stored.find((r) => r.id === 'exec-1');
-        expect(seizure?.domainIsolationSuppressed).toBe(true);
-        expect(seizure?.isArchived).toBe(true);
-        expect(seizure?.requestCycleSuperseded).toBe(true);
+        expect(seizure?.domainIsolationSuppressed).toBeUndefined();
+        expect(seizure?.isArchived).toBeUndefined();
         expect(executor?.domainIsolationSuppressed).toBeUndefined();
     });
 
-    it('suppresses appeal copy when hub violates domain in active namespace', () => {
+    it('does not cascade-suppress appeal copies when hub row has requestKind', () => {
         const matwaaData = { id: execId, claimType: 'مطاوعة' };
         writeExecutorDecisionsArray(
             execId,
@@ -78,14 +77,14 @@ describe('executionDomainReconcile', () => {
 
         const result = reconcileDomainViolatingDecisions(execId, matwaaData);
 
-        expect(result.suppressed).toBe(2);
+        expect(result.suppressed).toBe(0);
         const stored = readExecutorDecisionsFromActiveNamespace(execId, matwaaData) as Array<
             Record<string, unknown>
         >;
-        expect(stored.every((r) => r.domainIsolationSuppressed === true)).toBe(true);
+        expect(stored.every((r) => r.domainIsolationSuppressed !== true)).toBe(true);
     });
 
-    it('skips when signature unchanged', () => {
+    it('skips when signature unchanged after no suppressions', () => {
         const data = { id: execId, claimType: 'مشاهدة', debtors: [{ name: 'x' }] };
         writeExecutorDecisionsArray(
             execId,
@@ -101,7 +100,7 @@ describe('executionDomainReconcile', () => {
         );
 
         const first = reconcileDomainViolatingDecisions(execId, data);
-        expect(first.suppressed).toBe(1);
+        expect(first.suppressed).toBe(0);
 
         const second = reconcileDomainViolatingDecisions(execId, data);
         expect(second.skipped).toBe(true);

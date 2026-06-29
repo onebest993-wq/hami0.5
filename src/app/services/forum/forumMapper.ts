@@ -4,6 +4,11 @@ import type { CommunityComment, CommunityPost } from '@/app/services/lawyer-clou
 export const ANONYMOUS_USER_ID = '__anonymous__';
 export const ANONYMOUS_USER_NAME = 'زميل مجهول';
 
+/** اسم العرض الآمن في الإشعارات والرسائل العامة */
+export function forumAuthorDisplayName(post: Pick<CommunityPost, 'isAnonymous' | 'authorName'>): string {
+    return post.isAnonymous ? ANONYMOUS_USER_NAME : post.authorName;
+}
+
 /**
  * يُخفي هوية المؤلف عند `isAnonymous=true` لكل من ليس المؤلف ولا أدمن.
  *

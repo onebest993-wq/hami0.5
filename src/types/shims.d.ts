@@ -5,5 +5,5 @@ declare module 'motion/react' {
 }
 
 declare module 'zustand/react/shallow' {
-    export const useShallow: any;
+    export function useShallow<S, U>(selector: (state: S) => U): (state: S) => U;
 }

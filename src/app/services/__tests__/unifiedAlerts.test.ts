@@ -55,6 +55,13 @@ vi.mock('@/app/services/lawyer-cloud', () => ({
             if (idx >= 0) calendarTestStore[idx] = event;
             else calendarTestStore.push(event);
         }),
+        saveEventsBatch: vi.fn(async (events: CalendarEvent[]) => {
+            for (const event of events) {
+                const idx = calendarTestStore.findIndex((e) => e.id === event.id);
+                if (idx >= 0) calendarTestStore[idx] = event;
+                else calendarTestStore.push(event);
+            }
+        }),
         deleteEvent: vi.fn(async (eventId: string) => {
             const idx = calendarTestStore.findIndex((e) => e.id === eventId);
             if (idx >= 0) calendarTestStore.splice(idx, 1);
@@ -328,6 +335,9 @@ describe('Unified alerts orchestrator', () => {
             subTasks: [],
             documentRequirements: [],
             expenses: [],
+            voiceRef: null,
+            voiceTranscript: null,
+            voiceDurationSec: null,
         };
         const { syncFieldTasksToCalendar } = await import('@/app/services/calendarDossierSync');
         const { buildStableBridgeId, flushPendingCalendarSyncs } = await import(

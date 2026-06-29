@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isLawsuitArchived, isLawsuitInTrash } from '@/app/utils/lawsuitTrash';
+import { prefetchCriminalDashboard } from '@/app/utils/lazyComponents';
 import type { ArchivePortalProps } from '@/app/types/common';
 import type { ExecutionArchiveFilter } from '../components/ExecutionArchiveToolbar';
 import {
@@ -10,6 +11,7 @@ import {
     filterExecutionArchiveFiles,
     getExecutionArchiveBasePool,
     type ExecutionPerspectiveFilter,
+    type ExecutionViewMode,
 } from '../executionArchiveFilterUtils';
 import type { ArchiveDossierViewMode } from '../components/ArchiveDossierToolbar';
 import {
@@ -36,6 +38,8 @@ export type UseArchivePortalControllerParams = Pick<
     | 'onRestoreLawsuitFromTrash'
     | 'onMoveExecutionToTrash'
     | 'onRestoreExecutionFromTrash'
+    | 'onArchiveExecution'
+    | 'onRestoreArchivedExecution'
 >;
 
 export function useArchivePortalController({
@@ -50,6 +54,8 @@ export function useArchivePortalController({
     onRestoreLawsuitFromTrash,
     onMoveExecutionToTrash,
     onRestoreExecutionFromTrash,
+    onArchiveExecution,
+    onRestoreArchivedExecution,
 }: UseArchivePortalControllerParams) {
     const [dossierSearchOpen, setDossierSearchOpen] = useState(false);
     const [dossierSearchQuery, setDossierSearchQuery] = useState('');
@@ -66,6 +72,17 @@ export function useArchivePortalController({
         }
     }, [initialLawsuitJurisdictionTab]);
 
+    const setLawsuitJurisdictionTabWithPrefetch = useCallback((value: LawsuitJurisdictionTab) => {
+        if (value === 'criminal') prefetchCriminalDashboard();
+        setLawsuitJurisdictionTab(value);
+    }, []);
+
+    useEffect(() => {
+        if (type === 'lawsuits' && lawsuitJurisdictionTab === 'criminal') {
+            prefetchCriminalDashboard();
+        }
+    }, [lawsuitJurisdictionTab, type]);
+
     const [criminalDeleteTarget, setCriminalDeleteTarget] = useState<{
         id: string;
         title: string;
@@ -74,14 +91,14 @@ export function useArchivePortalController({
     const [filterType, setFilterType] = useState<ExecutionArchiveFilter>('all');
     const [perspectiveFilter, setPerspectiveFilter] = useState<ExecutionPerspectiveFilter>('all');
     const [executionPreviewFile, setExecutionPreviewFile] = useState<LooseArchiveFile | null>(null);
-    const [executionTrashView, setExecutionTrashView] = useState(false);
+    const [executionViewMode, setExecutionViewMode] = useState<ExecutionViewMode>('active');
     const [lawsuitViewMode, setLawsuitViewMode] = useState<LawsuitViewMode>('active');
 
     const [trashConfirmTarget, setTrashConfirmTarget] = useState<LooseArchiveFile | null>(null);
+    const [archiveConfirmTarget, setArchiveConfirmTarget] = useState<LooseArchiveFile | null>(null);
     const [lawsuitTrashConfirmTarget, setLawsuitTrashConfirmTarget] = useState<LooseArchiveFile | null>(null);
     const [selectedTrashIds, setSelectedTrashIds] = useState<Set<string>>(new Set());
     const [permanentDeleteOpen, setPermanentDeleteOpen] = useState(false);
-    const [permanentCountdown, setPermanentCountdown] = useState(10);
     const permanentIdsRef = useRef<Array<string | number>>([]);
 
     const previewTimelineEvents = useMemo(
@@ -109,11 +126,28 @@ export function useArchivePortalController({
         [executionTrashPool],
     );
 
+    const executionArchivedPool = useMemo(() => {
+        if (type !== 'executions') return [] as LooseArchiveFile[];
+        return getExecutionArchiveBasePool(files as LooseArchiveFile[], 'archived');
+    }, [files, type]);
+
+    const executionArchivedCountByJurisdiction = useMemo(
+        () => buildExecutionJurisdictionCounts(executionArchivedPool),
+        [executionArchivedPool],
+    );
+
+    const executionArchivedCount = executionArchivedPool.length;
+
+    const executionTrashedCountTotal = executionTrashPool.length;
+
     const executionTrashedCountForFilter = executionTrashCountByJurisdiction[filterType];
 
-    const executionJurisdictionCountsForView = executionTrashView
-        ? executionTrashCountByJurisdiction
-        : executionActiveCountByJurisdiction;
+    const executionJurisdictionCountsForView =
+        executionViewMode === 'trash'
+            ? executionTrashCountByJurisdiction
+            : executionViewMode === 'archived'
+              ? executionArchivedCountByJurisdiction
+              : executionActiveCountByJurisdiction;
 
     const lawsuitTrashedCount = useMemo(() => {
         if (type !== 'lawsuits') return 0;
@@ -138,8 +172,14 @@ export function useArchivePortalController({
     const unifiedArchivedCount = lawsuitArchivedCount + criminalArchivedCount;
 
     useEffect(() => {
-        if (!executionTrashView) setSelectedTrashIds(new Set());
-    }, [executionTrashView]);
+        if (executionViewMode !== 'trash') setSelectedTrashIds(new Set());
+    }, [executionViewMode]);
+
+    useEffect(() => {
+        setSearchQuery('');
+        setFilterType('all');
+        setPerspectiveFilter('all');
+    }, [executionViewMode]);
 
     useEffect(() => {
         if (perspectiveFilter === 'legal_entity') {
@@ -150,27 +190,6 @@ export function useArchivePortalController({
     useEffect(() => {
         if (lawsuitViewMode !== 'trash') setSelectedTrashIds(new Set());
     }, [lawsuitViewMode]);
-
-    useEffect(() => {
-        if (!permanentDeleteOpen) return;
-        let n = 10;
-        setPermanentCountdown(n);
-        const intervalId = window.setInterval(() => {
-            n -= 1;
-            setPermanentCountdown(n);
-            if (n <= 0) {
-                window.clearInterval(intervalId);
-                if (type === 'lawsuits') {
-                    onPermanentlyDeleteLawsuits?.(permanentIdsRef.current);
-                } else {
-                    onPermanentlyDeleteExecutions?.(permanentIdsRef.current);
-                }
-                setPermanentDeleteOpen(false);
-                setSelectedTrashIds(new Set());
-            }
-        }, 1000);
-        return () => window.clearInterval(intervalId);
-    }, [permanentDeleteOpen, onPermanentlyDeleteExecutions, onPermanentlyDeleteLawsuits, type]);
 
     const toggleTrashSelect = useCallback((id: string | number) => {
         const k = String(id);
@@ -187,7 +206,8 @@ export function useArchivePortalController({
         if (type === 'lawsuits' && lawsuitViewMode === 'archived') return 'مخزن أرشيف الإضابير';
         if (type === 'lawsuits') return 'إدارة الدعاوى القضائية (الشاملة) ⚖️';
         if (type === 'transaction') return 'سجل المعاملات';
-        if (type === 'executions' && executionTrashView) return 'سلة مهملات الإضابير التنفيذية';
+        if (type === 'executions' && executionViewMode === 'trash') return 'سلة مهملات الإضابير التنفيذية';
+        if (type === 'executions' && executionViewMode === 'archived') return 'مخزن أرشيف الإضابير التنفيذية';
         if (type === 'executions') return 'مخزن الأضابير التنفيذية';
         if (type === 'deleted') return 'سلة المحذوفات';
         return 'الأرشيف الشامل';
@@ -196,12 +216,12 @@ export function useArchivePortalController({
     const filteredExecutionFiles = useMemo(() => {
         if (type !== 'executions') return files;
         return filterExecutionArchiveFiles(files as LooseArchiveFile[], {
-            mode: executionTrashView ? 'trash' : 'active',
+            mode: executionViewMode,
             jurisdiction: filterType,
             perspective: perspectiveFilter,
             searchQuery,
         });
-    }, [files, type, filterType, perspectiveFilter, searchQuery, executionTrashView]);
+    }, [files, type, filterType, perspectiveFilter, searchQuery, executionViewMode]);
 
     const filteredLawsuitFiles = useMemo(() => {
         if (type !== 'lawsuits') return files;
@@ -312,6 +332,33 @@ export function useArchivePortalController({
         setPermanentDeleteOpen(true);
     }, [selectedTrashIds, files, onPermanentlyDeleteExecutions, onPermanentlyDeleteLawsuits, type]);
 
+    const beginPermanentDeleteForIds = useCallback(
+        (ids: Array<string | number>) => {
+            if (ids.length === 0) return;
+            if (type === 'lawsuits' && !onPermanentlyDeleteLawsuits) return;
+            if (type !== 'lawsuits' && !onPermanentlyDeleteExecutions) return;
+            permanentIdsRef.current = ids;
+            setPermanentDeleteOpen(true);
+        },
+        [onPermanentlyDeleteExecutions, onPermanentlyDeleteLawsuits, type],
+    );
+
+    const confirmPermanentDelete = useCallback(() => {
+        const ids = permanentIdsRef.current;
+        if (ids.length === 0) {
+            setPermanentDeleteOpen(false);
+            return;
+        }
+        if (type === 'lawsuits') {
+            onPermanentlyDeleteLawsuits?.(ids);
+        } else {
+            onPermanentlyDeleteExecutions?.(ids);
+        }
+        setPermanentDeleteOpen(false);
+        setSelectedTrashIds(new Set());
+        permanentIdsRef.current = [];
+    }, [onPermanentlyDeleteExecutions, onPermanentlyDeleteLawsuits, type]);
+
     const hasLawsuitLifecycle =
         type === 'lawsuits' &&
         Boolean(
@@ -323,7 +370,13 @@ export function useArchivePortalController({
 
     const hasExecutionLifecycle =
         type === 'executions' &&
-        Boolean(onMoveExecutionToTrash || onRestoreExecutionFromTrash || onPermanentlyDeleteExecutions);
+        Boolean(
+            onMoveExecutionToTrash ||
+                onArchiveExecution ||
+                onRestoreExecutionFromTrash ||
+                onRestoreArchivedExecution ||
+                onPermanentlyDeleteExecutions,
+        );
 
     const executionFilterSummary = useMemo(() => {
         const parts: string[] = [];
@@ -338,7 +391,7 @@ export function useArchivePortalController({
         dossierSearchQuery,
         setDossierSearchQuery,
         lawsuitJurisdictionTab,
-        setLawsuitJurisdictionTab,
+        setLawsuitJurisdictionTab: setLawsuitJurisdictionTabWithPrefetch,
         viewingCriminal,
         dossierViewMode,
         setDossierViewMode,
@@ -352,22 +405,27 @@ export function useArchivePortalController({
         setPerspectiveFilter,
         executionPreviewFile,
         setExecutionPreviewFile,
-        executionTrashView,
-        setExecutionTrashView,
+        executionViewMode,
+        setExecutionViewMode,
+        executionArchivedCount,
         lawsuitViewMode,
         setLawsuitViewMode,
         trashConfirmTarget,
         setTrashConfirmTarget,
+        archiveConfirmTarget,
+        setArchiveConfirmTarget,
         lawsuitTrashConfirmTarget,
         setLawsuitTrashConfirmTarget,
         selectedTrashIds,
         setSelectedTrashIds,
         permanentDeleteOpen,
         setPermanentDeleteOpen,
-        permanentCountdown,
+        confirmPermanentDelete,
+        beginPermanentDeleteForIds,
         permanentIdsRef,
         previewTimelineEvents,
         executionTrashedCountForFilter,
+        executionTrashedCountTotal,
         executionJurisdictionCountsForView,
         lawsuitTrashedCount,
         unifiedArchivedCount,

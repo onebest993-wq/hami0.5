@@ -16,9 +16,12 @@ export {
     migrateLegacyOrdersToPlacements,
     defaultMainSpan,
     isHomeWidgetId,
+    REPOSITORY_LEGACY_WIDGET_IDS,
+    isRepositoryLegacyWidget,
+    filterDisplayHomeWidgets,
 } from './homeWidgetPlacements';
 
-import type { BackgroundPresetId } from './backgroundPresets';
+import { isDockShellOrderWidget } from './homeWidgetPlacements';
 import type { HomeWidgetId, HomeWidgetPlacements } from './homeWidgetPlacements';
 import {
     buildDefaultPlacements,
@@ -29,6 +32,7 @@ import {
     normalizeBackgroundPatternOpacity,
     normalizeGlassOpacity,
 } from './surfaceAppearance';
+import type { BackgroundPresetId } from './backgroundPresets';
 
 export const HOME_SCROLL_BLOCK_IDS = ['alerts', 'hub', 'forum'] as const;
 export type HomeScrollBlockId = (typeof HOME_SCROLL_BLOCK_IDS)[number];
@@ -36,7 +40,7 @@ export type HomeScrollBlockId = (typeof HOME_SCROLL_BLOCK_IDS)[number];
 export const HOME_HUB_TILE_IDS = ['hubExecution', 'hubLawsuit', 'hubTransaction'] as const;
 export type HomeHubTileId = (typeof HOME_HUB_TILE_IDS)[number];
 
-export const DOCK_ITEM_IDS = ['dockNotepad', 'dockCalendar', 'dockVault', 'dockTasks', 'dockQuickNote'] as const;
+export const DOCK_ITEM_IDS = ['dockRepository', 'dockNotepad', 'dockCalendar', 'dockVault', 'dockTasks', 'dockQuickNote'] as const;
 export type DockItemId = (typeof DOCK_ITEM_IDS)[number];
 
 export type HomeCustomizableId = HomeScrollBlockId | HomeHubTileId | DockItemId | 'dockShell';
@@ -60,7 +64,7 @@ export interface HomeBlockStyleOverride {
     patternOpacity?: number;
     /** إطار الحاوية — undefined = من الإعدادات العامة */
     containerBorder?: boolean;
-    /** رفع/خفض حاوية الدوك عن موضعها الافتراضي (px) — dockShell فقط */
+    /** رفع/خفض عن موضعه الافتراضي (px) — dockShell (الحاوية) أو dockQuickNote (شريط الملاحظة) */
     dockLiftPx?: number;
 }
 
@@ -70,6 +74,10 @@ export interface HomeLayoutSettings {
     hubTileOrder?: HomeHubTileId[];
     dockItemOrder?: DockItemId[];
     dockVisible: boolean;
+    /** إظهار شريط «تحدث أو اكتب» */
+    quickNoteVisible?: boolean;
+    /** ترتيب عناصر الدوك قبل الإخفاء — لاستعادتها */
+    dockHiddenWidgetIds?: HomeWidgetId[];
     overrides: Partial<Record<HomeCustomizableId | HomeWidgetId, HomeBlockStyleOverride>>;
 }
 
@@ -80,6 +88,8 @@ export const DOCK_ITEM_ORDER_DEFAULT: DockItemId[] = [...DOCK_ITEM_IDS];
 export const HOME_LAYOUT_DEFAULTS: HomeLayoutSettings = {
     placements: buildDefaultPlacements(),
     dockVisible: true,
+    quickNoteVisible: false,
+    dockHiddenWidgetIds: [],
     overrides: {},
 };
 
@@ -155,9 +165,26 @@ export function normalizeHomeLayout(raw: unknown): HomeLayoutSettings {
     const dockVisible =
         typeof obj.dockVisible === 'boolean'
             ? obj.dockVisible
-            : getWidgetsInZone(placements, 'dock').length > 0;
+            : getWidgetsInZone(placements, 'dock').filter(isDockShellOrderWidget).length > 0;
 
-    return { placements, dockVisible, overrides };
+    const quickNoteVisible =
+        typeof obj.quickNoteVisible === 'boolean' ? obj.quickNoteVisible : false;
+
+    const dockHiddenWidgetIds = Array.isArray(obj.dockHiddenWidgetIds)
+        ? obj.dockHiddenWidgetIds.filter(
+              (id): id is HomeWidgetId => typeof id === 'string' && isDockShellOrderWidget(id as HomeWidgetId),
+          )
+        : [];
+
+    const resolvedPlacements = placements;
+
+    return {
+        placements: resolvedPlacements,
+        dockVisible,
+        quickNoteVisible,
+        dockHiddenWidgetIds,
+        overrides,
+    };
 }
 
 export function moveOrderItem<T>(order: T[], index: number, direction: -1 | 1): T[] {

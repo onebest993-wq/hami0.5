@@ -1,5 +1,6 @@
 import React from 'react';
 import { resolvePatternOverlayStyle } from '@/app/services/settings/surfaceAppearance';
+import { shouldRenderDecorativeLayers } from '@/app/runtime/mobileRuntimePolicy';
 import type { AppearanceSettings } from '@/app/services/settings/types';
 
 type DashboardPatternOverlayProps = {
@@ -12,6 +13,7 @@ type DashboardPatternOverlayProps = {
 
 /** طبقة زخرفة — شفافية + ضبابية قابلة للضبط */
 export function DashboardPatternOverlay({ appearance, enabled }: DashboardPatternOverlayProps) {
+    if (!shouldRenderDecorativeLayers()) return null;
     const style = resolvePatternOverlayStyle(appearance, enabled);
     if (!style) return null;
 

@@ -6,20 +6,20 @@ export const VAULT_TRAVERTINE_MUTED = '#C9BCA8';
 export const VAULT_COPPER = '#B87333';
 
 export const VAULT_OVERLAY =
-    'fixed inset-0 z-[99999] flex items-start justify-center bg-[#080f18]/92 backdrop-blur-md overflow-hidden isolate';
+    'hami-vault-overlay fixed inset-0 z-[99999] flex items-start justify-center bg-[#080f18] overflow-hidden isolate';
 
 export const VAULT_PANEL =
-    'w-full max-w-4xl h-[100dvh] max-h-[100dvh] mx-auto flex flex-col relative overflow-hidden ' +
+    'hami-vault-panel w-full max-w-4xl h-[100dvh] max-h-[100dvh] mx-auto flex flex-col relative overflow-hidden ' +
     'shadow-[0_0_80px_rgba(14,27,46,0.45)] bg-[#0E1B2E] border-x border-[#B87333]/18';
 
 export const VAULT_HEADER =
     'shrink-0 px-5 py-4 border-b border-[#B87333]/15 ' +
     'bg-gradient-to-l from-[#132238] via-[#0E1B2E] to-[#0a1524]';
 
-export const VAULT_SECTION = 'shrink-0 px-5 py-3.5 border-b border-[#B87333]/10 bg-[#0E1B2E]/95';
+export const VAULT_SECTION = 'shrink-0 px-5 py-3.5 border-b border-[#B87333]/10 bg-[#0E1B2E]';
 
 export const VAULT_BODY =
-    'flex-1 min-h-0 overflow-y-auto px-5 py-5 custom-scrollbar bg-[#0E1B2E]';
+    'hami-vault-body flex-1 min-h-0 overflow-y-auto px-5 py-5 custom-scrollbar bg-[#0E1B2E]';
 
 /** لوحة ترافرتين موحّدة — بحث + تصنيفات */
 export const VAULT_TRAVERTINE_HUB =
@@ -30,7 +30,7 @@ export const VAULT_TRAVERTINE_HUB =
 export const VAULT_COPPER_DIVIDER = 'h-px mx-3 bg-gradient-to-r from-transparent via-[#B87333]/45 to-transparent';
 
 export const VAULT_INPUT =
-    'w-full bg-[#0E1B2E]/40 border border-[#B87333]/22 rounded-xl px-3 py-2.5 text-[#E8E4DC] text-sm ' +
+    'w-full bg-[#132238] border border-[#B87333]/22 rounded-xl px-3 py-2.5 text-[#E8E4DC] text-sm ' +
     'placeholder:text-[#C9BCA8]/45 outline-none transition-all ' +
     'focus:border-[#B87333]/45 focus:ring-1 focus:ring-[#B87333]/12';
 
@@ -52,14 +52,18 @@ export const VAULT_SHEET =
     'w-full sm:max-w-md bg-[#132238] border border-[#B87333]/22 rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col';
 
 export const VAULT_SHEET_OVERLAY =
-    'absolute inset-0 z-[50] flex items-end sm:items-center justify-center bg-[#080f18]/88 backdrop-blur-sm';
+    'absolute inset-0 z-[50] flex items-end sm:items-center justify-center bg-[#080f18]';
+
+/** فوق طبقة المستودع الذكي (z-120) — عند العرض داخل المستودع الموحّد */
+export const VAULT_SHEET_OVERLAY_VIEWPORT =
+    'fixed inset-0 z-[130] flex items-end sm:items-center justify-center bg-[#080f18]/94 backdrop-blur-sm overscroll-contain pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]';
 
 export const VAULT_CARD =
-    'rounded-2xl border border-[#D9CFC0]/18 bg-gradient-to-br from-[#E6DED0]/8 via-[#132238]/55 to-[#0E1B2E]/80 ' +
-    'backdrop-blur-sm shadow-[0_12px_40px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(230,222,208,0.06)]';
+    'rounded-2xl border border-[#D9CFC0]/18 bg-gradient-to-br from-[#1a2840] via-[#132238] to-[#0E1B2E] ' +
+    'shadow-[0_12px_40px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(230,222,208,0.06)]';
 
 export const VAULT_CHIP_ACTIVE =
-    'bg-[#0E1B2E]/55 border-[#B87333]/45 text-[#E8E4DC] shadow-[0_0_12px_rgba(184,115,51,0.12)]';
+    'bg-[#132238] border-[#B87333]/45 text-[#E8E4DC] shadow-[0_0_12px_rgba(184,115,51,0.12)]';
 
 export const VAULT_CHIP_IDLE =
     'bg-[#E6DED0]/8 border-[#D9CFC0]/22 text-[#C9BCA8] hover:bg-[#E6DED0]/14 hover:border-[#B87333]/28';

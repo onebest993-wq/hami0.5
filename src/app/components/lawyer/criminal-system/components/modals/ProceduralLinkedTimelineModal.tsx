@@ -7,6 +7,7 @@ import {
 } from '../../criminalStageUtils';
 import { ProceduralBacklinks } from '../ProceduralBacklinks';
 import type { ProceduralLinkReference, ProceduralNavTarget } from '../../proceduralContainersEngine';
+import { CriminalModalPortal, CRIMINAL_MODAL_Z } from '../../criminalModalPortal';
 
 export type ProceduralLinkedTimelineModalProps = {
     open: boolean;
@@ -31,10 +32,7 @@ export const ProceduralLinkedTimelineModal = ({
     const details = String(event.description ?? '').trim();
 
     return (
-        <div
-            className="fixed inset-0 z-[224] bg-black/80 backdrop-blur-sm p-4 flex items-center justify-center print:hidden"
-            dir="rtl"
-        >
+        <CriminalModalPortal zIndex={CRIMINAL_MODAL_Z.linkedTimeline}>
             <div className="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 overflow-hidden">
                 <div className="p-4 border-b border-slate-700 bg-slate-800/50 flex items-center justify-between gap-3">
                     <div className="text-white font-black text-sm">📅 حدث التايم لاين</div>
@@ -81,6 +79,6 @@ export const ProceduralLinkedTimelineModal = ({
                     </div>
                 </div>
             </div>
-        </div>
+        </CriminalModalPortal>
     );
 };

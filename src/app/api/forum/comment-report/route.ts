@@ -29,7 +29,7 @@ export async function POST(request: Request): Promise<Response> {
             return jsonResponse(400, { ok: false, error: 'commentId و reason مطلوبان' });
         }
         // إعادة استخدام نفس rate limit للبلاغات (بمفتاح مختلف لكي لا يتداخل مع تقرير المنشورات)
-        if (!checkForumActionRateLimit(auth.userId, 'report', { postId: `c:${payload.commentId}` })) {
+        if (!(await checkForumActionRateLimit(auth.userId, 'report', { postId: `c:${payload.commentId}` }))) {
             return jsonResponse(429, { ok: false, error: 'لقد أبلغت عن هذا التعليق مسبقاً' });
         }
         const result = await ForumRepository.reportComment(

@@ -51,6 +51,8 @@ async function hydrateGroups(rows: ForumGroupRow[], viewerId: string | null): Pr
     });
 }
 
+import { escapePostgrestIlike } from './forumGroupSearch';
+
 export const ForumGroupRepository = {
     isConfigured: isForumSupabaseConfigured,
 
@@ -63,7 +65,8 @@ export const ForumGroupRepository = {
         let request = admin.from('forum_groups').select('*').order('created_at', { ascending: false });
         const q = query.trim();
         if (q) {
-            request = request.or(`name.ilike.%${q}%,description.ilike.%${q}%`);
+            const escaped = escapePostgrestIlike(q);
+            request = request.or(`name.ilike.%${escaped}%,description.ilike.%${escaped}%`);
         }
         const { data, error } = await request;
         if (error || !data) {

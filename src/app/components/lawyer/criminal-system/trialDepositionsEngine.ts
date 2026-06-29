@@ -1,4 +1,4 @@
-import type { Statement, StatementContentHighlight } from './criminalStore';
+import type { Statement, StatementContentHighlight } from './criminalCaseModel';
 import type { StatementGiverType } from './statementGiverDisplay';
 import { resolveStatementPersonName } from './statementGiverDisplay';
 import { sanitizeContentHighlights } from './statementContentHighlights';

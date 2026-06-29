@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { LawyerRequest } from '../criminalStore';
 import { canAddLawyerRequestFollowUpMargin } from '../lawyerRequestsEngine';
+import { CriminalModalPortal, CRIMINAL_MODAL_Z } from '../criminalModalPortal';
 
 export const requestCardStarredClass = (isStarred?: boolean) =>
     isStarred === true ? 'border-[#E6C673]/50 ring-1 ring-[#E6C673]/40' : '';
@@ -98,10 +99,10 @@ export const RequestMarginPromptModal = ({
     const [text, setText] = useState('');
     if (!open) return null;
     return (
-        <div
-            className="fixed inset-0 z-[224] bg-black/75 p-4 flex items-center justify-center print:hidden"
-            dir="rtl"
+        <CriminalModalPortal
+            zIndex={CRIMINAL_MODAL_Z.linkedTimeline}
             onClick={onClose}
+            className="!bg-black/75"
         >
             <div
                 className="w-full max-w-sm rounded-xl border border-slate-700 bg-slate-900 p-4 space-y-3 shadow-2xl"
@@ -145,7 +146,7 @@ export const RequestMarginPromptModal = ({
                     </button>
                 </div>
             </div>
-        </div>
+        </CriminalModalPortal>
     );
 };
 

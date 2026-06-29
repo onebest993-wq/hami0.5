@@ -3,10 +3,9 @@ import {
     clearBffCryptoWrapCredential,
     setBffCryptoWrapCredential,
 } from '@/app/utils/bffCryptoSession';
+import { isBffAuthEnabled } from '@/app/utils/bffAuthFlags';
 
-export function isBffAuthEnabled(): boolean {
-    return import.meta.env.VITE_BFF_AUTH === 'true';
-}
+export { isBffAuthEnabled } from '@/app/utils/bffAuthFlags';
 
 type BffSessionResponse = {
     ok?: boolean;

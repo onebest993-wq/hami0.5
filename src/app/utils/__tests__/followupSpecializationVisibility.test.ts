@@ -118,8 +118,9 @@ describe('followupSpecializationVisibility', () => {
         expect(flags.showSpecificDeliveryFieldProcedures).toBe(false);
         expect(flags.showSpecificDeliverySurveyorCard).toBe(false);
         expect(flags.showSpecificDeliveryConversionCard).toBe(false);
-        expect(flags.hidePersonalCoerciveFollowupTab).toBe(false);
-        expect(flags.hideCoerciveSeizureSalaryAndProperty).toBe(false);
+        expect(flags.hidePersonalCoerciveFollowupTab).toBe(true);
+        expect(flags.hideCoerciveSeizureSalaryAndProperty).toBe(true);
+        expect(flags.hideFollowupSeizureRequestsTab).toBe(false);
         expect(flags.hideFollowupCoerciveTab).toBe(false);
         expect(flags.showFinancialGuarantorRequestOnly).toBe(true);
     });

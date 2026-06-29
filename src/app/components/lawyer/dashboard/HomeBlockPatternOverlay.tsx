@@ -8,6 +8,7 @@ import {
     resolvePatternPreviewStyle,
 } from '@/app/services/settings/surfaceAppearance';
 import { resolveHomeBlockAccent } from '@/app/services/settings/resolveHomeBlockStyle';
+import { shouldRenderDecorativeLayers } from '@/app/runtime/mobileRuntimePolicy';
 
 export function HomeBlockPatternOverlay({
     override,
@@ -17,6 +18,7 @@ export function HomeBlockPatternOverlay({
     themePrimary: string;
 }) {
     const { settings } = useLawyerSettings();
+    if (!shouldRenderDecorativeLayers(settings.performance.litePerformance)) return null;
     const presetId = override?.backgroundPreset;
     if (!presetId || presetId === 'none') return null;
 

@@ -7,6 +7,7 @@ describe('calendarDossierSync', () => {
     beforeEach(() => {
         saveLawsuitFilesRaw([]);
         vi.spyOn(CalendarDB, 'saveEvent').mockResolvedValue(undefined as never);
+        vi.spyOn(CalendarDB, 'saveEventsBatch').mockResolvedValue(undefined as never);
         vi.spyOn(CalendarDB, 'getEvents').mockResolvedValue([]);
     });
 
@@ -52,6 +53,6 @@ describe('calendarDossierSync', () => {
         // 🛡️ WHITELIST: فقط appointments تُسجَّل، الـ tasks مُستبعدة
         expect(stats.lawsuitAppointments).toBe(2);
         expect(stats.lawsuitTasks).toBe(0);
-        expect(CalendarDB.saveEvent).toHaveBeenCalled();
+        expect(CalendarDB.saveEventsBatch).toHaveBeenCalled();
     });
 });

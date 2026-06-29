@@ -865,6 +865,9 @@ export interface ExecutionFile {
     /** تاريخ نقل الإضبارة إلى سلة المهملات (ISO) — غيابه = غير محذوفة */
     executionTrashDeletedAt?: string | null;
 
+    /** تاريخ أرشفة الإضبارة (ISO) — غيابه = غير مؤرشفة */
+    executionArchivedAt?: string | null;
+
     /** أخفى المحامي إشارة «عدم حضور المدين» يدوياً (بعد إعلان انتهاء المدة دون حضور) */
     debtor_absence_badge_dismissed?: boolean;
     
@@ -1193,6 +1196,17 @@ export interface ExecutionFile {
     specificDeliveryItemName?: string;
     /** تسليم شيء معين — منقول | غير منقول */
     specificDeliveryItemNature?: 'movable' | 'immovable';
+    /** تسليم شيء معين — قائمة الأشياء المحكوم بتسليمها (متعددة) */
+    specificDeliveryItems?: Array<{
+        id: string;
+        name: string;
+        nature: 'movable' | 'immovable';
+        status: 'pending' | 'financialized';
+        financializedAmount?: number;
+        financializedAt?: string;
+        declaredDestroyed?: boolean;
+        judgmentValueIqd?: number;
+    }>;
     /** بعد تحويل المطالبة مالياً لتعذر التسليم */
     specificDeliveryFinancialized?: boolean;
     specificDeliveryConvertedAmount?: number;
@@ -1295,6 +1309,14 @@ export interface ExecutionFile {
     eviction_assets_tab_unlocked?: boolean;
     /** مصاريف مباشرة على إضبارة التخلية (تتبع — لا تُدمج تلقائياً في المتبقي إلا إذا ربطت لاحقاً بدفعة) */
     eviction_case_expenses?: Array<{ id: string; amount: number; note: string; date: string }>;
+    encroachment_case_expenses?: Array<{
+        id: string;
+        amount: number;
+        note: string;
+        date: string;
+        requestTitle: string;
+        workflowKey: string;
+    }>;
     /** طُلِب صراحةً من المحامي صرف الأتعاب المحكومة (يشغّل احتساب رسم التحصيل 3% في مسار التخلية) */
     eviction_lawyer_fee_requested?: boolean;
     /** تاريخ أول إخبار بالتنفيذ — ثابت لحساب مهلة الـ7 أيام ولا يُستبدل بالتبليغات اللاحقة */

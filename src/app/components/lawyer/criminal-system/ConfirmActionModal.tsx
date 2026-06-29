@@ -1,4 +1,5 @@
 import React from 'react';
+import { CriminalModalPortal, CRIMINAL_MODAL_Z } from './criminalModalPortal';
 
 export type ConfirmActionModalProps = {
     open: boolean;
@@ -25,7 +26,7 @@ export const ConfirmActionModal = ({
     if (!open) return null;
 
     return (
-        <div className="fixed inset-0 z-[240] bg-black/80 backdrop-blur-sm p-4 flex items-center justify-center print:hidden" dir="rtl">
+        <CriminalModalPortal zIndex={CRIMINAL_MODAL_Z.nested} className="bg-black/80">
             <div
                 className={`w-full max-w-sm rounded-2xl border bg-slate-900 overflow-hidden ${
                     danger ? 'border-red-500/60 shadow-lg shadow-red-950/40' : 'border-slate-700'
@@ -73,7 +74,7 @@ export const ConfirmActionModal = ({
                     </div>
                 </div>
             </div>
-        </div>
+        </CriminalModalPortal>
     );
 };
 

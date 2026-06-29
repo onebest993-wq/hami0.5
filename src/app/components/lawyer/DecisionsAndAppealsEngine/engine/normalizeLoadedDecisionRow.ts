@@ -124,14 +124,7 @@ export function normalizeLoadedDecisionRow(d: Decision): Decision {
         row.executorOutcome = 'approved';
         row.status = 'accepted';
     }
-    const storedWaivedAppeal =
-        row.noAppealChosen === true &&
-        (row.appealStatus === 'final' ||
-            (Array.isArray(row.appealTimelineLogs) &&
-                row.appealTimelineLogs.some((l) =>
-                    /دون تظلم|دون طعن|لا حاجة للطعن|لا حاجة للتمييز/.test(String(l.message || ''))
-                )));
-    if (!storedWaivedAppeal) {
+    if (row.noAppealChosen !== true) {
         row.noAppealChosen = false;
     }
     if (!Array.isArray(row.appealTimelineLogs)) row.appealTimelineLogs = [];
@@ -251,12 +244,8 @@ export function normalizeLoadedDecisionRow(d: Decision): Decision {
         !row.appealResult &&
         !row.appealActor &&
         row.appealPhase == null;
-    /** لم يُثبَّت طعن فعلي: لا تظلم/تمييز، أو تمييز دون حفظ رقم القرار التمييزي */
-    const tamyeezFiledWithoutNumber =
-        row.appealStatus === 'tamyeez_filed' &&
-        row.appealMethod === 'tamyeez' &&
-        !String(row.tamyeezDecisionNumber || '').trim();
-    const shouldAutoCloseIdleAppeal = noOpenAppealPipeline || tamyeezFiledWithoutNumber;
+    /** لم يُثبَّت طعن فعلي: لا تظلم/تمييز مفتوح */
+    const shouldAutoCloseIdleAppeal = noOpenAppealPipeline;
     if (
         execDecidedForAppealClock &&
         row.appealStatus !== 'final' &&

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { NOTES_VAULT_CHANGED } from '@/app/services/notesSyncBridge';
 import {
     getCachedGlobalSearchExtras,
@@ -19,7 +19,6 @@ export interface UseSearchExtrasReturn {
     extras: GlobalSearchExtras | null;
     profileLine: string;
     isLoadingExtras: boolean;
-    reloadExtras: () => void;
 }
 
 export function useSearchExtras({ userId, overlayOpen }: UseSearchExtrasOptions): UseSearchExtrasReturn {
@@ -29,6 +28,13 @@ export function useSearchExtras({ userId, overlayOpen }: UseSearchExtrasOptions)
     const [isLoadingExtras, setIsLoadingExtras] = useState(() => !getCachedGlobalSearchExtras(userId));
 
     useEffect(() => {
+        if (!overlayOpen) {
+            const cached = getCachedGlobalSearchExtras(userId);
+            setExtras(cached);
+            setIsLoadingExtras(false);
+            return;
+        }
+
         let cancelled = false;
         const cached = getCachedGlobalSearchExtras(userId);
         if (cached) {
@@ -55,7 +61,7 @@ export function useSearchExtras({ userId, overlayOpen }: UseSearchExtrasOptions)
         return () => {
             cancelled = true;
         };
-    }, [userId, extrasVersion]);
+    }, [userId, extrasVersion, overlayOpen]);
 
     useEffect(() => {
         const onVault = () => {
@@ -72,8 +78,9 @@ export function useSearchExtras({ userId, overlayOpen }: UseSearchExtrasOptions)
         const onFocus = () => {
             if (timer !== undefined) window.clearTimeout(timer);
             timer = window.setTimeout(() => {
-                invalidateGlobalSearchExtrasCache(userId);
-                setExtrasVersion((v) => v + 1);
+                void loadGlobalSearchExtras(userId).then((loaded) => {
+                    setExtras(loaded);
+                });
             }, FOCUS_REFRESH_MS);
         };
         window.addEventListener('focus', onFocus);
@@ -83,10 +90,5 @@ export function useSearchExtras({ userId, overlayOpen }: UseSearchExtrasOptions)
         };
     }, [overlayOpen, userId]);
 
-    const reloadExtras = useCallback(() => {
-        invalidateGlobalSearchExtrasCache(userId);
-        setExtrasVersion((v) => v + 1);
-    }, [userId]);
-
-    return { extras, profileLine, isLoadingExtras, reloadExtras };
+    return { extras, profileLine, isLoadingExtras };
 }

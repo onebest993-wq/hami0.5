@@ -1,0 +1,585 @@
+{
+  "generatedAt": "2026-06-28T20:43:11.484Z",
+  "note": "قراءة فقط — راجع confidence قبل أي حذف. التنفيذ/الدعاوى/الأرشيف مستثناة من orphanCandidates.",
+  "summary": {
+    "zombieOverlays": 0,
+    "zombieOverlaysDeferred": 0,
+    "deprecatedComments": 103,
+    "unusedLazyExports": 0,
+    "orphanCandidates": 12,
+    "placeholderNotificationRoutes": 0
+  },
+  "zombieOverlays": [],
+  "zombieOverlaysDeferred": [],
+  "warmOverlaysSingleFile": [],
+  "deprecated": [
+    {
+      "file": "src/app/api/laws/devLawsLocalStore.ts",
+      "snippet": "/** @deprecated استخدم lawBundleStore — إبقاء للتوافق مع الاختبارات القديمة. */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/components/lawyer/criminal-system/caseMergeTimeline.ts",
+      "snippet": "/** عرض مؤقت في الذاكرة فقط — لا يُخزَّن في Zustand. */ export type MergedTimelineEventView = TimelineEvent & { isMerged?: boolean; originCaseNumber?: string; o",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/criminal-system/criminalCaseModel.ts",
+      "snippet": "/** المكتب يُمثّل هذا الطرف (توكل) — يُحدَّد من الواجهة بجانب الاسم. */ isOfficeClient?: boolean; isJuvenile?: boolean; isUnderSeven?: boolean; birthDate?: stri",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/criminal-system/criminalCaseModel.ts",
+      "snippet": "/** جهة الشهادة — مشتكي أو متهم (لا يجتمع الطرفان). */ witnessPartySide?: 'complainant' | 'defendant'; /** الأطراف التي يخصّهم الشاهد — اختيار متعدد ضمن جهة واح",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/criminal-system/criminalCaseModel.ts",
+      "snippet": "/** قالب نوع الطلب من القائمة (بما فيها «إجراء مخصص»). */ proceduralTemplate?: string; /** للإجراء المخصص — قابلية الطعن التمييزي. */ isAppealable?: boolean; /*",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/criminal-system/criminalCaseModel.ts",
+      "snippet": "/** سجل الطعن/التدخل التمييزي النشط. */ cassationProceeding?: CassationProceeding; isArchived?: boolean; notes?: string; /** حالة الارتباط الإداري — merged = إض",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/criminal-system/criminalStageUtils.ts",
+      "snippet": "/** صفة المكتب في الدعوى — القائمة الموحدة الوحيدة في نموذج الإنشاء. */ export const OFFICE_REPRESENTATION_OPTIONS = [ { value: 'complainant_side' as const, lab",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/criminal-system/criminalStageUtils.ts",
+      "snippet": "/** * أسباب غلق الدعوى الجزائية في مرحلة التحقيق — مادة 130 من أصول المحاكمات الجزائية العراقي. * تُستخدم في قرارات [غلق نهائي / غلق مؤقت] كحقل إجباري. */ expor",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/criminal-system/criminalStore.ts",
+      "snippet": "/** سياق تفريق الدعوى الجاري — null عند عدم وجود عملية تفريق. */ pendingSeveranceContext: PendingSeveranceContext | null; setBasicField: <K extends keyof Crimin",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/criminal-system/juvenileInvestigationRules.ts",
+      "snippet": "/** اسم محكمة التحقيق المقترح عند إنشاء إضبارة حدث. */ export const JUVENILE_INVESTIGATION_COURT_NAME = 'محكمة تحقيق الأحداث'; /** محكمة الموضوع للأحداث — إحالة",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/criminal-system/juvenileMixedCaseSplitEngine.ts",
+      "snippet": "/** اسم محكمة التحقيق الافتراضي للمسار العام (بالغ / قضية مشتركة). */ export const STANDARD_INVESTIGATION_COURT_NAME = 'محكمة التحقيق'; /** أسماء محكمة قديمة/اف",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/criminal-system/proceduralContainersEngine.ts",
+      "snippet": "/** ربط سياقي اختياري — نص حر (جلسة، طلب، طرف…) */ export type ProceduralContextRef = string; export type ProceduralNoteItem = { type: 'note'; id: string; title",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/criminal-system/proceduralRequestTypes.ts",
+      "snippet": "/** طلب محامٍ مخصص — مسار pending / approved / rejected. */ export const CUSTOM_LAWYER_MOTION_TYPE = 'طلب محامٍ مخصص (إدخال يدوي)'; /** قرار قضائي مخصص — يُسجَّ",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/criminal-system/proceduralRequestTypes.ts",
+      "snippet": "/** قرار توقيف موحّد — يُدار بمحرك الموقوفية (بدء/انتهاء + executed). */ export const DETENTION_DECISION_TEMPLATE = 'قرار توقيف المتهم'; export const BAIL_RELEA",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/criminal-system/proceduralRequestTypes.ts",
+      "snippet": "/** انقضاء/سقوط — يُسجَّل عبر `issueStageDecision` عند توثيق القرار القضائي. */ export const INVESTIGATION_EXPIRATION_JUDICIAL_TEMPLATE = 'انقضاء / سقوط الدعوى ",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/criminal-system/proceduralRequestTypes.ts",
+      "snippet": "/** عناوين مجموعات القائمة المنسدلة في مودال الطلب/القرار. */ export const JUDICIAL_DECISION_OPTGROUP_LABEL = '🏛️ قرارات وأوامر قضائية'; export const LAWYER_MO",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/criminal-system/requestActionEngine.ts",
+      "snippet": "/** أمر قاضٍ صادر على طلب محامٍ (موافقة أو رفض) — يُعامل كقرار في السجل. */ export function isLawyerRequestJudgeOrder(decision: JudicialDecision): boolean { ret",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/criminal-system/stageExpirationReasons.ts",
+      "snippet": "/** أسباب انقضاء الدعوى — مادة 130 وما يماثلها */ export const STAGE_EXPIRATION_REASONS = [ { value: 'death', label: 'وفاة المتهم' }, { value: 'amnesty', label:",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/criminal-system/stageFinalDecisionEngine.ts",
+      "snippet": "/** أنواع القرار الختامي للمرحلة — القائمة الرئيسية في النموذج. */ export type StageFinalDecisionKind = | 'conviction_penalty' | 'acquittal' | 'release' | 'crim",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/criminal-system/trialDepositionsEngine.ts",
+      "snippet": "/** مقطع مُحدّد من إفادة المحكمة الحالية (اختياري) */ trialExcerpt?: string; linkedKind?: TrialDepositionLinkKind; linkedId?: string; /** @deprecated ترحيل — مق",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/criminal-system/trialDepositionsEngine.ts",
+      "snippet": "/** @deprecated ترحيل — مقارنة نصية قديمة */",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/dashboard/lawyerHomeTheme.ts",
+      "snippet": "/** Hami Sovereign — design tokens */ export const SOV_GOLD = '#E6C673'; export const SOV_GOLD_DIM = '#B8943F'; export const SOV_PEARL = '#F5F0E6'; export const",
+      "deferred": false
+    },
+    {
+      "file": "src/app/components/lawyer/DecisionsAndAppealsEngine/types.ts",
+      "snippet": "/** تاريخ صدور قرار الطعن (مثل: 2026-04-30) */ appealDecisionDate?: string; executorOutcome?: 'pending' | 'approved' | 'rejected' | 'alternative' | 'withdrawn';",
+      "deferred": false
+    },
+    {
+      "file": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealDates.ts",
+      "snippet": "/** مهلة التظلم أمام المنفذ — 3 أيام تقويمية من يوم الإصدار */ export const GRIEVANCE_APPEAL_WINDOW_DAYS = 3; /** مهلة التمييز — 7 أيام تقويمية من يوم الإصدار أ",
+      "deferred": false
+    },
+    {
+      "file": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/manualExecutorLedger.ts",
+      "snippet": "/** قرار «إضافة قرار» — النسخة أو الأصل المرتبط */ export function isManualExecutorAppealRow(row: Decision, all: Decision[]): boolean { if (isManualExecutorLedg",
+      "deferred": false
+    },
+    {
+      "file": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/manualExecutorLedger.ts",
+      "snippet": "/** قرار «إضافة قرار» فقط — لا مسار طعن */ export function isExecutorManualLedgerHub(hub: Decision): boolean { return isManualExecutorLedgerDecision(hub); } fun",
+      "deferred": false
+    },
+    {
+      "file": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/manualExecutorLedger.ts",
+      "snippet": "/** @deprecated استخدم buildManualExecutorCassationRadLaheezaPatch */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appealEngineCore.ts",
+      "snippet": "/** @deprecated Import from ./appeal-engine — kept for stable path */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/components/lawyer/execution/executionModalStack.ts",
+      "snippet": "/** @deprecated استورد من executionDashboardConstants — يُبقى للتوافق مع المسارات القديمة */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/components/lawyer/ExecutionCreationView/hooks/executionFormUtils.ts",
+      "snippet": "/** مطالبات أحوال شخصية يمكن الجمع بينها في إضبارة واحدة */ export const SHARIA_LINKED_FINANCIAL_CLAIM_VALUES = [ 'نفقة', 'نفقة ماضية', 'نفقة عدة', 'تعويض عن طل",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/ExecutionCreationView/hooks/executionFormUtils.ts",
+      "snippet": "/** @deprecated */",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/ExecutionCreationView/hooks/useAlimonyCalculator.ts",
+      "snippet": "/** النفقة الماضية = (المبلغ الشهري ÷ 30) × عدد الأيام المحتسبة */ export function computePastAlimonyAmount(monthlyAmount: number, billableDays: number): number",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/ExecutionDashboard/components/LawReferencePanel.tsx",
+      "snippet": "/** @deprecated الحالة من Zustand — يُتجاهل */",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/ExecutionDashboard/components/LawReferencePanel.tsx",
+      "snippet": "/** @deprecated استخدم closeModal في المتجر */",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/ExecutionDashboard/executionFollowupTabPrefetch.ts",
+      "snippet": "/** تحميل مسبق لتبويب واحد من محضر المتابعة — لا يجمع كل التبويبات في موجة واحدة */ export type ExecutionFollowupTabPrefetchId = | 'personal' | 'coercive' | 'fi",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/ExecutionDashboard/followupModalContext.tsx",
+      "snippet": "/** Snapshot passed from ExecutionDashboard while محضر المتابعة is open. */ export type FollowupModalSnapshot = Record<string, any>; const FollowupModalStoreCon",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/ExecutionDashboard/hooks/executionFollowupModalSnapshotFieldKeys.ts",
+      "snippet": "/** @deprecated استورد من `@/app/components/lawyer/ExecutionDashboard/followupSnapshotFieldKeys` */",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/ExecutionDashboard/hooks/executionShellOverlayPropKeys.ts",
+      "snippet": "/** مفاتيح shell overlays (بدون محضر المتابعة) — مُولَّد من scripts/generate-shell-overlay-infra.mjs */ export const EXECUTION_SHELL_OVERLAY_PROP_KEYS = [ 'acti",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/ExecutionDashboard/utils/amountInput.ts",
+      "snippet": "/** @deprecated استورد من @/app/utils/execution/amountInput */",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/Form_Urgent_Actions/constants.ts",
+      "snippet": "/** Phase 46 — تسميات الأطراف في الإقرار (المستفيد يبادر) */ export const IQRAR_PARTY_LABELS = { party1: 'المُقَر له (المستفيد طالب الإقرار)', party2: 'المُقِر ",
+      "deferred": false
+    },
+    {
+      "file": "src/app/components/lawyer/hooks/smartVault/types.ts",
+      "snippet": "/** @deprecated use docMatchesCategoryFilter from vaultCustomCategories */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/components/lawyer/hooks/smartVault/types.ts",
+      "snippet": "/** @deprecated */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/components/lawyer/hooks/smartVault/types.ts",
+      "snippet": "/** @deprecated use fileViewer */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/components/lawyer/hooks/smartVault/types.ts",
+      "snippet": "/** @deprecated use closeFileViewer */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/components/lawyer/LawyerNewCase/types.ts",
+      "snippet": "/** الصفة القانونية — مثل المدعي للأطراف الأصليين */ status: string; address: string; /** اختصامي | انضمامي | بقرار المحكمة | بطلب الخصم */ entryMode: 'interple",
+      "deferred": false
+    },
+    {
+      "file": "src/app/components/lawyer/LawyerNewCase/types.ts",
+      "snippet": "/** @deprecated legacy */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/components/lawyer/LawyerNewCase/types.ts",
+      "snippet": "/** @deprecated legacy */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/components/lawyer/LawyerNewCase/validation.ts",
+      "snippet": "/** مراحل الحكم الأصلي التي يُغطى بها الطعن الاستثنائي (بدلاً من القيمة) */ export const UNDERLYING_STAGE_OPTIONS = [ 'بداءة بدرجة أولى', 'بداءة بدرجة أخيرة', '",
+      "deferred": false
+    },
+    {
+      "file": "src/app/components/lawyer/LawyerNewCase/validation.ts",
+      "snippet": "/** مراحل طعن استثنائية — تُخفى القيمة وتُعرض مرحلة الحكم الأصلي */ export const isExtraordinaryProcedureStage = (stage: string): boolean => EXTRAORDINARY_PROCE",
+      "deferred": false
+    },
+    {
+      "file": "src/app/components/lawyer/smart-modal/smartFile/judgmentTypes.ts",
+      "snippet": "/** Payload from SmartJudgmentModal / validation pipeline. */ export type JudgmentPayload = { date?: string; type?: string; form?: string; decision?: string; ac",
+      "deferred": false
+    },
+    {
+      "file": "src/app/components/lawyer/smart-modal/smartFile/sessionRecordEngine.ts",
+      "snippet": "/** تاريخ جلسة المرافعة الجارية — افتراضياً اليوم. */ export function suggestCurrentHearingDate(timeline: TimelineEvent[]): string { const today = getLocalToday",
+      "deferred": false
+    },
+    {
+      "file": "src/app/components/lawyer/smart-modal/smartFile/timelineSearch.ts",
+      "snippet": "/** @deprecated use filterTimelineFeed */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/components/lawyer/SmartLegalRadar/radarTheme.ts",
+      "snippet": "/** رادار المواعيد — كريمي · كاكاوي · كراميل (لون وسيط) */ export const RADAR_COCOA_DEEP = '#14100c'; export const RADAR_COCOA = '#1f1712'; export const RADAR_C",
+      "deferred": false
+    },
+    {
+      "file": "src/app/components/lawyer/SmartRepository/entryCards/universalEntryCardTypes.ts",
+      "snippet": "/** @deprecated — استخدم feedLayout */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/components/lawyer/SmartVaultModal/vaultDustyRoseTheme.ts",
+      "snippet": "/** المخزن الذكي — كتان كحلي · ترافرتين · نحاس مطفي */ export const VAULT_NAVY = '#0E1B2E'; export const VAULT_NAVY_MID = '#132238'; export const VAULT_TRAVERTI",
+      "deferred": false
+    },
+    {
+      "file": "src/app/hooks/lawyerDashboard/lawyerDashboardHeaderPrefetch.ts",
+      "snippet": "/** معالجات prefetch ثابتة — تُكمَّل بمعرّف المستخدم من الهيدر عند التوصيل */ export function createLawyerDashboardHeaderPrefetch( userId?: string | null, opts?",
+      "deferred": false
+    },
+    {
+      "file": "src/app/hooks/lawyerDashboard/useLawyerDashboardCore.types.ts",
+      "snippet": "/** @deprecated للتوافق — استخدم pendingFieldTasksCount + quantumTasksFingerprint */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/hooks/lawyerDashboard/useLawyerDashboardRepository.ts",
+      "snippet": "/** @deprecated use OpenRepositoryOptions — kept for navigation typings */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/hooks/useHasActiveExecutionAppeals.ts",
+      "snippet": "/** * يتفاعل مع `hami-decisions-reload` لعرض شارة الطعن في بطاقات الأطراف والرأس. */ export function useExecutionAppealBannerState( executionId: string | undefi",
+      "deferred": false
+    },
+    {
+      "file": "src/app/hooks/__tests__/useLawyerDashboardOverlays.settings.test.ts",
+      "snippet": "/** @deprecated — استخدم useLawyerDashboardSettings.test.ts */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/runtime/executionDashboardLoader.ts",
+      "snippet": "/** * تحميل مرحلي لإضبارة التنفيذ — chunk رئيسي أولاً، ثم shell عند الخمول أو النية. */ import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork'; type Ex",
+      "deferred": false
+    },
+    {
+      "file": "src/app/runtime/prefetchScheduler.ts",
+      "snippet": "/** * Prefetch عند النية فقط — hover / لمس / قرب فتح شاشة. * لا موجات زمنية تحمّل شاشات ثقيلة في الخلفية. */ export const PrefetchScheduler = { /** الطريقة الوح",
+      "deferred": false
+    },
+    {
+      "file": "src/app/runtime/prefetchScheduler.ts",
+      "snippet": "/** @deprecated — الموجات الزمنية أُلغيت؛ لا تحميل خلفي تلقائي */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/runtime/prefetchScheduler.ts",
+      "snippet": "/** @deprecated */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/runtime/prefetchScheduler.ts",
+      "snippet": "/** @deprecated */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/runtime/prefetchScheduler.ts",
+      "snippet": "/** @deprecated */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/runtime/prefetchScheduler.ts",
+      "snippet": "/** @deprecated */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/runtime/prefetchScheduler.ts",
+      "snippet": "/** @deprecated */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/services/alertDisplayMeta.ts",
+      "snippet": "/** وقت نهاية اليوم البرمجي أو 23:59 — لا يُعرض في الشارة */ export function isEndOfDayPlaceholderTime(iso: string): boolean { const ts = Date.parse(iso); if (N",
+      "deferred": false
+    },
+    {
+      "file": "src/app/services/calendarDossierSync.ts",
+      "snippet": "/** * مزامنة منهجية: أي موعد/تاريخ في إضبارة (دعوى، تنفيذ، مستعجل، معاملة، جزائي، Threading) * يُرفع إلى التقويم المركزي عبر معرّف ثابت — لا ربط عشوائي لكل زر ع",
+      "deferred": false
+    },
+    {
+      "file": "src/app/services/documentOcrService.ts",
+      "snippet": "/** V1 — OCR via external AI disabled; returns placeholder for stored images. */ export async function extractTextFromDocumentImage( _input: Blob | string, ): P",
+      "deferred": false
+    },
+    {
+      "file": "src/app/services/dossier-notes/dossierLawArticleTooltips.ts",
+      "snippet": "/** @deprecated — استورد من smartLawLinker */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/services/dossier-notes/smartLawLinker.ts",
+      "snippet": "/** * Smart Law Linker — regex, context mapping, inline spans (reference only in storage). */ import type { CivilLawCodeType } from '@/app/constants/iraqiLawCat",
+      "deferred": false
+    },
+    {
+      "file": "src/app/services/profile/profilePageTypes.ts",
+      "snippet": "/** قنوات مخفية عن الزوار فقط */ hiddenContactIds: string[]; } export interface ProfileAppearanceSettings { accentColor: ProfileAppearanceColor; material: Profi",
+      "deferred": false
+    },
+    {
+      "file": "src/app/services/profile/profilePageTypes.ts",
+      "snippet": "/** @deprecated استُبدل بـ posX/posY */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/services/profile/profilePageTypes.ts",
+      "snippet": "/** موضع أفقي للصورة داخل الإطار (0–100) */ imageFocusX?: number; /** موضع عمودي للصورة داخل الإطار (0–100) */ imageFocusY?: number; /** تكبير الصورة داخل الإطا",
+      "deferred": false
+    },
+    {
+      "file": "src/app/services/SecureStoreService.ts",
+      "snippet": "/** تحديد ما إذا كان المفتاح حساساً ويحتاج تشفير */ function isSensitiveKey(key: string): boolean { return isSensitiveStorageKey(key); } function touchDecrypted",
+      "deferred": false
+    },
+    {
+      "file": "src/app/services/settings/backgroundPresets.ts",
+      "snippet": "/** @deprecated استخدم resolvePatternOverlayStyle */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/services/settings/homeLayoutDockControls.ts",
+      "snippet": "/** أيقونات الشريط السفلي فقط — لا يشمل شريط الملاحظة السريعة */ export function getDockShellWidgetIds(placements: HomeWidgetPlacements): HomeWidgetId[] { retur",
+      "deferred": false
+    },
+    {
+      "file": "src/app/services/settings/homeLayoutDockControls.ts",
+      "snippet": "/** إعادة أيقونات الدوك من النسخة المحفوظة أو الافتراضي — دون المساس بشريط الملاحظة */ export function repopulateDockShellFromHidden( placements: HomeWidgetPlac",
+      "deferred": false
+    },
+    {
+      "file": "src/app/services/settings/nav.ts",
+      "snippet": "/** أقسام الإعدادات المعروضة — فقط ما يطابق التطبيق ويُستخدم فعلياً. */ export const SETTINGS_NAV: SettingsNavItem[] = [ { id: 'appearance', label: 'المنظر', la",
+      "deferred": false
+    },
+    {
+      "file": "src/app/services/settings/surfaceAppearance.ts",
+      "snippet": "/** كثافة/شفافية بطاقات لوحة القيادة — 0 شفاف، 1 كثيف */ export const GLASS_OPACITY_MIN = 0; export const GLASS_OPACITY_MAX = 1; export const GLASS_OPACITY_DEFA",
+      "deferred": false
+    },
+    {
+      "file": "src/app/services/settings/types.ts",
+      "snippet": "/** إظهار إطار ثابت لبطاقات لوحة القيادة — يبقى مرئياً عند الشفافية المنخفضة */ homeContainerBorder: boolean; /** @deprecated — تُخزَّن في lawyer_wallpaper فقط،",
+      "deferred": false
+    },
+    {
+      "file": "src/app/services/SupabaseService.ts",
+      "snippet": "/** * SupabaseService — Wrapper مبسط جداً * * المرحلة الحالية: Deprecation تدريجي. * - جميع دوال CRUD تعمل على LocalStorage فقط. * - عند تفعيل الجداول الحقيقية ",
+      "deferred": false
+    },
+    {
+      "file": "src/app/types/common.ts",
+      "snippet": "/** * ═══════════════════════════════════════════════════════════════════════════ * 📝 COMMON TYPES - Type Definitions المركزية * ══════════════════════════════",
+      "deferred": false
+    },
+    {
+      "file": "src/app/types/criminal.ts",
+      "snippet": "/** المراحل القطعية لدورة حياة الدعوى الجزائية (نفس الإضبارة). */ export type CaseStage = | 'investigation' | 'misdemeanor' | 'felony' | 'cassation' /** مسار تف",
+      "deferred": true
+    },
+    {
+      "file": "src/app/types/criminal.ts",
+      "snippet": "/** @deprecated — إضابير قديمة */",
+      "deferred": true
+    },
+    {
+      "file": "src/app/types/criminal.ts",
+      "snippet": "/** حقول تفريق الدعاوى على الإضبارة — مرحلة 1. */ export interface CriminalCaseSeverance { /** الإضبارة الأم عند كون هذه إضبارة تابعة مفرّقة. */ parentCaseId?: ",
+      "deferred": true
+    },
+    {
+      "file": "src/app/types/criminal.ts",
+      "snippet": "/** هندسة السهم في الحاوية العلوية. */ transitionKind?: JourneyTransitionKind; /** تاريخ بدء الحقبة — فلترة Time-Tenure. */ startedAt?: string; /** تاريخ إغلاق ",
+      "deferred": true
+    },
+    {
+      "file": "src/app/types/execution.ts",
+      "snippet": "/** * ═══════════════════════════════════════════════════════════════════════════ * 📝 EXECUTION TYPES - النماذج النوعية للتنفيذ * ═════════════════════════════",
+      "deferred": false
+    },
+    {
+      "file": "src/app/types/execution.ts",
+      "snippet": "/** محضر المتابعة — قرار منفذ العدل على تحرك الطرف الآخر */ export type OtherPartyActionOutcome = 'approved' | 'rejected' | 'pending'; export interface OtherPar",
+      "deferred": false
+    },
+    {
+      "file": "src/app/types/execution.ts",
+      "snippet": "/** * تكليف حضور لكل مدين (ذمة مقسومة) — المفتاح يطابق مفاتيح `debtorWorkspaceEntries`. */ employee_summons_assignments_by_debtor?: Record<string, EmployeeSummo",
+      "deferred": false
+    },
+    {
+      "file": "src/app/types/execution.ts",
+      "snippet": "/** صفة كل مدين في تعدّد الخصوم */ debtor_entity_kind_by_debtor?: Record<string, 'natural_person' | 'legal_entity'>; /** وفاة الدائن — للعرض والتوافق */ is_cred",
+      "deferred": false
+    },
+    {
+      "file": "src/app/utils/executionDossierBlobPersistence.ts",
+      "snippet": "/** يُسجَّل من storageCache لتجنّب الاستيراد الدائري */ export function registerExecutionBlobCacheTouch(fn: CacheTouchFn): void { executionBlobCacheTouch = fn; ",
+      "deferred": false
+    },
+    {
+      "file": "src/app/utils/executorSeizureDecisionQueue.ts",
+      "snippet": "/** * عند تقديم طلب حجز (راتب / عقار / مال منقول) يُسجَّل مسودة قرار قيد البت * في تخزين «القرارات والطعون» ليُكمِل المحامي بقرار منفذ العدل لاحقاً. */ import {",
+      "deferred": false
+    },
+    {
+      "file": "src/app/utils/executorSeizureDecisionQueue.ts",
+      "snippet": "/** طلب عرض الإضبارة على قاضي البداءة — قرار المنفذ فقط */ | 'executive_dossier_presentation' /** قرار قاضي البداءة بالحبس — منفصل عن طلب عرض الإضبارة لدى المنف",
+      "deferred": false
+    },
+    {
+      "file": "src/app/utils/followupSpecializationVisibility.ts",
+      "snippet": "/** قرارات المحاكم — مسار أحوال شخصية / شرعي (لا إجراءات جبرية) */ export function isPersonalStatusCourtDecisionsDossier( docType?: string | null, classificatio",
+      "deferred": false
+    },
+    {
+      "file": "src/app/utils/followupSpecializationVisibility.ts",
+      "snippet": "/** طلب كسر الأقفال في الطلبات المخفية (تبويب الطلبات) */ showHiddenBreakInventoryRequest: boolean; /** كتلة الإجراءات الميدانية لتسليم شيء معين */ showSpecific",
+      "deferred": false
+    },
+    {
+      "file": "src/app/utils/specificDeliveryConversionRequest.ts",
+      "snippet": "/** بعد الموافقة يُكمَّل تلقائياً — القيمة عبر الخبير */ if (opts?.allDecisions?.length) return false; return isExecutorRowEffectivelyApproved(row); } export fu",
+      "deferred": false
+    },
+    {
+      "file": "src/app/utils/specificDeliveryPropertyExpertRequest.ts",
+      "snippet": "/** @deprecated — توافق قرارات قديمة */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/utils/specificDeliveryPropertyExpertRequest.ts",
+      "snippet": "/** @deprecated */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/utils/specificDeliveryPropertyExpertRequest.ts",
+      "snippet": "/** @deprecated */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/utils/visitationScheduleEngine.ts",
+      "snippet": "/** أزرار التوثيق — مشتقة من نوع القرار المحكوم به */ export function getVisitationDocumentationActions(mode: VisitationDecisionMode): { successLabel: string; a",
+      "deferred": false
+    }
+  ],
+  "unusedLazyExports": [],
+  "orphanCandidates": [
+    {
+      "file": "src/app/bootstrap/SecurityInitializerGate.dev.tsx",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/bootstrap/SecurityInitializerGate.prod.tsx",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/components/lawyer/Dashboard_Active_Order_File/utils/ymd.ts",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/modules/transactionsThreading/ids.ts",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/services/alerts/homeHubPerfBudget.ts",
+      "bucket": "legacy-service"
+    },
+    {
+      "file": "src/app/services/forum/forumPerfBudget.ts",
+      "bucket": "legacy-service"
+    },
+    {
+      "file": "src/app/services/settings/nav.ts",
+      "bucket": "legacy-service"
+    },
+    {
+      "file": "src/types/shims.d.ts",
+      "bucket": "other"
+    },
+    {
+      "file": "src/types/supabase-js-shim.d.ts",
+      "bucket": "other"
+    },
+    {
+      "file": "src/vite-env.d.ts",
+      "bucket": "other"
+    },
+    {
+      "file": "src/vite-plugins/preferFileOverDirectory.ts",
+      "bucket": "other"
+    },
+    {
+      "file": "src/vitest-globals.d.ts",
+      "bucket": "other"
+    }
+  ],
+  "orphanCandidatesTruncated": false,
+  "placeholderNotificationRoutes": []
+}

@@ -8,6 +8,10 @@ import {
 
 const DEFAULT_SIMILAR_WINDOW_MS = 5000;
 
+function asTimelineEvents(events: TimelineEvent[] | null | undefined): TimelineEvent[] {
+    return Array.isArray(events) ? events : [];
+}
+
 function parseEventMs(e: TimelineEvent): number | null {
     const ts = e.timestamp?.trim();
     if (ts) {
@@ -107,11 +111,12 @@ function eventTimeMs(e: TimelineEvent): number {
  * دمج الأحداث المربوطة بنفس قرار المنفذ/الخيط الزمني — يُبقي الأحدث.
  */
 export function dedupeTimelineEventsByThreadOrDecision(events: TimelineEvent[]): TimelineEvent[] {
+    const safe = asTimelineEvents(events);
     const out: TimelineEvent[] = [];
     const indexByKey = new Map<string, number>();
 
-    for (let i = 0; i < events.length; i += 1) {
-        const e = normalizeId(events[i], i);
+    for (let i = 0; i < safe.length; i += 1) {
+        const e = normalizeId(safe[i], i);
         if (e.trashedAt) {
             out.push(e);
             continue;
@@ -162,11 +167,12 @@ export function dedupeTimelineEventsForDisplay(events: TimelineEvent[]): Timelin
  * - لا يدمج الأحداث المحذوفة (trashedAt) حتى لا تتداخل مع سلة المهملات.
  */
 export function dedupeTimelineEventsSameSecond(events: TimelineEvent[]): TimelineEvent[] {
+    const safe = asTimelineEvents(events);
     const out: TimelineEvent[] = [];
     const indexByKey = new Map<string, number>();
 
-    for (let i = 0; i < events.length; i += 1) {
-        const raw = events[i];
+    for (let i = 0; i < safe.length; i += 1) {
+        const raw = safe[i];
         const e = normalizeId(raw, i);
 
         if (e.trashedAt) {
@@ -213,19 +219,20 @@ export function mergeSimilarRecentTimelineEvent(
     incoming: TimelineEvent,
     options?: { windowMs?: number }
 ): TimelineEvent[] {
+    const safePrev = asTimelineEvents(prev);
     const windowMs = options?.windowMs ?? DEFAULT_SIMILAR_WINDOW_MS;
-    if (prev.length === 0) return [incoming];
+    if (safePrev.length === 0) return [incoming];
 
-    const head = prev[0];
+    const head = safePrev[0];
     if (!head) return [incoming];
-    if (head.trashedAt) return [incoming, ...prev];
+    if (head.trashedAt) return [incoming, ...safePrev];
 
     const incMs = parseEventMs(incoming);
     const headMs = parseEventMs(head);
-    if (incMs == null || headMs == null) return [incoming, ...prev];
-    if (Math.abs(incMs - headMs) > windowMs) return [incoming, ...prev];
+    if (incMs == null || headMs == null) return [incoming, ...safePrev];
+    if (Math.abs(incMs - headMs) > windowMs) return [incoming, ...safePrev];
     if (timelineEventSimilarityKey(head) !== timelineEventSimilarityKey(incoming)) {
-        return [incoming, ...prev];
+        return [incoming, ...safePrev];
     }
 
     const merged: TimelineEvent = {
@@ -245,5 +252,5 @@ export function mergeSimilarRecentTimelineEvent(
                   }
                 : undefined,
     };
-    return [merged, ...prev.slice(1)];
+    return [merged, ...safePrev.slice(1)];
 }

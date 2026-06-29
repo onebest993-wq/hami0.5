@@ -205,6 +205,7 @@ function mapSpecificDeliveryPhaseToFollowupFlags(
         hideCoerciveFinancialBanners: phase.hideCoerciveFinancialBanners,
         hideCoerciveSeizureSalaryAndProperty: phase.hideCoerciveSeizureTools,
         hideEncroachmentEvictionProcedureItems: phase.hideEncroachmentEvictionExtras,
+        hideFollowupSeizureRequestsTab: phase.hideFollowupSeizureRequestsTab,
         showSpecificDeliverySurveyorCard: phase.showSurveyorCard,
         showSpecificDeliveryConversionCard: phase.showConversionCard,
         hideEvictionCustodianProcedure: phase.hideEvictionCustodianProcedure,
@@ -222,6 +223,7 @@ export function resolveFollowupSpecializationVisibility(
     opts?: {
         specificDeliveryItemNature?: string | null;
         specificDeliveryFinancialized?: boolean;
+        specificDeliveryItems?: import('@/app/utils/specificDeliveryItemsUtils').SpecificDeliveryItem[] | null;
         docType?: string | null;
         classification?: string | null;
         category?: string | null;
@@ -256,6 +258,7 @@ export function resolveFollowupSpecializationVisibility(
         const phase = resolveSpecificDeliveryUiPhase({
             specificDeliveryItemNature: opts?.specificDeliveryItemNature,
             specificDeliveryFinancialized: opts?.specificDeliveryFinancialized,
+            specificDeliveryItems: opts?.specificDeliveryItems,
             isEmployee,
         });
         return finalize(mapSpecificDeliveryPhaseToFollowupFlags(phase, isEmployee));
@@ -398,6 +401,7 @@ export interface FollowupSpecializationExecutionInput {
     claimTypes?: string[] | null;
     specificDeliveryItemNature?: string | null;
     specificDeliveryFinancialized?: boolean;
+    specificDeliveryItems?: import('@/app/utils/specificDeliveryItemsUtils').SpecificDeliveryItem[] | null;
     docType?: string | null;
     classification?: string | null;
     category?: string | null;
@@ -422,6 +426,7 @@ export function resolveFollowupSpecializationFromExecution(
     const opts = {
         specificDeliveryItemNature: executionData?.specificDeliveryItemNature,
         specificDeliveryFinancialized: executionData?.specificDeliveryFinancialized,
+        specificDeliveryItems: executionData?.specificDeliveryItems,
         docType: executionData?.docType,
         classification: executionData?.classification,
         category: executionData?.category,

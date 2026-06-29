@@ -332,16 +332,42 @@ export default defineConfig(({ command }) => ({
           }
           if (
             id.includes('ExecutionDashboard/hooks/executionDashboardCore') ||
-            id.includes('ExecutionDashboard\\hooks\\executionDashboardCore') ||
-            id.includes('useExecutionDashboardShellOrchestrators') ||
+            id.includes('ExecutionDashboard\\hooks\\executionDashboardCore')
+          ) {
+            if (
+              /useExecutionDashboardCoreHandlerCluster|ExecutionDashboardHandlerClusterBridge/.test(id)
+            ) {
+              return 'execution-core-handlers';
+            }
+            if (
+              /ScopeBag|scopeBagFragments|ScopeFromParts|ScopeBags|groupExecutionDashboardCoreScopeBag|mergeExecutionDashboardCoreScopeBag|collectScopeLocal|collectScopeRest|buildScopeBundle|scopeBagPick|buildExecutionDashboardCoreScopeBagAssembly|buildExecutionDashboardFollowupScopeBag|buildExecutionDashboardCoerciveScopeBag|buildExecutionDashboardFinancialScopeBag|buildExecutionDashboardTimelineDossierScopeBag|buildExecutionDashboardWorkspaceScopeBag|buildExecutionDashboardDecisionsSeizureEvictionScopeBag|executionDashboardCoreRuntimeVarKeys\.generated|groupExecutionDashboardCoreScopeBagInput\.generated|buildExecutionDashboardCoreScopeLocalBundles|buildExecutionDashboardCoreScopeRestBundles|buildExecutionDashboardCoreDynamicScope|buildExecutionDashboardModalScope|buildExecutionDashboardCoreScopeFromParts|buildExecutionDashboardCoreScopeBags/.test(
+                id,
+              )
+            ) {
+              return 'execution-core-scope';
+            }
+            if (
+              /Handlers|executionDashboard(?:PartyDeath|Employee|Coercive|Seizure|Settlement|Salary|ThirdParty|Auction|Grace|Timeline|Claim|Dossier|Break|RealEstate|CoerciveAction|FollowupSeizure|SeizedProperty|ThirdPartyReceive|StandaloneMark|PublicationNotice|VoluntaryPeriod|GraceSummoning|EmployeeAssignment|SalarySeizurePatch|SettlementLedger|SeizureRequestSubmit|SeizureRowPatch|BreakInventory|AuctionSession|TimelineAndGrace|DossierAction|InabaCorrespondence)/.test(
+                id,
+              )
+            ) {
+              return 'execution-core-handlers';
+            }
+            if (
+              /useExecutionDashboardCore(?:PipelinesChain|WorkspacePipeline|FollowupDebtorPipeline|ClaimFinancialLedgerPipeline|GraceMasterEvictionPipeline|PersistHandlerPipeline|FileMetadataBinding)|useExecutionDashboardRuntimeSyncEffects|useExecutionDashboardDecisionAndEventSync/.test(
+                id,
+              )
+            ) {
+              return 'execution-core-pipelines';
+            }
+            return 'execution-dashboard-core';
+          }
+          if (
             id.includes('useExecutionDashboardClaimFinancials') ||
             id.includes('useExecutionDashboardGraceAndSummoning') ||
             id.includes('useExecutionDashboardFollowupSeizureTabs') ||
             id.includes('useExecutionDashboardOtherPartyMirror') ||
             id.includes('useExecutionDashboardSalarySeizureTabRows') ||
-            id.includes('useExecutionDashboardCoerciveActionBridge') ||
-            id.includes('useExecutionDashboardSeizureReleaseHandlers') ||
-            id.includes('useExecutionDashboardThirdPartyReceiveHandlers') ||
             id.includes('useFollowupModalTabGuards')
           ) {
             return 'execution-dashboard-core';
@@ -409,7 +435,7 @@ export default defineConfig(({ command }) => ({
             id.includes('ExecutionDashboard/orchestrators') ||
             id.includes('ExecutionDashboard\\orchestrators')
           ) {
-            return 'execution-dashboard-core';
+            return 'execution-orchestrators';
           }
           if (
             id.includes('executionDashboardStaticChunkScope') ||
@@ -426,6 +452,12 @@ export default defineConfig(({ command }) => ({
           }
           if (id.includes('executionDashboardRuntimeChunkScope')) {
             return 'execution-helpers';
+          }
+          if (id.includes('executionDashboardImportedHelpersChunkScope')) {
+            return 'execution-helpers';
+          }
+          if (id.includes('executionDashboardPhoneBodyComponentsChunkScope')) {
+            return 'execution-phone-body';
           }
           if (id.includes('executionDashboardUiChunkScope')) {
             return 'execution-dashboard-core';
@@ -449,7 +481,7 @@ export default defineConfig(({ command }) => ({
             ) {
               return 'execution-dashboard-core';
             }
-            return 'execution-dashboard-core';
+            return 'execution-hooks';
           }
           if (id.includes('requestsTabConstants')) {
             return 'execution-helpers';

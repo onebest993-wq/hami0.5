@@ -1,0 +1,82 @@
+﻿
+Running 48 tests using 1 worker
+
+
+
+node.exe : [1A[2K(node:16504) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([1A[2K(node:1... env being set.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1A[2K(node:16504) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K[1/48] [chromium] ΓÇ║ e2e\execution-console-hygiene.spec.ts:77:9 ΓÇ║ Execution console hygiene ΓÇ║ dossier open ΓÇö header, trash, decisions ΓÇö no console errors
+[1A[2K[2/48] [chromium] ΓÇ║ e2e\execution-critical-paths.spec.ts:143:9 ΓÇ║ Execution critical paths ΓÇ║ 1 ΓÇö lawyer boot without scope ReferenceError
+[1A[2K[3/48] [chromium] ΓÇ║ e2e\execution-critical-paths.spec.ts:149:9 ΓÇ║ Execution critical paths ΓÇ║ 2 ΓÇö open execution archive hub
+[1A[2K[4/48] [chromium] ΓÇ║ e2e\execution-critical-paths.spec.ts:154:9 ΓÇ║ Execution critical paths ΓÇ║ 3 ΓÇö open execution dossier without GlobalErrorBoundary
+[1A[2K[5/48] [chromium] ΓÇ║ e2e\execution-critical-paths.spec.ts:164:9 ΓÇ║ Execution critical paths ΓÇ║ 4 ΓÇö dossier content smoke after open
+[1A[2K[6/48] [chromium] ΓÇ║ e2e\execution-critical-paths.spec.ts:172:9 ΓÇ║ Execution critical paths ΓÇ║ 5 ΓÇö reload dossier stays stable
+[1A[2K[7/48] [chromium] ΓÇ║ e2e\execution-critical-paths.spec.ts:180:9 ΓÇ║ Execution critical paths ΓÇ║ 6 ΓÇö hami-open-decisions-modal event does not throw
+[1A[2K[8/48] [chromium] ΓÇ║ e2e\execution-critical-paths.spec.ts:197:9 ΓÇ║ Execution critical paths ΓÇ║ 7 ΓÇö financial hub ledger event does not throw
+[1A[2K[9/48] [chromium] ΓÇ║ e2e\execution-critical-paths.spec.ts:214:9 ΓÇ║ Execution critical paths ΓÇ║ 8 ΓÇö unified execution modal can be toggled via store event path
+[1A[2K[10/48] [chromium] ΓÇ║ e2e\execution-critical-paths.spec.ts:231:9 ΓÇ║ Execution critical paths ΓÇ║ 9 ΓÇö close dossier returns to archive layer
+[1A[2K[11/48] [chromium] ΓÇ║ e2e\execution-critical-paths.spec.ts:240:9 ΓÇ║ Execution critical paths ΓÇ║ 10 ΓÇö second dossier open cycle
+[1A[2K[12/48] [chromium] ΓÇ║ e2e\execution-critical-paths.spec.ts:251:9 ΓÇ║ Execution critical paths ΓÇ║ 11 ΓÇö archive search deck and filters toggle
+[1A[2K[13/48] [chromium] ΓÇ║ e2e\execution-critical-paths.spec.ts:264:9 ΓÇ║ Execution critical paths ΓÇ║ 12 ΓÇö lifecycle tabs switch and reset search
+[1A[2K[14/48] [chromium] ΓÇ║ e2e\execution-critical-paths.spec.ts:274:9 ΓÇ║ Execution critical paths ΓÇ║ 13 ΓÇö FAB visible on active tab only
+[1A[2K[15/48] [chromium] ΓÇ║ e2e\execution-critical-paths.spec.ts:283:9 ΓÇ║ Execution critical paths ΓÇ║ 14 ΓÇö execution card archive opens confirm dialog
+[1A[2K[16/48] [chromium] ΓÇ║ e2e\execution-critical-paths.spec.ts:295:9 ΓÇ║ Execution critical paths ΓÇ║ 15 ΓÇö execution card trash opens confirm dialog
+[1A[2K(node:25688) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:25688) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[17/48] [mobile-chrome] ΓÇ║ e2e\execution-console-hygiene.spec.ts:77:9 ΓÇ║ Execution console hygiene ΓÇ║ dossier open ΓÇö header, trash, decisions ΓÇö no console errors
+[1A[2K[18/48] [mobile-chrome] ΓÇ║ e2e\execution-critical-paths.spec.ts:143:9 ΓÇ║ Execution critical paths ΓÇ║ 1 ΓÇö lawyer boot without scope ReferenceError
+[1A[2K[19/48] [mobile-chrome] ΓÇ║ e2e\execution-critical-paths.spec.ts:149:9 ΓÇ║ Execution critical paths ΓÇ║ 2 ΓÇö open execution archive hub
+[1A[2K[20/48] [mobile-chrome] ΓÇ║ e2e\execution-critical-paths.spec.ts:154:9 ΓÇ║ Execution critical paths ΓÇ║ 3 ΓÇö open execution dossier without GlobalErrorBoundary
+[1A[2K[21/48] [mobile-chrome] ΓÇ║ e2e\execution-critical-paths.spec.ts:164:9 ΓÇ║ Execution critical paths ΓÇ║ 4 ΓÇö dossier content smoke after open
+[1A[2K[22/48] [mobile-chrome] ΓÇ║ e2e\execution-critical-paths.spec.ts:172:9 ΓÇ║ Execution critical paths ΓÇ║ 5 ΓÇö reload dossier stays stable
+[1A[2K[23/48] [mobile-chrome] ΓÇ║ e2e\execution-critical-paths.spec.ts:180:9 ΓÇ║ Execution critical paths ΓÇ║ 6 ΓÇö hami-open-decisions-modal event does not throw
+[1A[2K[24/48] [mobile-chrome] ΓÇ║ e2e\execution-critical-paths.spec.ts:197:9 ΓÇ║ Execution critical paths ΓÇ║ 7 ΓÇö financial hub ledger event does not throw
+[1A[2K[25/48] [mobile-chrome] ΓÇ║ e2e\execution-critical-paths.spec.ts:214:9 ΓÇ║ Execution critical paths ΓÇ║ 8 ΓÇö unified execution modal can be toggled via store event path
+[1A[2K[26/48] [mobile-chrome] ΓÇ║ e2e\execution-critical-paths.spec.ts:231:9 ΓÇ║ Execution critical paths ΓÇ║ 9 ΓÇö close dossier returns to archive layer
+[1A[2K[27/48] [mobile-chrome] ΓÇ║ e2e\execution-critical-paths.spec.ts:240:9 ΓÇ║ Execution critical paths ΓÇ║ 10 ΓÇö second dossier open cycle
+[1A[2K[28/48] [mobile-chrome] ΓÇ║ e2e\execution-critical-paths.spec.ts:251:9 ΓÇ║ Execution critical paths ΓÇ║ 11 ΓÇö archive search deck and filters toggle
+[1A[2K[29/48] [mobile-chrome] ΓÇ║ e2e\execution-critical-paths.spec.ts:264:9 ΓÇ║ Execution critical paths ΓÇ║ 12 ΓÇö lifecycle tabs switch and reset search
+[1A[2K[30/48] [mobile-chrome] ΓÇ║ e2e\execution-critical-paths.spec.ts:274:9 ΓÇ║ Execution critical paths ΓÇ║ 13 ΓÇö FAB visible on active tab only
+[1A[2K[31/48] [mobile-chrome] ΓÇ║ e2e\execution-critical-paths.spec.ts:283:9 ΓÇ║ Execution critical paths ΓÇ║ 14 ΓÇö execution card archive opens confirm dialog
+[1A[2K[32/48] [mobile-chrome] ΓÇ║ e2e\execution-critical-paths.spec.ts:295:9 ΓÇ║ Execution critical paths ΓÇ║ 15 ΓÇö execution card trash opens confirm dialog
+[1A[2K(node:23296) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:23296) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K[33/48] [mobile-safari] ΓÇ║ e2e\execution-console-hygiene.spec.ts:77:9 ΓÇ║ Execution console hygiene ΓÇ║ dossier open ΓÇö header, trash, decisions ΓÇö no console errors
+[1A[2K[34/48] [mobile-safari] ΓÇ║ e2e\execution-critical-paths.spec.ts:143:9 ΓÇ║ Execution critical paths ΓÇ║ 1 ΓÇö lawyer boot without scope ReferenceError
+[1A[2K[35/48] [mobile-safari] ΓÇ║ e2e\execution-critical-paths.spec.ts:149:9 ΓÇ║ Execution critical paths ΓÇ║ 2 ΓÇö open execution archive hub
+[1A[2K[36/48] [mobile-safari] ΓÇ║ e2e\execution-critical-paths.spec.ts:154:9 ΓÇ║ Execution critical paths ΓÇ║ 3 ΓÇö open execution dossier without GlobalErrorBoundary
+[1A[2K[37/48] [mobile-safari] ΓÇ║ e2e\execution-critical-paths.spec.ts:164:9 ΓÇ║ Execution critical paths ΓÇ║ 4 ΓÇö dossier content smoke after open
+[1A[2K[38/48] [mobile-safari] ΓÇ║ e2e\execution-critical-paths.spec.ts:172:9 ΓÇ║ Execution critical paths ΓÇ║ 5 ΓÇö reload dossier stays stable
+[1A[2K[39/48] [mobile-safari] ΓÇ║ e2e\execution-critical-paths.spec.ts:180:9 ΓÇ║ Execution critical paths ΓÇ║ 6 ΓÇö hami-open-decisions-modal event does not throw
+[1A[2K[40/48] [mobile-safari] ΓÇ║ e2e\execution-critical-paths.spec.ts:197:9 ΓÇ║ Execution critical paths ΓÇ║ 7 ΓÇö financial hub ledger event does not throw
+[1A[2K[41/48] [mobile-safari] ΓÇ║ e2e\execution-critical-paths.spec.ts:214:9 ΓÇ║ Execution critical paths ΓÇ║ 8 ΓÇö unified execution modal can be toggled via store event path
+[1A[2K[42/48] [mobile-safari] ΓÇ║ e2e\execution-critical-paths.spec.ts:231:9 ΓÇ║ Execution critical paths ΓÇ║ 9 ΓÇö close dossier returns to archive layer
+[1A[2K[43/48] [mobile-safari] ΓÇ║ e2e\execution-critical-paths.spec.ts:240:9 ΓÇ║ Execution critical paths ΓÇ║ 10 ΓÇö second dossier open cycle
+[1A[2K[44/48] [mobile-safari] ΓÇ║ e2e\execution-critical-paths.spec.ts:251:9 ΓÇ║ Execution critical paths ΓÇ║ 11 ΓÇö archive search deck and filters toggle
+[1A[2K[45/48] [mobile-safari] ΓÇ║ e2e\execution-critical-paths.spec.ts:264:9 ΓÇ║ Execution critical paths ΓÇ║ 12 ΓÇö lifecycle tabs switch and reset search
+[1A[2K[46/48] [mobile-safari] ΓÇ║ e2e\execution-critical-paths.spec.ts:274:9 ΓÇ║ Execution critical paths ΓÇ║ 13 ΓÇö FAB visible on active tab only
+[1A[2K[47/48] [mobile-safari] ΓÇ║ e2e\execution-critical-paths.spec.ts:283:9 ΓÇ║ Execution critical paths ΓÇ║ 14 ΓÇö execution card archive opens confirm dialog
+[1A[2K[48/48] [mobile-safari] ΓÇ║ e2e\execution-critical-paths.spec.ts:295:9 ΓÇ║ Execution critical paths ΓÇ║ 15 ΓÇö execution card trash opens confirm dialog
+[1A[2K  48 passed (6.2m)

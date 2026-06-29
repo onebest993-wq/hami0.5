@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import {
@@ -11,6 +11,8 @@ import {
     type BusinessBackupPreview,
     type PendingBusinessImport,
 } from '@/app/services/settings/businessBackup';
+import { validateBusinessBackupImport } from '@/app/services/settings/businessBackupSecurity';
+import { verifySensitiveSettingsAction } from '@/app/services/settings/verifySensitiveSettingsAction';
 
 export function useBusinessBackup() {
     const importBusinessInputRef = useRef<HTMLInputElement>(null);
@@ -69,42 +71,84 @@ export function useBusinessBackup() {
     }, [buildSelection]);
 
     const toggleBackupPanel = useCallback(() => {
-        setBackupPanelOpen((prev) => {
-            const next = !prev;
-            if (next) void refreshBackupPreview();
-            return next;
-        });
-    }, [refreshBackupPreview]);
+        setBackupPanelOpen((prev) => !prev);
+    }, []);
+
+    const previewDebounceRef = useRef<number | null>(null);
+    useEffect(() => {
+        if (!backupPanelOpen) return;
+        if (previewDebounceRef.current !== null) window.clearTimeout(previewDebounceRef.current);
+        previewDebounceRef.current = window.setTimeout(() => {
+            previewDebounceRef.current = null;
+            void refreshBackupPreview();
+        }, 360);
+        return () => {
+            if (previewDebounceRef.current !== null) window.clearTimeout(previewDebounceRef.current);
+        };
+    }, [
+        backupPanelOpen,
+        backupFrom,
+        backupTo,
+        backupIncludeExecution,
+        backupIncludeLawsuits,
+        backupIncludeNotes,
+        backupIncludeUndated,
+        backupIncludeUrgent,
+        backupIncludeVault,
+        refreshBackupPreview,
+    ]);
 
     const exportBusinessBackup = useCallback(async () => {
-        await refreshBackupPreview();
         try {
-            const built = await buildBusinessBackupPayload(buildSelection());
-            const plainText = JSON.stringify(built.payload, null, 2);
+            const proceed = await SmartDialog.confirm(
+                'النسخة تحتوي بيانات قضايا وملاحظات حساسة. يجب حمايتها بكلمة مرور قبل التصدير.',
+                { title: 'تصدير نسخة البيانات؟', confirmText: 'متابعة', cancelText: 'إلغاء' },
+            );
+            if (!proceed) return;
+
+            const verified = await verifySensitiveSettingsAction({
+                confirmPhrase: 'تصدير نسخة',
+                title: 'تحقق قبل التصدير',
+            });
+            if (!verified) return;
+
             const password = await SmartDialog.prompt(
-                'كلمة مرور لحماية النسخة (اتركها فارغة للتصدير بدون حماية):',
+                'أدخل كلمة مرور لحماية النسخة (6 أحرف على الأقل):',
                 '',
             );
             const p = password?.trim() ?? '';
-            if (p && p.length < 6) {
-                SmartToast.warning('كلمة المرور قصيرة جداً');
+            if (!p) {
+                SmartToast.warning('كلمة المرور مطلوبة لحماية النسخة');
                 return;
             }
-            const payload = p ? await encryptBusinessBackupText(plainText, p) : built.payload;
+            if (p.length < 6) {
+                SmartToast.warning('كلمة المرور قصيرة جداً — الحد الأدنى 6 أحرف');
+                return;
+            }
+
+            const built = await buildBusinessBackupPayload(buildSelection());
+            setBackupPreview({
+                isLoading: false,
+                keys: built.keys,
+                bytes: built.bytes,
+                counts: built.counts,
+            });
+            const plainText = JSON.stringify(built.payload, null, 2);
+            const payload = await encryptBusinessBackupText(plainText, p);
             const outText = JSON.stringify(payload, null, 2);
             const blob = new Blob([outText], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
             const date = new Date().toISOString().slice(0, 10);
-            a.download = p ? `hami-business-backup-${date}.protected.json` : `hami-business-backup-${date}.json`;
+            a.download = `hami-business-backup-${date}.protected.json`;
             a.click();
             URL.revokeObjectURL(url);
             SmartToast.success('تم تصدير نسخة البيانات');
         } catch {
             SmartToast.warning('تعذر تصدير نسخة البيانات على هذا الجهاز');
         }
-    }, [buildSelection, refreshBackupPreview]);
+    }, [buildSelection]);
 
     const importBusinessBackup = useCallback(async (entries: Array<[string, string]>) => {
         try {
@@ -145,6 +189,11 @@ export function useBusinessBackup() {
                 }
             }
             const parsed = parseBusinessBackupFile(parsedText);
+            const validation = validateBusinessBackupImport(parsed.entries);
+            if (validation.ok === false) {
+                SmartToast.warning(validation.reason);
+                return;
+            }
             setPendingBusinessImport({
                 fileName: file.name,
                 version: parsed.version,

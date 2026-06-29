@@ -11,6 +11,7 @@ describe('calendar sync behavior', () => {
     beforeEach(() => {
         saveLawsuitFilesRaw([]);
         vi.spyOn(CalendarDB, 'saveEvent').mockResolvedValue(undefined as never);
+        vi.spyOn(CalendarDB, 'saveEventsBatch').mockResolvedValue(undefined as never);
         vi.spyOn(CalendarDB, 'getEvents').mockResolvedValue([]);
         vi.spyOn(CalendarDB, 'getAllStoredEvents').mockResolvedValue([]);
         vi.spyOn(CalendarDB, 'deleteEvent').mockResolvedValue(undefined as never);
@@ -40,8 +41,8 @@ describe('calendar sync behavior', () => {
         syncLawsuitFileToCalendar(file, 'lawyer-test');
         await new Promise((r) => setTimeout(r, 50));
 
-        expect(CalendarDB.saveEvent).toHaveBeenCalled();
-        const saved = vi.mocked(CalendarDB.saveEvent).mock.calls[0]?.[0];
+        expect(CalendarDB.saveEventsBatch).toHaveBeenCalled();
+        const saved = vi.mocked(CalendarDB.saveEventsBatch).mock.calls[0]?.[0]?.[0];
         expect(saved?.sourceModule).toBe('lawsuit');
         expect(saved?.id).toBe(buildStableBridgeId('lawsuit', '42', 'appt_1'));
     });

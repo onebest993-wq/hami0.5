@@ -7,7 +7,7 @@ import {
     type CassationCorrectionUserRole,
 } from './decisionAppealPeriodEngine';
 import { applyAbsentiaObjectionExpiry } from './stageFinalDecisionEngine';
-import type { CriminalCase, StageConclusion } from './criminalStore';
+import type { CriminalCase, StageConclusion } from './criminalCaseModel';
 import {
     computeAppealDeadline,
     findTrialVerdictSession,

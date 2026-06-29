@@ -21,8 +21,9 @@ describe('calendarBridge', () => {
         expect(s).toContain('علي');
     });
 
-    it('resolveCalendarUserId falls back to dev user', () => {
+    it('resolveCalendarUserId falls back to dev user in vitest', () => {
         expect(resolveCalendarUserId(null)).toBe('dev-user-uuid-1');
         expect(resolveCalendarUserId('lawyer-42')).toBe('lawyer-42');
+        expect(resolveCalendarUserId('')).toBe('dev-user-uuid-1');
     });
 });

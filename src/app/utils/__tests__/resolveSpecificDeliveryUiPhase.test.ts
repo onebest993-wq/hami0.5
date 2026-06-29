@@ -33,7 +33,7 @@ describe('resolveSpecificDeliveryUiPhase', () => {
         expect(r.showFieldProcedures).toBe(true);
     });
 
-    it('post_financialization kills all field cards and activates seizure', () => {
+    it('post_financialization kills all field cards and enables financial seizure path', () => {
         const r = resolveSpecificDeliveryUiPhase({
             specificDeliveryItemNature: 'immovable',
             specificDeliveryFinancialized: true,
@@ -44,16 +44,20 @@ describe('resolveSpecificDeliveryUiPhase', () => {
         expect(r.showSurveyorCard).toBe(false);
         expect(r.showConversionCard).toBe(false);
         expect(r.activateFinancialSeizurePath).toBe(true);
-        expect(r.hideCoerciveSeizureTools).toBe(false);
+        expect(r.hideCoerciveSeizureTools).toBe(true);
+        expect(r.hideFollowupSeizureRequestsTab).toBe(false);
+        expect(r.showPersonalCoerciveTab).toBe(false);
     });
 
-    it('post_financialization earner movable shows personal tab', () => {
+    it('post_financialization earner movable enables seizure tab', () => {
         const r = resolveSpecificDeliveryUiPhase({
             specificDeliveryItemNature: 'movable',
             specificDeliveryFinancialized: true,
             isEmployee: false,
         });
-        expect(r.showPersonalCoerciveTab).toBe(true);
+        expect(r.showPersonalCoerciveTab).toBe(false);
+        expect(r.hideCoerciveSeizureTools).toBe(true);
+        expect(r.hideFollowupSeizureRequestsTab).toBe(false);
     });
 
     it('maps to followup flags with field procedures off after financialization', () => {
@@ -65,5 +69,35 @@ describe('resolveSpecificDeliveryUiPhase', () => {
         expect(flags.showSpecificDeliverySurveyorCard).toBe(false);
         expect(flags.showSpecificDeliveryConversionCard).toBe(false);
         expect(flags.isFinancialDebtCollection).toBe(true);
+    });
+
+    it('partial financialization keeps field procedures for pending items', () => {
+        const r = resolveSpecificDeliveryUiPhase({
+            isEmployee: false,
+            specificDeliveryItems: [
+                {
+                    id: 'a',
+                    name: 'سيارة',
+                    nature: 'movable',
+                    status: 'financialized',
+                    financializedAmount: 5_000_000,
+                    declaredDestroyed: true,
+                },
+                {
+                    id: 'b',
+                    name: 'دار',
+                    nature: 'immovable',
+                    status: 'pending',
+                },
+            ],
+        });
+        expect(r.phase).toBe('pre_delivery');
+        expect(r.showFieldProcedures).toBe(true);
+        expect(r.showConversionCard).toBe(true);
+        expect(r.showSurveyorCard).toBe(true);
+        expect(r.activateFinancialSeizurePath).toBe(true);
+        expect(r.hideCoerciveSeizureTools).toBe(true);
+        expect(r.hideFollowupSeizureRequestsTab).toBe(false);
+        expect(r.showPersonalCoerciveTab).toBe(false);
     });
 });

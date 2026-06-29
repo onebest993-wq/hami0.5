@@ -9,6 +9,10 @@ import {
     refinePopoverLayoutWithMeasuredHeight,
     type FixedPopoverLayout,
 } from './anchoredPopoverPosition';
+import {
+    PARTY_BADGE_ICON_SIZE,
+    PARTY_BADGE_PILL_CLASS,
+} from './partyBadgeShell';
 import type { LucideProps } from 'lucide-react';
 import type {
     RealEstateSeizureAsset,
@@ -63,12 +67,15 @@ function buildThirdPartyLabel(a: ThirdPartySeizureAsset): string {
     return amt ? `${name || 'لدى الغير'} — ${amt.toLocaleString('ar-IQ')} د.ع` : name || 'لدى الغير';
 }
 
-function isActiveThirdPartySeizure(s: ThirdPartySeizure): boolean {
+function isActiveThirdPartySeizure(
+    s: ThirdPartySeizure,
+    decisionsExecutionId?: string
+): boolean {
     const status = String(s?.status || '').trim();
     const reply = String(s?.replyStatus || '').trim();
     if (status === 'funds_received') return false;
     if (status === 'replied' && reply === 'denied') return false;
-    return true;
+    return isRegistryRowEnforceable(s.decisionRowId, decisionsExecutionId);
 }
 
 function buildThirdPartySeizureUiLabel(s: ThirdPartySeizure): string {
@@ -174,11 +181,11 @@ function BadgeButton(props: {
             ref={props.buttonRef}
             type="button"
             onClick={props.onClick}
-            className={`inline-flex shrink-0 flex-row-reverse items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold transition-all ${props.bgClass} ${props.borderClass} ${props.textClass} hover:brightness-110 ${
+            className={`${PARTY_BADGE_PILL_CLASS} ${props.bgClass} ${props.borderClass} ${props.textClass} ${
                 props.active ? 'ring-1 ring-white/10' : ''
             }`}
         >
-            <Icon size={12} className="opacity-85" />
+            <Icon size={PARTY_BADGE_ICON_SIZE} className="shrink-0 opacity-85" />
             <span className="whitespace-nowrap">{props.text}</span>
         </button>
     );
@@ -231,7 +238,7 @@ export function DebtorSeizureCategoryBadges(props: {
         const seenThirdPartyKeys = new Set<string>();
         const thirdPartyItems: string[] = [];
         for (const s of props.thirdPartySeizures ?? []) {
-            if (!isActiveThirdPartySeizure(s)) continue;
+            if (!isActiveThirdPartySeizure(s, decId)) continue;
             const id = String(s?.id || '').trim();
             const did = String(s?.decisionRowId || '').trim();
             const key = did || id;

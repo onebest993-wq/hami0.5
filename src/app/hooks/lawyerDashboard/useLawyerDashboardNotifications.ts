@@ -1,26 +1,75 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useNotificationStore } from '@/app/stores/notificationStore';
 import { useIncomingCaseShares } from '@/app/hooks/useIncomingCaseShares';
+import { useNotificationBackgroundSync } from '@/app/hooks/lawyerDashboard/useNotificationBackgroundSync';
 import {
     NOTIFICATIONS_SHELL_FEATURE,
     computeNotificationsShellUnreadCount,
     openNotificationsFromShell,
 } from '@/app/services/notifications/notificationShellNavigation';
 import { isRealSignedIn } from '@/app/services/auth/shellAuth';
-import { dismissTransientOverlays } from '@/app/utils/bodyScrollLock';
-import { prefetchNotificationPanel } from '@/app/utils/lazyComponents';
+import {
+    clearNotificationPerfMarks,
+    markNotificationPerfPhase,
+} from '@/app/services/notifications/notificationPerfMetrics';
+import { loadNotificationPanelModule } from '@/app/runtime/notificationPanelLoader';
+import {
+    dismissTransientOverlays,
+    HAMI_DISMISS_OVERLAYS_EVENT,
+    releaseBodyScrollLock,
+    type TransientOverlayId,
+} from '@/app/utils/bodyScrollLock';
+import {
+    warmNotificationsOnHover,
+    warmNotificationsOnOpen,
+} from '@/app/hooks/lawyerDashboard/notificationIntentWarm';
 
 export function useLawyerDashboardNotifications(userId: string | null) {
     const notifications = useNotificationStore((s) => s.notifications);
     const storeUnreadCount = useNotificationStore((s) => s.unreadCount);
-    const { pendingCount: caseSharePendingCount } = useIncomingCaseShares(userId, Boolean(userId));
+    const { pendingCount: caseSharePendingCount } = useIncomingCaseShares(userId, Boolean(userId), {
+        pollIntervalMs: null,
+    });
     const notificationsUnreadCount = computeNotificationsShellUnreadCount(
         storeUnreadCount,
         caseSharePendingCount,
     );
     const [showNotifications, setShowNotifications] = useState(false);
-    const [notificationPanelMounted, setNotificationPanelMounted] = useState(false);
+    const [notificationPanelSessionKey, setNotificationPanelSessionKey] = useState(0);
+    const showNotificationsRef = useRef(false);
+    const openInFlightRef = useRef(false);
+    showNotificationsRef.current = showNotifications;
+
+    useNotificationBackgroundSync(userId, {
+        panelOpen: showNotifications,
+        enabled: Boolean(userId),
+    });
+
+    const closeNotifications = useCallback(() => {
+        showNotificationsRef.current = false;
+        setShowNotifications(false);
+        setNotificationPanelSessionKey((k) => k + 1);
+    }, []);
+
+    const primeNotificationPanelMount = useCallback(() => {
+        warmNotificationsOnHover();
+    }, []);
+
+    useEffect(() => {
+        const onDismiss = (e: Event) => {
+            const except = (e as CustomEvent<{ except?: TransientOverlayId }>).detail?.except;
+            if (except !== 'notifications') {
+                setShowNotifications(false);
+            }
+            if (except == null) {
+                releaseBodyScrollLock();
+            }
+        };
+        window.addEventListener(HAMI_DISMISS_OVERLAYS_EVENT, onDismiss);
+        return () => window.removeEventListener(HAMI_DISMISS_OVERLAYS_EVENT, onDismiss);
+    }, []);
 
     const openNotifications = useCallback(() => {
         openNotificationsFromShell({
@@ -28,10 +77,24 @@ export function useLawyerDashboardNotifications(userId: string | null) {
             onSignedOut: () =>
                 SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${NOTIFICATIONS_SHELL_FEATURE}`),
             onOpen: () => {
-                dismissTransientOverlays();
-                prefetchNotificationPanel();
-                setNotificationPanelMounted(true);
-                setShowNotifications(true);
+                if (showNotificationsRef.current || openInFlightRef.current) return;
+                openInFlightRef.current = true;
+                void (async () => {
+                    try {
+                        clearNotificationPerfMarks();
+                        markNotificationPerfPhase('open-request');
+                        warmNotificationsOnOpen(userId);
+                        await loadNotificationPanelModule().catch(() => undefined);
+                        markNotificationPerfPhase('chunk-ready');
+                        flushSync(() => {
+                            setShowNotifications(true);
+                        });
+                        showNotificationsRef.current = true;
+                        queueMicrotask(() => dismissTransientOverlays('notifications'));
+                    } finally {
+                        openInFlightRef.current = false;
+                    }
+                })();
             },
         });
     }, [userId]);
@@ -47,13 +110,31 @@ export function useLawyerDashboardNotifications(userId: string | null) {
         [notifications],
     );
 
+    useEffect(() => {
+        if (!import.meta.env.DEV || typeof window === 'undefined') return;
+        const w = window as Window & {
+            __hamiE2eForceOpenNotifications?: () => void;
+            __hamiE2eNotificationDebug?: () => { showNotifications: boolean };
+        };
+        w.__hamiE2eForceOpenNotifications = () => openNotifications();
+        w.__hamiE2eNotificationDebug = () => ({
+            showNotifications,
+        });
+        return () => {
+            delete w.__hamiE2eForceOpenNotifications;
+            delete w.__hamiE2eNotificationDebug;
+        };
+    }, [openNotifications, showNotifications]);
+
     return {
         showNotifications,
         setShowNotifications,
-        notificationPanelMounted,
+        closeNotifications,
+        notificationPanelSessionKey,
         openNotifications,
         searchNotifications,
         notificationsUnreadCount,
         caseSharePendingCount,
+        primeNotificationPanelMount,
     };
 }

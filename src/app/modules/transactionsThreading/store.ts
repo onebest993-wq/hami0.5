@@ -122,14 +122,6 @@ export const useTransactionsThreadingStore = create<TransactionsThreadingState>(
   createTransaction: async (input) => {
     const tx = await service.createTransaction(input);
     await get().refreshTransactions();
-    try {
-      const { AuditLog } = await import('@/app/services/auditLogPublisher');
-      AuditLog.threading.created({
-        txId: tx.id,
-        title: tx.title,
-        clientName: tx.clientName,
-      });
-    } catch { /* silent */ }
     return tx;
   },
 
@@ -151,14 +143,6 @@ export const useTransactionsThreadingStore = create<TransactionsThreadingState>(
     const task = await service.completeTask(taskId, officialReference ?? null);
     await get().refreshTransactionData(task.transactionId);
     syncThreadingToCalendar();
-    try {
-      const { AuditLog } = await import('@/app/services/auditLogPublisher');
-      AuditLog.threading.taskCompleted({
-        txId: task.transactionId,
-        taskId: task.id,
-        title: task.title,
-      });
-    } catch { /* silent */ }
     return task;
   },
 
@@ -200,21 +184,6 @@ export const useTransactionsThreadingStore = create<TransactionsThreadingState>(
   addFinanceRecord: async (input) => {
     const record = await service.addFinanceRecord(input);
     await get().refreshTransactionData(record.transactionId);
-    try {
-      const { AuditLog } = await import('@/app/services/auditLogPublisher');
-      if (record.type === FinanceRecordType.AdvancePayment) {
-        AuditLog.threading.advancePaid({
-          txId: record.transactionId,
-          amount: record.amount,
-        });
-      } else if (record.type === FinanceRecordType.Expense) {
-        AuditLog.threading.expenseAdded({
-          txId: record.transactionId,
-          amount: record.amount,
-          description: record.description,
-        });
-      }
-    } catch { /* silent */ }
     syncThreadingToCalendar();
     return record;
   },
@@ -250,14 +219,6 @@ export const useTransactionsThreadingStore = create<TransactionsThreadingState>(
     await get().refreshTransactions();
     await get().refreshTransactionData(transactionId);
     syncThreadingToCalendar();
-    try {
-      const { AuditLog } = await import('@/app/services/auditLogPublisher');
-      AuditLog.threading.statusChanged({
-        txId: tx.id,
-        title: tx.title,
-        toStatus: String(status),
-      });
-    } catch { /* silent */ }
     return tx;
   },
 
@@ -267,3 +228,26 @@ export const useTransactionsThreadingStore = create<TransactionsThreadingState>(
     return tx;
   },
 }));
+
+/** تحميل مسبق بيانات المعاملات قبل فتح الـ hub — لا يغيّر الواجهة */
+let warmInflight: Promise<void> | null = null;
+let warmForUserId: string | null = null;
+
+export function warmTransactionsThreadingStore(userId: string): Promise<void> {
+    const uid = userId?.trim();
+    if (!uid) return Promise.resolve();
+    if (warmForUserId === uid && warmInflight) return warmInflight;
+
+    warmForUserId = uid;
+    const warmUid = uid;
+    warmInflight = useTransactionsThreadingStore
+        .getState()
+        .setUserId(uid)
+        .then(() => useTransactionsThreadingStore.getState().refreshTransactions())
+        .catch(() => undefined)
+        .then(() => {
+            if (warmForUserId === warmUid) warmInflight = null;
+        });
+
+    return warmInflight;
+}

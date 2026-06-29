@@ -22,8 +22,11 @@ export function readInitialLawyerTab(): LawyerDashboardTab {
     if (typeof window === 'undefined') return 'home';
     try {
         const saved = sessionStorage.getItem(LAWYER_DASHBOARD_TAB_KEY);
-        if (saved === 'schedule' || saved === 'profile' || saved === 'notifications') {
+        if (saved === 'schedule' || saved === 'profile') {
             return saved;
+        }
+        if (saved === 'notifications') {
+            sessionStorage.removeItem(LAWYER_DASHBOARD_TAB_KEY);
         }
     } catch {
         /* ignore storage */

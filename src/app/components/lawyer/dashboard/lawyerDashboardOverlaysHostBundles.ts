@@ -3,11 +3,11 @@ import type React from 'react';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { GlobalNote, ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { LawyerArchiveOverlay } from '@/app/hooks/useLawyerExecutionFiles';
-import type { useLawyerDashboardOverlays } from '@/app/hooks/useLawyerDashboardOverlays';
+import type { LawyerDashboardMergedOverlaysState } from '@/app/hooks/lawyerDashboard/lawyerDashboardMergedOverlaysState';
 import type { useCriminalDashboardBridge } from '@/app/components/lawyer/criminal-system/criminalDashboardBridge';
 import type { LazyGlobalSearchOverlay } from '@/app/utils/lazyComponents';
 
-type OverlayState = ReturnType<typeof useLawyerDashboardOverlays>;
+type OverlayState = LawyerDashboardMergedOverlaysState;
 type CriminalBridge = ReturnType<typeof useCriminalDashboardBridge>;
 
 export type LawyerDashboardShellBundle = {
@@ -24,6 +24,7 @@ export type LawyerDashboardShellBundle = {
 export type LawyerDashboardDataBundle = {
     files: FileData[];
     executionFiles: ExecutionFile[];
+    executionFilesHydrating?: boolean;
     globalNotes: GlobalNote[];
     searchNotifications: Array<{ id: string; title: string; message: string; type: string }>;
     criminalCasesForCluster: unknown[];
@@ -58,6 +59,8 @@ export type LawyerDashboardArchiveBundle = {
     handleRestoreFile: (file: FileData) => void;
     moveExecutionToTrash: (ids: Array<string | number>) => void;
     restoreExecutionFromTrash: (id: string | number) => void;
+    archiveExecution: (id: string | number) => void;
+    restoreArchivedExecution: (id: string | number) => void;
     permanentlyDeleteExecutions: (ids: Array<string | number>) => void;
     moveLawsuitToTrash: (ids: Array<string | number>) => void;
     restoreLawsuitFromTrash: (id: string | number) => void;
@@ -68,11 +71,12 @@ export type LawyerDashboardArchiveBundle = {
 
 export type LawyerDashboardNotepadBundle = {
     isNotepadOpen: boolean;
-    setIsNotepadOpen: (open: boolean) => void;
     notepadMode: 'list' | 'create';
-    setNotepadMode: React.Dispatch<React.SetStateAction<'list' | 'create'>>;
     notepadFocusNoteId: string | undefined;
-    setNotepadFocusNoteId: React.Dispatch<React.SetStateAction<string | undefined>>;
+    notepadSessionKey: number;
+    repositoryTab: 'notepad' | 'vault';
+    vaultOpenScanner: boolean;
+    closeNotepad: () => void;
     handleSaveNote: (note: GlobalNote) => void | Promise<void>;
     handleDeleteNote: (id: number) => void;
     handleNotepadConvert: (noteId: number) => void;
@@ -87,22 +91,6 @@ export type LawyerDashboardNewCaseBundle = {
     isCriminalSeveranceRedirect: boolean;
     onNewCaseOpenCriminalDashboard: (caseId: string) => void;
     handleNewCaseSave: (...args: unknown[]) => void;
-};
-
-export type LawyerDashboardUrgentBundle = {
-    showUrgentDashboard: boolean;
-    setShowUrgentDashboard: React.Dispatch<React.SetStateAction<boolean>>;
-    urgentFocusCaseId: string | undefined;
-    setUrgentFocusCaseId: React.Dispatch<React.SetStateAction<string | undefined>>;
-};
-
-export type LawyerDashboardClientBundle = {
-    showAddClientModal: boolean;
-    setShowAddClientModal: (open: boolean) => void;
-    newClientName: string;
-    setNewClientName: (name: string) => void;
-    newClientPhone: string;
-    setNewClientPhone: (phone: string) => void;
 };
 
 export type LawyerDashboardExecutionCreateBundle = {
@@ -129,8 +117,6 @@ export type LawyerDashboardOverlaysHostProps = {
     archive: LawyerDashboardArchiveBundle;
     notepad: LawyerDashboardNotepadBundle;
     newCase: LawyerDashboardNewCaseBundle;
-    urgent: LawyerDashboardUrgentBundle;
-    client: LawyerDashboardClientBundle;
     executionCreate: LawyerDashboardExecutionCreateBundle;
     nav: LawyerDashboardNavBundle;
 };

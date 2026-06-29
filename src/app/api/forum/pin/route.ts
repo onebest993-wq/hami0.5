@@ -1,5 +1,6 @@
 import { sanitizePayload } from '../../security/sanitizer.ts';
 import { ForumRepository } from '../../../services/forum/forumRepository.ts';
+import { redactAnonymousAuthor } from '../../../services/forum/forumMapper.ts';
 import { requireForumAuth, jsonResponse } from '../_auth.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -29,7 +30,7 @@ export async function POST(request: Request): Promise<Response> {
             action: 'toggle_pin',
             postId: payload.postId,
             pinned: payload.pinned,
-            post: updated,
+            post: redactAnonymousAuthor(updated, auth.userId, auth.isAdmin),
         });
     } catch {
         return jsonResponse(500, { ok: false, error: 'Internal server error' });

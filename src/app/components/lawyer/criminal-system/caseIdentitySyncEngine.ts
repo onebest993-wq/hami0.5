@@ -1,6 +1,6 @@
 // @ts-nocheck
 import type { JudicialDecision } from '@/app/types/criminal';
-import type { CriminalCase, LawyerRequest, TimelineEvent } from './criminalStore';
+import type { CriminalCase, LawyerRequest, TimelineEvent } from './criminalCaseModel';
 
 function replaceEmbeddedText(value: string | undefined, prior: string, next: string): string | undefined {
     const text = String(value ?? '');

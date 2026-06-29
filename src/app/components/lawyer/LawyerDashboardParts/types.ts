@@ -15,6 +15,14 @@ export type GlobalNote = {
     type?: string;
     transcript?: string;
     voiceDurationSec?: number;
+    /** مرجع مستند Smart Vault مرفق بالبطاقة */
+    attachmentDocId?: string;
+    /** إخفاء من inbox المستودع بعد الربط بإضبارة */
+    repositoryInboxHidden?: boolean;
+    /** طابع إنشاء ISO للعرض */
+    createdAtIso?: string;
+    /** أسطر مهام سريعة مستخرجة من المحرر */
+    quickTaskLines?: string[];
 };
 
 export type ExecutionFile = FileData & {

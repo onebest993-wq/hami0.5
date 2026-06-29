@@ -17,7 +17,7 @@ import {
     syncLawsuitTaskDue,
 } from '../calendarDossierSync';
 import { CalendarDB } from '@/app/services/lawyer-cloud';
-import { buildStableBridgeId } from '../calendarBridge';
+import { buildStableBridgeId, flushPendingCalendarSyncs } from '../calendarBridge';
 import { isBridgedCalendarEvent } from '../calendarBridgePersistence';
 
 const USER = 'e2e-lawyer-calendar';
@@ -29,8 +29,15 @@ function clearStorage(): void {
     persistenceRepository.save(STORAGE_KEYS.LAWYER_FILES, []);
 }
 
-function waitSync(ms = 120): Promise<void> {
-    return new Promise((r) => setTimeout(r, ms));
+async function flushCalendarSync(): Promise<void> {
+    await flushPendingCalendarSyncs();
+}
+
+/** sync*FileToCalendar يشغّل IIFE غير متزامن — ننتظر اكتمال purge/reconcile */
+async function awaitFileCalendarSync(): Promise<void> {
+    await flushPendingCalendarSyncs();
+    await new Promise((r) => setTimeout(r, 100));
+    await flushPendingCalendarSyncs();
 }
 
 function bridgedForLawsuit(events: Awaited<ReturnType<typeof CalendarDB.getEvents>>, fileId: string) {
@@ -61,7 +68,7 @@ describe('calendar full simulation (real CalendarDB)', () => {
             caseNo: '2026/50',
             court: 'بغداد',
         });
-        await waitSync();
+        await flushCalendarSync();
 
         const events = await CalendarDB.getEvents(USER);
         const id = buildStableBridgeId('lawsuit', 'file-100', 'appt-a');
@@ -78,7 +85,7 @@ describe('calendar full simulation (real CalendarDB)', () => {
             task: { id: 't1', title: 'تقديم مذكرة', dueDate: '2026-11-01' },
             caseNo: '2026/51',
         });
-        await waitSync();
+        await flushCalendarSync();
 
         const events = await CalendarDB.getEvents(USER);
         const id = buildStableBridgeId('lawsuit', 'file-200', 'task_t1');
@@ -100,11 +107,11 @@ describe('calendar full simulation (real CalendarDB)', () => {
         };
         saveLawsuitFilesRaw([file]);
         syncLawsuitFileToCalendar(file, USER);
-        await waitSync();
+        await awaitFileCalendarSync();
         expect(bridgedForLawsuit(await CalendarDB.getEvents(USER), 'trash-case').length).toBe(1);
 
         await removeAllBridgedEventsForEntity('lawsuit', 'trash-case', USER);
-        await waitSync(50);
+        await flushCalendarSync();
 
         expect(bridgedForLawsuit(await CalendarDB.getEvents(USER), 'trash-case').length).toBe(0);
     });
@@ -128,7 +135,7 @@ describe('calendar full simulation (real CalendarDB)', () => {
         const restored = { ...file, status: 'active' as const, deletedAt: undefined };
         saveLawsuitFilesRaw([restored]);
         syncLawsuitFileToCalendar(restored, USER);
-        await waitSync();
+        await awaitFileCalendarSync();
 
         const events = bridgedForLawsuit(await CalendarDB.getEvents(USER), 'restore-case');
         expect(events.length).toBe(1);
@@ -148,13 +155,13 @@ describe('calendar full simulation (real CalendarDB)', () => {
         };
         saveLawsuitFilesRaw([active]);
         syncLawsuitFileToCalendar(active, USER);
-        await waitSync();
+        await awaitFileCalendarSync();
         expect(bridgedForLawsuit(await CalendarDB.getEvents(USER), 'arch-case').length).toBe(1);
 
         const archived = { ...active, status: 'archived' as const };
         saveLawsuitFilesRaw([archived]);
         syncLawsuitFileToCalendar(archived, USER);
-        await waitSync();
+        await awaitFileCalendarSync();
 
         expect(bridgedForLawsuit(await CalendarDB.getEvents(USER), 'arch-case').length).toBe(0);
     });
@@ -223,7 +230,7 @@ describe('calendar full simulation (real CalendarDB)', () => {
         };
         saveExecutionFilesRaw([exec]);
         syncExecutionFileToCalendar(exec, USER);
-        await waitSync();
+        await awaitFileCalendarSync();
 
         let events = await CalendarDB.getEvents(USER);
         const exId = buildStableBridgeId('execution', 'exec-1', 'ex-appt');
@@ -232,7 +239,7 @@ describe('calendar full simulation (real CalendarDB)', () => {
         const trashed = { ...exec, executionTrashDeletedAt: new Date().toISOString() };
         saveExecutionFilesRaw([trashed]);
         syncExecutionFileToCalendar(trashed, USER);
-        await waitSync();
+        await awaitFileCalendarSync();
 
         events = await CalendarDB.getEvents(USER);
         expect(events.some((e) => e.id === exId)).toBe(false);
@@ -282,7 +289,7 @@ describe('calendar full simulation (real CalendarDB)', () => {
         persistenceRepository.save(STORAGE_KEYS.LAWYER_FILES, [file]);
         saveLawsuitFilesRaw([file]);
         syncLawsuitFileToCalendar(file, USER);
-        await waitSync();
+        await awaitFileCalendarSync();
 
         expect(loadLawsuitFilesRaw().length).toBe(1);
         const stored = localStorage.getItem(CAL_KEY) || SecureStoreService.getItemSync(CAL_KEY);

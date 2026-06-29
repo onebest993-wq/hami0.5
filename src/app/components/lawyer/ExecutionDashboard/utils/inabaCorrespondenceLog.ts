@@ -56,7 +56,7 @@ export function patchParentInabaCorrespondenceLog(
     try {
         const file = readExecutionDossierBlob(parentId);
         if (!file) return null;
-        const prev = getInabaCorrespondenceLog(file as ExecutionFile);
+        const prev = getInabaCorrespondenceLog(file as unknown as ExecutionFile);
         const next = mutator(prev);
         const patch = { inaba_correspondence_log: next, updatedAt: new Date().toISOString() };
         patchExecutionDossierRecord(parentId, patch);

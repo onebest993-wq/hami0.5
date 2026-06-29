@@ -6,14 +6,15 @@ import SecureStoreService from '@/app/services/SecureStoreService';
 import { mergeExecutorDecisionsInto } from '@/app/utils/executorSeizureDecisionQueue';
 import { ensureDecisionsNamespaceMigrated } from '@/app/utils/executionDecisionsNamespace';
 import { reconcileDomainViolatingDecisions } from '@/app/utils/executionDomainReconcile';
-import { executionFileContentSignature, isInabaSubFileId, useExecutionDashboardStore } from '@/app/stores';
+import { isInabaSubFileId, useExecutionDashboardStore } from '@/app/stores';
+import { executionFileContentSignature } from '../useExecutionData';
 import { buildLegacyDecisionMigrationSources } from './executionDashboardDossierBootSync';
 import {
     prefetchExecutionDashboardShell,
     prefetchExecutionModalContainers,
     prefetchExecutionOverlayModals,
-} from '../executionDashboardLazyRegistry';
-import { prefetchExecutionFollowupDefaultTab } from '../executionFollowupTabPrefetch';
+} from '../../executionDashboardLazyRegistry';
+import { prefetchExecutionFollowupDefaultTab } from '../../executionFollowupTabPrefetch';
 
 export function useExecutionDashboardUrlDelegationSync(
     urlDelegationParentId: string | undefined,

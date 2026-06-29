@@ -1,10 +1,15 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import SecureStoreService from '@/app/services/SecureStoreService';
+import {
+    clampRecentSearchLabel,
+    globalSearchRecentStorageKey,
+    GLOBAL_SEARCH_MAX_RECENT_COUNT,
+    sanitizeRecentSearchLabels,
+} from '@/app/services/search/globalSearchQuerySecurity';
 import type { GlobalSearchNavigate, GroupedSearchResults } from '@/app/services/globalSearchIndex';
 import type { WorkspacePinLookupContext } from '@/app/workspace/buildPinFromSearchEntry';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
-import { useSearchExtras } from '@/app/components/lawyer/GlobalSearchOverlay/hooks/useSearchExtras';
-import { useSearchIndex } from '@/app/components/lawyer/GlobalSearchOverlay/hooks/useSearchIndex';
+import { useGlobalSearchRuntime } from '@/app/components/lawyer/GlobalSearchOverlay/hooks/GlobalSearchRuntimeProvider';
 import { useSearchQuery } from '@/app/components/lawyer/GlobalSearchOverlay/hooks/useSearchQuery';
 
 export type { GlobalSearchNavigate, GroupedSearchResults };
@@ -18,26 +23,23 @@ export interface UseGlobalSearchOptions {
     userId: string | null;
     initialQuery?: string;
     indexVersion?: number;
-    overlayOpen?: boolean;
+    searchSessionKey?: number;
 }
 
 export interface UseGlobalSearchReturn {
     query: string;
     setQuery: React.Dispatch<React.SetStateAction<string>>;
-    debouncedQuery: string;
     isSearching: boolean;
     isLoadingIndex: boolean;
+    isEnrichingIndex: boolean;
     results: GroupedSearchResults | null;
     recentSearches: string[];
     handleResultClick: (navigate: GlobalSearchNavigate, label: string) => void;
     clearRecent: () => void;
-    reloadExtras: () => void;
     pinLookup: WorkspacePinLookupContext;
-    criminalCases: unknown[];
 }
 
-const RECENT_SEARCHES_KEY = 'lawyer_recent_searches';
-const MAX_RECENT = 8;
+const LEGACY_RECENT_SEARCHES_KEY = 'lawyer_recent_searches';
 
 export function useGlobalSearch(
     onClose: () => void,
@@ -45,63 +47,73 @@ export function useGlobalSearch(
     options: UseGlobalSearchOptions,
 ): UseGlobalSearchReturn {
     const criminalCases = options.criminalCases ?? [];
+    const { fuse, extras, isLoadingIndex, isEnrichingIndex } = useGlobalSearchRuntime();
 
-    const { extras, profileLine, isLoadingExtras, reloadExtras } = useSearchExtras({
-        userId: options.userId,
-        overlayOpen: options.overlayOpen,
-    });
-
-    const { fuse, isBuildingIndex } = useSearchIndex({
-        files: options.files,
-        executionFiles: options.executionFiles,
-        globalNotes: options.globalNotes,
-        notifications: options.notifications,
-        criminalCases,
-        userId: options.userId,
-        profileLine,
-        extras,
-        isLoadingExtras,
-        indexVersion: options.indexVersion,
-    });
-
-    const isLoadingIndex = isLoadingExtras || isBuildingIndex || !fuse;
-
-    const { query, setQuery, debouncedQuery, isSearching, results } = useSearchQuery(
+    const { query, setQuery, isSearching, results } = useSearchQuery(
         options.initialQuery ?? '',
         fuse,
         isLoadingIndex,
+        options.searchSessionKey ?? 0,
     );
 
     const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
+    const recentStorageKey = globalSearchRecentStorageKey(options.userId);
+
     useEffect(() => {
-        const saved = SecureStoreService.getItemSync(RECENT_SEARCHES_KEY);
-        if (!saved) return;
+        if (!recentStorageKey) {
+            setRecentSearches([]);
+            return;
+        }
+        const saved = SecureStoreService.getItemSync(recentStorageKey);
+        if (!saved) {
+            const legacy = SecureStoreService.getItemSync(LEGACY_RECENT_SEARCHES_KEY);
+            if (legacy) {
+                try {
+                    const migrated = sanitizeRecentSearchLabels(JSON.parse(legacy));
+                    setRecentSearches(migrated);
+                    if (migrated.length > 0) {
+                        SecureStoreService.setItemSync(recentStorageKey, JSON.stringify(migrated));
+                    }
+                    SecureStoreService.deleteItemSync(LEGACY_RECENT_SEARCHES_KEY);
+                } catch {
+                    SecureStoreService.deleteItemSync(LEGACY_RECENT_SEARCHES_KEY);
+                }
+            }
+            return;
+        }
         try {
             const parsed: unknown = JSON.parse(saved);
-            if (Array.isArray(parsed)) {
-                setRecentSearches(parsed.filter((x): x is string => typeof x === 'string'));
-            }
+            setRecentSearches(sanitizeRecentSearchLabels(parsed));
         } catch {
-            SecureStoreService.deleteItemSync(RECENT_SEARCHES_KEY);
+            SecureStoreService.deleteItemSync(recentStorageKey);
         }
-    }, []);
+    }, [recentStorageKey]);
 
     const handleResultClick = useCallback(
         (navigate: GlobalSearchNavigate, label: string) => {
-            const newRecent = [label, ...recentSearches.filter((s) => s !== label)].slice(0, MAX_RECENT);
+            const safeLabel = clampRecentSearchLabel(label);
+            if (!safeLabel) return;
+            const newRecent = [safeLabel, ...recentSearches.filter((s) => s !== safeLabel)].slice(
+                0,
+                GLOBAL_SEARCH_MAX_RECENT_COUNT,
+            );
             setRecentSearches(newRecent);
-            SecureStoreService.setItemSync(RECENT_SEARCHES_KEY, JSON.stringify(newRecent));
+            if (recentStorageKey) {
+                SecureStoreService.setItemSync(recentStorageKey, JSON.stringify(newRecent));
+            }
             onNavigate(navigate);
             onClose();
         },
-        [recentSearches, onClose, onNavigate],
+        [recentSearches, onClose, onNavigate, recentStorageKey],
     );
 
     const clearRecent = useCallback(() => {
         setRecentSearches([]);
-        SecureStoreService.deleteItemSync(RECENT_SEARCHES_KEY);
-    }, []);
+        if (recentStorageKey) {
+            SecureStoreService.deleteItemSync(recentStorageKey);
+        }
+    }, [recentStorageKey]);
 
     const pinLookup = useMemo<WorkspacePinLookupContext>(
         () => ({
@@ -119,15 +131,13 @@ export function useGlobalSearch(
     return {
         query,
         setQuery,
-        debouncedQuery,
         isSearching,
         isLoadingIndex,
+        isEnrichingIndex,
         results,
         recentSearches,
         handleResultClick,
         clearRecent,
-        reloadExtras,
         pinLookup,
-        criminalCases,
     };
 }

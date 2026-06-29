@@ -21,11 +21,10 @@ import {
 } from '../verdictCassationResultEngine';
 import { ModalIsoDate } from './ModalIsoDate';
 import { ModalIsoDateInput } from './ModalIsoDateInput';
+import { CriminalModalPortal, CRIMINAL_MODAL_Z } from '../criminalModalPortal';
 
-const modalShell =
-    'fixed inset-0 z-[520] isolate bg-black/80 backdrop-blur-sm p-4 flex items-center justify-center print:hidden';
 const panelClass =
-    'relative z-[521] w-full max-w-lg max-h-[min(92vh,720px)] flex flex-col rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden';
+    'relative w-full max-w-lg max-h-[min(92vh,720px)] flex flex-col rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden';
 
 type CassationModalBaseProps = {
     open: boolean;
@@ -77,7 +76,7 @@ export const VerdictCassationFilingModal = ({
     };
 
     return (
-        <div className={modalShell} dir="rtl">
+        <CriminalModalPortal zIndex={CRIMINAL_MODAL_Z.verdictCassation} className="isolate">
             <div className={panelClass} onClick={(e) => e.stopPropagation()}>
                 <div className="p-4 border-b border-slate-700 bg-slate-800/50">
                     <div className="text-white font-black text-sm whitespace-normal break-words">
@@ -120,7 +119,7 @@ export const VerdictCassationFilingModal = ({
                     ) : null}
                 </div>
             </div>
-        </div>
+        </CriminalModalPortal>
     );
 };
 
@@ -196,7 +195,7 @@ export const VerdictCassationResultModal = ({
     };
 
     return (
-        <div className={modalShell} dir="rtl">
+        <CriminalModalPortal zIndex={CRIMINAL_MODAL_Z.verdictCassation} className="isolate">
             <div className={panelClass} onClick={(e) => e.stopPropagation()}>
                 <div className="p-4 border-b border-slate-700 bg-slate-800/50">
                     <div className="text-white font-black text-sm whitespace-normal break-words">
@@ -311,7 +310,7 @@ export const VerdictCassationResultModal = ({
                     ) : null}
                 </div>
             </div>
-        </div>
+        </CriminalModalPortal>
     );
 };
 
@@ -354,7 +353,7 @@ export const VerdictCassationCorrectionModal = ({
     };
 
     return (
-        <div className={modalShell} dir="rtl">
+        <CriminalModalPortal zIndex={CRIMINAL_MODAL_Z.verdictCassation} className="isolate">
             <div className={panelClass} onClick={(e) => e.stopPropagation()}>
                 <div className="p-4 border-b border-slate-700 bg-slate-800/50">
                     <div className="text-white font-black text-sm whitespace-normal break-words">
@@ -427,6 +426,6 @@ export const VerdictCassationCorrectionModal = ({
                     ) : null}
                 </div>
             </div>
-        </div>
+        </CriminalModalPortal>
     );
 };

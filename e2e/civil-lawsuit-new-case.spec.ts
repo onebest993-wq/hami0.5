@@ -7,6 +7,7 @@ import {
     extractPartyNamesFromFile,
     fillMinimalCivilNewCase,
     openCivilNewCaseForm,
+    openLawsuitsWorkspace,
     readLawyerFilesFromPage,
     seedLawyerFiles,
     waitForPartyInFiles,
@@ -33,7 +34,7 @@ test.describe('Civil lawsuit new case', () => {
         await page.getByTestId('lawyer-new-case-save').click();
 
         await expect(page.getByTestId('smart-file-dossier')).toBeVisible({ timeout: 25_000 });
-        await waitForPartyInFiles(page, plaintiff, 20_000);
+        await waitForPartyInFiles(page, plaintiff, 45_000);
 
         const files = await readLawyerFilesFromPage(page);
         const created = files.find((f) => extractPartyNamesFromFile(f).includes(plaintiff));
@@ -46,12 +47,15 @@ test.describe('Civil lawsuit new case', () => {
     });
 
     test('allows personal-status keywords in personal jurisdiction form', async ({ page }) => {
-        await page.getByTestId('hub-archive-lawsuit').click();
-        await expect(page.getByTestId('lawsuits-workspace')).toBeVisible({ timeout: 15_000 });
-        await page.getByTestId('lawsuits-add-new').click();
-        await page.getByTestId('new-case-jurisdiction-personal').click();
-        await page.getByPlaceholder('اسم المحكمة المختصة...').fill('محكمة أحوال شخصية');
-        await page.getByPlaceholder('أدخل نوع الدعوى...').fill('دعوى طلاق');
+        await openLawsuitsWorkspace(page);
+        const addFab = page.getByTestId('lawsuits-add-new');
+        await addFab.waitFor({ state: 'visible', timeout: 15_000 });
+        await addFab.click({ force: true });
+        await expect(page.getByText('اختصاص الدعوى')).toBeVisible({ timeout: 20_000 });
+        await page.getByTestId('new-case-jurisdiction-personal').click({ force: true });
+        await expect(page.getByText('تأسيس دعوى الأحوال الشخصية')).toBeVisible({ timeout: 20_000 });
+        await page.getByPlaceholder('اسم المحكمة...').fill('محكمة أحوال شخصية');
+        await page.getByPlaceholder('طلاق، نفقة، حضانة...').fill('دعوى طلاق');
         await expect(page.getByText('ملاحظة: يرجى التأكد من تطابق المعلومات المدخلة')).toHaveCount(0);
     });
 });

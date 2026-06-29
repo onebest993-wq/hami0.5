@@ -1,32 +1,46 @@
-import React from 'react';
+import React, { memo, useEffect, useRef, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 
 /** زجاج شفاف — يظهر الزخرفة من خلفه */
 export const SETTING_GLASS =
-    'rounded-2xl border border-white/[0.08] bg-white/[0.035] backdrop-blur-xl overflow-hidden shadow-[0_4px_28px_rgba(0,0,0,0.14)] ring-1 ring-inset ring-white/[0.04]';
+    'hami-setting-glass rounded-2xl border border-white/[0.08] bg-white/[0.035] backdrop-blur-xl overflow-hidden shadow-[0_4px_28px_rgba(0,0,0,0.14)] ring-1 ring-inset ring-white/[0.04]';
 
 export const SETTING_GLASS_INNER =
-    'bg-white/[0.03] backdrop-blur-sm border border-white/[0.06]';
+    'hami-setting-glass-inner bg-white/[0.03] backdrop-blur-sm border border-white/[0.06]';
 
-export const SectionHeader = ({ title, subtitle, icon: Icon }: { title: string; subtitle?: string; icon: LucideIcon }) => (
-    <div className="flex items-start gap-3 mb-3 mt-2 px-0.5">
-        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${SETTING_GLASS_INNER}`}>
-            <Icon size={18} className="text-[#E6C673]" />
+export const SectionHeader = memo(function SectionHeader({
+    title,
+    subtitle,
+    icon: Icon,
+}: {
+    title: string;
+    subtitle?: string;
+    icon: LucideIcon;
+}) {
+    return (
+        <div className="flex items-start gap-3 mb-3 mt-2 px-0.5">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${SETTING_GLASS_INNER}`}>
+                <Icon size={18} className="text-[#E6C673]" />
+            </div>
+            <div>
+                <h3 className="text-sm font-bold text-white">{title}</h3>
+                {subtitle && <p className="text-[11px] text-white/45 mt-0.5 leading-relaxed">{subtitle}</p>}
+            </div>
         </div>
-        <div>
-            <h3 className="text-sm font-bold text-white">{title}</h3>
-            {subtitle && <p className="text-[11px] text-white/45 mt-0.5 leading-relaxed">{subtitle}</p>}
-        </div>
-    </div>
-);
+    );
+});
 
-export const SettingCard = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-    <div className={`${SETTING_GLASS} ${className}`}>
-        {children}
-    </div>
-);
+export const SettingCard = memo(function SettingCard({
+    children,
+    className = '',
+}: {
+    children: React.ReactNode;
+    className?: string;
+}) {
+    return <div className={`${SETTING_GLASS} ${className}`}>{children}</div>;
+});
 
-export const SettingRow = ({
+export const SettingRow = memo(function SettingRow({
     icon: Icon,
     label,
     subLabel,
@@ -40,37 +54,55 @@ export const SettingRow = ({
     action: React.ReactNode;
     isLast?: boolean;
     disabled?: boolean;
-}) => (
-    <div
-        className={`flex items-center justify-between gap-3 p-4 ${!isLast ? 'border-b border-white/[0.03]' : ''} ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
-    >
-        <div className="flex items-center gap-3 min-w-0">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white/70 shrink-0 ${SETTING_GLASS_INNER}`}>
-                <Icon size={17} />
-            </div>
-            <div className="min-w-0">
-                <div className="text-sm font-semibold text-white truncate">{label}</div>
-                {subLabel && <div className="text-[10px] text-white/40 leading-snug mt-0.5">{subLabel}</div>}
-            </div>
-        </div>
-        <div className="shrink-0">{action}</div>
-    </div>
-);
-
-export const Toggle = ({ checked, onChange, disabled }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) => (
-    <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        disabled={disabled}
-        onClick={() => onChange(!checked)}
-        className={`w-12 h-7 rounded-full relative transition-all duration-300 ${checked ? 'bg-[#E6C673] shadow-[0_0_12px_rgba(230,198,115,0.35)]' : 'bg-white/10'} ${disabled ? 'opacity-40' : ''}`}
-    >
+}) {
+    return (
         <div
-            className={`absolute top-1 right-1 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-300 ${checked ? '-translate-x-5' : 'translate-x-0'}`}
-        />
-    </button>
-);
+            className={`flex items-center justify-between gap-3 p-4 ${!isLast ? 'border-b border-white/[0.03]' : ''} ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
+        >
+            <div className="flex items-center gap-3 min-w-0">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white/70 shrink-0 ${SETTING_GLASS_INNER}`}>
+                    <Icon size={17} />
+                </div>
+                <div className="min-w-0">
+                    <div className="text-sm font-semibold text-white truncate">{label}</div>
+                    {subLabel && <div className="text-[10px] text-white/40 leading-snug mt-0.5">{subLabel}</div>}
+                </div>
+            </div>
+            <div className="shrink-0">{action}</div>
+        </div>
+    );
+});
+
+export const Toggle = memo(function Toggle({
+    checked,
+    onChange,
+    disabled,
+    label,
+    testId,
+}: {
+    checked: boolean;
+    onChange: (v: boolean) => void;
+    disabled?: boolean;
+    label?: string;
+    testId?: string;
+}) {
+    return (
+        <button
+            type="button"
+            role="switch"
+            aria-checked={checked}
+            aria-label={label}
+            disabled={disabled}
+            data-testid={testId}
+            onClick={() => onChange(!checked)}
+            className={`w-12 h-7 rounded-full relative transition-all duration-300 ${checked ? 'bg-[#E6C673] shadow-[0_0_12px_rgba(230,198,115,0.35)]' : 'bg-white/10'} ${disabled ? 'opacity-40' : ''}`}
+        >
+            <div
+                className={`absolute top-1 right-1 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-300 ${checked ? '-translate-x-5' : 'translate-x-0'}`}
+            />
+        </button>
+    );
+});
 
 export const Segmented = <T extends string>({
     value,
@@ -105,7 +137,7 @@ export const Segmented = <T extends string>({
     </div>
 );
 
-export const SliderRow = ({
+export const SliderRow = memo(function SliderRow({
     label,
     value,
     min,
@@ -114,6 +146,7 @@ export const SliderRow = ({
     format,
     onChange,
     hint,
+    debounceMs,
 }: {
     label: string;
     value: number;
@@ -123,11 +156,51 @@ export const SliderRow = ({
     format: (v: number) => string;
     onChange: (v: number) => void;
     hint?: string;
-}) => (
+    /** تأخير commit أثناء السحب — يخفّف applySettingsToDom على الأجهزة الضعيفة */
+    debounceMs?: number;
+}) {
+    const [localValue, setLocalValue] = useState(value);
+    const timerRef = useRef<number | null>(null);
+    const pendingRef = useRef<number | null>(null);
+
+    useEffect(() => {
+        if (debounceMs && pendingRef.current !== null) return;
+        setLocalValue(value);
+    }, [debounceMs, value]);
+
+    useEffect(() => {
+        return () => {
+            if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+        };
+    }, []);
+
+    const flush = (next: number) => {
+        pendingRef.current = null;
+        if (timerRef.current !== null) {
+            window.clearTimeout(timerRef.current);
+            timerRef.current = null;
+        }
+        onChange(next);
+    };
+
+    const handleChange = (next: number) => {
+        if (!debounceMs) {
+            onChange(next);
+            return;
+        }
+        setLocalValue(next);
+        pendingRef.current = next;
+        if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+        timerRef.current = window.setTimeout(() => flush(next), debounceMs);
+    };
+
+    const displayed = debounceMs ? localValue : value;
+
+    return (
     <div className="p-4 border-b border-white/[0.03] last:border-0">
         <div className="flex justify-between mb-2">
             <span className="text-sm font-semibold text-white">{label}</span>
-            <span className="text-xs font-mono text-[#E6C673]">{format(value)}</span>
+            <span className="text-xs font-mono text-[#E6C673]">{format(displayed)}</span>
         </div>
         {hint ? <p className="text-[10px] text-amber-400/80 mb-2 leading-snug">{hint}</p> : null}
         <input
@@ -135,12 +208,24 @@ export const SliderRow = ({
             min={min}
             max={max}
             step={step}
-            value={value}
-            onChange={(e) => onChange(parseFloat(e.target.value))}
-            className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-[#E6C673] [&::-webkit-slider-thumb]:rounded-full"
+            value={displayed}
+            onChange={(e) => handleChange(parseFloat(e.target.value))}
+            onPointerUp={() => {
+                if (debounceMs && pendingRef.current !== null) flush(pendingRef.current);
+            }}
+            onBlur={() => {
+                if (debounceMs && pendingRef.current !== null) flush(pendingRef.current);
+            }}
+            aria-label={label}
+            aria-valuemin={min}
+            aria-valuemax={max}
+            aria-valuenow={displayed}
+            aria-valuetext={format(displayed)}
+            className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-[#E6C673] [&::-webkit-slider-thumb]:rounded-full touch-manipulation"
         />
     </div>
-);
+    );
+});
 
 export const SelectRow = ({
     label,

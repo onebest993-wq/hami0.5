@@ -1,4 +1,4 @@
-import type { CriminalDefendant } from './criminalStore';
+import type { CriminalDefendant } from './criminalCaseModel';
 
 function createLocalDefendantId(): string {
     return `cd_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;

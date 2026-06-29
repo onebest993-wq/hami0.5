@@ -246,7 +246,7 @@ describe('personal coercive decision cycle sync', () => {
             isArchived?: boolean;
         };
         expect(stored.requestCycleSuperseded).toBe(true);
-        expect(stored.isArchived).toBe(true);
+        expect(stored.isArchived).toBeFalsy();
 
         const next = appendPersonalCoerciveByExecutorOrder({
             executionId: EXEC_ID,
@@ -286,6 +286,48 @@ describe('personal coercive decision cycle sync', () => {
             isArchived?: boolean;
         };
         expect(stored.requestCycleSuperseded).toBe(true);
-        expect(stored.isArchived).toBe(true);
+        expect(stored.isArchived).toBeFalsy();
+    });
+
+    it('supersedes prior settled personal_coercive rows without auto-archiving them', () => {
+        SecureStoreService.setItemSync(
+            `execution_${EXEC_ID}`,
+            JSON.stringify(FINANCIAL_EXEC_DATA)
+        );
+        const first = appendPersonalCoerciveExecutorRequest({
+            executionId: EXEC_ID,
+            subtype: 'travel_ban',
+            title: 'منع سفر — أول',
+            body: 'طلب تجريبي',
+        });
+        expect(first.ok).toBe(true);
+
+        const rowsAfterFirst = readExecutorDecisionsArray(EXEC_ID, FINANCIAL_EXEC_DATA);
+        const firstRow = rowsAfterFirst.find((r) => r.id === first.decisionId);
+        expect(firstRow).toBeTruthy();
+        (firstRow as { executorOutcome?: string }).executorOutcome = 'approved';
+        (firstRow as { resolvedAt?: string }).resolvedAt = '2026-06-10T10:00:00.000Z';
+        writeExecutorDecisionsArray(EXEC_ID, rowsAfterFirst, FINANCIAL_EXEC_DATA);
+
+        const second = appendPersonalCoerciveExecutorRequest({
+            executionId: EXEC_ID,
+            subtype: 'travel_ban',
+            title: 'منع سفر — ثاني',
+            body: 'طلب لاحق',
+        });
+        expect(second.ok).toBe(true);
+
+        const rows = readExecutorDecisionsArray(EXEC_ID, FINANCIAL_EXEC_DATA);
+        const superseded = rows.find((r) => r.id === first.decisionId) as {
+            requestCycleSuperseded?: boolean;
+            isArchived?: boolean;
+        };
+        const pending = rows.find((r) => r.id === second.decisionId) as {
+            executorOutcome?: string;
+        };
+        expect(superseded?.requestCycleSuperseded).toBe(true);
+        expect(superseded?.isArchived).toBeFalsy();
+        expect(pending?.executorOutcome).toBe('pending');
+        expect(rows.length).toBeGreaterThanOrEqual(2);
     });
 });

@@ -1,0 +1,145 @@
+import { describe, expect, it } from 'vitest';
+import { dashboardHeaderOverlayFingerprint, dashboardShellFingerprint } from '@/app/hooks/lawyerDashboard/dashboardViewFingerprint';
+import { patchLawyerDashboardHeaderOverlayOpen } from '@/app/hooks/lawyerDashboard/patchLawyerDashboardHeaderOverlayOpen';
+import type { LawyerDashboardCoreViewModel } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCore.types';
+
+function baseReadyView(
+    overrides: Partial<Extract<LawyerDashboardCoreViewModel, { status: 'ready' }>> = {},
+): Extract<LawyerDashboardCoreViewModel, { status: 'ready' }> {
+    return {
+        status: 'ready',
+        shellProps: {} as never,
+        notificationPanel: {
+            isOpen: false,
+            panelSessionKey: 0,
+            userId: 'lawyer-1',
+            onClose: () => undefined,
+            onNavigate: (() => undefined) as never,
+            onOpenPanel: () => undefined,
+        },
+        headerProps: {
+            shouldShow: true,
+            unreadCount: 0,
+            onProfileClick: () => undefined,
+            onSearchClick: () => undefined,
+            onNotificationsClick: () => undefined,
+            onSettingsClick: () => undefined,
+        },
+        homeTabProps: { visible: true } as never,
+        scheduleTabProps: { visible: false } as never,
+        profileTab: { visible: false, sessionKey: 0, onBack: () => undefined },
+        tabStackHidden: false,
+        overlaysHostProps: {
+            overlays: { showSettings: false, showGlobalSearch: false },
+        } as never,
+        ...overrides,
+    };
+}
+
+describe('dashboardShellFingerprint', () => {
+    it('لا يتغيّر عند فتح الإعدادات فقط', () => {
+        const base = {
+            user: { id: 'u1' },
+            theme: { primary: '#E6C673', bg: '#0A0F1C' },
+            shapeClass: 'rounded',
+            appLock: { locked: false },
+            pendingFieldTasksCount: 0,
+            overlays: {
+                activeTab: 'home',
+                homeLayoutEditMode: false,
+                showCommunity: false,
+                showLawsuitsWorkspace: false,
+                lawsuitsWorkspaceTab: 'civil',
+                lawsuitsDossierSection: 'all',
+                showTransactions: false,
+                showGlobalSearch: false,
+                showDocs: false,
+                fieldTasksSheetOpen: false,
+                showTasksManager: false,
+                isCriminalDossierOpen: false,
+                isNotepadOpen: false,
+            },
+            workspace: {
+                files: [],
+                executionFiles: [],
+                globalNotes: [],
+                activeFile: null,
+                isNewCaseModalOpen: false,
+                isExecutionModalOpen: false,
+            },
+            appAlerts: { visibleAppAlerts: [], appAlertsLoading: false, appAlertsError: null },
+            notifications: { notificationsUnreadCount: 0, showNotifications: false },
+            archiveAndSync: { archiveType: null },
+            dashboardSettings: { showSettings: false },
+            clusterScanSources: null,
+        } as never;
+
+        const closed = dashboardShellFingerprint(base);
+        const open = dashboardShellFingerprint({
+            ...base,
+            dashboardSettings: { showSettings: true },
+            notifications: { notificationsUnreadCount: 0, showNotifications: true },
+            overlays: { ...base.overlays, showGlobalSearch: true },
+        });
+        expect(open).toBe(closed);
+    });
+});
+
+describe('dashboardHeaderOverlayFingerprint', () => {
+    it('يتغيّر عند فتح overlay الهيدر', () => {
+        const base = {
+            dashboardSettings: { showSettings: false },
+            overlays: { showGlobalSearch: false },
+            notifications: { showNotifications: false },
+        } as never;
+        const open = {
+            dashboardSettings: { showSettings: true },
+            overlays: { showGlobalSearch: true },
+            notifications: { showNotifications: true },
+        } as never;
+        expect(dashboardHeaderOverlayFingerprint(open)).not.toBe(dashboardHeaderOverlayFingerprint(base));
+    });
+});
+
+describe('patchLawyerDashboardHeaderOverlayOpen', () => {
+    it('يخفي الهيدر ويُظهر الإعدادات بلا إعادة بناء كاملة', () => {
+        const view = baseReadyView();
+        const patched = patchLawyerDashboardHeaderOverlayOpen(view, {
+            showSettings: true,
+            showGlobalSearch: false,
+            showNotifications: false,
+            activeTab: 'home',
+            tabStackMask: {
+                isCriminalDossierOpen: false,
+                archiveType: null,
+                showLawsuitsWorkspace: false,
+                showTransactions: false,
+                isNotepadOpen: false,
+                showSettings: true,
+                showCommunity: false,
+                activeFile: null,
+                showDocs: false,
+            },
+            headerVisibility: {
+                showSettings: true,
+                isNewCaseModalOpen: false,
+                isNotepadOpen: false,
+                showCommunity: false,
+                activeTab: 'home',
+                activeFile: null,
+                archiveType: null,
+                showLawsuitsWorkspace: false,
+                showTransactions: false,
+                showTasksManager: false,
+                showDocs: false,
+                isCriminalDossierOpen: false,
+            },
+        });
+
+        expect(patched.headerProps.shouldShow).toBe(false);
+        expect(patched.overlaysHostProps.overlays.showSettings).toBe(true);
+        expect(patched.tabStackHidden).toBe(true);
+        expect(patched.homeTabProps.visible).toBe(false);
+        expect(patched).not.toBe(view);
+    });
+});

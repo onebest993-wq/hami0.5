@@ -20,7 +20,7 @@ export function ProfileBackBar({ onBack }: ProfileBackBarProps) {
                 data-testid="lawyer-profile-back"
                 className="pointer-events-auto flex items-center justify-center w-11 h-11 rounded-xl bg-black/55 backdrop-blur-xl border border-white/15 shadow-lg"
             >
-                <ArrowRight size={18} className="text-[#E6C673]" />
+                <ArrowRight size={18} className="hami-profile-accent-text" />
             </motion.button>
         </div>
     );

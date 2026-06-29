@@ -7,21 +7,12 @@ import {
 } from 'lucide-react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { getLegalRole } from './LawyerShared';
-import { Form_Urgent_Actions } from './Form_Urgent_Actions';
 const LazyCriminalNewCase = React.lazy(() =>
     import('./criminal-system/CriminalNewCase').then((m) => ({ default: m.CriminalNewCase })),
 );
-const LazyViewUrgentDashboard = React.lazy(() =>
-    import('./View_Urgent_And_Orders_Dashboard').then((m) => ({
-        default: m.View_Urgent_And_Orders_Dashboard,
-    })),
-);
-import { DeferredActiveOrderFile } from './DeferredActiveOrderFile';
-import { fileDataFromUrgentForm } from '@/app/domain/urgent';
 import { MAIN_GATEWAY, JURISDICTIONS } from './LawyerNewCase/constants';
-import type { MainCategory, CaseType, CivilSubView, Party, ThirdParty } from './LawyerNewCase/types';
+import type { MainCategory, CaseType, Party, ThirdParty } from './LawyerNewCase/types';
 import type { LawyerNewCaseProps } from '@/app/types/components';
-import { useCriminalStore } from '@/app/components/lawyer/criminal-system/criminalStore';
 import { GatewayCard } from './LawyerNewCase/components/GatewayCard';
 import { JurisdictionGlassPanel } from './LawyerNewCase/components/JurisdictionGlassPanel';
 import { ThirdPartyModal } from './LawyerNewCase/components/ThirdPartyModal';
@@ -81,10 +72,6 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
         (presetSelectedType as CaseType) ?? null,
     );
     const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [civilSubView, setCivilSubView] = useState<CivilSubView>('main-form');
-
-    const [activeFileType, setActiveFileType] = useState<'order' | 'discovery' | 'acknowledgment' | null>(null);
-    const [activeFileData, setActiveFileData] = useState<Record<string, unknown> | null>(null);
 
     const [parties1, setParties1] = useState<Party[]>([{ id: 'p1_1', name: '', status: '', isClient: false, phone: '', address: '' }]);
     const [parties2, setParties2] = useState<Party[]>([{ id: 'p2_1', name: '', status: '', isClient: false, phone: '', address: '' }]);
@@ -660,7 +647,10 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
                                 items={JURISDICTIONS}
                                 onSelect={(id) => {
                                     if (id === 'criminal' && !criminalSeveranceFormMode) {
-                                        useCriminalStore.getState().prepareNormalCriminalCaseForm();
+                                        void import('@/app/components/lawyer/criminal-system/criminalStore').then(
+                                            ({ useCriminalStore }) =>
+                                                useCriminalStore.getState().prepareNormalCriminalCaseForm(),
+                                        );
                                     }
                                     setSelectedType(id as CaseType);
                                     setStep('form');
@@ -696,7 +686,7 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
                                 </React.Suspense>
                             )}
 
-                            {selectedType !== 'criminal' && (selectedType !== 'civil' || civilSubView === 'main-form') && (
+                            {selectedType !== 'criminal' && (
                             <>
                             {isPersonalCase ? (
                                 <PersonalStatusNewCaseForm
@@ -779,56 +769,12 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
                                 </>
                             )}
 
-                            {selectedType === 'civil' && civilSubView === 'urgent-dashboard' && (
-                                <div className="min-h-screen bg-[#0B1021]">
-                                    <React.Suspense
-                                        fallback={
-                                            <div className="min-h-screen flex items-center justify-center text-[#E6C673] text-sm font-bold animate-pulse">
-                                                جاري تحميل لوحة الطلبات المستعجلة...
-                                            </div>
-                                        }
-                                    >
-                                        <LazyViewUrgentDashboard
-                                            onBack={() => setCivilSubView('main-form')}
-                                            onCreateNew={() => setCivilSubView('urgent-form')}
-                                            onViewDetails={(id: string) => {
-                                                debug.log('📋 Viewing urgent action:', id);
-                                            }}
-                                        />
-                                    </React.Suspense>
-                                </div>
-                            )}
-
-                            {selectedType === 'civil' && civilSubView === 'urgent-form' && (
-                                <div className="min-h-screen bg-[#0B1021]">
-                                    <Form_Urgent_Actions
-                                        onClose={() => setCivilSubView('urgent-dashboard')}
-                                        onSave={(data: Record<string, unknown>) => {
-                                            debug.log('✅ Urgent action saved:', data);
-                                            setActiveFileData(fileDataFromUrgentForm(data));
-                                            setActiveFileType('order');
-                                        }}
-                                    />
-                                </div>
-                            )}
-
                         </motion.div>
                     )}
                 </AnimatePresence>
-
-                {activeFileType === 'order' && activeFileData && (
-                    <DeferredActiveOrderFile
-                        fileData={activeFileData}
-                        onClose={() => {
-                            setActiveFileType(null);
-                            setActiveFileData(null);
-                            setCivilSubView('urgent-dashboard');
-                        }}
-                    />
-                )}
             </div>
 
-            {step === 'form' && selectedType !== 'criminal' && (selectedType !== 'civil' || civilSubView === 'main-form') && (
+            {step === 'form' && selectedType !== 'criminal' && (
                 <SaveButton
                     isAnalyzing={isAnalyzing}
                     hasCriminalError={Boolean(errorMap['criminal_error'])}

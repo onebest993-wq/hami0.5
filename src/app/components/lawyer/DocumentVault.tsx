@@ -4,6 +4,7 @@ import { X, FileText, Image, File, Calendar, Trash2 } from 'lucide-react';
 import { executionDocumentFoldersStorageKey, executionDocumentsStorageKey } from '@/app/utils/executionStorageKeys';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import { beginPrivacySensitiveSurface, endPrivacySensitiveSurface } from '@/app/runtime/privacyScreenSession';
 
 interface Document {
     id: string;
@@ -180,9 +181,16 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
 
     const handleCameraCaptureSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
+        e.target.value = '';
+        void endPrivacySensitiveSurface();
         if (!file) return;
         void startPendingSave(file, 'camera');
-        e.target.value = '';
+    };
+
+    const openCameraCapture = () => {
+        void beginPrivacySensitiveSurface().then(() => {
+            document.getElementById('vault-camera-input')?.click();
+        });
     };
 
     const confirmSave = async () => {
@@ -371,12 +379,13 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                                     >
                                         رفع من الجهاز
                                     </label>
-                                    <label
-                                        htmlFor="vault-camera-input"
-                                        className="cursor-pointer flex items-center justify-center gap-2 rounded-xl bg-slate-800/40 hover:bg-slate-800/60 border border-slate-700/40 px-4 py-3 text-sm font-bold text-white transition-all"
+                                    <button
+                                        type="button"
+                                        onClick={openCameraCapture}
+                                        className="cursor-pointer flex items-center justify-center gap-2 rounded-xl bg-slate-800/40 hover:bg-slate-800/60 border border-slate-700/40 px-4 py-3 text-sm font-bold text-white transition-all w-full"
                                     >
                                         التقاط بالكاميرا
-                                    </label>
+                                    </button>
                                 </div>
                             </div>
                         </motion.div>

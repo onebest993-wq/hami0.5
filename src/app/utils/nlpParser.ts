@@ -36,16 +36,6 @@ export function isSameLocalDay(a: Date, b: Date): boolean {
     return startOfLocalDay(a).getTime() === startOfLocalDay(b).getTime();
 }
 
-/** أقرب يوم قادم يطابق `targetJsDay` (0=الأحد … 6=السبت وفق Date.getDay). */
-export function getNextOccurrenceOfWeekday(targetJsDay: number, base: Date = new Date()): Date {
-    const today = startOfLocalDay(base);
-    const todayDow = today.getDay();
-    const delta = (targetJsDay - todayDow + 7) % 7;
-    const out = new Date(today);
-    out.setDate(out.getDate() + delta);
-    return out;
-}
-
 const LOCATION_RE = /(محكمة|بداءة|تنفيذ|استئناف|تحقيق|جنايات|شرطة)\s([أ-ي]+)/i;
 const FATAL_RE = /(حتمي|سقوط حق|اخر يوم|آخر يوم|تمييز|طعن)/i;
 const CASE_RE = /(اضبارة|ملف|دعوى)\s([0-9/أ-ي]+)/i;

@@ -1,7 +1,9 @@
 /**
  * Lightweight LCP / CLS sampling via PerformanceObserver (no extra deps).
- * Dev-only by default — use on real devices with USB remote debugging + console.
+ * Dev-only, opt-in via hamiVerboseConsole(true).
  */
+
+import { debug } from '@/app/utils/debug';
 
 type VitalSample = { name: string; value: number; id?: string };
 
@@ -43,7 +45,7 @@ export function initWebVitalsLogging(): () => void {
         const v = e.renderTime || e.loadTime || e.startTime || 0;
         if (v >= lastLcp) {
             lastLcp = v;
-            console.debug('[WebVitals] LCP (ms)', Math.round(lastLcp));
+            debug.log('[WebVitals] LCP (ms)', Math.round(lastLcp));
         }
     });
     if (lcpObs) observers.push(lcpObs);
@@ -61,7 +63,7 @@ export function initWebVitalsLogging(): () => void {
                 { name: 'LCP_ms', value: Math.round(lastLcp) },
                 { name: 'CLS', value: Number(clsScore.toFixed(4)) },
             ];
-            console.debug('[WebVitals] session summary', summary);
+            debug.log('[WebVitals] session summary', summary);
         }
     };
     window.addEventListener('visibilitychange', onVisibility);

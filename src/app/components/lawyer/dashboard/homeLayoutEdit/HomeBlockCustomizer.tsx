@@ -13,6 +13,7 @@ import {
     normalizeGlassOpacity,
     resolveLawyerSurfaceBaseColor,
     resolvePatternPreviewStyle,
+    hasPersistedWallpaper,
     type HomeBlockPattern,
     type HomeBlockShape,
     type HomeBlockSize,
@@ -53,7 +54,7 @@ export function HomeBlockCustomizer({
     const baseColor = resolveLawyerSurfaceBaseColor(
         settings.appearance.theme,
         settings.appearance.themeMode,
-        Boolean(settings.appearance.wallpaper),
+        hasPersistedWallpaper(),
     );
     const patternOpacity = normalizeBackgroundPatternOpacity(
         override?.patternOpacity ?? settings.appearance.backgroundPatternOpacity,
@@ -198,7 +199,7 @@ export function HomeBlockCustomizer({
                     />
                     <SliderRow
                         label="موضع الشريط"
-                        hint="ارفع أو اخفض حاوية الدوك — أو اسحب مقبض ≡ أعلى الحاوية"
+                        hint="ارفع أو اخفض الشريط بصرياً — أو اسحب مقبض ≡ أعلى الحاوية"
                         value={override?.dockLiftPx ?? 0}
                         min={-80}
                         max={140}
@@ -212,11 +213,24 @@ export function HomeBlockCustomizer({
                 </div>
             ) : null}
 
-            {inDockZone && blockId !== 'dockShell' ? (
+            {blockId === 'dockQuickNote' && inDockZone ? (
+                <SliderRow
+                    label="موضع شريط الملاحظة"
+                    hint="ارفع الشريط بعيداً عن حاوية الأيقونات — يُحفظ بعد إعادة التشغيل"
+                    value={override?.dockLiftPx ?? 0}
+                    min={0}
+                    max={140}
+                    step={1}
+                    format={(v) => `${v}px`}
+                    onChange={(dockLiftPx) => onChange({ dockLiftPx })}
+                />
+            ) : null}
+
+            {inDockZone && blockId !== 'dockShell' && blockId !== 'dockQuickNote' ? (
                 <p className="text-[10px] text-white/40 leading-relaxed">
                     في الشريط السفلي: العرض والارتفاع ثابتان — الألوان والشكل والنمط فقط.
                 </p>
-            ) : blockId !== 'dockShell' && isHomeWidgetId(blockId) && !isHeightProtectedWidget(blockId) ? (
+            ) : blockId !== 'dockShell' && blockId !== 'dockQuickNote' && isHomeWidgetId(blockId) && !isHeightProtectedWidget(blockId) ? (
                 <p className="text-[10px] text-white/40 leading-relaxed">
                     الأبعاد (الارتفاع والعرض): اضغط زر المقاس على البطاقة ثم اسحب الحافة أو الزاوية.
                 </p>

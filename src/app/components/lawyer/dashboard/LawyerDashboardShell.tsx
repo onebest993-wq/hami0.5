@@ -3,6 +3,7 @@ import type { User } from '@supabase/supabase-js';
 import { SafeView } from '@/app/components/shared/SafeView';
 import { DashboardPatternOverlay } from '@/app/components/lawyer/DashboardPatternOverlay';
 import { DashboardWallpaperLayer } from '@/app/components/lawyer/DashboardWallpaperLayer';
+import { useLitePerformanceActive } from '@/app/hooks/useLitePerformanceActive';
 import { AppLockOverlay } from '@/app/components/lawyer/AppLockOverlay';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { GlobalNote, ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
@@ -10,9 +11,7 @@ import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import type { AppearanceSettings } from '@/app/services/settings/types';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { lazyWithRetry, type LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
-import LawyerDashboardBackgroundServices, {
-    type LawyerDashboardBackgroundServicesProps,
-} from '@/app/components/lawyer/dashboard/LawyerDashboardBackgroundServices';
+import type { LawyerDashboardBackgroundServicesProps } from '@/app/components/lawyer/dashboard/LawyerDashboardBackgroundServices';
 
 const LazyLawyerDashboardBackgroundServices = lazyWithRetry(() =>
     import('@/app/components/lawyer/dashboard/LawyerDashboardBackgroundServices.tsx').then((m) => ({
@@ -21,9 +20,6 @@ const LazyLawyerDashboardBackgroundServices = lazyWithRetry(() =>
 );
 
 function DashboardBackgroundServices(props: LawyerDashboardBackgroundServicesProps) {
-    if (import.meta.env.DEV) {
-        return <LawyerDashboardBackgroundServices {...props} />;
-    }
     return (
         <Suspense fallback={null}>
             <LazyLawyerDashboardBackgroundServices {...props} />
@@ -105,15 +101,21 @@ export function LawyerDashboardShell({
     onLogout,
     children,
 }: LawyerDashboardShellProps) {
+    const litePerformance = useLitePerformanceActive();
+
     return (
         <SafeView
             data-hami-lawyer-dashboard=""
-            className="min-h-screen w-full text-right pb-10 relative overflow-x-hidden font-sans transition-colors duration-500"
+            data-hami-wallpaper={hasWallpaper ? '1' : '0'}
+            className="min-h-screen w-full text-right pb-10 relative overflow-x-hidden font-sans"
             style={dashboardSurfaceStyle}
             statusBarColor={statusBarColor}
         >
-            <DashboardWallpaperLayer src={wallpaperSrc} enabled={hasWallpaper} />
-            <DashboardPatternOverlay appearance={appearance} enabled={!hasWallpaper} />
+            <DashboardWallpaperLayer src={wallpaperSrc} enabled={hasWallpaper && !litePerformance} />
+            {hasWallpaper && !litePerformance ? (
+                <div className="hami-wallpaper-scrim fixed inset-0 z-[0] pointer-events-none bg-[#0B1021]/35" aria-hidden />
+            ) : null}
+            <DashboardPatternOverlay appearance={appearance} enabled={!hasWallpaper && !litePerformance} />
             <div className="relative z-[1] min-h-screen">
                 {backgroundRuntimeEnabled && calendarUserId ? (
                     <DashboardBackgroundServices

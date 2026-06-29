@@ -23,12 +23,10 @@ export const CriminalCaseTrashModal = ({
 
     return (
         <div
-            className="fixed inset-0 z-[245] bg-black/80 backdrop-blur-sm p-4 flex items-center justify-center print:hidden"
-            dir="rtl"
+            className="w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 overflow-hidden shadow-2xl max-h-[min(88vh,720px)] flex flex-col"
             role="dialog"
             aria-modal="true"
         >
-            <div className="w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 overflow-hidden shadow-2xl max-h-[min(88vh,720px)] flex flex-col">
                 <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/50 flex items-center justify-between gap-3 shrink-0">
                     <div>
                         <div className="text-white font-black text-sm">سلة مهملات الإضبارة</div>
@@ -90,6 +88,5 @@ export const CriminalCaseTrashModal = ({
                     )}
                 </div>
             </div>
-        </div>
     );
 };

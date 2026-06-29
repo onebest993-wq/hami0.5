@@ -1,4 +1,4 @@
-import type { CriminalCase, CriminalCaseLocation, TimelineEvent } from './criminalStore';
+import type { CriminalCase, CriminalCaseLocation, TimelineEvent } from './criminalCaseModel';
 import { isInvestigationStoredStage } from './criminalStageUtils';
 import { isComplaintCourtReferralTemplate } from './proceduralRequestTypes';
 import type { JudicialDecision } from '@/app/types/criminal';

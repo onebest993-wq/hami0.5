@@ -47,6 +47,7 @@ export type SmartFileModalProceduralLinkingBundleParams = {
     handleOpponentAbsentObjection: (...args: unknown[]) => void;
     handleRestoreEvent: (...args: unknown[]) => void;
     handleHardDeleteEvent: (...args: unknown[]) => void;
+    handleDeleteEvent: (...args: unknown[]) => void;
     handleEmptyTrash: (...args: unknown[]) => void;
     handleJudgmentConfirm: (...args: unknown[]) => void;
     handleAppealRegistration: (...args: unknown[]) => void;
@@ -92,6 +93,7 @@ export function useSmartFileModalProceduralLinkingBundle({
     handleOpponentAbsentObjection,
     handleRestoreEvent,
     handleHardDeleteEvent,
+    handleDeleteEvent,
     handleEmptyTrash,
     handleJudgmentConfirm,
     handleAppealRegistration,
@@ -206,6 +208,7 @@ export function useSmartFileModalProceduralLinkingBundle({
         handleOpponentAbsentObjection,
         handleRestoreEvent,
         handleHardDeleteEvent,
+        handleDeleteEvent,
         handleEmptyTrash,
         handleJudgmentConfirm,
         handleAppealRegistration,

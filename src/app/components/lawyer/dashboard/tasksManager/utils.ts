@@ -1,5 +1,6 @@
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { addDays, startOfLocalDay } from '@/app/utils/nlpParser';
+import { removeTaskVoiceAttachment } from '@/app/services/tasks/taskVoiceAttachment';
 
 export const COMPLETED_TASK_RETENTION_DAYS = 30;
 
@@ -71,8 +72,13 @@ export function purgeExpiredCompletedTasks(tasks: LegalTask[], now = new Date())
     return tasks.filter((t) => {
         if (!isTaskArchivedToHistory(t, now)) return true;
         const ref = t.parsedDate ?? t.completedAt;
-        if (!ref) return false;
-        return startOfLocalDay(ref).getTime() >= cutoff;
+        if (!ref) {
+            if (t.voiceRef) void removeTaskVoiceAttachment(t.voiceRef);
+            return false;
+        }
+        const keep = startOfLocalDay(ref).getTime() >= cutoff;
+        if (!keep && t.voiceRef) void removeTaskVoiceAttachment(t.voiceRef);
+        return keep;
     });
 }
 
@@ -110,6 +116,11 @@ export function getArchivedTasks(tasks: LegalTask[], now = new Date()): LegalTas
     return tasks.filter((t) => isTaskArchivedToHistory(t, now));
 }
 
+/** يوم الأجندة انتهى (قبل اليوم الحالي) */
+export function isAgendaDayPast(dayDate: Date, now = new Date()): boolean {
+    return startOfLocalDay(dayDate).getTime() < startOfLocalDay(now).getTime();
+}
+
 export function isDateInWorkWeek(date: Date, weekStartSaturday: Date): boolean {
     const start = startOfLocalDay(weekStartSaturday).getTime();
     const end = addDays(weekStartSaturday, 5).getTime();
@@ -142,11 +153,6 @@ export function groupArchivedTasksByWeek(tasks: LegalTask[], now = new Date()): 
         }
     }
     return Array.from(map.values());
-}
-
-/** @deprecated use groupArchivedTasksByWeek */
-export function groupCompletedTasksByWeek(tasks: LegalTask[], now = new Date()): CompletedTasksWeekGroup[] {
-    return groupArchivedTasksByWeek(tasks, now);
 }
 
 export function formatShortDate(d: Date): string {

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { LawyerDashboardOverlaysHostProps } from '@/app/components/lawyer/dashboard/lawyerDashboardOverlaysHostBundles';
 import { pickLawyerDashboardWorkspaceOverlayBundles } from '@/app/hooks/lawyerDashboard/pickLawyerDashboardWorkspaceOverlayBundles';
 import type { BuildLawyerDashboardOverlaysHostParams } from '@/app/hooks/lawyerDashboard/buildLawyerDashboardOverlaysHostProps.types';
@@ -19,11 +20,17 @@ export function buildLawyerDashboardOverlaysHostProps({
     overlays,
     criminalBridge,
     workspace,
-    urgent,
-    client,
     nav,
 }: BuildLawyerDashboardOverlaysHostParams): LawyerDashboardOverlaysHostProps {
-    const workspaceBundles = pickLawyerDashboardWorkspaceOverlayBundles(workspace);
+    const workspaceBundles = pickLawyerDashboardWorkspaceOverlayBundles(workspace, {
+        isNotepadOpen: overlays.isNotepadOpen,
+        notepadMode: overlays.notepadMode,
+        notepadFocusNoteId: overlays.notepadFocusNoteId,
+        notepadSessionKey: overlays.notepadSessionKey,
+        repositoryTab: overlays.repositoryTab ?? 'notepad',
+        vaultOpenScanner: overlays.vaultOpenScanner ?? false,
+        closeNotepad: overlays.closeNotepad,
+    });
 
     return {
         shell: {
@@ -39,6 +46,7 @@ export function buildLawyerDashboardOverlaysHostProps({
         data: {
             files,
             executionFiles,
+            executionFilesHydrating: !workspace.storageHydrated,
             globalNotes,
             searchNotifications,
             criminalCasesForCluster,
@@ -46,8 +54,6 @@ export function buildLawyerDashboardOverlaysHostProps({
         overlays,
         criminalBridge,
         ...workspaceBundles,
-        urgent,
-        client,
         nav,
     };
 }

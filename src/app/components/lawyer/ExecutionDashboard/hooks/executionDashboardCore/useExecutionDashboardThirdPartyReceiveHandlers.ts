@@ -88,7 +88,7 @@ export function useExecutionDashboardThirdPartyReceiveHandlers({
             if (row.record_locked) return;
             const validation = validateThirdPartyReceiveAmount(String(row.receive_amount_draft || ''));
             if (!validation.ok) {
-                showToast(validation.message, 'warning');
+                showToast(validation.ok === false ? validation.message : 'مبلغ غير صالح', 'warning');
                 return;
             }
             const parsed = validation.amountIqd;

@@ -17,6 +17,7 @@ import {
     upsertSeizedMovableFromDetails,
     upsertSeizedPropertyFromDetails,
 } from '../../helpers';
+import { buildInitialExecutorSeizureDetails } from '../../helpers/buildInitialExecutorSeizureDetails';
 import type {
     ExecutionFile,
     SeizedAsset,
@@ -60,29 +61,6 @@ export type SaveCoerciveActionDeps = {
     ) => void;
     setLastActionDate: (ymd: string) => void;
 };
-
-export function buildInitialExecutorSeizureDetails(
-    actionType: string,
-    activeDebtorIsDeceased: boolean,
-): Record<string, string> {
-    const base =
-        actionType === 'salary' && activeDebtorIsDeceased
-            ? 'طلب حجز الحوافز والمخصصات (مبدئي) — تُستكمل التفاصيل بعد موافقة منفذ العدل.'
-            : 'طلب حجز مبدئي — تُستكمل بيانات التنفيذ بعد موافقة منفذ العدل.';
-    return {
-        seizureUiKind: actionType,
-        employerName: '',
-        salaryAmount: '',
-        propertyAddress: '',
-        propertyLocation: '',
-        vehicleDescription: '',
-        vehiclePlate: '',
-        movableDescription: '',
-        movableLocation: '',
-        judicialCustodianName: '',
-        description: base,
-    };
-}
 
 export function createSaveCoerciveAction(deps: SaveCoerciveActionDeps) {
     const saveCoerciveAction = (

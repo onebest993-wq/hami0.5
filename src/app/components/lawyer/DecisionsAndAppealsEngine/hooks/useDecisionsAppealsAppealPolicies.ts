@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import type { Decision } from '../types';
 import {
     appealWindowsForDecision,
-    addCalendarDaysYmd,
+    resolveAppealLastDeadlineYmd,
     EXECUTOR_QUEUE_REQUEST_KINDS,
     GRIEVANCE_APPEAL_WINDOW_DAYS,
     CASSATION_APPEAL_WINDOW_DAYS,
@@ -63,10 +63,16 @@ export function useDecisionsAppealsAppealPolicies() {
                 };
             }
             const w = appealWindowsForDecision(decision);
-            const decisionYmd = w.decisionClockYmd;
-            const cassationYmd = w.cassationClockYmd;
-            const tadhEndYmd = addCalendarDaysYmd(decisionYmd, GRIEVANCE_APPEAL_WINDOW_DAYS);
-            const tamEndYmd = addCalendarDaysYmd(cassationYmd, CASSATION_APPEAL_WINDOW_DAYS);
+            const tadhEndYmd = resolveAppealLastDeadlineYmd(
+                'tadhallum',
+                w.decisionClockYmd,
+                w.cassationClockYmd,
+            );
+            const tamEndYmd = resolveAppealLastDeadlineYmd(
+                'tamyeez',
+                w.decisionClockYmd,
+                w.cassationClockYmd,
+            );
             const tadhallumDeadline = new Date(tadhEndYmd);
             const tamyeezDeadline = new Date(tamEndYmd);
             const daysToTadhallum =

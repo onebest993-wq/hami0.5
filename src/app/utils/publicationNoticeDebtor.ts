@@ -4,14 +4,14 @@
 
 import type { ExecutionFile, PublicationNoticeDebtorState } from '@/app/types/execution';
 import {
-    addCalendarDaysYmd,
-} from '@/app/utils/employeeSummonsAssignment';
+    lastDayOfYmdWindow,
+} from '@/app/utils/executionYmdCalendar';
 
 export const PUBLICATION_NOTICE_DURATION_DAYS = 15;
 
-/** آخر يوم ضمن المدة: تاريخ النشر + ١٥ يوماً تقويمياً (اليوم الأول للاحتساب = اليوم التالي للنشر). */
+/** آخر يوم ضمن المدة: 15 يوماً تقويمياً من اليوم التالي للنشر */
 export function publicationNoticeDeadlineYmd(publicationDateYmd: string): string {
-    return addCalendarDaysYmd(publicationDateYmd, PUBLICATION_NOTICE_DURATION_DAYS);
+    return lastDayOfYmdWindow(publicationDateYmd, PUBLICATION_NOTICE_DURATION_DAYS, 'next_day_start');
 }
 
 export function buildPublicationNoticePatchForDebtorKey(

@@ -1,106 +1,45 @@
-// @ts-nocheck
 import { SecureAPIClient, SecureFetchError } from '@/app/services/SecureAPIClient';
+import { sanitizeForumPostContent, sanitizeForumTagsInput } from '@/app/services/forum/forumInputSecurity';
+import { sanitizeCommunityPostForCreate } from '@/app/services/forum/forumPostCreateGuard';
+import {
+    forumApiPostJson,
+    getForumSessionUserId,
+    persistForumPostLocally,
+    removeForumPostLocally,
+    shouldRethrowForumMutationError,
+    sliceForumPostsPage,
+    withForumMutationFallback,
+    withForumReadFallback,
+    type ForumApiOk,
+} from '@/app/services/forum/forumApi/forumApiClientCore';
 import {
     addCommunityComment,
     deleteCommunityComment,
     editCommunityComment,
     deleteCommunityPost,
     reportCommunityPost,
-    togglePinCommunityPost,
     updateCommunityPost,
-    type CommunityComment,
-    type CommunityPost,
-} from '@/app/services/lawyer-cloud';
-import { UserRole } from '@/app/types/admin-types';
-import { supabase } from '@/app/lib/supabase-client';
+} from '@/app/services/cloud/lawyerCommunityCloud';
+import type { CommunityComment, CommunityPost } from '@/app/services/cloud/lawyerCommunityTypes';
 import { readPersistedSupabaseAuth } from '@/app/utils/authStorage';
 
-type ApiOk<T> = { ok: true } & T;
-type ApiErr = { ok: false; error?: string };
-
-async function postJson<T>(endpoint: string, body: Record<string, unknown>): Promise<T> {
-    const res = await SecureAPIClient.fetchSecure<T & ApiErr>(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    });
-    if (res && typeof res === 'object' && (res as ApiErr).ok === false) {
-        const message = (res as ApiErr).error?.trim() || 'تعذّر تنفيذ العملية';
-        throw new SecureFetchError(message, 400, JSON.stringify(res), endpoint);
-    }
-    return res as T;
-}
-
-async function persistPostLocally(post: CommunityPost): Promise<void> {
-    const { CommunityDB } = await import('@/app/services/lawyer-cloud');
-    await CommunityDB.savePost(post);
-}
-
-async function removePostLocally(postId: string): Promise<void> {
-    const { CommunityDB } = await import('@/app/services/lawyer-cloud');
-    await CommunityDB.deletePost(postId);
-}
-
-async function getSessionUserId(explicitUserId?: string | null): Promise<string | null> {
-    if (explicitUserId) return explicitUserId;
-    const { data } = await supabase.auth.getSession();
-    const fromSession = data.session?.user?.id ?? null;
-    if (fromSession) return fromSession;
-    return readPersistedSupabaseAuth().user?.id ?? null;
-}
-
+type ApiOk<T> = ForumApiOk<T>;
 type PostsListResponse = { ok: boolean; posts: CommunityPost[]; total: number };
 
-function isBannedForumError(err: SecureFetchError): boolean {
-    try {
-        const body = JSON.parse(err.bodyText) as { error?: string };
-        return (body.error ?? '').includes('محظور');
-    } catch {
-        return false;
-    }
-}
-
-function parseForumApiError(err: unknown): string {
-    if (err instanceof SecureFetchError) {
-        try {
-            const body = JSON.parse(err.bodyText) as { error?: string; code?: string };
-            if (body.code === 'FORUM_AUTH_REQUIRED' && body.error?.trim()) {
-                return body.error.trim();
-            }
-            if (typeof body.error === 'string' && body.error.trim()) return body.error.trim();
-        } catch {
-            /* ignore */
-        }
-        if (err.status === 403) return 'تعذّر تنفيذ العملية — تحقق من الصلاحيات أو أعد المحاولة';
-        if (err.status === 401) return 'يجب تسجيل الدخول بحساب حقيقي للمشاركة في المنتدى';
-    }
-    if (err instanceof Error && err.message.trim()) return err.message.trim();
-    return 'تعذّر تنفيذ العملية';
-}
+const postJson = forumApiPostJson;
+const persistPostLocally = persistForumPostLocally;
+const removePostLocally = removeForumPostLocally;
+const getSessionUserId = getForumSessionUserId;
 
 export class ForumApiService {
     /** قراءة: fallback عند أخطاء الشبكة أو غياب الجلسة — 403 تُمرَّر (حظر/صلاحيات). */
     private static async withFallback<T>(apiCall: () => Promise<T>, fallback: () => Promise<T>): Promise<T> {
-        try {
-            return await apiCall();
-        } catch (err) {
-            if (err instanceof SecureFetchError && err.status === 401) {
-                return await fallback();
-            }
-            if (err instanceof SecureFetchError && err.status === 403) {
-                throw err;
-            }
-            return await fallback();
-        }
+        return withForumReadFallback(apiCall, fallback);
     }
 
     /** كتابة: عند فشل API نُكمل محلياً فقط لأخطاء الشبكة — لا نتجاوز 403 WIFE/صلاحيات. */
     private static shouldRethrowMutationError(err: unknown): boolean {
-        if (!(err instanceof SecureFetchError)) return false;
-        if (err.status === 401) return true;
-        if (err.status === 403) return true;
-        if (err.status === 429) return true;
-        return false;
+        return shouldRethrowForumMutationError(err);
     }
 
     private static slicePostsPage(
@@ -108,23 +47,15 @@ export class ForumApiService {
         limit: number,
         offset: number,
     ): { posts: CommunityPost[]; total: number } {
-        return { posts: posts.slice(offset, offset + limit), total: posts.length };
+        return sliceForumPostsPage(posts, limit, offset);
     }
 
     private static async withMutationFallback<T>(
         apiCall: () => Promise<T>,
         fallback: () => Promise<T>,
+        options?: { userId?: string | null },
     ): Promise<T> {
-        try {
-            return await apiCall();
-        } catch (err) {
-            if (this.shouldRethrowMutationError(err)) throw err;
-            try {
-                return await fallback();
-            } catch {
-                throw new Error(parseForumApiError(err));
-            }
-        }
+        return withForumMutationFallback(apiCall, fallback, options);
     }
 
     static async listPostsPaginated(
@@ -133,12 +64,12 @@ export class ForumApiService {
         options?: { groupId?: string },
     ): Promise<{ posts: CommunityPost[]; total: number }> {
         const {
-            CommunityDB,
             mergeCommunityPostsById,
             sortCommunityPosts,
             filterDeletedCommunityPosts,
             getDeletedCommunityPostIds,
-        } = await import('@/app/services/lawyer-cloud');
+        } = await import('@/app/services/cloud/lawyerCommunityCloud');
+        const { CommunityDB } = await import('@/app/services/cloud/lawyerCommunityCloud');
         const localAll = sortCommunityPosts(await CommunityDB.listPosts());
         const scopedLocal = options?.groupId
             ? localAll.filter((p) => p.groupId === options.groupId)
@@ -179,33 +110,45 @@ export class ForumApiService {
     }
 
     static async createPost(post: CommunityPost): Promise<CommunityPost> {
+        const safePost = sanitizeCommunityPostForCreate(
+            {
+                ...post,
+                content: sanitizeForumPostContent(String(post.content ?? '')),
+                tags: Array.isArray(post.tags)
+                    ? post.tags.map((tag) => sanitizeForumTagsInput(String(tag))).filter(Boolean)
+                    : [],
+            },
+            post.authorId,
+        );
         const result = await this.withMutationFallback(
             async () => {
                 const res = await postJson<ApiOk<{ post: CommunityPost }>>('/api/forum/posts', {
                     action: 'create',
-                    post,
+                    post: safePost,
                 });
                 if (!res.post) throw new Error('استجابة غير صالحة');
                 await persistPostLocally(res.post);
                 return res.post;
             },
             async () => {
-                const { addCommunityPost } = await import('@/app/services/lawyer-cloud');
-                await addCommunityPost(post);
-                return post;
+                const { addCommunityPost } = await import('@/app/services/cloud/lawyerCommunityCloud');
+                await addCommunityPost(safePost);
+                return safePost;
             },
+            { userId: post.authorId },
         );
         try {
             const { AuditLog } = await import('@/app/services/auditLogPublisher');
             AuditLog.forum.questionPosted({
-                questionId: String(result.id ?? post.id ?? ''),
-                title: String(result.title ?? post.title ?? 'سؤال'),
+                questionId: String(result.id ?? safePost.id ?? ''),
+                title: String(safePost.content.slice(0, 80) || 'سؤال'),
             });
         } catch { /* silent */ }
         return result;
     }
 
     static async syncPost(post: CommunityPost): Promise<CommunityPost> {
+        const userId = await getSessionUserId();
         return this.withMutationFallback(
             async () => {
                 const res = await postJson<ApiOk<{ post: CommunityPost }>>('/api/forum/posts', {
@@ -217,21 +160,26 @@ export class ForumApiService {
                 return res.post;
             },
             async () => {
-                const { addCommunityPost } = await import('@/app/services/lawyer-cloud');
+                const { addCommunityPost } = await import('@/app/services/cloud/lawyerCommunityCloud');
                 await addCommunityPost(post);
                 return post;
             },
+            { userId },
         );
     }
 
     static async getPostById(postId: string): Promise<CommunityPost | null> {
         return this.withFallback(
             async () => {
-                const { posts } = await this.listPostsPaginated(500, 0);
-                return posts.find((p) => p.id === postId) ?? null;
+                const res = await SecureAPIClient.fetchSecure<{ ok: boolean; post?: CommunityPost }>(
+                    `/api/forum/posts?postId=${encodeURIComponent(postId)}`,
+                    { method: 'GET' },
+                );
+                if (!res.ok || !res.post) return null;
+                return res.post;
             },
             async () => {
-                const { CommunityDB } = await import('@/app/services/lawyer-cloud');
+                const { CommunityDB } = await import('@/app/services/cloud/lawyerCommunityCloud');
                 const all = await CommunityDB.listPosts();
                 return all.find((p) => p.id === postId) ?? null;
             },
@@ -247,17 +195,20 @@ export class ForumApiService {
         const userId = await getSessionUserId(requesterId);
         if (!userId) throw new Error('يجب تسجيل الدخول');
 
-        await deleteCommunityPost(
-            postId,
-            userId,
-            isAdmin ? UserRole.SUPER_ADMIN : undefined,
-            authorId,
-        );
+        const isOwner = userId === authorId;
 
-        try {
+        if (isOwner) {
+            await deleteCommunityPost(postId, userId, undefined, authorId);
+            try {
+                await postJson<ApiOk<{ action: string }>>('/api/forum/delete', { postId });
+            } catch {
+                /* المحلي محذوف — مزامنة الخادم اختيارية */
+            }
+        } else if (isAdmin) {
             await postJson<ApiOk<{ action: string }>>('/api/forum/delete', { postId });
-        } catch {
-            /* المحلي محذوف — مزامنة الخادم اختيارية */
+            await removePostLocally(postId);
+        } else {
+            throw new Error('ليس لديك صلاحية لحذف هذا المنشور');
         }
 
         try {
@@ -267,21 +218,17 @@ export class ForumApiService {
     }
 
     static async togglePin(postId: string, pinned: boolean): Promise<CommunityPost> {
-        return this.withMutationFallback(
-            async () => {
-                const res = await postJson<ApiOk<{ post: CommunityPost }>>('/api/forum/pin', {
-                    postId,
-                    pinned,
-                });
-                if (!res.post) throw new Error('المنشور غير موجود بعد التثبيت');
-                await persistPostLocally(res.post);
-                return res.post;
-            },
-            async () => togglePinCommunityPost(postId, pinned, UserRole.SUPER_ADMIN),
-        );
+        const res = await postJson<ApiOk<{ post: CommunityPost }>>('/api/forum/pin', {
+            postId,
+            pinned,
+        });
+        if (!res.post) throw new Error('المنشور غير موجود بعد التثبيت');
+        await persistPostLocally(res.post);
+        return res.post;
     }
 
     static async reportPost(postId: string, reason: string): Promise<{ ok: boolean; duplicate?: boolean }> {
+        const userId = await getSessionUserId();
         return this.withMutationFallback(
             async () => {
                 const res = await postJson<ApiOk<{ result: { ok: boolean; duplicate?: boolean } }>>(
@@ -290,10 +237,8 @@ export class ForumApiService {
                 );
                 return res.result ?? { ok: true };
             },
-            async () => {
-                const userId = await getSessionUserId();
-                return reportCommunityPost(postId, reason, userId ?? undefined);
-            },
+            async () => reportCommunityPost(postId, reason, userId ?? undefined),
+            { userId },
         );
     }
 
@@ -327,7 +272,7 @@ export class ForumApiService {
 
     static async addComment(postId: string, comment: CommunityComment): Promise<CommunityPost> {
         await addCommunityComment(postId, comment);
-        const { CommunityDB } = await import('@/app/services/lawyer-cloud');
+        const { CommunityDB } = await import('@/app/services/cloud/lawyerCommunityCloud');
         const localPosts = await CommunityDB.listPosts();
         const localPost = localPosts.find((p) => p.id === postId);
         if (!localPost) throw new Error('المنشور غير موجود');
@@ -364,7 +309,7 @@ export class ForumApiService {
             const { AuditLog } = await import('@/app/services/auditLogPublisher');
             AuditLog.forum.replyPosted({
                 questionId: postId,
-                questionTitle: String(result.title ?? 'سؤال'),
+                questionTitle: String(result.content?.slice(0, 80) ?? 'سؤال'),
             });
         } catch { /* silent */ }
         return result;
@@ -385,13 +330,8 @@ export class ForumApiService {
                 await persistPostLocally(res.post);
                 return res.post;
             },
-            async () =>
-                deleteCommunityComment(
-                    postId,
-                    commentId,
-                    userId,
-                    isAdmin ? UserRole.SUPER_ADMIN : undefined,
-                ),
+            async () => deleteCommunityComment(postId, commentId, userId, undefined),
+            { userId },
         );
     }
 
@@ -412,13 +352,14 @@ export class ForumApiService {
                 return res.post;
             },
             async () => editCommunityComment(postId, commentId, content, userId),
+            { userId },
         );
     }
 
     static async isUserBanned(userId: string): Promise<boolean> {
         const { getCurrentAccessToken } = await import('./SecureAPIClient');
         if (!(await getCurrentAccessToken())) {
-            const { BanDB } = await import('@/app/services/lawyer-cloud');
+            const { BanDB } = await import('@/app/services/cloud/lawyerCommunityCloud');
             const record = await BanDB.isBanned(userId);
             return Boolean(record);
         }
@@ -432,7 +373,7 @@ export class ForumApiService {
                 return Boolean(res.banned);
             },
             async () => {
-                const { BanDB } = await import('@/app/services/lawyer-cloud');
+                const { BanDB } = await import('@/app/services/cloud/lawyerCommunityCloud');
                 const record = await BanDB.isBanned(userId);
                 return Boolean(record);
             },
@@ -445,7 +386,7 @@ export class ForumApiService {
         const userId = await getSessionUserId(requesterId);
         if (!userId) return [];
 
-        const { ForumBookmarkDB } = await import('@/app/services/lawyer-cloud');
+        const { ForumBookmarkDB } = await import('@/app/services/cloud/lawyerCommunityCloud');
         const localIds = await ForumBookmarkDB.listPostIds(userId);
 
         const { getCurrentAccessToken } = await import('@/app/services/SecureAPIClient');
@@ -467,7 +408,7 @@ export class ForumApiService {
         const userId = await getSessionUserId(requesterId);
         if (!userId) throw new Error('يجب تسجيل الدخول');
 
-        const { ForumBookmarkDB } = await import('@/app/services/lawyer-cloud');
+        const { ForumBookmarkDB } = await import('@/app/services/cloud/lawyerCommunityCloud');
         const bookmarked = await ForumBookmarkDB.toggle(userId, postId);
 
         try {
@@ -498,30 +439,47 @@ export class ForumApiService {
         const userId = await getSessionUserId(requesterId);
         if (!userId) throw new Error('يجب تسجيل الدخول');
 
-        const { toggleLockCommunityPost } = await import('@/app/services/lawyer-cloud');
-        const localSaved = await toggleLockCommunityPost(
-            postId,
-            locked,
-            userId,
-            requesterIsAdmin,
-            authorHint,
-        );
+        const ownerId = authorHint?.trim() || '';
+        const isOwner = ownerId !== '' && userId === ownerId;
 
-        try {
+        if (isOwner) {
+            const { toggleLockCommunityPost } = await import('@/app/services/cloud/lawyerCommunityCloud');
+            const localSaved = await toggleLockCommunityPost(
+                postId,
+                locked,
+                userId,
+                false,
+                authorHint,
+            );
+
+            try {
+                const res = await postJson<ApiOk<{ post: CommunityPost; locked: boolean }>>(
+                    '/api/forum/lock',
+                    { postId, locked },
+                );
+                if (!res.post) return localSaved;
+                const reconciled =
+                    Boolean(res.post.isLocked) === locked
+                        ? res.post
+                        : { ...res.post, isLocked: locked || undefined, updatedAt: localSaved.updatedAt };
+                await persistPostLocally(reconciled);
+                return reconciled;
+            } catch {
+                return localSaved;
+            }
+        }
+
+        if (requesterIsAdmin) {
             const res = await postJson<ApiOk<{ post: CommunityPost; locked: boolean }>>(
                 '/api/forum/lock',
                 { postId, locked },
             );
-            if (!res.post) return localSaved;
-            const reconciled =
-                Boolean(res.post.isLocked) === locked
-                    ? res.post
-                    : { ...res.post, isLocked: locked || undefined, updatedAt: localSaved.updatedAt };
-            await persistPostLocally(reconciled);
-            return reconciled;
-        } catch {
-            return localSaved;
+            if (!res.post) throw new Error('تعذّر تحديث حالة القفل');
+            await persistPostLocally(res.post);
+            return res.post;
         }
+
+        throw new Error('ليس لديك صلاحية لقفل النقاش');
     }
 
     static async reportComment(
@@ -537,19 +495,33 @@ export class ForumApiService {
 
     static async listGroups(query = ''): Promise<import('@/app/services/forum/forumGroupTypes').ForumGroup[]> {
         const q = query.trim();
-        const url = q ? `/api/forum/groups?q=${encodeURIComponent(q)}` : '/api/forum/groups';
-        const res = await SecureAPIClient.fetchSecure<{
-            ok: boolean;
-            groups?: import('@/app/services/forum/forumGroupTypes').ForumGroup[];
-            error?: string;
-        }>(url, { method: 'GET' });
-        if (!res.ok || !Array.isArray(res.groups)) {
-            const { ForumGroupLocalStore } = await import('@/app/services/forum/forumGroupLocalStore');
-            const { readPersistedSupabaseAuth } = await import('@/app/utils/authStorage');
-            const viewerId = readPersistedSupabaseAuth().user?.id ?? null;
-            return ForumGroupLocalStore.listGroups(viewerId, q);
+        const { getCurrentAccessToken } = await import('./SecureAPIClient');
+        if (!(await getCurrentAccessToken())) {
+            return this.listGroupsLocal(q);
         }
-        return res.groups;
+
+        const url = q ? `/api/forum/groups?q=${encodeURIComponent(q)}` : '/api/forum/groups';
+        return this.withFallback(
+            async () => {
+                const res = await SecureAPIClient.fetchSecure<{
+                    ok: boolean;
+                    groups?: import('@/app/services/forum/forumGroupTypes').ForumGroup[];
+                }>(url, { method: 'GET' });
+                if (!res.ok || !Array.isArray(res.groups)) {
+                    return this.listGroupsLocal(q);
+                }
+                return res.groups;
+            },
+            async () => this.listGroupsLocal(q),
+        );
+    }
+
+    private static async listGroupsLocal(
+        query = '',
+    ): Promise<import('@/app/services/forum/forumGroupTypes').ForumGroup[]> {
+        const { ForumGroupLocalStore } = await import('@/app/services/forum/forumGroupLocalStore');
+        const viewerId = readPersistedSupabaseAuth().user?.id ?? null;
+        return ForumGroupLocalStore.listGroups(viewerId, query.trim());
     }
 
     static async createGroup(input: {
@@ -621,7 +593,7 @@ export class ForumApiService {
         const userId = await getSessionUserId(requesterId);
         if (!userId) return [];
 
-        const { FollowDB } = await import('@/app/services/lawyer-cloud');
+        const { FollowDB } = await import('@/app/services/cloud/lawyerCommunityCloud');
         const localRecords = await FollowDB.getFollowing(userId);
 
         const { getCurrentAccessToken } = await import('./SecureAPIClient');
@@ -670,7 +642,7 @@ export class ForumApiService {
         const userId = await getSessionUserId(options?.requesterId);
         if (!userId) throw new Error('يجب تسجيل الدخول');
 
-        const { FollowDB } = await import('@/app/services/lawyer-cloud');
+        const { FollowDB } = await import('@/app/services/cloud/lawyerCommunityCloud');
         await FollowDB.follow(userId, followingId);
 
         try {
@@ -692,7 +664,7 @@ export class ForumApiService {
         const userId = await getSessionUserId(requesterId);
         if (!userId) throw new Error('يجب تسجيل الدخول');
 
-        const { FollowDB } = await import('@/app/services/lawyer-cloud');
+        const { FollowDB } = await import('@/app/services/cloud/lawyerCommunityCloud');
         await FollowDB.unfollow(userId, followingId);
 
         try {
@@ -720,7 +692,7 @@ export class ForumApiService {
     }
 
     static async getFollowerCount(userId: string): Promise<number> {
-        const { FollowDB } = await import('@/app/services/lawyer-cloud');
+        const { FollowDB } = await import('@/app/services/cloud/lawyerCommunityCloud');
         try {
             const res = await SecureAPIClient.fetchSecure<{ ok: boolean; count: number }>(
                 `/api/forum/follow?mode=followers&userId=${encodeURIComponent(userId)}`,
@@ -799,13 +771,13 @@ export class ForumApiService {
     }
 
     static async listForumNotifications(requesterId?: string | null): Promise<{
-        notifications: import('@/app/services/lawyer-cloud').ForumNotification[];
+        notifications: import('@/app/services/cloud/lawyerCommunityTypes').ForumNotification[];
         unreadCount: number;
     }> {
         const userId = await getSessionUserId(requesterId);
         if (!userId) return { notifications: [], unreadCount: 0 };
 
-        const { NotificationDB } = await import('@/app/services/lawyer-cloud');
+        const { NotificationDB } = await import('@/app/services/notifications/notificationForumStorage');
         const local = await NotificationDB.getNotifications(userId);
 
         const { getCurrentAccessToken } = await import('./SecureAPIClient');
@@ -819,7 +791,7 @@ export class ForumApiService {
         try {
             const res = await SecureAPIClient.fetchSecure<{
                 ok: boolean;
-                notifications: import('@/app/services/lawyer-cloud').ForumNotification[];
+                notifications: import('@/app/services/cloud/lawyerCommunityTypes').ForumNotification[];
                 unreadCount: number;
             }>('/api/forum/notifications', { method: 'GET' });
             const notifications = Array.isArray(res.notifications) ? res.notifications : local;
@@ -853,18 +825,18 @@ export class ForumApiService {
     static async markForumNotificationRead(notificationId: string, requesterId?: string | null): Promise<void> {
         const userId = await getSessionUserId(requesterId);
         if (!userId) return;
-        const { NotificationDB } = await import('@/app/services/lawyer-cloud');
-        await NotificationDB.markAsRead(notificationId, userId);
-        try {
-            await postJson<ApiOk<Record<string, never>>>('/api/forum/notifications', {
-                action: 'mark_read',
-                notificationId,
-            });
-        } catch {
-            /* local ok */
-        }
+
+        const { persistForumNotificationRead, countForumUnread } = await import(
+            '@/app/services/notifications/forumNotificationRead'
+        );
+        await persistForumNotificationRead(userId, notificationId);
+
         if (typeof window !== 'undefined') {
-            const remaining = (await NotificationDB.getNotifications(userId)).filter((n) => !n.read).length;
+            const { syncForumReadToShell } = await import(
+                '@/app/services/notifications/notificationReadSync'
+            );
+            await syncForumReadToShell(userId, notificationId);
+            const remaining = await countForumUnread(userId);
             const { emitForumUnreadCount } = await import('@/app/services/forum/forumNotificationBridge');
             emitForumUnreadCount(remaining);
         }
@@ -873,16 +845,17 @@ export class ForumApiService {
     static async markAllForumNotificationsRead(requesterId?: string | null): Promise<void> {
         const userId = await getSessionUserId(requesterId);
         if (!userId) return;
-        const { NotificationDB } = await import('@/app/services/lawyer-cloud');
-        await NotificationDB.markAllAsRead(userId);
-        try {
-            await postJson<ApiOk<Record<string, never>>>('/api/forum/notifications', {
-                action: 'mark_all_read',
-            });
-        } catch {
-            /* local ok */
-        }
+
+        const { persistForumMarkAllRead } = await import(
+            '@/app/services/notifications/forumNotificationRead'
+        );
+        await persistForumMarkAllRead(userId);
+
         if (typeof window !== 'undefined') {
+            const { syncForumMarkAllReadToShell } = await import(
+                '@/app/services/notifications/notificationReadSync'
+            );
+            await syncForumMarkAllReadToShell(userId);
             const { emitForumUnreadCount } = await import('@/app/services/forum/forumNotificationBridge');
             emitForumUnreadCount(0);
         }

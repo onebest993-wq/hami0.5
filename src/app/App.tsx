@@ -1,35 +1,34 @@
 import React, { useState, useEffect, useTransition, Suspense, type ReactElement } from "react";
-import { motion, AnimatePresence } from "motion/react";
 
 // Core imports with error handling
-import { FontInjector } from "./components/SharedComponents";
+import { FontInjector } from "./components/shared/FontInjector";
+import { HamiMotionConfig } from "./components/shared/HamiMotionConfig";
 import { AppProvider } from "./context/AppContext";
-import { AuthProvider, useAuth, isSuperAdminUser } from "./context/AuthContext";
+import { AuthProvider, useAppRootAuth, isSuperAdminUser } from "./context/AuthContext";
 import { GlobalErrorBoundary } from "./components/shared/GlobalErrorBoundary";
 import { debug } from "./utils/debug";
-import { screenTransitions } from "./animations/transitions";
 import { clearCacheIfNeeded } from "./utils/constants";
-import { LawyerDashboardGate as LawyerDashboard } from "@/app/bootstrap/LawyerDashboardGate";
+import { LawyerDashboardGate } from "@/app/bootstrap/LawyerDashboardGate";
 import { SecurityInitializerGate as AppSecurityInitializer } from "@/app/bootstrap/SecurityInitializerGate";
-import { SmartToast, SmartToastContainer } from "./components/ui/SmartToast";
-import { SmartDialogContainer } from "./components/ui/SmartDialog";
+import { SmartToast } from "./components/ui/smartToastBus";
+
+const LazySmartToastContainer = React.lazy(() =>
+    import("./components/ui/SmartToastContainer").then((m) => ({ default: m.SmartToastContainer })),
+);
+const LazySmartDialogContainer = React.lazy(() =>
+    import("./components/ui/SmartDialogContainer").then((m) => ({ default: m.SmartDialogContainer })),
+);
 
 const CHUNK_RELOAD_SESSION_KEY = "hami:chunk-reload-once";
 const VITE_STALE_IMPORT_RELOAD_KEY = "hami:vite-stale-import-reload";
 // --- LAZY: Other heavy screens ---
 const AdminDashboard = React.lazy(() => import("./components/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
 const AdminLawLibraryPage = React.lazy(() => import("./admin/page"));
-const RoyalLawyerProfile = React.lazy(() =>
-  import('@/app/runtime/royalLawyerProfileLoader').then((m) =>
-    m.loadRoyalLawyerProfileModule().then((mod) => ({ default: mod.RoyalLawyerProfile })),
-  ),
-);
 const PrivacyPolicyScreen = React.lazy(() => import("./components/SettingsScreens").then(m => ({ default: m.PrivacyPolicyScreen })));
 const SupportScreen = React.lazy(() => import("./components/SettingsScreens").then(m => ({ default: m.SupportScreen })));
 
 type AppScreen =
   | 'lawyer'
-  | 'profile'
   | 'admin'
   | 'adminLawLibrary'
   | 'privacy'
@@ -60,13 +59,8 @@ function readSavedScreen(): AppScreen | null {
   try {
     const raw = sessionStorage.getItem(LAST_SCREEN_KEY);
     if (raw === 'adminLawLibrary') return 'admin';
-    if (
-      raw === 'lawyer' ||
-      raw === 'profile' ||
-      raw === 'admin' ||
-      raw === 'privacy' ||
-      raw === 'support'
-    ) {
+    if (raw === 'profile') return 'lawyer';
+    if (raw === 'lawyer' || raw === 'admin' || raw === 'privacy' || raw === 'support') {
       return raw;
     }
   } catch {
@@ -93,9 +87,7 @@ export default function App(): ReactElement {
         /* ignore */
       }
 
-      if (clearCacheIfNeeded()) {
-        debug.log('✅ [App] تم تحديث الذاكرة المؤقتة');
-      }
+      clearCacheIfNeeded();
     };
 
     if (typeof requestIdleCallback !== 'undefined') {
@@ -181,14 +173,13 @@ export default function App(): ReactElement {
   // Lock body scroll
   useEffect(() => {
     document.body.style.overflowY = 'auto'; 
-    document.body.style.backgroundColor = '#000000';
+    document.body.style.backgroundColor = '#05060d';
     return () => {
       document.body.style.overflowY = '';
       document.body.style.backgroundColor = '';
     };
   }, []);
 
-  const handleNavigateToProfile = () => setScreen("profile");
   const handleNavigateToAdmin = () => setScreen("admin");
   const handleBackToDashboard = () => setScreen("lawyer");
   const handleLogout = () => {
@@ -197,40 +188,47 @@ export default function App(): ReactElement {
 
   return (
     <GlobalErrorBoundary>
+      <HamiMotionConfig>
       <AuthProvider>
         <AppContent
           screen={screen}
           setScreen={setScreen}
           role={role}
-          handleNavigateToProfile={handleNavigateToProfile}
           handleNavigateToAdmin={handleNavigateToAdmin}
           handleBackToDashboard={handleBackToDashboard}
           handleLogout={handleLogout}
         />
       </AuthProvider>
+      </HamiMotionConfig>
     </GlobalErrorBoundary>
   );
 }
 
 function AppContent(props: {
   screen: string;
-  setScreen: (s: "lawyer" | "profile" | "admin" | "adminLawLibrary" | "privacy" | "support") => void;
+  setScreen: (s: "lawyer" | "admin" | "adminLawLibrary" | "privacy" | "support") => void;
   role: "lawyer";
-  handleNavigateToProfile: () => void;
   handleNavigateToAdmin: () => void;
   handleBackToDashboard: () => void;
   handleLogout: () => void;
 }) {
   const {
     screen, setScreen, role,
-    handleNavigateToProfile,
     handleNavigateToAdmin, handleBackToDashboard,
     handleLogout
   } = props;
 
-  const { logout, user, isLoading } = useAuth();
+  const { logout, user, isLoading } = useAppRootAuth();
   const isSuperAdmin = isSuperAdminUser(user);
   const adminGuardToastRef = React.useRef(false);
+  const lawyerScreenVisitRef = React.useRef(0);
+  const [lawyerScreenAnimate, setLawyerScreenAnimate] = React.useState(false);
+
+  useEffect(() => {
+    if (screen !== 'lawyer') return;
+    lawyerScreenVisitRef.current += 1;
+    setLawyerScreenAnimate(lawyerScreenVisitRef.current > 1);
+  }, [screen]);
 
   useEffect(() => {
     const screenToPersist = screen === 'adminLawLibrary' ? 'admin' : screen;
@@ -263,111 +261,68 @@ function AppContent(props: {
     }
   }, [screen]);
 
-  useEffect(() => {
-    if (import.meta.env.DEV) return;
-    if (!user || screen !== "lawyer") return;
-
-    const timer = window.setTimeout(() => {
-      void import("./utils/screenPrefetch").then((m) => {
-        m.prefetchLawyerHeavyDeferredChunks();
-        m.prefetchSecondaryAppScreens();
-      });
-    }, 8_000);
-
-    return () => window.clearTimeout(timer);
-  }, [screen, user]);
-
   return (
         <>
-            <SmartToastContainer />
-            <SmartDialogContainer />
+            <Suspense fallback={null}>
+                <LazySmartToastContainer />
+            </Suspense>
+            <Suspense fallback={null}>
+                <LazySmartDialogContainer />
+            </Suspense>
 
         <AppProvider>
             <AppSecurityInitializer />
             <FontInjector />
             
-            <div className="min-h-screen bg-[#000000] text-white overflow-x-hidden">
-                <AnimatePresence mode="wait">
-                {/* LAWYER DASHBOARD */}
+            <div className="min-h-screen bg-[#05060d] text-white overflow-x-hidden">
                 {screen === "lawyer" && (
-                  <Suspense fallback={SCREEN_LAZY_FALLBACK}>
-                    <motion.div
-                      key="lawyer"
-                      {...screenTransitions.main}
-                    >
-                      <LawyerDashboard
-                        onLogout={onLogout}
-                        onAppNavigate={(target) => {
-                          if (target === "privacy") setScreen("privacy");
-                          else if (target === "support") setScreen("support");
-                        }}
-                      />
-                    </motion.div>
-                  </Suspense>
+                      <div key="lawyer" className={lawyerScreenAnimate ? 'hami-app-screen' : undefined}>
+                        <LawyerDashboardGate
+                          onLogout={onLogout}
+                          onAppNavigate={(target) => {
+                            if (target === "privacy") setScreen("privacy");
+                            else if (target === "support") setScreen("support");
+                          }}
+                        />
+                      </div>
                 )}
 
-                {/* PROFILE SCREEN */}
-                {screen === "profile" && (
-                  <Suspense fallback={SCREEN_LAZY_FALLBACK}>
-                    <motion.div
-                      key="profile"
-                      {...screenTransitions.secondary}
-                    >
-                      <RoyalLawyerProfile isScreenMode onBack={handleBackToDashboard} />
-                    </motion.div>
-                  </Suspense>
-                )}
-
-                {/* ADMIN DASHBOARD */}
                 {screen === "admin" && isSuperAdmin && (
                   <Suspense fallback={SCREEN_LAZY_FALLBACK}>
-                    <motion.div
-                      key="admin"
-                      {...screenTransitions.secondary}
-                    >
+                    <div key="admin" className="hami-app-screen">
                       <AdminDashboard
                         onLogout={handleBackToDashboard}
                         onOpenLawLibrary={() => setScreen("adminLawLibrary")}
                       />
-                    </motion.div>
+                    </div>
                   </Suspense>
                 )}
 
                 {screen === "adminLawLibrary" && isSuperAdmin && (
                   <Suspense fallback={SCREEN_LAZY_FALLBACK}>
-                    <motion.div
-                      key="adminLawLibrary"
-                      {...screenTransitions.secondary}
-                    >
+                    <div key="adminLawLibrary" className="hami-app-screen">
                       <AdminLawLibraryPage
                         onBack={() => setScreen("admin")}
                       />
-                    </motion.div>
+                    </div>
                   </Suspense>
                 )}
 
                 {screen === "privacy" && (
                   <Suspense fallback={SCREEN_LAZY_FALLBACK}>
-                    <motion.div
-                      key="privacy"
-                      {...screenTransitions.secondary}
-                    >
+                    <div key="privacy" className="hami-app-screen">
                       <PrivacyPolicyScreen onBack={handleBackToDashboard} />
-                    </motion.div>
+                    </div>
                   </Suspense>
                 )}
 
                 {screen === "support" && (
                   <Suspense fallback={SCREEN_LAZY_FALLBACK}>
-                    <motion.div
-                      key="support"
-                      {...screenTransitions.secondary}
-                    >
+                    <div key="support" className="hami-app-screen">
                       <SupportScreen onBack={handleBackToDashboard} />
-                    </motion.div>
+                    </div>
                   </Suspense>
                 )}
-                </AnimatePresence>
 
             </div>
         </AppProvider>

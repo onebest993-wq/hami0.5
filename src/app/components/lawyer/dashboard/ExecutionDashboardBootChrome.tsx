@@ -1,9 +1,10 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
+import { EXECUTION_DOSSIER_TEST_IDS } from '@/app/components/lawyer/ExecutionDashboard/executionDossierTestIds';
 
 function readDossierHeadline(file: FileData): string {
-    const row = file as Record<string, unknown>;
+    const row = file as unknown as Record<string, unknown>;
     const fileNumber = String(row.fileNumber ?? row.caseNo ?? '').trim();
     const year = String(row.fileYear ?? row.year ?? '').trim();
     if (fileNumber && year) return `${fileNumber}/${year}`;
@@ -29,6 +30,7 @@ export function ExecutionDashboardBootChrome({
         <div
             className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 backdrop-blur-3xl p-0"
             dir="rtl"
+            data-testid={EXECUTION_DOSSIER_TEST_IDS.dossier}
         >
             <div className="flex h-full w-full max-w-md flex-col border border-slate-700/30 bg-slate-900/95 shadow-2xl">
                 <div className="mx-2 mt-2 rounded-xl border-b border-black/50 border-t border-white/10 bg-gradient-to-r from-slate-800/40 via-slate-700/20 to-slate-800/40 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] backdrop-blur-xl">
@@ -36,6 +38,7 @@ export function ExecutionDashboardBootChrome({
                         <button
                             type="button"
                             onClick={onClose}
+                            data-testid={EXECUTION_DOSSIER_TEST_IDS.close}
                             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/8 bg-hami-navy/45 text-slate-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-md"
                             aria-label="إغلاق"
                         >

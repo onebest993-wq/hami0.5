@@ -163,6 +163,11 @@ export type UseExecutionDashboardPoliceAssistanceHandlersParams = {
     setPoliceAssistanceRequestTitle: Dispatch<SetStateAction<string>>;
     setPoliceAssistanceAgencyDraft: Dispatch<SetStateAction<string>>;
     setPoliceAssistanceModalOpen: Dispatch<SetStateAction<boolean>>;
+    executionDataRef: MutableRefObject<ExecutionFile | null | undefined>;
+    setShowDecisionsModal: (show: boolean) => void;
+    setShowUnifiedExecutionModal: (show: boolean) => void;
+    setUnifiedModalTab: Dispatch<SetStateAction<string>>;
+    setFollowupExpandProcedureKey: Dispatch<SetStateAction<string | null>>;
 };
 
 export function useExecutionDashboardPoliceAssistanceHandlers({
@@ -183,7 +188,43 @@ export function useExecutionDashboardPoliceAssistanceHandlers({
     setPoliceAssistanceRequestTitle,
     setPoliceAssistanceAgencyDraft,
     setPoliceAssistanceModalOpen,
+    executionDataRef,
+    setShowDecisionsModal,
+    setShowUnifiedExecutionModal,
+    setUnifiedModalTab,
+    setFollowupExpandProcedureKey,
 }: UseExecutionDashboardPoliceAssistanceHandlersParams) {
+    const openPoliceAssistanceFromBadge = useCallback(() => {
+        const st = executionDataRef.current?.eviction_police_assistance;
+        if (!st || st.completedAt) return;
+        setPoliceAssistanceDecisionId(st.decisionId);
+        setPoliceAssistanceRequestTitle('القوة الجبرية');
+        setPoliceAssistanceAgencyDraft(st.agencyName);
+        setPoliceAssistanceModalOpen(true);
+    }, [
+        executionDataRef,
+        setPoliceAssistanceAgencyDraft,
+        setPoliceAssistanceDecisionId,
+        setPoliceAssistanceModalOpen,
+        setPoliceAssistanceRequestTitle,
+    ]);
+
+    const openPoliceAssistanceDetailsForDecision = useCallback(
+        (input: { decisionId: string; requestTitle: string }) => {
+            void input;
+            setShowDecisionsModal(false);
+            setShowUnifiedExecutionModal(true);
+            setUnifiedModalTab('coercive');
+            setFollowupExpandProcedureKey('police');
+        },
+        [
+            setFollowupExpandProcedureKey,
+            setShowDecisionsModal,
+            setShowUnifiedExecutionModal,
+            setUnifiedModalTab,
+        ],
+    );
+
     const savePoliceAssistanceEntry = useCallback(
         (input: SavePoliceAssistanceEntryInput) => {
             const storageId = String(
@@ -244,5 +285,52 @@ export function useExecutionDashboardPoliceAssistanceHandlers({
         [policeAssistanceDecisionId, savePoliceAssistanceEntry],
     );
 
-    return { savePoliceAssistanceEntry, savePoliceAssistanceFromModal };
+    const completePoliceAssistance = useCallback(() => {
+        if (evictionProcedureLocked) {
+            showToast('لا يمكن إتمام الطلب — الإضبارة أو الإجراءات مقفلة.', 'warning');
+            return;
+        }
+        const cur = executionDataRef.current?.eviction_police_assistance;
+        if (!cur || !cur.decisionId) return;
+        const now = new Date().toISOString();
+        const nextTasks = (caseTasksPendingRef.current || []).filter(
+            (t) => String(t.id || '') !== `eviction-police-assistance-${cur.decisionId}`,
+        );
+        const ev: TimelineEvent = {
+            id: nextTimelineId(),
+            type: 'eviction',
+            date: now.slice(0, 10),
+            timestamp: now,
+            title: '✅ إتمام طلب القوة الجبرية',
+            description: `تم إتمام الطلب وإغلاق شارة القوة الجبرية. الجهة: ${cur.agencyName}`,
+            source: 'الإجراءات الجبرية — تخلية',
+        };
+        const nextTimeline = [ev, ...timelineEventsRef.current];
+        setCaseTasksPending(nextTasks);
+        setTimelineEvents(nextTimeline);
+        persistExecutionMerge({
+            eviction_police_assistance: { ...cur, completedAt: now },
+            caseTasksPending: nextTasks,
+            timelineEvents: nextTimeline,
+        });
+        showToast('تم إتمام طلب القوة الجبرية', 'success');
+    }, [
+        evictionProcedureLocked,
+        executionDataRef,
+        caseTasksPendingRef,
+        nextTimelineId,
+        timelineEventsRef,
+        persistExecutionMerge,
+        showToast,
+        setCaseTasksPending,
+        setTimelineEvents,
+    ]);
+
+    return {
+        openPoliceAssistanceFromBadge,
+        openPoliceAssistanceDetailsForDecision,
+        savePoliceAssistanceEntry,
+        savePoliceAssistanceFromModal,
+        completePoliceAssistance,
+    };
 }

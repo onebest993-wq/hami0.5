@@ -1,6 +1,7 @@
 import React from 'react';
 import { LayoutGrid, List, Search } from 'lucide-react';
 import type { LawsuitJurisdictionTab } from '@/app/domain/lawsuit/lawsuitJurisdiction';
+import { prefetchCriminalDashboard } from '@/app/utils/lazyComponents';
 import {
     ARCHIVE_SEARCH_INPUT,
     ARCHIVE_SEGMENT_BTN_ACTIVE,
@@ -79,6 +80,12 @@ export const ArchiveDossierToolbar: React.FC<ArchiveDossierToolbarProps> = ({
                                             isCriminal ? 'archive-tab-criminal' : `archive-jurisdiction-${tab.id}`
                                         }
                                         onClick={() => onJurisdictionTabChange(tab.id)}
+                                        onPointerEnter={() => {
+                                            if (isCriminal) prefetchCriminalDashboard();
+                                        }}
+                                        onFocus={() => {
+                                            if (isCriminal) prefetchCriminalDashboard();
+                                        }}
                                         className={`${ARCHIVE_SEGMENT_BTN_BASE} ${
                                             isActive
                                                 ? isCriminal

@@ -2,6 +2,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { AlertCircle, Clock, RotateCcw } from 'lucide-react';
+import { warmLawsuitWorkspace } from '@/app/utils/lazyComponents';
 import ExecutionSmartCard from './ExecutionSmartCard';
 import { LawsuitArchiveCard } from './LawsuitArchiveCard';
 import { CriminalArchiveCard } from './CriminalArchiveCard';
@@ -12,9 +13,10 @@ import { buildLawsuitWorkspacePin, buildTransactionWorkspacePin } from '@/app/wo
 import { criminalCaseReference } from '../criminalArchiveUtils';
 import type { LooseArchiveFile, ArchiveEnrichedRow } from '../types';
 import type { ExecutionArchiveFilter } from './ExecutionArchiveToolbar';
-import type { ExecutionPerspectiveFilter } from '../executionArchiveFilterUtils';
+import type { ExecutionPerspectiveFilter, ExecutionViewMode } from '../executionArchiveFilterUtils';
 import type { LawsuitJurisdictionTab } from '@/app/domain/lawsuit/lawsuitJurisdiction';
 import type { ArchiveDossierViewMode } from './ArchiveDossierToolbar';
+import { useExecutionArchiveCardLiveRevision } from '../hooks/useExecutionArchiveCardLiveRevision';
 
 export type ArchivePortalFileGridProps = {
     type: 'lawsuits' | 'executions' | 'deleted' | 'execution';
@@ -22,18 +24,21 @@ export type ArchivePortalFileGridProps = {
     searchQuery: string;
     filterType: ExecutionArchiveFilter;
     perspectiveFilter: ExecutionPerspectiveFilter;
-    executionTrashView: boolean;
-    setExecutionTrashView: (v: boolean) => void;
+    executionViewMode: ExecutionViewMode;
+    setExecutionViewMode: (mode: ExecutionViewMode) => void;
     lawsuitFilesForCluster: unknown[];
     onFileClick: (file: unknown) => void;
     setExecutionPreviewFile: (file: LooseArchiveFile | null) => void;
     onMoveExecutionToTrash?: (id: string) => void;
+    onArchiveExecution?: (id: string) => void;
     onRestoreExecutionFromTrash?: (id: string) => void;
+    onRestoreArchivedExecution?: (id: string) => void;
     onPermanentlyDeleteExecutions?: (ids: string[]) => void;
     executionTrashDaysRemaining: (file: LooseArchiveFile) => number | undefined;
     selectedTrashIds: Set<string>;
     toggleTrashSelect: (id: string) => void;
     setTrashConfirmTarget: (file: LooseArchiveFile) => void;
+    setArchiveConfirmTarget: (file: LooseArchiveFile) => void;
     hasLawsuitLifecycle: boolean;
     dossierViewMode: ArchiveDossierViewMode;
     showCriminalCardsInGrid: boolean;
@@ -51,6 +56,8 @@ export type ArchivePortalFileGridProps = {
     onDeleteCriminalCase?: (id: string) => void;
     dossierSearchQuery: string;
     lawsuitJurisdictionTab: LawsuitJurisdictionTab;
+    executionFilesHydrating?: boolean;
+    beginPermanentDeleteForIds?: (ids: Array<string | number>) => void;
 };
 
 export function ArchivePortalFileGrid(props: ArchivePortalFileGridProps) {
@@ -60,18 +67,21 @@ export function ArchivePortalFileGrid(props: ArchivePortalFileGridProps) {
         searchQuery,
         filterType,
         perspectiveFilter,
-        executionTrashView,
-        setExecutionTrashView,
+        executionViewMode,
+        setExecutionViewMode,
         lawsuitFilesForCluster,
         onFileClick,
         setExecutionPreviewFile,
         onMoveExecutionToTrash,
+        onArchiveExecution,
         onRestoreExecutionFromTrash,
+        onRestoreArchivedExecution,
         onPermanentlyDeleteExecutions,
         executionTrashDaysRemaining,
         selectedTrashIds,
         toggleTrashSelect,
         setTrashConfirmTarget,
+        setArchiveConfirmTarget,
         hasLawsuitLifecycle,
         dossierViewMode,
         showCriminalCardsInGrid,
@@ -89,12 +99,30 @@ export function ArchivePortalFileGrid(props: ArchivePortalFileGridProps) {
         onDeleteCriminalCase,
         dossierSearchQuery,
         lawsuitJurisdictionTab,
+        executionFilesHydrating = false,
+        beginPermanentDeleteForIds,
     } = props;
+
+    const executionCardLiveRevision = useExecutionArchiveCardLiveRevision(type === 'executions');
 
     return (
         <>
     {type === 'executions' ? (
-        enrichedFiles.length === 0 ? (
+        executionFilesHydrating &&
+        enrichedFiles.length === 0 &&
+        !searchQuery.trim() &&
+        filterType === 'all' &&
+        perspectiveFilter === 'all' ? (
+            <div
+                className="flex flex-col items-center justify-center py-20 text-center"
+                data-testid="executions-archive-loading"
+                aria-busy="true"
+            >
+                <Clock size={48} className="mb-4 animate-pulse text-[#E6C673]/40" />
+                <h3 className="mb-2 text-xl font-bold text-white/55">جاري تحميل الإضابير…</h3>
+                <p className="max-w-sm text-sm text-white/30">يتم جلب قائمة إضابير التنفيذ من التخزين المحلي.</p>
+            </div>
+        ) : enrichedFiles.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
                 <AlertCircle size={56} className="mb-4 text-white/10" />
                 <h3 className="mb-2 text-xl font-bold text-white/45">
@@ -102,24 +130,28 @@ export function ArchivePortalFileGrid(props: ArchivePortalFileGridProps) {
                     filterType !== 'all' ||
                     perspectiveFilter !== 'all'
                         ? 'لا توجد نتائج'
-                        : executionTrashView
+                        : executionViewMode === 'trash'
                           ? 'سلة المهملات فارغة'
-                          : 'لا توجد إضابير نشطة'}
+                          : executionViewMode === 'archived'
+                            ? 'مخزن الأرشيف فارغ'
+                            : 'لا توجد إضابير نشطة'}
                 </h3>
                 <p className="max-w-sm text-sm text-white/30">
                     {searchQuery.trim() ||
                     filterType !== 'all' ||
                     perspectiveFilter !== 'all'
                         ? 'جرّب تغيير البحث أو اختر «الكل» في الفلاتر.'
-                        : executionTrashView
+                        : executionViewMode === 'trash'
                           ? 'لا توجد إضابير هنا — أو انتهت مهلة الـ 30 يوماً.'
-                          : 'ابدأ بفتح إضبارة تنفيذ جديدة من لوحة المحامي.'}
+                          : executionViewMode === 'archived'
+                            ? 'لا توجد إضابير مؤرشفة حالياً.'
+                            : 'ابدأ بفتح إضبارة تنفيذ جديدة من لوحة المحامي.'}
                 </p>
-                {executionTrashView && !searchQuery.trim() ? (
+                {executionViewMode !== 'active' && !searchQuery.trim() ? (
                     <button
                         type="button"
                         data-testid="executions-empty-back-active"
-                        onClick={() => setExecutionTrashView(false)}
+                        onClick={() => setExecutionViewMode('active')}
                         className="mt-5 inline-flex items-center gap-2 rounded-xl border border-[#E6C673]/40 bg-[#E6C673]/10 px-4 py-2.5 text-xs font-bold text-[#E6C673] transition-all hover:bg-[#E6C673]/20"
                     >
                         الإضابير النشطة
@@ -127,24 +159,45 @@ export function ArchivePortalFileGrid(props: ArchivePortalFileGridProps) {
                 ) : null}
             </div>
         ) : (
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {enrichedFiles.map((file) => (
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 [content-visibility:auto]">
+                {enrichedFiles.map((file) => {
+                    const executionVariant =
+                        executionViewMode === 'trash'
+                            ? 'trash'
+                            : executionViewMode === 'archived'
+                              ? 'archived'
+                              : 'active';
+                    return (
                     <ExecutionSmartCard
                         key={file.id}
                         file={file}
+                        liveRevision={executionCardLiveRevision}
                         lawsuitFilesForCluster={lawsuitFilesForCluster}
-                        variant={executionTrashView ? 'trash' : 'active'}
+                        variant={executionVariant}
                         onOpen={() => onFileClick(file)}
                         onPreview={() => setExecutionPreviewFile(file as LooseArchiveFile)}
                         onRequestMoveToTrash={
-                            !executionTrashView && onMoveExecutionToTrash
+                            executionVariant === 'active' && onMoveExecutionToTrash
                                 ? () => setTrashConfirmTarget(file as LooseArchiveFile)
                                 : undefined
                         }
+                        onRequestArchive={
+                            executionVariant === 'active' && onArchiveExecution
+                                ? () => setArchiveConfirmTarget(file as LooseArchiveFile)
+                                : undefined
+                        }
                         onRestoreFromTrash={
-                            executionTrashView && onRestoreExecutionFromTrash
+                            executionVariant === 'trash' && onRestoreExecutionFromTrash
                                 ? () =>
                                       onRestoreExecutionFromTrash(
+                                          (file as LooseArchiveFile).id
+                                      )
+                                : undefined
+                        }
+                        onRestoreFromArchive={
+                            executionVariant === 'archived' && onRestoreArchivedExecution
+                                ? () =>
+                                      onRestoreArchivedExecution(
                                           (file as LooseArchiveFile).id
                                       )
                                 : undefined
@@ -156,12 +209,19 @@ export function ArchivePortalFileGrid(props: ArchivePortalFileGridProps) {
                             String((file as LooseArchiveFile).id)
                         )}
                         onToggleSelect={
-                            executionTrashView && onPermanentlyDeleteExecutions
+                            executionVariant === 'trash' && onPermanentlyDeleteExecutions
                                 ? () => toggleTrashSelect((file as LooseArchiveFile).id)
                                 : undefined
                         }
+                        onRequestPermanentDelete={
+                            executionVariant === 'trash' && beginPermanentDeleteForIds
+                                ? () =>
+                                      beginPermanentDeleteForIds([(file as LooseArchiveFile).id])
+                                : undefined
+                        }
                     />
-                ))}
+                    );
+                })}
             </div>
         )
     ) : type === 'lawsuits' && hasLawsuitLifecycle && dossierViewMode === 'compact' ? (
@@ -184,6 +244,8 @@ export function ArchivePortalFileGrid(props: ArchivePortalFileGridProps) {
                     <li key={String(file.id)}>
                         <button
                             type="button"
+                            onPointerEnter={warmLawsuitWorkspace}
+                            onFocus={warmLawsuitWorkspace}
                             onClick={() => onFileClick(file)}
                             className="w-full text-right rounded-xl border border-white/10 bg-[#151825] p-3 hover:border-[#E6C673]/40 flex items-start gap-3"
                         >
@@ -453,8 +515,10 @@ export function ArchivePortalFileGrid(props: ArchivePortalFileGridProps) {
             <p className="text-white/30 text-sm">
                 {searchQuery || filterType !== 'all' 
                     ? 'جرب تغيير معايير البحث أو الفلترة'
-                    : type === 'executions' && executionTrashView
+                    : type === 'executions' && executionViewMode === 'trash'
                       ? 'لا توجد إضابير في السلة — أو انتهت مهلة الـ 30 يوماً وتم الحذف التلقائي.'
+                      : type === 'executions' && executionViewMode === 'archived'
+                        ? 'لا توجد إضابير في مخزن الأرشيف.'
                       : type === 'lawsuits' && lawsuitViewMode === 'trash'
                         ? 'لا توجد إضابير في السلة — أو انتهت مهلة الـ 30 يوماً وتم الحذف التلقائي.'
                         : type === 'lawsuits' && lawsuitViewMode === 'archived'

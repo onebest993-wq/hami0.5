@@ -12,7 +12,7 @@ import {
     appendUnifiedLedgerExecutionExpense,
     type EncroachmentCaseExpenseRow,
 } from '@/app/utils/unifiedFundsLedgerStorage';
-import { parseAmount } from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
+import { parseAmount } from '@/app/utils/execution/amountInput';
 
 export type { EncroachmentCaseExpenseRow };
 

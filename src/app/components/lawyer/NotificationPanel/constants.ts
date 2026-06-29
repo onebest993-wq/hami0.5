@@ -30,7 +30,7 @@ export const CATEGORY_THEMES: Record<CategoryThemeKey, CategoryTheme> = {
         tone: { text: 'text-amber-300', bg: 'bg-amber-500/10', ring: 'ring-amber-500/30' },
     },
     ai: {
-        label: 'ذكاء',
+        label: 'تنبيه',
         icon: Sparkles,
         tone: { text: 'text-amber-300', bg: 'bg-amber-500/10', ring: 'ring-amber-500/30' },
     },

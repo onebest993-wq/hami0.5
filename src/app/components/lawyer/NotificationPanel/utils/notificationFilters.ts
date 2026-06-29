@@ -23,22 +23,14 @@ export function resolveNotificationTheme(n: NotificationModel): CategoryTheme {
     return CATEGORY_THEMES.system;
 }
 
-export function borderRightForCategory(c: NotificationCategory): string {
+export function accentBarForCategory(c: NotificationCategory): string {
     switch (c) {
-        case 'civil':
-            return 'border-r-sky-500/50';
-        case 'criminal':
-            return 'border-r-rose-500/50';
-        case 'execution':
-            return 'border-r-[#E6C673]/50';
-        case 'task':
-            return 'border-r-emerald-500/50';
         case 'forum':
-            return 'border-r-violet-500/50';
+            return 'bg-violet-500/70';
         case 'document':
         case 'ai':
-            return 'border-r-amber-500/50';
+            return 'bg-amber-500/70';
         default:
-            return 'border-r-white/15';
+            return 'bg-white/25';
     }
 }

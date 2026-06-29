@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useLawyerSettingsOptional } from '@/app/context/LawyerSettingsContext';
+import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
 
-/** يحترم إعدادات حامي + prefers-reduced-motion — بدون تحذير motion.dev في الكونسول */
+/** يحترم إعدادات حامي + prefers-reduced-motion + وضع الأداء الخفيف */
 export function useReduceMotion(): boolean {
     const settingsCtx = useLawyerSettingsOptional();
     const fromSettings = Boolean(
         settingsCtx?.settings.appearance.reduceMotion ||
             settingsCtx?.settings.performance.enableAnimations === false,
+    );
+    const fromLite = Boolean(
+        settingsCtx &&
+            isLitePerformanceActive(settingsCtx.settings.performance.litePerformance),
     );
 
     const [prefersReduced, setPrefersReduced] = useState(() => {
@@ -21,5 +26,5 @@ export function useReduceMotion(): boolean {
         return () => mq.removeEventListener('change', onChange);
     }, []);
 
-    return fromSettings || prefersReduced;
+    return fromSettings || fromLite || prefersReduced;
 }

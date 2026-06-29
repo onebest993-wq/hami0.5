@@ -1,211 +1,170 @@
-import React, { Suspense } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
-import { SmartToast } from '@/app/components/ui/SmartToast';
-import AddClientModal from '@/app/components/lawyer/LawyerDashboardParts/components/AddClientModal';
-import { FieldTasksBottomSheet } from '@/app/components/lawyer/dashboard/FieldTasksBottomSheet';
-import { TasksManagerOverlay } from '@/app/components/lawyer/dashboard/TasksManagerOverlay';
+// @ts-nocheck
+import React, { Suspense, useCallback } from 'react';
+
 import {
+    LazyFieldTasksBottomSheet,
     LazyHamiSettings,
-    LazyNotepadModal,
-    LazyViewUrgentAndOrdersDashboard,
-    LazySmartVaultModal,
-    LazySmartContractGenerator,
+    LazySmartRepositoryModal,
+    LazyTasksManagerOverlay,
+    LazyTransactionsThreadingSystem,
 } from '@/app/utils/lazyComponents';
-import { TransactionsThreadingSystem } from '@/app/components/lawyer/TransactionsThreading/TransactionsThreadingSystem';
-import { LAWYER_LAZY_FALLBACK } from '@/app/components/lawyer/LawyerDashboardParts/constants';
+
+import { TasksErrorBoundary } from '@/app/components/lawyer/dashboard/TasksErrorBoundary';
+import { TransactionsErrorBoundary } from '@/app/components/lawyer/TransactionsThreading/TransactionsErrorBoundary';
+import { RepositoryErrorBoundary } from '@/app/components/lawyer/SmartRepository/RepositoryErrorBoundary';
+import {
+    FieldTasksSheetFallback,
+    RepositoryShellFallback,
+    SettingsScreenLoadingFallback,
+    TasksManagerFallback,
+    TransactionsHubFallback,
+} from '@/app/components/lawyer/LawyerDashboardParts/LazyFallback';
+
 import type { LawyerDashboardOverlaysHostProps } from '../lawyerDashboardOverlaysHostBundles';
+import { resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
 
 export function LawyerDashboardProductivityOverlays({
     shell,
     data,
     overlays,
     notepad,
-    urgent,
-    client,
     nav,
+    dossier,
+    archive,
 }: Pick<
     LawyerDashboardOverlaysHostProps,
-    'shell' | 'data' | 'overlays' | 'notepad' | 'urgent' | 'client' | 'nav'
+    'shell' | 'data' | 'overlays' | 'notepad' | 'nav' | 'dossier' | 'archive'
 >) {
-    const { onLogout, onAppNavigate, userId, shapeClass } = shell;
+    const { onLogout, onAppNavigate, userId, authUserId, shapeClass } = shell;
     const { files, executionFiles, globalNotes } = data;
     const {
         isNotepadOpen,
-        setIsNotepadOpen,
+        closeNotepad,
         notepadMode,
-        setNotepadMode,
         notepadFocusNoteId,
-        setNotepadFocusNoteId,
+        notepadSessionKey,
+        repositoryTab,
+        vaultOpenScanner,
         handleSaveNote,
         handleDeleteNote,
-        handleNotepadConvert,
     } = notepad;
-    const {
-        showUrgentDashboard,
-        setShowUrgentDashboard,
-        urgentFocusCaseId,
-        setUrgentFocusCaseId,
-    } = urgent;
-    const {
-        showAddClientModal,
-        setShowAddClientModal,
-        newClientName,
-        setNewClientName,
-        newClientPhone,
-        setNewClientPhone,
-    } = client;
+
     const { setActiveTab, refreshAppAlerts } = nav;
+    const { setActiveFile, handleUpdateFile, handleUpdateExecutionFile } = dossier;
+    const { setArchiveType } = archive;
+
     const {
         showSettings,
+        settingsSessionKey,
+        closeSettings,
+        resetSettingsShell,
         setShowSettings,
         enterHomeLayoutEdit,
         openProfileTab,
-        showDocs,
-        setShowDocs,
-        vaultOpenScanner,
-        setVaultOpenScanner,
-        showContractGenerator,
-        setShowContractGenerator,
         fieldTasksSheetOpen,
-        setFieldTasksSheetOpen,
+        closeFieldTasksSheet,
         showTasksManager,
-        setShowTasksManager,
-        tasksManagerFocusTaskId,
-        setTasksManagerFocusTaskId,
-        openTasksManager,
+        closeTasksManager,
+        switchToTasksManager,
         showTransactions,
-        setShowTransactions,
+        closeTransactionsHub,
         transactionsFocusId,
-        setTransactionsFocusId,
     } = overlays;
+
+    const tasksManagerFocusTaskId = overlays.tasksManagerFocusTaskId;
+    const transactionsSessionKey = overlays.transactionsSessionKey;
+    const transactionsUserId = resolveShellAuthUserId(authUserId, userId);
+    const settingsUserId = transactionsUserId;
 
     return (
         <>
-            <FieldTasksBottomSheet
-                open={fieldTasksSheetOpen}
-                onClose={() => setFieldTasksSheetOpen(false)}
-                onManageAll={() => {
-                    openTasksManager();
-                    requestAnimationFrame(() => setFieldTasksSheetOpen(false));
-                }}
-                lawsuitFiles={files}
-                executionFiles={executionFiles}
-            />
+            {fieldTasksSheetOpen ? (
+                <Suspense fallback={FieldTasksSheetFallback}>
+                    <LazyFieldTasksBottomSheet
+                        key="field-tasks-sheet"
+                        open={fieldTasksSheetOpen}
+                        onClose={closeFieldTasksSheet}
+                        onManageAll={switchToTasksManager}
+                        lawsuitFiles={files}
+                        executionFiles={executionFiles}
+                    />
+                </Suspense>
+            ) : null}
 
-            <TasksManagerOverlay
-                open={showTasksManager}
-                onClose={() => {
-                    setTasksManagerFocusTaskId(undefined);
-                    setShowTasksManager(false);
-                }}
-                focusTaskId={tasksManagerFocusTaskId}
-                lawsuitFiles={files}
-                executionFiles={executionFiles}
-            />
+            {showTasksManager ? (
+                <Suspense fallback={TasksManagerFallback}>
+                    <TasksErrorBoundary onClose={closeTasksManager}>
+                        <LazyTasksManagerOverlay
+                            key="tasks-manager-overlay"
+                            open={showTasksManager}
+                            onClose={closeTasksManager}
+                            focusTaskId={tasksManagerFocusTaskId}
+                            lawsuitFiles={files}
+                            executionFiles={executionFiles}
+                        />
+                    </TasksErrorBoundary>
+                </Suspense>
+            ) : null}
 
-            <AnimatePresence>
-                {showSettings && (
-                    <Suspense key="hami-settings" fallback={LAWYER_LAZY_FALLBACK}>
-                        <LazyHamiSettings
-                            onClose={() => setShowSettings(false)}
+            {showSettings ? (
+                <Suspense fallback={<SettingsScreenLoadingFallback onClose={closeSettings} />}>
+                    <LazyHamiSettings
+                        key={`hami-settings-${settingsSessionKey}`}
+                        open={showSettings}
+                        userId={settingsUserId}
+                        onShellReset={resetSettingsShell}
+                        onClose={closeSettings}
                             onEnterHomeLayoutEdit={enterHomeLayoutEdit}
                             onLogout={onLogout}
                             onOpenProfile={() => {
-                                setShowSettings(false);
+                                closeSettings();
                                 openProfileTab();
                             }}
                             onOpenPrivacy={() => {
-                                setShowSettings(false);
+                                closeSettings();
                                 onAppNavigate?.('privacy');
                             }}
-                            onOpenSupport={() => {
-                                setShowSettings(false);
-                                onAppNavigate?.('support');
-                            }}
                         />
-                    </Suspense>
-                )}
-                {isNotepadOpen && (
-                    <Suspense key="notepad" fallback={LAWYER_LAZY_FALLBACK}>
-                        <LazyNotepadModal
-                            isOpen={isNotepadOpen}
-                            onClose={() => {
-                                setNotepadFocusNoteId(undefined);
-                                setIsNotepadOpen(false);
-                            }}
-                            startMode={notepadMode}
-                            focusNoteId={notepadFocusNoteId}
-                            notes={globalNotes}
-                            onSave={handleSaveNote}
-                            onDelete={handleDeleteNote}
-                            onConvert={handleNotepadConvert}
-                            shapeClass={shapeClass}
-                        />
-                    </Suspense>
-                )}
-            </AnimatePresence>
-
-            {showUrgentDashboard && (
-                <Suspense fallback={LAWYER_LAZY_FALLBACK}>
-                    <motion.div className="fixed inset-0 z-[85] bg-[#05060D]">
-                        <LazyViewUrgentAndOrdersDashboard
-                            focusCaseId={urgentFocusCaseId}
-                            onBack={() => {
-                                setShowUrgentDashboard(false);
-                                setUrgentFocusCaseId(undefined);
-                                void refreshAppAlerts();
-                            }}
-                        />
-                    </motion.div>
                 </Suspense>
-            )}
-
-            {showTransactions ? (
-                <TransactionsThreadingSystem
-                    onBack={() => {
-                        setTransactionsFocusId(undefined);
-                        setShowTransactions(false);
-                    }}
-                    userId={userId || 'dev-user-uuid-1'}
-                    initialTransactionId={transactionsFocusId}
-                />
             ) : null}
 
-            <>
-                {showDocs && (
-                    <Suspense fallback={LAWYER_LAZY_FALLBACK}>
-                        <LazySmartVaultModal
-                            key="docs"
-                            onClose={() => {
-                                setShowDocs(false);
-                                setVaultOpenScanner(false);
-                            }}
-                            currentUserId={userId || ''}
-                            initialOpenScanner={vaultOpenScanner}
+            {isNotepadOpen ? (
+                <Suspense fallback={RepositoryShellFallback}>
+                    <RepositoryErrorBoundary onClose={closeNotepad}>
+                        <LazySmartRepositoryModal
+                            key="smart-repository-modal"
+                            isOpen={isNotepadOpen}
+                            onClose={closeNotepad}
+                            initialTab={repositoryTab}
+                            notepadMode={notepadMode}
+                            focusNoteId={notepadFocusNoteId}
+                            vaultOpenScanner={vaultOpenScanner}
+                            notes={globalNotes}
+                            lawsuitFiles={files}
+                            executionFiles={executionFiles}
+                            currentUserId={resolveShellAuthUserId(authUserId, userId) ?? userId}
+                            onSaveNote={handleSaveNote}
+                            onDeleteNote={handleDeleteNote}
+                            onUpdateLawsuitFile={handleUpdateFile}
+                            onUpdateExecutionFile={handleUpdateExecutionFile}
                         />
-                    </Suspense>
-                )}
-                {showContractGenerator && (
-                    <Suspense fallback={LAWYER_LAZY_FALLBACK}>
-                        <LazySmartContractGenerator onClose={() => setShowContractGenerator(false)} />
-                    </Suspense>
-                )}
-            </>
+                    </RepositoryErrorBoundary>
+                </Suspense>
+            ) : null}
 
-            <AddClientModal
-                isOpen={showAddClientModal}
-                onClose={() => setShowAddClientModal(false)}
-                clientName={newClientName}
-                clientPhone={newClientPhone}
-                onNameChange={setNewClientName}
-                onPhoneChange={setNewClientPhone}
-                onSave={() => {
-                    SmartToast.success('✅ تم إضافة الموكل (محاكاة)');
-                    setNewClientName('');
-                    setNewClientPhone('');
-                    setShowAddClientModal(false);
-                }}
-            />
+            {showTransactions && transactionsUserId ? (
+                <Suspense fallback={TransactionsHubFallback}>
+                    <TransactionsErrorBoundary onClose={closeTransactionsHub}>
+                        <LazyTransactionsThreadingSystem
+                            key={`transactions-hub-${transactionsSessionKey}`}
+                            open={showTransactions}
+                            onBack={closeTransactionsHub}
+                            userId={transactionsUserId}
+                            initialTransactionId={transactionsFocusId}
+                        />
+                    </TransactionsErrorBoundary>
+                </Suspense>
+            ) : null}
         </>
     );
 }

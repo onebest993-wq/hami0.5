@@ -119,9 +119,7 @@ async function processFlushBatch(): Promise<void> {
                     eventsToSave.push(event);
                 }
                 if (eventsToSave.length > 0) {
-                    for (const event of eventsToSave) {
-                        await CalendarDB.saveEvent(event);
-                    }
+                    await CalendarDB.saveEventsBatch(eventsToSave);
                     dispatchedAny = true;
                 }
                 for (const it of items) it.resolve();

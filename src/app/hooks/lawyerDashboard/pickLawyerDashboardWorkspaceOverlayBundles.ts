@@ -54,6 +54,8 @@ export function pickLawyerDashboardArchiveBundle(workspace: Workspace): LawyerDa
         handleRestoreFile,
         moveExecutionToTrash,
         restoreExecutionFromTrash,
+        archiveExecution,
+        restoreArchivedExecution,
         permanentlyDeleteExecutions,
         moveLawsuitToTrash,
         restoreLawsuitFromTrash,
@@ -69,6 +71,8 @@ export function pickLawyerDashboardArchiveBundle(workspace: Workspace): LawyerDa
         handleRestoreFile,
         moveExecutionToTrash,
         restoreExecutionFromTrash,
+        archiveExecution,
+        restoreArchivedExecution,
         permanentlyDeleteExecutions,
         moveLawsuitToTrash,
         restoreLawsuitFromTrash,
@@ -78,29 +82,29 @@ export function pickLawyerDashboardArchiveBundle(workspace: Workspace): LawyerDa
     };
 }
 
-export function pickLawyerDashboardNotepadBundle(workspace: Workspace): LawyerDashboardNotepadBundle {
-    const {
-        isNotepadOpen,
-        setIsNotepadOpen,
-        notepadMode,
-        setNotepadMode,
-        notepadFocusNoteId,
-        setNotepadFocusNoteId,
-        handleSaveNote,
-        handleDeleteNote,
-        handleNotepadConvert,
-    } = workspace;
-
+export function pickLawyerDashboardNotepadBundle(
+    workspace: Workspace,
+    notepad: {
+        isNotepadOpen: boolean;
+        notepadMode: 'list' | 'create';
+        notepadFocusNoteId: string | undefined;
+        notepadSessionKey: number;
+        repositoryTab: 'notepad' | 'vault';
+        vaultOpenScanner: boolean;
+        closeNotepad: () => void;
+    },
+): LawyerDashboardNotepadBundle {
     return {
-        isNotepadOpen,
-        setIsNotepadOpen,
-        notepadMode,
-        setNotepadMode,
-        notepadFocusNoteId,
-        setNotepadFocusNoteId,
-        handleSaveNote,
-        handleDeleteNote,
-        handleNotepadConvert,
+        isNotepadOpen: notepad.isNotepadOpen,
+        notepadMode: notepad.notepadMode,
+        notepadFocusNoteId: notepad.notepadFocusNoteId,
+        notepadSessionKey: notepad.notepadSessionKey,
+        repositoryTab: notepad.repositoryTab,
+        vaultOpenScanner: notepad.vaultOpenScanner,
+        closeNotepad: notepad.closeNotepad,
+        handleSaveNote: workspace.handleSaveNote,
+        handleDeleteNote: workspace.handleDeleteNote,
+        handleNotepadConvert: workspace.handleNotepadConvert,
     };
 }
 
@@ -140,11 +144,14 @@ export function pickLawyerDashboardExecutionCreateBundle(
     };
 }
 
-export function pickLawyerDashboardWorkspaceOverlayBundles(workspace: Workspace) {
+export function pickLawyerDashboardWorkspaceOverlayBundles(
+    workspace: Workspace,
+    notepadShell: Parameters<typeof pickLawyerDashboardNotepadBundle>[1],
+) {
     return {
         dossier: pickLawyerDashboardDossierBundle(workspace),
         archive: pickLawyerDashboardArchiveBundle(workspace),
-        notepad: pickLawyerDashboardNotepadBundle(workspace),
+        notepad: pickLawyerDashboardNotepadBundle(workspace, notepadShell),
         newCase: pickLawyerDashboardNewCaseBundle(workspace),
         executionCreate: pickLawyerDashboardExecutionCreateBundle(workspace),
     };

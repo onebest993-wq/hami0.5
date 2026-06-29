@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { buildFileDataFromNewCaseSave } from '@/app/domain/lawsuit/lawsuitFileFactory';
-import { coerceExecutionFilePreserveId, isFileData, normalizeFileDataForOpen, resolveOpenableFileData } from '../utils';
+import {
+    coerceExecutionFilePreserveId,
+    isFileData,
+    mapLawsuitFilesToLegalCases,
+    normalizeFileDataForOpen,
+    resolveOpenableFileData,
+} from '../utils';
 
 describe('LawyerDashboard utils', () => {
     it('isFileData accepts numeric and string ids', () => {
@@ -77,5 +83,36 @@ describe('LawyerDashboard utils', () => {
         const d0 = normalized.debtors?.[0] as { isEmployee?: boolean; occupation?: string } | undefined;
         expect(d0?.isEmployee).toBe(true);
         expect(d0?.occupation).toBe('موظف');
+    });
+
+    it('coerceExecutionFilePreserveId keeps notes as string only, not lawsuit array', () => {
+        const fromArray = coerceExecutionFilePreserveId({
+            id: 'exec-notes',
+            type: 'execution',
+            notes: [{ id: 1, text: 'legacy' }],
+        });
+        expect(Array.isArray(fromArray.notes)).toBe(false);
+        expect(fromArray.notes).toBeUndefined();
+
+        const fromString = coerceExecutionFilePreserveId({
+            id: 'exec-notes-2',
+            type: 'execution',
+            notes: '  ملاحظة تنفيذ  ',
+        });
+        expect(fromString.notes).toBe('ملاحظة تنفيذ');
+    });
+
+    it('mapLawsuitFilesToLegalCases يحوّل الأطراف والحالة', () => {
+        const file = buildFileDataFromNewCaseSave({
+            mainCategory: 'lawsuit',
+            parties1: [{ name: 'المدعي', status: 'مدعي', isClient: true }],
+            parties2: [{ name: 'المدعى عليه', status: 'مدعى عليه' }],
+            details: { number: '5 / ب / 2026', court: 'محكمة الكرخ' },
+        })!;
+        const [mapped] = mapLawsuitFilesToLegalCases([file]);
+        expect(mapped.clientName).toBe('المدعي');
+        expect(mapped.opponentName).toBe('المدعى عليه');
+        expect(mapped.status).toBe('active');
+        expect(mapped.id).toBe(String(file.id));
     });
 });

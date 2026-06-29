@@ -11,7 +11,7 @@ import { resolveCaseLinkPeerNav } from '@/app/components/lawyer/smart-modal/smar
 import { syncLawsuitFileToCalendar } from '@/app/services/calendarDossierSync';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { debug } from '@/app/utils/debug';
-import { prefetchSmartFileModal } from '@/app/utils/lazyComponents';
+import { warmLawsuitWorkspace } from '@/app/utils/lazyComponents';
 
 type ActiveFile = FileData | ExecutionFile | null;
 
@@ -25,113 +25,6 @@ export type UseLawsuitActiveDossierOptions = {
     selectCase: (caseId: string) => void;
     openExecutionArchiveFile: (file: unknown) => boolean;
 };
-
-function publishCivilFileAuditLog(before: FileData, updatedFile: FileData): void {
-    try {
-        void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-            const clientName = updatedFile.parties?.find((p) => p.isClient)?.name?.trim();
-            const caseNo = String(updatedFile.caseNo ?? '').trim() || clientName || undefined;
-
-            if (before.status && updatedFile.status && before.status !== updatedFile.status) {
-                if (updatedFile.status !== 'deleted') {
-                    AuditLog.civil.statusChanged({
-                        caseId: updatedFile.id,
-                        caseNo,
-                        fromStatus: String(before.status),
-                        toStatus: String(updatedFile.status),
-                    });
-                }
-            }
-
-            const beforeStages = Array.isArray((before as { stages?: unknown[] }).stages)
-                ? (before as { stages: unknown[] }).stages.length
-                : 0;
-            const afterStages = Array.isArray((updatedFile as { stages?: unknown[] }).stages)
-                ? (updatedFile as { stages: unknown[] }).stages.length
-                : 0;
-            if (afterStages > beforeStages) {
-                const lastStage = (updatedFile as { stages?: Array<{ stageName?: string }> }).stages?.[
-                    afterStages - 1
-                ];
-                AuditLog.civil.stageAdded({
-                    caseId: updatedFile.id,
-                    caseNo,
-                    stageName: lastStage?.stageName || 'مرحلة جديدة',
-                });
-            }
-
-            const countTimeline = (file: FileData): number => {
-                const stages = (file as { stages?: Array<{ timeline?: unknown[] }> }).stages ?? [];
-                let n = 0;
-                for (const s of stages) {
-                    if (Array.isArray(s?.timeline)) n += s.timeline.length;
-                }
-                return n;
-            };
-            const beforeTimeline = countTimeline(before);
-            const afterTimeline = countTimeline(updatedFile);
-            if (afterTimeline > beforeTimeline) {
-                const stages =
-                    (updatedFile as {
-                        stages?: Array<{ timeline?: Array<{ id?: string; date?: string; title?: string }> }>;
-                    }).stages ?? [];
-                const beforeIds = new Set<string>();
-                const beforeStagesArr =
-                    (before as { stages?: Array<{ timeline?: Array<{ id?: string }> }> }).stages ?? [];
-                for (const s of beforeStagesArr) {
-                    for (const t of s?.timeline ?? []) {
-                        if (t?.id) beforeIds.add(String(t.id));
-                    }
-                }
-                for (const s of stages) {
-                    for (const ev of s?.timeline ?? []) {
-                        if (!ev?.id || beforeIds.has(String(ev.id))) continue;
-                        if (ev.date) {
-                            AuditLog.civil.hearingAdded({
-                                caseId: updatedFile.id,
-                                caseNo,
-                                date: ev.date,
-                                title: ev.title,
-                            });
-                        }
-                    }
-                }
-            }
-
-            type TaskShape = { id?: string; title?: string; dueDate?: string; isCompleted?: boolean };
-            const collectTasks = (file: FileData): TaskShape[] => {
-                const stages = (file as { stages?: Array<{ tasks?: TaskShape[] }> }).stages ?? [];
-                const out: TaskShape[] = [];
-                for (const s of stages) {
-                    if (Array.isArray(s?.tasks)) out.push(...s.tasks);
-                }
-                return out;
-            };
-            const beforeTasks = collectTasks(before);
-            const afterTasks = collectTasks(updatedFile);
-            const beforeMap = new Map(beforeTasks.map((t) => [String(t.id ?? ''), t] as const));
-            for (const t of afterTasks) {
-                const prev = beforeMap.get(String(t.id ?? ''));
-                if (prev && !prev.isCompleted && t.isCompleted && t.title) {
-                    AuditLog.civil.taskCompleted({
-                        caseId: updatedFile.id,
-                        caseNo,
-                        title: t.title,
-                    });
-                } else if (!prev && t.title) {
-                    AuditLog.civil.taskAdded({
-                        caseId: updatedFile.id,
-                        caseNo,
-                        title: t.title,
-                        dueDate: t.dueDate,
-                    });
-                }
-            }
-        });
-    } catch {
-        /* silent */
-    }
-}
 
 export function useLawsuitActiveDossier({
     files,
@@ -153,7 +46,7 @@ export function useLawsuitActiveDossier({
                 SmartToast.error('تعذّر فتح الإضبارة — تحقق من بيانات الملف');
                 return false;
             }
-            prefetchSmartFileModal();
+            warmLawsuitWorkspace();
             selectCase(resolved.id.toString());
             setActiveFile(resolved);
             return true;
@@ -245,10 +138,6 @@ export function useLawsuitActiveDossier({
                 });
             }
             syncLawsuitFileToCalendar(normalizedFile as unknown as Record<string, unknown>, userId);
-
-            if (before) {
-                publishCivilFileAuditLog(before, normalizedFile);
-            }
 
             void refreshAppAlerts();
         },

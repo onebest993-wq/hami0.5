@@ -1,40 +1,53 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { motion } from 'motion/react';
 import type { LucideIcon } from 'lucide-react';
+import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 
 export type HeaderToolbarIconProps = {
     icon: LucideIcon;
     label: string;
     onClick: () => void;
     onPointerEnter?: () => void;
+    onPointerDown?: () => void;
     active?: boolean;
     accent?: boolean;
     badge?: React.ReactNode;
     testId?: string;
 };
 
-export function HeaderToolbarIcon({
+export const HeaderToolbarIcon = memo(function HeaderToolbarIcon({
     icon: Icon,
     label,
     onClick,
     onPointerEnter,
+    onPointerDown,
     active,
     accent,
     badge,
     testId,
 }: HeaderToolbarIconProps) {
+    const reduceMotion = useReduceMotion();
+
+    const warmIntent = () => {
+        onPointerEnter?.();
+    };
+
     return (
         <motion.button
             type="button"
             onClick={onClick}
             onPointerEnter={onPointerEnter}
+            onPointerDown={(event) => {
+                if (event.button === 0) onPointerDown?.();
+            }}
+            onFocus={onPointerEnter ? warmIntent : undefined}
             aria-label={label}
             title={label}
             data-testid={testId}
-            whileHover={{ scale: 1.06, y: -1 }}
-            whileTap={{ scale: 0.92 }}
+            whileHover={reduceMotion ? undefined : { scale: 1.06, y: -1 }}
+            whileTap={reduceMotion ? undefined : { scale: 0.92 }}
             transition={{ type: 'spring', stiffness: 420, damping: 26 }}
-            className="group relative w-11 h-11 rounded-[1.1rem] flex items-center justify-center touch-manipulation"
+            className="group relative w-11 h-11 rounded-[1.1rem] flex items-center justify-center touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0F1C]"
         >
             <span
                 className="absolute inset-0 rounded-[1.1rem] transition-colors duration-200"
@@ -51,14 +64,16 @@ export function HeaderToolbarIcon({
                 }}
                 aria-hidden
             />
-            <motion.span
-                className="absolute inset-[3px] rounded-[0.95rem] pointer-events-none opacity-0 group-hover:opacity-100"
-                style={{
-                    background:
-                        'radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--hami-primary, #E6C673) 22%, transparent), transparent 70%)',
-                }}
-                aria-hidden
-            />
+            {!reduceMotion ? (
+                <motion.span
+                    className="absolute inset-[3px] rounded-[0.95rem] pointer-events-none opacity-0 group-hover:opacity-100"
+                    style={{
+                        background:
+                            'radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--hami-primary, #E6C673) 22%, transparent), transparent 70%)',
+                    }}
+                    aria-hidden
+                />
+            ) : null}
             <Icon
                 size={19}
                 strokeWidth={active || accent ? 2.1 : 1.75}
@@ -73,4 +88,4 @@ export function HeaderToolbarIcon({
             {badge}
         </motion.button>
     );
-}
+});

@@ -4,6 +4,7 @@ import { readCsrfTokenFromDocument } from '@/app/security/csrfSession';
 import { getOrCreateDeviceId } from '@/app/security/deviceId';
 import { fetchKvProxyGuarded, isKvProxyUrl } from './kvProxyGuard';
 import { assertNetworkAllowed } from '@/app/services/settings/localOnlyGuard';
+import { isSameOriginApiBlocked } from '@/app/runtime/sameOriginApiProbe';
 import {
     readDevMockAccessToken,
 } from '@/app/utils/authStorage';
@@ -185,6 +186,9 @@ export class SecureAPIClient {
         const method = normalizeMethod(options.method);
         const wireBody = options.body;
         const shouldSign = isSameOriginApiRoute(resolved);
+        if (shouldSign && isSameOriginApiBlocked()) {
+            throw new SecureFetchError('api_unavailable', 503, '', resolved.toString());
+        }
         let nextHeaders: HeadersInit = mergeHeaders(options.headers, { Accept: 'application/json' });
 
         if (shouldSign) {

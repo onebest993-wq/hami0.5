@@ -36,7 +36,11 @@ export function resolveHomeBlockShapeClass(override?: HomeBlockStyleOverride): s
     return SHAPE_RADIUS[override?.shape ?? 'rounded'];
 }
 
-export function shouldShowHomeBlockSheen(pattern?: HomeBlockPattern): boolean {
+export function shouldShowHomeBlockSheen(_pattern?: HomeBlockPattern): boolean {
+    return false;
+}
+
+export function shouldShowHomeMoroccanGlassDecor(pattern?: HomeBlockPattern): boolean {
     const resolved = pattern ?? 'glass';
     return resolved === 'glass' || resolved === 'rim' || resolved === 'gradient';
 }

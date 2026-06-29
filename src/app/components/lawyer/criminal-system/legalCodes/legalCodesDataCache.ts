@@ -1,11 +1,9 @@
-import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import {
     CODE_TYPE_TO_LAW_NAME,
     mapAndDedupLawRows,
     type LegalCodeArticle,
     type LegalCodeType,
 } from './legalCodesConstants';
-import { getBundledLawRows } from '@/app/utils/bundledIraqiLawLoader';
 
 const cache = new Map<LegalCodeType, LegalCodeArticle[]>();
 const inflight = new Map<LegalCodeType, Promise<LegalCodeArticle[]>>();
@@ -39,6 +37,7 @@ export async function loadLegalCodeArticles(tab: LegalCodeType): Promise<LegalCo
 
     const promise = (async () => {
         try {
+            const { SecureAPIClient } = await import('@/app/services/SecureAPIClient');
             const data = await SecureAPIClient.fetchSecure<{
                 ok?: boolean;
                 error?: string;
@@ -67,7 +66,11 @@ export async function loadLegalCodeArticles(tab: LegalCodeType): Promise<LegalCo
             /* fallback to bundled project files */
         }
 
-        const bundled = mapAndDedupLawRows(getBundledLawRows(CODE_TYPE_TO_LAW_NAME[tab]), tab);
+        const { loadBundledLawRows } = await import('@/app/utils/bundledIraqiLawLoader');
+        const bundled = mapAndDedupLawRows(
+            await loadBundledLawRows(CODE_TYPE_TO_LAW_NAME[tab]),
+            tab,
+        );
         if (bundled.length > 0) {
             cache.set(tab, bundled);
             return bundled;

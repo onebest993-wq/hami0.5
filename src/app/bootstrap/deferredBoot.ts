@@ -1,5 +1,8 @@
 import { cleanupDevServiceWorkers } from '@/app/utils/devServiceWorkerCleanup';
 import { initWebVitalsLogging } from '@/app/utils/webVitalsObserver';
+import { scheduleDeferredGoogleFonts } from '@/app/runtime/deferredGoogleFonts';
+import { applyCapacitorShellBoot } from '@/app/runtime/capacitorShellBoot';
+import { reportBootTimeline } from '@/app/bootstrap/bootMetrics';
 
 function installSubmitGuard(): void {
     const w = window as unknown as { __hamiSubmitGuardInstalled?: boolean };
@@ -105,21 +108,29 @@ function initSentryDeferred(): void {
     void import('@sentry/react')
         .then((Sentry) => {
             const isProd = import.meta.env.PROD;
-            Sentry.init({
-                dsn: sentryDsn,
-                integrations: [
-                    Sentry.browserTracingIntegration(),
+            let replayAttached = false;
+
+            const attachReplayOnError = () => {
+                if (replayAttached) return;
+                replayAttached = true;
+                Sentry.addIntegration(
                     Sentry.replayIntegration({
                         maskAllText: false,
                         blockAllMedia: false,
                     }),
-                ],
+                );
+            };
+
+            Sentry.init({
+                dsn: sentryDsn,
+                integrations: [Sentry.browserTracingIntegration()],
                 tracesSampleRate: isProd ? 0.12 : 1,
-                replaysSessionSampleRate: isProd ? 0.02 : 0.1,
+                replaysSessionSampleRate: 0,
                 replaysOnErrorSampleRate: 1,
                 environment: import.meta.env.MODE,
                 beforeSend(event) {
                     if (event.level === 'warning') return null;
+                    if (event.level === 'error' || event.level === 'fatal') attachReplayOnError();
                     return event;
                 },
             });
@@ -129,15 +140,9 @@ function initSentryDeferred(): void {
         });
 }
 
-function prefetchDemoChunks(): void {
-    if (import.meta.env.DEV) return;
-    void import('@/app/utils/screenPrefetch').then(({ scheduleDemoPrefetchWaves }) => {
-        scheduleDemoPrefetchWaves();
-    });
-}
-
 /** مهام ما بعد أول إطار — لا تُستدعى قبل ReactDOM.render */
 export function runDeferredBootTasks(): void {
+    applyCapacitorShellBoot();
     installSubmitGuard();
 
     const run = () => {
@@ -145,6 +150,7 @@ export function runDeferredBootTasks(): void {
             void cleanupDevServiceWorkers();
             try {
                 initWebVitalsLogging();
+                reportBootTimeline();
             } catch {
                 /* ignore */
             }
@@ -153,12 +159,12 @@ export function runDeferredBootTasks(): void {
         installIraqDateFormatPatch();
         installArabicDatePickersPatch();
         initSentryDeferred();
-        prefetchDemoChunks();
+        scheduleDeferredGoogleFonts();
     };
 
     if (typeof requestIdleCallback !== 'undefined') {
-        requestIdleCallback(run, { timeout: 2000 });
+        requestIdleCallback(run, { timeout: 8_000 });
     } else {
-        window.setTimeout(run, 0);
+        window.setTimeout(run, 1_000);
     }
 }

@@ -12,6 +12,7 @@ export interface SearchResultsPanelProps {
     isSearching: boolean;
     isLoadingIndex: boolean;
     results: GroupedSearchResults | null;
+    flatResults: GlobalSearchEntry[];
     onPick: (entry: GlobalSearchEntry) => void;
     pinLookup: WorkspacePinLookupContext;
     scanIndex: ClusterScanRecord[];
@@ -24,33 +25,27 @@ export function SearchResultsPanel({
     isSearching,
     isLoadingIndex,
     results,
+    flatResults,
     onPick,
     pinLookup,
     scanIndex,
     activeIndex,
     onActiveIndexChange,
 }: SearchResultsPanelProps) {
-    if (isSearching || !results) {
+    if (isSearching || (Boolean(query.trim()) && isLoadingIndex && !results)) {
         return (
             <div
-                className="flex flex-col items-center justify-center py-16 gap-4"
+                className="flex flex-col items-center justify-center py-16 gap-3"
                 data-testid="global-search-loading"
+                aria-live="polite"
             >
-                <motion.div
-                    className="relative w-14 h-14 rounded-2xl border border-[#E6C673]/20 flex items-center justify-center"
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 2.5, repeat: Infinity, ease: 'linear' }}
-                >
-                    <Loader2 size={24} className="text-[#E6C673]/70 animate-spin" />
-                </motion.div>
-                <p className="text-white/30 text-sm">
-                    {isLoadingIndex ? 'جاري تجهيز الفهرس...' : 'جاري البحث...'}
-                </p>
+                <Loader2 size={28} className="text-[#E6C673]/70 animate-spin" aria-hidden />
+                <span className="sr-only">جاري البحث</span>
             </div>
         );
     }
 
-    if (!results.hasResults) {
+    if (!results || !results.hasResults) {
         return (
             <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -70,6 +65,7 @@ export function SearchResultsPanel({
         <div data-testid="global-search-results">
             <ResultsBody
                 grouped={results}
+                flatResults={flatResults}
                 query={query}
                 onPick={onPick}
                 pinLookup={pinLookup}

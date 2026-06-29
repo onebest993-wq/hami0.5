@@ -1,4 +1,5 @@
 import SecureStoreService from '@/app/services/SecureStoreService';
+import { validateBusinessBackupImport } from '@/app/services/settings/businessBackupSecurity';
 import { STORAGE_KEYS } from '@/app/utils/constants';
 
 export type BusinessBackupCounts = {
@@ -313,11 +314,38 @@ export async function buildBusinessBackupPayload(selection: BusinessBackupSelect
 }
 
 export async function importBusinessBackupEntries(entries: Array<[string, string]>) {
-    for (const [k, v] of entries) {
-        if (typeof k !== 'string' || typeof v !== 'string') continue;
-        await SecureStoreService.setItem(k, v);
+    const validation = validateBusinessBackupImport(entries);
+    if (validation.ok === false) {
+        throw new Error(validation.reason);
     }
-    window.dispatchEvent(new Event('hami:data-imported'));
+
+    const snapshot = new Map<string, string | null>();
+    for (const [k] of entries) {
+        if (typeof k !== 'string') continue;
+        const prior = await SecureStoreService.getItem(k);
+        snapshot.set(k, prior == null ? null : String(prior));
+    }
+
+    const written: string[] = [];
+    try {
+        for (const [k, v] of entries) {
+            if (typeof k !== 'string' || typeof v !== 'string') continue;
+            await SecureStoreService.setItem(k, v);
+            written.push(k);
+        }
+        window.dispatchEvent(new Event('hami:data-imported'));
+    } catch (err) {
+        for (const k of written) {
+            const prior = snapshot.get(k);
+            try {
+                if (prior == null) await SecureStoreService.deleteItem(k);
+                else await SecureStoreService.setItem(k, prior);
+            } catch {
+                /* best-effort rollback */
+            }
+        }
+        throw err;
+    }
 }
 
 export function parseBusinessBackupFile(text: string): {

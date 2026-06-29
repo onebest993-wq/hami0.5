@@ -13,10 +13,11 @@ export function useNotificationFocusTrap(
         const onKey = (e: globalThis.KeyboardEvent) => {
             if (e.key !== 'Escape') return;
             e.preventDefault();
+            e.stopPropagation();
             onClose();
         };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
+        window.addEventListener('keydown', onKey, true);
+        return () => window.removeEventListener('keydown', onKey, true);
     }, [isOpen, onClose]);
 
     useEffect(() => {
@@ -35,9 +36,14 @@ export function useNotificationFocusTrap(
 
         document.addEventListener('focusin', onFocusIn, true);
         const first = root.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
-        first?.focus();
+        const focusRaf = requestAnimationFrame(() => {
+            first?.focus({ preventScroll: true });
+        });
 
-        return () => document.removeEventListener('focusin', onFocusIn, true);
+        return () => {
+            cancelAnimationFrame(focusRaf);
+            document.removeEventListener('focusin', onFocusIn, true);
+        };
     }, [isOpen, panelRef]);
 
     const onKeyDownCapture = useCallback(

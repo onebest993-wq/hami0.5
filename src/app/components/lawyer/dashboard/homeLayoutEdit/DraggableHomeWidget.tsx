@@ -58,7 +58,10 @@ function EditChip({
             type="button"
             aria-label={label}
             aria-pressed={active}
-            onClick={onClick}
+            onClick={(e) => {
+                e.stopPropagation();
+                onClick?.();
+            }}
             className={`flex h-8 w-8 items-center justify-center rounded-full border touch-none backdrop-blur-md transition-all duration-200 active:scale-95 ${className} ${
                 active
                     ? 'border-[#E6C673] bg-[#E6C673] text-[#0A0C12] shadow-[0_0_20px_rgba(230,198,115,0.35)]'
@@ -134,12 +137,12 @@ export function DraggableHomeWidget({
     const customizerActive = selectedBlockId === widgetId;
     const resizeActive = resizeBlockId === widgetId;
     const dragging = draggingWidgetId === widgetId;
-    const elevated = resizeActive || dragging;
+    const elevated = resizeActive || dragging || customizerActive;
     const canResizeSpan = zone === 'main' && Boolean(onResizeSpan);
     const canResize = Boolean(onResizeHeight) || canResizeSpan;
     const showResizeHandles = resizeActive && canResize;
     const resizeMinHeight = resolveWidgetResizeMinHeight(widgetId);
-    const compactControls = zone === 'dock';
+    const compactControls = false;
     const shapeClass = resolveHomeBlockShapeClass(blockOverride);
     const shellChromeClass =
         customizerActive
@@ -408,7 +411,7 @@ export function DraggableHomeWidget({
             <div
                 ref={rootRef}
                 className={`relative ${className} ${dragging ? 'min-h-0 h-0 overflow-hidden invisible' : ''} ${
-                    elevated ? 'z-[120]' : ''
+                    elevated ? 'z-[130]' : isEditing ? 'z-[10]' : ''
                 }`}
                 style={{ ...style, ...(elevated ? { isolation: 'isolate' as const } : {}) }}
             >
@@ -417,7 +420,11 @@ export function DraggableHomeWidget({
                         className={`relative overflow-hidden transition-shadow duration-200 ${shapeClass} ${shellChromeClass}`}
                     >
                         <div
-                            className={`relative ${blockInteractionLocked ? 'pointer-events-none' : ''}`}
+                            className={`relative ${
+                                blockInteractionLocked
+                                    ? 'pointer-events-none [&_input]:pointer-events-auto [&_textarea]:pointer-events-auto [&_select]:pointer-events-auto [&_[contenteditable="true"]]:pointer-events-auto'
+                                    : ''
+                            }`}
                         >
                             {children}
                         </div>
@@ -481,6 +488,3 @@ export function DraggableHomeWidget({
         </>
     );
 };
-
-/** @deprecated — استخدم DraggableHomeWidget */
-export const EditableHomeBlock = DraggableHomeWidget;

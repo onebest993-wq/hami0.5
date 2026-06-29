@@ -1,5 +1,18 @@
 @import 'tailwindcss' source(none);
+
+@theme {
+  --color-hami-gold: #e6c673;
+  --color-hami-navy: #0a0f1c;
+  --color-hami-deep: #05060d;
+}
+
+/* Tailwind v4 — مسح ضيق: ملفات الواجهة فقط، بدون api/admin/tests */
 @source '../index.tsx';
-@source '../app/**/*.{js,ts,jsx,tsx}';
+@source '../app/**/*.{tsx,jsx}';
+@source not '../app/**/*.test.{ts,tsx,js,jsx}';
+@source not '../app/**/__tests__/**';
+@source not '../app/api/**';
+@source not '../app/admin/**';
+@source not '../app/services/server/**';
 
 @plugin 'tailwindcss-animate';

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ModalIsoDateInput } from '../ModalIsoDateInput';
+import { CriminalModalPortal, CRIMINAL_MODAL_Z } from '../../criminalModalPortal';
 import {
     PROCEDURAL_STEP_STATUS_OPTIONS,
     type ProceduralPathStep,
@@ -39,7 +40,7 @@ export const ProceduralStepFormModal = ({ open, initial, onClose, onSubmit }: Pr
     if (!open) return null;
 
     return (
-        <div className="fixed inset-0 z-[222] bg-black/80 backdrop-blur-sm p-4 flex items-center justify-center print:hidden" dir="rtl">
+        <CriminalModalPortal zIndex={CRIMINAL_MODAL_Z.procedural}>
             <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 overflow-hidden">
                 <div className="p-4 border-b border-slate-700 bg-slate-800/50 flex items-center justify-between gap-3">
                     <div className="text-white font-black text-sm">
@@ -106,6 +107,6 @@ export const ProceduralStepFormModal = ({ open, initial, onClose, onSubmit }: Pr
                     </div>
                 </div>
             </div>
-        </div>
+        </CriminalModalPortal>
     );
 };

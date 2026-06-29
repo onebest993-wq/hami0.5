@@ -318,19 +318,6 @@ export function useLawsuitNewCaseFlow({
                 return next;
             });
 
-            try {
-                const clientName = created.parties?.find((p: Party) => p.isClient)?.name;
-                void import('@/app/services/auditLogPublisher').then(({ AuditLog }) => {
-                    AuditLog.civil.caseCreated({
-                        caseId: created.id,
-                        caseNo: created.caseNo || `#${created.id}`,
-                        clientName,
-                    });
-                });
-            } catch {
-                /* silent */
-            }
-
             SmartToast.success('تم إنشاء الملف بنجاح');
             setIsNewCaseModalOpen(false);
             setSubFileBase(null);

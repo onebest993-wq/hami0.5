@@ -1,29 +1,72 @@
 /**
- * E2E: إقلاع التطبيق — بدون شاشة سوداء أو أخطاء JS حرجة
+ * E2E — الإقلاع والتحميل وظهور حاويات لوحة المحامي
  */
 import { test, expect } from '@playwright/test';
+import { seedLawyerFiles } from './helpers/civilLawsuitFixtures';
+import { dismissBlockingOverlays } from './helpers/notificationFixtures';
+import {
+    bootToLawyerHome,
+    collectFatalBootPageErrors,
+    expectHomeContainersVisible,
+    prepareBootE2E,
+    stripBootFailureLayer,
+} from './helpers/bootFixtures';
 
-test.describe('App boot smoke', () => {
-    test('loads lawyer shell without fatal page errors', async ({ page }) => {
+test.describe('إقلاع التطبيق', () => {
+    test.describe.configure({ timeout: 90_000 });
+
+    test.beforeEach(async ({ page }) => {
+        await prepareBootE2E(page);
+        await seedLawyerFiles(page);
+    });
+
+    test('يصل إلى لوحة المحامي الجاهزة بدون أخطاء JS حرجة', async ({ page }) => {
         const pageErrors: string[] = [];
         page.on('pageerror', (err) => pageErrors.push(err.message));
 
         await page.goto('/');
-        await page.waitForFunction(
-            () => (document.querySelector('#root')?.innerHTML?.length ?? 0) > 800,
-            undefined,
-            { timeout: 45_000 },
-        );
+        await bootToLawyerHome(page);
+        await stripBootFailureLayer(page);
 
-        const loader = page.locator('#loading-overlay');
-        await expect(loader).toHaveCount(0, { timeout: 15_000 });
+        expect(collectFatalBootPageErrors(pageErrors)).toEqual([]);
+    });
 
-        const fatalBoot = pageErrors.filter(
-            (msg) =>
-                !/ResizeObserver loop/i.test(msg) &&
-                !/Loading chunk/i.test(msg) &&
-                !/Failed to fetch dynamically imported module/i.test(msg),
+    test('يعرض هيكل الإقلاع ثم يخفيه عند الجاهزية', async ({ page }) => {
+        await page.goto('/');
+
+        const staticBoot = page.getByTestId('hami-static-boot');
+        const bootShell = page.getByTestId('lawyer-boot-shell');
+        await expect(staticBoot.or(bootShell).or(page.getByTestId('lawyer-dashboard-ready'))).toBeVisible({
+            timeout: 20_000,
+        });
+
+        await bootToLawyerHome(page);
+        await expect(staticBoot).toHaveCount(0);
+        await expect(bootShell).toBeHidden();
+    });
+
+    test('تظهر حاويات الرئيسية بعد الإقلاع', async ({ page }) => {
+        await page.goto('/');
+        await bootToLawyerHome(page);
+        await dismissBlockingOverlays(page);
+        await expectHomeContainersVisible(page);
+        await expect(page.getByTestId('hub-archive-lawsuit')).toBeVisible({ timeout: 15_000 });
+    });
+
+    test('لا يعرض طبقة فشل الإقلاع في المسار السعيد', async ({ page }) => {
+        await page.goto('/');
+        await bootToLawyerHome(page);
+        await expect(page.getByTestId('hami-boot-failure')).toHaveCount(0);
+        await expect(page.getByTestId('app-boot-fatal-error')).toHaveCount(0);
+        await expect(page.getByTestId('global-error-boundary-fallback')).toHaveCount(0);
+    });
+
+    test('يُسجّل مرحلة dashboard-interactive بعد الجاهزية', async ({ page }) => {
+        await page.goto('/');
+        await bootToLawyerHome(page);
+        const hasMark = await page.evaluate(
+            () => performance.getEntriesByName('hami:boot:dashboard-interactive', 'mark').length > 0,
         );
-        expect(fatalBoot).toEqual([]);
+        expect(hasMark).toBe(true);
     });
 });

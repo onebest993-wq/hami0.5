@@ -3,6 +3,7 @@ import {
     FORUM_SHELL_FEATURE,
     formatForumUnreadBadge,
     openLawyerForumFromShell,
+    resolveForumShellAriaLabel,
     shouldShowForumUnreadBadge,
 } from '@/app/services/forum/forumShellNavigation';
 
@@ -27,5 +28,12 @@ describe('forumShellNavigation', () => {
         expect(shouldShowForumUnreadBadge(2)).toBe(true);
         expect(formatForumUnreadBadge(120)).toBe('99+');
         expect(formatForumUnreadBadge(7)).toBe('7');
+    });
+
+    it('resolves forum shell aria label with unread count', () => {
+        expect(resolveForumShellAriaLabel(0)).toBe('المنتدى القانوني');
+        expect(resolveForumShellAriaLabel(3)).toBe('المنتدى القانوني، 3 غير مقروء');
+        expect(resolveForumShellAriaLabel(120)).toBe('المنتدى القانوني، 99+ غير مقروء');
+        expect(resolveForumShellAriaLabel(5, { layoutEditMode: true })).toBe('المنتدى القانوني');
     });
 });

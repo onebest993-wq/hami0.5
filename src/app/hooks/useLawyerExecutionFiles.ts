@@ -24,6 +24,18 @@ import {
 
 } from '@/app/utils/executionFilesStorage';
 
+import { reconcileExecutionDossierStorageAsync, exposeExecutionReconcileForDev } from '@/app/utils/executionDossierStorageReconcile';
+
+import { readExecutionFilesBootstrap } from '@/app/utils/executionFilesBootstrap';
+
+import { markExecutionDossierTombstones } from '@/app/utils/executionDossierTombstones';
+
+import {
+    applyExecutionTrashLifecyclePatch,
+    collectExecutionCascadeIds,
+    mergeExecutionFilesPreservingLifecycle,
+} from '@/app/utils/executionLifecycleMutations';
+
 import { loadDossierCollectionAsync } from '@/app/services/dossierPersistence/dossierPersistenceService';
 
 import {
@@ -36,9 +48,12 @@ import {
 
 } from '@/app/utils/executionStorageKeys';
 
-import { useExecutionDashboardStore } from '@/app/stores/executionDashboardStore';
+import {
+    purgeExecutionDossierScopedState,
+    resetExecutionDashboardStore,
+} from '@/app/stores/executionDashboardStoreLazy';
 
-import { stripExecutionTrashFields } from '@/app/utils/executionTrash';
+import { stripExecutionTrashFields, stripExecutionArchiveFields } from '@/app/utils/executionTrash';
 
 import {
 
@@ -54,7 +69,7 @@ import { resolveCalendarUserId } from '@/app/services/calendarBridge';
 
 import { unpinWorkspaceItem } from '@/app/workspace/unpinWorkspaceEntity';
 
-import { prefetchArchivePortal, prefetchExecutionDashboard } from '@/app/utils/lazyComponents';
+import { prefetchArchivePortal, warmExecutionWorkspace } from '@/app/utils/lazyComponents';
 
 import {
 
@@ -145,9 +160,7 @@ export function useLawyerExecutionFiles({
 }: UseLawyerExecutionFilesParams) {
 
     const [executionFiles, setExecutionFiles] = useState<ExecutionFile[]>(() =>
-
-        normalizeExecutionFiles(loadExecutionFilesRaw()),
-
+        normalizeExecutionFiles(readExecutionFilesBootstrap()),
     );
 
     const [storageHydrated, setStorageHydrated] = useState(false);
@@ -159,18 +172,28 @@ export function useLawyerExecutionFiles({
 
 
     useEffect(() => {
+        exposeExecutionReconcileForDev();
+    }, []);
+
+    useEffect(() => {
 
         let cancelled = false;
 
         void (async () => {
 
-            const rawList = await loadDossierCollectionAsync('execution');
+            await loadDossierCollectionAsync('execution');
+
+            if (cancelled) return;
+
+            await reconcileExecutionDossierStorageAsync();
+
+            const rawList = loadExecutionFilesRaw();
 
             if (cancelled) return;
 
             const validFiles = normalizeExecutionFiles(rawList);
 
-            setExecutionFiles((prev) => (validFiles.length > 0 || prev.length === 0 ? validFiles : prev));
+            setExecutionFiles((prev) => mergeExecutionFilesPreservingLifecycle(prev, validFiles));
 
             storageCache.set(EXECUTION_FILES_KEY, validFiles);
 
@@ -189,17 +212,13 @@ export function useLawyerExecutionFiles({
 
 
     const reloadExecutionFiles = useCallback(() => {
-
-        const rawList: unknown[] = loadExecutionFilesRaw();
-
-        const validFiles = normalizeExecutionFiles(rawList);
-
-        storageCache.set(EXECUTION_FILES_KEY, validFiles);
-
-        setExecutionFiles(validFiles);
-
-        return validFiles;
-
+        void (async () => {
+            await reconcileExecutionDossierStorageAsync();
+            const rawList: unknown[] = loadExecutionFilesRaw();
+            const validFiles = normalizeExecutionFiles(rawList);
+            storageCache.set(EXECUTION_FILES_KEY, validFiles);
+            setExecutionFiles((prev) => mergeExecutionFilesPreservingLifecycle(prev, validFiles));
+        })();
     }, []);
 
 
@@ -208,11 +227,20 @@ export function useLawyerExecutionFiles({
 
         if (archiveType !== 'execution') return;
 
+        const syncList = normalizeExecutionFiles(loadExecutionFilesRaw());
+        if (syncList.length > 0) {
+            setExecutionFiles((prev) => mergeExecutionFilesPreservingLifecycle(prev, syncList));
+            storageCache.set(EXECUTION_FILES_KEY, syncList);
+        }
+
+        void reconcileExecutionDossierStorageAsync().then(() => {
+            reloadExecutionFiles();
+        });
+
         prefetchArchivePortal();
+        warmExecutionWorkspace();
 
-        prefetchExecutionDashboard();
-
-    }, [archiveType]);
+    }, [archiveType, reloadExecutionFiles]);
 
 
 
@@ -234,43 +262,61 @@ export function useLawyerExecutionFiles({
 
         (fileId: string | number) => {
 
-            const idStr = String(fileId);
+            const deletedAt = new Date().toISOString();
+            let cascadeIds: string[] = [];
 
             setExecutionFiles((prev) => {
 
+                cascadeIds = collectExecutionCascadeIds(prev, fileId);
+                const cascadeSet = new Set(cascadeIds);
+
                 const next = prev.map((f) => {
 
-                    const fId = String(f.id ?? '');
+                    if (!cascadeSet.has(String(f.id ?? ''))) return f;
 
-                    return fId === idStr
+                    const row = stripExecutionArchiveFields(f as Record<string, unknown>);
 
-                        ? { ...f, executionTrashDeletedAt: new Date().toISOString() }
-
-                        : f;
+                    return {
+                        ...row,
+                        executionTrashDeletedAt: deletedAt,
+                    } as ExecutionFile;
 
                 });
 
                 persistExecutionList(next);
 
+                for (const id of cascadeIds) {
+                    applyExecutionTrashLifecyclePatch(id, deletedAt);
+                }
+
                 return next;
 
             });
+
+            const idSet = new Set(cascadeIds.length > 0 ? cascadeIds : [String(fileId)]);
 
             setActiveFile((cur) => {
 
                 if (!cur) return null;
 
-                return String(cur.id ?? '') === idStr ? null : cur;
+                return idSet.has(String(cur.id ?? '')) ? null : cur;
 
             });
 
-            void removeAllBridgedEventsForEntity('execution', fileId, calendarUserId);
+            for (const id of idSet) {
+                unpinWorkspaceItem(id, 'execution');
+            }
 
-            void pruneOrphanedBridgeEvents(calendarUserId);
+            queueMicrotask(() => {
 
-            unpinWorkspaceItem(fileId, 'execution');
+                for (const id of idSet) {
+                    void removeAllBridgedEventsForEntity('execution', id, calendarUserId);
+                }
 
-            void refreshAppAlerts();
+                void pruneOrphanedBridgeEvents(calendarUserId);
+                void refreshAppAlerts();
+
+            });
 
         },
 
@@ -314,29 +360,66 @@ export function useLawyerExecutionFiles({
 
     );
 
+    const archiveExecution = useCallback(
+        (fileId: string | number) => {
+            const idStr = String(fileId);
+            setExecutionFiles((prev) => {
+                const next = prev.map((f) =>
+                    String(f.id) === idStr
+                        ? {
+                              ...stripExecutionTrashFields(f as Record<string, unknown>),
+                              executionArchivedAt: new Date().toISOString(),
+                          }
+                        : f,
+                );
+                persistExecutionList(next);
+                return next;
+            });
+            setActiveFile((cur) => (cur && String(cur.id ?? '') === idStr ? null : cur));
+            void removeAllBridgedEventsForEntity('execution', fileId, calendarUserId);
+            void pruneOrphanedBridgeEvents(calendarUserId);
+            unpinWorkspaceItem(fileId, 'execution');
+            void refreshAppAlerts();
+        },
+        [calendarUserId, persistExecutionList, refreshAppAlerts, setActiveFile],
+    );
 
+    const restoreArchivedExecution = useCallback(
+        (fileId: string | number) => {
+            const idStr = String(fileId);
+            setExecutionFiles((prev) => {
+                const next = prev.map((f) =>
+                    String(f.id) !== idStr ? f : stripExecutionArchiveFields(f as Record<string, unknown>),
+                );
+                persistExecutionList(next);
+                const restored = next.find((f) => String(f.id) === idStr);
+                if (restored) {
+                    syncExecutionFileToCalendar(restored as unknown as Record<string, unknown>, userId);
+                }
+                return next;
+            });
+        },
+        [persistExecutionList, userId],
+    );
 
     const permanentlyDeleteExecutions = useCallback(
 
         (ids: Array<string | number>) => {
 
-            const idSet = new Set(ids.map(String));
-
-            void (async () => {
-
-                for (const id of idSet) {
-
-                    await removeExecutionStorageBundleAsync(id);
-
-                    useExecutionDashboardStore.getState().purgeDossierScopedState(id);
-
-                    void removeAllBridgedEventsForEntity('execution', id, userId);
-
-                }
-
-            })();
+            let expandedIds: string[] = [];
 
             setExecutionFiles((prev) => {
+
+                const idSet = new Set<string>();
+                for (const rawId of ids) {
+                    for (const id of collectExecutionCascadeIds(prev, rawId)) {
+                        idSet.add(id);
+                    }
+                }
+                expandedIds = [...idSet];
+                if (expandedIds.length === 0) return prev;
+
+                markExecutionDossierTombstones(expandedIds);
 
                 const next = prev.filter((f) => !idSet.has(String(f.id)));
 
@@ -346,9 +429,35 @@ export function useLawyerExecutionFiles({
 
             });
 
+            if (expandedIds.length === 0) return;
+
+            const idSet = new Set(expandedIds);
+
             setActiveFile((cur) => (cur && idSet.has(String(cur?.id)) ? null : cur));
 
-            void pruneOrphanedBridgeEvents(userId);
+            for (const id of idSet) {
+                unpinWorkspaceItem(id, 'execution');
+            }
+
+            queueMicrotask(() => {
+
+                void (async () => {
+
+                    for (const id of idSet) {
+
+                        await removeExecutionStorageBundleAsync(id);
+
+                        await purgeExecutionDossierScopedState(id);
+
+                        void removeAllBridgedEventsForEntity('execution', id, userId);
+
+                    }
+
+                    void pruneOrphanedBridgeEvents(userId);
+
+                })();
+
+            });
 
         },
 
@@ -380,25 +489,17 @@ export function useLawyerExecutionFiles({
 
             seedFreshExecutionDossierStorage(fileWithId as unknown as Record<string, unknown>);
 
-            useExecutionDashboardStore.getState().resetStore();
+            void resetExecutionDashboardStore().then(() => {
+                setExecutionFiles((prev) => {
+                    const next = [fileWithId, ...prev];
+                    persistExecutionList(next);
+                    return next;
+                });
 
-            setExecutionFiles((prev) => {
-
-                const next = [fileWithId, ...prev];
-
-                persistExecutionList(next);
-
-                return next;
-
+                setIsExecutionModalOpen(false);
+                setArchiveType(null);
+                setActiveFile(fileWithId);
             });
-
-
-
-            setIsExecutionModalOpen(false);
-
-            setArchiveType(null);
-
-            setActiveFile(fileWithId);
 
         },
 
@@ -429,6 +530,18 @@ export function useLawyerExecutionFiles({
                     ) {
 
                         merged.executionTrashDeletedAt = f.executionTrashDeletedAt;
+
+                    }
+
+                    if (
+
+                        f.executionArchivedAt != null &&
+
+                        !Object.prototype.hasOwnProperty.call(updatedFile, 'executionArchivedAt')
+
+                    ) {
+
+                        merged.executionArchivedAt = f.executionArchivedAt;
 
                     }
 
@@ -501,21 +614,13 @@ export function useLawyerExecutionFiles({
 
 
     const openExecutionArchiveFile = useCallback(
-
         (f: unknown): boolean => {
-
             if (!f || typeof f !== 'object' || (f as { type?: string }).type !== 'execution') return false;
-
-            prefetchExecutionDashboard();
-
+            warmExecutionWorkspace();
             setActiveFile(coerceExecutionFilePreserveId(f as ExecutionFile));
-
             return true;
-
         },
-
         [setActiveFile],
-
     );
 
 
@@ -531,6 +636,10 @@ export function useLawyerExecutionFiles({
         moveExecutionToTrash,
 
         restoreExecutionFromTrash,
+
+        archiveExecution,
+
+        restoreArchivedExecution,
 
         permanentlyDeleteExecutions,
 

@@ -6,6 +6,7 @@ import { enrichAlertClientPhone } from '@/app/services/enrichAlertContact';
 import { resolveCalendarUserId } from '@/app/services/calendarBridge';
 import { CALENDAR_UPDATED_EVENT } from '@/app/services/calendarBridge.types';
 import { syncPushForNewCriticalAlerts } from '@/app/services/appAlertPushSync';
+import { writeHomeHubSecretaryAlertsCache, peekHomeHubSecretaryAlertsCache } from '@/app/services/alerts/homeHubSecretaryAlertsWarmCache';
 import { filterAlertsByNotificationSettings, getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
 import { ensureCalendarPopulatedFromLiveDossiers } from '@/app/services/calendarDossierSync';
 import { isBenignSecureFetchError } from '@/app/services/secureFetchErrors';
@@ -70,7 +71,10 @@ export function useAppAlerts(params: {
     /** تأجيل توليد تنبيهات السكرتير حتى idle — لا يعيق أول إطار */
     deferUntilIdle?: boolean;
 }) {
-    const [alerts, setAlerts] = useState<SecretaryAlert[]>([]);
+    const resolvedLawyerId = resolveCalendarUserId(params.lawyerId ?? null);
+    const initialCached = peekHomeHubSecretaryAlertsCache(resolvedLawyerId);
+
+    const [alerts, setAlerts] = useState<SecretaryAlert[]>(() => initialCached ?? []);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -81,7 +85,7 @@ export function useAppAlerts(params: {
     const criminalRef = useRef(params.criminalCases ?? []);
     const generationRef = useRef(0);
     const debounceRef = useRef<number | null>(null);
-    const hasLoadedOnceRef = useRef(false);
+    const hasLoadedOnceRef = useRef(initialCached !== null);
     const dataSignatureRef = useRef('');
 
     filesRef.current = params.files;
@@ -94,7 +98,6 @@ export function useAppAlerts(params: {
         const syncCalendar = options?.syncCalendar === true;
         const uid = resolveCalendarUserId(params.lawyerId ?? null);
         const gen = ++generationRef.current;
-        if (!hasLoadedOnceRef.current) setLoading(true);
         setError(null);
         try {
             if (syncCalendar) {
@@ -135,6 +138,7 @@ export function useAppAlerts(params: {
             const settings = getLawyerSettingsSnapshot();
             const visible = filterAlertsByNotificationSettings(list, settings);
             setAlerts(visible);
+            writeHomeHubSecretaryAlertsCache(uid, visible);
             void syncPushForNewCriticalAlerts(list, uid);
         } catch (err) {
             if (gen !== generationRef.current) return;
@@ -154,9 +158,12 @@ export function useAppAlerts(params: {
     }, [params.lawyerId]);
 
     useEffect(() => {
-        hasLoadedOnceRef.current = false;
-        setAlerts([]);
+        const uid = resolveCalendarUserId(params.lawyerId ?? null);
+        const cached = peekHomeHubSecretaryAlertsCache(uid);
+        hasLoadedOnceRef.current = cached !== null;
+        setAlerts(cached ?? []);
         setError(null);
+        dataSignatureRef.current = '';
     }, [params.lawyerId]);
 
     const scheduleRefresh = useCallback(
@@ -176,10 +183,10 @@ export function useAppAlerts(params: {
         let cancelDefer: (() => void) | undefined;
         if (params.deferUntilIdle) {
             if (typeof requestIdleCallback !== 'undefined') {
-                const idleId = requestIdleCallback(runInitial, { timeout: 4_000 });
+                const idleId = requestIdleCallback(runInitial, { timeout: 1_500 });
                 cancelDefer = () => cancelIdleCallback(idleId);
             } else {
-                const t = window.setTimeout(runInitial, 800);
+                const t = window.setTimeout(runInitial, 400);
                 cancelDefer = () => window.clearTimeout(t);
             }
         } else {

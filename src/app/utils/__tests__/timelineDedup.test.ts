@@ -32,4 +32,8 @@ describe('timelineDedup', () => {
         expect(out).toHaveLength(1);
         expect(out[0]?.type).toBe('decision');
     });
+
+    it('returns empty array when events is undefined', () => {
+        expect(dedupeTimelineEventsForDisplay(undefined as unknown as TimelineEvent[])).toEqual([]);
+    });
 });

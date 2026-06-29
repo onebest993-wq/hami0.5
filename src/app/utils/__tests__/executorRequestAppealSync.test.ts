@@ -203,4 +203,54 @@ describe('executorRequestAppealSync', () => {
         expect(sync.followupBlock).not.toBeNull();
         expect(isExecutorRowApprovedWorkflowActive(row, [row])).toBe(false);
     });
+
+    it('blocks forced bring-in via hub when appeal copy awaits creditor cassation', () => {
+        const hub = {
+            id: 'forced_bring_copy_hub',
+            title: 'طلب إحضار جبري للمدين',
+            requestKind: 'personal_coercive',
+            personalCoerciveSubtype: 'forced_bring_in',
+            appealRequestOrigin: 'executor_side',
+            activatedByExecutorOrder: true,
+            executorOutcome: 'approved',
+            activeAppealCopyId: 'appeal_copy_1782416266873_1u7zxvu',
+        };
+        const copy = {
+            id: 'appeal_copy_1782416266873_1u7zxvu',
+            appealSourceDecisionId: 'forced_bring_copy_hub',
+            title: 'طلب إحضار جبري للمدين',
+            appealResult: 'قبول التظلم',
+            appealStatus: 'pending',
+            awaitingCassationEntryBy: 'lawyer',
+        };
+        const all = [hub, copy];
+        const sync = resolveExecutorRequestAppealSyncFromRow(hub, all);
+        expect(sync.gate.kind).toBe('paused');
+        expect(sync.enforced).toBe(false);
+        expect(sync.blocksFieldwork).toBe(true);
+        expect(isExecutorRowApprovedWorkflowActive(hub, all)).toBe(false);
+    });
+
+    it('restores enforcement on hub when appeal copy grievance is finally rejected', () => {
+        const hub = {
+            id: 'forced_bring_final_hub',
+            requestKind: 'personal_coercive',
+            personalCoerciveSubtype: 'forced_bring_in',
+            appealRequestOrigin: 'creditor_side',
+            executorOutcome: 'approved',
+            activeAppealCopyId: 'appeal_copy_final',
+        };
+        const copy = {
+            id: 'appeal_copy_final',
+            appealSourceDecisionId: 'forced_bring_final_hub',
+            appealActor: 'debtor',
+            appealResult: 'رد التظلم',
+            appealStatus: 'final',
+        };
+        const all = [hub, copy];
+        const sync = resolveExecutorRequestAppealSyncFromRow(hub, all);
+        expect(sync.gate.kind).toBe('continue');
+        expect(sync.enforced).toBe(true);
+        expect(isExecutorRowApprovedWorkflowActive(hub, all)).toBe(true);
+    });
 });

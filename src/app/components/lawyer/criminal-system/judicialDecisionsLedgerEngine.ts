@@ -1,5 +1,5 @@
 import type { CaseStage, JudicialDecision } from '@/app/types/criminal';
-import type { CriminalCase, LawyerRequest } from './criminalStore';
+import type { CriminalCase, LawyerRequest } from './criminalCaseModel';
 import type { CriminalCaseUserRole } from './complainantCassationGovernance';
 import { classifyDecisionLedgerKind } from './decisionsLedgerVisuals';
 import { decisionAlreadyHasCassationAppeal } from './judicialDecisionsEngine';

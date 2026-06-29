@@ -1,0 +1,61 @@
+import { debug } from '@/app/utils/debug';
+import {
+    reportProfileOpenToSentry,
+    type ProfileSentryReportContext,
+} from '@/app/services/profile/profileSentryReporting';
+
+const MARK_PREFIX = 'hami:profile:';
+
+export type ProfilePerfPhase = 'open-request' | 'chunk-ready' | 'first-paint' | 'interactive';
+
+export type ProfilePerfReportContext = ProfileSentryReportContext;
+
+export function markProfilePerfPhase(phase: ProfilePerfPhase): void {
+    if (typeof performance === 'undefined' || typeof performance.mark !== 'function') return;
+    try {
+        performance.mark(`${MARK_PREFIX}${phase}`);
+    } catch {
+        /* ignore */
+    }
+}
+
+export function clearProfilePerfMarks(): void {
+    if (typeof performance === 'undefined' || typeof performance.clearMarks !== 'function') return;
+    try {
+        for (const phase of ['open-request', 'chunk-ready', 'first-paint', 'interactive'] as const) {
+            performance.clearMarks(`${MARK_PREFIX}${phase}`);
+        }
+    } catch {
+        /* ignore */
+    }
+}
+
+function latestPerfMark(name: string): PerformanceEntry | undefined {
+    const entries = performance.getEntriesByName(name, 'mark');
+    return entries.length > 0 ? entries[entries.length - 1] : undefined;
+}
+
+export function getProfileOpenToInteractiveMs(): number | null {
+    if (typeof performance === 'undefined') return null;
+    const open = latestPerfMark(`${MARK_PREFIX}open-request`);
+    const interactive = latestPerfMark(`${MARK_PREFIX}interactive`);
+    if (!open || !interactive) return null;
+    if (interactive.startTime < open.startTime) return null;
+    return Math.round(interactive.startTime - open.startTime);
+}
+
+export function reportProfilePerfIfDev(context?: ProfilePerfReportContext | string): void {
+    if (!import.meta.env.DEV) return;
+    const ms = getProfileOpenToInteractiveMs();
+    if (ms == null) return;
+    debug.log(`[ProfilePerf] open→interactive ${ms}ms`, context ?? '');
+}
+
+export function reportProfilePerf(context: ProfilePerfReportContext = {}): void {
+    const ms = getProfileOpenToInteractiveMs();
+    if (ms == null) return;
+    if (import.meta.env.DEV) {
+        debug.log('[ProfilePerf] open→interactive', ms, 'ms', context);
+    }
+    reportProfileOpenToSentry(ms, context);
+}

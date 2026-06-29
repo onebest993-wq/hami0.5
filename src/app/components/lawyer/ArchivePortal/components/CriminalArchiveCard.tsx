@@ -3,11 +3,11 @@ import { Trash2 } from 'lucide-react';
 import { prefetchCriminalDashboard } from '@/app/utils/lazyComponents';
 import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
 import { buildCriminalWorkspacePin } from '@/app/workspace/workspacePinBuilders';
-import {
-    criminalCaseReference,
+import { criminalCaseReference,
     criminalStageBadgeClass,
     criminalStageLabel,
 } from '../criminalArchiveUtils';
+import { CRIMINAL_DOSSIER_TEST_IDS } from '@/app/components/lawyer/criminal-system/criminalDossierTestIds';
 import { UnifiedDossierCard } from './UnifiedDossierCard';
 
 export type CriminalArchiveCardProps = {
@@ -46,6 +46,7 @@ export const CriminalArchiveCard: React.FC<CriminalArchiveCardProps> = ({
         return (
             <button
                 type="button"
+                data-testid={CRIMINAL_DOSSIER_TEST_IDS.caseCard(String(record.id))}
                 onClick={onOpen}
                 onPointerEnter={() => prefetchCriminalDashboard()}
                 onFocus={() => prefetchCriminalDashboard()}
@@ -114,6 +115,7 @@ export const CriminalArchiveCard: React.FC<CriminalArchiveCardProps> = ({
             }
             onOpen={onOpen}
             openLabel="فتح الإضبارة"
+            testId={CRIMINAL_DOSSIER_TEST_IDS.caseCard(String(record.id))}
             footerIcons={
                 onDelete
                     ? [

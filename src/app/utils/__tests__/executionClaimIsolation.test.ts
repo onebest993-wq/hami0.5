@@ -62,4 +62,28 @@ describe('executionClaimIsolation', () => {
         expect(enc.showEncroachmentRemovalRequestCards).toBe(true);
         expect(enc.showSpecificDeliveryFieldProcedures).toBe(false);
     });
+
+    it('treats specific delivery as financial when debt exposure exists', () => {
+        expect(
+            isNonFinancialExecutionClaim({
+                claimType: 'تسليم شيء معين',
+                specificDeliveryFinancialized: false,
+            })
+        ).toBe(true);
+        expect(
+            isNonFinancialExecutionClaim({
+                claimType: 'تسليم شيء معين',
+                specificDeliveryFinancialized: false,
+                specificDeliveryItems: [
+                    {
+                        id: 'i1',
+                        name: 'سيارة',
+                        nature: 'movable',
+                        status: 'financialized',
+                        financializedAmount: 5_000_000,
+                    },
+                ],
+            })
+        ).toBe(false);
+    });
 });
