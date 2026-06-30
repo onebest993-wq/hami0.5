@@ -10,9 +10,14 @@ vi.mock('@/app/components/ui/SmartToast', () => ({
     },
 }));
 
+vi.mock('@/app/runtime/lawyerDashboardProfileTabLoader', () => ({
+    prefetchLawyerDashboardProfileTabShell: vi.fn(),
+}));
+
 vi.mock('@/app/runtime/royalLawyerProfileLoader', () => ({
     loadRoyalLawyerProfileModule: vi.fn(() => Promise.resolve()),
     prefetchRoyalLawyerProfile: vi.fn(),
+    prefetchRoyalLawyerProfileChunk: vi.fn(),
 }));
 
 vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({

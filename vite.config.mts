@@ -223,7 +223,7 @@ export default defineConfig(({ command }) => ({
       resolveDependencies: (_filename, deps) =>
         deps.filter(
           (dep) =>
-            !/(lawyer-dashboard|execution-dashboard|execution-dashboard-static-scope|execution-dashboard-loader|execution-lazy-registry|execution-tab-|execution-orchestrators|execution-hooks|execution-helpers|execution-modals|execution-overlays|execution-shell-overlays|execution-phone-body|execution-law-articles|criminal-dashboard|criminal-tab-|criminal-dashboard-request-ui|criminal-dashboard-parties|criminal-legal-codes|criminal-store|criminal-store-slices|criminal-lazy-modals|community-overlays|community-repository|CommunityScreen|global-search-|smart-file-modal|iraqi-law-loader|articles\.json|ExecutionDashboard|CriminalDashboard|vendor-motion|vendor-supabase|SmartToastContainer|SmartDialogContainer|auth-context|app-deferred-boot|runtime-|deferred-app)/i.test(
+            !/(lawyer-dashboard|execution-dashboard|execution-shared|execution-dashboard-static-scope|execution-dashboard-loader|execution-lazy-registry|execution-tab-|execution-orchestrators|execution-hooks|execution-helpers|execution-modals|execution-overlays|execution-shell-overlays|execution-phone-body|execution-law-articles|criminal-dashboard|criminal-tab-|criminal-dashboard-request-ui|criminal-dashboard-parties|criminal-legal-codes|criminal-store|criminal-store-slices|criminal-lazy-modals|community-overlays|community-repository|CommunityScreen|global-search-|smart-file-modal|iraqi-law-loader|articles\.json|ExecutionDashboard|CriminalDashboard|vendor-motion|vendor-supabase|SmartToastContainer|SmartDialogContainer|auth-context|app-deferred-boot|runtime-|deferred-app)/i.test(
               dep,
             ),
         ),
@@ -247,16 +247,10 @@ export default defineConfig(({ command }) => ({
           ) {
             return 'app-runtime';
           }
-          if (
-            id.includes('/bootstrap/deferredBoot') ||
-            id.includes('\\bootstrap\\deferredBoot') ||
-            id.includes('/runtime/deferredGoogleFonts') ||
-            id.includes('\\runtime\\deferredGoogleFonts') ||
-            id.includes('/runtime/deferredAppStyles') ||
-            id.includes('\\runtime\\deferredAppStyles')
-          ) {
-            return 'app-deferred-boot';
-          }
+          /**
+           * deferredBoot يُحمَّل ديناميكياً — يترك لـ Rollup ليقسّمه تلقائياً (خالٍ من الدوائر).
+           * التجميع اليدوي هنا كان يُنشئ circular chunk على مسار الإقلاع → انهيار TDZ.
+           */
           if (
             (id.includes('/runtime/') || id.includes('\\runtime\\')) &&
             !id.includes('sameOriginApiProbe')
@@ -322,55 +316,52 @@ export default defineConfig(({ command }) => ({
             if (id.includes('@sentry')) return 'vendor-sentry';
             return;
           }
+          /**
+           * أدوات تنفيذ ورقية نقية — chunk مشترك خفيف يستورده مسار الإقلاع وlazy معاً.
+           * MUST NOT import execution-dashboard — وإلا تعود الدائرة/الانهيار.
+           * يأتي أولاً ليُلتقط قبل قواعد execution-dashboard.
+           */
+          if (
+            id.includes('executionStateMachine') ||
+            id.includes('executionDashboardConstants') ||
+            id.includes('executionStorageKeys') ||
+            id.includes('executionYmdCalendar') ||
+            id.includes('executionModuleStrategies') ||
+            id.includes('residentialEvictionGrace') ||
+            id.includes('publicationNoticeDebtor') ||
+            id.includes('executorApprovalWorkflow') ||
+            id.includes('executionModalStack')
+          ) {
+            return 'execution-shared';
+          }
+          /**
+           * عنقود التنفيذ الأساسي — chunk واحد (lazy) لمنع circular chunks/TDZ.
+           * هذه الوحدات متشابكة الاعتماد؛ تقسيمها يُسبب انهيار الإقلاع في الإنتاج.
+           * يبقى منفصلاً: التبويبات، المودالات، phone-body، law-articles (أوراق lazy نظيفة).
+           */
           if (
             id.includes('useFollowupModalPersistNavigation') ||
             id.includes('useExecutionDashboardView') ||
             id.includes('useExecutionDashboardState') ||
             id.includes('useExecutionDashboardCore')
           ) {
-            return 'execution-dashboard-core';
+            return 'execution-dashboard';
           }
           if (
             id.includes('ExecutionDashboard/hooks/executionDashboardCore') ||
-            id.includes('ExecutionDashboard\\hooks\\executionDashboardCore')
-          ) {
-            if (
-              /useExecutionDashboardCoreHandlerCluster|ExecutionDashboardHandlerClusterBridge/.test(id)
-            ) {
-              return 'execution-core-handlers';
-            }
-            if (
-              /ScopeBag|scopeBagFragments|ScopeFromParts|ScopeBags|groupExecutionDashboardCoreScopeBag|mergeExecutionDashboardCoreScopeBag|collectScopeLocal|collectScopeRest|buildScopeBundle|scopeBagPick|buildExecutionDashboardCoreScopeBagAssembly|buildExecutionDashboardFollowupScopeBag|buildExecutionDashboardCoerciveScopeBag|buildExecutionDashboardFinancialScopeBag|buildExecutionDashboardTimelineDossierScopeBag|buildExecutionDashboardWorkspaceScopeBag|buildExecutionDashboardDecisionsSeizureEvictionScopeBag|executionDashboardCoreRuntimeVarKeys\.generated|groupExecutionDashboardCoreScopeBagInput\.generated|buildExecutionDashboardCoreScopeLocalBundles|buildExecutionDashboardCoreScopeRestBundles|buildExecutionDashboardCoreDynamicScope|buildExecutionDashboardModalScope|buildExecutionDashboardCoreScopeFromParts|buildExecutionDashboardCoreScopeBags/.test(
-                id,
-              )
-            ) {
-              return 'execution-core-scope';
-            }
-            if (
-              /Handlers|executionDashboard(?:PartyDeath|Employee|Coercive|Seizure|Settlement|Salary|ThirdParty|Auction|Grace|Timeline|Claim|Dossier|Break|RealEstate|CoerciveAction|FollowupSeizure|SeizedProperty|ThirdPartyReceive|StandaloneMark|PublicationNotice|VoluntaryPeriod|GraceSummoning|EmployeeAssignment|SalarySeizurePatch|SettlementLedger|SeizureRequestSubmit|SeizureRowPatch|BreakInventory|AuctionSession|TimelineAndGrace|DossierAction|InabaCorrespondence)/.test(
-                id,
-              )
-            ) {
-              return 'execution-core-handlers';
-            }
-            if (
-              /useExecutionDashboardCore(?:PipelinesChain|WorkspacePipeline|FollowupDebtorPipeline|ClaimFinancialLedgerPipeline|GraceMasterEvictionPipeline|PersistHandlerPipeline|FileMetadataBinding)|useExecutionDashboardRuntimeSyncEffects|useExecutionDashboardDecisionAndEventSync/.test(
-                id,
-              )
-            ) {
-              return 'execution-core-pipelines';
-            }
-            return 'execution-dashboard-core';
-          }
-          if (
+            id.includes('ExecutionDashboard\\hooks\\executionDashboardCore') ||
+            id.includes('useExecutionDashboardShellOrchestrators') ||
             id.includes('useExecutionDashboardClaimFinancials') ||
             id.includes('useExecutionDashboardGraceAndSummoning') ||
             id.includes('useExecutionDashboardFollowupSeizureTabs') ||
             id.includes('useExecutionDashboardOtherPartyMirror') ||
             id.includes('useExecutionDashboardSalarySeizureTabRows') ||
+            id.includes('useExecutionDashboardCoerciveActionBridge') ||
+            id.includes('useExecutionDashboardSeizureReleaseHandlers') ||
+            id.includes('useExecutionDashboardThirdPartyReceiveHandlers') ||
             id.includes('useFollowupModalTabGuards')
           ) {
-            return 'execution-dashboard-core';
+            return 'execution-dashboard';
           }
           if (
             id.includes('executionDashboardLazyChunkScope') ||
@@ -378,13 +369,17 @@ export default defineConfig(({ command }) => ({
             id.includes('executionFollowupModalLazy') ||
             id.includes('executionFollowupTabPrefetch')
           ) {
-            return 'execution-lazy-registry';
+            return 'execution-dashboard';
           }
           if (id.includes('executionDashboardLazyShellUi') || id.includes('DebtorFinancialProgressBar')) {
-            return 'execution-helpers';
+            return 'execution-dashboard';
           }
+          /**
+           * أدوات تنفيذ نقية (state machines/policies/z-index) — chunk ورقي مشترك.
+           * يستوردها كود مسار الإقلاع (تنبيهات/تقويم) لذا يجب ألا تعتمد على execution-dashboard.
+           */
           if (id.includes('executionModalStack')) {
-            return 'execution-helpers';
+            return 'execution-dashboard';
           }
           if (
             id.includes('executorApprovalWorkflow') ||
@@ -392,7 +387,7 @@ export default defineConfig(({ command }) => ({
             id.includes('residentialEvictionGrace') ||
             id.includes('executionModuleStrategies')
           ) {
-            return 'execution-helpers';
+            return 'execution-shared';
           }
           if (id.includes('ExecutionDashboard/components/PersonalTab') || id.includes('ExecutionDashboard\\components\\PersonalTab')) {
             return 'execution-tab-personal';
@@ -422,72 +417,51 @@ export default defineConfig(({ command }) => ({
             return 'execution-tab-other-party';
           }
           if (id.includes('followupModalTabTypes')) {
-            return 'execution-helpers';
+            return 'execution-dashboard';
           }
           if (
             /followupModalContext|followupModalSnapshot|followupTabKeepAlive|useExecutionFollowupModalSnapshot|FollowupTabKeepAlivePanel/.test(
               id,
             )
           ) {
-            return 'execution-followup-shared';
+            return 'execution-dashboard';
           }
           if (
             id.includes('ExecutionDashboard/orchestrators') ||
             id.includes('ExecutionDashboard\\orchestrators')
           ) {
-            return 'execution-orchestrators';
+            return 'execution-dashboard';
           }
           if (
             id.includes('executionDashboardStaticChunkScope') ||
             id.includes('executionDashboardConstants') ||
             id.includes('ExecutionDashboard/hooks/executionDashboardStaticChunkScope')
           ) {
-            return 'execution-dashboard-static-scope';
+            return 'execution-dashboard';
           }
           if (id.includes('executionDashboardClaimFinancials')) {
-            return 'execution-helpers';
+            return 'execution-dashboard';
           }
           if (id.includes('executionDashboardGraceSummoning')) {
-            return 'execution-helpers';
+            return 'execution-dashboard';
           }
           if (id.includes('executionDashboardRuntimeChunkScope')) {
-            return 'execution-helpers';
-          }
-          if (id.includes('executionDashboardImportedHelpersChunkScope')) {
-            return 'execution-helpers';
-          }
-          if (id.includes('executionDashboardPhoneBodyComponentsChunkScope')) {
-            return 'execution-phone-body';
+            return 'execution-dashboard';
           }
           if (id.includes('executionDashboardUiChunkScope')) {
-            return 'execution-dashboard-core';
+            return 'execution-dashboard';
           }
           if (id.includes('followupSnapshotFieldKeys')) {
-            return 'execution-followup-shared';
+            return 'execution-dashboard';
           }
           if (id.includes('ExecutionDashboard/hooks/') || id.includes('ExecutionDashboard\\hooks\\')) {
-            if (
-              /followupModal|FollowupModal|buildFollowupModalSnapshot|executionFollowupModalSnapshot|useExecutionFollowupModalSnapshot|enrichFollowupModalSnapshot/.test(
-                id,
-              ) &&
-              !id.includes('useFollowupModalPersistNavigation')
-            ) {
-              return 'execution-followup-shared';
-            }
-            if (
-              /LazyChunk|ChunkScope|BootPrefetch|PhoneBodyGate|PhoneBodyPropKeys|ShellOverlayPropKeys|buildExecutionPhoneBodyProps|buildExecutionDashboardChunkScopeSources|pickExecution|assignExecution|executionDashboardChunkScope|executionPhoneBodyScope|executionShellOverlayScope/.test(
-                id,
-              )
-            ) {
-              return 'execution-dashboard-core';
-            }
-            return 'execution-hooks';
+            return 'execution-dashboard';
           }
           if (id.includes('requestsTabConstants')) {
-            return 'execution-helpers';
+            return 'execution-dashboard';
           }
           if (id.includes('ExecutionDashboard/helpers/') || id.includes('ExecutionDashboard\\helpers\\')) {
-            return 'execution-helpers';
+            return 'execution-dashboard';
           }
           if (
             id.includes('ExecutionDashboard/ExecutionFollowupModalPortal') ||
@@ -593,7 +567,8 @@ export default defineConfig(({ command }) => ({
               id,
             )
           ) {
-            return 'criminal-store-slices';
+            /** دُمج مع criminal-store لمنع circular chunk (slices ↔ store متشابكان). */
+            return 'criminal-store';
           }
           if (
             id.includes('bundledIraqiLawLoader') ||

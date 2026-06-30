@@ -82,7 +82,7 @@
     "release:check:notifications": "npm run gate:notifications && npm run build && npm run test:e2e:boot -- --project=chromium && npm run test:e2e:notifications",
     "release:check:global-search": "npm run gate:global-search && npm run build && npm run test:e2e:boot -- --project=chromium && npm run test:e2e:global-search",
     "release:check:profile": "npm run gate:profile && npm run build && npm run test:e2e:boot -- --project=chromium && npm run test:e2e:profile",
-    "release:check": "npm run health && npm run build && npm run health:bundle && npm run test:run",
+    "release:check": "npm run health && npm run verify:production-build && npm run health:bundle && npm run test:run",
     "release:check:full": "npm run release:check && npm run test:e2e:boot && npm run test:e2e:repository",
     "cap:sync": "npm run build && npx cap sync",
     "cap:sync:android": "npm run build && npx cap sync android",
