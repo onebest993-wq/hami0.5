@@ -1,7 +1,5 @@
-import { Suspense } from 'react';
 import { useProfileTabMobileSuspend } from '@/app/hooks/lawyerDashboard/useProfileTabMobileSuspend';
-import { LazyRoyalLawyerProfile } from '@/app/utils/lazyComponents';
-import { LawyerProfileTabLoadingFallback } from '@/app/components/lawyer/LawyerDashboardParts/LazyFallback';
+import { RoyalLawyerProfileHost } from '@/app/components/lawyer/dashboard/profile/RoyalLawyerProfileHost';
 
 export type LawyerDashboardProfileTabProps = {
     visible: boolean;
@@ -18,19 +16,19 @@ export function LawyerDashboardProfileTab({
 }: LawyerDashboardProfileTabProps) {
     useProfileTabMobileSuspend(visible);
 
-    if (!visible) return null;
+    if (!visible) {
+        return null;
+    }
 
     return (
-        <div className="h-full" data-testid="lawyer-profile-tab-shell">
-            <Suspense fallback={<LawyerProfileTabLoadingFallback onBack={onBack} />}>
-                <LazyRoyalLawyerProfile
-                    key={`lawyer-profile-tab-${sessionKey}`}
-                    isScreenMode
-                    perfOpenEpoch={perfOpenEpoch}
-                    screenActive
-                    onBack={onBack}
-                />
-            </Suspense>
+        <div className="h-full" data-testid="lawyer-profile-tab-shell" aria-hidden={!visible}>
+            <RoyalLawyerProfileHost
+                key={`lawyer-profile-tab-${sessionKey}`}
+                isScreenMode
+                perfOpenEpoch={perfOpenEpoch}
+                screenActive={visible}
+                onBack={onBack}
+            />
         </div>
     );
 }

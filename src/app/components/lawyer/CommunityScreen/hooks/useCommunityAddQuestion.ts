@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 import { LawyerStorage } from '@/app/services/lawyer-cloud';
 import { mergeCommunityPostsById, sortCommunityPosts } from '@/app/services/cloud/lawyerCommunityCloud';
 import { ForumApiService } from '@/app/services/forumApiService';
-import { cacheForumAttachmentFile } from '@/app/services/forumAttachmentService';
+import {
+    createInstantForumAttachmentPreview,
+    persistForumAttachmentFile,
+    prepareForumAttachmentForPublish,
+} from '@/app/services/forumAttachmentService';
 import { applyAutoRedaction } from '../utils';
 import { formatRepositoryTag, resolveCommunityPostTags } from '../repositoryTagUtils';
 import {
@@ -13,16 +18,22 @@ import {
     VOICE_POST_DEFAULT_CONTENT,
     VOICE_RECORD_MAX_SEC,
 } from '../communityScreenConstants';
+import { prefetchCommunityAddQuestionOverlay } from '../communityScreenLazyOverlays';
 import type { CommunityDualPostLists } from './useCommunityDualPostLists';
+import { withForumAsyncTimeout } from '../forumAsync';
+
+const FORUM_ATTACHMENT_UPLOAD_TIMEOUT_MS = 8_000;
 
 export type UseCommunityAddQuestionParams = {
-    lists: Pick<CommunityDualPostLists, 'setPosts'>;
+    lists: Pick<CommunityDualPostLists, 'setPosts' | 'removePostFromList'>;
     currentUserId: string | null;
     persistedUserId?: string | null;
     authUser: { user_metadata?: { fullName?: string }; email?: string } | null;
     isBanned: boolean;
     activeGroupId: string | null;
     appendPublishedGroupPost: (saved: CommunityPost) => void;
+    /** بعد نشر ناجح في الخلاصة العامة — إظهار المنشور فوراً */
+    onForumPostPublished?: () => void;
 };
 
 export function useCommunityAddQuestion({
@@ -33,6 +44,7 @@ export function useCommunityAddQuestion({
     isBanned,
     activeGroupId,
     appendPublishedGroupPost,
+    onForumPostPublished,
 }: UseCommunityAddQuestionParams) {
     const { setPosts } = lists;
     const [isAddQuestionOpen, setIsAddQuestionOpen] = useState(false);
@@ -41,7 +53,6 @@ export function useCommunityAddQuestion({
     const [newIsAnonymous, setNewIsAnonymous] = useState(false);
     const [newIsUrgent, setNewIsUrgent] = useState(false);
     const [newAttachment, setNewAttachment] = useState<CommunityPost['attachment']>(null);
-    const [uploadingAttachment, setUploadingAttachment] = useState(false);
     const [submittingPost, setSubmittingPost] = useState(false);
     const [isRecordingVoice, setIsRecordingVoice] = useState(false);
     const [voiceRecordingSec, setVoiceRecordingSec] = useState(0);
@@ -51,6 +62,7 @@ export function useCommunityAddQuestion({
     const voiceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
     const docInputRef = useRef<HTMLInputElement>(null);
+    const pendingAttachmentFileRef = useRef<File | null>(null);
     const newAttachmentRef = useRef(newAttachment);
     newAttachmentRef.current = newAttachment;
 
@@ -99,6 +111,7 @@ export function useCommunityAddQuestion({
     }, [isAddQuestionOpen, isRecordingVoice]);
 
     const removeAttachment = useCallback(() => {
+        pendingAttachmentFileRef.current = null;
         setNewAttachment((prev) => {
             if (prev?.url && prev.url.startsWith('blob:')) {
                 try {
@@ -111,27 +124,30 @@ export function useCommunityAddQuestion({
         });
     }, []);
 
-    const attachForumFileLocally = useCallback(async (file: File, kind: 'image' | 'document' | 'audio') => {
-        const fallbackMime =
-            kind === 'image' ? 'image/jpeg' : kind === 'audio' ? 'audio/webm' : 'application/octet-stream';
-        const cached = await cacheForumAttachmentFile(file);
-        setNewAttachment((prev) => {
-            if (prev?.url?.startsWith('blob:')) {
-                try {
-                    URL.revokeObjectURL(prev.url);
-                } catch {
-                    /* ignore */
+    const applyInstantAttachmentPreview = useCallback(
+        (file: File, kind: 'image' | 'document' | 'audio') => {
+            const fallbackMime =
+                kind === 'image' ? 'image/jpeg' : kind === 'audio' ? 'audio/webm' : 'application/octet-stream';
+            const instant = createInstantForumAttachmentPreview(file);
+            setNewAttachment((prev) => {
+                if (prev?.url?.startsWith('blob:')) {
+                    try {
+                        URL.revokeObjectURL(prev.url);
+                    } catch {
+                        /* ignore */
+                    }
                 }
-            }
-            return {
-                type: kind,
-                url: cached.url,
-                name: file.name,
-                mimeType: file.type || fallbackMime,
-                storagePath: cached.storagePath,
-            };
-        });
-    }, []);
+                return {
+                    type: kind,
+                    url: instant.url,
+                    name: file.name,
+                    mimeType: file.type || fallbackMime,
+                    storagePath: instant.storagePath,
+                };
+            });
+        },
+        [],
+    );
 
     const handleUploadAttachment = useCallback(
         async (file: File, kind: 'image' | 'document' | 'audio') => {
@@ -156,53 +172,49 @@ export function useCommunityAddQuestion({
                 return;
             }
 
-            const userId = currentUserId ?? persistedUserId ?? null;
-            if (!userId) {
-                await attachForumFileLocally(file, kind);
-                SmartToast.success(kind === 'audio' ? 'تم إرفاق المقطع الصوتي' : 'تم إرفاق الملف');
-                return;
-            }
+            flushSync(() => {
+                pendingAttachmentFileRef.current = file;
+                applyInstantAttachmentPreview(file, kind);
+            });
+            SmartToast.success(
+                kind === 'audio' ? 'تم إرفاق المقطع الصوتي' : 'تم إرفاق الملف',
+            );
 
-            setUploadingAttachment(true);
-            try {
-                const storageCategory = kind === 'audio' ? 'audio' : 'drafts';
-                const uploaded = await LawyerStorage.uploadSmartFile(userId, file, storageCategory);
-                if (!uploaded?.downloadUrl) {
-                    throw new Error('missing download url');
+            void Promise.resolve().then(() =>
+                persistForumAttachmentFile(file)
+                    .then((storagePath) => {
+                        setNewAttachment((prev) =>
+                            prev && prev.name === file.name ? { ...prev, storagePath } : prev,
+                        );
+                    })
+                    .catch(() => undefined),
+            );
+
+            const userId = currentUserId ?? persistedUserId ?? null;
+            if (!userId) return;
+
+            void (async () => {
+                try {
+                    const storageCategory = kind === 'audio' ? 'audio' : 'drafts';
+                    const uploaded = await withForumAsyncTimeout(
+                        LawyerStorage.uploadSmartFile(userId, file, storageCategory),
+                        FORUM_ATTACHMENT_UPLOAD_TIMEOUT_MS,
+                        null,
+                    );
+                    if (!uploaded?.path && !uploaded?.fullPath) return;
+                    setNewAttachment((prev) => {
+                        if (!prev || prev.name !== file.name) return prev;
+                        return {
+                            ...prev,
+                            storagePath: uploaded.path ?? uploaded.fullPath ?? prev.storagePath,
+                        };
+                    });
+                } catch {
+                    /* blob preview يكفي للنشر المحلي */
                 }
-                setNewAttachment((prev) => {
-                    if (prev?.url?.startsWith('blob:')) {
-                        try {
-                            URL.revokeObjectURL(prev.url);
-                        } catch {
-                            /* ignore */
-                        }
-                    }
-                    return {
-                        type: kind,
-                        url: uploaded.downloadUrl,
-                        name: file.name,
-                        mimeType: file.type,
-                        storagePath: uploaded.path ?? uploaded.fullPath,
-                    };
-                });
-                SmartToast.success(kind === 'audio' ? 'تم إرفاق المقطع الصوتي' : 'تم إرفاق الملف');
-            } catch {
-                await attachForumFileLocally(file, kind);
-                SmartToast.success(
-                    import.meta.env.DEV
-                        ? kind === 'audio'
-                            ? 'تم إرفاق المقطع الصوتي (معاينة محلية)'
-                            : 'تم إرفاق الملف (معاينة محلية)'
-                        : kind === 'audio'
-                          ? 'تم إرفاق المقطع الصوتي على هذا الجهاز'
-                          : 'تم إرفاق الملف على هذا الجهاز',
-                );
-            } finally {
-                setUploadingAttachment(false);
-            }
+            })();
         },
-        [attachForumFileLocally, currentUserId, persistedUserId],
+        [applyInstantAttachmentPreview, currentUserId, persistedUserId],
     );
 
     const stopVoiceRecording = useCallback(() => {
@@ -222,8 +234,6 @@ export function useCommunityAddQuestion({
     }, []);
 
     const toggleVoiceRecording = useCallback(async () => {
-        if (uploadingAttachment) return;
-
         if (isRecordingVoice) {
             stopVoiceRecording();
             return;
@@ -231,6 +241,11 @@ export function useCommunityAddQuestion({
 
         if (!navigator.mediaDevices?.getUserMedia) {
             SmartToast.warning('التسجيل الصوتي غير مدعوم في هذا المتصفح');
+            return;
+        }
+
+        if (typeof window !== 'undefined' && !window.isSecureContext) {
+            SmartToast.warning('التسجيل الصوتي يتطلب اتصالاً آمناً (HTTPS)');
             return;
         }
 
@@ -300,7 +315,7 @@ export function useCommunityAddQuestion({
         } catch {
             SmartToast.warning('لم نتمكن من الوصول إلى المايكروفون. تأكد من الإذن.');
         }
-    }, [handleUploadAttachment, isRecordingVoice, stopVoiceRecording, uploadingAttachment]);
+    }, [handleUploadAttachment, isRecordingVoice, stopVoiceRecording]);
 
     const handleAddPost = useCallback(async () => {
         if (!currentUserId) {
@@ -339,6 +354,23 @@ export function useCommunityAddQuestion({
             setSubmittingPost(false);
             return;
         }
+
+        let attachmentForPublish = newAttachment;
+        if (attachmentForPublish && currentUserId) {
+            try {
+                attachmentForPublish = await prepareForumAttachmentForPublish(
+                    attachmentForPublish,
+                    currentUserId,
+                    pendingAttachmentFileRef.current,
+                );
+            } catch {
+                SmartToast.error('تعذّر رفع المرفق — تحقق من الاتصال وحاول مرة أخرى');
+                setSubmittingPost(false);
+                return;
+            }
+        }
+        pendingAttachmentFileRef.current = null;
+
         const id =
             typeof crypto !== 'undefined' && 'randomUUID' in crypto
                 ? crypto.randomUUID()
@@ -359,7 +391,7 @@ export function useCommunityAddQuestion({
             tags,
             createdAt: now,
             updatedAt: now,
-            attachment: newAttachment,
+            attachment: attachmentForPublish,
             upvoterIds: [],
             comments: [],
             bestCommentId: null,
@@ -367,16 +399,37 @@ export function useCommunityAddQuestion({
             isUrgent: newIsUrgent || undefined,
             ...(activeGroupId ? { groupId: activeGroupId } : {}),
         };
-        setIsAddQuestionOpen(false);
-        setNewPostText('');
-        setNewTagText('');
-        setNewIsAnonymous(false);
-        setNewIsUrgent(false);
-        removeAttachment();
+        const optimistic = {
+            ...post,
+            tags: resolveCommunityPostTags(contentForPublish, tags),
+        };
+
+        flushSync(() => {
+            setIsAddQuestionOpen(false);
+            setNewPostText('');
+            setNewTagText('');
+            setNewIsAnonymous(false);
+            setNewIsUrgent(false);
+            setNewAttachment(null);
+            pendingAttachmentFileRef.current = null;
+
+            if (activeGroupId) {
+                appendPublishedGroupPost(optimistic);
+            } else {
+                onForumPostPublished?.();
+                setPosts((prev) => sortCommunityPosts(mergeCommunityPostsById(prev, [optimistic])));
+            }
+        });
+        SmartToast.success(activeGroupId ? 'تم نشر المنشور في المجموعة' : 'تم نشر الاستشارة');
+
         try {
             const saved = await ForumApiService.createPost(post);
+            if (post.attachment && !saved.attachment) {
+                SmartToast.warning('نُشر المنشور لكن المرفق لم يُحفظ — أعد الإرفاق عند الحاجة');
+            }
             const normalized = {
                 ...saved,
+                attachment: saved.attachment ?? post.attachment ?? optimistic.attachment ?? null,
                 tags: resolveCommunityPostTags(saved.content, saved.tags),
             };
             if (saved.groupId ?? activeGroupId) {
@@ -386,8 +439,8 @@ export function useCommunityAddQuestion({
                     sortCommunityPosts(mergeCommunityPostsById(prev, [normalized])),
                 );
             }
-            SmartToast.success(activeGroupId ? 'تم نشر المنشور في المجموعة' : 'تم نشر الاستشارة');
         } catch (err) {
+            lists.removePostFromList(post.id);
             const message =
                 err instanceof Error && err.message.trim()
                     ? err.message
@@ -407,12 +460,18 @@ export function useCommunityAddQuestion({
         newIsUrgent,
         newPostText,
         newTagText,
-        removeAttachment,
         setPosts,
+        lists,
+        onForumPostPublished,
     ]);
 
-    const openAddQuestion = useCallback(() => setIsAddQuestionOpen(true), []);
-    const closeAddQuestion = useCallback(() => setIsAddQuestionOpen(false), []);
+    const openAddQuestion = useCallback(() => {
+        prefetchCommunityAddQuestionOverlay();
+        flushSync(() => setIsAddQuestionOpen(true));
+    }, []);
+    const closeAddQuestion = useCallback(() => {
+        flushSync(() => setIsAddQuestionOpen(false));
+    }, []);
 
     return {
         isAddQuestionOpen,
@@ -429,7 +488,6 @@ export function useCommunityAddQuestion({
         newAttachment,
         removeAttachment,
         submittingPost,
-        uploadingAttachment,
         isRecordingVoice,
         voiceRecordingSec,
         imageInputRef,

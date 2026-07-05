@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
+import { TransactionsHubInstantShell } from '@/app/components/lawyer/TransactionsThreading/TransactionsHubInstantShell';
 
 /** أجندة المهام — overlay ثابت فوق الستارة (z-230) */
 export const TasksManagerFallback: React.ReactNode = (
@@ -97,17 +97,25 @@ export const LawsuitsWorkspaceFallback: React.ReactNode = (
     </div>
 );
 
-export const TransactionsHubFallback: React.ReactNode = (
-    <div
-        className="fixed inset-0 z-[200] bg-[#061014]/98 flex items-center justify-center font-['Tajawal','Cairo',sans-serif]"
-        role="dialog"
-        aria-label="معاملات"
-        aria-busy="true"
-        data-testid="transactions-hub-loading"
-    >
-        <div className="text-[#D8D4CE]/70 text-sm font-bold animate-pulse">جاري فتح المعاملات...</div>
-    </div>
-);
+export function TransactionsHubLoadingFallback({ onBack }: { onBack?: () => void }) {
+    if (onBack) {
+        return <TransactionsHubInstantShell onBack={onBack} />;
+    }
+
+    return (
+        <div
+            className="fixed inset-0 z-[200] bg-[#061014]/98 flex items-center justify-center font-['Tajawal','Cairo',sans-serif]"
+            role="dialog"
+            aria-label="معاملات"
+            aria-busy="true"
+            data-testid="transactions-hub-loading"
+        >
+            <div className="text-[#D8D4CE]/70 text-sm font-bold animate-pulse">جاري فتح المعاملات...</div>
+        </div>
+    );
+}
+
+export const TransactionsHubFallback: React.ReactNode = <TransactionsHubLoadingFallback />;
 
 /** المستودع الذكي — overlay ثابت أثناء lazy load */
 export const RepositoryShellFallback: React.ReactNode = (
@@ -138,8 +146,6 @@ export const ScheduleTabFallback: React.ReactNode = (
 
 /** مركز الإعدادات — واجهة فورية أثناء lazy load (بدون شاشة فارغة) */
 export function SettingsScreenLoadingFallback({ onClose }: { onClose?: () => void }) {
-    useBodyScrollLock(true);
-
     useEffect(() => {
         if (!onClose) return;
         const onKey = (e: KeyboardEvent) => {
@@ -160,7 +166,6 @@ export function SettingsScreenLoadingFallback({ onClose }: { onClose?: () => voi
             aria-busy="true"
             data-testid="hami-settings-shell-loading"
             data-settings-loading="1"
-            data-hami-settings-shell=""
         >
             <div className="hami-settings-header shrink-0 px-6 pt-[max(3rem,env(safe-area-inset-top))] pb-5 border-b border-white/[0.04]">
                 <div className="flex items-center justify-between mb-4">
@@ -216,8 +221,6 @@ export const LawyerHomeDockFallback: React.ReactNode = sectionFallback('min-h-[2
 
 /** لوحة إشعارات — واجهة فورية أثناء lazy load */
 export function NotificationPanelLoadingFallback({ onClose }: { onClose?: () => void }) {
-    useBodyScrollLock(true);
-
     useEffect(() => {
         if (!onClose) return;
         const onKey = (e: KeyboardEvent) => {
@@ -309,8 +312,6 @@ export const LawyerProfileFallback: React.ReactNode = <LawyerProfileTabLoadingFa
 
 /** طبقة بحث خفيفة — bottom sheet على الهاتف */
 export function GlobalSearchOverlayLoadingFallback({ onClose }: { onClose?: () => void }) {
-    useBodyScrollLock(true);
-
     useEffect(() => {
         if (!onClose) return;
         const onKey = (e: KeyboardEvent) => {

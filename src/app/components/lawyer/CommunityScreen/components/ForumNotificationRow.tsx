@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Bell, MessageCircle, Reply, ThumbsUp, UserPlus, Award, FileText, AtSign } from 'lucide-react';
+import { Bell, MessageCircle, Reply, ThumbsUp, UserPlus, Award, FileText, AtSign, X } from 'lucide-react';
 import type { ForumNotification, NotificationType } from '@/app/services/lawyer-cloud';
 import { FORUM_TEXT_MUTED, FORUM_TEXT_PRIMARY } from '../forumPlumTheme';
 
@@ -34,16 +34,16 @@ function formatWhen(iso: string): string {
 export const ForumNotificationRow = memo(function ForumNotificationRow({
     notification,
     onClick,
+    onDismiss,
 }: {
     notification: ForumNotification;
     onClick: () => void;
+    onDismiss: () => void;
 }) {
     const meta = TYPE_META[notification.type] ?? TYPE_META.system;
     const Icon = meta.icon;
     return (
-        <button
-            type="button"
-            onClick={onClick}
+        <div
             className={`w-full text-right px-4 py-3 border-b border-[#4A3D52]/30 last:border-0 transition hover:bg-[#342C3E] ${
                 !notification.read ? 'bg-[#F0B896]/6' : ''
             }`}
@@ -55,18 +55,34 @@ export const ForumNotificationRow = memo(function ForumNotificationRow({
                     <Icon size={15} aria-hidden />
                 </span>
                 <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-start justify-between gap-2">
                         <p className={`${FORUM_TEXT_PRIMARY} text-xs font-bold truncate`}>{notification.title}</p>
-                        <span className={`${FORUM_TEXT_MUTED} text-[10px] shrink-0 tabular-nums`}>
-                            {formatWhen(notification.createdAt)}
-                        </span>
+                        <div className="flex items-center gap-1 shrink-0">
+                            <span className={`${FORUM_TEXT_MUTED} text-[10px] tabular-nums`}>
+                                {formatWhen(notification.createdAt)}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={(event) => {
+                                    event.stopPropagation();
+                                    onDismiss();
+                                }}
+                                className="w-6 h-6 rounded-md flex items-center justify-center text-white/25 hover:text-white/70 hover:bg-white/5 transition-colors"
+                                aria-label="إزالة التنبيه"
+                                title="إزالة"
+                            >
+                                <X size={13} />
+                            </button>
+                        </div>
                     </div>
-                    <p className="text-white/50 text-[11px] mt-0.5 line-clamp-2">{notification.message}</p>
-                    <span className={`inline-block mt-1 text-[9px] font-bold ${meta.accent} opacity-70`}>
-                        {meta.label}
-                    </span>
+                    <button type="button" onClick={onClick} className="w-full text-right">
+                        <p className="text-white/50 text-[11px] mt-0.5 line-clamp-2">{notification.message}</p>
+                        <span className={`inline-block mt-1 text-[9px] font-bold ${meta.accent} opacity-70`}>
+                            {meta.label}
+                        </span>
+                    </button>
                 </div>
             </div>
-        </button>
+        </div>
     );
 });

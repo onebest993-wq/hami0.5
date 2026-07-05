@@ -34,6 +34,14 @@ import { clearRepositoryPerfMarks, markRepositoryPerfPhase } from '@/app/service
 vi.mock('@/app/runtime/repositoryHubLoader', () => ({
     loadRepositoryHubModule: vi.fn(() => Promise.resolve({})),
     prefetchRepositoryHubModule: vi.fn(),
+    hydrateRepositoryShellForInstantOpen: vi.fn(() => Promise.resolve(false)),
+    isRepositoryHubModuleResolved: vi.fn(() => false),
+}));
+
+vi.mock('@/app/runtime/repositoryBootHydrator', () => ({
+    hydrateRepositoryBootShellForInstantOpen: vi.fn(() => Promise.resolve(false)),
+    isRepositoryShellFullyHydrated: vi.fn(() => false),
+    REPOSITORY_SHELL_HYDRATED_EVENT: 'hami:repository-shell-hydrated',
 }));
 
 vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
@@ -55,11 +63,37 @@ describe('useLawyerDashboardRepository', () => {
         expect(warmRepositoryOnOpen).not.toHaveBeenCalled();
     });
 
-    it('primeRepositoryShellMount ي prefetch فقط — بلا فتح', () => {
+    it('primeRepositoryShellMount ي prefetch ويُجهّز المضيف — بلا فتح', () => {
         const { result } = renderHook(() => useLawyerDashboardRepository({ userId: 'lawyer-1' }));
 
         act(() => {
             result.current.primeRepositoryShellMount();
+        });
+
+        expect(result.current.isRepositoryOpen).toBe(false);
+        expect(result.current.repositoryHostMounted).toBe(true);
+    });
+
+    it('يفتح المستودع فوراً عبر flushSync', async () => {
+        const { result } = renderHook(() => useLawyerDashboardRepository({ userId: 'lawyer-1' }));
+
+        act(() => {
+            result.current.openRepository();
+        });
+
+        expect(result.current.isRepositoryOpen).toBe(true);
+    });
+
+    it('يغلق المستودع فوراً عبر flushSync', async () => {
+        const { result } = renderHook(() => useLawyerDashboardRepository({ userId: 'lawyer-1' }));
+
+        act(() => {
+            result.current.openRepository();
+        });
+        await waitFor(() => expect(result.current.isRepositoryOpen).toBe(true));
+
+        act(() => {
+            result.current.closeRepository();
         });
 
         expect(result.current.isRepositoryOpen).toBe(false);

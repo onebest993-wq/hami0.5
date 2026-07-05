@@ -12,16 +12,16 @@ import {
     warmGlobalSearchOnOpen,
 } from '@/app/hooks/lawyerDashboard/globalSearchIntentWarm';
 import { loadGlobalSearchOverlayModule, prefetchGlobalSearchSearchEngine } from '@/app/runtime/globalSearchLoader';
+import { hydrateGlobalSearchShellForInstantOpen } from '@/app/runtime/globalSearchBootHydrator';
+import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 import {
     clearGlobalSearchPerfMarks,
     markGlobalSearchPerfPhase,
 } from '@/app/services/search/globalSearchPerfMetrics';
 import {
     dismissTransientOverlays,
-    HAMI_DISMISS_OVERLAYS_EVENT,
-    releaseBodyScrollLock,
-    type TransientOverlayId,
 } from '@/app/utils/bodyScrollLock';
+import { registerDashboardOverlayCloser } from '@/app/hooks/lawyerDashboard/dashboardOverlayCoordinator';
 
 export type UseLawyerDashboardGlobalSearchParams = {
     userId: string | null;
@@ -36,6 +36,18 @@ export function useLawyerDashboardGlobalSearch({ userId }: UseLawyerDashboardGlo
     const [globalSearchSessionKey, setGlobalSearchSessionKey] = useState(0);
     const [searchIndexVersion, setSearchIndexVersion] = useState(0);
 
+    useEffect(() => {
+        if (!isRealSignedIn(userId)) return;
+        warmGlobalSearchOnHover();
+        void hydrateGlobalSearchShellForInstantOpen().catch(() => undefined);
+        return scheduleIdleWork(
+            () => {
+                void hydrateGlobalSearchShellForInstantOpen().catch(() => undefined);
+            },
+            { minDelayMs: 0, timeoutMs: 4_000 },
+        );
+    }, [userId]);
+
     const closeGlobalSearch = useCallback(() => {
         showGlobalSearchRef.current = false;
         setShowGlobalSearch(false);
@@ -45,6 +57,7 @@ export function useLawyerDashboardGlobalSearch({ userId }: UseLawyerDashboardGlo
 
     const primeGlobalSearchShellMount = useCallback(() => {
         warmGlobalSearchOnHover();
+        void hydrateGlobalSearchShellForInstantOpen().catch(() => undefined);
     }, []);
 
     const openGlobalSearch = useCallback(
@@ -57,26 +70,29 @@ export function useLawyerDashboardGlobalSearch({ userId }: UseLawyerDashboardGlo
                 onOpen: (querySeed) => {
                     if (showGlobalSearchRef.current || openInFlightRef.current) return;
                     openInFlightRef.current = true;
-                    void (async () => {
-                        try {
-                            clearGlobalSearchPerfMarks();
-                            markGlobalSearchPerfPhase('open-request');
-                            warmGlobalSearchOnOpen();
-                            await loadGlobalSearchOverlayModule().catch(() => undefined);
-                            markGlobalSearchPerfPhase('chunk-ready');
-                            flushSync(() => {
-                                setGlobalSearchInitialQuery(querySeed);
-                                setShowGlobalSearch(true);
-                            });
+                    try {
+                        clearGlobalSearchPerfMarks();
+                        markGlobalSearchPerfPhase('open-request');
+                        warmGlobalSearchOnOpen();
+
+                        flushSync(() => {
+                            setGlobalSearchInitialQuery(querySeed);
+                            setShowGlobalSearch(true);
                             showGlobalSearchRef.current = true;
-                            queueMicrotask(() => {
-                                dismissTransientOverlays('global-search');
-                                prefetchGlobalSearchSearchEngine();
-                            });
-                        } finally {
-                            openInFlightRef.current = false;
-                        }
-                    })();
+                        });
+
+                        queueMicrotask(() => {
+                            dismissTransientOverlays('global-search');
+                            prefetchGlobalSearchSearchEngine();
+                        });
+
+                        void loadGlobalSearchOverlayModule()
+                            .catch(() => undefined)
+                            .then(() => markGlobalSearchPerfPhase('chunk-ready'));
+                        void hydrateGlobalSearchShellForInstantOpen(true).catch(() => undefined);
+                    } finally {
+                        openInFlightRef.current = false;
+                    }
                 },
             });
         },
@@ -109,19 +125,11 @@ export function useLawyerDashboardGlobalSearch({ userId }: UseLawyerDashboardGlo
     }, [closeGlobalSearch, openGlobalSearch]);
 
     useEffect(() => {
-        const onDismiss = (e: Event) => {
-            const except = (e as CustomEvent<{ except?: TransientOverlayId }>).detail?.except;
-            if (except !== 'global-search') {
-                setShowGlobalSearch(false);
-                setGlobalSearchInitialQuery('');
-                setGlobalSearchSessionKey((k) => k + 1);
-            }
-            if (except == null) {
-                releaseBodyScrollLock();
-            }
-        };
-        window.addEventListener(HAMI_DISMISS_OVERLAYS_EVENT, onDismiss);
-        return () => window.removeEventListener(HAMI_DISMISS_OVERLAYS_EVENT, onDismiss);
+        return registerDashboardOverlayCloser('global-search', () => {
+            setShowGlobalSearch(false);
+            setGlobalSearchInitialQuery('');
+            setGlobalSearchSessionKey((k) => k + 1);
+        });
     }, []);
 
     useEffect(() => {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { UrgentActionsDB } from '@/app/services/urgent-actions-db';
-import { TransactionsThreadingDB } from '@/app/services/lawyer-cloud';
+import { TransactionsThreadingDB } from '@/app/services/cloud/lawyerTransactionsCloud';
 
 export type ClusterScanSources = {
     lawsuitFiles: unknown[];

@@ -16,25 +16,22 @@ interface CrossAppealModalProps {
     }) => void;
 }
 
-export const CrossAppealModal: React.FC<CrossAppealModalProps> = ({ 
-    isOpen, 
+export const CrossAppealModal: React.FC<CrossAppealModalProps> = ({
+    isOpen,
     onClose,
     pendingParties = [],
-    onConfirm
+    onConfirm,
 }) => {
     const [filingDate, setFilingDate] = useState<string>(getLocalTodayYmd());
-    const [receiptNumber, setReceiptNumber] = useState<string>('');
-    const [notes, setNotes] = useState<string>('');
     const [selectedPartyIds, setSelectedPartyIds] = useState<Array<number | string>>(() =>
         pendingParties.map((p) => p.id).filter((id) => id != null) as Array<number | string>,
     );
 
     useEffect(() => {
-        if (isOpen) {
-            setSelectedPartyIds(
-                pendingParties.map((p) => p.id).filter((id) => id != null) as Array<number | string>,
-            );
-        }
+        if (!isOpen) return;
+        setSelectedPartyIds(
+            pendingParties.map((p) => p.id).filter((id) => id != null) as Array<number | string>,
+        );
     }, [isOpen, pendingParties]);
 
     const toggleParty = (id: number | string) => {
@@ -48,18 +45,19 @@ export const CrossAppealModal: React.FC<CrossAppealModalProps> = ({
 
     const handleSubmit = () => {
         if (!filingDate) {
-            SmartToast.error('⚠️ الرجاء تحديد تاريخ تقديم اللائحة المتقابلة');
+            SmartToast.error('الرجاء تحديد تاريخ تقديم اللائحة المتقابلة');
             return;
         }
+
         if (pendingParties.length > 0 && selectedPartyIds.length === 0) {
-            SmartToast.error('⚠️ اختر طرفاً واحداً على الأقل للاستئناف المتقابل');
+            SmartToast.error('اختر طرفاً واحداً على الأقل للاستئناف المتقابل');
             return;
         }
 
         onConfirm({
             filingDate,
-            receiptNumber: receiptNumber.trim(),
-            notes,
+            receiptNumber: '',
+            notes: '',
             crossAppealPartyIds: selectedPartyIds.length > 0 ? selectedPartyIds : undefined,
         });
         onClose();
@@ -69,51 +67,49 @@ export const CrossAppealModal: React.FC<CrossAppealModalProps> = ({
 
     return (
         <AnimatePresence>
-            {isOpen && (
-                <div className="fixed inset-0 z-[260] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-['Tajawal']">
+            {isOpen ? (
+                <div className="fixed inset-0 z-[260] flex items-center justify-center bg-[rgba(2,6,14,0.82)] backdrop-blur-md p-4 sm:p-6 font-['Tajawal']">
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                        initial={{ opacity: 0, scale: 0.95, y: 18 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                        className="w-full max-w-lg bg-gradient-to-br from-[#1A1E2E] to-[#0F121E] rounded-2xl border border-teal-500/30 shadow-2xl shadow-teal-500/10 overflow-hidden"
+                        exit={{ opacity: 0, scale: 0.95, y: 18 }}
+                        className="w-full max-w-2xl overflow-hidden rounded-[28px] border border-[#E6C673]/18 bg-[#08101C]/96 shadow-[0_26px_90px_rgba(0,0,0,0.55)] ring-1 ring-inset ring-white/[0.05]"
                     >
-                        {/* Header */}
-                        <div className="bg-gradient-to-r from-teal-600 to-cyan-600 p-6 relative">
-                            <div className="flex items-center justify-between">
+                        <div className="border-b border-white/[0.06] bg-gradient-to-r from-[#0F1828] to-[#0A1220] px-5 py-4 sm:px-6 sm:py-5">
+                            <div className="flex items-center justify-between gap-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-                                        <RefreshCw size={24} className="text-white" />
+                                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#E6C673]/22 bg-[#E6C673]/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                                        <RefreshCw size={22} className="text-[#E6C673]" />
                                     </div>
                                     <div>
-                                        <h2 className="text-white text-2xl font-bold">الاستئناف المتقابل</h2>
-                                        <p className="text-white/80 text-sm">تقديم لائحة استئناف متقابلة</p>
+                                        <h2 className="text-white text-xl sm:text-2xl font-bold">الاستئناف المتقابل</h2>
+                                        <p className="text-white/55 text-sm">تقديم لائحة استئناف متقابلة</p>
                                     </div>
                                 </div>
-                                <button type="button"
+                                <button
+                                    type="button"
                                     onClick={onClose}
-                                    className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center text-white transition-all"
+                                    className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.04] text-white/45 transition-colors hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-300"
                                 >
                                     <X size={20} />
                                 </button>
                             </div>
                         </div>
 
-                        {/* Form */}
-                        <div className="p-6 space-y-5">
-                            {/* Info Box */}
-                            <div className="bg-teal-500/10 border border-teal-500/30 rounded-xl p-4 flex items-start gap-3">
-                                <AlertCircle size={20} className="text-teal-400 flex-shrink-0 mt-0.5" />
-                                <div className="text-sm text-teal-200">
-                                    <p className="font-bold mb-1">ما هو الاستئناف المتقابل؟</p>
-                                    <p className="text-teal-300/90">
+                        <div className="p-5 sm:p-6 space-y-5 bg-gradient-to-b from-[#09111D] via-[#09111C] to-[#070D17]">
+                            <div className="rounded-[22px] border border-white/[0.08] bg-gradient-to-br from-[#101A2B] to-[#0A1220] p-4 sm:p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] flex items-start gap-3">
+                                <AlertCircle size={20} className="text-[#E6C673] flex-shrink-0 mt-0.5" />
+                                <div className="text-sm text-white/78 leading-6">
+                                    <p className="font-bold mb-1 text-white">ما هو الاستئناف المتقابل؟</p>
+                                    <p className="text-white/62">
                                         هو حق المستأنف عليه في تقديم لائحة استئناف ضد نفس الحكم المستأنف، حتى لو انتهت المدة القانونية للطعن. يمنح هذا الحق توازناً قانونياً للطرفين.
                                     </p>
                                 </div>
                             </div>
 
                             {pendingParties.length > 0 ? (
-                                <div>
-                                    <label className="block text-white/80 font-bold mb-2 text-sm">
+                                <div className="rounded-[22px] border border-white/[0.08] bg-gradient-to-br from-[#101A2B] to-[#0A1220] p-4 sm:p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                                    <label className="block text-white/80 font-bold mb-3 text-sm">
                                         الطرف المستأنف متقابلاً
                                     </label>
                                     <div className="space-y-2">
@@ -126,10 +122,10 @@ export const CrossAppealModal: React.FC<CrossAppealModalProps> = ({
                                                     key={String(party.id)}
                                                     type="button"
                                                     onClick={() => toggleParty(party.id)}
-                                                    className={`w-full rounded-xl border px-3 py-2.5 text-right text-sm transition-all ${
+                                                    className={`w-full rounded-2xl border px-4 py-3 text-right text-sm font-bold transition-all ${
                                                         selected
-                                                            ? 'border-teal-400/40 bg-teal-500/10 text-teal-100'
-                                                            : 'border-white/10 bg-white/[0.03] text-white/70 hover:border-white/20'
+                                                            ? 'border-[#E6C673]/40 bg-[#E6C673]/10 text-[#F3DA94] shadow-[0_10px_28px_rgba(230,198,115,0.08)]'
+                                                            : 'border-white/[0.08] bg-[#0D1524] text-white/72 hover:border-[#E6C673]/20 hover:bg-[#111C2E]'
                                                     }`}
                                                 >
                                                     {party.name}
@@ -140,63 +136,32 @@ export const CrossAppealModal: React.FC<CrossAppealModalProps> = ({
                                 </div>
                             ) : null}
 
-                            {/* Field 1: تاريخ تقديم اللائحة المتقابلة */}
-                            <div>
-                                <label className="block text-white/80 font-bold mb-2 flex items-center gap-2">
-                                    <span className="text-teal-400">📅</span>
+                            <div className="rounded-[22px] border border-white/[0.08] bg-gradient-to-br from-[#101A2B] to-[#0A1220] p-4 sm:p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                                <label className="block text-white/80 font-bold mb-2 flex items-center gap-2 text-sm">
+                                    <span className="text-[#E6C673]">📅</span>
                                     تاريخ تقديم اللائحة المتقابلة
                                 </label>
                                 <input
                                     type="date"
                                     value={filingDate}
                                     onChange={(e) => setFilingDate(e.target.value)}
-                                    className="w-full bg-[#0A1128] border border-white/10 rounded-xl px-4 py-3 text-white focus:border-teal-500 focus:outline-none transition-all"
+                                    className="w-full rounded-2xl border border-white/[0.1] bg-[#0C1524] px-4 py-3 text-sm text-white outline-none transition-all focus:border-[#E6C673]/55 focus:bg-[#101A2B] focus:ring-1 focus:ring-[#E6C673]/16"
                                 />
                             </div>
 
-                            {/* Field 2: رقم وصل الرسوم */}
-                            <div>
-                                <label className="block text-white/80 font-bold mb-2 flex items-center gap-2">
-                                    <span className="text-teal-400">🧾</span>
-                                    رقم وصل الرسوم
-                                    <span className="text-xs text-white/40">(اختياري)</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    value={receiptNumber}
-                                    onChange={(e) => setReceiptNumber(e.target.value)}
-                                    placeholder="مثال: 456789"
-                                    className="w-full bg-[#0A1128] border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/30 focus:border-teal-500 focus:outline-none transition-all"
-                                />
-                            </div>
-
-                            {/* Field 3: ملاحظات */}
-                            <div>
-                                <label className="block text-white/80 font-bold mb-2 flex items-center gap-2">
-                                    <span className="text-teal-400">📝</span>
-                                    ملاحظات إضافية
-                                </label>
-                                <textarea
-                                    value={notes}
-                                    onChange={(e) => setNotes(e.target.value)}
-                                    rows={3}
-                                    className="w-full bg-[#0A1128] border border-white/10 rounded-xl px-4 py-3 text-white focus:border-teal-500 focus:outline-none transition-all resize-none"
-                                    placeholder="أضف أي ملاحظات خاصة بالاستئناف المتقابل..."
-                                />
-                            </div>
-
-                            {/* Action Buttons */}
-                            <div className="flex gap-3 pt-4 border-t border-slate-700/50">
-                                <button type="button"
+                            <div className="flex gap-3 pt-4 border-t border-white/[0.06]">
+                                <button
+                                    type="button"
                                     onClick={handleSubmit}
-                                    className="flex-1 py-4 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-500 hover:to-cyan-500 text-white rounded-xl font-bold text-lg shadow-lg shadow-teal-500/30 transition-all flex items-center justify-center gap-2"
+                                    className="flex-1 py-3.5 rounded-2xl bg-[#E6C673] text-[#0B1021] text-sm sm:text-base font-extrabold shadow-[0_14px_34px_rgba(230,198,115,0.18)] hover:bg-[#d4b45f] transition-all flex items-center justify-center gap-2"
                                 >
                                     <RefreshCw size={20} />
                                     تأكيد تقديم الاستئناف المتقابل
                                 </button>
-                                <button type="button"
+                                <button
+                                    type="button"
                                     onClick={onClose}
-                                    className="px-6 py-4 bg-transparent hover:bg-white/5 text-white/60 hover:text-white rounded-xl font-bold transition-all"
+                                    className="px-6 py-3.5 rounded-2xl border border-white/[0.08] bg-white/[0.03] text-white/60 hover:text-white hover:bg-white/[0.05] font-bold transition-all"
                                 >
                                     إلغاء
                                 </button>
@@ -204,7 +169,7 @@ export const CrossAppealModal: React.FC<CrossAppealModalProps> = ({
                         </div>
                     </motion.div>
                 </div>
-            )}
+            ) : null}
         </AnimatePresence>
     );
 };

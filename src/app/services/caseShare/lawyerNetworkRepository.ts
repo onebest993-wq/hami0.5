@@ -1,5 +1,5 @@
 import { FollowDB } from '@/app/services/cloud/lawyerCommunityCloud';
-import { ProfileDB } from '@/app/services/lawyer-cloud';
+import { ProfileDB } from '@/app/services/cloud/lawyerProfileCloud';
 import { ForumFollowRepository } from '@/app/services/forum/forumFollowRepository';
 import type { NetworkColleague } from './caseShareTypes';
 

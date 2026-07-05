@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import {
     Building2,
     ArrowUpLeft,
@@ -22,8 +22,9 @@ import {
 } from '@/app/utils/otherPartyEffectiveRequestsUtils';
 import type { CreditorMirrorWorkflowContext } from '@/app/utils/creditorOtherPartyMirrorVisibility';
 import type { HiddenFollowupVisibilityInput, HiddenGuarantorContext } from './hiddenFollowupRequestsUtils';
-import { ManualOtherPartyLogBlock } from '../../execution/OtherPartyActionsLog';
 import type { OtherPartyActionLogEntry, OtherPartyRequestTrackEntry } from '@/app/types/execution';
+
+const ManualOtherPartyLogBlock = lazy(() => import('../../execution/OtherPartyActionsLog').then(mod => ({ default: mod.ManualOtherPartyLogBlock })));
 import {
     mergeExternalTracksPreferLocalAdvance,
     patchOtherPartyRequestTrack,
@@ -620,14 +621,16 @@ export const OtherPartyEffectiveRequestsPanel: React.FC<OtherPartyEffectiveReque
         );
 
     const manualLogBlock = manualLog ? (
-        <ManualOtherPartyLogBlock
-            entries={manualLog.entries}
-            onPersist={manualLog.onPersist}
-            onSubmitToDecisions={manualLog.onSubmitToDecisions}
-            hideSavedEntries={debtorAgentManualTrack}
-            executionId={manualLog.executionId || executionId}
-            appealPerspective={manualLog.appealPerspective}
-        />
+        <Suspense fallback={null}>
+            <ManualOtherPartyLogBlock
+                entries={manualLog.entries}
+                onPersist={manualLog.onPersist}
+                onSubmitToDecisions={manualLog.onSubmitToDecisions}
+                hideSavedEntries={debtorAgentManualTrack}
+                executionId={manualLog.executionId || executionId}
+                appealPerspective={manualLog.appealPerspective}
+            />
+        </Suspense>
     ) : null;
 
     if (displayOptions.length === 0 && !manualLog) {

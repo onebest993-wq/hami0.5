@@ -4,7 +4,8 @@ import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { GlobalNote } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
-import { SmartVaultDB, type SmartVaultDoc } from '@/app/services/lawyer-cloud';
+import { SmartVaultDB } from '@/app/services/vault/smartVaultRuntime';
+import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import { saveFileToVault } from '@/app/services/vaultUploadService';
 import type { DossierPickerOption } from '@/app/services/repository/repositoryDossierRegistry';
 import {
@@ -23,7 +24,7 @@ function stripHtml(text: string): string {
 
 type VaultApi = Pick<
     ReturnType<typeof useSmartVault>,
-    'currentUserId' | 'activeFilter' | 'refreshDocs'
+    'currentUserId' | 'activeFilter' | 'prependVaultDoc' | 'refreshDocs'
 >;
 
 type UseRepositoryComposeParams = {
@@ -36,6 +37,7 @@ type UseRepositoryComposeParams = {
     onUpdateLawsuitFile: (file: FileData) => void;
     onUpdateExecutionFile: (file: ExecutionFile) => void;
     vault: VaultApi;
+    onAfterSave?: (kind: 'note' | 'media') => void;
 };
 
 export function useRepositoryCompose({
@@ -48,6 +50,7 @@ export function useRepositoryCompose({
     onUpdateLawsuitFile,
     onUpdateExecutionFile,
     vault,
+    onAfterSave,
 }: UseRepositoryComposeParams) {
     const [composing, setComposing] = useState(startMode === 'create');
     const [title, setTitle] = useState('');
@@ -79,16 +82,17 @@ export function useRepositoryCompose({
         }
 
         setSaving(true);
+        let attachmentDocId: string | undefined;
+        const uid = vault.currentUserId || currentUserId || '';
+
         try {
-            let attachmentDocId: string | undefined;
-            const uid = vault.currentUserId || currentUserId || '';
             if (attachmentFile && uid) {
                 const saved = await saveFileToVault(uid, attachmentFile, {
                     title: title.trim() || attachmentFile.name,
                     lawyerNote: plain || null,
                 });
                 attachmentDocId = saved.doc.id;
-                await vault.refreshDocs();
+                vault.prependVaultDoc(saved.doc);
             }
 
             const note: GlobalNote = {
@@ -108,6 +112,7 @@ export function useRepositoryCompose({
             };
 
             await onSaveNote(note);
+            onAfterSave?.(attachmentDocId ? 'media' : 'note');
             SmartToast.success('تم حفظ البطاقة في المستودع');
             resetComposer();
         } catch {
@@ -124,6 +129,7 @@ export function useRepositoryCompose({
         resetComposer,
         title,
         vault,
+        onAfterSave,
     ]);
 
     const handleLinkGlobalToDossier = useCallback(

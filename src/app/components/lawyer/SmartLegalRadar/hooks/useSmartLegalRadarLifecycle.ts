@@ -4,13 +4,14 @@ import {
     reportCalendarPerf,
 } from '@/app/services/calendar/calendarPerfMetrics';
 import { requestCalendarDossierSyncIdle } from '@/app/services/calendar/requestCalendarDossierSyncIdle';
+import { prefetchRadarWidgets } from '@/app/runtime/radarWidgetLoader';
 import { readLocalCalendarSnapshotSync } from '@/app/services/calendar/calendarLocalSnapshot';
 import { getCachedCalendarEvents } from '@/app/services/calendar/calendarEventsCache';
-import { resolveCalendarUserId } from '@/app/services/calendarBridge';
+import { resolveCalendarUserId } from '@/app/services/calendar/bridge/core';
 
 export function useSmartLegalRadarLifecycle(
     userId: string,
-    loading: boolean,
+    _syncing: boolean,
     eventCount: number,
 ) {
     const hadLocalCacheRef = useRef(
@@ -23,13 +24,11 @@ export function useSmartLegalRadarLifecycle(
     );
 
     useEffect(() => {
+        prefetchRadarWidgets();
         return requestCalendarDossierSyncIdle();
     }, [userId]);
 
-    const isShellReady = !loading || eventCount > 0 || hadLocalCacheRef.current;
-
     useEffect(() => {
-        if (!isShellReady) return;
         markCalendarPerfPhase('first-paint');
         markCalendarPerfPhase('interactive');
         reportCalendarPerf({
@@ -37,7 +36,7 @@ export function useSmartLegalRadarLifecycle(
             eventCount,
             hadLocalCache: hadLocalCacheRef.current,
         });
-    }, [isShellReady, userId, eventCount]);
+    }, [userId, eventCount]);
 
-    return { isShellReady, hadLocalCache: hadLocalCacheRef.current };
+    return { isShellReady: true, hadLocalCache: hadLocalCacheRef.current };
 }

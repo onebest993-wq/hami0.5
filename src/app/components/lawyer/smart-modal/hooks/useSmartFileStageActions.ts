@@ -30,6 +30,7 @@ export function useSmartFileStageActions(options: {
     stages: CaseStage[];
     setStages: React.Dispatch<React.SetStateAction<CaseStage[]>>;
     activeStageIndex: number;
+    viewingStageIndex: number;
     setActiveStageIndex: React.Dispatch<React.SetStateAction<number>>;
     setViewingStageIndex: React.Dispatch<React.SetStateAction<number>>;
     currentStage: CaseStage;
@@ -45,6 +46,7 @@ export function useSmartFileStageActions(options: {
         stages,
         setStages,
         activeStageIndex,
+        viewingStageIndex,
         setActiveStageIndex,
         setViewingStageIndex,
         currentStage,
@@ -57,6 +59,11 @@ export function useSmartFileStageActions(options: {
         tempStageName,
     } = options;
 
+    const targetStageIndex =
+        viewingStageIndex >= 0 && viewingStageIndex < stages.length
+            ? viewingStageIndex
+            : activeStageIndex;
+
     const commitStages = useCallback(
         (updated: CaseStage[], parentOverride?: SmartFileParentData, stageIndex?: number) => {
             setStages(updated);
@@ -67,7 +74,7 @@ export function useSmartFileStageActions(options: {
 
     const handleUpdateHeader = useCallback(
         (newData: Record<string, unknown>) => {
-            const updated = patchActiveStage(stages, activeStageIndex, {
+            const updated = patchActiveStage(stages, targetStageIndex, {
                 court: newData.court,
                 judge: newData.judge,
                 caseNo: newData.caseNo,
@@ -75,7 +82,7 @@ export function useSmartFileStageActions(options: {
             });
             commitStages(updated);
         },
-        [stages, activeStageIndex, commitStages],
+        [stages, targetStageIndex, commitStages],
     );
 
     const handleUpdateCaseInfo = useCallback(
@@ -94,7 +101,7 @@ export function useSmartFileStageActions(options: {
             }
 
             const stageExt = currentStage as CaseStage & { stageName?: string };
-            const updated = patchActiveStage(stages, activeStageIndex, {
+            const updated = patchActiveStage(stages, targetStageIndex, {
                 court: newData.court,
                 judge: newData.judge,
                 caseNo: newData.caseNo,
@@ -119,7 +126,7 @@ export function useSmartFileStageActions(options: {
             };
             commitStages(updated, nextParent);
         },
-        [stages, activeStageIndex, currentStage, parentData, setParentData, commitStages],
+        [stages, targetStageIndex, currentStage, parentData, setParentData, commitStages],
     );
 
     const handleSaveNotification = useCallback(
@@ -218,11 +225,11 @@ export function useSmartFileStageActions(options: {
             e.stopPropagation();
             if (!tempStageName.trim()) return;
 
-            const updated = patchActiveStage(stages, activeStageIndex, { stageName: tempStageName });
+            const updated = patchActiveStage(stages, targetStageIndex, { stageName: tempStageName });
             commitStages(updated, parentData);
             setIsEditingStageName(false);
         },
-        [stages, activeStageIndex, tempStageName, parentData, commitStages, setIsEditingStageName],
+        [stages, targetStageIndex, tempStageName, parentData, commitStages, setIsEditingStageName],
     );
 
     const setCaseData = useCallback(
@@ -234,10 +241,10 @@ export function useSmartFileStageActions(options: {
             if (newData.stage && !newData.stageName) {
                 newData.stageName = newData.stage;
             }
-            const updated = patchActiveStage(stages, activeStageIndex, newData);
+            const updated = patchActiveStage(stages, targetStageIndex, newData);
             commitStages(updated);
         },
-        [stages, activeStageIndex, displayStage, commitStages],
+        [stages, targetStageIndex, displayStage, commitStages],
     );
 
     const handleToggleClient = useCallback(() => {}, []);

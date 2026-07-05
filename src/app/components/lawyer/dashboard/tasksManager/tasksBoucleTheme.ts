@@ -68,4 +68,16 @@ export const TASK_CARD_DONE = 'border-[#1A7059]/35 bg-[#0c0c0e]/55';
 export const TASK_CARD_FATAL = 'border-rose-500/55 shadow-[0_0_24px_rgba(244,63,94,0.22)]';
 
 export const TASK_TOOL_BTN =
-    'flex flex-row-reverse items-center justify-center gap-1 rounded-lg px-3 py-2 min-h-[44px] text-[10px] font-extrabold border transition touch-manipulation';
+    'flex flex-row-reverse items-center justify-center gap-1 rounded-xl px-3 py-2 min-h-[44px] text-[10px] font-extrabold border transition touch-manipulation';
+
+export const TASK_CARD_ICON_BTN =
+    'flex h-11 w-11 items-center justify-center rounded-full border touch-manipulation transition-all duration-200';
+
+export const TASK_CARD_ICON_BTN_IDLE =
+    'border-[#A67C52]/22 bg-[#0c0c0e]/50 text-[#E8F5F0]/70 hover:border-[#A67C52]/40 hover:bg-[#0c0c0e]/72 hover:text-[#E8F5F0]';
+
+export const TASK_CARD_ICON_BTN_ACTIVE =
+    'border-[#A67C52]/45 bg-[#0c0c0e]/80 text-[#E8F5F0] shadow-[0_0_0_1px_rgba(166,124,82,0.15)]';
+
+export const TASK_CARD_COMPLETE_BTN =
+    'min-h-[44px] px-4 py-2 rounded-full bg-gradient-to-l from-[#1A7059] to-[#0D4A3C] border border-[#1A7059]/50 text-[#E8F5F0] text-xs font-extrabold shadow-[0_2px_14px_rgba(26,112,89,0.22)] transition whitespace-nowrap touch-manipulation active:scale-[0.97] hover:brightness-110';

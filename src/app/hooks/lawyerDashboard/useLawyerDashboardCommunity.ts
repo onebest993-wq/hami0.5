@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { parseCommunityDeepLinkFromLocation } from '@/app/components/lawyer/CommunityScreen/communityDeepLink';
@@ -12,16 +13,14 @@ import {
     warmForumOnOpen,
 } from '@/app/hooks/lawyerDashboard/forumIntentWarm';
 import { markForumPerfPhase, clearForumPerfMarks } from '@/app/services/forum/forumPerfMetrics';
-import { readForumPostsCache } from '@/app/services/forum/forumPostsWarmCache';
 import { loadCommunityScreenModule } from '@/app/runtime/communityHubLoader';
-import { prefetchCommunityScreen } from '@/app/utils/lazyComponents';
+import { hydrateCommunityShellForInstantOpen } from '@/app/runtime/communityBootHydrator';
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
+import { readForumPostsCache } from '@/app/services/forum/forumPostsWarmCache';
 import {
     dismissTransientOverlays,
-    HAMI_DISMISS_OVERLAYS_EVENT,
-    releaseBodyScrollLock,
-    type TransientOverlayId,
 } from '@/app/utils/bodyScrollLock';
+import { registerDashboardOverlayCloser } from '@/app/hooks/lawyerDashboard/dashboardOverlayCoordinator';
 import {
     LAWYER_COMMUNITY_OPEN_KEY,
     LAWYER_DASHBOARD_TAB_KEY,
@@ -38,6 +37,9 @@ export function useLawyerDashboardCommunity({ userId, activeTab }: UseLawyerDash
     const initialOpen = readInitialCommunityOpen();
     const [showCommunity, setShowCommunity] = useState(initialOpen);
     const [communitySessionKey, setCommunitySessionKey] = useState(0);
+    const showCommunityRef = useRef(false);
+    const openInFlightRef = useRef(false);
+    showCommunityRef.current = showCommunity;
     const [communityDeepLink, setCommunityDeepLink] = useState<{
         postId?: string;
         openComments?: boolean;
@@ -50,6 +52,7 @@ export function useLawyerDashboardCommunity({ userId, activeTab }: UseLawyerDash
     });
 
     const closeCommunity = useCallback(() => {
+        showCommunityRef.current = false;
         setShowCommunity(false);
         setCommunityDeepLink(null);
         if (typeof window !== 'undefined' && window.location.hash.includes('community/post/')) {
@@ -59,33 +62,26 @@ export function useLawyerDashboardCommunity({ userId, activeTab }: UseLawyerDash
 
     const primeCommunityShellMount = useCallback(() => {
         warmForumOnHover();
-        prefetchCommunityScreen();
+        void hydrateCommunityShellForInstantOpen().catch(() => undefined);
     }, []);
 
     useEffect(() => {
         if (!isRealSignedIn(userId)) return;
+        warmForumOnHover();
+        void hydrateCommunityShellForInstantOpen().catch(() => undefined);
         return scheduleIdleWork(
             () => {
-                warmForumOnHover();
-                prefetchCommunityScreen();
+                void hydrateCommunityShellForInstantOpen().catch(() => undefined);
             },
-            { minDelayMs: 6_000, timeoutMs: 15_000 },
+            { minDelayMs: 0, timeoutMs: 4_000 },
         );
     }, [userId]);
 
     useEffect(() => {
-        const onDismiss = (e: Event) => {
-            const except = (e as CustomEvent<{ except?: TransientOverlayId }>).detail?.except;
-            if (except !== 'forum') {
-                setShowCommunity(false);
-                setCommunityDeepLink(null);
-            }
-            if (except == null) {
-                releaseBodyScrollLock();
-            }
-        };
-        window.addEventListener(HAMI_DISMISS_OVERLAYS_EVENT, onDismiss);
-        return () => window.removeEventListener(HAMI_DISMISS_OVERLAYS_EVENT, onDismiss);
+        return registerDashboardOverlayCloser('forum', () => {
+            setShowCommunity(false);
+            setCommunityDeepLink(null);
+        });
     }, []);
 
     useEffect(() => {
@@ -111,14 +107,28 @@ export function useLawyerDashboardCommunity({ userId, activeTab }: UseLawyerDash
             onSignedOut: () =>
                 SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${FORUM_SHELL_FEATURE}`),
             onOpen: () => {
-                dismissTransientOverlays('forum');
-                clearForumPerfMarks();
-                markForumPerfPhase('open-request');
-                warmForumOnOpen();
-                primeCommunityShellMount();
-                setShowCommunity(true);
-                void loadCommunityScreenModule().catch(() => undefined);
-                void readForumPostsCache().catch(() => undefined);
+                if (showCommunityRef.current || openInFlightRef.current) return;
+                openInFlightRef.current = true;
+                try {
+                    dismissTransientOverlays('forum');
+                    clearForumPerfMarks();
+                    markForumPerfPhase('open-request');
+                    warmForumOnOpen(userId);
+                    primeCommunityShellMount();
+
+                    flushSync(() => {
+                        setShowCommunity(true);
+                        showCommunityRef.current = true;
+                    });
+
+                    void loadCommunityScreenModule()
+                        .catch(() => undefined)
+                        .then(() => markForumPerfPhase('chunk-ready'));
+                    void hydrateCommunityShellForInstantOpen(true).catch(() => undefined);
+                    void readForumPostsCache().catch(() => undefined);
+                } finally {
+                    openInFlightRef.current = false;
+                }
             },
         });
     }, [primeCommunityShellMount, userId]);

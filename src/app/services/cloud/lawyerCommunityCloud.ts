@@ -5,6 +5,8 @@ import { isKvProxyNetworkEnabled } from '@/app/services/kvProxyConfig';
 import { lawyerCloudKv as kv, uuidv4 } from '@/app/services/cloud/lawyerCloudKv';
 import { isVaultIdbStoragePath } from '@/app/services/vaultBlobStore';
 import { compareCommunityPostsForFeed } from '@/app/services/forum/forumUrgentConsultation';
+import { ForumFollowRepository } from '@/app/services/forum/forumFollowRepository';
+import { NotificationDB } from '@/app/services/notifications/notificationForumStorage';
 import type {
     BanRecord,
     CommunityAttachment,
@@ -82,7 +84,8 @@ function readCommunityPostsFromMirrors(): CommunityPost[] | null {
     if (typeof localStorage !== 'undefined') {
         try {
             if (localStorage.getItem(COMMUNITY_LOCAL_KEY) !== null) {
-                return parseCommunityPostsRaw(localStorage.getItem(COMMUNITY_LOCAL_KEY)) ?? [];
+                const parsed = parseCommunityPostsRaw(localStorage.getItem(COMMUNITY_LOCAL_KEY)) ?? [];
+                return parsed;
             }
         } catch {
             /* fall through */
@@ -91,7 +94,8 @@ function readCommunityPostsFromMirrors(): CommunityPost[] | null {
     try {
         const syncRaw = SecureStoreService.getItemSync(COMMUNITY_LOCAL_KEY);
         if (syncRaw != null) {
-            return parseCommunityPostsRaw(syncRaw) ?? [];
+            const parsed = parseCommunityPostsRaw(syncRaw) ?? [];
+            return parsed;
         }
     } catch {
         /* fall through */
@@ -145,8 +149,8 @@ async function saveLocalCommunityPosts(posts: CommunityPost[]): Promise<void> {
     const payload = JSON.stringify(posts);
     try {
         window.localStorage.setItem(COMMUNITY_LOCAL_KEY, payload);
-    } catch {
-        /* optional mirror */
+    } catch (error) {
+        void error;
     }
     void persistCommunityPostsToSecureStore(payload);
 }
@@ -362,12 +366,20 @@ function normalizeCommunityPost(raw: unknown): CommunityPost | null {
                             : a.type === 'audio'
                               ? 'audio'
                               : null;
-                  const url = typeof a.url === 'string' ? a.url : null;
+                  const url = typeof a.url === 'string' ? a.url.trim() : '';
                   const name = typeof a.name === 'string' ? a.name : null;
-                  if (!type || !url || !name) return null;
+                  const storagePath = typeof a.storagePath === 'string' ? a.storagePath.trim() : '';
+                  if (!type || !name || (!url && !storagePath)) {
+                      return null;
+                  }
                   const mimeType = typeof a.mimeType === 'string' ? a.mimeType : undefined;
-                  const storagePath = typeof a.storagePath === 'string' ? a.storagePath : undefined;
-                  return { type, url, name, mimeType, storagePath };
+                  return {
+                      type,
+                      ...(url ? { url } : {}),
+                      name,
+                      mimeType,
+                      storagePath: storagePath || undefined,
+                  };
               })()
             : null;
     const bestCommentId =
@@ -454,10 +466,23 @@ function pickBestCommunityAttachment(
     if (la && !ra) return la;
     if (ra && !la) return ra;
     if (!la && !ra) return null;
-    if (la!.storagePath && !ra!.storagePath) return la;
-    if (ra!.storagePath && !la!.storagePath) return ra;
-    if (la!.storagePath?.startsWith('idb:forum:') && !ra!.storagePath?.startsWith('idb:forum:')) return la;
-    return la!.url && !ra!.url ? la : ra!.url && !la!.url ? ra : la;
+
+    const localCloud = isCloudStoragePath(la!.storagePath);
+    const remoteCloud = isCloudStoragePath(ra!.storagePath);
+    if (localCloud && !remoteCloud) return la;
+    if (remoteCloud && !localCloud) return ra;
+
+    const localStable = Boolean(la!.url && !la!.url.startsWith('blob:'));
+    const remoteStable = Boolean(ra!.url && !ra!.url.startsWith('blob:'));
+    if (localStable && !remoteStable) return la;
+    if (remoteStable && !localStable) return ra;
+
+    return la!.storagePath && !ra!.storagePath ? la : ra!.storagePath && !la!.storagePath ? ra : la;
+}
+
+function isCloudStoragePath(path: string | undefined | null): boolean {
+    const trimmed = path?.trim() ?? '';
+    return Boolean(trimmed && !trimmed.startsWith('idb:forum:'));
 }
 
 function mergeSingleCommunityPost(local: CommunityPost, remote: CommunityPost): CommunityPost {
@@ -533,41 +558,63 @@ function mergePostsById(localPosts: CommunityPost[], remotePosts: CommunityPost[
     return mergeCommunityPostsById(localPosts, remotePosts);
 }
 
+let communityKvMergeInflight: Promise<void> | null = null;
+
+async function mergeCommunityPostsFromKvInBackground(
+    localBaseline: CommunityPost[],
+    deletedIds: Set<string>,
+): Promise<void> {
+    if (!isKvProxyNetworkEnabled()) return;
+    try {
+        const res = await kv.getByPrefix('community:posts:');
+        const remotePosts = Array.isArray(res)
+            ? res.map((p) => normalizeCommunityPost(p)).filter((p): p is CommunityPost => p !== null)
+            : [];
+        const merged = sortCommunityPosts(
+            filterDeletedCommunityPosts(mergePostsById(localBaseline, remotePosts), deletedIds),
+        );
+        await saveLocalCommunityPosts(merged);
+    } catch {
+        /* background sync — لا نُعطّل التفاعل */
+    }
+}
+
+async function findLocalCommunityPostById(postId: string): Promise<CommunityPost | null> {
+    const mirrored = readCommunityPostsFromMirrors();
+    const rawPosts = mirrored !== null ? mirrored : await loadLocalCommunityPosts();
+    const hit = rawPosts.find((p) => p?.id === postId);
+    if (!hit) return null;
+    return normalizeCommunityPost(hit);
+}
+
 export const CommunityDB = {
     async listPosts(): Promise<CommunityPost[]> {
         const deletedIds = await loadDeletedCommunityPostIds();
-        const localPosts = (await loadLocalCommunityPosts()).map((p) => normalizeCommunityPost(p)).filter((p): p is CommunityPost => p !== null);
+        const mirrored = readCommunityPostsFromMirrors();
+        const rawPosts = mirrored !== null ? mirrored : await loadLocalCommunityPosts();
+        const localPosts = rawPosts
+            .map((p) => normalizeCommunityPost(p))
+            .filter((p): p is CommunityPost => p !== null);
         const withoutDeleted = filterDeletedCommunityPosts(localPosts, deletedIds);
-        if (!isKvProxyNetworkEnabled()) {
-            return sortCommunityPosts(withoutDeleted);
+        const sorted = sortCommunityPosts(withoutDeleted);
+
+        if (isKvProxyNetworkEnabled() && !communityKvMergeInflight) {
+            communityKvMergeInflight = mergeCommunityPostsFromKvInBackground(withoutDeleted, deletedIds).finally(
+                () => {
+                    communityKvMergeInflight = null;
+                },
+            );
         }
-        try {
-            const res = await kv.getByPrefix('community:posts:');
-            const remotePosts = Array.isArray(res) ? res.map((p) => normalizeCommunityPost(p)).filter((p): p is CommunityPost => p !== null) : [];
-            const merged = filterDeletedCommunityPosts(
-                mergePostsById(withoutDeleted, remotePosts),
-                deletedIds,
-            ).sort((a, b) => {
-                const aPin = a.isPinned ? 1 : 0;
-                const bPin = b.isPinned ? 1 : 0;
-                return bPin - aPin || Date.parse(b.createdAt) - Date.parse(a.createdAt);
-            });
-            await saveLocalCommunityPosts(merged);
-            return merged;
-        } catch {
-            return withoutDeleted.sort((a, b) => {
-                const aPin = a.isPinned ? 1 : 0;
-                const bPin = b.isPinned ? 1 : 0;
-                return bPin - aPin || Date.parse(b.createdAt) - Date.parse(a.createdAt);
-            });
-        }
+
+        return sorted;
     },
 
     async savePost(post: CommunityPost): Promise<void> {
         return withCommunityPostsWriteLock(async () => {
             const normalized = normalizeCommunityPost(post);
             if (!normalized) throw new Error('بيانات المنشور غير صالحة');
-            const localPosts = await loadLocalCommunityPosts();
+            const mirrored = readCommunityPostsFromMirrors();
+            const localPosts = mirrored !== null ? mirrored : await loadLocalCommunityPosts();
             const merged = mergePostsById(localPosts, [normalized]).sort((a, b) => {
                 const aPin = a.isPinned ? 1 : 0;
                 const bPin = b.isPinned ? 1 : 0;
@@ -575,11 +622,7 @@ export const CommunityDB = {
             });
             await saveLocalCommunityPosts(merged);
             if (isKvProxyNetworkEnabled()) {
-                try {
-                    await kv.set(`community:posts:${normalized.id}`, normalized);
-                } catch {
-                    /* المحلي محفوظ — kv اختياري في التطوير */
-                }
+                void kv.set(`community:posts:${normalized.id}`, normalized).catch(() => undefined);
             }
         });
     },
@@ -598,32 +641,21 @@ export const CommunityDB = {
 
     async deletePost(postId: string): Promise<void> {
         return withCommunityPostsWriteLock(async () => {
+            const existing = await findLocalCommunityPostById(postId);
+            const attachmentPath = existing?.attachment?.storagePath?.trim() || null;
+
             await markCommunityPostDeleted(postId);
-            const localPosts = (await loadLocalCommunityPosts()).filter((p) => p?.id !== postId);
-            await saveLocalCommunityPosts(localPosts);
+            const mirrored = readCommunityPostsFromMirrors();
+            const rawPosts = mirrored !== null ? mirrored : await loadLocalCommunityPosts();
+            await saveLocalCommunityPosts(rawPosts.filter((p) => p?.id !== postId));
 
-        let attachmentPath: string | null = null;
-        try {
-            const raw = await kv.get(`community:posts:${postId}`);
-            const post = normalizeCommunityPost(raw);
-            if (post?.attachment?.storagePath) {
-                attachmentPath = post.attachment.storagePath;
+            if (attachmentPath && !attachmentPath.startsWith('idb:forum:')) {
+                void removeStoragePathsBestEffort([attachmentPath]);
             }
-        } catch {
-            // لا يمكن جلب بيانات المنشور — نكمل الحذف على أي حال
-        }
 
-        if (attachmentPath) {
-            await removeStoragePathsBestEffort([attachmentPath]);
-        }
-
-        if (isKvProxyNetworkEnabled()) {
-            try {
-                await kv.del(`community:posts:${postId}`);
-            } catch {
-                /* المحلي محدّث — kv اختياري في التطوير */
+            if (isKvProxyNetworkEnabled()) {
+                void kv.del(`community:posts:${postId}`).catch(() => undefined);
             }
-        }
         });
     },
 
@@ -706,25 +738,11 @@ export const ForumBookmarkDB = {
     },
 };
 
-async function listCommunityPostsFromApi(limit: number, offset: number): Promise<{ posts: CommunityPost[]; total: number } | null> {
-    if (typeof window === 'undefined') return null;
-    try {
-        const { ForumApiService } = await import('@/app/services/forumApiService');
-        return await ForumApiService.listPostsPaginated(limit, offset);
-    } catch {
-        return null;
-    }
-}
-
 export async function getCommunityPosts() {
-    const fromApi = await listCommunityPostsFromApi(500, 0);
-    if (fromApi) return fromApi.posts;
     return await CommunityDB.listPosts();
 }
 
 export async function getCommunityPostsPaginated(limit: number, offset: number): Promise<{ posts: CommunityPost[]; total: number }> {
-    const fromApi = await listCommunityPostsFromApi(limit, offset);
-    if (fromApi) return fromApi;
     const all = await CommunityDB.listPosts();
     return {
         posts: all.slice(offset, offset + limit),
@@ -733,14 +751,6 @@ export async function getCommunityPostsPaginated(limit: number, offset: number):
 }
 
 export async function getCommunityPostById(postId: string): Promise<CommunityPost | null> {
-    if (typeof window !== 'undefined') {
-        try {
-            const { ForumApiService } = await import('@/app/services/forumApiService');
-            return await ForumApiService.getPostById(postId);
-        } catch {
-            /* fallback */
-        }
-    }
     const all = await CommunityDB.listPosts();
     return all.find((p) => p.id === postId) ?? null;
 }
@@ -750,8 +760,7 @@ export async function addCommunityPost(post: CommunityPost) {
 }
 
 export async function addCommunityComment(postId: string, comment: CommunityComment): Promise<CommunityPost> {
-    const posts = await CommunityDB.listPosts();
-    const post = posts.find((p) => p.id === postId);
+    const post = await findLocalCommunityPostById(postId);
     if (!post) throw new Error('المنشور غير موجود');
     const updated: CommunityPost = { ...post, comments: [...post.comments, comment], updatedAt: new Date().toISOString() };
     await CommunityDB.savePost(updated);
@@ -764,8 +773,7 @@ export async function deleteCommunityComment(
     requesterId: string,
     requesterRole?: UserRole,
 ): Promise<CommunityPost> {
-    const posts = await CommunityDB.listPosts();
-    const post = posts.find((p) => p.id === postId);
+    const post = await findLocalCommunityPostById(postId);
     if (!post) throw new Error('المنشور غير موجود');
     const comment = post.comments.find((c) => c.id === commentId);
     if (!comment) throw new Error('التعليق غير موجود');
@@ -789,8 +797,7 @@ export async function editCommunityComment(
     newContent: string,
     requesterId: string,
 ): Promise<CommunityPost> {
-    const posts = await CommunityDB.listPosts();
-    const post = posts.find((p) => p.id === postId);
+    const post = await findLocalCommunityPostById(postId);
     if (!post) throw new Error('المنشور غير موجود');
     const comment = post.comments.find((c) => c.id === commentId);
     if (!comment) throw new Error('التعليق غير موجود');
@@ -814,12 +821,8 @@ export async function deleteCommunityPost(
     requesterRole?: UserRole,
     authorId?: string,
 ): Promise<void> {
-    const rawPosts = await loadLocalCommunityPosts();
-    const stored = rawPosts.find((p) => p?.id === postId);
-    const ownerId = resolveCommunityPostOwnerId(
-        stored ? normalizeCommunityPost(stored) ?? undefined : undefined,
-        authorId,
-    );
+    const stored = await findLocalCommunityPostById(postId);
+    const ownerId = resolveCommunityPostOwnerId(stored ?? undefined, authorId);
     if (!canActOnCommunityPost(requesterId, ownerId, authorId, requesterRole)) {
         throw new Error('ليس لديك صلاحية لحذف هذا المنشور');
     }
@@ -827,8 +830,7 @@ export async function deleteCommunityPost(
 }
 
 export async function updateCommunityPost(postId: string, newContent: string, requesterId?: string) {
-    const posts = await CommunityDB.listPosts();
-    const post = posts.find((p) => p.id === postId);
+    const post = await findLocalCommunityPostById(postId);
     if (!post) throw new Error('المنشور غير موجود');
     const postAuthorId = post.author_id ?? post.authorId ?? '';
     if (requesterId && requesterId !== postAuthorId) {
@@ -850,8 +852,7 @@ export async function toggleLockCommunityPost(
     requesterIsAdmin: boolean,
     authorHint?: string,
 ): Promise<CommunityPost> {
-    const posts = await CommunityDB.listPosts();
-    const post = posts.find((p) => p.id === postId);
+    const post = await findLocalCommunityPostById(postId);
     if (!post) throw new Error('المنشور غير موجود');
     const ownerId = resolveCommunityPostOwnerId(post, authorHint);
     const adminRole = requesterIsAdmin ? UserRole.SUPER_ADMIN : undefined;
@@ -878,8 +879,7 @@ export async function togglePinCommunityPost(
     ) {
         throw new Error('ليس لديك صلاحية تثبيت المنشورات');
     }
-    const posts = await CommunityDB.listPosts();
-    const post = posts.find((p) => p.id === postId);
+    const post = await findLocalCommunityPostById(postId);
     if (!post) throw new Error('المنشور غير موجود');
     const updated: CommunityPost = {
         ...post,
@@ -1072,8 +1072,6 @@ export async function notifyFollowers(userId: string, type: 'new_post' | 'new_do
             await dispatchFollowedUserNewDocument({ authorId: userId, title, message, docId: postId });
             return;
         }
-        const { ForumFollowRepository } = await import('@/app/services/forum/forumFollowRepository');
-        const { NotificationDB } = await import('@/app/services/notifications/notificationForumStorage');
         const followers = await ForumFollowRepository.getFollowers(userId);
         for (const f of followers) {
             if (!f.notifyPosts) continue;

@@ -1,7 +1,7 @@
 import type { GlobalNote } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
-import type { SmartVaultDoc } from '@/app/services/lawyer-cloud';
+import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import type { RepositoryFeedItem } from '@/app/services/repository/repositoryUnifiedFeed';
 import { djb2Hash as hashText } from '@/app/utils/djb2';
 
@@ -42,7 +42,9 @@ function lawsuitFileSig(file: RepositoryFeedBuildInput['lawsuitFiles'][number]):
         for (const event of timeline) {
             if (event.type !== 'note') continue;
             timelineParts.push(
-                `${event.id}|${hashText(String(event.title ?? ''))}|${hashText(String(event.details ?? ''))}|${event.date ?? ''}`,
+                `${event.id}|${hashText(String(event.title ?? ''))}|${hashText(String(event.details ?? ''))}|${event.date ?? ''}|${
+                    (event as { isDeleted?: boolean }).isDeleted ? 1 : 0
+                }`,
             );
         }
     }

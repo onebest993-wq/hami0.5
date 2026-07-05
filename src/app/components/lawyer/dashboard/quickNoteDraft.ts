@@ -1,3 +1,5 @@
+import SecureStoreService from '@/app/services/SecureStoreService';
+
 const DRAFT_PREFIX = 'hami:sovereign-quick-note-draft:';
 const MAX_DRAFT_CHARS = 2_000;
 
@@ -23,7 +25,6 @@ export async function loadQuickNoteDraft(userId?: string): Promise<string> {
     }
     if (typeof window === 'undefined') return '';
     try {
-        const SecureStoreService = (await import('@/app/services/SecureStoreService')).default;
         await SecureStoreService.ensurePersistedReady();
         const raw = await SecureStoreService.getItem(key);
         if (!raw) return '';
@@ -44,7 +45,6 @@ export async function saveQuickNoteDraft(userId: string | undefined, text: strin
     }
     if (typeof window === 'undefined') return;
     try {
-        const SecureStoreService = (await import('@/app/services/SecureStoreService')).default;
         await SecureStoreService.ensurePersistedReady();
         if (trimmed) await SecureStoreService.setItem(key, trimmed);
         else await SecureStoreService.deleteItem(key);

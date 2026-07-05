@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { Suspense } from 'react';
+import React from 'react';
 import type { SmartFileMainPanelProps } from '@/app/components/lawyer/smart-modal/layout/mainPanel/smartFileMainPanelTypes';
 import { useSmartFileMainPanelLayout } from '@/app/components/lawyer/smart-modal/layout/mainPanel/useSmartFileMainPanelLayout';
 import { SmartFileStatusBanners } from '@/app/components/lawyer/smart-modal/layout/mainPanel/SmartFileStatusBanners';
@@ -13,11 +13,9 @@ import { PersonalStatusCassationOutcomePanel } from '@/app/components/lawyer/per
 import { buildSessionRecordPayload, isOpponentProceedingsEvent, isSessionTimelineEvent } from '@/app/components/lawyer/smart-modal/smartFile/sessionRecordEngine';
 import { storedFastTrackStatus } from '@/app/components/lawyer/smart-modal/smartFile/fastTrackStatus';
 import { pickNonemptyString, readFileDetailsField } from '@/app/components/lawyer/smart-modal/layout/mainPanel/smartFileMainPanelUtils';
-import {
-    LazySessionAndRequestsHub,
-    LazyToDoList,
-    LazyTimelineFeed,
-} from '@/app/components/lawyer/smart-modal/lazySmartFileModalWidgets';
+import { SessionAndRequestsHub } from '@/app/components/lawyer/smart-modal/parts/SessionAndRequestsHub';
+import { ToDoList } from '@/app/components/lawyer/smart-modal/parts/ToDoList';
+import { TimelineFeed } from '@/app/components/lawyer/smart-modal/parts/TimelineFeed';
 import { PersonalStatusIdentityFolio } from '@/app/components/lawyer/personal-status/PersonalStatusIdentityFolio';
 import { PersonalStatusPleadingActions } from '@/app/components/lawyer/personal-status/PersonalStatusPleadingActions';
 import { PersonalStatusActionDock } from '@/app/components/lawyer/personal-status/PersonalStatusActionDock';
@@ -221,13 +219,11 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
                     handleResume={handleResume}
                 />
 
-                <Suspense fallback={null}>
-                    <PersonalStatusIdentityFolio
-                        formData={headerFormData}
-                        caseType={String(file?.type ?? displayStage?.type ?? 'غير محدد')}
-                        file={file}
-                    />
-                </Suspense>
+                <PersonalStatusIdentityFolio
+                    formData={headerFormData}
+                    caseType={String(file?.type ?? displayStage?.type ?? 'غير محدد')}
+                    file={file}
+                />
 
                 {!isViewingArchived && !isCassationStage ? (
                     isWaitingView ? (
@@ -263,12 +259,10 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
 
                         <div className="flex flex-col gap-2.5 min-w-0 h-full min-h-full">
                             {showWorkSections ? (
-                                <Suspense fallback={null}>
-                                    <LazySessionAndRequestsHub
-                                        {...sessionHubProps}
-                                        compose="session-only"
-                                    />
-                                </Suspense>
+                                <SessionAndRequestsHub
+                                    {...sessionHubProps}
+                                    compose="session-only"
+                                />
                             ) : null}
 
                             {showWorkSections ? (
@@ -295,12 +289,10 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
                                             ) : null
                                         }
                                     >
-                                        <Suspense fallback={null}>
-                                            <LazySessionAndRequestsHub
-                                                {...sessionHubProps}
-                                                compose="requests-only"
-                                            />
-                                        </Suspense>
+                                        <SessionAndRequestsHub
+                                            {...sessionHubProps}
+                                            compose="requests-only"
+                                        />
                                     </PersonalStatusPearlSection>
 
                                     <PersonalStatusPearlSection
@@ -320,18 +312,16 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
                                             </button>
                                         }
                                     >
-                                        <Suspense fallback={null}>
-                                            <LazyToDoList
-                                                tasks={displayStage?.tasks || []}
-                                                visualVariant="personal-pearl"
-                                                onAddTask={() => setShowTaskModal(true)}
-                                                onToggleTask={handleToggleTask}
-                                                onAppealBriefFile={handleAppealBriefFile}
-                                                onAppealBriefOutcome={handleAppealBriefOutcome}
-                                                onCorrespondenceResponse={handleCorrespondenceResponse}
-                                                onEditTask={(task) => setEditingTask(task)}
-                                            />
-                                        </Suspense>
+                                        <ToDoList
+                                            tasks={displayStage?.tasks || []}
+                                            visualVariant="personal-pearl"
+                                            onAddTask={() => setShowTaskModal(true)}
+                                            onToggleTask={handleToggleTask}
+                                            onAppealBriefFile={handleAppealBriefFile}
+                                            onAppealBriefOutcome={handleAppealBriefOutcome}
+                                            onCorrespondenceResponse={handleCorrespondenceResponse}
+                                            onEditTask={(task) => setEditingTask(task)}
+                                        />
                                     </PersonalStatusPearlSection>
                                 </div>
                             ) : null}
@@ -341,14 +331,12 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
                 ) : null}
 
                 <PersonalStatusPearlSection label="سجل" variant="glass" className="mb-1 print:block" bodyClassName="p-2 pt-1.5">
-                    <Suspense fallback={null}>
-                        <LazyTimelineFeed
-                            events={displayTimeline}
-                            visualVariant="personal-pearl"
-                            onDelete={!isViewingArchived ? handleDeleteEvent : undefined}
-                            onEdit={!isViewingArchived ? handleEditEvent : undefined}
-                        />
-                    </Suspense>
+                    <TimelineFeed
+                        events={displayTimeline}
+                        visualVariant="personal-pearl"
+                        onDelete={!isViewingArchived ? handleDeleteEvent : undefined}
+                        onEdit={!isViewingArchived ? handleEditEvent : undefined}
+                    />
                 </PersonalStatusPearlSection>
 
                 {showCassationOutcomePanel ? (

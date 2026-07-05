@@ -141,22 +141,51 @@ async function refreshProfileFromCloud(userId: string, localBase: LawyerProfileD
 }
 
 export const ProfileDB = {
-    async getProfile(userId: string): Promise<LawyerProfileData> {
-        const viewerId = await resolveSessionProfileUserId();
+    async getProfile(userId: string, viewerIdOverride?: string | null): Promise<LawyerProfileData> {
+        const viewerId = viewerIdOverride?.trim() || (await resolveSessionProfileUserId());
         const persistLocal = shouldPersistProfileLocally(viewerId, userId);
-
-        const cached = profileMemoryCache.get(userId);
-        if (cached) {
-            if (shouldSyncProfileCloud(userId)) void refreshProfileFromCloud(userId, cached);
-            return {
-                ...cached,
-                header: { ...cached.header },
-                sections: cached.sections.map((section) => ({ ...section })),
-            };
-        }
+        //#region debug-point profile-db-get-start
+        fetch('http://127.0.0.1:7777/event', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sessionId: 'profile-edit-persist',
+                runId: 'post-fix',
+                hypothesisId: 'C',
+                location: 'lawyerProfileCloud.ts:getProfile:start',
+                msg: '[DEBUG] ProfileDB.getProfile resolved viewer scope',
+                data: {
+                    userId,
+                    viewerId,
+                    persistLocal,
+                    memoryCached: profileMemoryCache.has(userId),
+                },
+                ts: Date.now(),
+            }),
+        }).catch(() => undefined);
+        //#endregion debug-point profile-db-get-start
 
         if (persistLocal) {
             const local = await loadLocalProfile(userId);
+            //#region debug-point profile-db-get-local
+            fetch('http://127.0.0.1:7777/event', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sessionId: 'profile-edit-persist',
+                    runId: 'post-fix',
+                    hypothesisId: 'C',
+                    location: 'lawyerProfileCloud.ts:getProfile:local',
+                    msg: '[DEBUG] ProfileDB.getProfile checked local storage',
+                    data: {
+                        userId,
+                        hasLocal: Boolean(local),
+                        localName: local?.header?.name ?? null,
+                    },
+                    ts: Date.now(),
+                }),
+            }).catch(() => undefined);
+            //#endregion debug-point profile-db-get-local
             if (local) {
                 const cleaned = sanitizeLawyerProfile(local);
                 const quick = cacheProfile(userId, { ...cleaned, header: { ...cleaned.header } });
@@ -167,6 +196,16 @@ export const ProfileDB = {
                     sections: quick.sections.map((section) => ({ ...section })),
                 };
             }
+        }
+
+        const cached = profileMemoryCache.get(userId);
+        if (cached) {
+            if (shouldSyncProfileCloud(userId)) void refreshProfileFromCloud(userId, cached);
+            return {
+                ...cached,
+                header: { ...cached.header },
+                sections: cached.sections.map((section) => ({ ...section })),
+            };
         }
 
         try {
@@ -186,15 +225,50 @@ export const ProfileDB = {
     async saveProfile(userId: string, profile: LawyerProfileData, writerId: string): Promise<void> {
         assertCanWriteProfile(writerId, userId);
         const cleaned = sanitizeLawyerProfile(profile);
-        try {
-            await lawyerCloudKv.set(`profile:${userId}`, cleaned);
-        } catch {
-            /* Cloud-First */
-        }
+        //#region debug-point profile-db-save-start
+        fetch('http://127.0.0.1:7777/event', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sessionId: 'profile-edit-persist',
+                runId: 'post-fix',
+                hypothesisId: 'B',
+                location: 'lawyerProfileCloud.ts:saveProfile:start',
+                msg: '[DEBUG] ProfileDB.saveProfile received payload',
+                data: {
+                    userId,
+                    writerId,
+                    cleanedName: cleaned.header?.name ?? null,
+                    cleanedImagePath: cleaned.header?.profileImagePath ?? null,
+                    sectionsCount: cleaned.sections.length,
+                },
+                ts: Date.now(),
+            }),
+        }).catch(() => undefined);
+        //#endregion debug-point profile-db-save-start
         await saveLocalProfile(userId, cleaned);
+        //#region debug-point profile-db-save-local-done
+        fetch('http://127.0.0.1:7777/event', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sessionId: 'profile-edit-persist',
+                runId: 'post-fix',
+                hypothesisId: 'C',
+                location: 'lawyerProfileCloud.ts:saveProfile:local-done',
+                msg: '[DEBUG] ProfileDB.saveProfile wrote local profile',
+                data: {
+                    userId,
+                    cleanedName: cleaned.header?.name ?? null,
+                },
+                ts: Date.now(),
+            }),
+        }).catch(() => undefined);
+        //#endregion debug-point profile-db-save-local-done
         cacheProfile(userId, cleaned);
         if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent(LAWYER_PROFILE_UPDATED, { detail: { userId } }));
         }
+        void lawyerCloudKv.set(`profile:${userId}`, cleaned).catch(() => undefined);
     },
 };

@@ -1,55 +1,107 @@
-import React from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Hourglass } from 'lucide-react';
 import type { LegalTask } from '@/app/types/TaskEngine';
+import { addDays } from '@/app/utils/nlpParser';
+import type { TaskListOrdinal } from './TaskListOrdinalBadge';
+import { SnoozedTaskCard } from './SnoozedTaskCard';
 import {
     TASKS_SECTION_TITLE,
     TASKS_GLASS_PANEL,
     TASKS_INPUT,
     TASKS_BTN_BRONZE,
-    TASKS_BTN_GHOST,
 } from './tasksBoucleTheme';
+import { dateFromYmdInput, formatLocalYmdInput, isDeferredSnoozedTask } from './utils';
+import { markTasksDatePickerOpening } from './tasksDatePickerGrace';
 
 export type DistantTasksSectionProps = {
     distantTasks: LegalTask[];
     snoozePanelOpen: boolean;
     setSnoozePanelOpen: React.Dispatch<React.SetStateAction<boolean>>;
-    snoozeTitle: string;
-    setSnoozeTitle: React.Dispatch<React.SetStateAction<string>>;
-    snoozeCustomIso: string;
-    setSnoozeCustomIso: React.Dispatch<React.SetStateAction<string>>;
-    applySnoozeChoice: (afterDays: number | null, customIso?: string) => void;
-    renderTaskCard: (task: LegalTask, fatalPulse: boolean) => React.ReactNode;
+    saveSnoozedTask: (title: string, dueIso: string) => void;
+    minSnoozeIso: string;
+    renderTaskCard: (task: LegalTask, fatalPulse: boolean, listOrdinal?: TaskListOrdinal) => React.ReactNode;
+    now: Date;
 };
 
-export const DistantTasksSection = React.memo(function DistantTasksSection({
-    distantTasks,
-    snoozePanelOpen,
-    setSnoozePanelOpen,
-    snoozeTitle,
-    setSnoozeTitle,
-    snoozeCustomIso,
-    setSnoozeCustomIso,
-    applySnoozeChoice,
-    renderTaskCard,
-}: DistantTasksSectionProps) {
+export const DistantTasksSection = React.memo(function DistantTasksSection(props: DistantTasksSectionProps) {
     return (
-        <section className="mt-10 pt-6 border-t border-[#A67C52]/15">
+        <section className="mt-10 pt-6 border-t border-[#A67C52]/15" data-testid="tasks-distant-section">
             <h2 className={`${TASKS_SECTION_TITLE} mb-5`}>
                 <Hourglass className="size-5 text-[#A67C52]/70 shrink-0" aria-hidden />
-                المهام البعيدة وغير المجدولة
+                المهام المؤجلة
             </h2>
-            <DistantTasksBody
-                distantTasks={distantTasks}
-                snoozePanelOpen={snoozePanelOpen}
-                setSnoozePanelOpen={setSnoozePanelOpen}
-                snoozeTitle={snoozeTitle}
-                setSnoozeTitle={setSnoozeTitle}
-                snoozeCustomIso={snoozeCustomIso}
-                setSnoozeCustomIso={setSnoozeCustomIso}
-                applySnoozeChoice={applySnoozeChoice}
-                renderTaskCard={renderTaskCard}
-            />
+            <DistantTasksBody {...props} />
         </section>
+    );
+});
+
+const SnoozeTaskForm = React.memo(function SnoozeTaskForm({
+    minSnoozeIso,
+    onSave,
+}: {
+    minSnoozeIso: string;
+    onSave: (title: string, dueIso: string) => void;
+}) {
+    const dateRef = useRef<HTMLInputElement>(null);
+    const defaultDueIso = useMemo(() => {
+        const minDate = dateFromYmdInput(minSnoozeIso);
+        if (!minDate) return minSnoozeIso;
+        return formatLocalYmdInput(addDays(minDate, 1));
+    }, [minSnoozeIso]);
+
+    const [title, setTitle] = useState('');
+
+    const handleSave = useCallback(() => {
+        const dueIso = dateRef.current?.value ?? defaultDueIso;
+        onSave(title, dueIso);
+    }, [defaultDueIso, onSave, title]);
+
+    return (
+        <div
+            className={`${TASKS_GLASS_PANEL} p-4 space-y-4 [contain:layout_style_paint]`}
+            data-testid="tasks-snooze-form"
+        >
+            <input
+                dir="rtl"
+                type="text"
+                placeholder="عنوان المهمة…"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className={TASKS_INPUT}
+            />
+            <div className="space-y-2 text-right">
+                <label
+                    htmlFor="tasks-snooze-due-date"
+                    className="block text-[11px] font-bold text-[#A67C52]/80"
+                >
+                    تاريخ القيام بالمهمة
+                </label>
+                <input
+                    ref={dateRef}
+                    id="tasks-snooze-due-date"
+                    type="date"
+                    dir="ltr"
+                    lang="ar-IQ"
+                    defaultValue={defaultDueIso}
+                    min={minSnoozeIso}
+                    className={`${TASKS_INPUT} !py-2.5 text-sm touch-manipulation [color-scheme:dark] tabular-nums`}
+                    data-testid="tasks-snooze-due-date"
+                    onPointerDown={markTasksDatePickerOpening}
+                    onFocus={markTasksDatePickerOpening}
+                />
+            </div>
+            <div className="flex flex-row-reverse justify-end">
+                <button
+                    type="button"
+                    data-testid="tasks-snooze-save"
+                    onClick={handleSave}
+                    disabled={!title.trim()}
+                    className={`${TASKS_BTN_BRONZE} min-h-[44px] disabled:opacity-40 touch-manipulation`}
+                >
+                    حفظ المهمة المؤجلة
+                </button>
+            </div>
+        </div>
     );
 });
 
@@ -58,68 +110,65 @@ function DistantTasksBody(props: DistantTasksSectionProps) {
         distantTasks,
         snoozePanelOpen,
         setSnoozePanelOpen,
-        snoozeTitle,
-        setSnoozeTitle,
-        snoozeCustomIso,
-        setSnoozeCustomIso,
-        applySnoozeChoice,
+        saveSnoozedTask,
+        minSnoozeIso,
         renderTaskCard,
+        now,
     } = props;
+
+    const { snoozedTasks, otherDistantTasks } = useMemo(() => {
+        const snoozed: LegalTask[] = [];
+        const other: LegalTask[] = [];
+        for (const task of distantTasks) {
+            if (isDeferredSnoozedTask(task, now)) snoozed.push(task);
+            else other.push(task);
+        }
+        return { snoozedTasks: snoozed, otherDistantTasks: other };
+    }, [distantTasks, now]);
+
+    const handleSaveSnoozed = useCallback(
+        (title: string, dueIso: string) => {
+            saveSnoozedTask(title, dueIso);
+            setSnoozePanelOpen(false);
+        },
+        [saveSnoozedTask, setSnoozePanelOpen],
+    );
 
     return (
         <div className={`rounded-2xl border border-dashed border-[#A67C52]/25 ${TASKS_GLASS_PANEL} px-5 py-6 space-y-5`}>
             <div className="flex flex-row-reverse flex-wrap items-center justify-between gap-3">
-                <button type="button" onClick={() => setSnoozePanelOpen((o) => !o)} className={TASKS_BTN_BRONZE}>
+                <button
+                    type="button"
+                    data-testid="tasks-snooze-toggle"
+                    onClick={() => setSnoozePanelOpen((open) => !open)}
+                    className={TASKS_BTN_BRONZE}
+                >
                     + إضافة مهمة مؤجلة
                 </button>
             </div>
 
             {snoozePanelOpen ? (
-                <div className={`${TASKS_GLASS_PANEL} p-4 space-y-4`}>
-                    <input
-                        dir="rtl"
-                        type="text"
-                        placeholder="عنوان المهمة المؤجلة…"
-                        value={snoozeTitle}
-                        onChange={(e) => setSnoozeTitle(e.target.value)}
-                        className={TASKS_INPUT}
-                    />
-                    <div className="flex flex-row-reverse flex-wrap gap-2 justify-end">
-                        {[7, 14, 30].map((days) => (
-                            <button
-                                key={days}
-                                type="button"
-                                onClick={() => applySnoozeChoice(days)}
-                                className={TASKS_BTN_GHOST}
-                            >
-                                {days === 7 ? 'أسبوع' : days === 14 ? 'أسبوعين' : 'شهر'}
-                            </button>
-                        ))}
-                    </div>
-                    <div className="flex flex-row-reverse flex-wrap gap-2 items-center justify-end">
-                        <input
-                            type="date"
-                            className={`rounded-lg ${TASKS_INPUT} !py-2 text-xs [color-scheme:dark]`}
-                            value={snoozeCustomIso}
-                            onChange={(e) => setSnoozeCustomIso(e.target.value)}
-                        />
-                        <button
-                            type="button"
-                            onClick={() => applySnoozeChoice(null, snoozeCustomIso)}
-                            disabled={!snoozeTitle.trim() || !snoozeCustomIso}
-                            className={`${TASKS_BTN_BRONZE} disabled:opacity-40`}
-                        >
-                            مخصص — حفظ
-                        </button>
-                    </div>
-                </div>
+                <SnoozeTaskForm minSnoozeIso={minSnoozeIso} onSave={handleSaveSnoozed} />
             ) : null}
 
-            {distantTasks.length === 0 ? (
-                <p className="text-[#6BC4A8]/45 text-sm text-center font-medium py-8">لا مهام هامشية — أسبوعك نظيف.</p>
-            ) : (
-                <ul className="space-y-4">{distantTasks.map((t) => renderTaskCard(t, false))}</ul>
-            )}
+            {snoozedTasks.length > 0 ? (
+                <ul className="space-y-2" data-testid="tasks-snoozed-list">
+                    {snoozedTasks.map((task, i) => (
+                        <SnoozedTaskCard
+                            key={task.id}
+                            task={task}
+                            listOrdinal={{ index: i, total: snoozedTasks.length }}
+                        />
+                    ))}
+                </ul>
+            ) : null}
+            {otherDistantTasks.length > 0 ? (
+                <ul className="space-y-4">
+                    {otherDistantTasks.map((t, i) =>
+                        renderTaskCard(t, false, { index: i, total: otherDistantTasks.length }),
+                    )}
+                </ul>
+            ) : null}
         </div>
     );
 }

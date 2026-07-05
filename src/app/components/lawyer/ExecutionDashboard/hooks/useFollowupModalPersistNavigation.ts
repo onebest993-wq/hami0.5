@@ -7,6 +7,8 @@ import {
     type FollowupModalTabId,
 } from '../utils/followupModalPersistUtils';
 import type { FollowupUnifiedModalTab } from '../followupModalTabTypes';
+import { prefetchExecutionFollowupModalPortal } from '../executionFollowupModalLazy';
+import { prefetchExecutionFollowupTab } from '../executionFollowupTabPrefetch';
 
 export type { FollowupUnifiedModalTab } from '../followupModalTabTypes';
 
@@ -71,9 +73,7 @@ export function useFollowupModalPersistNavigation({
             const idx = order.indexOf(cur);
             const next = order[(idx + delta + order.length) % order.length] as FollowupUnifiedModalTab;
             setUnifiedModalTab(next);
-            void import('../executionFollowupTabPrefetch')
-                .then((m) => m.prefetchExecutionFollowupTab(next))
-                .catch(() => undefined);
+            prefetchExecutionFollowupTab(next);
             queueMicrotask(() => {
                 const host = followupModalSectionTabsRef.current;
                 if (!host) return;
@@ -86,9 +86,7 @@ export function useFollowupModalPersistNavigation({
 
     const openFollowupModalPersisted = useCallback(
         (opts?: { tab?: FollowupModalTabId }) => {
-            void import('../executionFollowupModalLazy')
-                .then((m) => m.prefetchExecutionFollowupModalPortal())
-                .catch(() => undefined);
+            prefetchExecutionFollowupModalPortal();
             followupModalOpenGenerationRef.current += 1;
             setShowUnifiedExecutionModal(true);
             const order = (followupSectionTabOrder as readonly string[]).filter(
@@ -102,9 +100,7 @@ export function useFollowupModalPersistNavigation({
             const tabToPrefetch = resolved.routeSeizureRequests
                 ? 'seizure_requests'
                 : resolved.tab ?? 'seizure_requests';
-            void import('../executionFollowupTabPrefetch')
-                .then((m) => m.prefetchExecutionFollowupTab(tabToPrefetch))
-                .catch(() => undefined);
+            prefetchExecutionFollowupTab(tabToPrefetch);
             if (resolved.routeSeizureRequests) {
                 openSeizureRequestsTabRef.current();
                 return;

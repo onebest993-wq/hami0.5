@@ -1,4 +1,11 @@
-import type { BanRecord, CommunityReport } from '@/app/services/lawyer-cloud';
+import type { BanRecord, CommunityReport } from '@/app/services/forum/forumTypes';
+import {
+    BanDB,
+    dismissCommunityReport,
+    ForumBookmarkDB,
+    getCommunityReports,
+    reportCommunityPost,
+} from '@/app/services/forum/forumCommunityRuntime';
 import { getForumSupabaseAdmin } from './supabaseAdmin';
 import { createForumRepositoryId, loadCommentUpvotes } from './forumRepositoryHydration';
 
@@ -10,7 +17,6 @@ export const forumRepositoryModeration = {
     ): Promise<{ ok: boolean; duplicate?: boolean }> {
         const admin = getForumSupabaseAdmin();
         if (!admin) {
-            const { reportCommunityPost } = await import('@/app/services/cloud/lawyerCommunityCloud');
             return reportCommunityPost(postId, reason, reporterId);
         }
 
@@ -40,7 +46,6 @@ export const forumRepositoryModeration = {
     async listReports(): Promise<CommunityReport[]> {
         const admin = getForumSupabaseAdmin();
         if (!admin) {
-            const { getCommunityReports } = await import('@/app/services/cloud/lawyerCommunityCloud');
             return getCommunityReports();
         }
         const { data, error } = await admin
@@ -67,7 +72,6 @@ export const forumRepositoryModeration = {
     ): Promise<void> {
         const admin = getForumSupabaseAdmin();
         if (!admin) {
-            const { dismissCommunityReport } = await import('@/app/services/cloud/lawyerCommunityCloud');
             await dismissCommunityReport(reportId, reviewerId);
             return;
         }
@@ -99,7 +103,6 @@ export const forumRepositoryModeration = {
     async isBanned(userId: string): Promise<BanRecord | null> {
         const admin = getForumSupabaseAdmin();
         if (!admin) {
-            const { BanDB } = await import('@/app/services/cloud/lawyerCommunityCloud');
             return BanDB.isBanned(userId);
         }
         const { data } = await admin.from('forum_bans').select('*').eq('user_id', userId).maybeSingle();
@@ -122,7 +125,6 @@ export const forumRepositoryModeration = {
     async banUser(record: BanRecord): Promise<void> {
         const admin = getForumSupabaseAdmin();
         if (!admin) {
-            const { BanDB } = await import('@/app/services/cloud/lawyerCommunityCloud');
             await BanDB.banUser(record);
             return;
         }
@@ -139,7 +141,6 @@ export const forumRepositoryModeration = {
     async unbanUser(userId: string): Promise<void> {
         const admin = getForumSupabaseAdmin();
         if (!admin) {
-            const { BanDB } = await import('@/app/services/cloud/lawyerCommunityCloud');
             await BanDB.unbanUser(userId);
             return;
         }
@@ -149,7 +150,6 @@ export const forumRepositoryModeration = {
     async listBannedUsers(): Promise<BanRecord[]> {
         const admin = getForumSupabaseAdmin();
         if (!admin) {
-            const { BanDB } = await import('@/app/services/cloud/lawyerCommunityCloud');
             return BanDB.listBannedUsers();
         }
         const { data } = await admin.from('forum_bans').select('*');
@@ -167,7 +167,6 @@ export const forumRepositoryModeration = {
     async toggleBookmark(postId: string, userId: string): Promise<{ bookmarked: boolean }> {
         const admin = getForumSupabaseAdmin();
         if (!admin) {
-            const { ForumBookmarkDB } = await import('@/app/services/cloud/lawyerCommunityCloud');
             const bookmarked = await ForumBookmarkDB.toggle(userId, postId);
             return { bookmarked };
         }
@@ -191,7 +190,6 @@ export const forumRepositoryModeration = {
     async listBookmarkedPostIds(userId: string): Promise<string[]> {
         const admin = getForumSupabaseAdmin();
         if (!admin) {
-            const { ForumBookmarkDB } = await import('@/app/services/cloud/lawyerCommunityCloud');
             return ForumBookmarkDB.listPostIds(userId);
         }
         const { data } = await admin

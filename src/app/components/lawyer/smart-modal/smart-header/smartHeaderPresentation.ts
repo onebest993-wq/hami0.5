@@ -25,10 +25,10 @@ export function displayCaseNo(caseNo: unknown): string {
 }
 
 export const PARTY_STRIP_SHELL =
-    'rounded-2xl border border-white/[0.07] bg-gradient-to-br from-white/[0.045] to-white/[0.015] backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ring-1 ring-inset ring-white/[0.04]';
+    'rounded-[18px] border border-white/[0.07] bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.02))] backdrop-blur-xl shadow-[0_12px_28px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.05)] ring-1 ring-inset ring-white/[0.03]';
 
 /** بطاقة الأطراف المنفصلة عن ترويسة القضية */
 export const PARTIES_CARD_SHELL =
-    'rounded-2xl mb-2 backdrop-blur-xl bg-[#0A0F1C]/48 border border-[#E6C673]/12 shadow-[0_10px_36px_rgba(0,0,0,0.28)] overflow-hidden';
+    'rounded-[22px] mb-1.5 backdrop-blur-2xl bg-[radial-gradient(circle_at_top,rgba(230,198,115,0.09),transparent_34%),linear-gradient(180deg,rgba(12,18,31,0.94),rgba(8,12,22,0.96))] border border-[#E6C673]/12 shadow-[0_18px_40px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.05)] overflow-hidden';
 
-export const CLIENT_MARKER_SLOT = 'shrink-0 w-10 flex items-center justify-center';
+export const CLIENT_MARKER_SLOT = 'shrink-0 min-w-[2.25rem] flex items-center justify-center';

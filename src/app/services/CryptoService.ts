@@ -1,3 +1,7 @@
+import { supabase } from '@/app/lib/supabase-client';
+import { getOrCreateDeviceId } from '@/app/security/deviceId';
+import { getBffCryptoWrapCredential } from '@/app/utils/bffCryptoSession';
+
 const __DEV__ = import.meta.env.DEV;
 const _log = (...a: unknown[]) => { if (__DEV__) console.log(...a); };
 const _warn = (...a: unknown[]) => { if (__DEV__) console.warn(...a); };
@@ -10,11 +14,9 @@ const DEVICE_WRAP_PREFIX = 'hami-crypto-device:';
 
 async function getWrapCredential(): Promise<string | null> {
   try {
-    const { getBffCryptoWrapCredential } = await import('@/app/utils/bffCryptoSession');
     const bffCredential = getBffCryptoWrapCredential();
     if (bffCredential) return bffCredential;
 
-    const { supabase } = await import('@/app/lib/supabase-client');
     const { data } = await supabase.auth.getSession();
     return data.session?.access_token?.trim() ?? null;
   } catch {
@@ -107,7 +109,6 @@ export class CryptoService {
   private static async tryRestoreKeyFromDevice(): Promise<boolean> {
     if (typeof window === 'undefined') return false;
     try {
-      const { getOrCreateDeviceId } = await import('@/app/security/deviceId');
       const deviceId = getOrCreateDeviceId();
       if (!deviceId) return false;
 
@@ -156,7 +157,6 @@ export class CryptoService {
   private static async persistKeyToDevice(): Promise<void> {
     if (typeof window === 'undefined' || !this.masterKey) return;
     try {
-      const { getOrCreateDeviceId } = await import('@/app/security/deviceId');
       const deviceId = getOrCreateDeviceId();
       if (!deviceId) return;
 

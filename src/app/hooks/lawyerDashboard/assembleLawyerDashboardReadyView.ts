@@ -222,14 +222,16 @@ export function assembleLawyerDashboardReadyView({
         headerProps,
         homeTabProps: {
             ...homeTabProps,
-            visible: isLawyerDashboardTabMounted(homeTabProps.visible, tabStackMask),
+            active: isLawyerDashboardTabMounted(homeTabProps.visible, tabStackMask),
         },
         scheduleTabProps: {
             ...scheduleTabProps,
-            visible: isLawyerDashboardTabMounted(scheduleTabProps.visible, tabStackMask),
+            active: isLawyerDashboardTabMounted(scheduleTabProps.visible, tabStackMask),
         },
         profileTab: {
             visible: overlays.activeTab === 'profile',
+            active:
+                overlays.activeTab === 'profile' && !shouldMaskLawyerDashboardTabStack(tabStackMask),
             sessionKey: profileTab.profileTabSessionKey,
             perfOpenEpoch: profileTab.profileOpenEpoch,
             onBack: profileTab.closeProfileTab,

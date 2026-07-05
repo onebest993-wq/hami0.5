@@ -1,4 +1,5 @@
-import type { CommunityPost } from '@/app/services/lawyer-cloud';
+import type { CommunityPost } from '@/app/services/forum/forumTypes';
+import { getCommunityPosts } from '@/app/services/forum/forumCommunityRuntime';
 import {
     communityPostToInsertRow,
     postRowToCommunity,
@@ -90,7 +91,6 @@ export async function migrateForumFromLegacyKvIfEmpty(): Promise<void> {
     const { count, error } = await admin.from('forum_posts').select('*', { count: 'exact', head: true });
     if (error || (count ?? 0) > 0) return;
 
-    const { getCommunityPosts } = await import('@/app/services/cloud/lawyerCommunityCloud');
     const legacy = await getCommunityPosts();
     if (!legacy.length) return;
 

@@ -1,4 +1,4 @@
-import type { ProfileAction } from '@/app/services/lawyer-cloud';
+import type { ProfileAction } from '@/app/services/profile/profileTypes';
 import type { ProfilePrivacySettings } from './profilePageTypes';
 
 export type BuildProfileShareTextInput = {

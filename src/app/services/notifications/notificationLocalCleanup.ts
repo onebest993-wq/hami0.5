@@ -1,4 +1,5 @@
 import SecureStoreService from '@/app/services/SecureStoreService';
+import { useNotificationStore } from '@/app/stores/notificationStore';
 import {
     FORUM_KV_UNIFIED_MIGRATION_VERSION,
 } from '@/app/services/notifications/notificationForumKvMigration';
@@ -45,6 +46,5 @@ export function clearLocalNotificationCache(userId: string | null): void {
 /** إعادة ضبط Zustand store للجرس. */
 export async function resetNotificationStoreAfterWipe(): Promise<void> {
     if (typeof window === 'undefined') return;
-    const { useNotificationStore } = await import('@/app/stores/notificationStore');
     useNotificationStore.getState().setUserId(null);
 }

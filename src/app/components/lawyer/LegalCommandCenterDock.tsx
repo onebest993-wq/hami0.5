@@ -47,8 +47,11 @@ import { HAMI_SHELL_CONTAINER } from './dashboard/lawyerShellLayout';
 import { useViewportShellScale } from '@/app/hooks/useViewportShellScale';
 import {
     prefetchDockWidgetIntentDebounced,
+    prefetchDockWidgetIntentImmediate,
     scheduleVisibleDockWidgetsPrefetch,
 } from '@/app/hooks/lawyerDashboard/dockShellPrefetchGate';
+import { hydrateFieldTasksShellForInstantOpen } from '@/app/runtime/fieldTasksBootHydrator';
+import { hydrateScheduleShellForInstantOpenWithData } from '@/app/runtime/scheduleBootHydrator';
 
 interface LegalCommandCenterDockProps {
     onAddNote?: (note: Note) => void;
@@ -75,6 +78,7 @@ type DockItemProps = {
     ariaLabel?: string;
     onClick: () => void;
     onPrefetch?: () => void;
+    onPointerPrime?: () => void;
     active?: boolean;
     badge?: boolean;
     reduceMotion: boolean;
@@ -92,6 +96,7 @@ const DockItem = memo(function DockItem({
     ariaLabel,
     onClick,
     onPrefetch,
+    onPointerPrime,
     active,
     badge,
     reduceMotion,
@@ -115,6 +120,7 @@ const DockItem = memo(function DockItem({
             disabled={disabled}
             tabIndex={disabled ? -1 : 0}
             onPointerEnter={onPrefetch}
+            onPointerDown={onPointerPrime}
             onClick={onClick}
             className={`hami-dock-item relative flex flex-col items-center justify-end gap-0 min-w-0 w-full pt-0.5 pb-1${pressMotionClass} ${DOCK_SHELL_ITEM_A11Y}`}
         >
@@ -208,15 +214,28 @@ export const LegalCommandCenterDock = memo(function LegalCommandCenterDock({
     const dockItemInteractions = useMemo(() => {
         const clicks: Partial<Record<HomeWidgetId, () => void>> = {};
         const prefetches: Partial<Record<HomeWidgetId, () => void>> = {};
-        if (isEditing) return { clicks, prefetches };
+        const pointerPrimes: Partial<Record<HomeWidgetId, () => void>> = {};
+        if (isEditing) return { clicks, prefetches, pointerPrimes };
 
         for (const widgetId of visibleDockWidgets) {
             prefetches[widgetId] = () => prefetchDockWidgetIntentDebounced(widgetId);
+            if (widgetId === 'dockTasks') {
+                pointerPrimes[widgetId] = () => {
+                    prefetchDockWidgetIntentImmediate('dockTasks');
+                    void hydrateFieldTasksShellForInstantOpen(true);
+                };
+            }
+            if (widgetId === 'dockCalendar') {
+                pointerPrimes[widgetId] = () => {
+                    prefetchDockWidgetIntentImmediate('dockCalendar');
+                    void hydrateScheduleShellForInstantOpenWithData(userId, true);
+                };
+            }
             const clickHandler = resolveDockWidgetClick(widgetId, false);
             if (clickHandler) clicks[widgetId] = clickHandler;
         }
-        return { clicks, prefetches };
-    }, [visibleDockWidgets, isEditing, resolveDockWidgetClick]);
+        return { clicks, prefetches, pointerPrimes };
+    }, [visibleDockWidgets, isEditing, resolveDockWidgetClick, userId]);
 
     const shellOverride = overrides.dockShell;
     const dockLiftPx = shellOverride?.dockLiftPx ?? 0;
@@ -278,8 +297,8 @@ export const LegalCommandCenterDock = memo(function LegalCommandCenterDock({
                 label: dockShellLabel('dockRepository'),
             },
             dockNotepad: {
-                icon: Book,
-                label: dockShellLabel('dockNotepad'),
+                icon: Warehouse,
+                label: dockShellLabel('dockRepository'),
             },
             dockCalendar: {
                 icon: CalendarIcon,
@@ -287,8 +306,8 @@ export const LegalCommandCenterDock = memo(function LegalCommandCenterDock({
                 badge: urgentAlertsCount > 0,
             },
             dockVault: {
-                icon: FolderOpen,
-                label: dockShellLabel('dockVault'),
+                icon: Warehouse,
+                label: dockShellLabel('dockRepository'),
             },
             dockTasks: {
                 icon: ListChecks,
@@ -350,9 +369,10 @@ export const LegalCommandCenterDock = memo(function LegalCommandCenterDock({
                 className={`hami-home-dock-chrome-sticky ${dockSticky ? 'sticky bottom-0' : 'relative'} z-[55] w-full hami-shell-gutter-x pointer-events-none pb-[max(0px,env(safe-area-inset-bottom))] ${isEditing ? 'z-[80]' : ''}`}
                 style={dockChromeStackStyle}
             >
-                <div
-                    data-testid="home-dock-chrome"
-                    className={`${HAMI_SHELL_CONTAINER} pointer-events-auto flex flex-col hami-home-dock-chrome-stack`}
+                <HomeDropZone
+                    zone="dock"
+                    testId="home-dock-drop-target"
+                    className={`${HAMI_SHELL_CONTAINER} pointer-events-auto flex flex-col hami-home-dock-chrome-stack w-full ${isEditing ? 'min-h-[5.5rem]' : ''}`}
                 >
                     {showShell ? (
                         <div
@@ -360,7 +380,6 @@ export const LegalCommandCenterDock = memo(function LegalCommandCenterDock({
                             className="hami-home-dock-shell-zone w-full"
                             style={dockLiftPx ? { transform: `translateY(-${dockLiftPx}px)` } : undefined}
                         >
-                            <HomeDropZone zone="dock" className={`w-full ${isEditing ? 'flex flex-col gap-4' : ''}`}>
                                 <EditableDockShell
                                     dockCount={visibleDockWidgets.length}
                                     containerBorderOn={shellContainerBorderOn}
@@ -421,6 +440,7 @@ export const LegalCommandCenterDock = memo(function LegalCommandCenterDock({
                                                             })
                                                         }
                                                         onPrefetch={dockItemInteractions.prefetches[widgetId]}
+                                                        onPointerPrime={dockItemInteractions.pointerPrimes[widgetId]}
                                                         onClick={clickHandler}
                                                     />
                                                 );
@@ -454,10 +474,18 @@ export const LegalCommandCenterDock = memo(function LegalCommandCenterDock({
                                         </div>
                                     )}
                                 </EditableDockShell>
-                            </HomeDropZone>
+                        </div>
+                    ) : isEditing ? (
+                        <div
+                            data-testid="home-dock-shell-zone"
+                            className="hami-home-dock-shell-zone w-full flex min-h-[5.5rem] items-center justify-center rounded-2xl border border-dashed border-white/15 px-3"
+                        >
+                            <p className="text-[10px] font-medium text-white/35 text-center leading-relaxed">
+                                اسحب أقساماً هنا للشريط السفلي
+                            </p>
                         </div>
                     ) : null}
-                </div>
+                </HomeDropZone>
             </div>
 
             {!externalDockActions ? (

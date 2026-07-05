@@ -16,7 +16,7 @@ export type LawyerHomeHubCardProps = UseLawyerHomeHubCardParams;
 export const LawyerHomeHubCard = memo(function LawyerHomeHubCard(props: LawyerHomeHubCardProps) {
     const reduceMotion = useReduceMotion();
     const vm = useLawyerHomeHubCard(props);
-    const { blockOverride, themePrimary = '#E6C673' } = props;
+    const { blockOverride, themePrimary = '#E6C673', layoutEditMode = false } = props;
 
     return (
         <section
@@ -48,6 +48,7 @@ export const LawyerHomeHubCard = memo(function LawyerHomeHubCard(props: LawyerHo
                         alertsCount={vm.alertsTabCount}
                         pinsCount={vm.clusterViews.length}
                         reduceMotion={reduceMotion}
+                        layoutEditMode={layoutEditMode}
                     />
 
                     <div className="relative z-[2] flex flex-col min-h-0 flex-1">

@@ -1,7 +1,5 @@
 import React, { memo } from 'react';
-import { MessagesSquare, BookOpen, Users } from 'lucide-react';
 import { prefetchCommunityRepositorySection } from '../communityScreenLazySections';
-import { FORUM_SECTION_ACTIVE, FORUM_SECTION_IDLE, FORUM_TEXT_MUTED, FORUM_TEXT_PRIMARY } from '../forumPlumTheme';
 
 export type ForumSectionId = 'forum' | 'groups' | 'repository';
 
@@ -11,9 +9,9 @@ interface ForumSectionSwitchProps {
 }
 
 const SECTIONS = [
-    { id: 'forum' as const, label: 'المنتدى', sub: 'استشارات الزملاء', icon: MessagesSquare },
-    { id: 'groups' as const, label: 'الروابط والمجموعات', sub: 'غرف تخصصية', icon: Users },
-    { id: 'repository' as const, label: 'المستودع', sub: 'مراجع ومستندات', icon: BookOpen },
+    { id: 'forum' as const, label: 'المنتدى' },
+    { id: 'groups' as const, label: 'المجموعات' },
+    { id: 'repository' as const, label: 'المستودع' },
 ];
 
 export const ForumSectionSwitch = memo(function ForumSectionSwitch({
@@ -23,11 +21,11 @@ export const ForumSectionSwitch = memo(function ForumSectionSwitch({
     return (
         <div
             data-testid="forum-section-switch"
-            className="grid grid-cols-3 gap-1.5 p-1.5 rounded-2xl bg-[#140A18] border border-[#4A3D52]/45"
+            className="grid grid-cols-3 gap-2 rounded-[1.4rem] border border-white/8 bg-[#1A121F]/90 p-2 shadow-[0_10px_28px_rgba(0,0,0,0.22)]"
             role="tablist"
             aria-label="تبديل بين أقسام المنتدى"
         >
-            {SECTIONS.map(({ id, label, sub, icon: Icon }) => {
+            {SECTIONS.map(({ id, label }) => {
                 const isActive = activeSection === id;
                 return (
                     <button
@@ -40,25 +38,19 @@ export const ForumSectionSwitch = memo(function ForumSectionSwitch({
                         onPointerEnter={() => {
                             if (id === 'repository') prefetchCommunityRepositorySection();
                         }}
-                        className={`relative min-h-[52px] rounded-xl px-2 py-2 flex flex-col items-center justify-center gap-1 text-center transition-colors duration-150 ${
-                            isActive ? FORUM_TEXT_PRIMARY : `${FORUM_TEXT_MUTED} hover:text-[#E6E0E4]`
-                        } ${isActive ? FORUM_SECTION_ACTIVE : ''}`}
+                        className={`relative min-h-[52px] rounded-[1.1rem] px-3 py-3 text-center text-sm font-bold transition-all duration-150 ${
+                            isActive
+                                ? 'bg-[linear-gradient(135deg,#F0B896_0%,#F7C7A7_100%)] text-[#24131B] shadow-[0_12px_28px_rgba(240,184,150,0.22)]'
+                                : 'bg-[#241A2A]/70 text-[#B4AEB6] border border-transparent hover:border-[#F0B896]/16 hover:bg-[#2B2032] hover:text-[#F6EFEA]'
+                        }`}
                     >
-                        <span
-                            className={`relative z-10 w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors duration-150 ${
-                                isActive ? 'bg-[#F0B896]/18 text-[#F0B896]' : FORUM_SECTION_IDLE
-                            }`}
-                        >
-                            <Icon size={16} strokeWidth={isActive ? 2.25 : 2} />
-                        </span>
-                        <span className="relative z-10 min-w-0">
-                            <span className={`block text-[11px] leading-tight truncate ${isActive ? 'font-bold' : 'font-semibold'}`}>
-                                {label}
-                            </span>
-                            <span className={`block text-[9px] mt-0.5 truncate ${isActive ? 'text-[#B4AEB6]' : 'text-[#7A747C]'}`}>
-                                {sub}
-                            </span>
-                        </span>
+                        <span className="relative z-10 block truncate">{label}</span>
+                        {isActive ? (
+                            <span
+                                aria-hidden
+                                className="absolute inset-x-4 bottom-1.5 h-[3px] rounded-full bg-[#2A1520]/35"
+                            />
+                        ) : null}
                     </button>
                 );
             })}

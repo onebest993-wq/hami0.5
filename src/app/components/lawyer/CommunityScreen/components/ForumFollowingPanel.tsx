@@ -1,6 +1,6 @@
-import React, { memo, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { UserCheck, UserMinus, Bell, MessageCircle, Reply, X } from 'lucide-react';
 import type { ForumFollowRecord } from '@/app/services/forum/forumFollowTypes';
@@ -55,7 +55,7 @@ function PrefToggle({
     );
 }
 
-export const ForumFollowingPanel = memo(function ForumFollowingPanel({
+export const ForumFollowingPanel = function ForumFollowingPanel({
     open,
     onClose,
     following,
@@ -71,26 +71,31 @@ export const ForumFollowingPanel = memo(function ForumFollowingPanel({
     const [tab, setTab] = useState<'following' | 'followers'>('following');
     const reduceMotion = useReduceMotion();
 
+    const requestClose = useCallback(() => {
+        onClose();
+    }, [onClose]);
+
+    const sheetTransition = reduceMotion
+        ? { duration: 0 }
+        : { type: 'tween' as const, duration: 0.18, ease: [0.32, 0, 0.67, 0] as const };
+
     const panelLayer = (
-        <AnimatePresence>
-            {open ? (
-                <>
-                    <motion.div
-                        key="following-backdrop"
-                        initial={reduceMotion ? false : { opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={reduceMotion ? undefined : { opacity: 0 }}
-                        className="fixed inset-0 z-[96] bg-black/50"
-                        onClick={onClose}
-                        aria-hidden
-                    />
-                    <motion.div
-                        key="following-sheet"
-                        data-testid="forum-following-panel"
-                        initial={reduceMotion ? false : { y: '100%' }}
-                        animate={{ y: 0 }}
-                        exit={reduceMotion ? undefined : { y: '100%' }}
-                        transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 38 }}
+        <>
+            <motion.div
+                key="following-backdrop"
+                initial={reduceMotion ? false : { opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={sheetTransition}
+                className="fixed inset-0 z-[96] bg-black/50"
+                onClick={requestClose}
+                aria-hidden
+            />
+            <motion.div
+                key="following-sheet"
+                data-testid="forum-following-panel"
+                initial={reduceMotion ? false : { y: '100%' }}
+                animate={{ y: 0 }}
+                transition={sheetTransition}
                         className={`fixed inset-x-0 bottom-0 z-[97] max-h-[78dvh] rounded-t-[24px] ${FORUM_PANEL} shadow-2xl flex flex-col pb-[env(safe-area-inset-bottom)]`}
                         role="dialog"
                         aria-modal="true"
@@ -113,7 +118,7 @@ export const ForumFollowingPanel = memo(function ForumFollowingPanel({
                                         type="button"
                                         onClick={() => {
                                             onOpenFollowingFeed();
-                                            onClose();
+                                            requestClose();
                                         }}
                                         className={`${FORUM_TEXT_APRICOT} text-[11px] font-bold px-3 py-1.5 rounded-lg bg-[#F0B896]/10 border border-[#F0B896]/25`}
                                     >
@@ -122,7 +127,7 @@ export const ForumFollowingPanel = memo(function ForumFollowingPanel({
                                 ) : null}
                                 <button
                                     type="button"
-                                    onClick={onClose}
+                                    onClick={requestClose}
                                     aria-label="إغلاق"
                                     className={FORUM_ICON_BTN}
                                 >
@@ -176,7 +181,7 @@ export const ForumFollowingPanel = memo(function ForumFollowingPanel({
                                                     onClick={() => {
                                                         if (onOpenProfile) {
                                                             onOpenProfile(row.followingId, name);
-                                                            onClose();
+                                                            requestClose();
                                                             return;
                                                         }
                                                         setExpandedId(expanded ? null : row.followingId);
@@ -271,7 +276,7 @@ export const ForumFollowingPanel = memo(function ForumFollowingPanel({
                                                         type="button"
                                                         onClick={() => {
                                                             onOpenProfile(row.followerId, name);
-                                                            onClose();
+                                                            requestClose();
                                                         }}
                                                         className="text-right w-full"
                                                     >
@@ -300,10 +305,8 @@ export const ForumFollowingPanel = memo(function ForumFollowingPanel({
                             )}
                         </div>
                     </motion.div>
-                </>
-            ) : null}
-        </AnimatePresence>
+        </>
     );
 
     return typeof document !== 'undefined' ? createPortal(panelLayer, document.body) : panelLayer;
-});
+}

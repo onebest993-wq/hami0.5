@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import {
     Sparkles,
@@ -18,6 +19,16 @@ import {
     type LucideIcon,
 } from 'lucide-react';
 import { FORUM_FILTER_LABELS, FORUM_SORT_FILTER_COUNT } from '../forumFilters';
+import {
+    FORUM_DROPDOWN_PANEL,
+    FORUM_FILTER_CHIP_IDLE,
+    FORUM_FILTER_CHIP_ICON_IDLE,
+    FORUM_FILTER_CHIP_ICON_SELECTED,
+    FORUM_FILTER_CHIP_SELECTED,
+    FORUM_FILTER_SECTION_LABEL,
+    FORUM_TEXT_MUTED,
+    FORUM_TEXT_PRIMARY,
+} from '../forumPlumTheme';
 
 const TOPIC_ICONS: Record<string, LucideIcon> = {
     تنفيذ: Gavel,
@@ -37,35 +48,82 @@ interface ForumCategoryPanelProps {
     selectedFilterIndex: number;
     onFilterSelect: (index: number) => void;
     onClose: () => void;
+    anchorRef: React.RefObject<HTMLButtonElement | null>;
 }
 
 export const ForumCategoryPanel = ({
     selectedFilterIndex,
     onFilterSelect,
     onClose,
+    anchorRef,
 }: ForumCategoryPanelProps) => {
     const activeLabel = FORUM_FILTER_LABELS[selectedFilterIndex] ?? FORUM_FILTER_LABELS[0];
     const hasTopicFilter = selectedFilterIndex >= FORUM_SORT_FILTER_COUNT;
+    const panelRef = useRef<HTMLDivElement>(null);
+    const [panelPos, setPanelPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
     const handleSelect = (index: number) => {
         onFilterSelect(index);
         onClose();
     };
 
-    return (
+    useLayoutEffect(() => {
+        const update = () => {
+            const rect = anchorRef.current?.getBoundingClientRect();
+            if (!rect) return;
+
+            const viewportPadding = 8;
+            const gap = 10;
+            const estimatedHeight = 420;
+            const width = Math.min(352, window.innerWidth - viewportPadding * 2);
+            let left = rect.right - width;
+            if (left + width > window.innerWidth - viewportPadding) {
+                left = window.innerWidth - width - viewportPadding;
+            }
+            if (left < viewportPadding) {
+                left = viewportPadding;
+            }
+
+            const belowTop = rect.bottom + gap;
+            const aboveTop = rect.top - estimatedHeight - gap;
+            const fitsBelow = belowTop + estimatedHeight <= window.innerHeight - viewportPadding;
+            const fitsAbove = aboveTop >= viewportPadding;
+            const top = fitsBelow
+                ? belowTop
+                : fitsAbove
+                  ? aboveTop
+                  : Math.max(viewportPadding, window.innerHeight - estimatedHeight - viewportPadding);
+
+            setPanelPos({ top, left, width });
+        };
+
+        update();
+        window.addEventListener('resize', update);
+        window.addEventListener('scroll', update, true);
+        return () => {
+            window.removeEventListener('resize', update);
+            window.removeEventListener('scroll', update, true);
+        };
+    }, [anchorRef]);
+
+    if (typeof document === 'undefined' || !panelPos) return null;
+
+    return createPortal(
         <motion.div
-            initial={{ opacity: 0, y: -8, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.97 }}
-            transition={{ type: 'spring', stiffness: 420, damping: 32 }}
-            className="absolute left-0 top-full mt-2 w-[min(360px,calc(100vw-2rem))] z-50 rounded-2xl border border-white/10 bg-[#1A1D2D]/95 backdrop-blur-xl shadow-2xl shadow-black/40 overflow-hidden"
+            ref={panelRef}
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.14, ease: 'easeOut' }}
+            className={`fixed z-50 origin-top-right overflow-hidden ${FORUM_DROPDOWN_PANEL}`}
+            style={{ top: panelPos.top, left: panelPos.left, width: panelPos.width }}
             role="dialog"
             aria-label="تصنيفات المنتدى"
         >
-            <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between gap-2">
+            <div className="flex items-center justify-between gap-2 border-b border-[#4A3D52]/40 px-4 py-3">
                 <div className="min-w-0">
-                    <p className="text-white font-bold text-sm">تصفية ذكية</p>
-                    <p className="text-white/40 text-[11px] truncate mt-0.5">
+                    <p className={`${FORUM_TEXT_PRIMARY} font-bold text-sm`}>تصفية ذكية</p>
+                    <p className={`${FORUM_TEXT_MUTED} text-[11px] truncate mt-0.5`}>
                         {hasTopicFilter ? `التخصص: ${activeLabel}` : `الترتيب: ${activeLabel}`}
                     </p>
                 </div>
@@ -73,15 +131,15 @@ export const ForumCategoryPanel = ({
                     type="button"
                     onClick={onClose}
                     aria-label="إغلاق"
-                    className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#342C3A] text-[#9A9098] transition-colors hover:bg-[#38303E] hover:text-[#F0B896]"
                 >
                     <X size={16} />
                 </button>
             </div>
 
-            <div className="p-4 space-y-4 max-h-[min(70vh,420px)] overflow-y-auto scrollbar-hide">
+            <div className="max-h-[min(68vh,420px)] space-y-4 overflow-y-auto p-4 overscroll-contain scrollbar-hide">
                 <section>
-                    <p className="text-[#E6C673]/80 text-[10px] font-bold tracking-wide mb-2">ترتيب العرض</p>
+                    <p className={`${FORUM_FILTER_SECTION_LABEL} mb-2`}>ترتيب العرض</p>
                     <div className="grid grid-cols-2 gap-2">
                         {FORUM_FILTER_LABELS.slice(0, FORUM_SORT_FILTER_COUNT).map((label, index) => {
                             const isSelected = selectedFilterIndex === index;
@@ -91,15 +149,13 @@ export const ForumCategoryPanel = ({
                                     key={label}
                                     type="button"
                                     onClick={() => handleSelect(index)}
-                                    className={`rounded-xl px-3 py-2.5 flex items-center gap-2 border text-right transition-all ${
-                                        isSelected
-                                            ? 'bg-[#E6C673]/15 border-[#E6C673]/40 text-[#E6C673] shadow-[0_0_20px_rgba(230,198,115,0.12)]'
-                                            : 'bg-[#25293C]/80 border-white/5 text-white/60 hover:border-white/15 hover:text-white/90'
+                                    className={`flex items-center gap-2 rounded-2xl border px-3 py-3 text-right transition-all duration-150 ${
+                                        isSelected ? FORUM_FILTER_CHIP_SELECTED : FORUM_FILTER_CHIP_IDLE
                                     }`}
                                 >
                                     <span
                                         className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                                            isSelected ? 'bg-[#E6C673]/20' : 'bg-white/5'
+                                            isSelected ? FORUM_FILTER_CHIP_ICON_SELECTED : FORUM_FILTER_CHIP_ICON_IDLE
                                         }`}
                                     >
                                         <Icon size={16} />
@@ -113,12 +169,12 @@ export const ForumCategoryPanel = ({
 
                 <section>
                     <div className="flex items-center justify-between mb-2">
-                        <p className="text-[#E6C673]/80 text-[10px] font-bold tracking-wide">التخصصات القانونية</p>
+                        <p className={FORUM_FILTER_SECTION_LABEL}>التخصصات القانونية</p>
                         {hasTopicFilter ? (
                             <button
                                 type="button"
                                 onClick={() => handleSelect(0)}
-                                className="text-[10px] text-white/40 hover:text-[#E6C673] transition-colors"
+                                className="text-[10px] text-[#9A9098] hover:text-[#F0B896] transition-colors"
                             >
                                 إظهار الكل
                             </button>
@@ -134,15 +190,13 @@ export const ForumCategoryPanel = ({
                                     key={label}
                                     type="button"
                                     onClick={() => handleSelect(index)}
-                                    className={`rounded-xl px-3 py-2.5 flex items-center gap-2 border text-right transition-all ${
-                                        isSelected
-                                            ? 'bg-[#E6C673]/15 border-[#E6C673]/40 text-[#E6C673] shadow-[0_0_20px_rgba(230,198,115,0.12)]'
-                                            : 'bg-[#25293C]/60 border-white/5 text-white/55 hover:border-white/15 hover:text-white/90'
+                                    className={`flex items-center gap-2 rounded-2xl border px-3 py-3 text-right transition-all duration-150 ${
+                                        isSelected ? FORUM_FILTER_CHIP_SELECTED : FORUM_FILTER_CHIP_IDLE
                                     }`}
                                 >
                                     <span
                                         className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                                            isSelected ? 'bg-[#E6C673]/20' : 'bg-white/5'
+                                            isSelected ? FORUM_FILTER_CHIP_ICON_SELECTED : FORUM_FILTER_CHIP_ICON_IDLE
                                         }`}
                                     >
                                         <Icon size={15} />
@@ -154,6 +208,7 @@ export const ForumCategoryPanel = ({
                     </div>
                 </section>
             </div>
-        </motion.div>
+        </motion.div>,
+        document.body,
     );
 };

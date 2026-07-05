@@ -11,12 +11,46 @@ import { resolveDisplayParties } from '../smartFile/resolveDisplayParties';
 
 type ParentData = ReturnType<typeof buildInitialParentDataFromFile>;
 
+export function resolveStableStageIndex(
+    prevStages: CaseStage[],
+    incomingStages: CaseStage[],
+    prevIdx: number,
+    fallbackIdx: number,
+): number {
+    const prevStageId = String(prevStages?.[prevIdx]?.id ?? '').trim();
+    if (prevStageId) {
+        const matchedIdx = incomingStages.findIndex((stage) => String(stage?.id ?? '').trim() === prevStageId);
+        if (matchedIdx >= 0) return matchedIdx;
+    }
+    if (prevIdx >= 0 && prevIdx < incomingStages.length) return prevIdx;
+    return fallbackIdx >= 0 && fallbackIdx < incomingStages.length ? fallbackIdx : 0;
+}
+
+export function resolveStableViewingStageIndex(
+    prevStages: CaseStage[],
+    incomingStages: CaseStage[],
+    prevViewingIdx: number,
+    prevActiveIdx: number,
+    fallbackIdx: number,
+): number {
+    const prevViewingStageId = String(prevStages?.[prevViewingIdx]?.id ?? '').trim();
+    const prevActiveStageId = String(prevStages?.[prevActiveIdx]?.id ?? '').trim();
+
+    // إذا كان المستخدم يتابع المرحلة النشطة نفسها، فاتبع المرحلة النشطة الجديدة.
+    if (prevViewingStageId && prevViewingStageId === prevActiveStageId) {
+        return fallbackIdx >= 0 && fallbackIdx < incomingStages.length ? fallbackIdx : 0;
+    }
+
+    return resolveStableStageIndex(prevStages, incomingStages, prevViewingIdx, fallbackIdx);
+}
+
 export function useSmartFileModalFileSync(params: {
     file: FileData | null | undefined;
     parentData: ParentData;
     setParentData: React.Dispatch<React.SetStateAction<ParentData>>;
     stages: CaseStage[];
     setStages: React.Dispatch<React.SetStateAction<CaseStage[]>>;
+    activeStageIndex: number;
     viewingStageIndex: number;
     setActiveStageIndex: React.Dispatch<React.SetStateAction<number>>;
     setViewingStageIndex: React.Dispatch<React.SetStateAction<number>>;
@@ -33,6 +67,7 @@ export function useSmartFileModalFileSync(params: {
         setParentData,
         stages,
         setStages,
+        activeStageIndex,
         viewingStageIndex,
         setActiveStageIndex,
         setViewingStageIndex,
@@ -153,17 +188,22 @@ export function useSmartFileModalFileSync(params: {
             }
             return incomingStages;
         });
-        setActiveStageIndex((prevIdx) => {
-            const sameFile = String(file?.id ?? '') === String(parentData?.id ?? '');
-            if (sameFile && prevIdx > nextIdx) return prevIdx;
-            return nextIdx;
-        });
+        setActiveStageIndex(nextIdx);
         setViewingStageIndex((prevIdx) => {
             const sameFile = String(file?.id ?? '') === String(parentData?.id ?? '');
-            if (sameFile && prevIdx > nextIdx) return prevIdx;
+            if (sameFile) {
+                return resolveStableViewingStageIndex(
+                    stages,
+                    incomingStages,
+                    prevIdx,
+                    activeStageIndex,
+                    nextIdx,
+                );
+            }
             return nextIdx;
         });
     }, [
+        activeStageIndex,
         externalFileFingerprint,
         file,
         parentData?.id,
@@ -171,6 +211,7 @@ export function useSmartFileModalFileSync(params: {
         setParentData,
         setStages,
         setViewingStageIndex,
+        stages,
     ]);
 
     return { lawsuitFileId, onCalendarUnlink };

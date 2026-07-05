@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Contrast, ImageIcon } from 'lucide-react';
-import { settingWiringHint } from '@/app/services/settings/settingsCapabilities';
 import { FONT_PRESETS } from '@/app/services/settings';
 import { SettingCard, SettingRow, Toggle, SETTING_GLASS_INNER } from '../settings-ui';
+import { markSettingsFilePickerOpening } from '../settingsFilePickerGrace';
 import type { AppearanceSectionViewModel } from './useAppearanceSection';
 
 export function AppearanceWallpaperCard({ vm }: { vm: AppearanceSectionViewModel }) {
@@ -15,13 +15,12 @@ export function AppearanceWallpaperCard({ vm }: { vm: AppearanceSectionViewModel
                             <ImageIcon size={16} className="text-[#E6C673]" />
                             <span className="text-sm font-bold text-white">صورة خلفية</span>
                         </div>
-                        <p className="text-[10px] text-white/40">{settingWiringHint('appearance.wallpaper')}</p>
                     </div>
                     {vm.wallpaperSrc ? (
                         <button
                             type="button"
                             onClick={vm.removeWallpaper}
-                            className="text-[10px] font-bold text-rose-400/90 hover:text-rose-300 shrink-0"
+                            className="text-[10px] font-bold text-rose-400/90 hover:text-rose-300 shrink-0 min-h-[44px] px-2"
                         >
                             إزالة
                         </button>
@@ -37,8 +36,12 @@ export function AppearanceWallpaperCard({ vm }: { vm: AppearanceSectionViewModel
                     </div>
                     <button
                         type="button"
-                        onClick={() => vm.wallpaperRef.current?.click()}
-                        className="flex-1 py-2.5 rounded-xl border border-[#E6C673]/25 bg-[#E6C673]/10 backdrop-blur-sm text-[11px] font-bold text-[#E6C673] hover:bg-[#E6C673]/15 transition-colors min-h-[44px]"
+                        onClick={() => {
+                            markSettingsFilePickerOpening();
+                            vm.wallpaperRef.current?.click();
+                        }}
+                        className="flex-1 py-2.5 rounded-xl border border-[#E6C673]/25 bg-[#E6C673]/10 backdrop-blur-sm text-[11px] font-bold text-[#E6C673] hover:bg-[#E6C673]/15 transition-colors min-h-[44px] flex items-center justify-center cursor-pointer touch-manipulation"
+                        data-testid="settings-wallpaper-upload"
                     >
                         {vm.wallpaperSrc ? 'تغيير الخلفية' : 'رفع صورة خلفية'}
                     </button>
@@ -48,7 +51,8 @@ export function AppearanceWallpaperCard({ vm }: { vm: AppearanceSectionViewModel
                 ref={vm.wallpaperRef}
                 type="file"
                 accept="image/*"
-                className="hidden"
+                className="hami-settings-file-input"
+                data-testid="settings-wallpaper-input"
                 onChange={(e) => {
                     const f = e.target.files?.[0];
                     if (f) void vm.uploadWallpaper(f);
@@ -64,7 +68,6 @@ export function AppearanceReadabilityCard({ vm }: { vm: AppearanceSectionViewMod
         <SettingCard className="mb-4">
             <div className="p-4 border-b border-white/[0.03]">
                 <label className="text-sm font-bold text-white mb-1 block">حجم الخط</label>
-                <p className="text-[10px] text-white/40 mb-2">{settingWiringHint('appearance.fontSize')}</p>
                 <div className="flex gap-2 flex-wrap">
                     {FONT_PRESETS.map((f) => (
                         <button
@@ -86,7 +89,6 @@ export function AppearanceReadabilityCard({ vm }: { vm: AppearanceSectionViewMod
             <SettingRow
                 icon={Contrast}
                 label="تباين أعلى"
-                subLabel={settingWiringHint('appearance.highContrast')}
                 isLast
                 action={
                     <Toggle

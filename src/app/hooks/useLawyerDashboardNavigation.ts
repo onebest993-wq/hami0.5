@@ -4,7 +4,7 @@ import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import { resolveAlertNavigation } from '@/app/services/alertNavigation';
 import { parseWorkspaceRoute } from '@/app/workspace/workspaceRoutes';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { prefetchArchivePortal, warmExecutionWorkspace } from '@/app/utils/lazyComponents';
+import { prefetchArchivePortal, warmExecutionDossier, warmExecutionWorkspace } from '@/app/utils/lazyComponents';
 import { markAlertSeenForPush } from '@/app/services/appAlertPushSync';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
@@ -78,7 +78,7 @@ export function useLawyerDashboardNavigation({
                     const executionTarget = executionFiles.find((f) => String(f.id) === caseId);
                     const target = lawsuitTarget || executionTarget;
                     if (target) {
-                        if (isRecord(target) && target.type === 'execution') warmExecutionWorkspace();
+                        if (isRecord(target) && target.type === 'execution') warmExecutionDossier('urgent');
                         setActiveFile(coerceActiveFileTarget(target));
                         SmartToast.info(`جاري فتح القضية...`);
                     }
@@ -175,6 +175,7 @@ export function useLawyerDashboardNavigation({
                 case 'open_execution': {
                     const ex = executionFiles.find((file) => String(file.id ?? '') === nav.entityId);
                     if (ex) {
+                        warmExecutionDossier('urgent');
                         setActiveFile(coerceExecutionFilePreserveId(ex));
                         return;
                     }
@@ -241,6 +242,7 @@ export function useLawyerDashboardNavigation({
                 case 'execution': {
                     const ex = executionFiles.find((file) => String(file.id ?? '') === parsed.id);
                     if (ex) {
+                        warmExecutionDossier('urgent');
                         setActiveFile(coerceExecutionFilePreserveId(ex));
                         return;
                     }

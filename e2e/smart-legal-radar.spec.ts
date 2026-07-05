@@ -51,7 +51,7 @@ async function openCalendarFromHome(page: import('@playwright/test').Page) {
     await trigger.first().click({ timeout: 15_000 });
     const radar = page.getByTestId('smart-legal-radar');
     await expect(radar).toBeVisible({ timeout: 12_000 });
-    await expect(radar.getByTestId('radar-day-loading')).toBeHidden({ timeout: 12_000 });
+    await expect(radar.getByTestId('radar-empty-state')).toBeVisible({ timeout: 12_000 });
     return radar;
 }
 

@@ -11,21 +11,31 @@ import {
 } from '@/app/services/vaultCustomCategories';
 import { filterVaultDocs } from '@/app/services/vault/vaultDocUtils';
 import {
-    fetchVaultDocsDeduped,
     peekVaultDocsWarmCache,
     setVaultDocsWarmCache,
+    mergeVaultDocsWarmCache,
+    removeVaultDocFromWarmCache,
+    refreshVaultDocsFromStore,
+    SMART_VAULT_DOCS_UPDATED_EVENT,
 } from '@/app/services/vault/vaultDocsWarmCache';
+import { readVaultLocalIndexSync, filterDeletedVaultDocs } from '@/app/services/vault/vaultLocalIndex';
+import { mergeSmartVaultDocs } from '@/app/services/vault/vaultDocUtils';
+import { invalidateRepositoryFeedCache } from '@/app/services/repository/repositoryFeedWarmCache';
 import type { ViewMode } from './types';
-import { getInitialCustomCategories, peekBootstrapVaultCache, resolveBootstrapUid } from './bootstrap';
+import { getInitialCustomCategories, getBootstrapVaultDocs, resolveBootstrapUid } from './bootstrap';
+
+function seedVaultDocsForUser(uid: string, current: SmartVaultDoc[]): SmartVaultDoc[] {
+    const local = filterDeletedVaultDocs(readVaultLocalIndexSync().filter((d) => d.authorId === uid));
+    const warm = filterDeletedVaultDocs(peekVaultDocsWarmCache(uid) ?? []);
+    return mergeSmartVaultDocs(mergeSmartVaultDocs(local, warm), current);
+}
 
 export function useSmartVaultData(currentUserId: string, propUserId?: string, embedded?: boolean) {
-    const [docs, setDocs] = useState<SmartVaultDoc[]>(() => peekBootstrapVaultCache(propUserId) ?? []);
+    const [docs, setDocs] = useState<SmartVaultDoc[]>(() => getBootstrapVaultDocs(propUserId));
     const [isLoading, setIsLoading] = useState(() => {
         const uid = resolveBootstrapUid(propUserId);
         if (!uid) return false;
-        const warmed = peekVaultDocsWarmCache(uid);
-        if (warmed && warmed.length > 0) return false;
-        return !(peekBootstrapVaultCache(propUserId)?.length);
+        return getBootstrapVaultDocs(propUserId).length === 0;
     });
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearching, setIsSearching] = useState(false);
@@ -36,6 +46,7 @@ export function useSmartVaultData(currentUserId: string, propUserId?: string, em
     const [viewMode, setViewModeState] = useState<ViewMode>(() => loadPersistedViewMode());
     const docsRef = useRef(docs);
     docsRef.current = docs;
+    const loadGenerationRef = useRef(0);
 
     const setViewMode = useCallback(
         (mode: ViewMode) => {
@@ -62,37 +73,116 @@ export function useSmartVaultData(currentUserId: string, propUserId?: string, em
             return;
         }
 
-        const cached = peekVaultDocsWarmCache(uid);
-        if (cached) {
-            setDocs(cached);
-            setCustomCategories(mergeCustomCategoriesFromDocs(uid, cached));
+        const generation = ++loadGenerationRef.current;
+
+        const seeded = seedVaultDocsForUser(uid, docsRef.current);
+        if (seeded.length > 0) {
+            setDocs(seeded);
+            setVaultDocsWarmCache(uid, seeded);
+            setCustomCategories(mergeCustomCategoriesFromDocs(uid, seeded));
             setIsLoading(false);
+        } else {
+            setIsLoading(true);
         }
 
-        const VAULT_FETCH_TIMEOUT_MS = 12_000;
-        let timedOut = false;
-        const timeoutId = window.setTimeout(() => {
-            timedOut = true;
-            setIsLoading(false);
-        }, VAULT_FETCH_TIMEOUT_MS);
-
         try {
-            const all = await fetchVaultDocsDeduped(uid);
-            if (timedOut) return;
-            setDocs(all);
-            setCustomCategories(mergeCustomCategoriesFromDocs(uid, all));
-            setVaultDocsWarmCache(uid, all);
+            const fetched = await refreshVaultDocsFromStore(uid);
+            if (generation !== loadGenerationRef.current) return;
+            const merged = mergeSmartVaultDocs(fetched, docsRef.current);
+            setDocs(merged);
+            setCustomCategories(mergeCustomCategoriesFromDocs(uid, merged));
+            setVaultDocsWarmCache(uid, merged);
+            invalidateRepositoryFeedCache();
         } catch {
-            if (!cached) SmartToast.error('فشل تحميل الملفات');
+            if (generation !== loadGenerationRef.current) return;
+            if (seeded.length === 0) SmartToast.error('فشل تحميل الملفات');
         } finally {
-            window.clearTimeout(timeoutId);
-            setIsLoading(false);
+            if (generation === loadGenerationRef.current) {
+                setIsLoading(false);
+            }
         }
     }, [currentUserId]);
 
+    const prependVaultDoc = useCallback(
+        (doc: SmartVaultDoc) => {
+            const uid = currentUserId?.trim();
+            const author = doc.authorId?.trim();
+            if (!uid) {
+                SmartToast.error('تعذّر إظهار الملف في القائمة — معرف المستخدم غير متوفر');
+                return;
+            }
+            if (author && author !== uid) {
+                SmartToast.error('تعذّر إظهار الملف — تعارض في حساب المستخدم');
+                return;
+            }
+            const base = docsRef.current;
+            const next = mergeSmartVaultDocs(base, [doc]).sort(
+                (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+            );
+            mergeVaultDocsWarmCache(uid, [doc]);
+            setCustomCategories(mergeCustomCategoriesFromDocs(uid, next));
+            setDocs(next);
+            invalidateRepositoryFeedCache();
+        },
+        [currentUserId],
+    );
+
+    const removeVaultDoc = useCallback(
+        (docId: string) => {
+            const uid = currentUserId?.trim();
+            const id = docId.trim();
+            if (!uid || !id) return;
+            const next = docsRef.current.filter((doc) => doc.id !== id);
+            removeVaultDocFromWarmCache(uid, id);
+            setVaultDocsWarmCache(uid, next);
+            setCustomCategories(mergeCustomCategoriesFromDocs(uid, next));
+            setDocs(next);
+            invalidateRepositoryFeedCache();
+        },
+        [currentUserId],
+    );
+
     useEffect(() => {
-        void loadDocs();
-    }, [loadDocs]);
+        const uid = currentUserId?.trim();
+        if (!uid) return;
+        if (embedded) {
+            void loadDocs();
+            return;
+        }
+        const run = () => void loadDocs();
+        if (typeof requestIdleCallback === 'function') {
+            const id = requestIdleCallback(run, { timeout: 1_500 });
+            return () => cancelIdleCallback(id);
+        }
+        const timer = window.setTimeout(run, 80);
+        return () => window.clearTimeout(timer);
+    }, [embedded, loadDocs, currentUserId]);
+
+    useEffect(() => {
+        const uid = currentUserId?.trim();
+        if (!uid || typeof window === 'undefined') return;
+
+        const onDocsUpdated = (event: Event) => {
+            const detail = (event as CustomEvent<{ userId?: string; docs?: SmartVaultDoc[] }>).detail;
+            if (!detail?.userId || detail.userId !== uid) return;
+            if (detail.docs?.length) {
+                const next = mergeSmartVaultDocs(docsRef.current, detail.docs).sort(
+                    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+                );
+                setDocs(next);
+                setVaultDocsWarmCache(uid, next);
+                setCustomCategories(mergeCustomCategoriesFromDocs(uid, next));
+            }
+            void loadDocs();
+        };
+
+        window.addEventListener(SMART_VAULT_DOCS_UPDATED_EVENT, onDocsUpdated as EventListener);
+        return () =>
+            window.removeEventListener(
+                SMART_VAULT_DOCS_UPDATED_EVENT,
+                onDocsUpdated as EventListener,
+            );
+    }, [currentUserId, loadDocs]);
 
     const addVaultCategory = useCallback(
         (name: string) => {
@@ -158,5 +248,7 @@ export function useSmartVaultData(currentUserId: string, propUserId?: string, em
         addVaultCategory,
         removeVaultCategory,
         loadDocs,
+        prependVaultDoc,
+        removeVaultDoc,
     };
 }

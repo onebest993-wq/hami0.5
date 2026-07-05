@@ -1,5 +1,6 @@
 import { Briefcase } from 'lucide-react';
 
+import { CommunityScreenLoadingFallback } from '@/app/components/lawyer/LawyerDashboardParts/LazyFallback';
 import {
     FORUM_PLUM_DEEP,
     FORUM_TEXT_MUTED,
@@ -9,14 +10,19 @@ import {
 export type CommunityScreenAccessGateProps = {
     showLoadingShell: boolean;
     canAccessLawyerForum: boolean;
+    onBack?: () => void;
 };
 
 /** بوابة الوصول قبل عرض محتوى المنتدى */
 export function CommunityScreenAccessGate({
     showLoadingShell,
     canAccessLawyerForum,
+    onBack,
 }: CommunityScreenAccessGateProps) {
     if (showLoadingShell) {
+        if (onBack) {
+            return <CommunityScreenLoadingFallback onBack={onBack} />;
+        }
         return <div dir="rtl" className="w-full h-full" style={{ backgroundColor: FORUM_PLUM_DEEP }} />;
     }
     if (!canAccessLawyerForum) {

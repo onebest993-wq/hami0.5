@@ -1,4 +1,4 @@
-import type { SmartVaultDoc } from '@/app/services/lawyer-cloud';
+import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import { docMatchesCategoryFilter } from '@/app/services/vaultCustomCategories';
 
 export function inferDocType(mimeType: string, fileName?: string): 'pdf' | 'image' {
@@ -8,6 +8,37 @@ export function inferDocType(mimeType: string, fileName?: string): 'pdf' | 'imag
     if (/\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(name)) return 'image';
     if (mime === 'application/pdf' || /\.pdf$/i.test(name)) return 'pdf';
     return 'pdf';
+}
+
+export type VaultMediaKind = 'image' | 'pdf' | 'audio' | 'file';
+
+export function resolveVaultMediaKind(doc: SmartVaultDoc): VaultMediaKind {
+    const mime = (doc.mimeType || '').toLowerCase();
+    const name = (doc.fileName || doc.title || '').toLowerCase();
+
+    if (doc.type === 'image' || mime.startsWith('image/') || /\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(name)) {
+        return 'image';
+    }
+    if (mime.startsWith('audio/') || /\.(mp3|wav|m4a|ogg|aac|webm|flac)$/i.test(name)) {
+        return 'audio';
+    }
+    if (doc.type === 'pdf' || mime === 'application/pdf' || /\.pdf$/i.test(name)) {
+        return 'pdf';
+    }
+    return 'file';
+}
+
+export function vaultMediaKindLabel(kind: VaultMediaKind): string {
+    switch (kind) {
+        case 'image':
+            return 'صورة';
+        case 'pdf':
+            return 'PDF';
+        case 'audio':
+            return 'صوت';
+        default:
+            return 'ملف';
+    }
 }
 
 export function inferTags(title: string): string[] {
@@ -76,4 +107,27 @@ export function revokeBlobUrlIfNeeded(url: string | null | undefined): void {
     } catch {
         /* ignore */
     }
+}
+
+/** دمج قوائم وثائق المخزن — يحافظ على signedUrl الأحدث */
+export function mergeSmartVaultDocs(base: SmartVaultDoc[], overlay: SmartVaultDoc[]): SmartVaultDoc[] {
+    const map = new Map<string, SmartVaultDoc>();
+    for (const d of base) map.set(d.id, d);
+    for (const d of overlay) {
+        const prev = map.get(d.id);
+        if (!prev) {
+            map.set(d.id, d);
+            continue;
+        }
+        const prevTime = Number.isFinite(Date.parse(prev.updatedAt)) ? Date.parse(prev.updatedAt) : 0;
+        const nextTime = Number.isFinite(Date.parse(d.updatedAt)) ? Date.parse(d.updatedAt) : 0;
+        const winner = nextTime >= prevTime ? d : prev;
+        const other = nextTime >= prevTime ? prev : d;
+        map.set(d.id, {
+            ...winner,
+            signedUrl: winner.signedUrl ?? other.signedUrl ?? null,
+            storagePath: winner.storagePath || other.storagePath,
+        });
+    }
+    return Array.from(map.values());
 }

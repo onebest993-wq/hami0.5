@@ -8,6 +8,7 @@ import { resolveProfileHeaderInitial } from '@/app/services/profile/profileHeade
 import { CAIRO_FONT_STYLE } from '../constants';
 
 export type HeaderProfileTriggerProps = {
+    interactive?: boolean;
     userId: string | undefined;
     userMetadata?: Record<string, unknown>;
     onClick: () => void;
@@ -16,6 +17,7 @@ export type HeaderProfileTriggerProps = {
 };
 
 export const HeaderProfileTrigger = memo(function HeaderProfileTrigger({
+    interactive = true,
     userId,
     userMetadata,
     onClick,
@@ -38,7 +40,7 @@ export const HeaderProfileTrigger = memo(function HeaderProfileTrigger({
             aria-label="الملف المهني"
             data-testid="header-profile-trigger"
             whileTap={reduceMotion ? undefined : { scale: 0.97 }}
-            className="group pointer-events-auto touch-manipulation flex items-center gap-2.5 min-h-[56px] py-1 pr-1 pl-2 min-w-0 max-w-[min(100vw-7rem,280px)] sm:max-w-[300px] rounded-2xl border border-transparent hover:border-white/[0.08] hover:bg-white/[0.03] transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0F1C]"
+            className={`group touch-manipulation flex items-center gap-2.5 min-h-[56px] py-1 pr-1 pl-2 min-w-0 max-w-[min(100vw-7rem,280px)] sm:max-w-[300px] rounded-2xl border border-transparent hover:border-white/[0.08] hover:bg-white/[0.03] transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0F1C] ${interactive ? 'pointer-events-auto' : 'pointer-events-none'}`}
         >
             <div
                 className="relative shrink-0 w-[52px] h-[52px] sm:w-[54px] sm:h-[54px] rounded-2xl overflow-hidden bg-[#0A0C12] ring-1 ring-[#E6C673]/20"

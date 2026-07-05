@@ -40,6 +40,11 @@ vi.mock('@/app/hooks/lawyerDashboard/notificationIntentWarm', () => ({
 }));
 
 import { warmNotificationsOnOpen } from '@/app/hooks/lawyerDashboard/notificationIntentWarm';
+import { hydrateNotificationShellForInstantOpen } from '@/app/runtime/notificationBootHydrator';
+
+vi.mock('@/app/runtime/notificationBootHydrator', () => ({
+    hydrateNotificationShellForInstantOpen: vi.fn(() => Promise.resolve(true)),
+}));
 
 vi.mock('@/app/runtime/notificationPanelLoader', () => ({
     loadNotificationPanelModule: vi.fn(() => Promise.resolve({})),
@@ -62,6 +67,11 @@ describe('useLawyerDashboardNotifications', () => {
         expect(result.current.showNotifications).toBe(false);
     });
 
+    it('لا يسخّن لوحة الإشعارات على mount الأول', () => {
+        renderHook(() => useLawyerDashboardNotifications('lawyer-1'));
+        expect(hydrateNotificationShellForInstantOpen).not.toHaveBeenCalled();
+    });
+
     it('primeNotificationPanelMount ي prefetch فقط — بلا فتح', () => {
         const { result } = renderHook(() => useLawyerDashboardNotifications('lawyer-1'));
 
@@ -72,12 +82,11 @@ describe('useLawyerDashboardNotifications', () => {
         expect(result.current.showNotifications).toBe(false);
     });
 
-    it('يفتح لوحة الإشعارات للمستخدم المسجّل', async () => {
+    it('يفتح لوحة الإشعارات للمستخدم المسجّل', () => {
         const { result } = renderHook(() => useLawyerDashboardNotifications('lawyer-1'));
 
-        await act(async () => {
+        act(() => {
             result.current.openNotifications();
-            await Promise.resolve();
         });
 
         expect(result.current.showNotifications).toBe(true);

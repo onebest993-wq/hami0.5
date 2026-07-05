@@ -2,9 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useVisibilityAwareInterval } from '@/app/hooks/useVisibilityAwareInterval';
-import type { CommunityPost } from '@/app/services/lawyer-cloud';
 import { sortCommunityPosts } from '@/app/services/cloud/lawyerCommunityCloud';
 import { ForumApiService } from '@/app/services/forumApiService';
+import { CommunityDB } from '@/app/services/forum/forumCommunityRuntime';
+import type { CommunityPost } from '@/app/services/forum/forumTypes';
 import { hasAnyActiveUrgentConsultation } from '@/app/services/forum/forumUrgentConsultation';
 import { FORUM_FILTER_LABELS } from '../forumFilters';
 import {
@@ -21,6 +22,11 @@ import {
     trimCommunityPostsRetention,
 } from './communityPostFeedUtils';
 import { peekForumPostsCache, readForumPostsCache } from '@/app/services/forum/forumPostsWarmCache';
+import { withForumAsyncTimeout } from '../forumAsync';
+
+const LOCAL_HYDRATE_TIMEOUT_MS = 3_000;
+const CACHE_HYDRATE_TIMEOUT_MS = 2_000;
+const REMOTE_FETCH_TIMEOUT_MS = 8_000;
 
 export type UseCommunityPostsFeedParams = {
     lists: Pick<CommunityDualPostLists, 'posts' | 'setPosts' | 'postsRef'>;
@@ -71,6 +77,13 @@ export function useCommunityPostsFeed({
     useEffect(() => {
         if (postsBootstrappedRef.current) return;
         let cancelled = false;
+        let showedBlockingLoader = false;
+
+        const clearBlockingLoader = () => {
+            if (showedBlockingLoader && !cancelled) {
+                setLoadingPosts(false);
+            }
+        };
 
         const fetchRemotePage = async () => {
             const { posts: page } = await ForumApiService.listPostsPaginated(pageSize, 0);
@@ -81,22 +94,26 @@ export function useCommunityPostsFeed({
         };
 
         const runBootstrap = async () => {
+            let hydratedCount = 0;
+
+            const syncCached = peekForumPostsCache();
+            if (syncCached && syncCached.length > 0) {
+                applyPostsUpdate((prev) => mergeSortedCommunityPosts(prev, syncCached));
+                hydratedCount += syncCached.length;
+            }
+
+            const warmed = await withForumAsyncTimeout(readForumPostsCache(), CACHE_HYDRATE_TIMEOUT_MS, []);
+            if (!cancelled && warmed.length > 0) {
+                applyPostsUpdate((prev) => mergeSortedCommunityPosts(prev, warmed));
+                hydratedCount = Math.max(hydratedCount, warmed.length);
+            }
+
             try {
-                const syncCached = peekForumPostsCache();
-                if (syncCached && syncCached.length > 0) {
-                    applyPostsUpdate((prev) => mergeSortedCommunityPosts(prev, syncCached));
-                }
-
-                const warmed = await readForumPostsCache();
-                if (cancelled) return;
-                if (warmed.length > 0) {
-                    applyPostsUpdate((prev) => mergeSortedCommunityPosts(prev, warmed));
-                }
-
-                const { CommunityDB } = await import('@/app/services/lawyer-cloud');
-                const local = sortCommunityPosts(await CommunityDB.listPosts()).filter((p) => !p.groupId);
-                if (!cancelled && local.length > 0) {
-                    applyPostsUpdate((prev) => mergeSortedCommunityPosts(prev, local));
+                const local = await withForumAsyncTimeout(CommunityDB.listPosts(), LOCAL_HYDRATE_TIMEOUT_MS, []);
+                const scoped = sortCommunityPosts(local).filter((p) => !p.groupId);
+                if (!cancelled && scoped.length > 0) {
+                    applyPostsUpdate((prev) => mergeSortedCommunityPosts(prev, scoped));
+                    hydratedCount = Math.max(hydratedCount, scoped.length);
                 }
             } catch {
                 /* ignore local hydrate */
@@ -104,39 +121,31 @@ export function useCommunityPostsFeed({
 
             if (cancelled) return;
 
-            const hadPosts = postsRef.current.length > 0;
-            const timeoutMs = 6_000;
-            const timedFetch = Promise.race([
-                fetchRemotePage(),
-                new Promise<never>((_, reject) => {
-                    window.setTimeout(() => reject(new Error('forum-bootstrap-timeout')), timeoutMs);
-                }),
-            ]);
-
-            if (hadPosts) {
+            if (hydratedCount > 0) {
                 postsBootstrappedRef.current = true;
-                void timedFetch.catch(() => undefined);
-                return;
+            } else {
+                showedBlockingLoader = true;
+                setLoadingPosts(true);
             }
 
-            setLoadingPosts(true);
             try {
-                await timedFetch;
+                await withForumAsyncTimeout(fetchRemotePage(), REMOTE_FETCH_TIMEOUT_MS, undefined);
             } catch {
-                if (!cancelled && !postsBootstrappedRef.current) {
-                    postsBootstrappedRef.current = true;
-                    if (postsRef.current.length === 0) {
-                        SmartToast.error('تعذّر جلب منشورات المنتدى');
-                    }
+                if (!cancelled && postsRef.current.length === 0) {
+                    SmartToast.error('تعذّر جلب منشورات المنتدى');
                 }
             } finally {
-                if (!cancelled) setLoadingPosts(false);
+                if (!cancelled) {
+                    postsBootstrappedRef.current = true;
+                    clearBlockingLoader();
+                }
             }
         };
 
         void runBootstrap();
         return () => {
             cancelled = true;
+            clearBlockingLoader();
         };
     }, [applyPostsUpdate, pageSize, postsRef]);
 
@@ -221,8 +230,6 @@ export function useCommunityPostsFeed({
         onActivateForumSection,
         onOpenComments,
         applyPostsUpdate,
-        onActivateForumSection,
-        onOpenComments,
         postsRef,
     ]);
 

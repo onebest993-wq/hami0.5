@@ -15,10 +15,8 @@ import {
 } from '@/app/services/alerts/homeHubPerfMetrics';
 import {
     dismissTransientOverlays,
-    HAMI_DISMISS_OVERLAYS_EVENT,
-    releaseBodyScrollLock,
-    type TransientOverlayId,
 } from '@/app/utils/bodyScrollLock';
+import { registerDashboardOverlayCloser } from '@/app/hooks/lawyerDashboard/dashboardOverlayCoordinator';
 import type { LawyerDashboardTab } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 
 export type UseLawyerDashboardHomeTabParams = {
@@ -53,27 +51,31 @@ export function useLawyerDashboardHomeTab({ activeTab, setActiveTab }: UseLawyer
     }, [activeTab, primeHomeTabMount]);
 
     useEffect(() => {
-        const onDismiss = (e: Event) => {
-            const except = (e as CustomEvent<{ except?: TransientOverlayId }>).detail?.except;
-            if (except !== 'home-layout-edit') {
-                setHomeLayoutEditMode(false);
-            }
-        };
-        window.addEventListener(HAMI_DISMISS_OVERLAYS_EVENT, onDismiss);
-        return () => window.removeEventListener(HAMI_DISMISS_OVERLAYS_EVENT, onDismiss);
+        return registerDashboardOverlayCloser('home-layout-edit', () => {
+            setHomeLayoutEditMode(false);
+        });
     }, []);
 
     const exitHomeLayoutEdit = useCallback(() => {
         setHomeLayoutEditMode(false);
-        releaseBodyScrollLock();
     }, []);
 
     const enterHomeLayoutEdit = useCallback(() => {
         dismissTransientOverlays('home-layout-edit');
-        releaseBodyScrollLock();
         setActiveTab('home');
         setHomeLayoutEditMode(true);
     }, [setActiveTab]);
+
+    useEffect(() => {
+        if (!import.meta.env.DEV || typeof window === 'undefined') return;
+        const w = window as Window & {
+            __hamiE2eEnterHomeLayoutEdit?: () => void;
+        };
+        w.__hamiE2eEnterHomeLayoutEdit = () => enterHomeLayoutEdit();
+        return () => {
+            delete w.__hamiE2eEnterHomeLayoutEdit;
+        };
+    }, [enterHomeLayoutEdit]);
 
     return {
         homeLayoutEditMode,

@@ -10,9 +10,12 @@ import type { ForumFollowRecord } from '@/app/services/forum/forumFollowTypes';
 import { ForumAppBar } from '@/app/components/lawyer/CommunityScreen/components/ForumAppBar';
 import { ForumFollowingPanel } from '@/app/components/lawyer/CommunityScreen/components/ForumFollowingPanel';
 import { ForumPostList } from '@/app/components/lawyer/CommunityScreen/components/ForumPostList';
-import { LazyLegalRepository } from '@/app/components/lawyer/CommunityScreen/communityScreenLazySections';
 import { ForumGroupFeedPanel } from '@/app/components/lawyer/CommunityScreen/components/ForumGroupFeedPanel';
 import { ForumGroupsDirectory } from '@/app/components/lawyer/CommunityScreen/components/ForumGroupsDirectory';
+import {
+    LazyLegalRepository,
+    prefetchCommunityRepositorySection,
+} from '@/app/components/lawyer/CommunityScreen/communityScreenLazySections';
 import {
     FORUM_PUBLISH_BTN,
     FORUM_PUBLISH_BTN_DISABLED,
@@ -74,8 +77,9 @@ export type CommunityScreenBodyProps = {
     followingIds: Set<string>;
     bookmarkedIds: Set<string>;
     onToggleBookmark: (postId: string) => void;
-    onSaveToNotes: (postId: string) => void;
+    onCopyPostText: (postId: string) => void;
     onSaveToVault: (postId: string) => void;
+    onSaveToDevice: (postId: string) => void;
     onToggleLock: (postId: string) => void;
     onMuteUser: (userId: string) => void;
     userStats: Record<string, { followerCount: number; postCount: number }>;
@@ -100,6 +104,7 @@ export type CommunityScreenBodyProps = {
     onCreateGroupClick: () => void;
     joiningGroupId: string | null;
     onOpenAddQuestion: () => void;
+    canPublishPost: boolean;
 };
 
 /** جسم المنتدى: الشريط + الأقسام الثلاثة + FAB */
@@ -155,8 +160,9 @@ export function CommunityScreenBody(props: CommunityScreenBodyProps) {
         followingIds,
         bookmarkedIds,
         onToggleBookmark,
-        onSaveToNotes,
+        onCopyPostText,
         onSaveToVault,
+        onSaveToDevice,
         onToggleLock,
         onMuteUser,
         userStats,
@@ -181,11 +187,18 @@ export function CommunityScreenBody(props: CommunityScreenBodyProps) {
         onCreateGroupClick,
         joiningGroupId,
         onOpenAddQuestion,
+        canPublishPost,
     } = props;
 
     const [repositoryMounted, setRepositoryMounted] = useState(activeSection === 'repository');
     useEffect(() => {
-        if (activeSection === 'repository') setRepositoryMounted(true);
+        prefetchCommunityRepositorySection();
+        setRepositoryMounted(true);
+    }, []);
+    useEffect(() => {
+        if (activeSection === 'repository') {
+            prefetchCommunityRepositorySection();
+        }
     }, [activeSection]);
 
     const postListShared = {
@@ -203,8 +216,9 @@ export function CommunityScreenBody(props: CommunityScreenBodyProps) {
         followingIds,
         bookmarkedIds,
         onToggleBookmark,
-        onSaveToNotes,
+        onCopyPostText,
         onSaveToVault,
+        onSaveToDevice,
         onToggleLock,
         onMuteUser,
         userStats,
@@ -241,18 +255,20 @@ export function CommunityScreenBody(props: CommunityScreenBodyProps) {
                 closeAppBarDropdownsRef={closeAppBarDropdownsRef}
             />
 
-            <ForumFollowingPanel
-                open={showFollowingPanel}
-                onClose={onCloseFollowingPanel}
-                following={followingRecords}
-                followers={followerRecords}
-                authorNames={followingAuthorNames}
-                onUnfollow={onUnfollow}
-                onFollowBack={onFollowBack}
-                onUpdatePrefs={onUpdateFollowPrefs}
-                onOpenFollowingFeed={onOpenFollowingFeed}
-                onOpenProfile={onOpenProfile}
-            />
+            {showFollowingPanel ? (
+                <ForumFollowingPanel
+                    open
+                    onClose={onCloseFollowingPanel}
+                    following={followingRecords}
+                    followers={followerRecords}
+                    authorNames={followingAuthorNames}
+                    onUnfollow={onUnfollow}
+                    onFollowBack={onFollowBack}
+                    onUpdatePrefs={onUpdateFollowPrefs}
+                    onOpenFollowingFeed={onOpenFollowingFeed}
+                    onOpenProfile={onOpenProfile}
+                />
+            ) : null}
 
             <div className="flex-1 overflow-y-auto scrollbar-hide pb-36">
                 <div
@@ -346,14 +362,18 @@ export function CommunityScreenBody(props: CommunityScreenBodyProps) {
                         data-testid="forum-add-question-fab"
                         onClick={onOpenAddQuestion}
                         onPointerEnter={prefetchCommunityAddQuestionOverlay}
-                        className={`flex items-center gap-2 font-bold py-3 px-5 rounded-2xl shadow-lg transition-transform ${
-                            currentUserId
-                                ? `${FORUM_PUBLISH_BTN} shadow-black/25`
+                        className={`flex min-h-[52px] items-center gap-2.5 rounded-[1.35rem] border px-5 py-3 text-sm font-black shadow-[0_18px_36px_rgba(0,0,0,0.24)] transition-all duration-150 ${
+                            canPublishPost
+                                ? 'border-[#F7C7A7]/70 bg-[linear-gradient(135deg,#F0B896_0%,#F8C7A7_100%)] text-[#2A1520] hover:-translate-y-0.5 hover:shadow-[0_22px_42px_rgba(240,184,150,0.24)] active:translate-y-0'
                                 : FORUM_PUBLISH_BTN_DISABLED
                         }`}
+                        disabled={!canPublishPost}
+                        aria-disabled={!canPublishPost}
                     >
-                        <Plus size={20} />
-                        <span>طرح استشارة للزملاء</span>
+                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#2A1520]/10">
+                            <Plus size={18} />
+                        </span>
+                        <span>نشر</span>
                     </button>
                 </div>
             ) : activeSection === 'groups' && activeGroupId ? (
@@ -363,14 +383,18 @@ export function CommunityScreenBody(props: CommunityScreenBodyProps) {
                         data-testid="forum-add-question-fab"
                         onClick={onOpenAddQuestion}
                         onPointerEnter={prefetchCommunityAddQuestionOverlay}
-                        className={`flex items-center gap-2 font-bold py-3 px-5 rounded-2xl shadow-lg transition-transform ${
-                            currentUserId
-                                ? `${FORUM_PUBLISH_BTN} shadow-black/25`
+                        className={`flex min-h-[52px] items-center gap-2.5 rounded-[1.35rem] border px-5 py-3 text-sm font-black shadow-[0_18px_36px_rgba(0,0,0,0.24)] transition-all duration-150 ${
+                            canPublishPost
+                                ? 'border-[#F7C7A7]/70 bg-[linear-gradient(135deg,#F0B896_0%,#F8C7A7_100%)] text-[#2A1520] hover:-translate-y-0.5 hover:shadow-[0_22px_42px_rgba(240,184,150,0.24)] active:translate-y-0'
                                 : FORUM_PUBLISH_BTN_DISABLED
                         }`}
+                        disabled={!canPublishPost}
+                        aria-disabled={!canPublishPost}
                     >
-                        <Plus size={20} />
-                        <span>نشر في المجموعة</span>
+                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#2A1520]/10">
+                            <Plus size={18} />
+                        </span>
+                        <span>نشر</span>
                     </button>
                 </div>
             ) : null}
@@ -378,9 +402,17 @@ export function CommunityScreenBody(props: CommunityScreenBodyProps) {
     );
 }
 
-export function openForumAddQuestionGuard(currentUserId: string | null, onOpen: () => void): void {
+export function openForumAddQuestionGuard(
+    currentUserId: string | null,
+    onOpen: () => void,
+    options?: { isBanned?: boolean },
+): void {
     if (!currentUserId) {
         SmartToast.warning('سجّل الدخول أولاً');
+        return;
+    }
+    if (options?.isBanned) {
+        SmartToast.warning('حسابك محظور من النشر في المنتدى');
         return;
     }
     onOpen();

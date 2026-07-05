@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { CalendarDays, ChevronDown, Gavel, Hash, PenLine, Plus, Scale, X } from 'lucide-react';
 import type { TimelineEvent } from '../../LawyerShared';
@@ -31,6 +31,7 @@ import { SmartRequestsPanel } from './SmartRequestsPanel';
 import { personalPearlHubTheme } from '@/app/components/lawyer/personal-status/personalStatusPearlTheme';
 import { PersonalStatusPearlTile } from '@/app/components/lawyer/personal-status/PersonalStatusMoroccanGlass';
 import { personalHubTheme as legacyPersonalHubTheme } from '@/app/components/lawyer/personal-status/personalStatusDossierTheme';
+import { registerSmartFileInlineOverlay } from '../smartFile/smartFileInlineOverlayRegistry';
 
 export type { AttachmentShieldSummary, FastTrackPetitionSummary } from '../smartFile/requestTypes';
 
@@ -56,21 +57,20 @@ export interface SessionAndRequestsHubProps {
 
 const GLASS_TRIGGER =
     'w-full min-h-[72px] px-3 rounded-xl border border-[#E6C673]/20 bg-[#0A0F1C]/40 backdrop-blur-md hover:bg-[#0A0F1C]/55 hover:border-[#E6C673]/35 flex flex-col items-center justify-center gap-1 transition-all text-center shadow-[0_4px_24px_rgba(0,0,0,0.25)]';
-const GLASS_OVERLAY =
-    'fixed inset-0 z-[150] bg-[#05060D]/75 backdrop-blur-md font-[\'Tajawal\']';
+const GLASS_OVERLAY = 'fixed inset-0 z-[260] bg-[#020309]/96 backdrop-blur-lg font-[\'Tajawal\'] pointer-events-auto';
 const GLASS_SHELL =
-    'w-full h-full flex flex-col bg-[#0A0F1C]/92 backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]';
+    'w-full h-full flex flex-col bg-[#070B14] overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]';
 const GLASS_HEADER =
-    'relative px-5 sm:px-8 py-4 border-b border-[#E6C673]/15 bg-gradient-to-l from-[#E6C673]/10 via-transparent to-transparent flex justify-between items-center shrink-0';
+    'relative px-5 sm:px-8 py-4 border-b border-[#E6C673]/14 bg-[linear-gradient(180deg,rgba(18,24,38,0.98),rgba(10,15,28,0.98))] flex justify-between items-center shrink-0';
 const GLASS_BODY =
-    'flex-1 min-h-0 overflow-y-auto scrollbar-hide px-5 sm:px-8 py-5 space-y-4 max-w-5xl w-full mx-auto';
+    'flex-1 min-h-0 overflow-y-auto scrollbar-hide px-5 sm:px-8 lg:px-10 py-5 space-y-5 max-w-[min(96vw,92rem)] w-full mx-auto bg-[#070B14]';
 const GLASS_FIELD =
-    'w-full min-w-0 bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-3 text-sm text-white outline-none focus:border-[#E6C673]/30 focus:bg-white/[0.06] transition-all [color-scheme:dark]';
+    'w-full min-w-0 bg-white/[0.05] border border-white/[0.09] rounded-xl px-3 py-3 text-sm text-white outline-none focus:border-[#E6C673]/30 focus:bg-white/[0.07] transition-all [color-scheme:dark]';
 const GLASS_LABEL = 'text-xs font-bold text-white/50 mb-2 block';
 const GLASS_SECTION =
-    'rounded-2xl border border-[#E6C673]/15 bg-white/[0.02] backdrop-blur-sm p-4 sm:p-5';
+    'rounded-[24px] border border-[#E6C673]/14 bg-[linear-gradient(180deg,rgba(17,22,35,0.96),rgba(10,15,28,0.98))] p-4 sm:p-6';
 const GLASS_BTN =
-    'w-full max-w-5xl mx-auto py-3.5 rounded-xl bg-[#E6C673]/15 border border-[#E6C673]/30 text-[#E6C673] text-sm font-bold transition-all hover:bg-[#E6C673]/25 disabled:opacity-40 disabled:cursor-not-allowed shrink-0';
+    'w-full py-3.5 rounded-xl bg-[#E6C673]/15 border border-[#E6C673]/30 text-[#E6C673] text-sm font-bold transition-all hover:bg-[#E6C673]/25 disabled:opacity-40 disabled:cursor-not-allowed shrink-0';
 
 function hubTheme(variant: 'civil' | 'personal' = 'civil', layoutMode: 'default' | 'personal-pearl' = 'default') {
     if (variant === 'personal' && layoutMode === 'personal-pearl') return personalPearlHubTheme();
@@ -87,7 +87,7 @@ function hubTheme(variant: 'civil' | 'personal' = 'civil', layoutMode: 'default'
         btn: GLASS_BTN,
         accentText: 'text-[#E6C673]',
         accentIcon: 'text-[#E6C673]',
-        footerBar: 'px-5 sm:px-8 py-4 border-t border-[#E6C673]/10 shrink-0 bg-[#0A0F1C]/80',
+        footerBar: 'px-5 sm:px-8 lg:px-10 py-4 border-t border-[#E6C673]/10 shrink-0 bg-[linear-gradient(180deg,rgba(10,15,28,0.985),rgba(7,10,18,0.995))]',
     };
 }
 
@@ -102,7 +102,7 @@ function emptyForm(timeline: TimelineEvent[]): SessionRecordFormData {
     };
 }
 
-export const SessionAndRequestsHub = ({
+export const SessionAndRequestsHub = memo(function SessionAndRequestsHub({
     timeline = [],
     onSubmitSessionRecord,
     editingSessionRecord = null,
@@ -117,7 +117,7 @@ export const SessionAndRequestsHub = ({
     visualVariant = 'civil',
     compose = 'full',
     layoutMode = 'default',
-}: SessionAndRequestsHubProps) => {
+}: SessionAndRequestsHubProps) {
     const isPearl = visualVariant === 'personal' && layoutMode === 'personal-pearl';
     const T = hubTheme(visualVariant, layoutMode);
     const isEditing = Boolean(editingSessionRecord?.id);
@@ -139,15 +139,6 @@ export const SessionAndRequestsHub = ({
     useEffect(() => {
         if (isEditing) setPanelOpen(true);
     }, [isEditing]);
-
-    useEffect(() => {
-        if (!panelOpen || typeof document === 'undefined') return;
-        const prev = document.body.style.overflow;
-        document.body.style.overflow = 'hidden';
-        return () => {
-            document.body.style.overflow = prev;
-        };
-    }, [panelOpen]);
 
     useEffect(() => {
         const editId = editingSessionRecord?.id;
@@ -237,6 +228,26 @@ export const SessionAndRequestsHub = ({
         setPanelOpen(false);
     };
 
+    useEffect(() => {
+        if (!panelOpen || typeof document === 'undefined') return;
+        const unregister = registerSmartFileInlineOverlay();
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                if (isEditing) {
+                    onCancelEditSessionRecord?.();
+                }
+                setPanelOpen(false);
+            }
+        };
+        window.addEventListener('keydown', onKeyDown, true);
+        return () => {
+            unregister();
+            window.removeEventListener('keydown', onKeyDown, true);
+        };
+    }, [panelOpen, isEditing, onCancelEditSessionRecord]);
+
     const handleSubmit = () => {
         if (!onSubmitSessionRecord || !canSubmit) return;
         onSubmitSessionRecord({
@@ -265,9 +276,13 @@ export const SessionAndRequestsHub = ({
         <div
             className={T.overlay}
             dir="rtl"
+            role="presentation"
+            onClick={(e) => {
+                if (e.target === e.currentTarget) closePanel();
+            }}
             data-testid={CIVIL_LAWSUIT_TEST_IDS.sessionRecordPanel}
         >
-            <div className={T.shell}>
+            <div className={T.shell} onClick={(e) => e.stopPropagation()}>
                 <div className={T.header}>
                     <div className="flex items-center gap-3 min-w-0">
                         <Scale size={20} className={`${T.accentIcon} shrink-0`} aria-hidden />
@@ -464,15 +479,19 @@ export const SessionAndRequestsHub = ({
                 </div>
 
                 <div className={T.footerBar}>
-                    <button
-                        type="button"
-                        data-testid={CIVIL_LAWSUIT_TEST_IDS.sessionRecordAdd}
-                        onClick={handleSubmit}
-                        disabled={!canSubmit}
-                        className={T.btn}
-                    >
-                        {isEditing ? 'حفظ التعديلات' : 'تسجيل المحضر'}
-                    </button>
+                    <div className="max-w-[min(96vw,92rem)] w-full mx-auto">
+                        <div className="rounded-[24px] border border-white/[0.06] bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.015))] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                            <button
+                                type="button"
+                                data-testid={CIVIL_LAWSUIT_TEST_IDS.sessionRecordAdd}
+                                onClick={handleSubmit}
+                                disabled={!canSubmit}
+                                className={T.btn}
+                            >
+                                {isEditing ? 'حفظ التعديلات' : 'تسجيل المحضر'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>,
@@ -541,4 +560,4 @@ export const SessionAndRequestsHub = ({
             ) : null}
         </div>
     );
-};
+});

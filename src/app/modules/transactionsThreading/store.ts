@@ -4,6 +4,11 @@ import { FinanceRecordType, TransactionStatus, type TransactionDocumentOwnerTag 
 import { PersistentTransactionsThreadingRepository } from './persistentRepository';
 import { InMemoryTransactionsThreadingRepository, type TransactionsThreadingRepository } from './repository';
 import { TransactionsThreadingService } from './service';
+import { peekTransactionsThreadingState } from '@/app/services/transactions/transactionsThreadingMirror';
+import {
+    groupThreadingSeedForStore,
+    type ThreadingRepositorySeed,
+} from './transactionsThreadingStoreSeed';
 
 let repo: TransactionsThreadingRepository = new InMemoryTransactionsThreadingRepository({
   transactions: [],
@@ -13,6 +18,57 @@ let repo: TransactionsThreadingRepository = new InMemoryTransactionsThreadingRep
 });
 let service = new TransactionsThreadingService(repo);
 let boundUserId: string | null = null;
+
+type StoreSlice = Pick<
+    TransactionsThreadingState,
+    'userId' | 'transactions' | 'tasksByTransactionId' | 'financeByTransactionId' | 'documentsByTransactionId'
+>;
+
+let patchStore: ((patch: Partial<StoreSlice>) => void) | null = null;
+let patchStoreFn: ((fn: (state: StoreSlice) => Partial<StoreSlice>) => void) | null = null;
+
+function bindTransactionsUser(next: string): void {
+    if (boundUserId === next) return;
+
+    boundUserId = next;
+    const mirrored = peekTransactionsThreadingState(next);
+    const seed: ThreadingRepositorySeed | undefined = mirrored
+        ? {
+              transactions: mirrored.transactions as Transaction[],
+              tasks: mirrored.tasks as TransactionTask[],
+              financeRecords: mirrored.financeRecords as FinanceRecord[],
+              documents: mirrored.documents as TransactionDocument[],
+          }
+        : undefined;
+
+    repo = new PersistentTransactionsThreadingRepository(next, seed);
+    service = new TransactionsThreadingService(repo);
+
+    const grouped = seed ? groupThreadingSeedForStore(seed) : null;
+    patchStore?.({
+        userId: next,
+        transactions: grouped?.transactions ?? [],
+        tasksByTransactionId: grouped?.tasksByTransactionId ?? {},
+        financeByTransactionId: grouped?.financeByTransactionId ?? {},
+        documentsByTransactionId: grouped?.documentsByTransactionId ?? {},
+    });
+}
+
+/** ربط فوري للمستخدم — قبل أي إضافة/حفظ */
+export function ensureTransactionsUserBound(userId: string): void {
+    const next = userId?.trim();
+    if (!next) return;
+    bindTransactionsUser(next);
+}
+
+function rollbackOptimisticTransaction(txId: string): void {
+    patchStoreFn?.((state) => ({
+        transactions: state.transactions.filter((item) => item.id !== txId),
+    }));
+    void import('@/app/components/ui/SmartToast').then(({ SmartToast }) => {
+        SmartToast.error('تعذر حفظ المعاملة — حاول مرة أخرى');
+    });
+}
 
 function syncThreadingToCalendar(): void {
     const lawyerId = boundUserId ?? useTransactionsThreadingStore.getState().userId;
@@ -72,27 +128,16 @@ interface TransactionsThreadingState {
   setTransactionAgreedFees: (transactionId: string, agreedFees: number) => Promise<Transaction>;
 }
 
-export const useTransactionsThreadingStore = create<TransactionsThreadingState>((set, get) => ({
+export const useTransactionsThreadingStore = create<TransactionsThreadingState>((set, get) => {
+  patchStore = (patch) => set(patch);
+  patchStoreFn = (fn) => set((state) => ({ ...state, ...fn(state) }));
+
+  return {
   userId: null,
   setUserId: async (userId) => {
     const next = userId?.trim();
     if (!next) return;
-    if (boundUserId === next) return;
-    boundUserId = next;
-    repo = new PersistentTransactionsThreadingRepository(next, {
-      transactions: [],
-      tasks: [],
-      financeRecords: [],
-      documents: [],
-    });
-    service = new TransactionsThreadingService(repo);
-    set({
-      userId: next,
-      transactions: [],
-      tasksByTransactionId: {},
-      financeByTransactionId: {},
-      documentsByTransactionId: {},
-    });
+    bindTransactionsUser(next);
   },
 
   transactions: [],
@@ -120,14 +165,36 @@ export const useTransactionsThreadingStore = create<TransactionsThreadingState>(
   },
 
   createTransaction: async (input) => {
-    const tx = await service.createTransaction(input);
-    await get().refreshTransactions();
+    const uid = boundUserId ?? get().userId;
+    if (!uid) {
+        throw new Error('transactions-user-not-bound');
+    }
+    if (boundUserId !== uid) {
+        bindTransactionsUser(uid);
+    }
+
+    const tx = service.buildTransaction(input);
+    set((state) => ({
+      transactions: state.transactions.some((item) => item.id === tx.id)
+        ? state.transactions
+        : [tx, ...state.transactions],
+    }));
+
+    void service.persistTransaction(tx).catch(() => {
+        rollbackOptimisticTransaction(tx.id);
+    });
+
     return tx;
   },
 
   addTask: async (input) => {
     const task = await service.addTask(input);
-    await get().refreshTransactionData(task.transactionId);
+    set((state) => ({
+      tasksByTransactionId: {
+        ...state.tasksByTransactionId,
+        [task.transactionId]: [...(state.tasksByTransactionId[task.transactionId] ?? []), task],
+      },
+    }));
     syncThreadingToCalendar();
     return task;
   },
@@ -227,7 +294,8 @@ export const useTransactionsThreadingStore = create<TransactionsThreadingState>(
     await get().refreshTransactions();
     return tx;
   },
-}));
+};
+});
 
 /** تحميل مسبق بيانات المعاملات قبل فتح الـ hub — لا يغيّر الواجهة */
 let warmInflight: Promise<void> | null = null;

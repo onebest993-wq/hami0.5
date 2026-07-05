@@ -12,10 +12,12 @@ export function registerTransactionsWarmUserId(userId: string | null | undefined
     };
 }
 
-/** عند hover/لمس بطاقة المعاملات: prefetch للـ chunk فقط */
+/** عند hover/لمس بطاقة المعاملات: prefetch للـ chunk + بذرة البيانات المحلية */
 export function warmTransactionsOnHover(): void {
     void loadTransactionsHubModule().catch(() => undefined);
     prefetchTransactionsCloudModule();
+    const uid = registeredWarmUserId?.trim();
+    if (uid) void warmTransactionsThreadingStore(uid).catch(() => undefined);
 }
 
 /** عند فتح مركز المعاملات — يُكمَّل بتهيئة مخزن البيانات */

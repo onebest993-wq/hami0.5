@@ -1,4 +1,9 @@
-import type { CommunityComment, CommunityPost, ForumNotification, NotificationType } from '@/app/services/lawyer-cloud';
+import type {
+    CommunityComment,
+    CommunityPost,
+    ForumNotification,
+    NotificationType,
+} from '@/app/services/forum/forumTypes';
 import { resolveForumNotificationDb } from '@/app/services/notifications/forumNotificationDbResolver';
 import { ForumFollowRepository } from './forumFollowRepository';
 import { ForumPostFollowRepository } from './forumPostFollowRepository';

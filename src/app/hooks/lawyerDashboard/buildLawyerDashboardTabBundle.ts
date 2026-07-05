@@ -1,6 +1,6 @@
-// @ts-nocheck
 import type { ComponentProps, Dispatch, SetStateAction } from 'react';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
+import type { OpenRepositoryOptions } from '@/app/hooks/lawyerDashboard/useLawyerDashboardRepository';
 import type { LawyerDashboardHomeTab } from '@/app/components/lawyer/dashboard/LawyerDashboardHomeTab';
 import type { LawyerDashboardScheduleTab } from '@/app/components/lawyer/dashboard/LawyerDashboardScheduleTab';
 import type { Header } from '@/app/components/lawyer/LawyerDashboardParts/components/Header';
@@ -14,10 +14,11 @@ import { quickNoteTitle } from '@/app/components/lawyer/dashboard/quickNoteUtils
 import { voiceNoteTitleFromMeta } from '@/app/services/voice/voiceNoteCodec';
 import { createLawyerDashboardHeaderPrefetch } from '@/app/hooks/lawyerDashboard/lawyerDashboardHeaderPrefetch';
 import { computeLawyerDashboardHeaderShouldShow } from '@/app/hooks/lawyerDashboard/lawyerDashboardHeaderVisibility';
-import { warmExecutionWorkspace, warmLawsuitWorkspace } from '@/app/utils/lazyComponents';
+import { warmExecutionDossier, warmExecutionWorkspace, warmLawsuitWorkspace } from '@/app/utils/lazyComponents';
 import {
     loadExecutionArchiveHubModule,
     loadLawsuitArchiveHubModule,
+    hydrateArchiveHubForInstantOpen,
 } from '@/app/runtime/hubArchiveLoader';
 import { dismissTransientOverlays } from '@/app/utils/bodyScrollLock';
 import { resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
@@ -229,7 +230,9 @@ export function buildLawyerDashboardTabBundle(
                     params.setLawsuitsDossierSection('all');
                     params.setLawsuitsWorkspaceTab('civil');
                     params.setShowLawsuitsWorkspace(true);
+                    void hydrateArchiveHubForInstantOpen('lawsuit');
                     void loadLawsuitArchiveHubModule().catch(() => undefined);
+                    void import('@/app/components/lawyer/dashboard/LawsuitsWorkspaceHost').catch(() => undefined);
                     return;
                 }
 
@@ -237,7 +240,9 @@ export function buildLawyerDashboardTabBundle(
                     warmExecutionWorkspace();
                     params.setShowLawsuitsWorkspace(false);
                     params.setArchiveType('execution');
+                    void hydrateArchiveHubForInstantOpen('execution');
                     void loadExecutionArchiveHubModule().catch(() => undefined);
+                    void import('@/app/components/lawyer/dashboard/ExecutionArchiveOverlayHost').catch(() => undefined);
                 }
             },
             userId: params.user?.id || '',
@@ -313,7 +318,10 @@ export function buildLawyerDashboardTabBundle(
             files: params.files,
             executionFiles: params.executionFiles,
             onOpenLawsuitFile: (f) => params.setActiveFile(f),
-            onOpenExecutionFile: (ex) => params.setActiveFile(coerceExecutionFilePreserveId(ex)),
+            onOpenExecutionFile: (ex) => {
+                warmExecutionDossier('urgent');
+                params.setActiveFile(coerceExecutionFilePreserveId(ex));
+            },
             onOpenCriminalCase: params.openCriminalCase,
             onOpenUrgentCase: (caseId) => {
                 params.openUrgentInLawsuitsWorkspace(caseId);

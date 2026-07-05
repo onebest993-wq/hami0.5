@@ -4,6 +4,7 @@
  */
 import { extractJwtSessionFields } from '@/app/security/jwtFields';
 import { getOrCreateDeviceId } from '@/app/security/deviceId';
+import SecureStoreService from '@/app/services/SecureStoreService';
 
 const DB_NAME = 'HamiStolenTokenRegistry';
 const STORE = 'tokenSessions';
@@ -141,7 +142,6 @@ async function logStolenTokenAttempt(token: string, type: string, reason: string
       reason,
       timestamp: new Date().toISOString(),
     });
-    const { default: SecureStoreService } = await import('@/app/services/SecureStoreService');
     await SecureStoreService.setItem(
       'security_stolen_token_flag',
       JSON.stringify({ type, sub: fields?.sub, timestamp: Date.now() }),

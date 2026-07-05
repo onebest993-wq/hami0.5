@@ -1,7 +1,8 @@
-import { prefetchSmartLegalRadar } from '@/app/utils/lazyComponents';
 import { prefetchScheduleHubModule } from '@/app/runtime/scheduleHubLoader';
+import { hydrateScheduleShellForInstantOpenWithData } from '@/app/runtime/scheduleBootHydrator';
 import { fetchCalendarEvents, prefetchCalendarCloudModule } from '@/app/services/calendar/calendarCloudLoader';
 import { resolveCalendarUserId } from '@/app/services/calendarBridge';
+import { setCachedCalendarEvents } from '@/app/services/calendar/calendarEventsCache';
 import type { CalendarEvent } from '@/app/services/cloud/lawyerCalendarTypes';
 
 let registeredWarmUserId: string | null | undefined;
@@ -28,6 +29,7 @@ export function warmCalendarEventsCache(userId: string | null | undefined): Prom
     warmInflight = fetchCalendarEvents(uid)
         .catch(() => [] as CalendarEvent[])
         .then((events) => {
+            setCachedCalendarEvents(warmUid, events);
             if (warmForUserId === warmUid) warmInflight = null;
             return events;
         });
@@ -39,12 +41,15 @@ export function warmCalendarEventsCache(userId: string | null | undefined): Prom
 export function warmScheduleOnHover(userId?: string | null): void {
     const resolvedUserId = userId ?? registeredWarmUserId;
     prefetchScheduleHubModule();
-    prefetchSmartLegalRadar();
     prefetchCalendarCloudModule();
-    warmCalendarEventsCache(resolvedUserId).catch(() => undefined);
+    void hydrateScheduleShellForInstantOpenWithData(resolvedUserId).catch(() => undefined);
 }
 
-/** عند فتح تبويب الجدول أو idle على الرئيسية */
+/** عند فتح التقويم — يتجاوز تعطيل prefetch الخلفي */
 export function warmScheduleOnOpen(userId?: string | null): void {
-    warmScheduleOnHover(userId);
+    const resolvedUserId = userId ?? registeredWarmUserId;
+    prefetchScheduleHubModule();
+    prefetchCalendarCloudModule();
+    void warmCalendarEventsCache(resolvedUserId).catch(() => undefined);
+    void hydrateScheduleShellForInstantOpenWithData(resolvedUserId, true).catch(() => undefined);
 }

@@ -42,7 +42,7 @@ export const TrashModal = ({ isOpen, onClose, deletedItems, onRestore, onPermane
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 font-['Tajawal']">
+        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 font-['Tajawal']">
             <div className="bg-[#1A1E2E] border border-white/10 rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden shadow-2xl">
                 {/* Header */}
                 <div className="bg-red-500/20 border-b border-red-500/30 p-4 flex justify-between items-center">

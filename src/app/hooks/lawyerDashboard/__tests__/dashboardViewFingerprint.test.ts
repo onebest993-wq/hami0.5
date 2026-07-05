@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, beforeEach } from 'vitest';
 import { dashboardViewFingerprint } from '@/app/hooks/lawyerDashboard/dashboardViewFingerprint';
+import { resetDashboardShellFingerprintCacheForTests } from '@/app/hooks/lawyerDashboard/dashboardShellFingerprintCache';
 import type { Orchestration } from '@/app/hooks/lawyerDashboard/dashboardViewFingerprint.types';
 
 function baseOrchestration(overrides: Partial<Orchestration> = {}): Orchestration {
@@ -50,6 +51,10 @@ function baseOrchestration(overrides: Partial<Orchestration> = {}): Orchestratio
             showSettings: false,
         },
         archiveAndSync: { archiveType: null },
+        settings: {
+            appearance: { theme: 'dark', backgroundPreset: 'none', wallpaperStamp: 0 },
+            performance: { litePerformance: 'auto' },
+        },
         clusterScanSources: {
             lawsuitFiles: [],
             executionFiles: [],
@@ -65,6 +70,10 @@ function baseOrchestration(overrides: Partial<Orchestration> = {}): Orchestratio
 }
 
 describe('dashboardViewFingerprint', () => {
+    beforeEach(() => {
+        resetDashboardShellFingerprintCacheForTests();
+    });
+
     it('returns stable fingerprint for identical orchestration', () => {
         const a = baseOrchestration();
         const b = baseOrchestration();

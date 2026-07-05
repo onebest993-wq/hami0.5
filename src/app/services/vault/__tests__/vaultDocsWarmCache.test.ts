@@ -40,11 +40,12 @@ describe('vaultDocsWarmCache', () => {
         mockListDocs.mockResolvedValue([sampleDoc()]);
     });
 
-    it('fetchVaultDocsDeduped يعيد الكاش بدون شبكة', async () => {
+    it('fetchVaultDocsDeduped يعيد الكاش فوراً مع تحديث خلفي', async () => {
         setVaultDocsWarmCache('u1', [sampleDoc()]);
         const docs = await fetchVaultDocsDeduped('u1');
         expect(docs).toHaveLength(1);
-        expect(mockListDocs).not.toHaveBeenCalled();
+        await new Promise((r) => setTimeout(r, 0));
+        expect(mockListDocs).toHaveBeenCalledTimes(1);
     });
 
     it('fetchVaultDocsDeduped ي dedupe الطلبات المتزامنة', async () => {
@@ -62,6 +63,13 @@ describe('vaultDocsWarmCache', () => {
 
         expect(mockListDocs).toHaveBeenCalledTimes(1);
         expect(peekVaultDocsWarmCache('u1')).toHaveLength(1);
+    });
+
+    it('fetchVaultDocsDeduped يعيد [] عند فشل listDocs دون رفض', async () => {
+        mockListDocs.mockRejectedValue(new Error('network'));
+        const docs = await fetchVaultDocsDeduped('u1');
+        expect(docs).toEqual([]);
+        expect(peekVaultDocsWarmCache('u1')).toBeUndefined();
     });
 
     it('prefetchSmartVaultDocs لا يطلب الشبكة عند وجود كاش', () => {

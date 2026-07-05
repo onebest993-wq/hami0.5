@@ -10,6 +10,8 @@ export interface LegalSubTask {
     title: string;
     location: string | null;
     isCompleted: boolean;
+    /** إجراء ميداني (أجندة) vs تفريع يدوي */
+    kind?: 'field' | 'branch';
 }
 
 /** بند في حقيبة المستندات */

@@ -1,4 +1,4 @@
-import type { LawyerProfileData, LawyerProfileSection, ProfileAction } from '@/app/services/lawyer-cloud';
+import type { LawyerProfileData, LawyerProfileSection, ProfileAction } from '@/app/services/profile/profileTypes';
 import {
     filterActionsForVisitor,
     normalizeProfilePageCustomization,

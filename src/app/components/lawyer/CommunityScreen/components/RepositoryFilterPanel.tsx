@@ -10,6 +10,16 @@ import {
     repositoryFilterSummary,
     type RepositorySortKey,
 } from '../repositoryListFilters';
+import {
+    FORUM_DROPDOWN_PANEL,
+    FORUM_FILTER_CHIP_IDLE,
+    FORUM_FILTER_CHIP_ICON_IDLE,
+    FORUM_FILTER_CHIP_ICON_SELECTED,
+    FORUM_FILTER_CHIP_SELECTED,
+    FORUM_FILTER_SECTION_LABEL,
+    FORUM_TEXT_MUTED,
+    FORUM_TEXT_PRIMARY,
+} from '../forumPlumTheme';
 
 interface RepositoryFilterPanelProps {
     sortBy: RepositorySortKey;
@@ -51,20 +61,20 @@ export const RepositoryFilterPanel = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.97 }}
             transition={{ type: 'spring', stiffness: 420, damping: 32 }}
-            className="absolute left-0 top-full mt-2 w-[min(360px,calc(100vw-2rem))] z-50 rounded-2xl border border-white/10 bg-[#1A1D2D]/95 backdrop-blur-xl shadow-2xl shadow-black/40 overflow-hidden"
+            className={`absolute left-0 top-full mt-2 w-[min(360px,calc(100vw-2rem))] z-50 ${FORUM_DROPDOWN_PANEL}`}
             role="dialog"
             aria-label="تصفية المستودع"
         >
-            <div className="px-4 py-3 border-b border-white/5">
-                <p className="text-white font-bold text-sm">تصفية المستودع</p>
-                <p className="text-white/40 text-[11px] truncate mt-0.5">
+            <div className="px-4 py-3 border-b border-[#4A3D52]/40">
+                <p className={`${FORUM_TEXT_PRIMARY} font-bold text-sm`}>تصفية المستودع</p>
+                <p className={`${FORUM_TEXT_MUTED} text-[11px] truncate mt-0.5`}>
                     {repositoryFilterSummary(selectedType, sortBy, selectedTag)}
                 </p>
             </div>
 
             <div className="p-4 space-y-4 max-h-[min(70vh,420px)] overflow-y-auto scrollbar-hide">
                 <section>
-                    <p className="text-[#E6C673]/80 text-[10px] font-bold tracking-wide mb-2">ترتيب العرض</p>
+                    <p className={`${FORUM_FILTER_SECTION_LABEL} mb-2`}>ترتيب العرض</p>
                     <div className="grid grid-cols-1 gap-2">
                         {REPOSITORY_SORT_OPTIONS.map(({ value, label, icon: Icon }) => {
                             const isSelected = sortBy === value;
@@ -74,14 +84,12 @@ export const RepositoryFilterPanel = ({
                                     type="button"
                                     onClick={() => handleSort(value)}
                                     className={`rounded-xl px-3 py-2.5 flex items-center gap-2 border text-right transition-all ${
-                                        isSelected
-                                            ? 'bg-[#E6C673]/15 border-[#E6C673]/40 text-[#E6C673] shadow-[0_0_20px_rgba(230,198,115,0.12)]'
-                                            : 'bg-[#25293C]/80 border-white/5 text-white/60 hover:border-white/15 hover:text-white/90'
+                                        isSelected ? FORUM_FILTER_CHIP_SELECTED : FORUM_FILTER_CHIP_IDLE
                                     }`}
                                 >
                                     <span
                                         className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                                            isSelected ? 'bg-[#E6C673]/20' : 'bg-white/5'
+                                            isSelected ? FORUM_FILTER_CHIP_ICON_SELECTED : FORUM_FILTER_CHIP_ICON_IDLE
                                         }`}
                                     >
                                         <Icon size={16} />
@@ -95,7 +103,7 @@ export const RepositoryFilterPanel = ({
 
                 <section>
                     <div className="flex items-center justify-between mb-2">
-                        <p className="text-[#E6C673]/80 text-[10px] font-bold tracking-wide">التخصصات القانونية</p>
+                        <p className={FORUM_FILTER_SECTION_LABEL}>التخصصات القانونية</p>
                         {selectedTag ? (
                             <button
                                 type="button"
@@ -103,7 +111,7 @@ export const RepositoryFilterPanel = ({
                                     onTagChange(null);
                                     onClose();
                                 }}
-                                className="text-[10px] text-white/40 hover:text-[#E6C673] transition-colors"
+                                className="text-[10px] text-[#9A9098] hover:text-[#F0B896] transition-colors"
                             >
                                 إظهار الكل
                             </button>
@@ -119,14 +127,12 @@ export const RepositoryFilterPanel = ({
                                     type="button"
                                     onClick={() => handleTag(label)}
                                     className={`rounded-xl px-3 py-2.5 flex items-center gap-2 border text-right transition-all ${
-                                        isSelected
-                                            ? 'bg-[#E6C673]/15 border-[#E6C673]/40 text-[#E6C673] shadow-[0_0_20px_rgba(230,198,115,0.12)]'
-                                            : 'bg-[#25293C]/60 border-white/5 text-white/55 hover:border-white/15 hover:text-white/90'
+                                        isSelected ? FORUM_FILTER_CHIP_SELECTED : FORUM_FILTER_CHIP_IDLE
                                     }`}
                                 >
                                     <span
                                         className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                                            isSelected ? 'bg-[#E6C673]/20' : 'bg-white/5'
+                                            isSelected ? FORUM_FILTER_CHIP_ICON_SELECTED : FORUM_FILTER_CHIP_ICON_IDLE
                                         }`}
                                     >
                                         <Icon size={15} />
@@ -140,12 +146,12 @@ export const RepositoryFilterPanel = ({
 
                 <section>
                     <div className="flex items-center justify-between mb-2">
-                        <p className="text-[#E6C673]/80 text-[10px] font-bold tracking-wide">نوع المستند</p>
+                        <p className={FORUM_FILTER_SECTION_LABEL}>نوع المستند</p>
                         {selectedType !== 'الكل' ? (
                             <button
                                 type="button"
                                 onClick={() => handleType('الكل')}
-                                className="text-[10px] text-white/40 hover:text-[#E6C673] transition-colors"
+                                className="text-[10px] text-[#9A9098] hover:text-[#F0B896] transition-colors"
                             >
                                 إظهار الكل
                             </button>
@@ -161,14 +167,12 @@ export const RepositoryFilterPanel = ({
                                     type="button"
                                     onClick={() => handleType(type)}
                                     className={`rounded-xl px-3 py-2.5 flex items-center gap-2 border text-right transition-all ${
-                                        isSelected
-                                            ? 'bg-[#E6C673]/15 border-[#E6C673]/40 text-[#E6C673] shadow-[0_0_20px_rgba(230,198,115,0.12)]'
-                                            : 'bg-[#25293C]/60 border-white/5 text-white/55 hover:border-white/15 hover:text-white/90'
+                                        isSelected ? FORUM_FILTER_CHIP_SELECTED : FORUM_FILTER_CHIP_IDLE
                                     }`}
                                 >
                                     <span
                                         className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                                            isSelected ? 'bg-[#E6C673]/20' : 'bg-white/5'
+                                            isSelected ? FORUM_FILTER_CHIP_ICON_SELECTED : FORUM_FILTER_CHIP_ICON_IDLE
                                         }`}
                                     >
                                         <Icon size={15} />

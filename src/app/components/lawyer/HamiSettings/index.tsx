@@ -10,13 +10,12 @@ import {
     readPersistedSettingsSection,
 } from './settingsSectionPersistence';
 import { loadSettingsSection, prefetchSettingsSection } from './settingsSectionLoader';
+import { resolveSettingsSectionComponent } from './settingsSectionRegistry';
 
 export interface HamiSettingsProps {
     onClose: () => void;
-    onEnterHomeLayoutEdit?: () => void;
     onLogout?: () => void;
-    onOpenProfile?: () => void;
-    onOpenPrivacy?: () => void;
+    onEnterHomeLayoutEdit?: () => void;
     onShellReset?: () => void;
     userId?: string | null;
     /** false مع keep-alive — الإعدادات مخفية لكن mounted */
@@ -25,17 +24,20 @@ export interface HamiSettingsProps {
 
 export const HamiSettings = ({
     onClose,
-    onEnterHomeLayoutEdit,
     onLogout,
-    onOpenProfile,
-    onOpenPrivacy,
+    onEnterHomeLayoutEdit,
     onShellReset,
     userId,
     open = true,
 }: HamiSettingsProps) => {
     const [activeSection, setActiveSection] = useState<SettingsSectionId>(readPersistedSettingsSection);
+    const [shellHydrated, setShellHydrated] = useState(false);
 
-    useSettingsLifecycle(open, activeSection, userId);
+    useEffect(() => {
+        if (!open) setShellHydrated(false);
+    }, [open]);
+
+    useSettingsLifecycle(open, activeSection, userId, () => setShellHydrated(true));
 
     useLayoutEffect(() => {
         if (!open) return;
@@ -48,6 +50,7 @@ export const HamiSettings = ({
 
     const handleSectionChange = useCallback((sectionId: SettingsSectionId) => {
         prefetchSettingsSection(sectionId);
+        void resolveSettingsSectionComponent(sectionId);
         setActiveSection(sectionId);
     }, []);
 
@@ -59,13 +62,14 @@ export const HamiSettings = ({
                     activeSection={activeSection}
                     onSectionChange={handleSectionChange}
                     open={open}
+                    hydrated={shellHydrated}
                 >
                     <SettingsSectionRouter
                         activeSection={activeSection}
                         onClose={onClose}
                         onEnterHomeLayoutEdit={onEnterHomeLayoutEdit}
                         open={open}
-                        accountProps={{ onLogout, onOpenProfile, onOpenPrivacy }}
+                        accountProps={{ onLogout }}
                     />
                 </SettingsShell>
             </EnsureLawyerSettingsProvider>

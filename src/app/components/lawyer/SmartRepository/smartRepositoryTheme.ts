@@ -64,7 +64,7 @@ export const REPO_BODY =
     'hami-repository-feed-scroll hami-repository-feed-surface h-0 flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y px-5 py-4 ' +
     '[-webkit-overflow-scrolling:touch] [scrollbar-gutter:stable]';
 
-export const REPO_FEED_ITEM = 'hami-repository-feed-item [content-visibility:auto] [contain-intrinsic-size:auto_140px]';
+export const REPO_FEED_ITEM = 'hami-repository-feed-item';
 
 export const REPO_INPUT =
     'w-full bg-[#0A0F1C]/70 border border-white/[0.12] rounded-xl px-4 py-3 text-[#F4F0E8] placeholder:text-white/30 outline-none ' +

@@ -1,8 +1,10 @@
 import { useCallback, useState } from 'react';
+import { flushSync } from 'react-dom';
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { CommunityComment, CommunityPost } from '@/app/services/lawyer-cloud';
 import { ForumApiService } from '@/app/services/forumApiService';
+import { NotificationDB } from '@/app/services/notifications/notificationForumStorage';
 import { buildCommunityPostShareUrl, setCommunityPostHash } from '../communityDeepLink';
 import { checkForumRateLimit } from '../forumRateLimit';
 import {
@@ -10,7 +12,12 @@ import {
     canDeletePost,
     canEditComment,
     canUpvotePost,
+    getPostAuthorId,
 } from '../communityPermissions';
+import {
+    prefetchCommunityDeleteConfirmOverlay,
+    prefetchCommunityEditPostOverlay,
+} from '../communityScreenLazyOverlays';
 import type { CommunityDualPostLists } from './useCommunityDualPostLists';
 
 export type UseCommunityPostActionsParams = {
@@ -30,6 +37,7 @@ export type UseCommunityPostActionsParams = {
     authUser: { user_metadata?: { fullName?: string }; email?: string } | null;
     commentingPostId: string | null;
     onThreadSubscribed?: (postId: string) => void;
+    onPostDeleted?: (postId: string) => void;
 };
 
 export function useCommunityPostActions({
@@ -40,6 +48,7 @@ export function useCommunityPostActions({
     authUser,
     commentingPostId,
     onThreadSubscribed,
+    onPostDeleted,
 }: UseCommunityPostActionsParams) {
     const {
         postsRef,
@@ -61,49 +70,48 @@ export function useCommunityPostActions({
                 return;
             }
             const target = findPostById(postId);
-            if (target && !canUpvotePost(target, currentUserId)) {
+            if (!target || !canUpvotePost(target, currentUserId)) {
                 SmartToast.warning('لا يمكنك التصويت على منشورك');
                 return;
             }
+            const snapshot = target;
             let nextPost: CommunityPost | null = null;
             let wasUpvote = false;
             let targetUserId = '';
-            updatePostList(postId, (prev) =>
-                prev.map((p) => {
-                    if (p.id !== postId) return p;
-                    const has = p.upvoterIds.includes(currentUserId);
-                    const upvoterIds = has
-                        ? p.upvoterIds.filter((x) => x !== currentUserId)
-                        : [...p.upvoterIds, currentUserId];
-                    wasUpvote = !has;
-                    targetUserId = p.authorId;
-                    nextPost = { ...p, upvoterIds, updatedAt: new Date().toISOString() };
-                    return nextPost;
-                }),
-            );
-            if (nextPost) {
-                try {
-                    const saved = await ForumApiService.syncPost(nextPost);
-                    updatePostList(postId, (prev) => prev.map((p) => (p.id === postId ? saved : p)));
-                } catch {
-                    SmartToast.warning('تعذّر حفظ التصويت');
-                }
+            flushSync(() => {
+                updatePostList(postId, (prev) =>
+                    prev.map((p) => {
+                        if (p.id !== postId) return p;
+                        const has = p.upvoterIds.includes(currentUserId);
+                        const upvoterIds = has
+                            ? p.upvoterIds.filter((x) => x !== currentUserId)
+                            : [...p.upvoterIds, currentUserId];
+                        wasUpvote = !has;
+                        targetUserId = getPostAuthorId(p);
+                        nextPost = { ...p, upvoterIds, updatedAt: new Date().toISOString() };
+                        return nextPost;
+                    }),
+                );
+            });
+            if (!nextPost) return;
+            try {
+                await ForumApiService.syncPost(nextPost);
+            } catch {
+                updatePostList(postId, (prev) => prev.map((p) => (p.id === postId ? snapshot : p)));
+                SmartToast.warning('تعذّر حفظ التصويت');
+                return;
             }
             if (wasUpvote && targetUserId && targetUserId !== currentUserId && authUser) {
-                import('@/app/services/lawyer-cloud')
-                    .then(({ NotificationDB }) => {
-                        NotificationDB.addNotification({
-                            id: crypto.randomUUID(),
-                            userId: targetUserId,
-                            type: 'upvote',
-                            title: 'إعجاب بمنشورك',
-                            message: `أعجب ${authUser?.user_metadata?.fullName || 'أحد المستخدمين'} بمنشورك`,
-                            postId,
-                            read: false,
-                            createdAt: new Date().toISOString(),
-                        });
-                    })
-                    .catch(() => undefined);
+                void NotificationDB.addNotification({
+                    id: crypto.randomUUID(),
+                    userId: targetUserId,
+                    type: 'upvote',
+                    title: 'إعجاب بمنشورك',
+                    message: `أعجب ${authUser?.user_metadata?.fullName || 'أحد المستخدمين'} بمنشورك`,
+                    postId,
+                    read: false,
+                    createdAt: new Date().toISOString(),
+                }).catch(() => undefined);
             }
         },
         [authUser, currentUserId, findPostById, updatePostList],
@@ -209,7 +217,7 @@ export function useCommunityPostActions({
 
     const handleEditComment = useCallback(
         async (postId: string, commentId: string, newContent: string) => {
-            if (!currentUserId) return;
+            if (!currentUserId) return false;
             const post = findPostById(postId);
             const comment = post?.comments.find((c) => c.id === commentId);
             if (!comment || !post || !canEditComment(comment, currentUserId, post)) {
@@ -219,7 +227,7 @@ export function useCommunityPostActions({
                         ? 'لا يمكن تعديل تعليق مميّز كأفضل إجابة'
                         : 'لا يمكنك تعديل هذا التعليق',
                 );
-                return;
+                return false;
             }
             let nextPost: CommunityPost | null = null;
             updatePostList(postId, (prev) =>
@@ -241,11 +249,13 @@ export function useCommunityPostActions({
                 const saved = await ForumApiService.editComment(postId, commentId, newContent);
                 updatePostList(postId, (prev) => prev.map((p) => (p.id === postId ? saved : p)));
                 SmartToast.success('تم تعديل التعليق');
+                return true;
             } catch {
                 if (post) {
                     updatePostList(postId, (prev) => prev.map((p) => (p.id === postId ? post : p)));
                 }
                 SmartToast.error('تعذّر تعديل التعليق');
+                return false;
             }
         },
         [currentUserId, findPostById, updatePostList],
@@ -261,16 +271,16 @@ export function useCommunityPostActions({
             }
             const snapshotPosts = postsRef.current;
             const snapshotGroupPosts = groupPostsRef.current;
-            setDeletingPost(true);
+            removePostFromList(postId);
+            onPostDeleted?.(postId);
+            SmartToast.success('تم حذف المنشور');
             try {
                 await ForumApiService.deletePost(
                     postId,
-                    post.author_id ?? post.authorId,
+                    getPostAuthorId(post),
                     isAdmin,
                     currentUserId,
                 );
-                removePostFromList(postId);
-                SmartToast.success('تم حذف المنشور');
             } catch (err) {
                 setPosts(snapshotPosts);
                 setGroupPosts(snapshotGroupPosts);
@@ -279,8 +289,7 @@ export function useCommunityPostActions({
                         ? err.message
                         : 'تعذّر حذف المنشور';
                 SmartToast.error(message);
-            } finally {
-                setDeletingPost(false);
+                throw err;
             }
         },
         [
@@ -292,6 +301,7 @@ export function useCommunityPostActions({
             removePostFromList,
             setGroupPosts,
             setPosts,
+            onPostDeleted,
         ],
     );
 
@@ -303,17 +313,27 @@ export function useCommunityPostActions({
                 SmartToast.warning('لا يمكنك حذف هذا المنشور');
                 return;
             }
+            prefetchCommunityDeleteConfirmOverlay();
             setPendingDeletePostId(postId);
         },
         [currentUserId, findPostById, isAdmin],
     );
 
     const confirmDeletePost = useCallback(async () => {
-        if (!pendingDeletePostId) return;
+        if (!pendingDeletePostId || deletingPost) return;
         const postId = pendingDeletePostId;
-        setPendingDeletePostId(null);
-        await handleDeletePost(postId);
-    }, [handleDeletePost, pendingDeletePostId]);
+        flushSync(() => {
+            setPendingDeletePostId(null);
+            setDeletingPost(true);
+        });
+        try {
+            await handleDeletePost(postId);
+        } catch {
+            /* toast + rollback داخل handleDeletePost */
+        } finally {
+            setDeletingPost(false);
+        }
+    }, [deletingPost, handleDeletePost, pendingDeletePostId]);
 
     const pendingDeletePost = pendingDeletePostId ? findPostById(pendingDeletePostId) : null;
 
@@ -337,7 +357,7 @@ export function useCommunityPostActions({
             if (!currentUserId) return;
             const post = findPostById(postId);
             if (!post) return;
-            if (post.authorId !== currentUserId) {
+            if (getPostAuthorId(post) !== currentUserId) {
                 SmartToast.warning('فقط صاحب المنشور يمكنه تمييز أفضل إجابة');
                 return;
             }
@@ -358,23 +378,19 @@ export function useCommunityPostActions({
                     SmartToast.error('تعذّر تحديث أفضل إجابة');
                 }
             }
-            if (nextBest && post.authorId !== currentUserId) {
+            if (nextBest && getPostAuthorId(post) !== currentUserId) {
                 const bestComment = post.comments.find((c) => c.id === commentId);
                 if (bestComment) {
-                    import('@/app/services/lawyer-cloud')
-                        .then(({ NotificationDB }) => {
-                            NotificationDB.addNotification({
-                                id: crypto.randomUUID(),
-                                userId: bestComment.authorId,
-                                type: 'best_answer',
-                                title: 'تم تمييز إجابتك كأفضل إجابة',
-                                message: `اختار ${post.authorName} إجابتك كأفضل إجابة على منشور "${post.content.slice(0, 50)}..."`,
-                                postId,
-                                read: false,
-                                createdAt: new Date().toISOString(),
-                            });
-                        })
-                        .catch(() => undefined);
+                    void NotificationDB.addNotification({
+                        id: crypto.randomUUID(),
+                        userId: bestComment.authorId,
+                        type: 'best_answer',
+                        title: 'تم تمييز إجابتك كأفضل إجابة',
+                        message: `اختار ${post.authorName} إجابتك كأفضل إجابة على منشور "${post.content.slice(0, 50)}..."`,
+                        postId,
+                        read: false,
+                        createdAt: new Date().toISOString(),
+                    }).catch(() => undefined);
                 }
             }
         },

@@ -1,15 +1,11 @@
-import React, { Suspense } from 'react';
+import React from 'react';
 import { FORUM_LAYER } from '@/app/components/lawyer/CommunityScreen/forumPlumTheme';
 import { CommunityErrorBoundary } from '@/app/components/lawyer/CommunityScreen/CommunityErrorBoundary';
-import {
-    LazyGlobalSearchOverlay,
-    LazyCriminalDashboard,
-    LazyCommunityScreen,
-} from '@/app/utils/lazyComponents';
+import { CommunityScreenHost } from '@/app/components/lawyer/CommunityScreen/CommunityScreenHost';
+import { LazyCriminalDashboard } from '@/app/utils/lazyComponents';
+import { GlobalSearchOverlayHost } from '@/app/components/lawyer/GlobalSearchOverlay/GlobalSearchOverlayHost';
 import { CriminalDashboardPortal } from '@/app/components/lawyer/criminal-system/CriminalDashboardPortal';
 import DossierOpeningFallbackComponent from '@/app/components/lawyer/LawyerDashboardParts/components/DossierOpeningFallback';
-import { CommunityScreenLoadingFallback } from '@/app/components/lawyer/LawyerDashboardParts/LazyFallback';
-import { GlobalSearchOverlayLoadingFallback } from '@/app/components/lawyer/LawyerDashboardParts/LazyFallback';
 import { isRealSignedIn, resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
 import { useGlobalSearchShellLifecycle } from '@/app/hooks/lawyerDashboard/useGlobalSearchShellLifecycle';
 import { useGlobalSearchMobileSuspend } from '@/app/hooks/lawyerDashboard/useGlobalSearchMobileSuspend';
@@ -82,50 +78,40 @@ export function LawyerDashboardDiscoveryOverlays({
             {globalSearchEnabled ? (
                 <div data-hami-global-search-shell="" hidden={!showGlobalSearch}>
                     {showGlobalSearch ? (
-                        <Suspense fallback={<GlobalSearchOverlayLoadingFallback onClose={closeGlobalSearch} />}>
-                            <LazyGlobalSearchOverlay
-                                key="global-search-overlay"
-                                open={showGlobalSearch}
-                                files={files}
-                                executionFiles={executionFiles}
-                                globalNotes={globalNotes}
-                                notifications={searchNotifications}
-                                criminalCases={criminalCasesForCluster}
-                                userId={userId ?? null}
-                                initialQuery={globalSearchInitialQuery}
-                                searchSessionKey={globalSearchSessionKey}
-                                indexVersion={searchIndexVersion}
-                                onClose={closeGlobalSearch}
-                                onNavigate={handleGlobalSearchNavigate}
-                            />
-                        </Suspense>
+                        <GlobalSearchOverlayHost
+                            key="global-search-overlay"
+                            open={showGlobalSearch}
+                            files={files}
+                            executionFiles={executionFiles}
+                            globalNotes={globalNotes}
+                            notifications={searchNotifications}
+                            criminalCases={criminalCasesForCluster}
+                            userId={userId ?? null}
+                            initialQuery={globalSearchInitialQuery}
+                            searchSessionKey={globalSearchSessionKey}
+                            indexVersion={searchIndexVersion}
+                            onClose={closeGlobalSearch}
+                            onNavigate={handleGlobalSearchNavigate}
+                        />
                     ) : null}
                 </div>
             ) : null}
 
-            {showCommunity ? (
+            {showCommunity && forumUserId ? (
                 <div className={FORUM_LAYER} aria-hidden={false}>
                     <CommunityErrorBoundary onReset={resetCommunityScreen}>
-                        {forumUserId ? (
-                            <Suspense
-                                fallback={<CommunityScreenLoadingFallback onBack={closeCommunity} />}
-                            >
-                                <LazyCommunityScreen
-                                    key={`forum-community-${communitySessionKey}`}
-                                    onBack={closeCommunity}
-                                    initialPostId={communityDeepLink?.postId ?? null}
-                                    initialOpenComments={communityDeepLink?.openComments ?? false}
-                                    lawyerShellAccess={lawyerShellAccess}
-                                    fallbackUserId={forumUserId}
-                                    onOpenOwnProfile={() => {
-                                        closeCommunity();
-                                        openProfileTab();
-                                    }}
-                                />
-                            </Suspense>
-                        ) : (
-                            <CommunityScreenLoadingFallback onBack={closeCommunity} />
-                        )}
+                        <CommunityScreenHost
+                            key={`forum-community-${communitySessionKey}`}
+                            onBack={closeCommunity}
+                            initialPostId={communityDeepLink?.postId ?? null}
+                            initialOpenComments={communityDeepLink?.openComments ?? false}
+                            lawyerShellAccess={lawyerShellAccess}
+                            fallbackUserId={forumUserId}
+                            onOpenOwnProfile={() => {
+                                closeCommunity();
+                                openProfileTab();
+                            }}
+                        />
                     </CommunityErrorBoundary>
                 </div>
             ) : null}

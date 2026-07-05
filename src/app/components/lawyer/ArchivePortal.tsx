@@ -1,11 +1,15 @@
 // @ts-nocheck
 import React, { useEffect } from 'react';
-import { warmLawsuitWorkspace, warmExecutionWorkspace, prefetchExecutionCreationView } from '@/app/utils/lazyComponents';
 import { createPortal } from 'react-dom';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { X, Plus } from 'lucide-react';
 import { executionTrashDaysRemaining } from '@/app/utils/executionTrash';
 import type { ArchivePortalProps } from '@/app/types/common';
+import {
+    prefetchExecutionCreationView,
+    warmExecutionWorkspace,
+    warmLawsuitWorkspace,
+} from '@/app/utils/lazyComponents';
 import {
     ExecutionArchiveToolbar,
 } from './ArchivePortal/components/ExecutionArchiveToolbar';
@@ -132,13 +136,9 @@ export const ArchivePortal = ({
     }, [type]);
 
     useEffect(() => {
-        if (type === 'lawsuits') {
-            warmLawsuitWorkspace();
-        }
-        if (type === 'executions') {
-            warmExecutionWorkspace();
-        }
-    }, [type]);
+        if (type === 'lawsuits' && !embedded) warmLawsuitWorkspace();
+        if (type === 'executions') warmExecutionWorkspace();
+    }, [embedded, type]);
 
     useEffect(() => {
         if (embedded) return;
@@ -153,8 +153,8 @@ export const ArchivePortal = ({
     }, [embedded, onClose]);
 
     const shellClass = embedded
-        ? "h-full bg-black/90 backdrop-blur-md flex flex-col animate-in fade-in duration-300 font-['Tajawal']"
-        : "fixed inset-0 z-[80] bg-black/90 backdrop-blur-md flex flex-col animate-in fade-in duration-300 font-['Tajawal']";
+        ? "relative flex h-full min-h-0 flex-col bg-black/90 backdrop-blur-md font-['Tajawal']"
+        : "fixed inset-0 z-[220] bg-black/90 backdrop-blur-md flex flex-col animate-in fade-in duration-300 font-['Tajawal']";
 
     const layer = (
         <div className={shellClass}>
@@ -372,7 +372,9 @@ export const ArchivePortal = ({
                         data-testid={type === 'lawsuits' ? 'lawsuits-add-new' : 'executions-add-new'}
                         onClick={onAddAction}
                         onPointerEnter={() => {
-                            if (type === 'executions') prefetchExecutionCreationView();
+                            if (type === 'executions') {
+                                prefetchExecutionCreationView();
+                            }
                         }}
                         title={
                             type === 'executions'

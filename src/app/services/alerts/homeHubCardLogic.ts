@@ -36,7 +36,14 @@ export function filterRadarEventsExcludingCalendarAlerts<T extends { id: string 
     radarEvents: T[],
     calendarIdsFromAlerts: Set<string>,
 ): T[] {
-    return radarEvents.filter((ev) => !calendarIdsFromAlerts.has(ev.id));
+    return radarEvents.filter((ev) => {
+        const eventId = String(ev.id ?? '').trim();
+        if (!eventId) return false;
+        if (calendarIdsFromAlerts.has(eventId)) return false;
+        // تاريخ الحكم لا يجب أن يظهر داخل رادار الـ Home Hub ولا أن يقود لأي بطاقة/ملاحة منه.
+        if (eventId.includes('appt_judgment_')) return false;
+        return true;
+    });
 }
 
 export type HomeHubAlertsEmptyState = 'error' | 'loading' | 'content' | 'empty-filter' | 'empty';

@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { LegalTask } from '@/app/types/TaskEngine';
+import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useQuantumTasksActions, useQuantumTasksData } from '@/app/hooks/useQuantumTasksContext';
 import { useFatalTaskComplete } from '@/app/hooks/useFatalTaskComplete';
 import { addDays, isSameLocalDay, startOfLocalDay } from '@/app/utils/nlpParser';
-import { WORK_WEEK } from './constants';
+import { WORK_WEEK, WORK_WEEK_LAST_OFFSET } from './constants';
 import { TaskCard } from './TaskCard';
+import type { TaskListOrdinal } from './TaskListOrdinalBadge';
 import type { EditSubTaskDraft } from './TasksManagerModals';
 import type { DetailPanel, WeekAddState } from './types';
 import {
     dateFromYmdInput,
+    formatLocalYmdInput,
     getSaturdayOfWeekContaining,
+    isDeferredSnoozedTask,
     isTaskInCurrentAgendaWeek,
     snoozeAfterDays,
 } from './utils';
@@ -39,13 +43,10 @@ export function useTasksManagerController({
         reopenTask,
         toggleTaskFatalDeadline,
         toggleTaskPinnedToFieldCurtain,
-        setTaskLocation,
         addSubTask,
         toggleSubTaskComplete,
-        setSubTaskLocation,
         addDocumentRequirement,
         toggleDocumentRequirement,
-        addExpense,
     } = quantumActions;
 
     const { fatalOpen, requestComplete, confirmFatalComplete, cancelFatalComplete } =
@@ -54,12 +55,11 @@ export function useTasksManagerController({
     const now = useAgendaNow();
 
     const [weekAdd, setWeekAdd] = useState<WeekAddState>(null);
-    const [locationPickFor, setLocationPickFor] = useState<string | null>(null);
     const [detailPanel, setDetailPanel] = useState<DetailPanel>(null);
 
     const [snoozePanelOpen, setSnoozePanelOpen] = useState(false);
-    const [snoozeTitle, setSnoozeTitle] = useState('');
-    const [snoozeCustomIso, setSnoozeCustomIso] = useState('');
+
+    const minSnoozeIso = useMemo(() => formatLocalYmdInput(now), [now]);
 
     const [reminderModalTaskId, setReminderModalTaskId] = useState<string | null>(null);
     const [reminderSnoozeCustom, setReminderSnoozeCustom] = useState('');
@@ -75,9 +75,9 @@ export function useTasksManagerController({
 
     useEffect(() => {
         if (!focusTaskId) return;
-        const task = pendingTasks.find((t) => t.id === focusTaskId);
+        const task = tasks.find((t) => t.id === focusTaskId);
         if (task) setDetailPanel({ taskId: focusTaskId, kind: 'brief' });
-    }, [focusTaskId, pendingTasks]);
+    }, [focusTaskId, tasks]);
 
     const fatalTasks = useMemo(() => pendingTasks.filter((t) => t.isFatalDeadline), [pendingTasks]);
 
@@ -98,13 +98,14 @@ export function useTasksManagerController({
 
     const distantTasks = useMemo(() => {
         const ws = getSaturdayOfWeekContaining(now);
-        const we = addDays(ws, 5);
+        const we = addDays(ws, WORK_WEEK_LAST_OFFSET);
         const wsT = ws.getTime();
         const weT = we.getTime();
         const thisWeekT = ws.getTime();
         return pendingTasks.filter((t) => {
             if (t.isFatalDeadline) return false;
-            if (t.parsedDate === null) return true;
+            if (isDeferredSnoozedTask(t, now)) return true;
+            if (t.parsedDate === null) return false;
             if (!isTaskInCurrentAgendaWeek(t, now)) {
                 const taskWeek = getSaturdayOfWeekContaining(t.parsedDate).getTime();
                 return taskWeek > thisWeekT;
@@ -135,7 +136,7 @@ export function useTasksManagerController({
             setWeekAdd((cur) =>
                 cur?.dayKey === dayKey
                     ? null
-                    : { dayKey, details: '', location: '', actionLines: [], lineDraft: '' },
+                    : { dayKey, details: '', location: '' },
             );
         },
         [now],
@@ -144,42 +145,32 @@ export function useTasksManagerController({
     const saveWeekBundle = useCallback(
         (dayKey: (typeof WORK_WEEK)[number]['key']) => {
             if (!weekAdd || weekAdd.dayKey !== dayKey) return;
-            const lines = [...weekAdd.actionLines];
-            const last = weekAdd.lineDraft.trim();
-            if (last) lines.push(last);
             const details = weekAdd.details.trim();
             const location = weekAdd.location.trim();
-            if (!location || (!details && lines.length === 0)) return;
+            if (!location || !details) return;
             const weekStart = getSaturdayOfWeekContaining(now);
             const d = WORK_WEEK.find((x) => x.key === dayKey);
             if (!d) return;
             const scheduledFor = addDays(weekStart, d.offset);
-            addWeeklyLocationBundle(scheduledFor, location, lines, details || undefined);
+            addWeeklyLocationBundle(scheduledFor, location, details);
             setWeekAdd(null);
         },
         [weekAdd, now, addWeeklyLocationBundle],
     );
 
-    const applySnoozeChoice = useCallback(
-        (afterDays: number | null, customIso?: string) => {
-            const t = snoozeTitle.trim();
-            if (!t) return;
-            let when: Date;
-            if (afterDays !== null) {
-                when = snoozeAfterDays(afterDays);
-            } else if (customIso) {
-                const parsed = dateFromYmdInput(customIso);
-                if (!parsed) return;
-                when = parsed;
-            } else {
+    const saveSnoozedTask = useCallback(
+        (title: string, ymd: string) => {
+            const trimmed = title.trim();
+            const when = dateFromYmdInput(ymd);
+            if (!trimmed || !when) return;
+            if (startOfLocalDay(when).getTime() < startOfLocalDay(now).getTime()) {
+                SmartToast.error('اختر تاريخ القيام من اليوم فما بعد');
                 return;
             }
-            addSnoozedBacklogTask(t, when, null);
-            setSnoozeTitle('');
-            setSnoozeCustomIso('');
-            setSnoozePanelOpen(false);
+            addSnoozedBacklogTask(trimmed, when, null);
+            SmartToast.success('تم حفظ المهمة المؤجلة');
         },
-        [snoozeTitle, addSnoozedBacklogTask],
+        [now, addSnoozedBacklogTask],
     );
 
     const openEdit = useCallback((task: LegalTask) => {
@@ -203,60 +194,77 @@ export function useTasksManagerController({
 
     const saveEdit = useCallback(() => {
         if (!editTaskId) return;
-        const title = editTitle.trim();
-        if (!title) return;
+        const details = editTitle.trim();
         const loc = editLocation.trim();
+        if (!details && !loc) {
+            SmartToast.error('أدخل تفاصيل المهمة أو الموقع على الأقل');
+            return;
+        }
+        const prevTask = tasks.find((t) => t.id === editTaskId);
+        const nextTitle = details || loc;
         updateTask(editTaskId, {
-            title,
-            rawText: title,
+            title: nextTitle,
+            rawText: [loc, details].filter(Boolean).join(' — '),
             location: loc.length > 0 ? loc : null,
             subTasks: editSubTasks
-                .map((st) => ({
-                    id: st.id,
-                    title: st.title.trim(),
-                    location: st.location.trim() ? st.location.trim() : null,
-                    isCompleted: st.isCompleted,
-                }))
+                .map((st) => {
+                    const prevSub = prevTask?.subTasks.find((s) => s.id === st.id);
+                    return {
+                        id: st.id,
+                        title: st.title.trim(),
+                        location: st.location.trim() ? st.location.trim() : null,
+                        isCompleted: st.isCompleted,
+                        kind: prevSub?.kind,
+                    };
+                })
                 .filter((st) => st.title.length > 0),
         });
         setEditOpen(false);
         setEditTaskId(null);
         setEditSubTasks([]);
-    }, [editTaskId, editTitle, editLocation, editSubTasks, updateTask]);
+    }, [editTaskId, editTitle, editLocation, editSubTasks, tasks, updateTask]);
 
     const confirmDelete = useCallback(() => {
-        if (deleteConfirmId === null) return;
-        const id = deleteConfirmId;
-        deleteTask(id);
-        unpinWorkspaceItem(id, 'task');
-        setDeleteConfirmId(null);
-        setDetailPanel((p) => (p?.taskId === id ? null : p));
-    }, [deleteConfirmId, deleteTask]);
+        let removedId: string | null = null;
+        setDeleteConfirmId((currentId) => {
+            if (currentId === null) return null;
+            removedId = currentId;
+            deleteTask(currentId);
+            unpinWorkspaceItem(currentId, 'task');
+            return null;
+        });
+        if (removedId !== null) {
+            setDetailPanel((panel) => (panel?.taskId === removedId ? null : panel));
+        }
+    }, [deleteTask]);
+
+    const toggleFieldCurtainPin = useCallback(
+        (id: string) => {
+            toggleTaskPinnedToFieldCurtain(id);
+        },
+        [toggleTaskPinnedToFieldCurtain],
+    );
 
     const renderTaskCard = useCallback(
-        (t: LegalTask, fatalPulse: boolean, listKey?: string) => (
+        (t: LegalTask, fatalPulse: boolean, listOrdinal?: TaskListOrdinal, listKey?: string) => (
             <TaskCard
                 key={listKey ?? t.id}
                 task={t}
+                listOrdinal={listOrdinal}
                 lawsuitFiles={lawsuitFiles}
                 executionFiles={executionFiles}
                 now={now}
                 onCompleteRequest={requestComplete}
                 onReopenTask={(task) => reopenTask(task.id)}
                 onToggleFatal={toggleTaskFatalDeadline}
-                onToggleFieldCurtainPin={toggleTaskPinnedToFieldCurtain}
-                onSetLocation={setTaskLocation}
-                locationPickFor={locationPickFor}
-                onToggleLocationPicker={setLocationPickFor}
+                onToggleFieldCurtainPin={toggleFieldCurtainPin}
                 fatalPulse={fatalPulse}
                 detailPanel={detailPanel}
                 setDetailPanel={setDetailPanel}
                 addSubTask={addSubTask}
                 toggleSubTaskComplete={toggleSubTaskComplete}
-                setSubTaskLocation={setSubTaskLocation}
                 addDocumentRequirement={addDocumentRequirement}
                 toggleDocumentRequirement={toggleDocumentRequirement}
-                addExpense={addExpense}
                 onEditRequest={openEdit}
                 onDeleteRequest={requestDelete}
                 onReminderBadgeClick={(task) => setReminderModalTaskId(task.id)}
@@ -269,16 +277,12 @@ export function useTasksManagerController({
             requestComplete,
             reopenTask,
             toggleTaskFatalDeadline,
-            toggleTaskPinnedToFieldCurtain,
-            setTaskLocation,
-            locationPickFor,
+            toggleFieldCurtainPin,
             detailPanel,
             addSubTask,
             toggleSubTaskComplete,
-            setSubTaskLocation,
             addDocumentRequirement,
             toggleDocumentRequirement,
-            addExpense,
             openEdit,
             requestDelete,
         ],
@@ -299,11 +303,9 @@ export function useTasksManagerController({
         saveWeekBundle,
         snoozePanelOpen,
         setSnoozePanelOpen,
-        snoozeTitle,
-        setSnoozeTitle,
-        snoozeCustomIso,
-        setSnoozeCustomIso,
-        applySnoozeChoice,
+        saveSnoozedTask,
+        minSnoozeIso,
+        requestDelete,
         renderTaskCard,
         showCompletedArchive,
         setShowCompletedArchive,

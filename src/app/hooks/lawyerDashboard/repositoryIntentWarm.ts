@@ -1,7 +1,11 @@
 import { prefetchSmartRepositoryModal } from '@/app/utils/lazyComponents';
-import { prefetchSmartVaultDocs, fetchVaultDocsDeduped } from '@/app/services/vault/vaultDocsWarmCache';
+import {
+    prefetchSmartVaultDocs,
+    refreshVaultDocsFromStore,
+    seedVaultWarmCacheFromLocalIndex,
+} from '@/app/services/vault/vaultDocsWarmCache';
 import { prefetchRepositoryHubModule } from '@/app/runtime/repositoryHubLoader';
-import type { SmartVaultDoc } from '@/app/services/lawyer-cloud';
+import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 
 let registeredWarmUserId: string | null | undefined;
 let repositoryIdleScheduled = false;
@@ -33,7 +37,8 @@ export type RepositoryWarmTab = 'notepad' | 'vault';
 export function warmRepositoryDataCache(userId?: string | null): Promise<SmartVaultDoc[]> {
     const uid = (userId ?? registeredWarmUserId)?.trim();
     if (!uid) return Promise.resolve([]);
-    return fetchVaultDocsDeduped(uid);
+    const seeded = seedVaultWarmCacheFromLocalIndex(uid);
+    return refreshVaultDocsFromStore(uid).catch(() => seeded);
 }
 
 /** عند فتح المستودع — hub + وثائق + chunk المفكرة عند تبويب notepad */

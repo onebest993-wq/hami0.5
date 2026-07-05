@@ -1,5 +1,13 @@
 import type { CommunityComment, CommunityPost } from '@/app/services/lawyer-cloud';
 
+export function getPostAuthorId(post: CommunityPost): string {
+    return post.authorId || post.author_id || '';
+}
+
+export function getCommentAuthorId(comment: CommunityComment): string {
+    return comment.authorId || comment.author_id || '';
+}
+
 export function canEditPost(
     post: CommunityPost,
     currentUserId: string | null,
@@ -7,7 +15,7 @@ export function canEditPost(
 ): boolean {
     if (!currentUserId) return false;
     if (isAdmin) return true;
-    return post.authorId === currentUserId;
+    return getPostAuthorId(post) === currentUserId;
 }
 
 export function canDeletePost(
@@ -17,7 +25,7 @@ export function canDeletePost(
 ): boolean {
     if (!currentUserId) return false;
     if (isAdmin) return true;
-    return post.authorId === currentUserId;
+    return getPostAuthorId(post) === currentUserId;
 }
 
 export function canPinPost(isAdmin: boolean): boolean {
@@ -32,8 +40,8 @@ export function canDeleteComment(
 ): boolean {
     if (!currentUserId) return false;
     if (isAdmin) return true;
-    if (comment.authorId === currentUserId) return true;
-    if (post.authorId === currentUserId) return true;
+    if (getCommentAuthorId(comment) === currentUserId) return true;
+    if (getPostAuthorId(post) === currentUserId) return true;
     return false;
 }
 
@@ -43,7 +51,7 @@ export function canEditComment(
     post?: CommunityPost,
 ): boolean {
     if (!currentUserId) return false;
-    if (comment.authorId !== currentUserId) return false;
+    if (getCommentAuthorId(comment) !== currentUserId) return false;
     // قفل النص بعد تمييزه كأفضل إجابة (يحمي مالك المنشور من تبديل المحتوى)
     if (post && post.bestCommentId === comment.id) return false;
     return true;
@@ -51,5 +59,5 @@ export function canEditComment(
 
 export function canUpvotePost(post: CommunityPost, currentUserId: string | null): boolean {
     if (!currentUserId) return false;
-    return post.authorId !== currentUserId;
+    return getPostAuthorId(post) !== currentUserId;
 }

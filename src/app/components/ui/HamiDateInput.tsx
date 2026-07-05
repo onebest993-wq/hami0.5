@@ -138,11 +138,27 @@ export const HamiDateInput: React.FC<HamiDateInputProps> = ({
         const update = () => {
             const rect = triggerRef.current?.getBoundingClientRect();
             if (!rect) return;
-            const width = Math.min(300, window.innerWidth - 16);
+            const viewportPadding = 8;
+            const gap = 6;
+            const estimatedHeight = 318;
+            const width = Math.min(Math.max(rect.width, 280), window.innerWidth - viewportPadding * 2);
             let left = rect.left;
-            if (left + width > window.innerWidth - 8) left = window.innerWidth - width - 8;
-            if (left < 8) left = 8;
-            setPopoverPos({ top: rect.bottom + 6, left, width });
+            if (left + width > window.innerWidth - viewportPadding) {
+                left = window.innerWidth - width - viewportPadding;
+            }
+            if (left < viewportPadding) left = viewportPadding;
+
+            const belowTop = rect.bottom + gap;
+            const aboveTop = rect.top - estimatedHeight - gap;
+            const fitsBelow = belowTop + estimatedHeight <= window.innerHeight - viewportPadding;
+            const fitsAbove = aboveTop >= viewportPadding;
+            const top = fitsBelow
+                ? belowTop
+                : fitsAbove
+                  ? aboveTop
+                  : Math.max(viewportPadding, window.innerHeight - estimatedHeight - viewportPadding);
+
+            setPopoverPos({ top, left, width });
         };
         update();
         window.addEventListener('resize', update);
@@ -199,7 +215,7 @@ export const HamiDateInput: React.FC<HamiDateInputProps> = ({
                 role="dialog"
                 aria-label="تقويم اختيار التاريخ"
                 style={{ top: popoverPos.top, left: popoverPos.left, width: popoverPos.width }}
-                className="fixed z-[9999] rounded-xl border border-white/15 bg-[#0B1021] shadow-2xl p-3 text-white"
+                className="fixed z-[9999] max-h-[min(318px,calc(100vh-16px))] overflow-y-auto rounded-xl border border-white/15 bg-[#0B1021] shadow-2xl p-3 text-white"
             >
                 <div className="flex items-center justify-between gap-2 mb-3">
                     <button

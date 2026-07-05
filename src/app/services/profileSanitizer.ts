@@ -1,4 +1,4 @@
-import type { LawyerProfileData, LawyerProfileSection, ProfileAction } from '@/app/services/lawyer-cloud';
+import type { LawyerProfileData, LawyerProfileSection, ProfileAction } from '@/app/services/profile/profileTypes';
 import { normalizeProfilePageCustomization } from '@/app/services/profile/profilePageCustomization';
 import {
     clampProfileDisplayName,
@@ -21,13 +21,22 @@ function sanitizeGallery(data: unknown): string[] {
 
 function sanitizeActions(data: unknown): ProfileAction[] {
     if (!Array.isArray(data)) return [];
+    const allowedTypes = new Set<ProfileAction['type']>([
+        'whatsapp',
+        'call',
+        'email',
+        'website',
+        'location',
+    ]);
     return sanitizeProfileActions(
         data.filter(
             (a): a is ProfileAction =>
                 Boolean(a) &&
                 typeof a === 'object' &&
+                typeof (a as ProfileAction).id === 'string' &&
+                typeof (a as ProfileAction).label === 'string' &&
                 typeof (a as ProfileAction).value === 'string' &&
-                (a as ProfileAction).value.trim().length > 0,
+                allowedTypes.has((a as ProfileAction).type),
         ),
     ).map((a) => ({
         ...a,

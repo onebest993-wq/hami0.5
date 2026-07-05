@@ -52,23 +52,15 @@ vi.mock('@/app/components/lawyer/HamiSettings/appearance/useAppearanceSection', 
     }),
 }));
 
-vi.mock('@/app/components/lawyer/HamiSettings/appearance/AppearanceHomeLayoutCard', () => ({
-    AppearanceHomeLayoutCard: ({ onEnterHomeLayoutEdit }: { onEnterHomeLayoutEdit?: () => void }) => (
-        <button type="button" data-testid="settings-enter-home-layout-edit" onClick={onEnterHomeLayoutEdit}>
-            تخصيص الواجهة
-        </button>
-    ),
-}));
-
 describe('AppearanceSection', () => {
     beforeEach(() => vi.clearAllMocks());
 
-    it('يعرض عنوان تخصيص المنظر', () => {
+    it('يعرض قسم المنظر', () => {
         render(<AppearanceSection />);
-        expect(screen.getByText('تخصيص المنظر')).toBeInTheDocument();
+        expect(screen.getByTestId('settings-section-appearance')).toBeInTheDocument();
     });
 
-    it('يمرّر onEnterHomeLayoutEdit لبطاقة التخطيط', () => {
+    it('يمرّر onEnterHomeLayoutEdit لزر تخصيص الواجهة الرئيسية', () => {
         const onEnter = vi.fn();
         render(<AppearanceSection onEnterHomeLayoutEdit={onEnter} />);
         fireEvent.click(screen.getByTestId('settings-enter-home-layout-edit'));

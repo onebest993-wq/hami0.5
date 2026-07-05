@@ -1,7 +1,8 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useCallback } from 'react';
 import { useAuthUser } from '@/app/context/AuthContext';
 import { resolveCalendarUserId } from '@/app/services/calendarBridge';
 import { resolveLawyerDisplayName } from '@/app/services/profile/resolveLawyerDisplayName';
+import { releaseBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { getActions, getGallery } from '@/app/components/lawyer/RoyalLawyerProfile/utils/profileSections';
 import type { RoyalLawyerProfileProps } from '@/app/components/lawyer/RoyalLawyerProfile/types';
 import { useProfileLoader } from './useProfileLoader';
@@ -102,6 +103,30 @@ export function useRoyalLawyerProfile(options: RoyalLawyerProfileProps = {}) {
         onBack: options.onBack,
     });
 
+    const startEditSafe = useCallback(() => {
+        if (settingsOpen) {
+            closeSettings();
+            releaseBodyScrollLock();
+        }
+        startEdit();
+    }, [settingsOpen, closeSettings, startEdit]);
+
+    const handleBackSafe = useCallback(async () => {
+        if (settingsOpen) {
+            closeSettings();
+            releaseBodyScrollLock();
+            return;
+        }
+        if (isEditing) {
+            try {
+                await saveProfile();
+            } catch {
+                return;
+            }
+        }
+        options.onBack?.();
+    }, [settingsOpen, closeSettings, isEditing, saveProfile, options]);
+
     const publicFields = useMemo(
         () => ({
             displayNamePublic: displayName,
@@ -129,7 +154,7 @@ export function useRoyalLawyerProfile(options: RoyalLawyerProfileProps = {}) {
         gallery,
         initials,
         ...publicFields,
-        startEdit,
+        startEdit: startEditSafe,
         cancelEdit,
         saveProfile,
         ensureEditDraft,
@@ -142,5 +167,6 @@ export function useRoyalLawyerProfile(options: RoyalLawyerProfileProps = {}) {
         closeSettings,
         saveCustomization,
         profileUserId,
+        handleBack: handleBackSafe,
     };
 }

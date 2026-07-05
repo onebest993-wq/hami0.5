@@ -2,7 +2,6 @@ import React from 'react';
 import { RotateCcw } from 'lucide-react';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { settingWiringHint } from '@/app/services/settings/settingsCapabilities';
 import { verifySensitiveSettingsAction } from '@/app/services/settings/verifySensitiveSettingsAction';
 import { SettingRow } from '../settings-ui';
 import type { useLocalDataClear } from '../hooks/useLocalDataClear';
@@ -37,7 +36,6 @@ export function DataDangerZone({
             <SettingRow
                 icon={RotateCcw}
                 label="مسح كل البيانات"
-                subLabel={settingWiringHint('data.clearLocal')}
                 action={
                     wipe.wipePhase === 'countdown' ? (
                         <div className="flex items-center gap-2">
@@ -65,7 +63,6 @@ export function DataDangerZone({
             <SettingRow
                 icon={RotateCcw}
                 label="إعادة ضبط الإعدادات"
-                subLabel={settingWiringHint('data.resetSettings')}
                 isLast
                 action={
                     <button

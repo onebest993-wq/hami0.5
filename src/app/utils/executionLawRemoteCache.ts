@@ -6,6 +6,13 @@ import { resolveExecutionLawLeaf } from '@/data/executionLawHierarchy';
 import { normalizeArabicDigits } from '@/app/components/admin/lawStructure';
 import { mergeLocalTitlesIntoExecutionArticles } from '@/app/utils/executionLawArticleUtils';
 import { loadBundledLawRows } from '@/app/utils/bundledIraqiLawLoader';
+import {
+    clearLegalReferenceCache,
+    isLegalReferenceCacheStale,
+    readLegalReferenceCache,
+    writeLegalReferenceCache,
+} from '@/app/utils/legalReferenceLocalCache';
+import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 
 export const EXECUTION_LAW_CACHE_INVALIDATED_EVENT = 'hami-execution-law-cache-invalidated';
 
@@ -18,9 +25,46 @@ type LawRow = {
 
 let cachedArticles: ExecutionLawArticle[] | null = null;
 let inflight: Promise<ExecutionLawArticle[]> | null = null;
+let backgroundSyncInflight = false;
+
+const EXECUTION_LOCAL_CACHE_KEY = 'execution-law';
+
+function hydrateExecutionFromDeviceStorage(): ExecutionLawArticle[] | null {
+    const stored = readLegalReferenceCache<ExecutionLawArticle>(EXECUTION_LOCAL_CACHE_KEY);
+    if (!stored || stored.length === 0) return null;
+    cachedArticles = stored;
+    return stored;
+}
+
+function scheduleBackgroundExecutionLawSync(): void {
+    if (backgroundSyncInflight || !isLegalReferenceCacheStale(EXECUTION_LOCAL_CACHE_KEY)) return;
+    backgroundSyncInflight = true;
+
+    scheduleIdleWork(
+        () => {
+            void (async () => {
+                try {
+                    const localSeed = await loadExecutionLawSeedData();
+                    const rows = await fetchRemoteLawRows();
+                    const mapped = mapRemoteRowsToExecutionArticles(rows);
+                    if (mapped.length > 0) {
+                        cachedArticles = mergeLocalTitlesIntoExecutionArticles(mapped, localSeed);
+                        writeLegalReferenceCache(EXECUTION_LOCAL_CACHE_KEY, cachedArticles);
+                    }
+                } catch {
+                    /* keep local snapshot */
+                } finally {
+                    backgroundSyncInflight = false;
+                }
+            })();
+        },
+        { minDelayMs: 2_000, timeoutMs: 12_000 },
+    );
+}
 
 export function hasExecutionLawArticlesCached(): boolean {
-    return Array.isArray(cachedArticles) && cachedArticles.length > 0;
+    if (Array.isArray(cachedArticles) && cachedArticles.length > 0) return true;
+    return hydrateExecutionFromDeviceStorage() != null;
 }
 
 /** تحميل مسبق عند hover على tile المرجع — يشمل JSON المحلي */
@@ -86,27 +130,39 @@ export async function loadExecutionLawArticlesRemote(): Promise<ExecutionLawArti
     if (inflight) return inflight;
 
     inflight = (async () => {
+        const fromDevice = hydrateExecutionFromDeviceStorage();
+        if (fromDevice && fromDevice.length > 0) {
+            scheduleBackgroundExecutionLawSync();
+            return fromDevice;
+        }
+
         const localSeed = await loadExecutionLawSeedData();
+
+        const bundledRows = await loadBundledLawRows(EXECUTION_LAW_CANONICAL_NAME);
+        const bundledMapped = mapRemoteRowsToExecutionArticles(bundledRows);
+        if (bundledMapped.length > 0) {
+            cachedArticles = mergeLocalTitlesIntoExecutionArticles(bundledMapped, localSeed);
+            writeLegalReferenceCache(EXECUTION_LOCAL_CACHE_KEY, cachedArticles);
+            scheduleBackgroundExecutionLawSync();
+            return cachedArticles;
+        }
 
         try {
             const rows = await fetchRemoteLawRows();
             const mapped = mapRemoteRowsToExecutionArticles(rows);
             if (mapped.length > 0) {
                 cachedArticles = mergeLocalTitlesIntoExecutionArticles(mapped, localSeed);
+                writeLegalReferenceCache(EXECUTION_LOCAL_CACHE_KEY, cachedArticles);
                 return cachedArticles;
             }
         } catch {
-            /* try bundled project file */
-        }
-
-        const bundledRows = await loadBundledLawRows(EXECUTION_LAW_CANONICAL_NAME);
-        const bundledMapped = mapRemoteRowsToExecutionArticles(bundledRows);
-        if (bundledMapped.length > 0) {
-            cachedArticles = mergeLocalTitlesIntoExecutionArticles(bundledMapped, localSeed);
-            return cachedArticles;
+            /* fall through to seed */
         }
 
         cachedArticles = localSeed;
+        if (cachedArticles.length > 0) {
+            writeLegalReferenceCache(EXECUTION_LOCAL_CACHE_KEY, cachedArticles);
+        }
         return cachedArticles;
     })();
 
@@ -120,6 +176,8 @@ export async function loadExecutionLawArticlesRemote(): Promise<ExecutionLawArti
 export function invalidateExecutionLawRemoteCache(): void {
     cachedArticles = null;
     inflight = null;
+    backgroundSyncInflight = false;
+    clearLegalReferenceCache(EXECUTION_LOCAL_CACHE_KEY);
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent(EXECUTION_LAW_CACHE_INVALIDATED_EVENT));
     }

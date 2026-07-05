@@ -18,6 +18,12 @@ describe('secureStorageKeys', () => {
         expect(isSensitiveStorageKey('hami:criminal:store')).toBe(false);
     });
 
+    it('never encrypts lawyer wallpaper blob (sync read for CSS)', () => {
+        expect(isNeverEncryptedKey('lawyer_wallpaper')).toBe(true);
+        expect(isSensitiveStorageKey('lawyer_wallpaper')).toBe(false);
+        expect(shouldEncryptValue('lawyer_wallpaper', 'data:image/jpeg;base64,abc')).toBe(false);
+    });
+
     it('encrypts criminal shards under size cap', () => {
         expect(isSensitiveStorageKey('hami:criminal:case:abc')).toBe(true);
         expect(isSensitiveStorageKey('hami:criminal:meta')).toBe(true);

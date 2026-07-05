@@ -1,7 +1,5 @@
 import React from 'react';
 import { Cpu, Gauge, Sparkles, Zap } from 'lucide-react';
-import { settingWiringHint } from '@/app/services/settings/settingsCapabilities';
-import { isModestDevice } from '@/app/runtime/devicePerformanceTier';
 import { SettingCard, SettingRow, Toggle, Segmented } from '../settings-ui';
 import type { AppearanceSectionViewModel } from './useAppearanceSection';
 import type { LitePerformanceMode } from '@/app/services/settings/types';
@@ -13,14 +11,11 @@ const LITE_OPTIONS: { value: LitePerformanceMode; label: string }[] = [
 ];
 
 export function AppearancePerformanceCard({ vm }: { vm: AppearanceSectionViewModel }) {
-    const modestHint = isModestDevice() ? ' — جهازك يُصنَّف متواضعاً' : '';
-
     return (
         <SettingCard>
             <SettingRow
                 icon={Gauge}
                 label="الأداء الخفيف"
-                subLabel={`${settingWiringHint('performance.litePerformance') ?? ''}${modestHint}`}
                 action={
                     <Segmented
                         value={vm.performance.litePerformance}
@@ -32,7 +27,6 @@ export function AppearancePerformanceCard({ vm }: { vm: AppearanceSectionViewMod
             <SettingRow
                 icon={Cpu}
                 label="تقليل الحركة"
-                subLabel={settingWiringHint('appearance.reduceMotion')}
                 action={
                     <Toggle
                         label="تقليل الحركة"
@@ -45,7 +39,6 @@ export function AppearancePerformanceCard({ vm }: { vm: AppearanceSectionViewMod
             <SettingRow
                 icon={Sparkles}
                 label="الحركات والانتقالات"
-                subLabel={settingWiringHint('performance.enableAnimations')}
                 action={
                     <Toggle
                         label="الحركات والانتقالات"
@@ -57,7 +50,6 @@ export function AppearancePerformanceCard({ vm }: { vm: AppearanceSectionViewMod
             <SettingRow
                 icon={Zap}
                 label="تحميل الشاشات مسبقاً"
-                subLabel={settingWiringHint('performance.prefetchScreens')}
                 isLast
                 action={
                     <Toggle

@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { History, X } from 'lucide-react';
+import { useTasksLifecycle } from '@/app/components/lawyer/dashboard/fieldTasks/useTasksLifecycle';
+import { useQuantumTasksActions } from '@/app/hooks/useQuantumTasksContext';
 import { DistantTasksSection } from './tasksManager/DistantTasksSection';
 import { FatalDeadlinesSection } from './tasksManager/FatalDeadlinesSection';
 import { TasksManagerModals } from './tasksManager/TasksManagerModals';
@@ -30,6 +32,22 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
     keyboardInsetPx = 0,
 }) => {
     const ctrl = useTasksManagerController({ focusTaskId, lawsuitFiles, executionFiles });
+    const { flushPersist } = useQuantumTasksActions();
+    const [managerHydrated, setManagerHydrated] = useState(false);
+    useTasksLifecycle(true, true, () => setManagerHydrated(true));
+
+    const handleClose = useCallback(() => {
+        onClose();
+        queueMicrotask(() => {
+            void flushPersist();
+        });
+    }, [flushPersist, onClose]);
+
+    const nestedModalOpen =
+        ctrl.fatalOpen ||
+        ctrl.deleteConfirmId !== null ||
+        ctrl.editOpen ||
+        ctrl.reminderModalTaskId !== null;
 
     const bodyStyle =
         keyboardInsetPx > 0
@@ -37,7 +55,15 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
             : undefined;
 
     return (
-        <div className={`${TASKS_PAGE} relative`} role="dialog" aria-modal="true" aria-label="أجندة المهام" data-testid="tasks-manager">
+        <div
+            className={`${TASKS_PAGE} relative`}
+            role="dialog"
+            aria-modal={nestedModalOpen ? undefined : true}
+            aria-hidden={nestedModalOpen ? true : undefined}
+            aria-label="أجندة المهام"
+            data-testid="tasks-manager"
+            data-tasks-manager-hydrated={managerHydrated ? 'true' : 'false'}
+        >
             <TasksManagerModals
                 fatalOpen={ctrl.fatalOpen}
                 onFatalOpenChange={(open) => {
@@ -123,7 +149,7 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
                     </button>
                     <button
                         type="button"
-                        onClick={onClose}
+                        onClick={handleClose}
                         data-testid="tasks-manager-close"
                         className="w-11 h-11 rounded-xl border border-[#A67C52]/22 bg-[#0c0c0e]/72 flex items-center justify-center text-[#E8F5F0]/70 hover:bg-[#0c0c0e]/85 hover:text-[#E8F5F0] hover:border-[#A67C52]/38 touch-manipulation"
                         aria-label="إغلاق"
@@ -158,12 +184,10 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
                             distantTasks={ctrl.distantTasks}
                             snoozePanelOpen={ctrl.snoozePanelOpen}
                             setSnoozePanelOpen={ctrl.setSnoozePanelOpen}
-                            snoozeTitle={ctrl.snoozeTitle}
-                            setSnoozeTitle={ctrl.setSnoozeTitle}
-                            snoozeCustomIso={ctrl.snoozeCustomIso}
-                            setSnoozeCustomIso={ctrl.setSnoozeCustomIso}
-                            applySnoozeChoice={ctrl.applySnoozeChoice}
+                            saveSnoozedTask={ctrl.saveSnoozedTask}
+                            minSnoozeIso={ctrl.minSnoozeIso}
                             renderTaskCard={ctrl.renderTaskCard}
+                            now={ctrl.now}
                         />
                     </>
                 )}

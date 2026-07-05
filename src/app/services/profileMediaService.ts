@@ -1,4 +1,4 @@
-import { LawyerStorage } from '@/app/services/lawyer-cloud';
+import { LawyerStorage } from '@/app/services/storage/lawyerStorageRuntime';
 import { sanitizeProfileMediaUrl } from '@/app/services/profile/profileUrlSanitize';
 
 const MAX_EDGE = 1280;

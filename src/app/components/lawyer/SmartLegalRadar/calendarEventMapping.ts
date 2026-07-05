@@ -1,6 +1,8 @@
-import { isBridgedCalendarEvent } from '@/app/services/calendarBridge';
-import { isUserAuthoredBridgedCalendarEvent } from '@/app/services/calendarAuthenticity';
-import type { CalendarEvent } from '@/app/services/lawyer-cloud';
+import type { CalendarEvent } from '@/app/services/cloud/lawyerCalendarTypes';
+import {
+    isBridgedCalendarEvent,
+    isUserAuthoredBridgedCalendarEvent,
+} from '@/app/services/calendar/calendarEventAuthorship';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
 
 export function mapStoredEventsToUnified(customEvents: CalendarEvent[]): UnifiedEvent[] {

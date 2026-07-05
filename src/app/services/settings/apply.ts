@@ -3,6 +3,7 @@ import type { AppSettingsState, SecuritySettings } from './types';
 import { normalizeGlassOpacity } from './surfaceAppearance';
 import { applyLawyerThemeCssVars, LAWYER_THEME_TOKENS } from './lawyerThemeTokens';
 import { applyLitePerformanceDataset } from '@/app/runtime/devicePerformanceTier';
+import SecureStoreService from '@/app/services/SecureStoreService';
 import {
     BUILTIN_COMPACT_MODE,
     BUILTIN_NOTIFICATIONS_ENABLED,
@@ -31,11 +32,36 @@ export function invalidateWallpaperCache(): void {
     wallpaperCache = null;
 }
 
+function readLegacyWallpaperFromLocalStorage(): string | undefined {
+    if (typeof localStorage === 'undefined') return undefined;
+    try {
+        const legacy = localStorage.getItem(WALLPAPER_KEY);
+        return legacy?.startsWith('data:') ? legacy : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+function clearLegacyWallpaperLocalStorage(): void {
+    if (typeof localStorage === 'undefined') return;
+    try {
+        localStorage.removeItem(WALLPAPER_KEY);
+    } catch {
+        /* ignore */
+    }
+}
+
 export function persistWallpaper(dataUrl: string | undefined): boolean {
     try {
-        if (dataUrl) localStorage.setItem(WALLPAPER_KEY, dataUrl);
-        else localStorage.removeItem(WALLPAPER_KEY);
-        wallpaperCache = dataUrl ?? undefined;
+        if (dataUrl) {
+            SecureStoreService.setItemSync(WALLPAPER_KEY, dataUrl);
+            clearLegacyWallpaperLocalStorage();
+            wallpaperCache = dataUrl;
+        } else {
+            SecureStoreService.deleteItemSync(WALLPAPER_KEY);
+            clearLegacyWallpaperLocalStorage();
+            wallpaperCache = undefined;
+        }
         return true;
     } catch {
         return false;
@@ -45,10 +71,37 @@ export function persistWallpaper(dataUrl: string | undefined): boolean {
 export function loadPersistedWallpaper(): string | undefined {
     if (wallpaperCache !== null) return wallpaperCache;
     try {
-        wallpaperCache = localStorage.getItem(WALLPAPER_KEY) ?? undefined;
-        return wallpaperCache;
+        const synced = SecureStoreService.getItemSync(WALLPAPER_KEY);
+        if (synced?.startsWith('data:')) {
+            wallpaperCache = synced;
+            return synced;
+        }
+        const legacy = readLegacyWallpaperFromLocalStorage();
+        if (legacy) {
+            SecureStoreService.setItemSync(WALLPAPER_KEY, legacy);
+            clearLegacyWallpaperLocalStorage();
+            wallpaperCache = legacy;
+            return legacy;
+        }
+        wallpaperCache = undefined;
+        return undefined;
     } catch {
         wallpaperCache = undefined;
+        return undefined;
+    }
+}
+
+/** استعادة خلفية مخزّنة مشفّرة/في IndexedDB — بعد ensureBootShellReady */
+export async function hydrateWallpaperFromSecureStore(): Promise<string | undefined> {
+    const synced = loadPersistedWallpaper();
+    if (synced) return synced;
+    try {
+        await SecureStoreService.ensureBootShellReady();
+        const asyncVal = await SecureStoreService.getItem(WALLPAPER_KEY);
+        if (!asyncVal?.startsWith('data:')) return undefined;
+        persistWallpaper(asyncVal);
+        return asyncVal;
+    } catch {
         return undefined;
     }
 }

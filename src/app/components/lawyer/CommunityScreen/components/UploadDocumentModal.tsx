@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
-import { X, FileImage, FileText } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { X, FileImage, FileText, ChevronDown } from 'lucide-react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { RepositoryDocument } from '@/app/services/lawyer-cloud';
 import { getRepositoryMediaKind, inferRepositoryMimeType, repositoryMediaLabel } from './repositoryMedia';
@@ -44,6 +45,8 @@ export const UploadDocumentModal = ({
     const [file, setFile] = useState<File | null>(null);
     const [fileError, setFileError] = useState<string | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [isTypeMenuOpen, setIsTypeMenuOpen] = useState(false);
+    const typeMenuRef = useRef<HTMLDivElement | null>(null);
 
     const acceptValue = repositoryUploadAcceptValue(uploadKind);
 
@@ -71,6 +74,7 @@ export const UploadDocumentModal = ({
             setUploadKind(getRepositoryMediaKind(editDoc.mimeType, editDoc.fileName) === 'image' ? 'image' : 'document');
             setFile(null);
             setFileError(null);
+            setIsTypeMenuOpen(false);
             return;
         }
         setTitle('');
@@ -80,7 +84,32 @@ export const UploadDocumentModal = ({
         setUploadKind('document');
         setFile(null);
         setFileError(null);
+        setIsTypeMenuOpen(false);
     }, [isOpen, editDoc]);
+
+    useEffect(() => {
+        if (!isTypeMenuOpen) return;
+
+        const handlePointerDown = (event: MouseEvent) => {
+            if (!typeMenuRef.current?.contains(event.target as Node)) {
+                setIsTypeMenuOpen(false);
+            }
+        };
+
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setIsTypeMenuOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handlePointerDown);
+        document.addEventListener('keydown', handleEscape);
+
+        return () => {
+            document.removeEventListener('mousedown', handlePointerDown);
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, [isTypeMenuOpen]);
 
     const selectedKindLabel = useMemo(() => {
         if (!file) return null;
@@ -145,17 +174,23 @@ export const UploadDocumentModal = ({
         }
     };
 
-    if (!isOpen) return null;
+    if (!isOpen || typeof document === 'undefined') return null;
 
-    return (
+    return createPortal(
         <>
-            <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <div
+                className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm"
+                onClick={onClose}
+                aria-hidden
+            />
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pointer-events-none">
                 <div
-                    className="w-full max-w-lg bg-[#1A1D2D] rounded-2xl border border-white/10 shadow-2xl pointer-events-auto overflow-hidden"
+                    className="w-full max-w-lg bg-[#1A1D2D] rounded-2xl border border-white/10 shadow-2xl pointer-events-auto"
                     onClick={(e) => e.stopPropagation()}
+                    role="dialog"
+                    aria-modal="true"
                 >
-                    <form onSubmit={handleSubmit}>
+                    <form onSubmit={(e) => void handleSubmit(e)}>
                         <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
                             <h3 className="text-white font-bold text-base">
                                 {editDoc ? 'تعديل المستند' : 'رفع مستند جديد'}
@@ -164,18 +199,19 @@ export const UploadDocumentModal = ({
                                 type="button"
                                 onClick={onClose}
                                 className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                                aria-label="إغلاق"
                             >
                                 <X size={18} />
                             </button>
                         </div>
 
-                        <div className="px-5 py-4 space-y-4">
+                        <div className="px-5 py-4 space-y-4 overflow-visible">
                             {!editDoc ? (
                                 <div className="grid grid-cols-2 gap-2">
                                     <button
                                         type="button"
                                         onClick={() => switchUploadKind('document')}
-                                        className={`flex flex-col items-center gap-1.5 rounded-xl border px-3 py-3 text-xs font-bold transition-colors ${
+                                        className={`flex flex-col items-center gap-1.5 rounded-xl border px-3 py-3 text-xs font-bold transition-colors touch-manipulation min-h-[44px] ${
                                             uploadKind === 'document'
                                                 ? 'border-[#E6C673]/50 bg-[#E6C673]/10 text-[#E6C673]'
                                                 : 'border-white/10 bg-[#25293C] text-white/60 hover:text-white'
@@ -187,7 +223,7 @@ export const UploadDocumentModal = ({
                                     <button
                                         type="button"
                                         onClick={() => switchUploadKind('image')}
-                                        className={`flex flex-col items-center gap-1.5 rounded-xl border px-3 py-3 text-xs font-bold transition-colors ${
+                                        className={`flex flex-col items-center gap-1.5 rounded-xl border px-3 py-3 text-xs font-bold transition-colors touch-manipulation min-h-[44px] ${
                                             uploadKind === 'image'
                                                 ? 'border-sky-400/50 bg-sky-500/10 text-sky-200'
                                                 : 'border-white/10 bg-[#25293C] text-white/60 hover:text-white'
@@ -210,19 +246,62 @@ export const UploadDocumentModal = ({
                                 />
                             </div>
 
-                            <div>
+                            <div className="relative z-20" ref={typeMenuRef}>
                                 <label className="block text-white/70 text-xs font-bold mb-1.5">نوع المستند</label>
-                                <select
-                                    value={type}
-                                    onChange={(e) => setType(e.target.value)}
-                                    className="w-full h-11 bg-[#25293C] rounded-xl px-4 text-white text-sm border border-white/5 focus:border-[#E6C673]/30 focus:outline-none transition-colors appearance-none"
-                                >
-                                    {DOCUMENT_TYPES.map((t) => (
-                                        <option key={t} value={t}>
-                                            {t}
-                                        </option>
-                                    ))}
-                                </select>
+                                <div className="relative">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsTypeMenuOpen((prev) => !prev)}
+                                        className={`w-full h-11 min-h-[44px] bg-[#25293C] rounded-xl pr-4 pl-10 text-right text-white text-sm border transition-colors touch-manipulation flex items-center ${
+                                            isTypeMenuOpen
+                                                ? 'border-[#E6C673]/40 ring-1 ring-[#E6C673]/15'
+                                                : 'border-white/5 hover:border-white/10'
+                                        }`}
+                                        aria-haspopup="listbox"
+                                        aria-expanded={isTypeMenuOpen}
+                                    >
+                                        <span className="truncate">{type}</span>
+                                    </button>
+                                    <ChevronDown
+                                        size={16}
+                                        className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/40 transition-transform ${
+                                            isTypeMenuOpen ? 'rotate-180' : ''
+                                        }`}
+                                        aria-hidden
+                                    />
+                                    {isTypeMenuOpen ? (
+                                        <div
+                                            className="absolute top-[calc(100%+0.5rem)] left-0 right-0 rounded-2xl border border-white/10 bg-[#202538] shadow-2xl shadow-black/40 overflow-hidden"
+                                            role="listbox"
+                                            aria-label="نوع المستند"
+                                        >
+                                            <div className="max-h-64 overflow-y-auto py-1.5">
+                                                {DOCUMENT_TYPES.map((option) => {
+                                                    const active = option === type;
+                                                    return (
+                                                        <button
+                                                            key={option}
+                                                            type="button"
+                                                            role="option"
+                                                            aria-selected={active}
+                                                            onClick={() => {
+                                                                setType(option);
+                                                                setIsTypeMenuOpen(false);
+                                                            }}
+                                                            className={`w-full px-4 py-3 text-right text-sm transition-colors ${
+                                                                active
+                                                                    ? 'bg-[#E6C673]/12 text-[#E6C673] font-bold'
+                                                                    : 'text-white/85 hover:bg-white/5'
+                                                            }`}
+                                                        >
+                                                            {option}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ) : null}
+                                </div>
                             </div>
 
                             <div>
@@ -246,7 +325,7 @@ export const UploadDocumentModal = ({
                                                 key={tag}
                                                 type="button"
                                                 onClick={() => togglePickedTag(tag)}
-                                                className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${
+                                                className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors touch-manipulation ${
                                                     active
                                                         ? 'bg-[#E6C673]/15 border-[#E6C673]/40 text-[#E6C673]'
                                                         : 'bg-[#25293C] border-white/10 text-white/45 hover:text-white/75'
@@ -283,7 +362,7 @@ export const UploadDocumentModal = ({
                                     type="file"
                                     accept={acceptValue}
                                     onChange={handleFileChange}
-                                    className="w-full h-11 bg-[#25293C] rounded-xl px-4 text-white/70 text-sm border border-white/5 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-[#E6C673]/10 file:text-[#E6C673] file:text-xs file:font-bold hover:file:bg-[#E6C673]/15 transition-colors cursor-pointer"
+                                    className="w-full h-11 min-h-[44px] bg-[#25293C] rounded-xl px-4 text-white/70 text-sm border border-white/5 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-[#E6C673]/10 file:text-[#E6C673] file:text-xs file:font-bold hover:file:bg-[#E6C673]/15 transition-colors cursor-pointer touch-manipulation"
                                 />
                                 {fileError ? <p className="mt-1.5 text-[11px] text-red-400">{fileError}</p> : null}
                                 {file && !fileError ? (
@@ -310,14 +389,15 @@ export const UploadDocumentModal = ({
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="px-5 py-2.5 rounded-xl text-sm text-white/50 hover:text-white transition-colors"
+                                disabled={isSubmitting}
+                                className="px-5 py-2.5 min-h-[44px] rounded-xl text-sm text-white/50 hover:text-white transition-colors touch-manipulation"
                             >
                                 إلغاء
                             </button>
                             <button
                                 type="submit"
                                 disabled={isSubmitting}
-                                className="px-5 py-2.5 rounded-xl bg-[#E6C673] hover:bg-[#d4b560] disabled:bg-[#E6C673]/50 disabled:cursor-not-allowed text-black text-sm font-bold transition-colors flex items-center gap-2"
+                                className="px-5 py-2.5 min-h-[44px] rounded-xl bg-[#E6C673] hover:bg-[#d4b560] disabled:bg-[#E6C673]/50 disabled:cursor-not-allowed text-black text-sm font-bold transition-colors flex items-center gap-2 touch-manipulation"
                             >
                                 {isSubmitting ? (
                                     <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
@@ -331,6 +411,7 @@ export const UploadDocumentModal = ({
                     </form>
                 </div>
             </div>
-        </>
+        </>,
+        document.body,
     );
 };

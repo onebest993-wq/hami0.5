@@ -1,30 +1,28 @@
-import React, { memo, Suspense, useLayoutEffect, useRef } from 'react';
+import React, { memo, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { LawyerDashboardShell } from '@/app/components/lawyer/dashboard/LawyerDashboardShell';
 import { LawyerDashboardOverlaysHost } from '@/app/components/lawyer/dashboard/LawyerDashboardOverlaysHost';
 import { Header } from '@/app/components/lawyer/LawyerDashboardParts/components/Header';
 import { NotificationShell } from '@/app/components/lawyer/NotificationPanel/NotificationShell';
 import type { LawyerDashboardCoreViewModel } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCore';
 import { markBootPhase, reportBootTimeline } from '@/app/bootstrap/bootMetrics';
-import { removeStaticBootShell } from '@/app/bootstrap/bootStaticShell';
+import { notifyBootContentReady } from '@/app/bootstrap/bootReveal';
 import { bindFramePacingGuard } from '@/app/runtime/framePacingGuard';
-import { ScheduleTabFallback, LawyerProfileTabLoadingFallback } from '@/app/components/lawyer/LawyerDashboardParts/LazyFallback';
+import { bindBodyScrollLockReconcile } from '@/app/utils/bodyScrollLock';
+import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
+import { SCHEDULE_SHELL_HYDRATED_EVENT } from '@/app/runtime/scheduleBootHydrator';
+import { PROFILE_SHELL_HYDRATED_EVENT } from '@/app/runtime/profileBootHydrator';
+import { ScheduleTabHost } from '@/app/components/lawyer/dashboard/schedule/ScheduleTabHost';
+import { ProfileTabHost } from '@/app/components/lawyer/dashboard/profile/ProfileTabHost';
+import { DashboardTabSurface } from '@/app/components/lawyer/dashboard/schedule/DashboardTabSurface';
+import {
+    useKeepAliveIdleRelease,
+    getLatchedTabIdleReleaseMs,
+} from '@/app/hooks/lawyerDashboard/useKeepAliveIdleRelease';
 import { lazyWithRetry, type LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
 
 const LazyLawyerDashboardHomeTab = lazyWithRetry(() =>
     import('@/app/components/lawyer/dashboard/LawyerDashboardHomeTab').then((m) => ({
         default: m.LawyerDashboardHomeTab as unknown as LazyComponent,
-    })),
-);
-
-const LazyLawyerDashboardScheduleTab = lazyWithRetry(() =>
-    import('@/app/components/lawyer/dashboard/LawyerDashboardScheduleTab').then((m) => ({
-        default: m.LawyerDashboardScheduleTab as unknown as LazyComponent,
-    })),
-);
-
-const LazyLawyerDashboardProfileTab = lazyWithRetry(() =>
-    import('@/app/components/lawyer/dashboard/LawyerDashboardProfileTab').then((m) => ({
-        default: m.LawyerDashboardProfileTab as unknown as LazyComponent,
     })),
 );
 
@@ -63,54 +61,149 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
     } = model;
 
     const unbindFrameGuardRef = useRef<(() => void) | null>(null);
+    const [scheduleLatched, setScheduleLatched] = useState(false);
+    const [profileLatched, setProfileLatched] = useState(false);
+
+    const homeActive = homeTabProps.visible;
+    const scheduleActive = scheduleTabProps.visible;
+    const profileActive = profileTab.visible;
+    const profileShouldMount = profileLatched || profileActive;
+
+    useLayoutEffect(() => {
+        if (profileActive) setProfileLatched(true);
+    }, [profileActive]);
+
+    useEffect(() => {
+        if (scheduleActive) setScheduleLatched(true);
+    }, [scheduleActive]);
+
+    /** يثبّت تبويب التقويم مخفياً بعد الجاهزية — فتح الدوك فوري حتى قبل أول نقرة */
+    useEffect(() => {
+        let cancelIdle: (() => void) | undefined;
+
+        const latchScheduleShell = () => setScheduleLatched(true);
+
+        const schedulePreLatch = () => {
+            cancelIdle?.();
+            cancelIdle = scheduleIdleWork(latchScheduleShell, {
+                minDelayMs: 450,
+                timeoutMs: 8_000,
+            });
+        };
+
+        window.addEventListener('hami:dashboard-interactive', schedulePreLatch, { once: true });
+        window.addEventListener(SCHEDULE_SHELL_HYDRATED_EVENT, latchScheduleShell);
+
+        if (document.querySelector('[data-testid="lawyer-dashboard-ready"]')) {
+            schedulePreLatch();
+        }
+
+        return () => {
+            cancelIdle?.();
+            window.removeEventListener(SCHEDULE_SHELL_HYDRATED_EVENT, latchScheduleShell);
+        };
+    }, []);
+
+    /** يثبّت تبويب الملف مخفياً بعد الجاهزية — فتح الهيدر فوري حتى قبل أول نقرة */
+    useEffect(() => {
+        let cancelIdle: (() => void) | undefined;
+
+        const latchProfileShell = () => setProfileLatched(true);
+
+        const scheduleProfilePreLatch = () => {
+            cancelIdle?.();
+            cancelIdle = scheduleIdleWork(latchProfileShell, {
+                minDelayMs: 600,
+                timeoutMs: 9_000,
+            });
+        };
+
+        window.addEventListener('hami:dashboard-interactive', scheduleProfilePreLatch, { once: true });
+        window.addEventListener(PROFILE_SHELL_HYDRATED_EVENT, latchProfileShell);
+
+        if (document.querySelector('[data-testid="lawyer-dashboard-ready"]')) {
+            scheduleProfilePreLatch();
+        }
+
+        return () => {
+            cancelIdle?.();
+            window.removeEventListener(PROFILE_SHELL_HYDRATED_EVENT, latchProfileShell);
+        };
+    }, []);
+
+    useKeepAliveIdleRelease(
+        scheduleActive,
+        () => setScheduleLatched(false),
+        getLatchedTabIdleReleaseMs(),
+    );
+
+    useKeepAliveIdleRelease(
+        profileActive,
+        () => setProfileLatched(false),
+        getLatchedTabIdleReleaseMs(),
+    );
 
     useLayoutEffect(() => {
         markBootPhase('dashboard-interactive');
         reportBootTimeline();
-        removeStaticBootShell();
         delete document.documentElement.dataset.hamiInitialBoot;
         window.dispatchEvent(new Event('hami:dashboard-interactive'));
+        notifyBootContentReady();
         unbindFrameGuardRef.current = bindFramePacingGuard();
+        const unbindScrollReconcile = bindBodyScrollLockReconcile();
         return () => {
             unbindFrameGuardRef.current?.();
             unbindFrameGuardRef.current = null;
+            unbindScrollReconcile();
         };
     }, []);
 
     return (
         <div data-testid="lawyer-dashboard-ready">
-        <LawyerDashboardShell {...shellProps}>
-            <NotificationShell
-                isOpen={notificationPanel.isOpen}
-                panelSessionKey={notificationPanel.panelSessionKey}
-                userId={notificationPanel.userId}
-                onClose={notificationPanel.onClose}
-                onNavigate={notificationPanel.onNavigate}
-                onOpenPanel={notificationPanel.onOpenPanel}
-            />
+            <LawyerDashboardShell {...shellProps}>
+                <NotificationShell
+                    isOpen={notificationPanel.isOpen}
+                    panelSessionKey={notificationPanel.panelSessionKey}
+                    userId={notificationPanel.userId}
+                    onClose={notificationPanel.onClose}
+                    onNavigate={notificationPanel.onNavigate}
+                    onOpenPanel={notificationPanel.onOpenPanel}
+                />
 
-            <Header {...headerProps} />
+                <Header {...headerProps} />
 
-            <div className={tabStackHidden ? 'hidden' : 'relative min-h-0'}>
-                {homeTabProps.visible ? (
-                    <Suspense fallback={<HomeTabSuspenseFallback />}>
-                        <LazyLawyerDashboardHomeTab {...homeTabProps} />
-                    </Suspense>
-                ) : null}
-                {scheduleTabProps.visible ? (
-                    <Suspense fallback={ScheduleTabFallback}>
-                        <LazyLawyerDashboardScheduleTab {...scheduleTabProps} />
-                    </Suspense>
-                ) : null}
-                {profileTab.visible ? (
-                    <Suspense fallback={<LawyerProfileTabLoadingFallback onBack={profileTab.onBack} />}>
-                        <LazyLawyerDashboardProfileTab {...profileTab} />
-                    </Suspense>
-                ) : null}
-            </div>
+                <div className={tabStackHidden ? 'hidden' : 'relative min-h-0'}>
+                    <DashboardTabSurface active={homeActive} testId="lawyer-dashboard-home-surface">
+                        <Suspense fallback={<HomeTabSuspenseFallback />}>
+                            <LazyLawyerDashboardHomeTab {...homeTabProps} />
+                        </Suspense>
+                    </DashboardTabSurface>
 
-            <LawyerDashboardOverlaysHost {...overlaysHostProps} />
-        </LawyerDashboardShell>
+                    {scheduleLatched ? (
+                        <DashboardTabSurface
+                            active={scheduleActive}
+                            testId="lawyer-dashboard-schedule-surface"
+                            className="block"
+                        >
+                            <ScheduleTabHost
+                                key={`schedule-tab-${scheduleTabProps.scheduleTabSessionKey ?? 0}`}
+                                {...scheduleTabProps}
+                            />
+                        </DashboardTabSurface>
+                    ) : null}
+
+                    {profileShouldMount ? (
+                        <DashboardTabSurface active={profileActive} testId="lawyer-dashboard-profile-surface">
+                            <ProfileTabHost
+                                key={`lawyer-profile-tab-${profileTab.sessionKey}`}
+                                {...profileTab}
+                            />
+                        </DashboardTabSurface>
+                    ) : null}
+                </div>
+
+                <LawyerDashboardOverlaysHost {...overlaysHostProps} />
+            </LawyerDashboardShell>
         </div>
     );
 });

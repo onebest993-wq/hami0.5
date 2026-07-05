@@ -127,6 +127,9 @@ describe('RouteTile — معاملات', () => {
 
         fireEvent.pointerEnter(tile);
         expect(prefetchHubArchiveIntent).toHaveBeenCalledWith('transaction', 'hover');
+
+        fireEvent.pointerDown(tile);
+        expect(prefetchHubArchiveIntent).toHaveBeenCalledTimes(2);
     });
 
     it('يفتح مخزن المعاملات عند النقر', () => {

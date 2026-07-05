@@ -21,10 +21,15 @@ export const PartySidePane = ({
     const orderedParties = splitSideParties(parties as Party[]);
 
     return (
-        <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-            <span className={`text-[10px] font-bold tracking-wide truncate px-0.5 uppercase ${labelClassName}`} title={label}>
-                {label}
-            </span>
+        <section className="min-w-0 rounded-[18px] border border-white/[0.06] bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.015))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+            <div className="mb-2 flex items-center justify-between gap-2">
+                <span className={`text-[10px] font-black tracking-wide truncate uppercase ${labelClassName}`} title={label}>
+                    {label}
+                </span>
+                <span className="rounded-full border border-white/[0.06] bg-white/[0.04] px-1.5 py-0.5 text-[9px] font-bold text-white/45">
+                    {orderedParties.length}
+                </span>
+            </div>
             <div className="flex flex-col gap-1.5 min-w-0">
                 {orderedParties.map((party, idx) => {
                     const role = String(party.role ?? '');
@@ -51,8 +56,8 @@ export const PartySidePane = ({
                             key={rowKey}
                             className={
                                 interpleader
-                                    ? 'rounded-lg border border-[#E6C673]/20 bg-[#E6C673]/[0.05] backdrop-blur-sm px-1.5 py-1 space-y-1'
-                                    : 'rounded-lg border border-indigo-400/20 bg-indigo-500/[0.05] backdrop-blur-sm px-1.5 py-1 space-y-1'
+                                    ? 'rounded-[15px] border border-[#E6C673]/20 bg-[#E6C673]/[0.05] backdrop-blur-sm px-1.5 py-1.5 space-y-1'
+                                    : 'rounded-[15px] border border-indigo-400/20 bg-indigo-500/[0.05] backdrop-blur-sm px-1.5 py-1.5 space-y-1'
                             }
                         >
                             <span
@@ -69,6 +74,6 @@ export const PartySidePane = ({
                     );
                 })}
             </div>
-        </div>
+        </section>
     );
 };

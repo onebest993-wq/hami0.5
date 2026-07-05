@@ -1,36 +1,66 @@
-import type { SmartVaultDoc } from '@/app/services/lawyer-cloud';
+import { SmartVaultDB } from '@/app/services/vault/smartVaultRuntime';
+import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
+import { mergeSmartVaultDocs } from '@/app/services/vault/vaultDocUtils';
+import { readVaultLocalIndexSync } from '@/app/services/vault/vaultLocalIndex';
+import {
+    invalidateVaultDocsWarmCache,
+    mergeVaultDocsWarmCache,
+    peekVaultDocsWarmCache,
+    setVaultDocsWarmCache,
+    sortVaultDocs,
+    vaultDocsWarmCacheStore as cache,
+    vaultDocsWarmInflightStore as inflight,
+    removeVaultDocFromWarmCache,
+} from '@/app/services/vault/vaultDocsWarmState';
+export {
+    invalidateVaultDocsWarmCache,
+    mergeVaultDocsWarmCache,
+    peekVaultDocsWarmCache,
+    removeVaultDocFromWarmCache,
+    setVaultDocsWarmCache,
+} from '@/app/services/vault/vaultDocsWarmState';
 
-const cache = new Map<string, SmartVaultDoc[]>();
-const inflight = new Map<string, Promise<SmartVaultDoc[]>>();
+export const SMART_VAULT_DOCS_UPDATED_EVENT = 'hami:smart-vault-docs-updated';
 
-export function peekVaultDocsWarmCache(userId: string): SmartVaultDoc[] | undefined {
+export function notifySmartVaultDocsUpdated(userId: string, docs?: SmartVaultDoc[]): void {
+    if (typeof window === 'undefined') return;
     const uid = userId.trim();
-    return uid ? cache.get(uid) : undefined;
+    if (!uid) return;
+    window.dispatchEvent(
+        new CustomEvent(SMART_VAULT_DOCS_UPDATED_EVENT, {
+            detail: {
+                userId: uid,
+                docs: docs ?? [],
+            },
+        }),
+    );
 }
 
-export function setVaultDocsWarmCache(userId: string, docs: SmartVaultDoc[]): void {
+export function forceRefreshVaultDocs(userId: string): Promise<SmartVaultDoc[]> {
     const uid = userId.trim();
-    if (uid) cache.set(uid, docs);
+    if (!uid) return Promise.resolve([]);
+    cache.delete(uid);
+    inflight.delete(uid);
+    return loadVaultDocsIntoCache(uid).catch(() => []);
 }
 
-export function invalidateVaultDocsWarmCache(userId?: string): void {
-    if (userId?.trim()) cache.delete(userId.trim());
-    else cache.clear();
+function settleVaultDocsFailure(uid: string): SmartVaultDoc[] {
+    return cache.get(uid) ?? [];
 }
 
 async function loadVaultDocsIntoCache(uid: string): Promise<SmartVaultDoc[]> {
-    const cached = cache.get(uid);
-    if (cached) return cached;
-
     const pending = inflight.get(uid);
     if (pending) return pending;
 
-    const run = import('@/app/services/lawyer-cloud')
-        .then((m) => m.SmartVaultDB.listDocs(uid))
-        .then((docs) => {
-            cache.set(uid, docs);
-            return docs;
+    const run = SmartVaultDB.listDocs(uid)
+        .then((fetched) => {
+            const live = cache.get(uid);
+            const merged = live?.length ? mergeSmartVaultDocs(live, fetched) : fetched;
+            const sorted = sortVaultDocs(merged);
+            cache.set(uid, sorted);
+            return sorted;
         })
+        .catch(() => settleVaultDocsFailure(uid))
         .finally(() => {
             inflight.delete(uid);
         });
@@ -39,17 +69,38 @@ async function loadVaultDocsIntoCache(uid: string): Promise<SmartVaultDoc[]> {
     return run;
 }
 
-/** جلب وثائق المخزن مع dedupe — SWR-friendly */
+/** جلب وثائق المخزن مع dedupe — لا يرفض أبداً (يُعيد [] عند الفشل) */
 export function fetchVaultDocsDeduped(userId: string): Promise<SmartVaultDoc[]> {
     const uid = userId.trim();
     if (!uid) return Promise.resolve([]);
-    return loadVaultDocsIntoCache(uid);
+    const cached = cache.get(uid);
+    if (cached?.length) {
+        void loadVaultDocsIntoCache(uid).catch(() => undefined);
+        return Promise.resolve(cached);
+    }
+    return loadVaultDocsIntoCache(uid).catch(() => cache.get(uid) ?? []);
+}
+
+/** انتظار تحديث كامل من التخزين — للواجهة التي تحتاج قائمة محدّثة */
+export function refreshVaultDocsFromStore(userId: string): Promise<SmartVaultDoc[]> {
+    const uid = userId.trim();
+    if (!uid) return Promise.resolve([]);
+    return loadVaultDocsIntoCache(uid).catch(() => cache.get(uid) ?? []);
+}
+
+/** بذر الكاش الدافئ من الفهرس المحلي الفوري */
+export function seedVaultWarmCacheFromLocalIndex(userId: string): SmartVaultDoc[] {
+    const uid = userId.trim();
+    if (!uid) return [];
+    const local = readVaultLocalIndexSync().filter((d) => d.authorId === uid);
+    if (!local.length) return cache.get(uid) ?? [];
+    return mergeVaultDocsWarmCache(uid, local);
 }
 
 /** تحميل مسبق لوثائق المخزن — يُستخدم عند hover/تشغيل اللوحة */
 export function prefetchSmartVaultDocs(userId?: string | null): void {
     const uid = userId?.trim();
     if (!uid || typeof window === 'undefined') return;
-    if (cache.has(uid) || inflight.has(uid)) return;
+    if (inflight.has(uid)) return;
     void loadVaultDocsIntoCache(uid).catch(() => undefined);
 }

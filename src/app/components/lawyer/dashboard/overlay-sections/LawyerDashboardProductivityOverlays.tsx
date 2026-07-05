@@ -1,27 +1,23 @@
 // @ts-nocheck
-import React, { Suspense, useCallback } from 'react';
+import React from 'react';
 
-import {
-    LazyFieldTasksBottomSheet,
-    LazyHamiSettings,
-    LazySmartRepositoryModal,
-    LazyTasksManagerOverlay,
-    LazyTransactionsThreadingSystem,
-} from '@/app/utils/lazyComponents';
+import { SmartRepositoryHost } from '@/app/components/lawyer/SmartRepository/SmartRepositoryHost';
+import { FieldTasksSheetHost } from '@/app/components/lawyer/dashboard/fieldTasks/FieldTasksSheetHost';
+import { FieldTasksManagerHost } from '@/app/components/lawyer/dashboard/fieldTasks/FieldTasksManagerHost';
+import { HamiSettingsHost } from '@/app/components/lawyer/HamiSettings/HamiSettingsHost';
+import { TransactionsThreadingHost } from '@/app/components/lawyer/TransactionsThreading/TransactionsThreadingHost';
 
 import { TasksErrorBoundary } from '@/app/components/lawyer/dashboard/TasksErrorBoundary';
 import { TransactionsErrorBoundary } from '@/app/components/lawyer/TransactionsThreading/TransactionsErrorBoundary';
 import { RepositoryErrorBoundary } from '@/app/components/lawyer/SmartRepository/RepositoryErrorBoundary';
-import {
-    FieldTasksSheetFallback,
-    RepositoryShellFallback,
-    SettingsScreenLoadingFallback,
-    TasksManagerFallback,
-    TransactionsHubFallback,
-} from '@/app/components/lawyer/LawyerDashboardParts/LazyFallback';
 
 import type { LawyerDashboardOverlaysHostProps } from '../lawyerDashboardOverlaysHostBundles';
 import { resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
+import {
+    SUSPENDED_EXECUTION_FILES,
+    SUSPENDED_GLOBAL_NOTES,
+    SUSPENDED_LAWSUIT_FILES,
+} from '@/app/constants/keepAliveSuspendedProps';
 
 export function LawyerDashboardProductivityOverlays({
     shell,
@@ -35,7 +31,7 @@ export function LawyerDashboardProductivityOverlays({
     LawyerDashboardOverlaysHostProps,
     'shell' | 'data' | 'overlays' | 'notepad' | 'nav' | 'dossier' | 'archive'
 >) {
-    const { onLogout, onAppNavigate, userId, authUserId, shapeClass } = shell;
+    const { onLogout, userId, authUserId, shapeClass } = shell;
     const { files, executionFiles, globalNotes } = data;
     const {
         isNotepadOpen,
@@ -56,114 +52,103 @@ export function LawyerDashboardProductivityOverlays({
     const {
         showSettings,
         settingsSessionKey,
+        settingsHostMounted,
         closeSettings,
         resetSettingsShell,
         setShowSettings,
         enterHomeLayoutEdit,
-        openProfileTab,
         fieldTasksSheetOpen,
+        fieldTasksHostMounted,
+        fieldTasksManagerHostMounted,
+        fieldTasksSheetSessionKey,
         closeFieldTasksSheet,
         showTasksManager,
+        tasksManagerSessionKey,
         closeTasksManager,
         switchToTasksManager,
         showTransactions,
         closeTransactionsHub,
         transactionsFocusId,
+        transactionsHostMounted,
+        repositoryHostMounted,
     } = overlays;
 
     const tasksManagerFocusTaskId = overlays.tasksManagerFocusTaskId;
     const transactionsSessionKey = overlays.transactionsSessionKey;
     const transactionsUserId = resolveShellAuthUserId(authUserId, userId);
     const settingsUserId = transactionsUserId;
+    const repositoryLive = isNotepadOpen || repositoryHostMounted;
 
     return (
         <>
-            {fieldTasksSheetOpen ? (
-                <Suspense fallback={FieldTasksSheetFallback}>
-                    <LazyFieldTasksBottomSheet
-                        key="field-tasks-sheet"
-                        open={fieldTasksSheetOpen}
-                        onClose={closeFieldTasksSheet}
-                        onManageAll={switchToTasksManager}
-                        lawsuitFiles={files}
-                        executionFiles={executionFiles}
+            {fieldTasksSheetOpen || fieldTasksHostMounted ? (
+                <FieldTasksSheetHost
+                    key={`field-tasks-sheet-${fieldTasksSheetSessionKey}`}
+                    open={fieldTasksSheetOpen}
+                    onClose={closeFieldTasksSheet}
+                    onManageAll={switchToTasksManager}
+                    lawsuitFiles={fieldTasksSheetOpen ? files : SUSPENDED_LAWSUIT_FILES}
+                    executionFiles={fieldTasksSheetOpen ? executionFiles : SUSPENDED_EXECUTION_FILES}
+                />
+            ) : null}
+
+            {showTasksManager || fieldTasksManagerHostMounted ? (
+                <TasksErrorBoundary onClose={closeTasksManager}>
+                    <FieldTasksManagerHost
+                        key={`tasks-manager-overlay-${tasksManagerSessionKey}`}
+                        open={showTasksManager}
+                        onClose={closeTasksManager}
+                        focusTaskId={tasksManagerFocusTaskId}
+                        lawsuitFiles={showTasksManager ? files : SUSPENDED_LAWSUIT_FILES}
+                        executionFiles={showTasksManager ? executionFiles : SUSPENDED_EXECUTION_FILES}
                     />
-                </Suspense>
+                </TasksErrorBoundary>
             ) : null}
 
-            {showTasksManager ? (
-                <Suspense fallback={TasksManagerFallback}>
-                    <TasksErrorBoundary onClose={closeTasksManager}>
-                        <LazyTasksManagerOverlay
-                            key="tasks-manager-overlay"
-                            open={showTasksManager}
-                            onClose={closeTasksManager}
-                            focusTaskId={tasksManagerFocusTaskId}
-                            lawsuitFiles={files}
-                            executionFiles={executionFiles}
-                        />
-                    </TasksErrorBoundary>
-                </Suspense>
+            {showSettings || settingsHostMounted ? (
+                <HamiSettingsHost
+                    key={`hami-settings-${settingsSessionKey}`}
+                    open={showSettings}
+                    userId={settingsUserId}
+                    onShellReset={resetSettingsShell}
+                    onClose={closeSettings}
+                    onLogout={onLogout}
+                    onEnterHomeLayoutEdit={enterHomeLayoutEdit}
+                />
             ) : null}
 
-            {showSettings ? (
-                <Suspense fallback={<SettingsScreenLoadingFallback onClose={closeSettings} />}>
-                    <LazyHamiSettings
-                        key={`hami-settings-${settingsSessionKey}`}
-                        open={showSettings}
-                        userId={settingsUserId}
-                        onShellReset={resetSettingsShell}
-                        onClose={closeSettings}
-                            onEnterHomeLayoutEdit={enterHomeLayoutEdit}
-                            onLogout={onLogout}
-                            onOpenProfile={() => {
-                                closeSettings();
-                                openProfileTab();
-                            }}
-                            onOpenPrivacy={() => {
-                                closeSettings();
-                                onAppNavigate?.('privacy');
-                            }}
-                        />
-                </Suspense>
+            {isNotepadOpen || repositoryHostMounted ? (
+                <RepositoryErrorBoundary onClose={closeNotepad}>
+                    <SmartRepositoryHost
+                        key={`smart-repository-${notepadSessionKey}`}
+                        isOpen={isNotepadOpen}
+                        onClose={closeNotepad}
+                        initialTab={repositoryTab}
+                        notepadMode={notepadMode}
+                        focusNoteId={notepadFocusNoteId}
+                        vaultOpenScanner={vaultOpenScanner}
+                        notes={repositoryLive ? globalNotes : SUSPENDED_GLOBAL_NOTES}
+                        lawsuitFiles={repositoryLive ? files : SUSPENDED_LAWSUIT_FILES}
+                        executionFiles={repositoryLive ? executionFiles : SUSPENDED_EXECUTION_FILES}
+                        currentUserId={resolveShellAuthUserId(authUserId, userId) ?? userId}
+                        onSaveNote={handleSaveNote}
+                        onDeleteNote={handleDeleteNote}
+                        onUpdateLawsuitFile={handleUpdateFile}
+                        onUpdateExecutionFile={handleUpdateExecutionFile}
+                    />
+                </RepositoryErrorBoundary>
             ) : null}
 
-            {isNotepadOpen ? (
-                <Suspense fallback={RepositoryShellFallback}>
-                    <RepositoryErrorBoundary onClose={closeNotepad}>
-                        <LazySmartRepositoryModal
-                            key="smart-repository-modal"
-                            isOpen={isNotepadOpen}
-                            onClose={closeNotepad}
-                            initialTab={repositoryTab}
-                            notepadMode={notepadMode}
-                            focusNoteId={notepadFocusNoteId}
-                            vaultOpenScanner={vaultOpenScanner}
-                            notes={globalNotes}
-                            lawsuitFiles={files}
-                            executionFiles={executionFiles}
-                            currentUserId={resolveShellAuthUserId(authUserId, userId) ?? userId}
-                            onSaveNote={handleSaveNote}
-                            onDeleteNote={handleDeleteNote}
-                            onUpdateLawsuitFile={handleUpdateFile}
-                            onUpdateExecutionFile={handleUpdateExecutionFile}
-                        />
-                    </RepositoryErrorBoundary>
-                </Suspense>
-            ) : null}
-
-            {showTransactions && transactionsUserId ? (
-                <Suspense fallback={TransactionsHubFallback}>
-                    <TransactionsErrorBoundary onClose={closeTransactionsHub}>
-                        <LazyTransactionsThreadingSystem
-                            key={`transactions-hub-${transactionsSessionKey}`}
-                            open={showTransactions}
-                            onBack={closeTransactionsHub}
-                            userId={transactionsUserId}
-                            initialTransactionId={transactionsFocusId}
-                        />
-                    </TransactionsErrorBoundary>
-                </Suspense>
+            {(showTransactions || transactionsHostMounted) && transactionsUserId ? (
+                <TransactionsErrorBoundary onClose={closeTransactionsHub}>
+                    <TransactionsThreadingHost
+                        key={`transactions-hub-${transactionsSessionKey}`}
+                        open={showTransactions}
+                        onBack={closeTransactionsHub}
+                        userId={transactionsUserId}
+                        initialTransactionId={transactionsFocusId}
+                    />
+                </TransactionsErrorBoundary>
             ) : null}
         </>
     );

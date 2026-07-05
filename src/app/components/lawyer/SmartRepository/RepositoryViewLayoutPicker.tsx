@@ -21,6 +21,7 @@ type MenuPosition = { top: number; left: number; width: number };
 type RepositoryViewLayoutPickerProps = {
     layoutId: RepositoryFeedLayoutId;
     onSelect: (id: RepositoryFeedLayoutId) => void;
+    disabled?: boolean;
 };
 
 function measureMenuPosition(anchor: HTMLElement, menuHeight: number): MenuPosition {
@@ -36,7 +37,11 @@ function measureMenuPosition(anchor: HTMLElement, menuHeight: number): MenuPosit
     return { top, left, width };
 }
 
-export function RepositoryViewLayoutPicker({ layoutId, onSelect }: RepositoryViewLayoutPickerProps) {
+export function RepositoryViewLayoutPicker({
+    layoutId,
+    onSelect,
+    disabled = false,
+}: RepositoryViewLayoutPickerProps) {
     const [open, setOpen] = useState(false);
     const anchorRef = useRef<HTMLButtonElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -144,9 +149,10 @@ export function RepositoryViewLayoutPicker({ layoutId, onSelect }: RepositoryVie
                 ref={anchorRef}
                 type="button"
                 onClick={() => setOpen((v) => !v)}
+                disabled={disabled}
                 className={`${REPO_ACTION_BTN} border-white/14 bg-white/[0.05] text-white/65 hover:bg-white/[0.08] hover:border-white/22 hover:text-[#E6C673] ${
                     open ? 'border-[#E6C673]/35 bg-[#E6C673]/10 text-[#E6C673]' : ''
-                }`}
+                } ${disabled ? 'opacity-40 pointer-events-none' : ''}`}
                 data-testid="repository-view-toggle"
                 aria-expanded={open}
                 aria-haspopup="listbox"

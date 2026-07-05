@@ -35,6 +35,15 @@ export const GLASS_CHIP_ACTIVE =
     `${TX_TOUCH_CHIP} px-3.5 rounded-[3px] text-[11px] font-bold border border-[#C4782F]/55 ` +
     'bg-[#C4782F]/14 text-[#D8D4CE] shadow-[inset_0_0_0_1px_rgba(196,120,47,0.12)]';
 
+/** فلاتر قائمة المعاملات — بدون transition لتبديل فوري */
+export const TX_LIST_FILTER_CHIP =
+    `${TX_TOUCH_CHIP} px-3.5 rounded-[3px] text-[11px] font-bold border border-[#2A4550]/70 ` +
+    'bg-[#152A32] text-[#B4B0AA] hover:bg-[#1A3340] hover:border-[#8A8680]/40';
+
+export const TX_LIST_FILTER_CHIP_ACTIVE =
+    `${TX_TOUCH_CHIP} px-3.5 rounded-[3px] text-[11px] font-bold border border-[#C4782F]/55 ` +
+    'bg-[#C4782F]/14 text-[#D8D4CE] shadow-[inset_0_0_0_1px_rgba(196,120,47,0.12)]';
+
 export const GLASS_BTN =
     'w-full h-12 rounded-sm font-bold text-sm border border-[#9A6024]/60 ' +
     'bg-[#C4782F] text-[#061014] hover:bg-[#D49248] disabled:opacity-45 transition-all';
@@ -160,11 +169,13 @@ export function TxGlassPanel({
 export function TxGlassFab({
     label,
     onClick,
+    onPointerDown,
     extended,
     testId,
 }: {
     label: string;
     onClick: () => void;
+    onPointerDown?: () => void;
     extended?: boolean;
     testId?: string;
 }) {
@@ -174,6 +185,7 @@ export function TxGlassFab({
             aria-label={label}
             data-testid={testId}
             onClick={onClick}
+            onPointerDown={onPointerDown}
             style={{ touchAction: 'manipulation' }}
             className={`fixed z-[80] pointer-events-auto flex items-center justify-center gap-2 font-extrabold text-sm text-[#061014] border border-[#9A6024]/70 bg-[#C4782F] hover:bg-[#D49248] transition-all active:scale-[0.97] bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-[max(1.25rem,env(safe-area-inset-left))] ${
                 extended ? 'h-14 px-5 rounded-[3px]' : 'w-14 h-14 rounded-[3px]'
@@ -199,7 +211,7 @@ export function TxGlassEmpty({ message, testId }: { message: string; testId?: st
 }
 
 export const TX_DRAWER_SHELL =
-    'bg-[#0E1F26] border-t border-[#2A4550] rounded-t-sm px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-1 overflow-hidden max-h-[92vh] shadow-[0_-8px_32px_rgba(6,16,20,0.55)]';
+    'bg-[#0E1F26] border-t border-[#2A4550] rounded-t-sm px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-1 overflow-y-auto overflow-x-hidden max-h-[92vh] shadow-[0_-8px_32px_rgba(6,16,20,0.55)]';
 
 export function TxGlassDrawerFrame({
     title,
@@ -270,7 +282,10 @@ export const TX_DIALOG_BTN_DANGER =
     'inline-flex items-center justify-center min-h-[44px] px-5 rounded-sm border border-[#C4782F]/35 bg-[#C4782F]/12 text-[#D49248] font-bold text-sm hover:bg-[#C4782F]/20 transition-colors touch-manipulation';
 
 export const TX_DROPDOWN_CONTENT =
-    'z-[1200] bg-[#0E1F26] border border-[#2A4550] text-[#D8D4CE] rounded-sm p-1 shadow-[0_8px_24px_rgba(6,16,20,0.45)]';
+    'z-[225] bg-[#0E1F26] border border-[#2A4550] text-[#D8D4CE] rounded-sm p-1 shadow-[0_8px_24px_rgba(6,16,20,0.45)]';
+
+export const TX_DROPDOWN_INSTANT =
+    '!animate-none duration-0 data-[state=open]:animate-none data-[state=closed]:animate-none data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-100 data-[state=open]:zoom-in-100';
 
 export const TX_INNER_SURFACE =
     'rounded-sm bg-[#1A3340] border border-[#2A4550]/80';

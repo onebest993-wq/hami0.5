@@ -1,4 +1,5 @@
 import { getCapacitorPlatformId, type NativePlatformId } from './nativePlatform';
+import { applyNativeSecurityFromSettings, wireNativeSecuritySettingsListener } from './nativeSecurityBoot';
 
 type CapacitorLike = {
     isNativePlatform?: () => boolean;
@@ -59,8 +60,6 @@ export async function applyCapacitorNativePlugins(): Promise<void> {
     }
 
     try {
-        const { applyNativeSecurityFromSettings, wireNativeSecuritySettingsListener } =
-            await import('./nativeSecurityBoot');
         await applyNativeSecurityFromSettings();
         wireNativeSecuritySettingsListener();
     } catch {

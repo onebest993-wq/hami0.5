@@ -2,6 +2,8 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useLawyerDashboardCommunity } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCommunity';
 import { HAMI_DISMISS_OVERLAYS_EVENT } from '@/app/utils/bodyScrollLock';
+import { warmForumOnOpen } from '@/app/hooks/lawyerDashboard/forumIntentWarm';
+import { loadCommunityScreenModule } from '@/app/runtime/communityHubLoader';
 
 vi.mock('@/app/components/ui/SmartToast', () => ({
     SmartToast: {
@@ -9,6 +11,15 @@ vi.mock('@/app/components/ui/SmartToast', () => ({
         info: vi.fn(),
         success: vi.fn(),
     },
+}));
+
+vi.mock('@/app/hooks/lawyerDashboard/forumIntentWarm', () => ({
+    warmForumOnHover: vi.fn(),
+    warmForumOnOpen: vi.fn(),
+}));
+
+vi.mock('@/app/runtime/communityBootHydrator', () => ({
+    hydrateCommunityShellForInstantOpen: vi.fn(() => Promise.resolve(true)),
 }));
 
 vi.mock('@/app/runtime/communityHubLoader', () => ({
@@ -22,7 +33,10 @@ vi.mock('@/app/services/forum/forumPostsWarmCache', () => ({
 }));
 
 vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
-    scheduleIdleWork: vi.fn(() => () => undefined),
+    scheduleIdleWork: (fn: () => void) => {
+        fn();
+        return () => undefined;
+    },
 }));
 
 describe('useLawyerDashboardCommunity', () => {
@@ -35,7 +49,7 @@ describe('useLawyerDashboardCommunity', () => {
         }
     });
 
-    it('يفتح المنتدى', async () => {
+    it('يفتح المنتدى فوراً (flushSync)', () => {
         const { result } = renderHook(() =>
             useLawyerDashboardCommunity({ userId: 'lawyer-1', activeTab: 'home' }),
         );
@@ -46,6 +60,8 @@ describe('useLawyerDashboardCommunity', () => {
 
         expect(result.current.showCommunity).toBe(true);
         expect(result.current.communitySessionKey).toBe(0);
+        expect(warmForumOnOpen).toHaveBeenCalled();
+        expect(loadCommunityScreenModule).toHaveBeenCalled();
     });
 
     it('لا يعيد remount عند إعادة فتح المنتدى', async () => {

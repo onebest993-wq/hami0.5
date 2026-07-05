@@ -2,14 +2,12 @@ import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { LegalRequest } from '@/app/types/admin-types';
 import { RequestStatus } from '@/app/types/admin-types';
 import { ClientRequestService } from '@/app/services/ClientRequestService';
-import {
-    CalendarDB,
-    type CalendarEvent,
-} from '@/app/services/lawyer-cloud';
+import { CalendarDB } from '@/app/services/cloud/lawyerCalendarCloud';
+import type { CalendarEvent } from '@/app/services/calendar/calendarTypes';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { isBridgedCalendarEvent } from '@/app/services/calendarBridgePersistence';
 import { UrgentActionsDB } from '@/app/services/urgent-actions-db';
-import { TransactionsThreadingDB } from '@/app/services/lawyer-cloud';
+import { TransactionsThreadingDB } from '@/app/services/cloud/lawyerTransactionsCloud';
 import {
     TransactionStatus,
     TransactionTaskStatus,

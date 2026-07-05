@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
     Book,
     Calendar as CalendarIcon,
@@ -14,12 +14,10 @@ import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import type { ThemeKey, ShapeKey } from '../LawyerShared';
 import { ExecutionHero, RouteTile } from '@/app/components/lawyer/dashboard/commandHub';
-import { LawyerHomeHubCard } from '@/app/components/lawyer/LawyerHomeHubCard';
 import { HomeHubErrorBoundary } from '@/app/components/lawyer/LawyerHomeHubCard/HomeHubErrorBoundary';
 import { HomeDockChromeErrorBoundary } from './HomeDockChromeErrorBoundary';
 import { LawyerHomeTabErrorBoundary } from './LawyerHomeTabErrorBoundary';
 import { HomeMainZoneErrorBoundary } from './HomeMainZoneErrorBoundary';
-import { LegalCommandCenterDock } from '@/app/components/lawyer/LegalCommandCenterDock';
 import { prefetchDockWidgetIntent } from '@/app/hooks/lawyerDashboard/lawyerDashboardIntentPrefetch';
 import { openHubArchiveFromHomeTile } from '@/app/services/hub/hubHomeOpen';
 import {
@@ -49,7 +47,6 @@ import {
 import { HOME_WIDGET_LABELS } from '@/app/services/settings/homeBlockLabels';
 import {
     isBlockVisible,
-    isHeightProtectedWidget,
     adaptWidgetStyleForZoneChange,
     resolveHomeBlockAccent,
     resolveWidgetSpan,
@@ -74,17 +71,37 @@ import { HomeLayoutScrollRoot, useHomePageScroll } from './homeLayoutEdit/HomeLa
 import { HomeDockTransferHint } from './homeLayoutEdit/HomeDockTransferHint';
 import { useSettingsPatches } from '@/app/components/lawyer/HamiSettings/hooks/useSettingsPatches';
 import { useCommandCenterDockActions } from './useCommandCenterDockActions';
-import { CommandCenterOverlays } from './CommandCenterOverlays';
 import { useForumUnreadCount } from '@/app/hooks/useForumUnreadCount';
 import { useForumNotificationStream } from '@/app/hooks/useForumNotificationStream';
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 import { useViewportShellScale } from '@/app/hooks/useViewportShellScale';
+import { scheduleTransactionHubTileIdlePrefetch } from '@/app/hooks/lawyerDashboard/hubArchivePrefetchGate';
+import { markBootPhase } from '@/app/bootstrap/bootMetrics';
+import { lazyWithRetry, type LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
 import { resolveDockShellMetrics, scaleDockShellMetrics } from '@/app/services/settings/dockShellLayout';
 import {
     estimateDockChromeOccupiedPx,
     resolveDockChromeScrollPadPx,
     resolveDockChromeStackGapPx,
 } from '@/app/services/settings/homeDockChromeLayout';
+
+const LazyLawyerHomeHubCard = lazyWithRetry(() =>
+    import('@/app/components/lawyer/LawyerHomeHubCard').then((m) => ({
+        default: m.LawyerHomeHubCard as unknown as LazyComponent,
+    })),
+);
+
+const LazyLegalCommandCenterDock = lazyWithRetry(() =>
+    import('@/app/components/lawyer/LegalCommandCenterDock').then((m) => ({
+        default: m.LegalCommandCenterDock as unknown as LazyComponent,
+    })),
+);
+
+const LazyCommandCenterOverlays = lazyWithRetry(() =>
+    import('@/app/components/lawyer/dashboard/CommandCenterOverlays').then((m) => ({
+        default: m.CommandCenterOverlays as unknown as LazyComponent,
+    })),
+);
 export type LawyerDashboardHomeTabProps = {
     visible: boolean;
     homeTabSessionKey?: number;
@@ -118,7 +135,20 @@ export type LawyerDashboardHomeTabProps = {
     onAddNote: (note: CommandCenterNote) => void;
 };
 
+function HomeHubStageFallback() {
+    return (
+        <div className="min-h-[280px] rounded-[1.625rem] border border-white/[0.06] bg-[#0D0D1A]/40 animate-pulse" />
+    );
+}
+
+function HomeDockStageFallback() {
+    return (
+        <div className="w-full min-h-[98px] rounded-[1.625rem] border border-white/[0.06] bg-[#0D0D1A]/40 animate-pulse" />
+    );
+}
+
 function HomeTabContent({
+    visible,
     homeLayoutEditMode,
     calendarUserId,
     clusterScanSources,
@@ -143,7 +173,7 @@ function HomeTabContent({
     onOpenVault,
     fieldTasksSheetOpen = false,
     onAddNote,
-}: Omit<LawyerDashboardHomeTabProps, 'visible' | 'onExitHomeLayoutEdit'>) {
+}: Omit<LawyerDashboardHomeTabProps, 'onExitHomeLayoutEdit'>) {
     const reduceMotion = useReduceMotion();
     const { settings } = useLawyerSettings();
     const { patchBlockOverride } = useSettingsPatches();
@@ -159,7 +189,52 @@ function HomeTabContent({
     );
     const dockWidgets = useMemo(() => getWidgetsInZone(placements, 'dock'), [placements]);
     const [forumSignalsReady, setForumSignalsReady] = useState(false);
+    const [alertsStageReady, setAlertsStageReady] = useState(homeLayoutEditMode);
+    const [dockStageReady, setDockStageReady] = useState(homeLayoutEditMode);
+    const [overlaysStageReady, setOverlaysStageReady] = useState(homeLayoutEditMode);
+    const firstTabOpenMarkedRef = useRef(false);
     const enableForumSignals = useCallback(() => setForumSignalsReady(true), []);
+
+    useEffect(() => {
+        if (homeLayoutEditMode) {
+            setAlertsStageReady(true);
+            setDockStageReady(true);
+            setOverlaysStageReady(true);
+            return;
+        }
+        if (!visible) return;
+
+        const cancelAlerts = alertsStageReady
+            ? undefined
+            : scheduleIdleWork(() => setAlertsStageReady(true), {
+                  minDelayMs: 80,
+                  timeoutMs: 1_200,
+              });
+        const cancelDock = dockStageReady
+            ? undefined
+            : scheduleIdleWork(() => setDockStageReady(true), {
+                  minDelayMs: 180,
+                  timeoutMs: 2_000,
+              });
+        const cancelOverlays = overlaysStageReady
+            ? undefined
+            : scheduleIdleWork(() => setOverlaysStageReady(true), {
+                  minDelayMs: 900,
+                  timeoutMs: 4_500,
+              });
+
+        return () => {
+            cancelAlerts?.();
+            cancelDock?.();
+            cancelOverlays?.();
+        };
+    }, [alertsStageReady, dockStageReady, overlaysStageReady, homeLayoutEditMode, visible]);
+
+    useLayoutEffect(() => {
+        if (!visible || !dockStageReady || firstTabOpenMarkedRef.current) return;
+        firstTabOpenMarkedRef.current = true;
+        markBootPhase('first-tab-open');
+    }, [dockStageReady, visible]);
 
     useEffect(() => {
         if (!userId || homeLayoutEditMode) return;
@@ -167,6 +242,11 @@ function HomeTabContent({
             () => setForumSignalsReady(true),
             { minDelayMs: 8_000, timeoutMs: 20_000 },
         );
+    }, [homeLayoutEditMode, userId]);
+
+    useEffect(() => {
+        if (!userId || homeLayoutEditMode) return;
+        scheduleTransactionHubTileIdlePrefetch();
     }, [homeLayoutEditMode, userId]);
 
     const forumUnreadCount = useForumUnreadCount(userId, !homeLayoutEditMode && forumSignalsReady);
@@ -219,25 +299,32 @@ function HomeTabContent({
 
     const renderWidgetBody = (id: HomeWidgetId) => {
         const ov = overrides[id];
+        const layoutSpan = resolveWidgetSpan(id, ov);
         switch (id) {
             case 'alerts':
+                if (!alertsStageReady && !homeLayoutEditMode) {
+                    return <HomeHubStageFallback />;
+                }
                 return (
                     <HomeHubErrorBoundary>
-                        <LawyerHomeHubCard
-                            lawyerId={calendarUserId}
-                        shellAuthUserId={dockAuthUserId}
-                        clusterScanSources={clusterScanSources}
-                        secretaryAlerts={secretaryAlerts}
-                        alertsLoading={alertsLoading}
-                        alertsError={alertsError}
-                        onNavigateRoute={onNavigateRoute}
-                        onOpenEntity={onOpenEntity}
-                        onDismissAlert={onDismissAlert}
-                        onResolved={onAlertResolved}
-                        onAcceptedConvertToCase={onAcceptedConvertToCase}
-                        blockOverride={ov}
-                        themePrimary={themePrimary}
-                    />
+                        <Suspense fallback={<HomeHubStageFallback />}>
+                            <LazyLawyerHomeHubCard
+                                lawyerId={calendarUserId}
+                                shellAuthUserId={dockAuthUserId}
+                                clusterScanSources={clusterScanSources}
+                                secretaryAlerts={secretaryAlerts}
+                                alertsLoading={alertsLoading}
+                                alertsError={alertsError}
+                                onNavigateRoute={onNavigateRoute}
+                                onOpenEntity={onOpenEntity}
+                                onDismissAlert={onDismissAlert}
+                                onResolved={onAlertResolved}
+                                onAcceptedConvertToCase={onAcceptedConvertToCase}
+                                blockOverride={ov}
+                                themePrimary={themePrimary}
+                                layoutEditMode={homeLayoutEditMode}
+                            />
+                        </Suspense>
                     </HomeHubErrorBoundary>
                 );
             case 'hubExecution':
@@ -249,6 +336,7 @@ function HomeTabContent({
                         blockOverride={ov}
                         themePrimary={themePrimary}
                         interactionDisabled={homeLayoutEditMode}
+                        layoutSpan={layoutSpan}
                     />
                 );
             case 'hubLawsuit':
@@ -260,6 +348,7 @@ function HomeTabContent({
                         blockOverride={ov}
                         themePrimary={themePrimary}
                         interactionDisabled={homeLayoutEditMode}
+                        layoutSpan={layoutSpan}
                     />
                 );
             case 'hubTransaction':
@@ -277,6 +366,7 @@ function HomeTabContent({
                         blockOverride={ov}
                         themePrimary={themePrimary}
                         interactionDisabled={homeLayoutEditMode}
+                        layoutSpan={layoutSpan}
                     />
                 );
             case 'forum': {
@@ -352,6 +442,7 @@ function HomeTabContent({
                                     textShadow: `0 2px 14px color-mix(in srgb, ${forumAccent} 35%, transparent)`,
                                 }}
                                 aria-hidden
+                                data-hami-edit-hide-in-layout={homeLayoutEditMode || undefined}
                             >
                                 المنتدى القانوني
                             </p>
@@ -366,9 +457,9 @@ function HomeTabContent({
             case 'dockTasks': {
                 const icons = {
                     dockRepository: Warehouse,
-                    dockNotepad: Book,
+                    dockNotepad: Warehouse,
                     dockCalendar: CalendarIcon,
-                    dockVault: FolderOpen,
+                    dockVault: Warehouse,
                     dockTasks: ListChecks,
                 };
                 const Icon = icons[id];
@@ -437,6 +528,7 @@ function HomeTabContent({
                                 fontSize: `calc(${dockLabelRem}rem * var(--hami-content-scale, 1))`,
                             }}
                             aria-hidden
+                            data-hami-edit-hide-in-layout={homeLayoutEditMode || undefined}
                         >
                             {dockTitle}
                         </p>
@@ -509,20 +601,24 @@ function HomeTabContent({
               : 'pb-6';
 
     return (
-        <div className={HOME_FLOW_COLUMN} data-testid="lawyer-home-tab-content">
+        <div className={`${HOME_FLOW_COLUMN}${homeLayoutEditMode ? ' hami-home-layout-editing' : ''}`} data-testid="lawyer-home-tab-content">
             <LawyerHomeAmbient wallpaperActive={hasWallpaper} />
             {homeLayoutEditMode ? <HomeLayoutEditChrome /> : null}
             <HomeDropIndicator />
             <HomeDockTransferHint />
-            <CommandCenterOverlays
-                userId={dockAuthUserId}
-                actions={dockActions}
-                onNavigateRoute={onNavigateRoute}
-            />
+            {overlaysStageReady || homeLayoutEditMode ? (
+                <Suspense fallback={null}>
+                    <LazyCommandCenterOverlays
+                        userId={dockAuthUserId}
+                        actions={dockActions}
+                        onNavigateRoute={onNavigateRoute}
+                    />
+                </Suspense>
+            ) : null}
             <HomeDropZone
                 zone="main"
                 testId="home-main-zone"
-                className={`${HOME_SCROLL} ${homeLayoutEditMode ? 'pt-14' : ''}`}
+                className={`${HOME_SCROLL} ${homeLayoutEditMode ? 'hami-home-edit-content-pad' : ''}`}
             >
                 <div
                     className={`${HAMI_SHELL_CONTAINER} w-full ${mainBottomPad}`}
@@ -541,13 +637,13 @@ function HomeTabContent({
                             'main',
                             defaultGlassOpacity,
                         );
-                        const heightProtected = isHeightProtectedWidget(widgetId);
-
                         return [
                             <div
                                 key={widgetId}
+                                data-hami-widget-slot=""
                                 className={span === 2 ? 'col-span-2' : undefined}
                                 style={style}
+                                data-hami-layout-span={span}
                             >
                                 <DraggableHomeWidget
                                     widgetId={widgetId}
@@ -555,14 +651,16 @@ function HomeTabContent({
                                     label={HOME_WIDGET_LABELS[widgetId]}
                                     className={hidden && homeLayoutEditMode ? 'opacity-45' : ''}
                                     blockOverride={overrides[widgetId]}
-                                    currentHeightPx={heightProtected ? undefined : overrides[widgetId]?.heightPx}
                                     currentSpan={span}
-                                    onResizeHeight={
-                                        heightProtected
+                                    onResizeSpan={
+                                        widgetId === 'alerts' || widgetId === 'forum'
                                             ? undefined
-                                            : (heightPx) => patchBlockOverride(widgetId, { heightPx })
+                                            : (nextSpan) =>
+                                                  patchBlockOverride(widgetId, {
+                                                      span: nextSpan,
+                                                      heightPx: undefined,
+                                                  })
                                     }
-                                    onResizeSpan={(nextSpan) => patchBlockOverride(widgetId, { span: nextSpan })}
                                 >
                                     {renderWidgetBody(widgetId)}
                                 </DraggableHomeWidget>
@@ -576,21 +674,27 @@ function HomeTabContent({
             {showBottomChrome ? (
                 <div className="hami-home-bottom-chrome" data-testid="home-bottom-chrome">
                 <HomeDockChromeErrorBoundary>
-                <LegalCommandCenterDock
-                    shellVisible={showShellZone}
-                    userId={dockAuthUserId}
-                    dockActions={dockActions}
-                    onOpenCalendar={onOpenCalendar}
-                    onOpenFieldTasksSheet={onOpenFieldTasksSheet}
-                    pendingFieldTasksCount={pendingFieldTasksCount}
-                    urgentAlertsCount={urgentAlertsCount}
-                    pinnedCount={pinnedCount}
-                    onOpenFullNotepad={onOpenFullNotepad}
-                    onOpenRepository={onOpenRepository}
-                    onAddNote={onAddNote}
-                    onOpenArchive={handleHubArchiveOpen}
-                    forumUnreadCount={forumUnreadCount}
-                />
+                {dockStageReady || homeLayoutEditMode ? (
+                    <Suspense fallback={<HomeDockStageFallback />}>
+                        <LazyLegalCommandCenterDock
+                            shellVisible={showShellZone}
+                            userId={dockAuthUserId}
+                            dockActions={dockActions}
+                            onOpenCalendar={onOpenCalendar}
+                            onOpenFieldTasksSheet={onOpenFieldTasksSheet}
+                            pendingFieldTasksCount={pendingFieldTasksCount}
+                            urgentAlertsCount={urgentAlertsCount}
+                            pinnedCount={pinnedCount}
+                            onOpenFullNotepad={onOpenFullNotepad}
+                            onOpenRepository={onOpenRepository}
+                            onAddNote={onAddNote}
+                            onOpenArchive={handleHubArchiveOpen}
+                            forumUnreadCount={forumUnreadCount}
+                        />
+                    </Suspense>
+                ) : (
+                    <HomeDockStageFallback />
+                )}
                 </HomeDockChromeErrorBoundary>
                 </div>
             ) : null}
@@ -608,7 +712,8 @@ export function LawyerDashboardHomeTab({
     const { settings } = useLawyerSettings();
 
     const getZoneOrder = useCallback(
-        (zone: HomeWidgetZone) => getWidgetsInZone(settings.homeLayout.placements, zone),
+        (zone: HomeWidgetZone) =>
+            filterDisplayHomeWidgets(getWidgetsInZone(settings.homeLayout.placements, zone), true),
         [settings.homeLayout.placements],
     );
 
@@ -640,12 +745,11 @@ export function LawyerDashboardHomeTab({
         [patchHomeLayout],
     );
 
-    if (!visible) return null;
-
     return (
         <div
             className="absolute inset-x-0 top-[84px] z-[1]"
             data-testid="lawyer-home-tab"
+            aria-hidden={!visible}
         >
             <HomeLayoutEditProvider
                 isEditing={homeLayoutEditMode}
@@ -655,7 +759,7 @@ export function LawyerDashboardHomeTab({
             >
                 <HomeLayoutScrollRoot>
                     <LawyerHomeTabErrorBoundary>
-                    <HomeTabContent homeLayoutEditMode={homeLayoutEditMode} {...rest} />
+                    <HomeTabContent visible={visible} homeLayoutEditMode={homeLayoutEditMode} {...rest} />
                     </LawyerHomeTabErrorBoundary>
                 </HomeLayoutScrollRoot>
             </HomeLayoutEditProvider>

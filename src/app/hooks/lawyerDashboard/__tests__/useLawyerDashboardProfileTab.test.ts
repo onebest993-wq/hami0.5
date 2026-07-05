@@ -3,7 +3,8 @@ import { renderHook, act } from '@testing-library/react';
 import { useLawyerDashboardProfileTab } from '@/app/hooks/lawyerDashboard/useLawyerDashboardProfileTab';
 import { HAMI_DISMISS_OVERLAYS_EVENT } from '@/app/utils/bodyScrollLock';
 import { warmProfileOnOpen } from '@/app/hooks/lawyerDashboard/profileIntentWarm';
-import { loadRoyalLawyerProfileModule } from '@/app/runtime/royalLawyerProfileLoader';
+import { hydrateProfileShellForInstantOpenWithData } from '@/app/runtime/profileBootHydrator';
+import { resetDashboardOverlayCoordinatorForTests } from '@/app/hooks/lawyerDashboard/dashboardOverlayCoordinator';
 
 vi.mock('@/app/components/ui/SmartToast', () => ({
     SmartToast: {
@@ -18,8 +19,8 @@ vi.mock('@/app/hooks/lawyerDashboard/profileIntentWarm', () => ({
     warmProfileOnOpen: vi.fn(),
 }));
 
-vi.mock('@/app/runtime/royalLawyerProfileLoader', () => ({
-    loadRoyalLawyerProfileModule: vi.fn(() => Promise.resolve({ RoyalLawyerProfile: () => null })),
+vi.mock('@/app/runtime/profileBootHydrator', () => ({
+    hydrateProfileShellForInstantOpenWithData: vi.fn(() => Promise.resolve(true)),
 }));
 
 vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
@@ -45,6 +46,7 @@ import {
 
 describe('useLawyerDashboardProfileTab', () => {
     beforeEach(() => {
+        resetDashboardOverlayCoordinatorForTests();
         vi.clearAllMocks();
     });
 
@@ -70,7 +72,7 @@ describe('useLawyerDashboardProfileTab', () => {
         expect(result.current.profileTabSessionKey).toBe(0);
         expect(result.current.profileOpenEpoch).toBe(1);
         expect(warmProfileOnOpen).toHaveBeenCalledWith('lawyer-1');
-        expect(loadRoyalLawyerProfileModule).toHaveBeenCalledWith('lawyer-1');
+        expect(hydrateProfileShellForInstantOpenWithData).toHaveBeenCalledWith('lawyer-1', true);
 
         await act(async () => {
             await Promise.resolve();
@@ -79,7 +81,7 @@ describe('useLawyerDashboardProfileTab', () => {
 
     it('لا ينتظر chunk قبل تبديل التبويب', async () => {
         let resolveChunk!: (value: unknown) => void;
-        vi.mocked(loadRoyalLawyerProfileModule).mockImplementation(
+        vi.mocked(hydrateProfileShellForInstantOpenWithData).mockImplementation(
             () =>
                 new Promise((resolve) => {
                     resolveChunk = resolve;
@@ -101,10 +103,10 @@ describe('useLawyerDashboardProfileTab', () => {
         });
 
         expect(setActiveTab).toHaveBeenCalledWith('profile');
-        expect(loadRoyalLawyerProfileModule).toHaveBeenCalledTimes(1);
+        expect(hydrateProfileShellForInstantOpenWithData).toHaveBeenCalledTimes(1);
 
         await act(async () => {
-            resolveChunk({ RoyalLawyerProfile: () => null });
+            resolveChunk(true);
             await Promise.resolve();
         });
     });
@@ -180,14 +182,14 @@ describe('useLawyerDashboardProfileTab', () => {
     it('يتجاهل النقر المتكرر أثناء الفتح أو عند كون التبويب نشطاً', async () => {
         const setActiveTab = vi.fn();
         const { result, rerender } = renderHook(
-            ({ activeTab }: { activeTab: 'home' | 'profile' }) =>
+            ({ tab }: { tab: 'home' | 'profile' }) =>
                 useLawyerDashboardProfileTab({
                     userId: 'lawyer-1',
-                    activeTab,
+                    activeTab: tab,
                     setActiveTab,
                     setShowCommunity: vi.fn(),
                 }),
-            { initialProps: { activeTab: 'home' as const } },
+            { initialProps: { tab: 'home' as const } },
         );
 
         await act(async () => {
@@ -197,14 +199,68 @@ describe('useLawyerDashboardProfileTab', () => {
         });
 
         expect(warmProfileOnOpen).toHaveBeenCalledTimes(1);
-        expect(setActiveTab).toHaveBeenCalledTimes(1);
 
-        rerender({ activeTab: 'profile' });
+        rerender({ tab: 'profile' });
         await act(async () => {
             result.current.openProfileTab();
             await Promise.resolve();
         });
         expect(warmProfileOnOpen).toHaveBeenCalledTimes(1);
+    });
+
+    it('dismiss-transient-overlays(notifications) لا يُعيد التبويب للرئيسية', () => {
+        let activeTab: 'home' | 'profile' = 'profile';
+        const setActiveTab = vi.fn((next) => {
+            activeTab = typeof next === 'function' ? next(activeTab) : next;
+        });
+
+        renderHook(() =>
+            useLawyerDashboardProfileTab({
+                userId: 'lawyer-1',
+                activeTab,
+                setActiveTab,
+                setShowCommunity: vi.fn(),
+            }),
+        );
+
+        act(() => {
+            window.dispatchEvent(
+                new CustomEvent(HAMI_DISMISS_OVERLAYS_EVENT, { detail: { except: 'notifications' } }),
+            );
+        });
+
+        expect(activeTab).toBe('profile');
+        expect(setActiveTab).not.toHaveBeenCalled();
+    });
+
+    it('dismiss-transient-overlays(profile) بعد الفتح لا يُعيد التبويب للرئيسية', () => {
+        let activeTab: 'home' | 'profile' = 'home';
+        const setActiveTab = vi.fn((next) => {
+            activeTab = typeof next === 'function' ? next(activeTab) : next;
+        });
+
+        renderHook(() =>
+            useLawyerDashboardProfileTab({
+                userId: 'lawyer-1',
+                activeTab,
+                setActiveTab,
+                setShowCommunity: vi.fn(),
+            }),
+        );
+
+        act(() => {
+            window.__hamiE2eForceOpenProfileTab?.();
+        });
+
+        expect(activeTab).toBe('profile');
+
+        act(() => {
+            window.dispatchEvent(
+                new CustomEvent(HAMI_DISMISS_OVERLAYS_EVENT, { detail: { except: 'profile' } }),
+            );
+        });
+
+        expect(activeTab).toBe('profile');
     });
 
     it('يسجّل open-request عند كل فتح من الهيدر', async () => {

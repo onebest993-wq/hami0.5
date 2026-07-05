@@ -15,6 +15,7 @@ import {
     prefetchExecutionOverlayModals,
 } from '../../executionDashboardLazyRegistry';
 import { prefetchExecutionFollowupDefaultTab } from '../../executionFollowupTabPrefetch';
+import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
 
 export function useExecutionDashboardUrlDelegationSync(
     urlDelegationParentId: string | undefined,
@@ -166,11 +167,15 @@ export function useExecutionDashboardShellPrefetch() {
     useEffect(() => {
         prefetchExecutionDashboardShell();
         prefetchExecutionFollowupDefaultTab();
-        prefetchExecutionModalContainers();
-        if (typeof requestIdleCallback !== 'undefined') {
-            requestIdleCallback(() => prefetchExecutionOverlayModals(), { timeout: 2500 });
-        } else {
-            window.setTimeout(() => prefetchExecutionOverlayModals(), 800);
-        }
+        const cancelModalContainers = scheduleIdleWork(() => {
+            prefetchExecutionModalContainers();
+        }, 2_000);
+        const cancelOverlays = scheduleIdleWork(() => {
+            prefetchExecutionOverlayModals();
+        }, 4_000);
+        return () => {
+            cancelModalContainers();
+            cancelOverlays();
+        };
     }, []);
 }

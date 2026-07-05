@@ -36,7 +36,7 @@ export function useSmartVaultShell({
 
     useEffect(() => {
         if (!mounted || currentUserId || embedded) return;
-        SmartToast.error('يرجى تسجيل الدخول أولاً لاستخدام المخزن');
+        SmartToast.error('يرجى تسجيل الدخول أولاً لاستخدام المستودع الذكي');
         onClose();
     }, [mounted, currentUserId, onClose, embedded]);
 

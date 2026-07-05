@@ -2,12 +2,12 @@ import type { RefObject } from 'react';
 import { Suspense } from 'react';
 
 import type { CommunityPost, RepositoryDocument } from '@/app/services/lawyer-cloud';
+import { ForumDeleteConfirmModal } from '@/app/components/lawyer/CommunityScreen/components/ForumDeleteConfirmModal';
 import {
     LazyAddQuestionSheet,
     LazyCommentBottomSheet,
     LazyCreateGroupModal,
     LazyEditPostModal,
-    LazyForumDeleteConfirmModal,
     LazyForumMemberProfileOverlay,
     LazyFullscreenImageOverlay,
     LazySearchOverlay,
@@ -59,7 +59,6 @@ export type CommunityScreenOverlaysProps = {
     newAttachment: CommunityPost['attachment'];
     onRemoveAttachment: () => void;
     submittingPost: boolean;
-    uploadingAttachment: boolean;
     isRecordingVoice: boolean;
     voiceRecordingSec: number;
     imageInputRef: RefObject<HTMLInputElement | null>;
@@ -142,7 +141,6 @@ export function CommunityScreenOverlays(props: CommunityScreenOverlaysProps) {
         newAttachment,
         onRemoveAttachment,
         submittingPost,
-        uploadingAttachment,
         isRecordingVoice,
         voiceRecordingSec,
         imageInputRef,
@@ -269,7 +267,6 @@ export function CommunityScreenOverlays(props: CommunityScreenOverlaysProps) {
                         newAttachment={newAttachment}
                         onRemoveAttachment={onRemoveAttachment}
                         submittingPost={submittingPost}
-                        uploadingAttachment={uploadingAttachment}
                         isRecordingVoice={isRecordingVoice}
                         voiceRecordingSec={voiceRecordingSec}
                         imageInputRef={imageInputRef}
@@ -290,22 +287,18 @@ export function CommunityScreenOverlays(props: CommunityScreenOverlaysProps) {
                 </Suspense>
             ) : null}
 
-            {pendingDeletePostId !== null ? (
-                <Suspense fallback={null}>
-                    <LazyForumDeleteConfirmModal
-                        open={pendingDeletePostId !== null}
-                        title="تأكيد حذف المنشور"
-                        message={
-                            pendingDeletePost
-                                ? `هل أنت متأكد من حذف هذه الاستشارة؟ لا يمكن التراجع عن الحذف.\n\n«${pendingDeletePost.content.slice(0, 80)}${pendingDeletePost.content.length > 80 ? '…' : ''}»`
-                                : 'هل أنت متأكد من حذف هذا المنشور؟ لا يمكن التراجع عن الحذف.'
-                        }
-                        loading={deletingPost}
-                        onConfirm={onConfirmDeletePost}
-                        onCancel={onCancelDeletePost}
-                    />
-                </Suspense>
-            ) : null}
+            <ForumDeleteConfirmModal
+                open={pendingDeletePostId !== null}
+                title="تأكيد حذف المنشور"
+                message={
+                    pendingDeletePost
+                        ? `هل أنت متأكد من حذف هذه الاستشارة؟ لا يمكن التراجع عن الحذف.\n\n«${pendingDeletePost.content.slice(0, 80)}${pendingDeletePost.content.length > 80 ? '…' : ''}»`
+                        : 'هل أنت متأكد من حذف هذا المنشور؟ لا يمكن التراجع عن الحذف.'
+                }
+                loading={deletingPost}
+                onConfirm={() => void onConfirmDeletePost()}
+                onCancel={onCancelDeletePost}
+            />
 
             {profileView ? (
                 <Suspense fallback={null}>

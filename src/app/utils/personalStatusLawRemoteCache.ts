@@ -8,6 +8,13 @@ import {
     normalizeArabicDigits,
 } from '@/app/components/admin/lawStructure';
 import { loadBundledLawRows } from '@/app/utils/bundledIraqiLawLoader';
+import {
+    clearLegalReferenceCache,
+    isLegalReferenceCacheStale,
+    readLegalReferenceCache,
+    writeLegalReferenceCache,
+} from '@/app/utils/legalReferenceLocalCache';
+import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 
 export type PersonalStatusLawArticle = {
     id: string;
@@ -30,6 +37,63 @@ type LawRow = {
 
 const cache = new Map<PersonalStatusLawCodeType, PersonalStatusLawArticle[]>();
 const inflight = new Map<PersonalStatusLawCodeType, Promise<PersonalStatusLawArticle[]>>();
+const backgroundSyncInflight = new Set<PersonalStatusLawCodeType>();
+
+function localCacheKey(tab: PersonalStatusLawCodeType): string {
+    return `personal-status:${tab}`;
+}
+
+function hydrateFromDeviceStorage(tab: PersonalStatusLawCodeType): PersonalStatusLawArticle[] | null {
+    const stored = readLegalReferenceCache<PersonalStatusLawArticle>(localCacheKey(tab));
+    if (!stored || stored.length === 0) return null;
+    cache.set(tab, stored);
+    return stored;
+}
+
+async function fetchRemotePersonalStatusArticles(
+    tab: PersonalStatusLawCodeType,
+): Promise<PersonalStatusLawArticle[] | null> {
+    const lawName = PERSONAL_STATUS_LAW_CANONICAL_NAMES[tab];
+    const data = await SecureAPIClient.fetchSecure<{
+        ok?: boolean;
+        error?: string;
+        details?: string;
+        items?: LawRow[];
+    }>('/api/laws/list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ law_name: lawName }),
+    });
+
+    if (!data || data.ok === false) return null;
+    const rows = Array.isArray(data.items) ? data.items : [];
+    const mapped = mapRowsToArticles(rows, tab);
+    return mapped.length > 0 ? mapped : null;
+}
+
+function scheduleBackgroundPersonalStatusSync(tab: PersonalStatusLawCodeType): void {
+    if (backgroundSyncInflight.has(tab) || !isLegalReferenceCacheStale(localCacheKey(tab))) return;
+    backgroundSyncInflight.add(tab);
+
+    scheduleIdleWork(
+        () => {
+            void (async () => {
+                try {
+                    const remote = await fetchRemotePersonalStatusArticles(tab);
+                    if (remote && remote.length > 0) {
+                        cache.set(tab, remote);
+                        writeLegalReferenceCache(localCacheKey(tab), remote);
+                    }
+                } catch {
+                    /* keep local snapshot */
+                } finally {
+                    backgroundSyncInflight.delete(tab);
+                }
+            })();
+        },
+        { minDelayMs: 2_000, timeoutMs: 12_000 },
+    );
+}
 
 function mapRowsToArticles(
     rows: LawRow[],
@@ -61,13 +125,16 @@ function mapRowsToArticles(
 
 export function hasPersonalStatusLawArticlesCached(tab: PersonalStatusLawCodeType): boolean {
     const rows = cache.get(tab);
-    return Array.isArray(rows) && rows.length > 0;
+    if (Array.isArray(rows) && rows.length > 0) return true;
+    return hydrateFromDeviceStorage(tab) != null;
 }
 
 export function getCachedPersonalStatusLawArticles(
     tab: PersonalStatusLawCodeType,
 ): PersonalStatusLawArticle[] | null {
-    return cache.get(tab) ?? null;
+    const memory = cache.get(tab);
+    if (memory && memory.length > 0) return memory;
+    return hydrateFromDeviceStorage(tab);
 }
 
 export function prefetchPersonalStatusLawArticles(
@@ -90,34 +157,30 @@ export async function loadPersonalStatusLawArticles(
 
     const promise = (async () => {
         const lawName = PERSONAL_STATUS_LAW_CANONICAL_NAMES[tab];
-        try {
-            const data = await SecureAPIClient.fetchSecure<{
-                ok?: boolean;
-                error?: string;
-                details?: string;
-                items?: LawRow[];
-            }>('/api/laws/list', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ law_name: lawName }),
-            });
 
-            if (data && data.ok !== false) {
-                const rows = Array.isArray(data.items) ? data.items : [];
-                const mapped = mapRowsToArticles(rows, tab);
-                if (mapped.length > 0) {
-                    cache.set(tab, mapped);
-                    return mapped;
-                }
-            }
-        } catch {
-            /* fallback to bundled project files */
+        const fromDevice = hydrateFromDeviceStorage(tab);
+        if (fromDevice && fromDevice.length > 0) {
+            scheduleBackgroundPersonalStatusSync(tab);
+            return fromDevice;
         }
 
         const bundled = mapRowsToArticles(await loadBundledLawRows(lawName), tab);
         if (bundled.length > 0) {
             cache.set(tab, bundled);
+            writeLegalReferenceCache(localCacheKey(tab), bundled);
+            scheduleBackgroundPersonalStatusSync(tab);
             return bundled;
+        }
+
+        try {
+            const remote = await fetchRemotePersonalStatusArticles(tab);
+            if (remote && remote.length > 0) {
+                cache.set(tab, remote);
+                writeLegalReferenceCache(localCacheKey(tab), remote);
+                return remote;
+            }
+        } catch {
+            /* fall through */
         }
 
         return [];
@@ -135,9 +198,15 @@ export function invalidatePersonalStatusLawRemoteCache(tab?: PersonalStatusLawCo
     if (tab) {
         cache.delete(tab);
         inflight.delete(tab);
+        backgroundSyncInflight.delete(tab);
+        clearLegalReferenceCache(localCacheKey(tab));
     } else {
         cache.clear();
         inflight.clear();
+        backgroundSyncInflight.clear();
+        for (const codeType of Object.keys(PERSONAL_STATUS_LAW_CANONICAL_NAMES) as PersonalStatusLawCodeType[]) {
+            clearLegalReferenceCache(localCacheKey(codeType));
+        }
     }
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent(PERSONAL_STATUS_LAW_CACHE_INVALIDATED_EVENT));

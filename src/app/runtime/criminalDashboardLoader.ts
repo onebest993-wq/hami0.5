@@ -43,8 +43,10 @@ function prefetchCriminalStore(): Promise<unknown> {
 }
 
 function createCriminalModuleImport(): Promise<CriminalDashboardModule> {
-    return prefetchCriminalStore()
-        .then(() => import('@/app/components/lawyer/criminal-system/CriminalDashboard'))
+    const dashboardImport = import('@/app/components/lawyer/criminal-system/CriminalDashboard');
+    const storeImport = prefetchCriminalStore();
+    return Promise.all([storeImport, dashboardImport])
+        .then(([, mod]) => mod)
         .catch((err) => {
             criminalModulePromise = null;
             throw err;

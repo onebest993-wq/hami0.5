@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** مرافق تنفيذ ثقيلة — chunk execution-helpers */
 import {
     getExecutionModuleStrategy,

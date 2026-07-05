@@ -1,13 +1,18 @@
+import {
+    HUB_DOSSIER_Z_CLASS,
+    HUB_NESTED_OVERLAY_Z_CLASS,
+} from '@/app/components/lawyer/dashboard/hubOverlayStack';
+
 /** فئات بصرية لمسار الأحوال الشخصية — مختلفة جذرياً عن القضاء المدني. */
 export const PERSONAL_STATUS_FORM_SHELL =
-    "fixed inset-0 z-[100] flex flex-col overflow-hidden bg-[#0e0c0d] font-['Tajawal']";
+    `fixed inset-0 ${HUB_NESTED_OVERLAY_Z_CLASS} flex flex-col overflow-hidden bg-[#0e0c0d] font-['Tajawal']`;
 
 export const PERSONAL_STATUS_FORM_GRADIENT = 'pointer-events-none absolute inset-0 opacity-0';
 
 export const PERSONAL_STATUS_FORM_GRADIENT_2 = 'pointer-events-none absolute inset-0 opacity-0';
 
 export const PERSONAL_STATUS_DOSSIER_ROOT =
-    "fixed inset-0 z-[100] bg-[#101018] font-['Tajawal'] overflow-hidden print:static print:bg-transparent print:overflow-visible";
+    `fixed inset-0 ${HUB_DOSSIER_Z_CLASS} bg-[#101018] font-['Tajawal'] overflow-hidden pointer-events-auto print:static print:bg-transparent print:overflow-visible`;
 
 export const PERSONAL_STATUS_DOSSIER_PANEL =
     'w-full h-full max-w-none mx-0 my-0 bg-[#101018]';

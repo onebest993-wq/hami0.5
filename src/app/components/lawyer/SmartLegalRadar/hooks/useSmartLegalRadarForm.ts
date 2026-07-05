@@ -1,5 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import { prefetchRadarEventForm } from '@/app/runtime/radarWidgetLoader';
+import { prefetchCalendarCloudModule } from '@/app/services/calendar/calendarCloudLoader';
 import { EMPTY_FORM } from '@/app/components/lawyer/SmartLegalRadar/utils';
 import type { EventFormData } from '@/app/components/lawyer/SmartLegalRadar/utils';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
@@ -26,8 +28,11 @@ export function useSmartLegalRadarForm({
     const [editingEvent, setEditingEvent] = useState<UnifiedEvent | null>(null);
     const [formData, setFormData] = useState<EventFormData>(EMPTY_FORM);
     const [saving, setSaving] = useState(false);
+    const saveInFlightRef = useRef(false);
 
     const openAddForm = useCallback(() => {
+        prefetchRadarEventForm();
+        prefetchCalendarCloudModule();
         setEditingEvent(null);
         setFormData({ ...EMPTY_FORM, date: selectedDate, time: '' });
         setShowForm(true);
@@ -63,10 +68,12 @@ export function useSmartLegalRadarForm({
     }, [saving]);
 
     const handleSave = useCallback(async () => {
+        if (saveInFlightRef.current) return;
         if (!formData.title.trim() || !formData.date) {
             SmartToast.warning('العنوان والتاريخ مطلوبان');
             return;
         }
+        saveInFlightRef.current = true;
         setSaving(true);
         try {
             if (editingEvent && editingEvent.source === 'calendar') {
@@ -109,6 +116,7 @@ export function useSmartLegalRadarForm({
         } catch {
             SmartToast.error('فشل حفظ الموعد');
         } finally {
+            saveInFlightRef.current = false;
             setSaving(false);
         }
     }, [formData, editingEvent, effectiveUserId, addEvent, updateEvent, customEvents]);

@@ -15,11 +15,19 @@ vi.mock('@/app/modules/transactionsThreading/store', () => ({
 }));
 
 vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
-    scheduleIdleWork: vi.fn(() => () => undefined),
+    scheduleIdleWork: vi.fn((work: () => void) => {
+        work();
+        return () => undefined;
+    }),
+}));
+
+vi.mock('@/app/utils/lazyComponents', () => ({
+    prefetchTransactionsHub: vi.fn(),
 }));
 
 vi.mock('@/app/runtime/transactionsHubLoader', () => ({
     loadTransactionsHubModule: vi.fn(() => Promise.resolve({})),
+    prefetchTransactionsHubModule: vi.fn(),
 }));
 
 describe('useLawyerDashboardTransactions', () => {
@@ -27,7 +35,7 @@ describe('useLawyerDashboardTransactions', () => {
         vi.clearAllMocks();
     });
 
-    it('يفتح مركز المعاملات', async () => {
+    it('يفتح مركز المعاملات ويُجهّز host', async () => {
         const setArchiveType = vi.fn();
         const setShowLawsuitsWorkspace = vi.fn();
         const { result } = renderHook(() =>
@@ -43,6 +51,7 @@ describe('useLawyerDashboardTransactions', () => {
         });
 
         await waitFor(() => expect(result.current.showTransactions).toBe(true));
+        expect(result.current.transactionsHostMounted).toBe(true);
         expect(result.current.transactionsSessionKey).toBe(0);
         expect(setArchiveType).toHaveBeenCalledWith(null);
         expect(setShowLawsuitsWorkspace).toHaveBeenCalledWith(false);
@@ -89,6 +98,24 @@ describe('useLawyerDashboardTransactions', () => {
         });
 
         expect(result.current.showTransactions).toBe(false);
+    });
+
+    it('يُجهّز host فور تسجيل الدخول', () => {
+        const { result } = renderHook(() =>
+            useLawyerDashboardTransactions({
+                userId: 'lawyer-1',
+                setArchiveType: vi.fn(),
+                setShowLawsuitsWorkspace: vi.fn(),
+            }),
+        );
+
+        expect(result.current.transactionsHostMounted).toBe(true);
+
+        act(() => {
+            result.current.primeTransactionsHubMount();
+        });
+
+        expect(result.current.transactionsHostMounted).toBe(true);
     });
 
     it('يغلق ويمسح focus عند dismiss-transient-overlays', () => {

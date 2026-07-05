@@ -139,7 +139,7 @@ const TARGET_SECTION: Record<SecretaryAlertTarget, { label: string; icon: string
     urgent: { label: 'المستعجلات', icon: '⚡' },
     transactions: { label: 'معاملات الملف', icon: '📁' },
     threading: { label: 'المعاملات الإدارية', icon: '📋' },
-    notepad: { label: 'المفكرة', icon: '📝' },
+    notepad: { label: 'المستودع الذكي', icon: '📝' },
     client_requests: { label: 'طلبات الموكلين', icon: '📥' },
     community: { label: 'المنتدى القانوني', icon: '💬' },
 };

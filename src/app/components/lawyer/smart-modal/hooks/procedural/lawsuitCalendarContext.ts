@@ -1,3 +1,4 @@
+import { resolveCalendarUserId } from '@/app/services/calendarBridge';
 import type { UseSmartFileProceduralActionsOptions } from '../../smartFile/proceduralTypes';
 
 export function buildLawsuitCalendarContext(
@@ -10,7 +11,7 @@ export function buildLawsuitCalendarContext(
             ? (parties[0] as { name?: string })
             : null;
     return {
-        userId: calendarUserId ?? null,
+        userId: resolveCalendarUserId(calendarUserId),
         fileId: String(parentData?.id ?? ''),
         caseNo: typeof parentData?.caseNo === 'string' ? parentData.caseNo : undefined,
         court: typeof parentData?.court === 'string' ? parentData.court : undefined,

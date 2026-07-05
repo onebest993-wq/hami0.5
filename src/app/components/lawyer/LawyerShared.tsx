@@ -448,6 +448,7 @@ export interface TimelineEvent {
     icon?: string;
     text?: string;
     isPause?: boolean;
+    metadata?: Record<string, unknown>;
 }
 
 export interface ProvisionalOrder {

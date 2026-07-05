@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { releaseBodyScrollLock } from '@/app/utils/bodyScrollLock';
+import { isTasksOverlayEscapeBlocked } from '@/app/components/lawyer/dashboard/fieldTasks/tasksEscapeCoordinator';
 
 type UseLawyerDashboardTasksOverlayEscapeParams = {
     fieldTasksSheetOpen: boolean;
@@ -20,16 +20,15 @@ export function useLawyerDashboardTasksOverlayEscape({
 
         const onKeyDown = (event: KeyboardEvent) => {
             if (event.key !== 'Escape') return;
+            if (isTasksOverlayEscapeBlocked()) return;
             event.preventDefault();
             event.stopPropagation();
             if (fieldTasksSheetOpen) {
                 onCloseFieldTasksSheet();
-                releaseBodyScrollLock();
                 return;
             }
             if (showTasksManager) {
                 onCloseTasksManager();
-                releaseBodyScrollLock();
             }
         };
 

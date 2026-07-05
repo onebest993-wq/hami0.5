@@ -1,14 +1,18 @@
-import { Check, GitBranch, MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import { GitBranch, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import type { TransactionTask, TransactionTaskStatus } from '@/app/modules/transactionsThreading/types';
 import { TransactionTaskStatus as TaskStatus } from '@/app/modules/transactionsThreading/types';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/app/components/ui/dropdown-menu';
+import {
+    TransactionsDropdownMenu,
+    TransactionsDropdownMenuContent,
+    TransactionsDropdownMenuItem,
+    TransactionsDropdownMenuTrigger,
+    runAfterTransactionsMenuClose,
+} from './TransactionsDropdownMenu';
 import {
     TX_ACCENT_SURFACE,
-    TX_DROPDOWN_CONTENT,
     TX_DROPDOWN_FOCUS,
     TX_GOLD_BTN,
     TX_ICON_BTN,
-    TX_OCHRE_BTN,
     TX_TEXT_MUTED,
     TX_TEXT_OCHRE,
     TX_TEXT_PRIMARY,
@@ -50,7 +54,6 @@ export function TaskNodeCard({
   taskNumber,
   depth,
   onToggleStatus,
-  onMarkDone,
   onAddSubTask,
   onEdit,
   onDelete,
@@ -60,7 +63,6 @@ export function TaskNodeCard({
   taskNumber: string;
   depth: number;
   onToggleStatus: (task: TransactionTask) => void;
-  onMarkDone: (task: TransactionTask) => void;
   onAddSubTask: (task: TransactionTask) => void;
   onEdit: (task: TransactionTask) => void;
   onDelete: (task: TransactionTask) => void;
@@ -147,40 +149,39 @@ export function TaskNodeCard({
           className="flex items-center justify-end gap-2 px-3 py-2.5 border-t border-[#2A4550]/70 bg-[#0A171D]/35"
           onClick={(e) => e.stopPropagation()}
         >
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          <TransactionsDropdownMenu>
+            <TransactionsDropdownMenuTrigger asChild>
               <button type="button" className={TX_ICON_BTN} aria-label="خيارات المهمة">
                 <MoreVertical className="w-4 h-4" />
               </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className={TX_DROPDOWN_CONTENT}>
-              <DropdownMenuItem onSelect={() => onEdit(task)} className={TX_DROPDOWN_FOCUS}>
+            </TransactionsDropdownMenuTrigger>
+            <TransactionsDropdownMenuContent>
+              <TransactionsDropdownMenuItem
+                onSelect={(event) => {
+                  event.preventDefault();
+                  runAfterTransactionsMenuClose(() => onEdit(task));
+                }}
+                className={TX_DROPDOWN_FOCUS}
+              >
                 <span className="inline-flex items-center gap-2">
                   <Pencil className="w-4 h-4" />
                   تعديل
                 </span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => onDelete(task)}
+              </TransactionsDropdownMenuItem>
+              <TransactionsDropdownMenuItem
+                onSelect={(event) => {
+                  event.preventDefault();
+                  runAfterTransactionsMenuClose(() => onDelete(task));
+                }}
                 className={`${TX_DROPDOWN_FOCUS} text-[#D49248] focus:text-[#D49248]`}
               >
                 <span className="inline-flex items-center gap-2">
                   <Trash2 className="w-4 h-4" />
                   حذف
                 </span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <button
-            type="button"
-            disabled={isDone}
-            onClick={() => onMarkDone(task)}
-            className={`${TX_OCHRE_BTN} !px-3 !text-[11px] inline-flex items-center gap-1.5 disabled:opacity-40`}
-          >
-            <Check className="w-4 h-4" />
-            منجز
-          </button>
+              </TransactionsDropdownMenuItem>
+            </TransactionsDropdownMenuContent>
+          </TransactionsDropdownMenu>
 
           <button
             type="button"

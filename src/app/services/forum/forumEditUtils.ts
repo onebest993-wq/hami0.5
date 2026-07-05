@@ -1,4 +1,4 @@
-import type { CommunityPost, ForumEditHistoryEntry } from '@/app/services/lawyer-cloud';
+import type { CommunityPost, ForumEditHistoryEntry } from '@/app/services/forum/forumTypes';
 import { resolveCommunityPostTags } from '@/app/components/lawyer/CommunityScreen/repositoryTagUtils';
 
 export function buildForumEditPatch(

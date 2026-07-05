@@ -12,6 +12,7 @@ import {
     getLawyerSettingsSnapshot,
     persistWallpaper,
     loadPersistedWallpaper,
+    hydrateWallpaperFromSecureStore,
     normalizeBackgroundPreset,
     normalizeBackgroundPatternBlur,
     normalizeBackgroundPatternOpacity,
@@ -171,6 +172,24 @@ export function LawyerSettingsProvider({ children }: { children: React.ReactNode
     );
     useAutoSave('lawyer_theme', currentTheme, PERSIST_DEBOUNCE_MS.LIGHT, autoSaveOn, settingsHydrated);
     useAutoSave('lawyer_shape', currentShape, PERSIST_DEBOUNCE_MS.LIGHT, autoSaveOn, settingsHydrated);
+
+    useEffect(() => {
+        if (!settingsHydrated) return;
+        void hydrateWallpaperFromSecureStore().then((src) => {
+            if (!src) return;
+            setSettings((prev) => {
+                if (prev.appearance.wallpaperStamp && loadPersistedWallpaper()) return prev;
+                return {
+                    ...prev,
+                    appearance: {
+                        ...prev.appearance,
+                        wallpaper: undefined,
+                        wallpaperStamp: Date.now(),
+                    },
+                };
+            });
+        });
+    }, [settingsHydrated]);
 
     useEffect(() => {
         if (!settingsHydrated) return;

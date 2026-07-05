@@ -34,8 +34,9 @@ export interface QuestionCardProps {
   /** Bookmark/Save (اختياري) */
   isBookmarked?: boolean;
   onToggleBookmark?: (postId: string) => void;
-  onSaveToNotes?: (postId: string) => void;
+  onCopyPostText?: (postId: string) => void;
   onSaveToVault?: (postId: string) => void;
+  onSaveToDevice?: (postId: string) => void;
   /** قفل/فتح النقاش (للمالك أو الأدمن) */
   onToggleLock?: (postId: string) => void;
   /** كتم مستخدم */
@@ -63,8 +64,9 @@ export const QuestionCard = memo(function QuestionCard({
   userStats,
   isBookmarked = false,
   onToggleBookmark,
-  onSaveToNotes,
+  onCopyPostText,
   onSaveToVault,
+  onSaveToDevice,
   onToggleLock,
   onMuteUser,
   isThreadFollowing = false,
@@ -74,9 +76,10 @@ export const QuestionCard = memo(function QuestionCard({
   const [showUserPopup, setShowUserPopup] = useState(false);
   const [showEditInfo, setShowEditInfo] = useState(false);
   const { url: attachmentUrl, loading: attachmentLoading } = useForumAttachmentUrl(post.attachment);
+  const authorId = post.authorId || post.author_id || '';
   const isUpvoted = currentUserId ? post.upvoterIds.includes(currentUserId) : false;
   const upvoteCount = post.upvoterIds.length;
-  const isOwner = !!currentUserId && post.authorId === currentUserId;
+  const isOwner = !!currentUserId && authorId === currentUserId;
   const isAnonymous = post.isAnonymous === true;
   const isActiveUrgent = isActiveUrgentConsultation(post);
   const isPinned = post.isPinned === true;
@@ -85,9 +88,9 @@ export const QuestionCard = memo(function QuestionCard({
   const displayName = isAnonymous ? 'زميل مجهول' : post.authorName;
   const isEdited = post.isEdited === true;
   const editCount = post.editCount ?? (isEdited ? 1 : 0);
-  const isFollowing = currentUserId ? followingIds.has(post.authorId) : false;
+  const isFollowing = currentUserId ? followingIds.has(authorId) : false;
   const canFollow = !!currentUserId && !isOwner && !isAnonymous;
-  const stats = userStats[post.authorId];
+  const stats = userStats[authorId];
   const followerCount = stats?.followerCount ?? 0;
   const postCount = stats?.postCount ?? 0;
 
@@ -142,8 +145,9 @@ export const QuestionCard = memo(function QuestionCard({
         onFollow={onFollow}
         onOpenProfile={onOpenProfile}
         onToggleLock={onToggleLock}
-        onSaveToNotes={onSaveToNotes}
+        onCopyPostText={onCopyPostText}
         onSaveToVault={onSaveToVault}
+        onSaveToDevice={onSaveToDevice}
         onToggleBookmark={onToggleBookmark}
         onToggleThreadFollow={onToggleThreadFollow}
         onMuteUser={onMuteUser}

@@ -1,19 +1,10 @@
-let profileTabShellPromise: Promise<unknown> | null = null;
+import { prefetchProfileHubModule, resetProfileHubModuleCacheForTests } from '@/app/runtime/profileHubLoader';
 
-/** shell تبويب الملف — خفيف (~LawyerDashboardProfileTab فقط) */
+/** shell تبويب الملف — يحمّل hub التبويب + الواجهة */
 export function prefetchLawyerDashboardProfileTabShell(): void {
-    if (typeof window === 'undefined') return;
-    if (!profileTabShellPromise) {
-        profileTabShellPromise = import('@/app/components/lawyer/dashboard/LawyerDashboardProfileTab').catch(
-            (err) => {
-                profileTabShellPromise = null;
-                throw err;
-            },
-        );
-    }
-    void profileTabShellPromise.catch(() => undefined);
+    prefetchProfileHubModule();
 }
 
 export function resetLawyerDashboardProfileTabShellForTests(): void {
-    profileTabShellPromise = null;
+    resetProfileHubModuleCacheForTests();
 }

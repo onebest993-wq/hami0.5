@@ -1,6 +1,8 @@
 /**
  * تحميل مرحلي لإضبارة الدعوى — shell + widgets قبل النقر.
  */
+import { prefetchSmartFileModalShellWidgets } from '@/app/components/lawyer/smart-modal/lazySmartFileModalWidgets';
+
 type SmartFileModalModule = typeof import('@/app/components/lawyer/SmartFileModal');
 
 let smartFileModulePromise: Promise<SmartFileModalModule> | null = null;
@@ -24,9 +26,8 @@ export function loadSmartFileModalModule(): Promise<SmartFileModalModule> {
 }
 
 function prefetchSmartFileModalShell(): void {
-    void import('@/app/components/lawyer/smart-modal/lazySmartFileModalWidgets').then((m) => {
-        m.prefetchSmartFileModalShellWidgets();
-    });
+    void import('@/app/components/lawyer/smart-modal/modals/contentEntryModals').catch(() => undefined);
+    prefetchSmartFileModalShellWidgets();
     void import('@/app/components/lawyer/smart-modal/layout/SmartFileChrome').catch(() => undefined);
     void import('@/app/components/lawyer/smart-modal/SmartFileModals').catch(() => undefined);
     void import('@/app/components/lawyer/smart-modal/layout/SmartFileMainPanel').catch(() => undefined);
@@ -41,7 +42,6 @@ export function prefetchSmartFileModalPhased(): void {
 
     const scheduleSecondary = () => {
         void import('@/app/components/lawyer/smart-modal/lazySmartFileModalChunks').catch(() => undefined);
-        void import('@/app/components/lawyer/smart-modal/modals/contentEntryModals').catch(() => undefined);
         void import('@/app/components/lawyer/smart-modal/modals/EditCaseInfoModal').catch(() => undefined);
         void import('@/app/components/lawyer/smart-modal/modals/flow-modals/TrashModal').catch(() => undefined);
         void import('@/app/components/lawyer/personal-status/PersonalStatusSmartFileChrome').catch(

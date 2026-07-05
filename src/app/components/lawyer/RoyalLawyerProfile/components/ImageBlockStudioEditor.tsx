@@ -25,7 +25,7 @@ const PANELS: { id: ImageStudioPanel; label: string; testId: string }[] = [
     { id: 'fx', label: 'التفاعل', testId: 'image-studio-tab-fx' },
 ];
 
-export function ImageBlockStudioEditor({
+export const ImageBlockStudioEditor = React.memo(function ImageBlockStudioEditor({
     block,
     uploading,
     onChange,
@@ -88,4 +88,4 @@ export function ImageBlockStudioEditor({
             ) : null}
         </div>
     );
-}
+});

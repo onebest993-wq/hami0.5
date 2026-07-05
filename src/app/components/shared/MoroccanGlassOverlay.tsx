@@ -55,7 +55,7 @@ export function MoroccanGlassFrame({
 
     return (
         <div
-            {...(profilePanel ? { 'data-profile-panel': true } : {})}
+            {...(profilePanel ? { 'data-profile-panel': '' } : {})}
             className={
                 profilePanel
                     ? `relative hami-profile-panel-shell ${clip ? 'overflow-hidden' : 'overflow-visible'} ${className}`

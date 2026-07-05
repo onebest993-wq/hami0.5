@@ -5,6 +5,7 @@
  */
 
 import { useEffect } from 'react';
+import { supabase } from '@/app/lib/supabase-client';
 import { rateLimitService } from '@/app/services/RateLimitService';
 import { securityAudit } from '@/app/services/SecurityAuditService';
 import { installWifeFetchGuard } from '@/app/security/wifeFetchGuard';
@@ -99,7 +100,6 @@ export function SecurityInitializer(): null {
     let authUnsubscribe: (() => void) | undefined;
     void (async () => {
       try {
-        const { supabase } = await import('@/app/lib/supabase-client');
         const { data } = supabase.auth.onAuthStateChange((event, session) => {
           if (event === 'SIGNED_OUT') {
             void revokeCsrfSession();

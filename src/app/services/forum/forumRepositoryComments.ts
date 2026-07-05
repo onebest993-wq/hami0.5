@@ -1,5 +1,6 @@
 import { UserRole } from '@/app/types/admin-types';
-import type { CommunityComment, CommunityPost } from '@/app/services/lawyer-cloud';
+import type { CommunityComment, CommunityPost } from '@/app/services/forum/forumTypes';
+import { addCommunityComment, deleteCommunityComment, editCommunityComment } from '@/app/services/forum/forumCommunityRuntime';
 import { getForumSupabaseAdmin } from './supabaseAdmin';
 
 export type ForumPostReader = {
@@ -11,7 +12,6 @@ export function createForumCommentRepository(posts: ForumPostReader) {
         async addComment(postId: string, comment: CommunityComment): Promise<CommunityPost> {
             const admin = getForumSupabaseAdmin();
             if (!admin) {
-                const { addCommunityComment } = await import('@/app/services/cloud/lawyerCommunityCloud');
                 await addCommunityComment(postId, comment);
                 const post = await posts.getPostById(postId);
                 if (!post) throw new Error('المنشور غير موجود');
@@ -75,7 +75,6 @@ export function createForumCommentRepository(posts: ForumPostReader) {
 
             const admin = getForumSupabaseAdmin();
             if (!admin) {
-                const { deleteCommunityComment } = await import('@/app/services/cloud/lawyerCommunityCloud');
                 return deleteCommunityComment(postId, commentId, requesterId, requesterRole);
             }
 
@@ -125,7 +124,6 @@ export function createForumCommentRepository(posts: ForumPostReader) {
 
             const admin = getForumSupabaseAdmin();
             if (!admin) {
-                const { editCommunityComment } = await import('@/app/services/cloud/lawyerCommunityCloud');
                 return editCommunityComment(postId, commentId, trimmed, requesterId);
             }
 

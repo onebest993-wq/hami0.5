@@ -1,8 +1,9 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Camera, Upload, Scan, Loader2, CheckCircle2, ChevronLeft, Eye } from 'lucide-react';
+import { X, Camera, Upload, Scan, Loader2, CheckCircle2, ChevronLeft, Eye, AlertCircle } from 'lucide-react';
 import { saveScannedImageToVault } from '@/app/services/vaultUploadService';
-import { SmartVaultDB, type SmartVaultDoc } from '@/app/services/lawyer-cloud';
+import { SmartVaultDB } from '@/app/services/vault/smartVaultRuntime';
+import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import { extractTextFromDocumentImage, ocrFallbackMessage } from '@/app/services/documentOcrService';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { beginPrivacySensitiveSurface, endPrivacySensitiveSurface } from '@/app/runtime/privacyScreenSession';
@@ -31,9 +32,65 @@ interface SmartVaultScannerPanelProps {
 
 type ScanPhase = 'idle' | 'camera' | 'capturing' | 'uploading' | 'result';
 
-function isImageSelection(file: File): boolean {
-    if (file.type.startsWith('image/')) return true;
-    return /\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(file.name);
+function cameraErrorName(error: unknown): string {
+    if (error && typeof error === 'object' && 'name' in error && typeof error.name === 'string') {
+        return error.name;
+    }
+    return '';
+}
+
+function resolveCameraAccessMessage(error: unknown): string {
+    switch (cameraErrorName(error)) {
+        case 'NotAllowedError':
+        case 'PermissionDeniedError':
+        case 'SecurityError':
+            return 'تم رفض إذن الكاميرا. اسمح بالوصول ثم أعد المحاولة.';
+        case 'NotFoundError':
+        case 'DevicesNotFoundError':
+            return 'لا توجد كاميرا متاحة على هذا الجهاز حالياً.';
+        case 'NotReadableError':
+        case 'TrackStartError':
+            return 'الكاميرا مشغولة أو غير متاحة الآن. أغلق أي تطبيق يستخدمها ثم أعد المحاولة.';
+        case 'OverconstrainedError':
+        case 'ConstraintNotSatisfiedError':
+            return 'تعذر تشغيل الكاميرا بالإعدادات الحالية. يمكنك إعادة المحاولة.';
+        default:
+            return 'تعذر الوصول إلى الكاميرا الآن. أعد المحاولة بعد التحقق من الأذونات والجهاز.';
+    }
+}
+
+async function requestScannerCameraStream(): Promise<MediaStream> {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+        throw new Error('UNSUPPORTED_CAMERA_API');
+    }
+
+    try {
+        return await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: { ideal: 'environment' },
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+            },
+        });
+    } catch (error) {
+        const name = cameraErrorName(error);
+        if (
+            name === 'NotAllowedError' ||
+            name === 'PermissionDeniedError' ||
+            name === 'SecurityError' ||
+            name === 'NotReadableError' ||
+            name === 'TrackStartError'
+        ) {
+            throw error;
+        }
+
+        return navigator.mediaDevices.getUserMedia({
+            video: {
+                width: { ideal: 1600 },
+                height: { ideal: 900 },
+            },
+        });
+    }
 }
 
 export const SmartVaultScannerPanel: React.FC<SmartVaultScannerPanelProps> = ({
@@ -53,7 +110,6 @@ export const SmartVaultScannerPanel: React.FC<SmartVaultScannerPanelProps> = ({
     const [scanTitle, setScanTitle] = useState('');
     const [scanNote, setScanNote] = useState('');
     const [scanCategory, setScanCategory] = useState('');
-    const fileInputRef = useRef<HTMLInputElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -91,14 +147,16 @@ export const SmartVaultScannerPanel: React.FC<SmartVaultScannerPanelProps> = ({
         setError(null);
         await beginPrivacySensitiveSurface();
         try {
-            const mediaStream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
-            });
+            const mediaStream = await requestScannerCameraStream();
             setStream(mediaStream);
             setPhase('camera');
-        } catch {
+        } catch (error) {
             await endPrivacySensitiveSurface();
-            setError('تعذر الوصول إلى الكاميرا. يمكنك رفع صورة من الجهاز.');
+            setError(
+                error instanceof Error && error.message === 'UNSUPPORTED_CAMERA_API'
+                    ? 'هذا المتصفح أو الجهاز لا يدعم فتح الكاميرا هنا.'
+                    : resolveCameraAccessMessage(error),
+            );
             setPhase('idle');
         }
     }, [ensureSignedIn]);
@@ -120,32 +178,6 @@ export const SmartVaultScannerPanel: React.FC<SmartVaultScannerPanelProps> = ({
         stopCamera();
         setPhase('capturing');
     }, [stopCamera]);
-
-    const handleFileSelect = useCallback(
-        (e: React.ChangeEvent<HTMLInputElement>) => {
-            if (!ensureSignedIn()) return;
-            const file = e.target.files?.[0];
-            e.target.value = '';
-            if (!file) return;
-            if (!isImageSelection(file)) {
-                SmartToast.error('يرجى اختيار صورة فقط');
-                return;
-            }
-            const reader = new FileReader();
-            reader.onload = () => {
-                if (typeof reader.result === 'string') {
-                    setCapturedImage(reader.result);
-                    setScanTitle(`مسح ضوئي ${new Date().toLocaleDateString('ar-IQ')}`);
-                    setScanNote('');
-                    setScanCategory('');
-                    setPhase('capturing');
-                }
-            };
-            reader.onerror = () => SmartToast.error('تعذر قراءة الصورة');
-            reader.readAsDataURL(file);
-        },
-        [ensureSignedIn],
-    );
 
     const uploadScan = useCallback(async () => {
         if (!capturedImage || !ensureSignedIn()) return;
@@ -196,7 +228,7 @@ export const SmartVaultScannerPanel: React.FC<SmartVaultScannerPanelProps> = ({
             if (err instanceof Error && err.message === 'vault persist failed') {
                 SmartToast.error('تعذر حفظ المسح — قد تكون مساحة التخزين ممتلئة');
             } else {
-                setError('فشل حفظ المستند. تحقق من الاتصال أو جرّب صورة أصغر.');
+                setError('فشل حفظ المستند. تحقق من الاتصال ثم أعد المحاولة.');
             }
             setPhase('capturing');
         }
@@ -275,34 +307,41 @@ export const SmartVaultScannerPanel: React.FC<SmartVaultScannerPanelProps> = ({
                         {phase === 'idle' && (
                             <div className="flex flex-col gap-4">
                                 {error && (
-                                    <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm">
-                                        {error}
+                                    <div className="rounded-2xl border border-amber-400/18 bg-[linear-gradient(135deg,rgba(230,198,115,0.10),rgba(230,198,115,0.03))] px-4 py-3.5 text-sm text-[#F4E7C3] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                                        <div className="flex items-start gap-3">
+                                            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-300/18 bg-amber-300/10 text-[#E6C673]">
+                                                <AlertCircle size={17} />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="font-bold text-[#F6EAD2]">تعذر تشغيل الكاميرا</p>
+                                                <p className="mt-1 leading-6 text-[#E6D7B5]/88">{error}</p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setError(null)}
+                                                aria-label="إغلاق التنبيه"
+                                                className="inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-xl text-white/38 hover:bg-white/[0.05] hover:text-white/72 transition-colors"
+                                            >
+                                                <X size={16} />
+                                            </button>
+                                        </div>
                                     </div>
                                 )}
                                 <button
                                     type="button"
                                     onClick={startCamera}
-                                    className="flex items-center justify-center gap-3 bg-[#C9A9A6]/15 hover:bg-[#C9A9A6]/25 border border-[#C9A9A6]/35 rounded-xl py-5 text-[#F7F3EB] font-bold transition-all"
+                                    className="group flex items-center justify-center gap-3 rounded-2xl border border-[#E6C673]/28 bg-[linear-gradient(135deg,rgba(230,198,115,0.18),rgba(230,198,115,0.08))] px-4 py-5 text-[#F7F3EB] font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all hover:border-[#E6C673]/42 hover:bg-[linear-gradient(135deg,rgba(230,198,115,0.24),rgba(230,198,115,0.12))]"
                                 >
-                                    <Camera size={24} />
-                                    فتح الكاميرا
+                                    <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#F6E7BC]/15 bg-black/15 text-[#F7F3EB]">
+                                        <Camera size={22} />
+                                    </span>
+                                    <span className="flex flex-col items-start text-right">
+                                        <span>فتح الكاميرا</span>
+                                        <span className="text-[11px] font-medium text-white/55 group-hover:text-white/68">
+                                            تصوير مباشر للمستند
+                                        </span>
+                                    </span>
                                 </button>
-                                <button
-                                    type="button"
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="flex items-center justify-center gap-3 bg-[#4A4440]/40 hover:bg-[#4A4440]/55 border border-[#C9A9A6]/20 rounded-xl py-5 text-[#D4B8B5] font-bold transition-all"
-                                >
-                                    <Upload size={24} />
-                                    رفع صورة من الجهاز
-                                </button>
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    accept="image/*"
-                                    className="hidden"
-                                    onChange={handleFileSelect}
-                                />
-                                <p className="text-[#C9A9A6]/35 text-xs text-center">JPG · PNG · WEBP · HEIC</p>
                             </div>
                         )}
 

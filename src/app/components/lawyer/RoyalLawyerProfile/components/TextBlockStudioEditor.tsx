@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ensureProfileCanvasFxLoadedSync } from '@/app/components/lawyer/RoyalLawyerProfile/profileCanvasFxLoader';
 import { scheduleDeferredGoogleFonts } from '@/app/runtime/deferredGoogleFonts';
 import type { ProfileCustomBlock } from '@/app/services/profile/profilePageCustomization';
@@ -22,7 +22,9 @@ const PANELS: { id: StudioPanel; label: string; testId: string }[] = [
     { id: 'interaction', label: 'التفاعل', testId: 'text-studio-tab-interaction' },
 ];
 
-export function TextBlockStudioEditor({
+const TEXT_BODY_COMMIT_DELAY_MS = 140;
+
+export const TextBlockStudioEditor = React.memo(function TextBlockStudioEditor({
     block,
     onChange,
     uploadingCanvasBg,
@@ -32,8 +34,54 @@ export function TextBlockStudioEditor({
     const [scope, setScope] = useState<TextStyleScope>('all');
     const [lineIndex, setLineIndex] = useState(0);
     const [phraseRange, setPhraseRange] = useState<{ start: number; end: number } | null>(null);
+    const [bodyDraft, setBodyDraft] = useState(block.body ?? '');
+    const bodyCommitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const bodyDraftRef = useRef(block.body ?? '');
+    const blockRef = useRef(block);
+    const onChangeRef = useRef(onChange);
 
-    const lines = (block.body ?? '').split('\n');
+    blockRef.current = block;
+    bodyDraftRef.current = bodyDraft;
+    onChangeRef.current = onChange;
+
+    const lines = useMemo(() => bodyDraft.split('\n'), [bodyDraft]);
+
+    useEffect(() => {
+        const nextBody = block.body ?? '';
+        bodyDraftRef.current = nextBody;
+        setBodyDraft(nextBody);
+    }, [block.id, block.body]);
+
+    const commitBody = useCallback(
+        (body: string) => {
+            const current = blockRef.current;
+            const lineCount = body.split('\n').length;
+            onChangeRef.current({
+                body,
+                lineStyles: current.lineStyles?.slice(0, lineCount),
+                textSpans: current.textSpans?.filter((s) => s.lineIndex < lineCount),
+            });
+        },
+        [],
+    );
+
+    const flushPendingBody = useCallback(() => {
+        if (bodyCommitTimerRef.current) {
+            clearTimeout(bodyCommitTimerRef.current);
+            bodyCommitTimerRef.current = null;
+        }
+        commitBody(bodyDraft);
+    }, [bodyDraft, commitBody]);
+
+    useEffect(
+        () => () => {
+            if (bodyCommitTimerRef.current) {
+                clearTimeout(bodyCommitTimerRef.current);
+                commitBody(bodyDraftRef.current);
+            }
+        },
+        [commitBody],
+    );
 
     useEffect(() => {
         ensureProfileCanvasFxLoadedSync({
@@ -46,16 +94,18 @@ export function TextBlockStudioEditor({
     return (
         <div className="space-y-3" data-testid="text-block-studio-editor">
             <textarea
-                value={block.body ?? ''}
+                value={bodyDraft}
                 onChange={(e) => {
                     const body = e.target.value;
-                    const lineCount = body.split('\n').length;
-                    onChange({
-                        body,
-                        lineStyles: block.lineStyles?.slice(0, lineCount),
-                        textSpans: block.textSpans?.filter((s) => s.lineIndex < lineCount),
-                    });
+                    bodyDraftRef.current = body;
+                    setBodyDraft(body);
+                    if (bodyCommitTimerRef.current) clearTimeout(bodyCommitTimerRef.current);
+                    bodyCommitTimerRef.current = setTimeout(() => {
+                        bodyCommitTimerRef.current = null;
+                        commitBody(body);
+                    }, TEXT_BODY_COMMIT_DELAY_MS);
                 }}
+                onBlur={flushPendingBody}
                 rows={5}
                 className="w-full bg-black/35 border border-white/10 rounded-xl px-3 py-3 text-sm outline-none resize-y focus:border-white/20 leading-relaxed"
                 placeholder="اكتب نصك — كل سطر مستقل، ويمكن تلوين كلمة أو سطر أو الكل"
@@ -79,7 +129,7 @@ export function TextBlockStudioEditor({
 
             {panel === 'style' ? (
                 <TextBlockStylePanel
-                    block={block}
+                    block={{ ...block, body: bodyDraft }}
                     scope={scope}
                     lineIndex={lineIndex}
                     phraseRange={phraseRange}
@@ -105,4 +155,4 @@ export function TextBlockStudioEditor({
             ) : null}
         </div>
     );
-}
+});

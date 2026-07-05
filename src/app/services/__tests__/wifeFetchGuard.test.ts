@@ -53,4 +53,37 @@ describe('wifeFetchGuard', () => {
 
     secureMock.mockRestore();
   });
+
+  it('short-circuits local debug event endpoints by default', async () => {
+    Object.defineProperty(window, 'location', {
+      value: { origin: 'http://localhost:5173' },
+      configurable: true,
+    });
+
+    const nativeFetch = vi.fn().mockResolvedValue(new Response('native', { status: 200 }));
+    (globalThis as unknown as Record<symbol, unknown>)[Symbol.for('WIFE_NATIVE_FETCH')] = nativeFetch;
+
+    installWifeFetchGuard();
+
+    const res = await fetch('http://127.0.0.1:7777/event', { method: 'POST' });
+    expect(res.status).toBe(204);
+    expect(nativeFetch).not.toHaveBeenCalled();
+  });
+
+  it('allows local debug event endpoints when explicitly enabled', async () => {
+    Object.defineProperty(window, 'location', {
+      value: { origin: 'http://localhost:5173' },
+      configurable: true,
+    });
+
+    const nativeFetch = vi.fn().mockResolvedValue(new Response('native', { status: 200 }));
+    (globalThis as unknown as Record<symbol, unknown>)[Symbol.for('WIFE_NATIVE_FETCH')] = nativeFetch;
+    window.localStorage.setItem('hami:enable-local-debug-events', '1');
+
+    installWifeFetchGuard();
+
+    const res = await fetch('http://127.0.0.1:7777/event', { method: 'POST' });
+    expect(res.status).toBe(200);
+    expect(nativeFetch).toHaveBeenCalledTimes(1);
+  });
 });

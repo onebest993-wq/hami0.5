@@ -5,6 +5,11 @@ import { X, Mic, Square, Sparkles, Play, Trash2 } from 'lucide-react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { VoiceNoteSavePayload } from '@/app/components/lawyer/commandCenterTypes';
 import {
+    VAULT_INPUT,
+    VAULT_SHEET,
+    VAULT_SHEET_OVERLAY_VIEWPORT,
+} from '@/app/components/lawyer/SmartVaultModal/vaultDustyRoseTheme';
+import {
     createArabicTranscriptSession,
     isSpeechRecognitionSupported,
 } from '@/app/services/voice/speechTranscription';
@@ -20,19 +25,21 @@ interface VoiceRecorderModalProps {
 }
 
 const GOLD = '#E6C673';
-const PEARL_SHELL =
-    'relative w-full max-w-md overflow-hidden rounded-[22px] border border-[#E6C673]/18 ' +
-    'bg-[#0a0a0c]/88 backdrop-blur-2xl shadow-[0_24px_80px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.14)]';
-const PEARL_HEADER =
-    'relative px-5 py-4 flex justify-between items-center border-b border-white/[0.08] ' +
-    'bg-gradient-to-l from-white/[0.07] via-white/[0.03] to-transparent';
-const PEARL_INNER = 'rounded-xl border border-white/[0.08] bg-white/[0.04] backdrop-blur-md';
+const VAULT_RECORDER_SHELL =
+    `${VAULT_SHEET} relative w-full max-w-md overflow-hidden rounded-[22px] sm:rounded-[22px] ` +
+    'border-[#B87333]/18 shadow-[0_24px_80px_rgba(0,0,0,0.52)]';
+const VAULT_RECORDER_HEADER =
+    'relative flex items-center justify-between border-b border-[#B87333]/14 px-5 py-4 ' +
+    'bg-gradient-to-l from-[#132238] via-[#0E1B2E] to-[#0a1524]';
+const VAULT_RECORDER_INNER =
+    'rounded-2xl border border-[#D9CFC0]/16 bg-gradient-to-br from-[#15253a] via-[#132238] to-[#0E1B2E] ' +
+    'shadow-[inset_0_1px_0_rgba(230,222,208,0.06)]';
 const PEARL_BTN_GOLD =
-    'flex h-14 w-full items-center justify-center gap-2.5 rounded-xl font-bold text-sm transition-all ' +
-    'bg-[#E6C673]/18 border border-[#E6C673]/35 text-[#E6C673] hover:bg-[#E6C673]/26 active:scale-[0.985] disabled:opacity-60';
+    'flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl font-bold text-sm transition-all ' +
+    'bg-[#B87333]/18 border border-[#B87333]/35 text-[#E8E4DC] hover:bg-[#B87333]/26 active:scale-[0.985] disabled:opacity-60';
 const PEARL_BTN_STOP =
-    'flex h-14 w-full items-center justify-center gap-2.5 rounded-xl font-bold text-sm transition-all ' +
-    'border border-rose-400/40 bg-rose-500/12 text-rose-100 active:scale-[0.985] disabled:opacity-60 animate-pulse';
+    'flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl font-bold text-sm transition-all ' +
+    'border border-rose-400/38 bg-rose-500/12 text-rose-100 active:scale-[0.985] disabled:opacity-60 animate-pulse';
 
 function pickRecorderMimeType(): string | undefined {
     if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
@@ -312,7 +319,7 @@ export const VoiceRecorderModal = ({ onClose, onSaveVoice }: VoiceRecorderModalP
 
     return createPortal(
         <div
-            className="fixed inset-0 z-[99999] flex items-end justify-center bg-black/70 p-4 backdrop-blur-md sm:items-center"
+            className={`${VAULT_SHEET_OVERLAY_VIEWPORT} p-4`}
             dir="rtl"
             onClick={requestClose}
             role="presentation"
@@ -322,27 +329,26 @@ export const VoiceRecorderModal = ({ onClose, onSaveVoice }: VoiceRecorderModalP
                 animate={{ y: 0, opacity: 1 }}
                 exit={{ y: 20, opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className={`${PEARL_SHELL} font-['Tajawal','Cairo',sans-serif]`}
+                className={`${VAULT_RECORDER_SHELL} font-['Tajawal','Cairo',sans-serif]`}
                 onClick={(e) => e.stopPropagation()}
                 role="dialog"
                 aria-modal="true"
                 aria-label="المسجل الذكي"
                 data-testid="voice-recorder-modal"
             >
-                <div className={PEARL_HEADER}>
+                <div className={VAULT_RECORDER_HEADER}>
                     <div className="flex items-center gap-3 min-w-0">
                         <div
-                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#E6C673]/30"
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#B87333]/26 bg-[#132238] text-[#C4926A]"
                             style={{
-                                background: `color-mix(in srgb, ${GOLD} 12%, rgba(255,255,255,0.04))`,
-                                color: GOLD,
+                                boxShadow: 'inset 0 1px 0 rgba(230,222,208,0.05)',
                             }}
                         >
                             <Mic size={20} strokeWidth={1.75} />
                         </div>
                         <div className="min-w-0 text-right">
-                            <h3 className="text-base font-bold text-white/90 tracking-tight">المسجل الذكي</h3>
-                            <p className="text-[11px] font-medium text-white/40 mt-0.5">
+                            <h3 className="text-base font-bold tracking-tight text-[#F4F0E8]">المسجل الذكي</h3>
+                            <p className="mt-0.5 text-[11px] font-medium text-[#C9BCA8]/55">
                                 {sttSupported ? 'تسجيل + تحويل نصي (عربي)' : 'تسجيل صوتي — حتى 3 دقائق'}
                             </p>
                         </div>
@@ -352,13 +358,13 @@ export const VoiceRecorderModal = ({ onClose, onSaveVoice }: VoiceRecorderModalP
                         onClick={requestClose}
                         data-testid="voice-recorder-close"
                         aria-label="إغلاق"
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-white/55 hover:bg-white/[0.08] hover:text-white/80 transition-colors"
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#D9CFC0]/12 bg-[#132238]/85 text-[#C9BCA8]/70 hover:border-[#B87333]/24 hover:bg-[#132238] hover:text-[#F4F0E8] transition-colors"
                     >
                         <X size={18} />
                     </button>
                 </div>
 
-                <div className="p-5 space-y-4">
+                <div className="space-y-4 bg-[#0E1B2E] p-5">
                     <AnimatePresence mode="wait">
                         {!isRecording && !result && (
                             <motion.p
@@ -366,7 +372,7 @@ export const VoiceRecorderModal = ({ onClose, onSaveVoice }: VoiceRecorderModalP
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
-                                className="py-2 text-center text-sm font-medium text-white/45"
+                                className="rounded-2xl border border-[#D9CFC0]/12 bg-[#132238]/72 px-4 py-3 text-center text-sm font-medium text-[#C9BCA8]/70"
                                 data-testid="voice-recorder-idle-hint"
                             >
                                 اضغط للتسجيل — الحد الأقصى {formatVoiceDuration(MAX_VOICE_DURATION_SEC)}
@@ -382,18 +388,18 @@ export const VoiceRecorderModal = ({ onClose, onSaveVoice }: VoiceRecorderModalP
                                 className="py-2 text-center space-y-3"
                             >
                                 <p
-                                    className="text-3xl font-bold tabular-nums tracking-widest text-white/90"
+                                    className="text-3xl font-bold tabular-nums tracking-widest text-[#F4F0E8]"
                                     data-testid="voice-recorder-timer"
                                 >
                                     {formatVoiceDuration(recordingTime)}
                                 </p>
                                 {liveTranscript ? (
-                                    <div className={`${PEARL_INNER} p-3 text-right max-h-28 overflow-y-auto`}>
-                                        <p className="text-xs text-[#E6C673]/70 mb-1">النص المباشر</p>
-                                        <p className="text-sm text-white/80 leading-relaxed">{liveTranscript}</p>
+                                    <div className={`${VAULT_RECORDER_INNER} max-h-28 overflow-y-auto p-3 text-right`}>
+                                        <p className="mb-1 text-xs text-[#C4926A]">النص المباشر</p>
+                                        <p className="text-sm leading-relaxed text-[#E8E4DC]">{liveTranscript}</p>
                                     </div>
                                 ) : sttSupported ? (
-                                    <p className="text-xs text-white/35">جاري الاستماع…</p>
+                                    <p className="text-xs text-[#C9BCA8]/46">جاري الاستماع…</p>
                                 ) : null}
                             </motion.div>
                         )}
@@ -407,20 +413,20 @@ export const VoiceRecorderModal = ({ onClose, onSaveVoice }: VoiceRecorderModalP
                                 className="space-y-3"
                                 data-testid="voice-recorder-result"
                             >
-                                <div className={`${PEARL_INNER} p-4 text-center border-[#E6C673]/15`}>
-                                    <Sparkles className="mx-auto mb-2 h-5 w-5 text-[#E6C673]" />
-                                    <p className="text-xs font-bold text-[#E6C673]/85">
+                                <div className={`${VAULT_RECORDER_INNER} border-[#B87333]/18 p-4 text-center`}>
+                                    <Sparkles className="mx-auto mb-2 h-5 w-5 text-[#C4926A]" />
+                                    <p className="text-xs font-bold text-[#C4926A]">
                                         {savedToNotepad ? 'تم الحفظ في المفكرة' : 'التسجيل الصوتي'}
                                     </p>
                                 </div>
-                                <div className={`${PEARL_INNER} p-4 max-h-36 overflow-y-auto`}>
-                                    <p className="text-sm font-medium text-white/80 whitespace-pre-wrap leading-relaxed text-right">
+                                <div className={`${VAULT_RECORDER_INNER} max-h-36 overflow-y-auto p-4`}>
+                                    <p className="whitespace-pre-wrap text-right text-sm font-medium leading-relaxed text-[#E8E4DC]">
                                         {result}
                                     </p>
                                 </div>
                                 {audioUrl ? (
-                                    <div className={`${PEARL_INNER} flex items-center gap-3 p-3`}>
-                                        <Play className="h-5 w-5 shrink-0 text-[#E6C673]" />
+                                    <div className={`${VAULT_RECORDER_INNER} flex items-center gap-3 p-3`}>
+                                        <Play className="h-5 w-5 shrink-0 text-[#C4926A]" />
                                         <audio src={audioUrl} controls className="h-10 min-w-0 flex-1" />
                                     </div>
                                 ) : null}
@@ -429,7 +435,7 @@ export const VoiceRecorderModal = ({ onClose, onSaveVoice }: VoiceRecorderModalP
                                         type="button"
                                         onClick={resetRecording}
                                         data-testid="voice-recorder-reset"
-                                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.08] py-2.5 text-xs font-bold text-white/55 transition hover:bg-white/[0.04]"
+                                        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[#D9CFC0]/12 bg-[#132238]/55 py-2.5 text-xs font-bold text-[#C9BCA8] transition hover:border-[#B87333]/20 hover:bg-[#132238]/85"
                                     >
                                         <Trash2 size={15} />
                                         تسجيل جديد

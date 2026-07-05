@@ -38,6 +38,7 @@ describe('useLawyerProfileHeader', () => {
         await waitFor(() => expect(result.current.displayName).toBe('أحمد علي'));
         expect(result.current.avatarUrl).toBe('https://cdn/a.jpg');
         expect(result.current.title).toBe('محامٍ');
+        expect(fetchLawyerProfile).toHaveBeenCalledWith('u1', 'u1');
     });
 
     it('يطبّق الكاش الدافئ فوراً دون fetch أولي', () => {
@@ -72,6 +73,8 @@ describe('useLawyerProfileHeader', () => {
 
         await waitFor(() => expect(result.current.displayName).toBe('جديد'));
         expect(fetchLawyerProfile).toHaveBeenCalledTimes(2);
+        expect(fetchLawyerProfile).toHaveBeenNthCalledWith(1, 'u1', 'u1');
+        expect(fetchLawyerProfile).toHaveBeenNthCalledWith(2, 'u1', 'u1');
     });
 
     it('لا يعيد الجلب عند metadata جديدة بنفس المحتوى', async () => {

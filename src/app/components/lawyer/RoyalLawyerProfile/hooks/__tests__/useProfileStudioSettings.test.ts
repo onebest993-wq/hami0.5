@@ -15,6 +15,10 @@ vi.mock('@/app/utils/lazyComponents', () => ({
     loadProfileSettingsSheetModule: vi.fn(() => Promise.resolve({ ProfileSettingsSheet: () => null })),
 }));
 
+vi.mock('@/app/runtime/profileSettingsSheetLoader', () => ({
+    prefetchProfileSettingsSheetModule: vi.fn(),
+}));
+
 vi.mock('@/app/services/lawyer-cloud', () => ({
     ProfileDB: {
         saveProfile: vi.fn(),

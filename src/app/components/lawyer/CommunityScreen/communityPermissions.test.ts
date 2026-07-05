@@ -67,6 +67,14 @@ describe('communityPermissions', () => {
         expect(canUpvotePost(p, 'u2')).toBe(true);
     });
 
+    it('supports cloud snake_case author ids for post actions', () => {
+        const p = post({ authorId: '', author_id: 'u1' });
+        expect(canEditPost(p, 'u1')).toBe(true);
+        expect(canDeletePost(p, 'u1', false)).toBe(true);
+        expect(canUpvotePost(p, 'u1')).toBe(false);
+        expect(canUpvotePost(p, 'u2')).toBe(true);
+    });
+
     it('allows comment author, post author, or admin to delete comment', () => {
         const p = post({ authorId: 'author-1' });
         const c = comment({ authorId: 'commenter-1' });
@@ -80,6 +88,14 @@ describe('communityPermissions', () => {
         const c = comment({ authorId: 'commenter-1' });
         expect(canEditComment(c, 'commenter-1')).toBe(true);
         expect(canEditComment(c, 'author-1')).toBe(false);
+    });
+
+    it('supports cloud snake_case author ids for comment actions', () => {
+        const p = post({ authorId: '', author_id: 'author-1' });
+        const c = comment({ authorId: '', author_id: 'commenter-1' });
+        expect(canEditComment(c, 'commenter-1', p)).toBe(true);
+        expect(canDeleteComment(p, c, 'commenter-1', false)).toBe(true);
+        expect(canDeleteComment(p, c, 'author-1', false)).toBe(true);
     });
 
     it('blocks editing comment marked as best answer', () => {

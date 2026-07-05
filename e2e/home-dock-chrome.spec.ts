@@ -7,15 +7,21 @@ import {
     bootHomeDockChrome,
     clickDockCalendar,
     clickDockTasks,
+    dockTasksTrigger,
     expectDockWidgetsVisible,
     prepareHomeDockE2E,
 } from './helpers/homeDockFixtures';
+import { teardownTasksE2E, waitForFieldTasksSheetReady } from './helpers/tasksFixtures';
 
 test.describe('الشريط السفلي', () => {
     test.describe.configure({ mode: 'serial', timeout: 120_000 });
 
     test.beforeEach(async ({ page }) => {
         await prepareHomeDockE2E(page);
+    });
+
+    test.afterEach(async ({ page }) => {
+        await teardownTasksE2E(page);
     });
 
     test('يعرض حاوية الدوك', async ({ page }) => {
@@ -35,14 +41,14 @@ test.describe('الشريط السفلي', () => {
     });
 
     test('يتجاهل النقر السريع المتكرر على مهام الميدان', async ({ page }) => {
-        const chrome = await bootHomeDockChrome(page);
-        const tasksBtn = chrome
-            .getByTestId('home-dock-shell-dockTasks')
-            .or(page.getByTestId('home-dock-dockTasks'))
-            .first();
+        await bootHomeDockChrome(page);
+        const tasksBtn = dockTasksTrigger(page).first();
         await tasksBtn.scrollIntoViewIfNeeded();
-        await tasksBtn.click({ clickCount: 3, delay: 30, force: true });
-        await expect(page.getByTestId('field-tasks-sheet')).toBeVisible({ timeout: 15_000 });
+        // نقرات متزامنة — تطابق سلوك debounce في useCommandCenterDockActions
+        await tasksBtn.evaluate((el) => {
+            for (let i = 0; i < 3; i++) (el as HTMLElement).click();
+        });
+        await waitForFieldTasksSheetReady(page, 35_000);
         await expect(page.getByTestId('field-tasks-sheet')).toHaveCount(1);
     });
 

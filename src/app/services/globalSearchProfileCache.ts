@@ -1,4 +1,4 @@
-import { ProfileDB } from '@/app/services/lawyer-cloud';
+import { ProfileDB } from '@/app/services/cloud/lawyerProfileCloud';
 
 const profileLineCache = new Map<string, string>();
 

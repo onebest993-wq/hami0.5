@@ -99,12 +99,15 @@ export function ProfileContent({
     const privacy = displayCustomization.privacy;
     const ornatePattern = displayCustomization.appearance.material === 'ornate';
 
-    const handleSaveEdit = useCallback(async () => {
-        await saveProfile(isEditing ? previewCustomization : undefined);
+    const handleSaveEdit = useCallback(() => {
+        void saveProfile(isEditing ? previewCustomization : undefined);
     }, [isEditing, previewCustomization, saveProfile]);
 
     const visibleActions = useMemo(
-        () => filterActionsForVisitor(actions, privacy, !isVisitor),
+        () =>
+            filterActionsForVisitor(actions, privacy, !isVisitor).filter(
+                (action) => action.value.trim().length > 0,
+            ),
         [actions, privacy, isVisitor],
     );
     const showContactSection = !isVisitor || (privacy.showContactChannels && visibleActions.length > 0);

@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { todayYmd } from '@/app/components/lawyer/SmartLegalRadar/utils';
+import { prefetchRadarCalendarGrid } from '@/app/runtime/radarWidgetLoader';
 
 export function useSmartLegalRadarView(initialDate?: string) {
     const today = new Date();
@@ -52,6 +53,7 @@ export function useSmartLegalRadarView(initialDate?: string) {
     );
 
     const toggleFullMonth = useCallback(() => {
+        prefetchRadarCalendarGrid();
         setShowFullMonth((v) => !v);
     }, []);
 

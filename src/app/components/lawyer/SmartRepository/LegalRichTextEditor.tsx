@@ -34,7 +34,7 @@ export const LegalRichTextEditor = forwardRef<LegalRichTextEditorHandle, LegalRi
                     activeForeColor={editor.activeForeColor}
                     activeHighlightColor={editor.activeHighlightColor}
                     onToggleBold={editor.toggleBold}
-                    onFontSize={(size) => editor.exec('fontSize', size)}
+                    onFontSize={editor.applyFontSize}
                     onToggleForeColor={editor.toggleForeColor}
                     onApplyHighlightColor={editor.applyHighlightColor}
                     onClearHighlight={editor.clearHighlight}

@@ -5,6 +5,7 @@ type ExpoSecureStoreModule = {
   deleteItemAsync: (key: string) => Promise<void>;
 };
 
+import { CryptoService } from './CryptoService';
 import { debug } from '@/app/utils/debug';
 
 const KEY_INDEX = '__hami_secure_store_keys__';
@@ -37,10 +38,9 @@ let heavyPersistVisibilityHook = false;
 
 const HEAVY_PERSIST_EXACT_KEYS = new Set([
   'executionFiles',
-  'lawyer_files',
+  /** lawyer_files — كتابة فورية؛ التأجيل 1.2s كان يفقد الملفات عند إعادة التحميل السريعة */
   'lawyer_notes',
   'hami:criminal:meta',
-  'hami_quantum_legal_tasks_v1',
 ]);
 const HEAVY_PERSIST_PREFIXES = ['hami:criminal:case:'];
 
@@ -133,7 +133,6 @@ async function encryptIfSensitive(key: string, value: string): Promise<string> {
   if (!shouldEncryptValue(key, value)) return value;
   if (value.startsWith(ENCRYPTED_PREFIX)) return value;
   try {
-    const { CryptoService } = await import('./CryptoService');
     await CryptoService.initialize();
     const encrypted = await CryptoService.encryptData(value);
     return `${ENCRYPTED_PREFIX}${encrypted}`;
@@ -148,7 +147,6 @@ async function decryptIfSensitive(key: string, value: string): Promise<string | 
   if (!value.startsWith(ENCRYPTED_PREFIX)) return value;
   const encryptedPart = value.slice(ENCRYPTED_PREFIX.length);
   try {
-    const { CryptoService } = await import('./CryptoService');
     await CryptoService.initialize();
     return await CryptoService.decryptData(encryptedPart);
   } catch (error) {

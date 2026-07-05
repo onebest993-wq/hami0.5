@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { createPortal } from 'react-dom';
 import { TasksManager } from '@/app/components/lawyer/dashboard/TasksManager';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
@@ -27,18 +27,6 @@ export function TasksManagerOverlay({
 }: TasksManagerOverlayProps) {
     useBodyScrollLock(open);
     const keyboardInsetPx = useMobileKeyboardInset();
-
-    useEffect(() => {
-        if (!open) return;
-        const onKeyDown = (event: KeyboardEvent) => {
-            if (event.key !== 'Escape') return;
-            event.preventDefault();
-            event.stopPropagation();
-            onClose();
-        };
-        window.addEventListener('keydown', onKeyDown, true);
-        return () => window.removeEventListener('keydown', onKeyDown, true);
-    }, [open, onClose]);
 
     if (!open || typeof document === 'undefined') return null;
 

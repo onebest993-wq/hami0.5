@@ -11,7 +11,7 @@ import {
     normalizeDateToYmd,
     resolveCalendarUserId,
 } from '@/app/services/calendarBridge';
-import { TransactionsThreadingDB } from '@/app/services/lawyer-cloud';
+import { TransactionsThreadingDB } from '@/app/services/cloud/lawyerTransactionsCloud';
 import { TransactionTaskStatus } from '@/app/modules/transactionsThreading/types';
 import { debug } from '@/app/utils/debug';
 import type { DossierSyncStats } from './types';
@@ -93,4 +93,3 @@ export async function syncThreadingTasks(userId: string, stats: DossierSyncStats
         debug.warn('[calendarDossierSync] threading scan failed:', err);
     }
 }
-

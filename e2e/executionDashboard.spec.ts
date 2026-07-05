@@ -1,394 +1,185 @@
 /**
- * ═══════════════════════════════════════════════════════════════════════════
- * 🧪 Execution Dashboard E2E Tests
- * ═══════════════════════════════════════════════════════════════════════════
- * 
- * End-to-end tests for Execution Dashboard workflow
- * اختبارات شاملة من البداية للنهاية للوحة التنفيذ
- * 
- * @version 1.0.0
- * @author Hami Legal System - E2E Testing Suite
+ * E2E — مسارات التنفيذ الحديثة المبنية على مخزن التنفيذ الحالي.
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type BrowserContext, type Page } from '@playwright/test';
+import { ensureLawyerDashboard, seedLawyerFiles } from './helpers/civilLawsuitFixtures';
+import { dismissProductivityBlockers, prepareProductivityE2E } from './helpers/productivityE2EFixtures';
+import { seedSyncedExecutionStorage } from './helpers/executionStorageFixtures';
 
-// ═══════════════════════════════════════════════════════════════════════════
-// TEST CONFIGURATION
-// ═══════════════════════════════════════════════════════════════════════════
+const EXECUTION_ROW_TEXT = /بلوب حيّ E2E|2026\/تنفيذ\/880/;
+
+async function dismissRepositoryIfBlocking(page: Page): Promise<void> {
+    const modal = page.getByTestId('smart-repository-modal');
+    const isVisible = await modal.isVisible().catch(() => false);
+    if (!isVisible) return;
+
+    const ariaHidden = await modal.getAttribute('aria-hidden').catch(() => null);
+    if (ariaHidden === 'true') return;
+
+    const closeButton = page.getByTestId('smart-repository-close');
+    if (await closeButton.isVisible().catch(() => false)) {
+        await closeButton.click({ force: true }).catch(() => undefined);
+    } else {
+        await page.keyboard.press('Escape').catch(() => undefined);
+    }
+
+    await expect(async () => {
+        const stillVisible = await modal.isVisible().catch(() => false);
+        if (!stillVisible) return;
+        const hiddenState = await modal.getAttribute('aria-hidden').catch(() => null);
+        expect(hiddenState === 'true').toBeTruthy();
+    }).toPass({ timeout: 10_000 });
+}
+
+async function bootExecutionWorkspace(page: Page): Promise<void> {
+    await prepareProductivityE2E(page);
+    await seedLawyerFiles(page);
+    await seedSyncedExecutionStorage(page);
+    await resetExecutionWorkspace(page);
+}
+
+async function resetExecutionWorkspace(page: Page): Promise<void> {
+    await page.goto('/');
+    await expect(page.getByTestId('lawyer-dashboard-ready')).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByTestId('hub-archive-execution')).toBeVisible({ timeout: 25_000 });
+    await ensureLawyerDashboard(page);
+    await dismissProductivityBlockers(page);
+    await dismissRepositoryIfBlocking(page);
+}
+
+async function openExecutionArchive(page: Page): Promise<void> {
+    await dismissRepositoryIfBlocking(page);
+    await page.getByTestId('hub-archive-execution').scrollIntoViewIfNeeded();
+    await page.getByTestId('hub-archive-execution').click({ force: true });
+    await expect(page.getByTestId('execution-archive-shell')).toBeVisible({ timeout: 25_000 });
+    await expect(page.getByRole('heading', { name: /مخزن الأضابير التنفيذية/i })).toBeVisible({
+        timeout: 25_000,
+    });
+}
+
+async function expectExecutionArchiveReady(page: Page): Promise<void> {
+    await expect(async () => {
+        await expect(page.getByTestId('execution-archive-shell')).toBeVisible({ timeout: 10_000 });
+        await expect(page.getByTestId('execution-archive-search')).toBeVisible({ timeout: 10_000 });
+        await expect(page.getByText(EXECUTION_ROW_TEXT).first()).toBeVisible({ timeout: 10_000 });
+    }).toPass({ timeout: 30_000 });
+}
+
+async function openFirstExecutionDossier(page: Page): Promise<void> {
+    await expect(page.getByTestId('execution-dashboard-dossier')).toHaveCount(0, { timeout: 10_000 });
+    const row = page.getByText(EXECUTION_ROW_TEXT).first();
+    await row.scrollIntoViewIfNeeded();
+    await row.click();
+    await expect(page.getByTestId('execution-dashboard-dossier')).toBeVisible({ timeout: 25_000 });
+    await expect(page.getByText(/لم يتم العثور على بيانات التنفيذ/i)).toBeHidden({ timeout: 15_000 });
+}
+
+async function expectLawyerHomeReady(page: Page): Promise<void> {
+    await expect(async () => {
+        await expect(page.getByTestId('lawyer-dashboard-ready')).toBeVisible({ timeout: 10_000 });
+    }).toPass({ timeout: 30_000 });
+    await dismissRepositoryIfBlocking(page);
+}
+
+async function closeExecutionDossier(page: Page): Promise<void> {
+    const dossier = page.getByTestId('execution-dashboard-dossier');
+    const closeButton = dossier.getByTestId('execution-dashboard-close');
+    await closeButton.scrollIntoViewIfNeeded().catch(() => undefined);
+    if (await closeButton.isVisible().catch(() => false)) {
+        await closeButton.click({ force: true }).catch(() => undefined);
+    }
+    await expect(async () => {
+        const count = await dossier.count();
+        if (count === 0) return;
+
+        const visible = await dossier.isVisible().catch(() => false);
+        if (visible) {
+            await page.keyboard.press('Escape').catch(() => undefined);
+        }
+
+        const nextCount = await dossier.count();
+        if (nextCount === 0) return;
+
+        const nextVisible = await dossier.isVisible().catch(() => false);
+        expect(nextVisible).toBeFalsy();
+    }).toPass({ timeout: 30_000 });
+    await expectLawyerHomeReady(page);
+}
 
 test.describe('Execution Dashboard E2E', () => {
-    test.beforeEach(async ({ page }) => {
-        // Navigate to the application
-        await page.goto('/');
-        
-        // Wait for splash screen to disappear (if any)
-        await page.waitForTimeout(2000);
+    test.describe.configure({ timeout: 120_000, mode: 'serial' });
+
+    let context: BrowserContext;
+    let page: Page;
+
+    test.beforeAll(async ({ browser }) => {
+        context = await browser.newContext();
+        page = await context.newPage();
+        await bootExecutionWorkspace(page);
     });
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // NAVIGATION TESTS
-    // ─────────────────────────────────────────────────────────────────────────
-
-    test.describe('Navigation', () => {
-        test('should navigate to execution dashboard', async ({ page }) => {
-            // Click on lawyer role
-            await page.click('[data-testid="lawyer-role"]');
-            
-            // Navigate to execution section
-            await page.click('[data-testid="execution-section"]');
-            
-            // Verify execution dashboard is visible
-            await expect(page.locator('[data-testid="execution-dashboard"]')).toBeVisible();
-        });
-
-        test('should open execution file modal', async ({ page }) => {
-            // Navigate to execution dashboard
-            await page.click('[data-testid="lawyer-role"]');
-            await page.click('[data-testid="execution-section"]');
-            
-            // Click on first execution file
-            await page.click('[data-testid="execution-file"]:first-child');
-            
-            // Verify modal is open
-            await expect(page.locator('[data-testid="execution-modal"]')).toBeVisible();
-        });
+    test.beforeEach(async () => {
+        await resetExecutionWorkspace(page);
     });
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // HEADER TESTS
-    // ─────────────────────────────────────────────────────────────────────────
-
-    test.describe('Execution Header', () => {
-        test('should display execution file information', async ({ page }) => {
-            await page.click('[data-testid="lawyer-role"]');
-            await page.click('[data-testid="execution-section"]');
-            await page.click('[data-testid="execution-file"]:first-child');
-            
-            // Check header elements
-            await expect(page.locator('[data-testid="execution-case-no"]')).toBeVisible();
-            await expect(page.locator('[data-testid="execution-court"]')).toBeVisible();
-            await expect(page.locator('[data-testid="execution-status"]')).toBeVisible();
-        });
-
-        test('should show progress bar', async ({ page }) => {
-            await page.click('[data-testid="lawyer-role"]');
-            await page.click('[data-testid="execution-section"]');
-            await page.click('[data-testid="execution-file"]:first-child');
-            
-            await expect(page.locator('[data-testid="execution-progress-bar"]')).toBeVisible();
-        });
-
-        test('should display financial stats', async ({ page }) => {
-            await page.click('[data-testid="lawyer-role"]');
-            await page.click('[data-testid="execution-section"]');
-            await page.click('[data-testid="execution-file"]:first-child');
-            
-            await expect(page.locator('[data-testid="total-amount"]')).toBeVisible();
-            await expect(page.locator('[data-testid="paid-amount"]')).toBeVisible();
-            await expect(page.locator('[data-testid="remaining-amount"]')).toBeVisible();
-        });
+    test.afterAll(async () => {
+        await context.close();
     });
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // PAYMENTS TESTS
-    // ─────────────────────────────────────────────────────────────────────────
-
-    test.describe('Payments Section', () => {
-        test('should display payments list', async ({ page }) => {
-            await page.click('[data-testid="lawyer-role"]');
-            await page.click('[data-testid="execution-section"]');
-            await page.click('[data-testid="execution-file"]:first-child');
-            
-            // Click on payments tab
-            await page.click('[data-testid="payments-tab"]');
-            
-            await expect(page.locator('[data-testid="payments-section"]')).toBeVisible();
-        });
-
-        test('should add new payment', async ({ page }) => {
-            await page.click('[data-testid="lawyer-role"]');
-            await page.click('[data-testid="execution-section"]');
-            await page.click('[data-testid="execution-file"]:first-child');
-            await page.click('[data-testid="payments-tab"]');
-            
-            // Click add payment button
-            await page.click('[data-testid="add-payment-btn"]');
-            
-            // Fill payment form
-            await page.fill('[data-testid="payment-amount"]', '10000');
-            await page.fill('[data-testid="payment-date"]', '2026-03-17');
-            await page.selectOption('[data-testid="payment-method"]', 'cash');
-            
-            // Submit payment
-            await page.click('[data-testid="submit-payment-btn"]');
-            
-            // Verify success message
-            await expect(page.locator('.toast-success')).toBeVisible();
-        });
-
-        test('should filter payments', async ({ page }) => {
-            await page.click('[data-testid="lawyer-role"]');
-            await page.click('[data-testid="execution-section"]');
-            await page.click('[data-testid="execution-file"]:first-child');
-            await page.click('[data-testid="payments-tab"]');
-            
-            // Apply filter
-            await page.selectOption('[data-testid="payment-filter"]', 'completed');
-            
-            // Wait for filtered results
-            await page.waitForTimeout(500);
-            
-            // Verify filtered payments are displayed
-            const payments = await page.locator('[data-testid="payment-item"]').count();
-            expect(payments).toBeGreaterThan(0);
-        });
-
-        test('should sort payments', async ({ page }) => {
-            await page.click('[data-testid="lawyer-role"]');
-            await page.click('[data-testid="execution-section"]');
-            await page.click('[data-testid="execution-file"]:first-child');
-            await page.click('[data-testid="payments-tab"]');
-            
-            // Click sort button
-            await page.click('[data-testid="sort-payments-btn"]');
-            
-            // Wait for sort
-            await page.waitForTimeout(500);
-            
-            // Verify payments are re-ordered
-            const firstPayment = await page.locator('[data-testid="payment-item"]:first-child').textContent();
-            expect(firstPayment).toBeTruthy();
-        });
+    test('يفتح مخزن التنفيذ من الشاشة الرئيسية', async () => {
+        await openExecutionArchive(page);
+        await expectExecutionArchiveReady(page);
     });
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // TIMELINE TESTS
-    // ─────────────────────────────────────────────────────────────────────────
-
-    test.describe('Timeline Section', () => {
-        test('should display timeline events', async ({ page }) => {
-            await page.click('[data-testid="lawyer-role"]');
-            await page.click('[data-testid="execution-section"]');
-            await page.click('[data-testid="execution-file"]:first-child');
-            
-            // Click on timeline tab
-            await page.click('[data-testid="timeline-tab"]');
-            
-            await expect(page.locator('[data-testid="timeline-section"]')).toBeVisible();
-        });
-
-        test('should filter timeline by event type', async ({ page }) => {
-            await page.click('[data-testid="lawyer-role"]');
-            await page.click('[data-testid="execution-section"]');
-            await page.click('[data-testid="execution-file"]:first-child');
-            await page.click('[data-testid="timeline-tab"]');
-            
-            // Select event type filter
-            await page.selectOption('[data-testid="timeline-filter"]', 'payment');
-            
-            await page.waitForTimeout(500);
-            
-            // Verify only payment events are shown
-            const events = await page.locator('[data-testid="timeline-event"]').count();
-            expect(events).toBeGreaterThan(0);
-        });
-
-        test('should export timeline', async ({ page }) => {
-            await page.click('[data-testid="lawyer-role"]');
-            await page.click('[data-testid="execution-section"]');
-            await page.click('[data-testid="execution-file"]:first-child');
-            await page.click('[data-testid="timeline-tab"]');
-            
-            // Click export button
-            const downloadPromise = page.waitForEvent('download');
-            await page.click('[data-testid="export-timeline-btn"]');
-            
-            const download = await downloadPromise;
-            expect(download.suggestedFilename()).toContain('timeline');
-        });
+    test('يفتح إضبارة التنفيذ المزوعة ويعرض المذكرة', async () => {
+        await openExecutionArchive(page);
+        await openFirstExecutionDossier(page);
+        await expect(page.getByTestId('execution-dashboard-dossier')).toBeVisible();
     });
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // PARTIES TESTS
-    // ─────────────────────────────────────────────────────────────────────────
-
-    test.describe('Parties Section', () => {
-        test('should display creditors and debtors', async ({ page }) => {
-            await page.click('[data-testid="lawyer-role"]');
-            await page.click('[data-testid="execution-section"]');
-            await page.click('[data-testid="execution-file"]:first-child');
-            
-            // Click on parties tab
-            await page.click('[data-testid="parties-tab"]');
-            
-            await expect(page.locator('[data-testid="creditors-list"]')).toBeVisible();
-            await expect(page.locator('[data-testid="debtors-list"]')).toBeVisible();
-        });
-
-        test('should expand party details', async ({ page }) => {
-            await page.click('[data-testid="lawyer-role"]');
-            await page.click('[data-testid="execution-section"]');
-            await page.click('[data-testid="execution-file"]:first-child');
-            await page.click('[data-testid="parties-tab"]');
-            
-            // Click on first party to expand
-            await page.click('[data-testid="party-card"]:first-child');
-            
-            // Verify expanded details are visible
-            await expect(page.locator('[data-testid="party-details"]')).toBeVisible();
-        });
+    test('إغلاق الإضبارة يعيد المستخدم إلى لوحة المحامي', async () => {
+        await openExecutionArchive(page);
+        await openFirstExecutionDossier(page);
+        await closeExecutionDossier(page);
     });
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // ACTIONS TESTS
-    // ─────────────────────────────────────────────────────────────────────────
-
-    test.describe('Quick Actions', () => {
-        test('should display action buttons', async ({ page }) => {
-            await page.click('[data-testid="lawyer-role"]');
-            await page.click('[data-testid="execution-section"]');
-            await page.click('[data-testid="execution-file"]:first-child');
-            
-            await expect(page.locator('[data-testid="actions-bar"]')).toBeVisible();
-        });
-
-        test('should open notification modal', async ({ page }) => {
-            await page.click('[data-testid="lawyer-role"]');
-            await page.click('[data-testid="execution-section"]');
-            await page.click('[data-testid="execution-file"]:first-child');
-            
-            await page.click('[data-testid="notify-debtor-btn"]');
-            
-            await expect(page.locator('[data-testid="notification-modal"]')).toBeVisible();
-        });
-
-        test('should print execution file', async ({ page }) => {
-            await page.click('[data-testid="lawyer-role"]');
-            await page.click('[data-testid="execution-section"]');
-            await page.click('[data-testid="execution-file"]:first-child');
-            
-            // Mock print dialog
-            page.on('dialog', async dialog => {
-                expect(dialog.type()).toBe('print');
-                await dialog.accept();
-            });
-            
-            await page.click('[data-testid="print-btn"]');
-        });
+    test('لوحة الفلاتر تفتح من شريط البحث', async () => {
+        await openExecutionArchive(page);
+        const panel = page.getByTestId('execution-archive-filters-panel');
+        await expect(panel).toHaveAttribute('aria-hidden', 'true');
+        await page.getByTestId('execution-archive-filters-toggle').click();
+        await expect(panel).toHaveAttribute('aria-hidden', 'false');
+        await expect(page.getByTestId('execution-archive-filter-civil')).toBeVisible();
     });
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // PERFORMANCE TESTS
-    // ─────────────────────────────────────────────────────────────────────────
-
-    test.describe('Performance', () => {
-        test('should load dashboard quickly', async ({ page }) => {
-            const startTime = Date.now();
-            
-            await page.click('[data-testid="lawyer-role"]');
-            await page.click('[data-testid="execution-section"]');
-            await page.waitForSelector('[data-testid="execution-dashboard"]');
-            
-            const loadTime = Date.now() - startTime;
-            
-            // Dashboard should load in less than 3 seconds
-            expect(loadTime).toBeLessThan(3000);
-        });
-
-        test('should handle large payment lists', async ({ page }) => {
-            await page.click('[data-testid="lawyer-role"]');
-            await page.click('[data-testid="execution-section"]');
-            await page.click('[data-testid="execution-file"]:first-child');
-            await page.click('[data-testid="payments-tab"]');
-            
-            // Scroll through payments
-            const paymentsSection = page.locator('[data-testid="payments-section"]');
-            await paymentsSection.evaluate(el => el.scrollTop = el.scrollHeight);
-            
-            // Should remain responsive
-            await page.waitForTimeout(100);
-            const isVisible = await page.locator('[data-testid="payments-section"]').isVisible();
-            expect(isVisible).toBe(true);
-        });
+    test('التبديل إلى الأرشيف يصفر البحث ويخفي زر الإضافة', async () => {
+        await openExecutionArchive(page);
+        await page.getByTestId('execution-archive-search').fill('اختبار');
+        await page.getByTestId('executions-view-archived').click();
+        await expect(page.getByTestId('execution-archive-search')).toHaveValue('');
+        await expect(page.getByTestId('executions-add-new')).toBeHidden();
     });
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // ACCESSIBILITY TESTS
-    // ─────────────────────────────────────────────────────────────────────────
-
-    test.describe('Accessibility', () => {
-        test('should be keyboard navigable', async ({ page }) => {
-            await page.click('[data-testid="lawyer-role"]');
-            await page.click('[data-testid="execution-section"]');
-            
-            // Navigate using Tab key
-            await page.keyboard.press('Tab');
-            await page.keyboard.press('Tab');
-            await page.keyboard.press('Enter');
-            
-            // Modal should open
-            await expect(page.locator('[data-testid="execution-modal"]')).toBeVisible();
-        });
-
-        test('should have proper ARIA labels', async ({ page }) => {
-            await page.click('[data-testid="lawyer-role"]');
-            await page.click('[data-testid="execution-section"]');
-            await page.click('[data-testid="execution-file"]:first-child');
-            
-            // Check for ARIA labels
-            const closeButton = page.locator('[aria-label="إغلاق"]');
-            await expect(closeButton).toBeVisible();
-        });
+    test('إجراء الأرشفة يفتح نافذة التأكيد', async () => {
+        await openExecutionArchive(page);
+        await page.getByTestId('execution-smart-card-archive').first().click();
+        const dialog = page.getByTestId('execution-archive-confirm-dialog');
+        await expect(dialog).toBeVisible({ timeout: 8_000 });
+        await expect(dialog.getByRole('heading', { name: /تأكيد الأرشفة/i })).toBeVisible();
+        await dialog.getByRole('button', { name: /إلغاء/i }).click();
+        await expect(dialog).toBeHidden({ timeout: 8_000 });
     });
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // ERROR HANDLING TESTS
-    // ─────────────────────────────────────────────────────────────────────────
-
-    test.describe('Error Handling', () => {
-        test('should handle network errors gracefully', async ({ page }) => {
-            // Simulate offline mode
-            await page.route('**/*', route => route.abort());
-            
-            await page.click('[data-testid="lawyer-role"]');
-            await page.click('[data-testid="execution-section"]');
-            
-            // Should show error message
-            await expect(page.locator('[data-testid="error-message"]')).toBeVisible();
+    test('إجراء السلة يفتح نافذة التأكيد', async () => {
+        await openExecutionArchive(page);
+        await page.getByTestId('execution-smart-card-trash').first().click();
+        await expect(page.getByRole('heading', { name: /تأكيد النقل إلى سلة المهملات/i })).toBeVisible({
+            timeout: 8_000,
         });
-
-        test('should show loading states', async ({ page }) => {
-            await page.click('[data-testid="lawyer-role"]');
-            
-            // Should show loading spinner
-            await expect(page.locator('[data-testid="loading-spinner"]')).toBeVisible();
-            
-            // Wait for content to load
-            await page.waitForSelector('[data-testid="execution-section"]');
-            
-            // Loading spinner should disappear
-            await expect(page.locator('[data-testid="loading-spinner"]')).not.toBeVisible();
+        await page.getByRole('button', { name: /إلغاء/i }).click();
+        await expect(page.getByRole('heading', { name: /تأكيد النقل إلى سلة المهملات/i })).toBeHidden({
+            timeout: 8_000,
         });
     });
 });
-
-// ═══════════════════════════════════════════════════════════════════════════
-// SUMMARY
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * E2E Test Coverage Summary:
- * 
- * ✅ Navigation Tests (2)
- * ✅ Header Tests (3)
- * ✅ Payments Tests (4)
- * ✅ Timeline Tests (3)
- * ✅ Parties Tests (2)
- * ✅ Actions Tests (3)
- * ✅ Performance Tests (2)
- * ✅ Accessibility Tests (2)
- * ✅ Error Handling Tests (2)
- * 
- * Total: 23 E2E tests
- * Coverage: Complete user workflows
- */

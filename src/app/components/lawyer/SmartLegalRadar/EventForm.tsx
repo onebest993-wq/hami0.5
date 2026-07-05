@@ -26,6 +26,16 @@ export const EventForm = React.memo(function EventForm({
     onSave,
     onDelete,
 }: EventFormProps) {
+    const openNativePicker = (target: HTMLInputElement) => {
+        if (typeof target.showPicker === 'function') {
+            try {
+                target.showPicker();
+            } catch {
+                /* ignore unsupported picker behavior */
+            }
+        }
+    };
+
     useEffect(() => {
         if (!show) return;
         const onKey = (e: KeyboardEvent) => {
@@ -44,6 +54,7 @@ export const EventForm = React.memo(function EventForm({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.14, ease: 'easeOut' }}
             className={RADAR_FORM_OVERLAY}
             data-testid="radar-event-form-overlay"
             onClick={() => {
@@ -51,13 +62,14 @@ export const EventForm = React.memo(function EventForm({
             }}
         >
             <motion.div
-                initial={{ y: '100%', opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: '100%', opacity: 0 }}
-                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                initial={{ y: 20, opacity: 0, scale: 0.985 }}
+                animate={{ y: 0, opacity: 1, scale: 1 }}
+                exit={{ y: 12, opacity: 0, scale: 0.99 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
                 className={`w-full sm:max-w-lg ${RADAR_GLASS_PANEL} rounded-t-2xl sm:rounded-2xl p-5 max-h-[90vh] overflow-y-auto border-t sm:border border-[#F5EDE0]/12`}
                 data-testid="radar-event-form"
                 onClick={(e) => e.stopPropagation()}
+                style={{ willChange: 'transform, opacity' }}
             >
                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#C4956A]/45 to-transparent" />
 
@@ -96,7 +108,8 @@ export const EventForm = React.memo(function EventForm({
                                 type="date"
                                 value={formData.date}
                                 onChange={(e) => onFormChange('date', e.target.value)}
-                                className={`${RADAR_INPUT} [color-scheme:dark]`}
+                                onFocus={(e) => openNativePicker(e.currentTarget)}
+                                className={`${RADAR_INPUT} min-h-[44px] touch-manipulation [color-scheme:dark]`}
                             />
                         </div>
                         <div>
@@ -104,8 +117,10 @@ export const EventForm = React.memo(function EventForm({
                             <input
                                 type="time"
                                 value={formData.time}
+                                step={300}
                                 onChange={(e) => onFormChange('time', e.target.value)}
-                                className={`${RADAR_INPUT} [color-scheme:dark]`}
+                                onFocus={(e) => openNativePicker(e.currentTarget)}
+                                className={`${RADAR_INPUT} min-h-[44px] touch-manipulation [color-scheme:dark]`}
                             />
                         </div>
                     </div>
@@ -147,7 +162,7 @@ export const EventForm = React.memo(function EventForm({
                     <button
                         type="button"
                         data-testid="radar-event-save"
-                        onClick={onSave}
+                        onClick={() => void onSave()}
                         disabled={saving || !formData.title.trim() || !formData.date}
                         className={`flex-1 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all ${
                             saving || !formData.title.trim() || !formData.date

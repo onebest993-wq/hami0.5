@@ -10,6 +10,8 @@ import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { useSettingsShellFocusTrap } from './hooks/useSettingsShellFocusTrap';
 import { useSettingsMobileSuspend } from './hooks/useSettingsMobileSuspend';
 import { prefetchSettingsSection } from './settingsSectionLoader';
+import { DashboardWallpaperLayer } from '@/app/components/lawyer/DashboardWallpaperLayer';
+import { useLitePerformanceActive } from '@/app/hooks/useLitePerformanceActive';
 
 export type SettingsShellProps = {
     onClose: () => void;
@@ -18,6 +20,8 @@ export type SettingsShellProps = {
     children: React.ReactNode;
     /** false عند إخفاء الإعدادات مع keep-alive — لا scroll-lock */
     open?: boolean;
+    /** true بعد interactive — marker لـ E2E */
+    hydrated?: boolean;
 };
 
 const SECTION_IDS = SETTINGS_NAV.map((item) => item.id);
@@ -28,6 +32,7 @@ export function SettingsShell({
     onSectionChange,
     children,
     open = true,
+    hydrated = false,
 }: SettingsShellProps) {
     const reduceMotion = useReduceMotion();
     const shellRef = useRef<HTMLDivElement>(null);
@@ -36,7 +41,9 @@ export function SettingsShell({
     useSettingsMobileSuspend(open);
 
     const appearance = useLawyerSettingsAppearance();
-    const { hasWallpaper, shellBg, headerTint } = resolveSettingsShellStyle(appearance);
+    const litePerformance = useLitePerformanceActive();
+    const { wallpaperSrc, hasWallpaper, shellBg, headerTint } = resolveSettingsShellStyle(appearance);
+    const wallpaperEnabled = hasWallpaper && !litePerformance;
     const shellDir = appearance.language === 'en' ? 'ltr' : 'rtl';
 
     const onNavKeyDown = (event: React.KeyboardEvent) => {
@@ -54,18 +61,21 @@ export function SettingsShell({
     return (
         <div
             ref={shellRef}
-            className="fixed inset-0 z-[150] flex flex-col overflow-hidden font-sans"
+            className={`fixed inset-0 z-[150] flex flex-col overflow-hidden font-sans ${open ? '' : 'hidden pointer-events-none'}`}
             style={{ backgroundColor: shellBg }}
             data-hami-settings-shell=""
             data-testid="hami-settings-shell"
+            data-settings-hydrated={hydrated ? 'true' : 'false'}
             data-hami-wallpaper={hasWallpaper ? '1' : '0'}
             dir={shellDir}
             role="dialog"
-            aria-modal="true"
+            aria-modal={open ? 'true' : 'false'}
+            aria-hidden={!open}
             aria-label="مركز الإعدادات"
             onKeyDownCapture={onKeyDownCapture}
         >
-            {hasWallpaper ? (
+            <DashboardWallpaperLayer src={wallpaperSrc} enabled={wallpaperEnabled} />
+            {wallpaperEnabled ? (
                 <div className="fixed inset-0 z-0 pointer-events-none bg-[#0B1021]/50" aria-hidden />
             ) : null}
             <div className="relative z-[1] flex flex-col h-full min-h-0">
@@ -130,7 +140,6 @@ export function SettingsShell({
                     className="hami-settings-scroll-panel flex-1 overflow-y-auto px-6 pb-[max(5rem,env(safe-area-inset-bottom))] scrollbar-hide overscroll-contain"
                 >
                     {children}
-                    <p className="text-center text-[10px] text-white/20 mt-10 mb-4 font-mono">Hami Legal • v2</p>
                 </div>
             </div>
         </div>

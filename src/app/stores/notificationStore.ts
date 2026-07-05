@@ -70,6 +70,7 @@ interface NotificationState {
         userId: string,
         options?: { skipForumPersist?: boolean },
     ) => Promise<void>;
+    removeNotification: (notificationId: string) => void;
     addNotification: (notification: NotificationModel) => void;
     upsertNotification: (notification: NotificationModel) => void;
     upsertNotifications: (notifications: NotificationModel[]) => void;
@@ -195,6 +196,21 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
                 );
                 void syncShellMarkAllReadToForum(userId);
             }
+        }
+    },
+
+    removeNotification: (notificationId: string) => {
+        const { notifications, currentUserId } = get();
+        const updated = notifications.filter((n) => n.id !== notificationId);
+        if (updated.length === notifications.length) return;
+
+        set({
+            notifications: updated,
+            unreadCount: updated.filter((n) => !n.isRead).length,
+        });
+
+        if (currentUserId) {
+            void NotificationRepository.saveNotifications(currentUserId, updated);
         }
     },
 

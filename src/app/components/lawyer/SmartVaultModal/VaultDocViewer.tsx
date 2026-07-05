@@ -1,16 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { motion } from 'motion/react';
-import { X, ZoomIn, ExternalLink, FileText, ImageIcon } from 'lucide-react';
-import type { SmartVaultDoc } from '@/app/services/lawyer-cloud';
+import { X, ZoomIn, ExternalLink, FileText, ImageIcon, Music, File } from 'lucide-react';
+import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import { formatDate, formatFileSize } from '@/app/components/lawyer/hooks/useSmartVault';
 import type { VaultDocViewerKind } from '@/app/services/vaultUploadService';
-import { toVaultPdfViewerUrl } from '@/app/services/vaultUploadService';
+import { vaultMediaKindLabel } from '@/app/services/vault/vaultDocUtils';
+import {
+    prefetchVaultPdfJsViewer,
+    VaultPdfJsViewerLazy,
+} from '@/app/components/lawyer/SmartVaultModal/VaultPdfJsViewerLazy';
 import { VAULT_SHEET_OVERLAY_VIEWPORT } from './vaultDustyRoseTheme';
 
 interface VaultDocViewerProps {
     doc: SmartVaultDoc;
     fileUrl: string;
+    fileBlob?: Blob | null;
     kind: VaultDocViewerKind;
     onClose: () => void;
     overlayScope?: 'panel' | 'viewport';
@@ -19,42 +23,39 @@ interface VaultDocViewerProps {
 const PANEL_OVERLAY =
     'absolute inset-0 z-[50] flex flex-col bg-[#1a1614]/95 backdrop-blur-md min-h-0';
 
+function kindIcon(kind: VaultDocViewerKind) {
+    switch (kind) {
+        case 'pdf':
+            return FileText;
+        case 'audio':
+            return Music;
+        case 'file':
+            return File;
+        default:
+            return ImageIcon;
+    }
+}
+
 export const VaultDocViewer: React.FC<VaultDocViewerProps> = ({
     doc,
     fileUrl,
+    fileBlob,
     kind,
     onClose,
     overlayScope = 'panel',
 }) => {
     const isPdf = kind === 'pdf';
-    const [pdfSrc, setPdfSrc] = useState<string | null>(isPdf ? null : fileUrl);
-    const [pdfError, setPdfError] = useState(false);
+    const isImage = kind === 'image';
+    const isAudio = kind === 'audio';
+    const [imageError, setImageError] = useState(false);
 
     useEffect(() => {
-        if (!isPdf) return;
-        let revoked: string | null = null;
-        let cancelled = false;
-        setPdfError(false);
-        void toVaultPdfViewerUrl(fileUrl)
-            .then((blobUrl) => {
-                if (cancelled) {
-                    URL.revokeObjectURL(blobUrl);
-                    return;
-                }
-                revoked = blobUrl;
-                setPdfSrc(blobUrl);
-            })
-            .catch(() => {
-                if (!cancelled) {
-                    setPdfSrc(fileUrl);
-                    setPdfError(true);
-                }
-            });
-        return () => {
-            cancelled = true;
-            if (revoked) URL.revokeObjectURL(revoked);
-        };
-    }, [fileUrl, isPdf]);
+        setImageError(false);
+    }, [fileUrl, isImage]);
+
+    useEffect(() => {
+        if (isPdf) prefetchVaultPdfJsViewer();
+    }, [isPdf]);
 
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
@@ -64,17 +65,17 @@ export const VaultDocViewer: React.FC<VaultDocViewerProps> = ({
         return () => window.removeEventListener('keydown', onKeyDown);
     }, [onClose]);
 
-    const openUrl = pdfSrc ?? fileUrl;
+    const openUrl = fileUrl;
     const overlayClass =
         overlayScope === 'viewport'
             ? `${VAULT_SHEET_OVERLAY_VIEWPORT} flex flex-col !items-stretch !justify-stretch bg-[#1a1614]/96 min-h-0`
             : PANEL_OVERLAY;
 
+    const KindIcon = kindIcon(kind);
+    const kindLabel = vaultMediaKindLabel(kind);
+
     const viewer = (
-        <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+        <div
             className={overlayClass}
             dir="rtl"
             onClick={onClose}
@@ -93,11 +94,13 @@ export const VaultDocViewer: React.FC<VaultDocViewerProps> = ({
                             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold border ${
                                 isPdf
                                     ? 'bg-[#B8A078]/15 text-[#B8A078] border-[#B8A078]/30'
-                                    : 'bg-[#C9A9A6]/15 text-[#C9A9A6] border-[#C9A9A6]/30'
+                                    : isAudio
+                                      ? 'bg-[#8B9DC3]/15 text-[#8B9DC3] border-[#8B9DC3]/30'
+                                      : 'bg-[#C9A9A6]/15 text-[#C9A9A6] border-[#C9A9A6]/30'
                             }`}
                         >
-                            {isPdf ? <FileText size={10} /> : <ImageIcon size={10} />}
-                            {isPdf ? 'PDF' : 'صورة'}
+                            <KindIcon size={10} />
+                            {kindLabel}
                         </span>
                     </div>
                     <h3 className="text-[#F7F3EB] font-bold text-sm truncate">{doc.title}</h3>
@@ -125,50 +128,75 @@ export const VaultDocViewer: React.FC<VaultDocViewerProps> = ({
             ) : null}
 
             <div
-                className="flex-1 min-h-0 flex flex-col p-4 overflow-hidden"
+                className="flex-1 min-h-0 flex flex-col p-4 overflow-hidden bg-[#1a1614]"
                 onClick={(e) => e.stopPropagation()}
             >
                 {isPdf ? (
-                    pdfSrc ? (
-                        <>
-                            <object
-                                data={pdfSrc}
-                                type="application/pdf"
-                                className="flex-1 w-full min-h-0 rounded-lg border border-white/10 bg-white shadow-2xl"
-                            >
-                                <iframe
-                                    src={pdfSrc}
-                                    title={doc.title}
-                                    className="w-full h-full min-h-[50vh] rounded-lg border-0"
-                                />
-                            </object>
-                            {pdfError ? (
-                                <p className="shrink-0 text-center text-amber-400/80 text-[10px] mt-2">
-                                    إن لم تظهر المعاينة، استخدم زر الفتح في نافذة جديدة
-                                </p>
-                            ) : null}
-                        </>
-                    ) : (
-                        <div className="flex-1 flex items-center justify-center text-white/40 text-sm">جاري تحميل PDF...</div>
-                    )
-                ) : (
+                    <VaultPdfJsViewerLazy
+                        source={fileBlob ?? fileUrl}
+                        title={doc.title}
+                        openUrl={openUrl}
+                        fallbackClassName="flex h-full items-center justify-center text-sm text-white/45"
+                    />
+                ) : isImage ? (
                     <div className="flex-1 flex items-center justify-center overflow-auto custom-scrollbar">
-                        <div className="relative max-w-full max-h-full">
-                            <img
-                                src={fileUrl}
-                                alt={doc.title}
-                                className="max-w-full max-h-[calc(100dvh-200px)] object-contain rounded-lg shadow-2xl"
-                                draggable={false}
-                            />
-                            <div className="absolute bottom-3 left-3 flex items-center gap-1 px-2 py-1 rounded-lg bg-black/50 text-white/50 text-[10px]">
-                                <ZoomIn size={12} />
-                                معاينة داخل التطبيق
+                        {imageError ? (
+                            <div className="text-center text-white/50 text-sm px-4">
+                                <p className="mb-2">تعذر عرض الصورة</p>
+                                <a
+                                    href={fileUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[#E6C673] underline text-xs"
+                                >
+                                    فتح في نافذة جديدة
+                                </a>
                             </div>
-                        </div>
+                        ) : (
+                            <div className="relative max-w-full max-h-full">
+                                <img
+                                    src={fileUrl}
+                                    alt={doc.title}
+                                    className="max-w-full max-h-[calc(100dvh-200px)] object-contain rounded-lg shadow-2xl"
+                                    draggable={false}
+                                    onError={() => setImageError(true)}
+                                />
+                                <div className="absolute bottom-3 left-3 flex items-center gap-1 px-2 py-1 rounded-lg bg-black/50 text-white/50 text-[10px]">
+                                    <ZoomIn size={12} />
+                                    معاينة داخل التطبيق
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                ) : isAudio ? (
+                    <div className="flex-1 flex flex-col items-center justify-center gap-4 px-4">
+                        <Music size={48} className="text-[#E6C673]/60" />
+                        <audio
+                            controls
+                            src={fileUrl}
+                            className="w-full max-w-md"
+                            preload="metadata"
+                        >
+                            متصفحك لا يدعم تشغيل الصوت
+                        </audio>
+                    </div>
+                ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-4">
+                        <File size={48} className="text-white/30" />
+                        <p className="text-white/60 text-sm">{doc.fileName || doc.title}</p>
+                        <a
+                            href={fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-[#E6C673]/30 text-[#E6C673] text-sm font-bold hover:bg-[#E6C673]/10"
+                        >
+                            <ExternalLink size={16} />
+                            فتح الملف
+                        </a>
                     </div>
                 )}
             </div>
-        </motion.div>
+        </div>
     );
 
     if (overlayScope === 'viewport' && typeof document !== 'undefined') {

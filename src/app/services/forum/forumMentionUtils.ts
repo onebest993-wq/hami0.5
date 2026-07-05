@@ -1,4 +1,4 @@
-import type { CommunityPost } from '@/app/services/lawyer-cloud';
+import type { CommunityPost } from '@/app/services/forum/forumTypes';
 
 const UUID_MENTION =
     /@([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi;

@@ -3,7 +3,7 @@ import type { RepositoryFeedLayoutId } from './repositoryFeedLayout';
 import type { GlobalNote } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
-import type { SmartVaultDoc } from '@/app/services/lawyer-cloud';
+import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import type { DossierPickerOption } from '@/app/services/repository/repositoryDossierRegistry';
 import {
     repositoryFeedFilterLabel,

@@ -1,4 +1,4 @@
-import type { ForumNotification } from '@/app/services/lawyer-cloud';
+import type { ForumNotification } from '@/app/services/forum/forumTypes';
 import { useNotificationStore } from '@/app/stores/notificationStore';
 import { mapForumNotificationToModel } from '@/app/services/notifications/forumNotificationMapper';
 

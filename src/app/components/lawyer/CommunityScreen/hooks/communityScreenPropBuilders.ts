@@ -1,4 +1,5 @@
 import type { MutableRefObject, RefObject } from 'react';
+import { flushSync } from 'react-dom';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { RepositoryDocument } from '@/app/services/lawyer-cloud';
 import type { ForumFollowRecord } from '@/app/services/forum/forumFollowTypes';
@@ -9,14 +10,18 @@ import type { CommunitySection } from '../communitySectionState';
 import type { CommunityScreenBodyProps } from '../components/CommunityScreenBody';
 import type { CommunityScreenOverlaysProps } from '../components/CommunityScreenOverlays';
 import { openForumAddQuestionGuard } from '../components/CommunityScreenBody';
+import { prefetchCommunitySearchOverlay } from '../communityScreenLazyOverlays';
 
 export type CommunityScreenPropBuilderContext = {
     onBack?: () => void;
     activeSection: CommunitySection;
     setActiveSection: (section: CommunitySection) => void;
     setIsSearchOpen: (open: boolean) => void;
+    openSearchOverlay: () => void;
+    closeSearchOverlay: () => void;
     handleNavigateToPost: (postId: string) => void;
     currentUserId: string | null;
+    isBanned: boolean;
     selectedFilterIndex: number;
     setSelectedFilterIndex: (index: number) => void;
     repositorySearchTerm: string;
@@ -60,8 +65,9 @@ export type CommunityScreenPropBuilderContext = {
     followingIds: Set<string>;
     bookmarkedIds: Set<string>;
     handleToggleBookmark: (postId: string) => void;
-    handleSavePostToNotes: (postId: string) => void;
+    handleCopyPostText: (postId: string) => void;
     handleSavePostToVault: (postId: string) => void;
+    handleSavePostToDevice: (postId: string) => void;
     handleToggleLock: (postId: string) => void;
     handleMuteUser: (userId: string) => void;
     userStats: Record<string, { followerCount: number; postCount: number }>;
@@ -122,7 +128,6 @@ export type CommunityScreenPropBuilderContext = {
     newAttachment: CommunityPost['attachment'];
     removeAttachment: () => void;
     submittingPost: boolean;
-    uploadingAttachment: boolean;
     isRecordingVoice: boolean;
     voiceRecordingSec: number;
     imageInputRef: RefObject<HTMLInputElement | null>;
@@ -161,7 +166,11 @@ export function buildCommunityScreenBodyProps(ctx: CommunityScreenPropBuilderCon
         onBack: ctx.onBack,
         activeSection: ctx.activeSection,
         onSectionChange: ctx.setActiveSection,
-        onSearchOpen: () => ctx.setIsSearchOpen(true),
+        onSearchOpen: () => {
+            prefetchCommunitySearchOverlay();
+            flushSync(() => ctx.setShowFollowingPanel(false));
+            ctx.openSearchOverlay();
+        },
         onNavigateToPost: ctx.handleNavigateToPost,
         currentUserId: ctx.currentUserId,
         selectedFilterIndex: ctx.selectedFilterIndex,
@@ -175,14 +184,14 @@ export function buildCommunityScreenBodyProps(ctx: CommunityScreenPropBuilderCon
         repositorySelectedTag: ctx.repositorySelectedTag,
         onRepositoryTagChange: ctx.setRepositorySelectedTag,
         followingRecords: ctx.followingRecords,
-        onOpenFollowing: () => ctx.setShowFollowingPanel(true),
+        onOpenFollowing: () => flushSync(() => ctx.setShowFollowingPanel(true)),
         forumFeedScope: ctx.forumFeedScope,
         onForumFeedScopeChange: ctx.setForumFeedScope,
         forumStreamConnected: ctx.forumStreamConnected,
         onAppBarDropdownChange: ctx.setForumAppBarDropdownOpen,
         closeAppBarDropdownsRef: ctx.closeAppBarDropdownsRef,
         showFollowingPanel: ctx.showFollowingPanel,
-        onCloseFollowingPanel: () => ctx.setShowFollowingPanel(false),
+        onCloseFollowingPanel: () => flushSync(() => ctx.setShowFollowingPanel(false)),
         followerRecords: ctx.followerRecords,
         followingAuthorNames: ctx.followingAuthorNames,
         onUnfollow: (id) => void ctx.handleFollow(id),
@@ -208,8 +217,9 @@ export function buildCommunityScreenBodyProps(ctx: CommunityScreenPropBuilderCon
         followingIds: ctx.followingIds,
         bookmarkedIds: ctx.bookmarkedIds,
         onToggleBookmark: ctx.handleToggleBookmark,
-        onSaveToNotes: ctx.handleSavePostToNotes,
+        onCopyPostText: ctx.handleCopyPostText,
         onSaveToVault: ctx.handleSavePostToVault,
+        onSaveToDevice: ctx.handleSavePostToDevice,
         onToggleLock: ctx.handleToggleLock,
         onMuteUser: ctx.handleMuteUser,
         userStats: ctx.userStats,
@@ -239,7 +249,9 @@ export function buildCommunityScreenBodyProps(ctx: CommunityScreenPropBuilderCon
             ctx.setIsCreateGroupOpen(true);
         },
         joiningGroupId: ctx.joiningGroupId,
-        onOpenAddQuestion: () => openForumAddQuestionGuard(ctx.currentUserId, ctx.openAddQuestion),
+        onOpenAddQuestion: () =>
+            openForumAddQuestionGuard(ctx.currentUserId, ctx.openAddQuestion, { isBanned: ctx.isBanned }),
+        canPublishPost: Boolean(ctx.currentUserId) && !ctx.isBanned,
     };
 }
 
@@ -276,7 +288,7 @@ export function buildCommunityScreenOverlayProps(
         allSearchTags: ctx.allSearchTags,
         filteredPosts: ctx.filteredPosts,
         filteredRepositoryDocs: ctx.filteredRepositoryDocs,
-        onCloseSearch: () => ctx.setIsSearchOpen(false),
+        onCloseSearch: () => ctx.closeSearchOverlay(),
         onOpenPost: ctx.handleSearchOpenPost,
         onOpenDocument: ctx.handleSearchOpenDocument,
         isAddQuestionOpen: ctx.isAddQuestionOpen,
@@ -291,7 +303,6 @@ export function buildCommunityScreenOverlayProps(
         newAttachment: ctx.newAttachment,
         onRemoveAttachment: ctx.removeAttachment,
         submittingPost: ctx.submittingPost,
-        uploadingAttachment: ctx.uploadingAttachment,
         isRecordingVoice: ctx.isRecordingVoice,
         voiceRecordingSec: ctx.voiceRecordingSec,
         imageInputRef: ctx.imageInputRef,

@@ -6,8 +6,10 @@ import {
     computeMainVisualIndex,
     resolveMainIndicatorY,
     visualIndexToPlacementIndex,
+    type WidgetRectEntry,
 } from './homeLayoutDragUtils';
 import { resolveHomeLayoutEscapeAction } from './homeLayoutEscapeStack';
+import { lockBodyScroll } from '@/app/utils/bodyScrollLock';
 
 export type HomeLayoutSelectedBlockId = HomeWidgetId | 'dockShell';
 
@@ -40,12 +42,12 @@ type HomeLayoutEditContextValue = {
 
 const HomeLayoutEditContext = createContext<HomeLayoutEditContextValue | null>(null);
 
-const DOCK_SNAP_ABOVE_PX = 24;
-const DOCK_HIT_PAD_X = 24;
-const DOCK_HIT_PAD_Y = 16;
+const DOCK_SNAP_ABOVE_PX = 72;
+const DOCK_HIT_PAD_X = 32;
+const DOCK_HIT_PAD_Y = 48;
 const MAIN_DOCK_CLEARANCE_PX = 20;
-const AUTO_SCROLL_EDGE_PX = 72;
-const AUTO_SCROLL_STEP_PX = 14;
+const AUTO_SCROLL_EDGE_PX = 96;
+const AUTO_SCROLL_STEP_PX = 40;
 
 function mainZoneMaxY(scrollerBottom: number, dock: DOMRect | undefined): number {
     if (!dock) return scrollerBottom;
@@ -90,7 +92,9 @@ export function HomeLayoutEditProvider({
     const draggingWidgetIdRef = useRef<HomeWidgetId | null>(null);
     const dragSourceZoneRef = useRef<HomeWidgetZone | null>(null);
     const dropHighlightZoneRef = useRef<HomeWidgetZone | null>(null);
+    const dragSnapshotRef = useRef<Partial<Record<HomeWidgetZone, WidgetRectEntry[]>> | null>(null);
     const dragRafRef = useRef<number | null>(null);
+    const dragScrollLockReleaseRef = useRef<(() => void) | null>(null);
     const isEditingRef = useRef(isEditing);
     const onTransferWidgetRef = useRef(onTransferWidget);
     const getZoneOrderRef = useRef(getZoneOrder);
@@ -161,9 +165,15 @@ export function HomeLayoutEditProvider({
         return null;
     }, []);
 
+    const snapshotWidgetRects = useCallback((zone: HomeWidgetZone): WidgetRectEntry[] => {
+        const snap = dragSnapshotRef.current?.[zone];
+        if (snap?.length) return snap;
+        return widgetRectsRef.current[zone] ?? [];
+    }, []);
+
     const computePlacementIndex = useCallback(
         (zone: HomeWidgetZone, x: number, y: number, excludeId?: HomeWidgetId) => {
-            const items = widgetRectsRef.current[zone] ?? [];
+            const items = snapshotWidgetRects(zone);
             const order = getZoneOrderRef.current(zone);
 
             if (zone === 'main') {
@@ -175,17 +185,22 @@ export function HomeLayoutEditProvider({
 
             return computeDockPlacementIndex(x, y, items, order, excludeId);
         },
-        [],
+        [snapshotWidgetRects],
     );
+
+    const lastDropPreviewRef = useRef<DropPreview>(null);
 
     const updateDropPreview = useCallback(
         (x: number, y: number, zone: HomeWidgetZone | null, excludeId?: HomeWidgetId) => {
             if (!zone) {
-                setDropPreview(null);
+                if (lastDropPreviewRef.current !== null) {
+                    lastDropPreviewRef.current = null;
+                    setDropPreview(null);
+                }
                 return;
             }
 
-            const items = widgetRectsRef.current[zone] ?? [];
+            const items = snapshotWidgetRects(zone);
             const placementIndex = computePlacementIndex(zone, x, y, excludeId);
 
             let indicatorY: number | null = null;
@@ -196,9 +211,20 @@ export function HomeLayoutEditProvider({
                 indicatorY = resolveMainIndicatorY(visualIdx, items, excludeId);
             }
 
-            setDropPreview({ zone, placementIndex, indicatorY });
+            const next: DropPreview = { zone, placementIndex, indicatorY };
+            const prev = lastDropPreviewRef.current;
+            if (
+                prev &&
+                prev.zone === next.zone &&
+                prev.placementIndex === next.placementIndex &&
+                prev.indicatorY === next.indicatorY
+            ) {
+                return;
+            }
+            lastDropPreviewRef.current = next;
+            setDropPreview(next);
         },
-        [computePlacementIndex],
+        [computePlacementIndex, snapshotWidgetRects],
     );
 
     const refreshDropFromPointer = useCallback(() => {
@@ -239,9 +265,45 @@ export function HomeLayoutEditProvider({
     );
 
     const setDropZone = useCallback((zone: HomeWidgetZone | null) => {
+        if (dropHighlightZoneRef.current === zone) return;
         dropHighlightZoneRef.current = zone;
         setDropHighlightZone(zone);
     }, []);
+
+    const stopDragLoop = useCallback(() => {
+        if (dragRafRef.current !== null) {
+            cancelAnimationFrame(dragRafRef.current);
+            dragRafRef.current = null;
+        }
+    }, []);
+
+    const clearDragSurfaceLock = useCallback(() => {
+        if (typeof document === 'undefined') return;
+        delete document.documentElement.dataset.hamiHomeDragActive;
+        dragScrollLockReleaseRef.current?.();
+        dragScrollLockReleaseRef.current = null;
+        document.body.style.touchAction = '';
+    }, []);
+
+    const applyDragSurfaceLock = useCallback(() => {
+        if (typeof document === 'undefined') return;
+        document.documentElement.dataset.hamiHomeDragActive = '1';
+        dragScrollLockReleaseRef.current?.();
+        dragScrollLockReleaseRef.current = lockBodyScroll();
+        document.body.style.touchAction = 'none';
+    }, []);
+
+    const runDragFrame = useCallback(() => {
+        dragRafRef.current = null;
+        const id = draggingWidgetIdRef.current;
+        if (!id) return;
+
+        const { x, y } = lastPointerRef.current;
+        maybeAutoScroll(y);
+        const zone = resolveZoneAt(x, y);
+        setDropZone(zone);
+        updateDropPreview(x, y, zone, id);
+    }, [maybeAutoScroll, resolveZoneAt, setDropZone, updateDropPreview]);
 
     const beginDrag = useCallback(
         (widgetId: HomeWidgetId, clientX: number, clientY: number) => {
@@ -250,47 +312,52 @@ export function HomeLayoutEditProvider({
             setResizeBlockId(null);
             draggingWidgetIdRef.current = widgetId;
             dragSourceZoneRef.current = inferWidgetZone(widgetId, widgetRectsRef);
+            dragSnapshotRef.current = {
+                main: [...(widgetRectsRef.current.main ?? [])],
+                dock: [...(widgetRectsRef.current.dock ?? [])],
+            };
             lastPointerRef.current = { x: clientX, y: clientY };
             setDraggingWidgetId(widgetId);
+            applyDragSurfaceLock();
             const zone = resolveZoneAt(clientX, clientY) ?? dragSourceZoneRef.current;
             setDropZone(zone);
             updateDropPreview(clientX, clientY, zone, widgetId);
+            if (dragRafRef.current === null) {
+                dragRafRef.current = requestAnimationFrame(runDragFrame);
+            }
         },
-        [isEditing, resolveZoneAt, setDropZone, updateDropPreview],
+        [isEditing, resolveZoneAt, runDragFrame, setDropZone, updateDropPreview, applyDragSurfaceLock],
     );
 
     const cancelDrag = useCallback(() => {
+        stopDragLoop();
+        clearDragSurfaceLock();
+        dragSnapshotRef.current = null;
         draggingWidgetIdRef.current = null;
         dragSourceZoneRef.current = null;
         setDraggingWidgetId(null);
         setDropZone(null);
+        lastDropPreviewRef.current = null;
         setDropPreview(null);
-    }, [setDropZone]);
+    }, [setDropZone, stopDragLoop, clearDragSurfaceLock]);
 
     const updateDrag = useCallback(
         (clientX: number, clientY: number) => {
             lastPointerRef.current = { x: clientX, y: clientY };
             if (!draggingWidgetIdRef.current) return;
-
-            if (dragRafRef.current !== null) return;
-            dragRafRef.current = requestAnimationFrame(() => {
-                dragRafRef.current = null;
-                const id = draggingWidgetIdRef.current;
-                if (!id) return;
-                const { x, y } = lastPointerRef.current;
-                maybeAutoScroll(y);
-                const zone = resolveZoneAt(x, y);
-                setDropZone(zone);
-                updateDropPreview(x, y, zone, id);
-            });
+            if (dragRafRef.current === null) {
+                dragRafRef.current = requestAnimationFrame(runDragFrame);
+            }
         },
-        [resolveZoneAt, setDropZone, maybeAutoScroll, updateDropPreview],
+        [runDragFrame],
     );
 
     const endDrag = useCallback(() => {
         const id = draggingWidgetIdRef.current;
         if (!id) return;
 
+        stopDragLoop();
+        clearDragSurfaceLock();
         const { x, y } = lastPointerRef.current;
         const zone = resolveZoneAt(x, y) ?? dropHighlightZoneRef.current;
 
@@ -299,12 +366,14 @@ export function HomeLayoutEditProvider({
             onTransferWidgetRef.current(id, zone, idx);
         }
 
+        dragSnapshotRef.current = null;
         draggingWidgetIdRef.current = null;
         dragSourceZoneRef.current = null;
         setDraggingWidgetId(null);
         setDropZone(null);
+        lastDropPreviewRef.current = null;
         setDropPreview(null);
-    }, [resolveZoneAt, computePlacementIndex, setDropZone]);
+    }, [resolveZoneAt, computePlacementIndex, setDropZone, stopDragLoop, clearDragSurfaceLock]);
 
     useEffect(() => {
         if (!isEditing) return;
@@ -340,12 +409,14 @@ export function HomeLayoutEditProvider({
         window.addEventListener('keydown', onKeyDown);
         return () => {
             window.removeEventListener('keydown', onKeyDown);
-            if (dragRafRef.current !== null) {
-                cancelAnimationFrame(dragRafRef.current);
-                dragRafRef.current = null;
-            }
+            stopDragLoop();
+            clearDragSurfaceLock();
         };
-    }, [isEditing, cancelDrag, onExit, selectedBlockId]);
+    }, [isEditing, cancelDrag, onExit, selectedBlockId, stopDragLoop, clearDragSurfaceLock]);
+
+    useEffect(() => {
+        if (!isEditing) clearDragSurfaceLock();
+    }, [isEditing, clearDragSurfaceLock]);
 
     const value = useMemo(
         () => ({

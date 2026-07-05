@@ -2,6 +2,17 @@ import React, { useEffect, useRef } from 'react';
 import type { HomeWidgetZone } from '@/app/services/settings/homeLayout';
 import { useHomeLayoutEdit } from './HomeLayoutEditContext';
 
+const DOCK_ZONE_EXPAND = { top: 72, side: 32, bottom: 48 };
+
+function expandDockZoneRect(rect: DOMRect): DOMRect {
+    return new DOMRect(
+        rect.left - DOCK_ZONE_EXPAND.side,
+        rect.top - DOCK_ZONE_EXPAND.top,
+        rect.width + DOCK_ZONE_EXPAND.side * 2,
+        rect.height + DOCK_ZONE_EXPAND.top + DOCK_ZONE_EXPAND.bottom,
+    );
+}
+
 export function HomeDropZone({
     zone,
     className,
@@ -22,15 +33,19 @@ export function HomeDropZone({
             return;
         }
         const el = ref.current;
-        const report = () => registerZoneRect(zone, el.getBoundingClientRect());
+        const report = () => {
+            const rect = el.getBoundingClientRect();
+            registerZoneRect(zone, zone === 'dock' ? expandDockZoneRect(rect) : rect);
+        };
         report();
         const ro = new ResizeObserver(report);
         ro.observe(el);
-        window.addEventListener('scroll', report, true);
-        window.addEventListener('resize', report);
+        const scroller = el.closest('.hami-home-scroll-root');
+        scroller?.addEventListener('scroll', report, { passive: true });
+        window.addEventListener('resize', report, { passive: true });
         return () => {
             ro.disconnect();
-            window.removeEventListener('scroll', report, true);
+            scroller?.removeEventListener('scroll', report);
             window.removeEventListener('resize', report);
             registerZoneRect(zone, null);
         };

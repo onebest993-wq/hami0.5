@@ -12,9 +12,12 @@ function loadProfileCloudModule(): Promise<ProfileCloudModule> {
 }
 
 /** جلب الملف المهني — dynamic import لعدم ربط chunk الواجهة بـ lawyer-cloud monolith. */
-export async function fetchLawyerProfile(userId: string): Promise<LawyerProfileData> {
+export async function fetchLawyerProfile(
+    userId: string,
+    viewerIdOverride?: string | null,
+): Promise<LawyerProfileData> {
     const mod = await loadProfileCloudModule();
-    return mod.ProfileDB.getProfile(userId);
+    return mod.ProfileDB.getProfile(userId, viewerIdOverride);
 }
 
 /** للاختبارات — إعادة تعيين cache الوحدة. */

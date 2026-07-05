@@ -1,5 +1,5 @@
 import {
-    Trash2, Pencil, Flag, Pin, Lock, Unlock, VolumeX, BellRing, Bookmark, Book, FolderOpen,
+    Trash2, Pencil, Flag, Pin, Lock, Unlock, VolumeX, BellRing, Bookmark, Copy, FolderOpen, Download,
 } from 'lucide-react';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 import { FORUM_ACCENT_CHIP, FORUM_ICON_BTN, FORUM_TEXT_APRICOT } from '../forumPlumTheme';
@@ -16,8 +16,9 @@ export type QuestionCardToolbarProps = {
     isThreadFollowing: boolean;
     canLockUnlock: boolean;
     onToggleLock?: (postId: string) => void;
-    onSaveToNotes?: (postId: string) => void;
+    onCopyPostText?: (postId: string) => void;
     onSaveToVault?: (postId: string) => void;
+    onSaveToDevice?: (postId: string) => void;
     onToggleBookmark?: (postId: string) => void;
     onToggleThreadFollow?: (postId: string) => void;
     onMuteUser?: (userId: string) => void;
@@ -39,8 +40,9 @@ export function QuestionCardToolbar({
     isThreadFollowing,
     canLockUnlock,
     onToggleLock,
-    onSaveToNotes,
+    onCopyPostText,
     onSaveToVault,
+    onSaveToDevice,
     onToggleBookmark,
     onToggleThreadFollow,
     onMuteUser,
@@ -49,12 +51,18 @@ export function QuestionCardToolbar({
     onDelete,
     onReport,
 }: QuestionCardToolbarProps) {
+    const authorId = post.authorId || post.author_id || '';
+    const canSaveToVault = post.attachment && (post.attachment.type === 'image' || post.attachment.type === 'document');
+
     return (
         <>
             {canLockUnlock && onToggleLock ? (
                 <button
                     type="button"
-                    onClick={() => onToggleLock(post.id)}
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        onToggleLock(post.id);
+                    }}
                     className={`${FORUM_ICON_BTN} ${
                         isLocked
                             ? 'bg-red-950/40 text-red-300 hover:bg-red-950/60'
@@ -65,20 +73,52 @@ export function QuestionCardToolbar({
                     {isLocked ? <Lock size={15} /> : <Unlock size={15} />}
                 </button>
             ) : null}
-            {onSaveToNotes && currentUserId ? (
-                <button type="button" onClick={() => onSaveToNotes(post.id)} className={FORUM_ICON_BTN} title="حفظ في الملاحظات">
-                    <Book size={15} />
+            {onCopyPostText ? (
+                <button
+                    type="button"
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        onCopyPostText(post.id);
+                    }}
+                    className={FORUM_ICON_BTN}
+                    title="نسخ نص المنشور"
+                >
+                    <Copy size={15} />
                 </button>
             ) : null}
-            {onSaveToVault && currentUserId && post.attachment ? (
-                <button type="button" onClick={() => onSaveToVault(post.id)} className={FORUM_ICON_BTN} title="حفظ المرفق في المخزن">
+            {onSaveToVault && currentUserId && canSaveToVault ? (
+                <button
+                    type="button"
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        onSaveToVault(post.id);
+                    }}
+                    className={FORUM_ICON_BTN}
+                    title="حفظ المرفق في المستودع الذكي"
+                >
                     <FolderOpen size={15} />
+                </button>
+            ) : null}
+            {onSaveToDevice && post.attachment ? (
+                <button
+                    type="button"
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        onSaveToDevice(post.id);
+                    }}
+                    className={FORUM_ICON_BTN}
+                    title="حفظ في الجهاز"
+                >
+                    <Download size={15} />
                 </button>
             ) : null}
             {onToggleBookmark && currentUserId ? (
                 <button
                     type="button"
-                    onClick={() => onToggleBookmark(post.id)}
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        onToggleBookmark(post.id);
+                    }}
                     className={`${FORUM_ICON_BTN} ${
                         isBookmarked
                             ? `${FORUM_ACCENT_CHIP} ${FORUM_TEXT_APRICOT}`
@@ -92,7 +132,10 @@ export function QuestionCardToolbar({
             {onToggleThreadFollow && currentUserId ? (
                 <button
                     type="button"
-                    onClick={() => onToggleThreadFollow(post.id)}
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        onToggleThreadFollow(post.id);
+                    }}
                     className={`${FORUM_ICON_BTN} ${
                         isThreadFollowing
                             ? `${FORUM_ACCENT_CHIP} ${FORUM_TEXT_APRICOT}`
@@ -104,14 +147,25 @@ export function QuestionCardToolbar({
                 </button>
             ) : null}
             {!isOwner && !isAnonymous && onMuteUser ? (
-                <button type="button" onClick={() => onMuteUser(post.authorId)} className={FORUM_ICON_BTN} title="كتم منشورات هذا المستخدم">
+                <button
+                    type="button"
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        onMuteUser(authorId);
+                    }}
+                    className={FORUM_ICON_BTN}
+                    title="كتم منشورات هذا المستخدم"
+                >
                     <VolumeX size={15} />
                 </button>
             ) : null}
             {isAdmin ? (
                 <button
                     type="button"
-                    onClick={() => onTogglePin(post.id)}
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        onTogglePin(post.id);
+                    }}
                     className={`${FORUM_ICON_BTN} ${
                         isPinned
                             ? 'bg-amber-950/40 text-amber-300 hover:bg-amber-950/60'
@@ -124,12 +178,23 @@ export function QuestionCardToolbar({
             ) : null}
             {isOwner ? (
                 <div className="flex items-center gap-2">
-                    <button type="button" onClick={() => onEdit(post.id)} className={FORUM_ICON_BTN} title="تعديل">
+                    <button
+                        type="button"
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            onEdit(post.id);
+                        }}
+                        className={FORUM_ICON_BTN}
+                        title="تعديل"
+                    >
                         <Pencil size={16} />
                     </button>
                     <button
                         type="button"
-                        onClick={() => onDelete(post.id)}
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            onDelete(post.id);
+                        }}
                         className={`${FORUM_ICON_BTN} bg-white/5 hover:bg-rose-500/15 text-white/40 hover:text-rose-300`}
                         title="حذف"
                     >
@@ -139,7 +204,10 @@ export function QuestionCardToolbar({
             ) : isAdmin ? (
                 <button
                     type="button"
-                    onClick={() => onDelete(post.id)}
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        onDelete(post.id);
+                    }}
                     className={`${FORUM_ICON_BTN} bg-white/5 hover:bg-rose-500/15 text-white/40 hover:text-rose-300`}
                     title="حذف (إدارة)"
                 >
@@ -148,7 +216,10 @@ export function QuestionCardToolbar({
             ) : (
                 <button
                     type="button"
-                    onClick={() => onReport(post.id)}
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        onReport(post.id);
+                    }}
                     className={`${FORUM_ICON_BTN} bg-white/5 hover:bg-rose-500/15 text-white/40 hover:text-rose-200`}
                     title="إبلاغ"
                 >

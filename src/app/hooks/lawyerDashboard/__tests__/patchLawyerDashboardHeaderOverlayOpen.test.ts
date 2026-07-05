@@ -25,8 +25,8 @@ function baseReadyView(
             onNotificationsClick: () => undefined,
             onSettingsClick: () => undefined,
         },
-        homeTabProps: { visible: true } as never,
-        scheduleTabProps: { visible: false } as never,
+        homeTabProps: { visible: true, active: true } as never,
+        scheduleTabProps: { visible: false, active: false } as never,
         profileTab: { visible: false, sessionKey: 0, onBack: () => undefined },
         tabStackHidden: false,
         overlaysHostProps: {
@@ -71,6 +71,10 @@ describe('dashboardShellFingerprint', () => {
             notifications: { notificationsUnreadCount: 0, showNotifications: false },
             archiveAndSync: { archiveType: null },
             dashboardSettings: { showSettings: false },
+            settings: {
+                appearance: { theme: 'dark', backgroundPreset: 'none', wallpaperStamp: 0 },
+                performance: { litePerformance: 'auto' },
+            },
             clusterScanSources: null,
         } as never;
 
@@ -108,6 +112,7 @@ describe('patchLawyerDashboardHeaderOverlayOpen', () => {
             showSettings: true,
             showGlobalSearch: false,
             showNotifications: false,
+            notificationsUnreadCount: 0,
             activeTab: 'home',
             tabStackMask: {
                 isCriminalDossierOpen: false,
@@ -138,8 +143,8 @@ describe('patchLawyerDashboardHeaderOverlayOpen', () => {
 
         expect(patched.headerProps.shouldShow).toBe(false);
         expect(patched.overlaysHostProps.overlays.showSettings).toBe(true);
-        expect(patched.tabStackHidden).toBe(true);
-        expect(patched.homeTabProps.visible).toBe(false);
+        expect(patched.tabStackHidden).toBe(false);
+        expect(patched.homeTabProps.active).toBe(true);
         expect(patched).not.toBe(view);
     });
 });

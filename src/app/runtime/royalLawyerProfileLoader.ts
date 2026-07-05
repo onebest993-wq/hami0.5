@@ -4,6 +4,7 @@ import {
     markRoyalLawyerProfileModuleResolved,
     resetRoyalLawyerProfileModuleStateForTests,
 } from '@/app/runtime/royalLawyerProfileModuleState';
+import { warmProfileDataCache } from '@/app/services/profile/profileWarmCache';
 
 export {
     isRoyalLawyerProfileModuleResolved,
@@ -24,7 +25,7 @@ function ensureProfileModulePromise(): Promise<RoyalLawyerProfileModule> {
 
 function prefetchProfileDataCache(userId?: string | null): void {
     if (typeof window === 'undefined' || !userId?.trim()) return;
-    void import('@/app/services/profile/profileWarmCache').then((m) => m.warmProfileDataCache(userId));
+    void warmProfileDataCache(userId);
 }
 
 /** تحميل مسبق لـ chunk الملف فقط — خفيف للإقلاع والهيدر. */
@@ -52,8 +53,6 @@ export function loadRoyalLawyerProfileWithData(
     userId?: string | null,
 ): Promise<RoyalLawyerProfileModule> {
     prefetchRoyalLawyerProfile(userId);
-    const dataWarm = import('@/app/services/profile/profileWarmCache').then((m) =>
-        m.warmProfileDataCache(userId),
-    );
+    const dataWarm = warmProfileDataCache(userId);
     return Promise.all([ensureProfileModulePromise(), dataWarm]).then(([mod]) => mod);
 }

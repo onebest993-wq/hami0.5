@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState, type SetStateAction } from 'react';
 import type {
     DocumentRequirementItem,
     LegalSubTask,
@@ -20,6 +20,11 @@ import {
 
 export type AddTaskOptions = TaskEnrichmentOptions;
 
+export type UseQuantumTasksOptions = {
+    /** يُستدعى داخل updater بعد حساب القائمة الجديدة — قبل إعادة الرسم */
+    onTasksCommitted?: (tasks: LegalTask[]) => void;
+};
+
 /** حد أمان للنص الخام — يمنع تضخّم التخزين المحلي */
 export const MAX_TASK_RAW_LENGTH = 2000;
 
@@ -36,8 +41,21 @@ function newId(): string {
     return `qt-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 }
 
-export function useQuantumTasks(initial: LegalTask[] = []) {
-    const [tasks, setTasks] = useState<LegalTask[]>(() => prepareAgendaTasks(initial));
+export function useQuantumTasks(initial: LegalTask[] = [], options?: UseQuantumTasksOptions) {
+    const onTasksCommittedRef = useRef(options?.onTasksCommitted);
+    onTasksCommittedRef.current = options?.onTasksCommitted;
+
+    const [tasks, setTasksState] = useState<LegalTask[]>(() => prepareAgendaTasks(initial));
+
+    const setTasks = useCallback((updater: SetStateAction<LegalTask[]>) => {
+        setTasksState((prev) => {
+            const next = typeof updater === 'function' ? updater(prev) : updater;
+            if (!Object.is(prev, next)) {
+                onTasksCommittedRef.current?.(next);
+            }
+            return next;
+        });
+    }, []);
 
     const addTask = useCallback((rawText: string, options?: AddTaskOptions): LegalTask | null => {
         const trimmed = String(rawText ?? '').trim();
@@ -105,26 +123,35 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
     const addWeeklyLocationBundle = useCallback((
         scheduledFor: Date,
         location: string,
-        actionTitles: string[],
-        mainTitle?: string,
+        mainTitleOrActions: string | string[],
+        legacyMainTitle?: string,
     ) => {
         const loc = location.trim();
-        const titles = actionTitles.map((x) => x.trim()).filter((x) => x.length > 0);
-        const details = mainTitle?.trim() ?? '';
-        if (!loc || (!details && titles.length === 0)) return;
+        let details = '';
+        let actionTitles: string[] = [];
+
+        if (typeof mainTitleOrActions === 'string') {
+            details = mainTitleOrActions.trim();
+        } else {
+            actionTitles = mainTitleOrActions.map((x) => x.trim()).filter((x) => x.length > 0);
+            details = legacyMainTitle?.trim() ?? '';
+        }
+
+        if (!loc || (!details && actionTitles.length === 0)) return;
 
         const day = startOfLocalDay(scheduledFor);
-        const parentTitle = details || titles[0]!;
-        const subTasks: LegalSubTask[] = (details ? titles : titles.slice(1)).map((title) => ({
+        const parentTitle = details || actionTitles[0]!;
+        const subTasks: LegalSubTask[] = (details ? actionTitles : actionTitles.slice(1)).map((title) => ({
             id: newId(),
             title,
             location: null,
             isCompleted: false,
+            kind: 'field',
         }));
 
         const next: LegalTask = {
             id: newId(),
-            rawText: [loc, parentTitle, ...(details ? titles : titles.slice(1))].filter(Boolean).join(' — '),
+            rawText: [loc, parentTitle, ...(details ? actionTitles : actionTitles.slice(1))].filter(Boolean).join(' — '),
             title: parentTitle,
             location: loc,
             parsedDate: new Date(day.getTime()),
@@ -242,6 +269,7 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
             const target = prev.find((t) => t.id === id);
             if (!target) return prev;
             const willPin = !target.pinnedToFieldCurtain;
+            if (willPin && target.isFatalDeadline) return prev;
             const pinDay = startOfLocalDay(new Date());
             return prev.map((t) => {
                 if (t.id === id) {
@@ -273,6 +301,7 @@ export function useQuantumTasks(initial: LegalTask[] = []) {
             title: t,
             location,
             isCompleted: false,
+            kind: 'branch',
         };
         setTasks((prev) =>
             prev.map((task) =>

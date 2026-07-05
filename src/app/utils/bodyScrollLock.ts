@@ -26,12 +26,56 @@ export function dismissTransientOverlays(except?: TransientOverlayId): void {
 let lockCount = 0;
 let prevBodyOverflow = '';
 let prevHtmlOverflow = '';
+const lockCleanups = new Set<() => void>();
 
+/** يحرّر كل أقفال التمرير النشطة — يُستدعى فقط عند إغلاق طبقات متداخلة أو تنظيف طارئ */
 export function releaseBodyScrollLock(): void {
     if (typeof document === 'undefined') return;
-    lockCount = 0;
-    document.body.style.overflow = prevBodyOverflow;
-    document.documentElement.style.overflow = prevHtmlOverflow;
+    for (const cleanup of [...lockCleanups]) {
+        cleanup();
+    }
+}
+
+/** يصلح overflow عالقاً عندما لا يوجد قفل نشط — تنظيف بعد تعارض الطبقات */
+export function reconcileBodyScrollLock(): void {
+    if (typeof document === 'undefined') return;
+    if (lockCount > 0) return;
+    const bodyHidden = document.body.style.overflow === 'hidden';
+    const htmlHidden = document.documentElement.style.overflow === 'hidden';
+    if (bodyHidden || htmlHidden) {
+        document.body.style.overflow = prevBodyOverflow || '';
+        document.documentElement.style.overflow = prevHtmlOverflow || '';
+    }
+    if (document.body.style.touchAction === 'none' && !document.documentElement.dataset.hamiHomeDragActive) {
+        document.body.style.touchAction = '';
+    }
+}
+
+/** يصلح overflow عالقاً بعد العودة للتطبيق */
+export function bindBodyScrollLockReconcile(): () => void {
+    if (typeof document === 'undefined') return () => undefined;
+
+    const onVisibility = () => {
+        if (!document.hidden) reconcileBodyScrollLock();
+    };
+
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+}
+
+export function getBodyScrollLockDebugState(): {
+    lockCount: number;
+    bodyOverflow: string;
+    htmlOverflow: string;
+} {
+    if (typeof document === 'undefined') {
+        return { lockCount, bodyOverflow: '', htmlOverflow: '' };
+    }
+    return {
+        lockCount,
+        bodyOverflow: document.body.style.overflow,
+        htmlOverflow: document.documentElement.style.overflow,
+    };
 }
 
 export function lockBodyScroll(): () => void {
@@ -45,13 +89,22 @@ export function lockBodyScroll(): () => void {
     }
     lockCount += 1;
 
-    return () => {
+    const releaseOne = () => {
         lockCount = Math.max(0, lockCount - 1);
         if (lockCount === 0) {
             document.body.style.overflow = prevBodyOverflow;
             document.documentElement.style.overflow = prevHtmlOverflow;
         }
     };
+
+    const cleanup = () => {
+        if (lockCleanups.delete(cleanup)) {
+            releaseOne();
+        }
+    };
+
+    lockCleanups.add(cleanup);
+    return cleanup;
 }
 
 export function useBodyScrollLock(active: boolean): void {

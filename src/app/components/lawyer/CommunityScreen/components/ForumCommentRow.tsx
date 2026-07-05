@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     User, BadgeCheck, CornerUpLeft, Trash2, Edit2, UserPlus, UserCheck,
     ArrowUpCircle, Flag, VolumeX,
@@ -15,6 +15,9 @@ import {
     FORUM_SURFACE_INPUT,
     FORUM_TEXT_APRICOT,
 } from '../forumPlumTheme';
+
+const COMMENT_ACTION_HIT_AREA =
+    "relative touch-manipulation before:absolute before:inset-[-12px] before:content-['']";
 
 export type ForumCommentRowProps = {
     comment: CommunityComment;
@@ -38,8 +41,8 @@ export type ForumCommentRowProps = {
     onSetReplyingToCommentId: (id: string) => void;
     onFollow: (targetUserId: string) => void;
     onToggleBestAnswer: (postId: string, commentId: string) => void;
-    onEditComment: (postId: string, commentId: string, newContent: string) => void;
-    onDeleteComment: (postId: string, commentId: string) => void;
+    onEditComment: (postId: string, commentId: string, newContent: string) => Promise<boolean> | boolean | void;
+    onDeleteComment: (postId: string, commentId: string) => Promise<void> | void;
     onToggleCommentUpvote?: (commentId: string) => void;
     onReportComment?: (commentId: string) => void;
     onMuteUser?: (userId: string) => void;
@@ -75,19 +78,27 @@ export function ForumCommentRow({
     onMuteUser,
     onOpenProfile,
 }: ForumCommentRowProps) {
+    void confirmDeleteId;
     const isBest = forceBestStyle || (!!bestCommentId && c.id === bestCommentId);
-    const isCommentAuthor = currentUserId === c.authorId;
+    const commentAuthorId = c.authorId || c.author_id || '';
+    const postAuthorId = post.authorId || post.author_id || '';
+    const isCommentAuthor = currentUserId === commentAuthorId;
     const showDeleteComment = canDeleteComment(post, c, currentUserId, isAdmin);
     const showEditComment = canEditComment(c, currentUserId, post);
     const indentClass = depth === 0 ? '' : depth === 1 ? 'mr-8' : depth === 2 ? 'mr-16' : 'mr-24';
     const threadClass = depth === 0 ? '' : 'border-r-2 border-slate-700/50 pr-4';
     const isEditing = editingCommentId === c.id;
+    const [isSavingEdit, setIsSavingEdit] = useState(false);
+    const [isDeletingComment, setIsDeletingComment] = useState(false);
 
     const authorNameButton =
-        onOpenProfile && c.authorId !== currentUserId ? (
+        onOpenProfile && commentAuthorId !== currentUserId ? (
             <button
                 type="button"
-                onClick={() => onOpenProfile(c.authorId, c.authorName)}
+                onClick={(event) => {
+                    event.stopPropagation();
+                    onOpenProfile(commentAuthorId, c.authorName);
+                }}
                 className="hover:text-[#F0B896] transition-colors"
             >
                 {c.authorName}
@@ -97,19 +108,22 @@ export function ForumCommentRow({
         );
 
     const followChip =
-        c.authorId !== currentUserId ? (
+        commentAuthorId !== currentUserId ? (
             <button
                 type="button"
-                onClick={() => onFollow(c.authorId)}
+                onClick={(event) => {
+                    event.stopPropagation();
+                    onFollow(commentAuthorId);
+                }}
                 className={`text-[10px] flex items-center gap-0.5 px-1.5 py-0.5 rounded-full transition-colors ${
-                    followingIds.has(c.authorId)
+                    followingIds.has(commentAuthorId)
                         ? 'text-emerald-400 bg-emerald-950/30 border border-emerald-500/20 hover:bg-emerald-950/50'
                         : `${FORUM_ACCENT_CHIP} text-xs`
                 }`}
-                title={followingIds.has(c.authorId) ? 'إلغاء المتابعة' : 'متابعة'}
+                title={followingIds.has(commentAuthorId) ? 'إلغاء المتابعة' : 'متابعة'}
             >
-                {followingIds.has(c.authorId) ? <UserCheck size={10} /> : <UserPlus size={10} />}
-                <span className="mr-0.5">{userStats[c.authorId]?.followerCount ?? 0}</span>
+                {followingIds.has(commentAuthorId) ? <UserCheck size={10} /> : <UserPlus size={10} />}
+                <span className="mr-0.5">{userStats[commentAuthorId]?.followerCount ?? 0}</span>
             </button>
         ) : null;
 
@@ -134,21 +148,32 @@ export function ForumCommentRow({
                 <div className="flex gap-2 mt-3">
                     <button
                         type="button"
-                        onClick={() => {
-                            if (editContent.trim()) {
-                                onEditComment(post.id, c.id, editContent.trim());
+                        onClick={async (event) => {
+                            event.stopPropagation();
+                            const nextContent = editContent.trim();
+                            if (!nextContent || isSavingEdit) {
+                                return;
                             }
-                            onSetEditingCommentId(null);
-                            onSetEditContent('');
+                            setIsSavingEdit(true);
+                            try {
+                                const saved = await onEditComment(post.id, c.id, nextContent);
+                                if (saved !== false) {
+                                    onSetEditingCommentId(null);
+                                    onSetEditContent('');
+                                }
+                            } finally {
+                                setIsSavingEdit(false);
+                            }
                         }}
-                        disabled={!editContent.trim()}
+                        disabled={!editContent.trim() || isSavingEdit}
                         className={FORUM_PUBLISH_BTN_SM}
                     >
-                        حفظ
+                        {isSavingEdit ? 'جاري الحفظ...' : 'حفظ'}
                     </button>
                     <button
                         type="button"
-                        onClick={() => {
+                        onClick={(event) => {
+                            event.stopPropagation();
                             onSetEditingCommentId(null);
                             onSetEditContent('');
                         }}
@@ -185,8 +210,11 @@ export function ForumCommentRow({
                 {canSelectBest && (
                     <button
                         type="button"
-                        onClick={() => onToggleBestAnswer(post.id, c.id)}
-                        className={`text-[10px] px-2 py-1 rounded-full border ${
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            onToggleBestAnswer(post.id, c.id);
+                        }}
+                        className={`${COMMENT_ACTION_HIT_AREA} text-[10px] px-2 py-1 rounded-full border ${
                             isBest ? `${FORUM_ACCENT_CHIP} ${FORUM_TEXT_APRICOT}` : `${FORUM_GHOST_BTN} text-[11px] px-2.5 py-1`
                         }`}
                         title="تمييز أفضل إجابة"
@@ -194,16 +222,21 @@ export function ForumCommentRow({
                         {isBest ? 'إلغاء' : 'أفضل'}
                     </button>
                 )}
-                {(showEditComment || showDeleteComment) && !confirmDeleteId && (
+                {(showEditComment || showDeleteComment) && (
                     <div className="flex gap-1">
                         {showEditComment && (
                             <button
                                 type="button"
-                                onClick={() => {
+                                onClick={(event) => {
+                                    event.stopPropagation();
+                                    onSetConfirmDeleteId(null);
                                     onSetEditingCommentId(c.id);
                                     onSetEditContent(c.content);
                                 }}
-                                className={`text-[10px] px-2 py-1 rounded-full ${FORUM_GHOST_BTN}`}
+                                disabled={isDeletingComment}
+                                className={`${COMMENT_ACTION_HIT_AREA} text-[10px] px-2 py-1 rounded-full ${FORUM_GHOST_BTN} ${
+                                    isDeletingComment ? 'opacity-50 cursor-not-allowed' : ''
+                                }`}
                                 title="تعديل التعليق"
                             >
                                 <Edit2 size={10} />
@@ -212,34 +245,26 @@ export function ForumCommentRow({
                         {showDeleteComment && (
                             <button
                                 type="button"
-                                onClick={() => onSetConfirmDeleteId(c.id)}
-                                className="text-[10px] px-2 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
+                                onClick={async (event) => {
+                                    event.stopPropagation();
+                                    if (isDeletingComment) return;
+                                    onSetConfirmDeleteId(null);
+                                    setIsDeletingComment(true);
+                                    try {
+                                        await onDeleteComment(post.id, c.id);
+                                    } finally {
+                                        setIsDeletingComment(false);
+                                    }
+                                }}
+                                disabled={isDeletingComment}
+                                className={`${COMMENT_ACTION_HIT_AREA} text-[10px] px-2 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-colors ${
+                                    isDeletingComment ? 'opacity-50 cursor-not-allowed' : ''
+                                }`}
                                 title="حذف التعليق"
                             >
-                                <Trash2 size={10} />
+                                {isDeletingComment ? 'جاري الحذف...' : <Trash2 size={10} />}
                             </button>
                         )}
-                    </div>
-                )}
-                {showDeleteComment && confirmDeleteId === c.id && (
-                    <div className="flex gap-1">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                onDeleteComment(post.id, c.id);
-                                onSetConfirmDeleteId(null);
-                            }}
-                            className="text-[10px] px-2 py-1 rounded-full bg-red-500 text-white font-bold"
-                        >
-                            تأكيد الحذف
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => onSetConfirmDeleteId(null)}
-                            className="text-[10px] px-2 py-1 rounded-full bg-white/5 border border-white/10 text-white/60"
-                        >
-                            إلغاء
-                        </button>
                     </div>
                 )}
             </div>
@@ -248,7 +273,10 @@ export function ForumCommentRow({
                 {!isLocked && (
                     <button
                         type="button"
-                        onClick={() => onSetReplyingToCommentId(c.id)}
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            onSetReplyingToCommentId(c.id);
+                        }}
                         className={`text-[11px] px-2.5 py-1 rounded-full ${FORUM_GHOST_BTN} inline-flex items-center gap-1`}
                         title="رد"
                     >
@@ -259,7 +287,10 @@ export function ForumCommentRow({
                 {onToggleCommentUpvote && !isCommentAuthor && (
                     <button
                         type="button"
-                        onClick={() => onToggleCommentUpvote(c.id)}
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            onToggleCommentUpvote(c.id);
+                        }}
                         className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors inline-flex items-center gap-1 ${
                             (c.upvoterIds ?? []).includes(currentUserId)
                                 ? `${FORUM_ACCENT_CHIP} ${FORUM_TEXT_APRICOT}`
@@ -280,7 +311,10 @@ export function ForumCommentRow({
                 {onReportComment && !isCommentAuthor && (
                     <button
                         type="button"
-                        onClick={() => onReportComment(c.id)}
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            onReportComment(c.id);
+                        }}
                         className="text-[11px] px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/50 hover:text-red-400 hover:border-red-500/30 transition-colors inline-flex items-center gap-1"
                         title="الإبلاغ عن التعليق"
                     >
@@ -291,12 +325,15 @@ export function ForumCommentRow({
                 {onMuteUser && !isCommentAuthor && (
                     <button
                         type="button"
-                        onClick={() => onMuteUser(c.authorId)}
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            onMuteUser(commentAuthorId || postAuthorId);
+                        }}
                         className="text-[11px] px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/50 hover:text-white hover:border-white/20 transition-colors inline-flex items-center gap-1"
                         title="كتم المستخدم"
                     >
                         <VolumeX size={11} />
-                        {mutedUserIds?.has(c.authorId) ? 'إلغاء الكتم' : 'كتم'}
+                        {mutedUserIds?.has(commentAuthorId) ? 'إلغاء الكتم' : 'كتم'}
                     </button>
                 )}
             </div>

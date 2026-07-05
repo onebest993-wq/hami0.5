@@ -44,6 +44,56 @@ export function emptyTransactionsDetailsEscape(): TransactionsDetailsEscapeSnaps
     return { ...CLOSED_DETAILS };
 }
 
+export type TransactionsEscapeHandlers = {
+    onBack: () => void;
+    onCloseListAddSheet: () => void;
+    onBackToList: () => void;
+    onCloseDetailsOverlay: (patch: Partial<TransactionsDetailsEscapeSnapshot>) => void;
+};
+
+export function applyTransactionsEscapeAction(
+    action: TransactionsEscapeAction,
+    handlers: TransactionsEscapeHandlers,
+): void {
+    switch (action) {
+        case 'close-report':
+            handlers.onCloseDetailsOverlay({ reportOpen: false });
+            break;
+        case 'close-complete':
+            handlers.onCloseDetailsOverlay({ completeOpen: false });
+            break;
+        case 'close-save-template':
+            handlers.onCloseDetailsOverlay({ saveTemplateOpen: false });
+            break;
+        case 'close-templates':
+            handlers.onCloseDetailsOverlay({ templatesOpen: false });
+            break;
+        case 'close-add-task':
+            handlers.onCloseDetailsOverlay({ addTaskSheetOpen: false });
+            break;
+        case 'close-task-complete':
+            handlers.onCloseDetailsOverlay({ taskCompleteOpen: false });
+            break;
+        case 'close-task-edit':
+            handlers.onCloseDetailsOverlay({ taskEditOpen: false });
+            break;
+        case 'close-task-delete':
+            handlers.onCloseDetailsOverlay({ taskDeleteOpen: false });
+            break;
+        case 'close-add-transaction':
+            handlers.onCloseListAddSheet();
+            break;
+        case 'back-to-list':
+            handlers.onBackToList();
+            break;
+        case 'exit-hub':
+            handlers.onBack();
+            break;
+        default:
+            break;
+    }
+}
+
 export function resolveTransactionsEscapeAction(
     snapshot: TransactionsEscapeSnapshot,
 ): TransactionsEscapeAction {

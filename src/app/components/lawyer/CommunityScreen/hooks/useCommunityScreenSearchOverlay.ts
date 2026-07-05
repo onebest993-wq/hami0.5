@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RepositoryDB, type CommunityPost, type RepositoryDocument } from '@/app/services/lawyer-cloud';
 import { compareCommunityPostsForFeed } from '@/app/services/forum/forumUrgentConsultation';
 import {
@@ -75,9 +75,27 @@ export function useCommunityScreenSearchOverlay(posts: CommunityPost[], allTags:
         });
     }, [isSearchOpen, repositoryDocs, searchQuery, selectedTag, filterHasPdf, filterHasImage]);
 
+    const openSearchOverlay = useCallback(() => {
+        setSearchQuery('');
+        setFilterHasPdf(false);
+        setFilterHasImage(false);
+        setSelectedTag(null);
+        setIsSearchOpen(true);
+    }, []);
+
+    const closeSearchOverlay = useCallback(() => {
+        setIsSearchOpen(false);
+        setSearchQuery('');
+        setFilterHasPdf(false);
+        setFilterHasImage(false);
+        setSelectedTag(null);
+    }, []);
+
     return {
         isSearchOpen,
         setIsSearchOpen,
+        openSearchOverlay,
+        closeSearchOverlay,
         searchQuery,
         setSearchQuery,
         filterHasPdf,

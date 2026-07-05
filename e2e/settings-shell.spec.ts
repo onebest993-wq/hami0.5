@@ -4,7 +4,7 @@
 import { test, expect } from '@playwright/test';
 import { ensureLawyerDashboard, seedLawyerFiles } from './helpers/civilLawsuitFixtures';
 import { dismissProductivityBlockers, prepareProductivityE2E } from './helpers/productivityE2EFixtures';
-import { openSettingsFromHeader, switchSettingsTab, readSettingsOpenToInteractiveMs, clearSettingsPerfMarksInPage, E2E_SETTINGS_COLD_OPEN_MS, E2E_SETTINGS_CACHED_OPEN_MS } from './helpers/settingsFixtures';
+import { openSettingsFromHeader, switchSettingsTab, readSettingsOpenToInteractiveMs, clearSettingsPerfMarksInPage, E2E_SETTINGS_COLD_OPEN_MS, E2E_SETTINGS_CACHED_OPEN_MS, prepareSettingsE2E, teardownSettingsE2E } from './helpers/settingsFixtures';
 
 async function openSettings(page: import('@playwright/test').Page) {
     return openSettingsFromHeader(page);
@@ -15,7 +15,12 @@ test.describe('مركز الإعدادات', () => {
 
     test.beforeEach(async ({ page }) => {
         await prepareProductivityE2E(page);
+        await prepareSettingsE2E(page);
         await seedLawyerFiles(page);
+    });
+
+    test.afterEach(async ({ page }) => {
+        await teardownSettingsE2E(page);
     });
 
     test('يفتح من الهيدر ويعرض تبويب المنظر', async ({ page }) => {

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** مزوّدات UI للـ chunk scope — execution-helpers */
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import { ColleagueConsultationProvider } from '@/app/components/lawyer/caseShare/ColleagueConsultationContext';

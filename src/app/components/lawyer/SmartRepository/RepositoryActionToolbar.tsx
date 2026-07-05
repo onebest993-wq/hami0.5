@@ -10,6 +10,7 @@ type RepositoryActionToolbarProps = {
     onCreateNote: () => void;
     onOpenScanner: () => void;
     onOpenVoice: () => void;
+    disabled?: boolean;
     imageInputRef: React.RefObject<HTMLInputElement | null>;
     pdfInputRef: React.RefObject<HTMLInputElement | null>;
     onImageSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -34,6 +35,7 @@ function ActionCell({
     onClick,
     testId,
     children,
+    disabled = false,
 }: {
     tone: ActionTone;
     label: string;
@@ -41,11 +43,16 @@ function ActionCell({
     onClick?: () => void;
     testId?: string;
     children?: React.ReactNode;
+    disabled?: boolean;
 }) {
-    const className = `${REPO_ACTION_BTN} ${TONE_CLASS[tone]}`;
+    const className = `${REPO_ACTION_BTN} ${TONE_CLASS[tone]} ${disabled ? 'opacity-40 pointer-events-none' : ''}`;
     if (children) {
         return (
-            <label className={`${className} cursor-pointer`} data-testid={testId}>
+            <label
+                className={`${className} ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                data-testid={testId}
+                aria-disabled={disabled}
+            >
                 {icon}
                 <span>{label}</span>
                 {children}
@@ -53,7 +60,7 @@ function ActionCell({
         );
     }
     return (
-        <button type="button" onClick={onClick} className={className} data-testid={testId}>
+        <button type="button" onClick={onClick} className={className} data-testid={testId} disabled={disabled}>
             {icon}
             <span>{label}</span>
         </button>
@@ -66,6 +73,7 @@ export function RepositoryActionToolbar({
     onCreateNote,
     onOpenScanner,
     onOpenVoice,
+    disabled = false,
     imageInputRef,
     pdfInputRef,
     onImageSelect,
@@ -79,14 +87,17 @@ export function RepositoryActionToolbar({
                 icon={<Plus size={17} strokeWidth={2.25} />}
                 onClick={onCreateNote}
                 testId="repository-note-create"
+                disabled={disabled}
             />
             <ActionCell
                 tone="emerald"
                 label="مسح"
                 icon={<Scan size={17} strokeWidth={2.25} />}
                 onClick={onOpenScanner}
+                testId="repository-open-scanner"
+                disabled={disabled}
             />
-            <ActionCell tone="sky" label="صورة" icon={<ImageIcon size={17} strokeWidth={2.25} />} testId="repository-upload-image">
+            <ActionCell tone="sky" label="صورة" icon={<ImageIcon size={17} strokeWidth={2.25} />} testId="repository-upload-image" disabled={disabled}>
                 <input
                     ref={imageInputRef}
                     type="file"
@@ -96,7 +107,7 @@ export function RepositoryActionToolbar({
                     onChange={onImageSelect}
                 />
             </ActionCell>
-            <ActionCell tone="rose" label="PDF" icon={<FileText size={17} strokeWidth={2.25} />} testId="repository-upload-pdf">
+            <ActionCell tone="rose" label="PDF" icon={<FileText size={17} strokeWidth={2.25} />} testId="repository-upload-pdf" disabled={disabled}>
                 <input
                     ref={pdfInputRef}
                     type="file"
@@ -112,8 +123,9 @@ export function RepositoryActionToolbar({
                 icon={<Mic size={17} strokeWidth={2.25} />}
                 onClick={onOpenVoice}
                 testId="repository-voice-record"
+                disabled={disabled}
             />
-            <RepositoryViewLayoutPicker layoutId={feedLayout} onSelect={onFeedLayoutChange} />
+            <RepositoryViewLayoutPicker layoutId={feedLayout} onSelect={onFeedLayoutChange} disabled={disabled} />
         </div>
     );
 }

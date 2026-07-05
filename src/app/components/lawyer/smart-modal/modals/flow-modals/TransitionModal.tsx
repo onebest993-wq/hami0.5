@@ -74,7 +74,7 @@ export const TransitionModal = ({ isOpen, onClose, onConfirm, nextStageName, cur
     const party2 = currentParties[1] || { name: 'الطرف الثاني' };
 
     return (
-        <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-['Tajawal']">
+        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-['Tajawal']">
             <div className="bg-[#1A1E2E] border border-white/10 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
                 <div className="bg-gradient-to-r from-[#E6C673] to-[#F4D03F] p-4 text-[#0F172A] flex justify-between items-center">
                     <h3 className="font-bold flex items-center gap-2">

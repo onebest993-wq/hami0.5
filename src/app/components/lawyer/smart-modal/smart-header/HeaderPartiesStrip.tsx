@@ -43,10 +43,10 @@ export function HeaderPartiesStrip({
     const hasMainParties = plaintiffs.length > 0 || defendants.length > 0;
 
     return (
-        <div className="space-y-3" dir="rtl">
+        <div className="space-y-2" dir="rtl">
             {hasMainParties ? (
                 <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-2 min-w-0">
                         <PartySidePane
                             label={p1Role}
                             labelClassName="text-emerald-400/95"
@@ -66,7 +66,7 @@ export function HeaderPartiesStrip({
                             openPartyKey={openPartyKey}
                             onToggleParty={onToggleParty}
                         />
-                </div>
+                    </div>
 
                     <AnimatePresence initial={false}>
                         {addressLine && openPartyKey?.startsWith('p') ? (
@@ -75,7 +75,7 @@ export function HeaderPartiesStrip({
                                 initial={{ opacity: 0, height: 0 }}
                                 animate={{ opacity: 1, height: 'auto' }}
                                 exit={{ opacity: 0, height: 0 }}
-                                className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-2.5 py-1.5 text-[10px] text-white/45 truncate"
+                                className="rounded-[16px] border border-white/[0.06] bg-[linear-gradient(180deg,rgba(255,255,255,0.038),rgba(255,255,255,0.015))] px-2.5 py-2 text-[10px] text-white/52 truncate"
                             >
                                 {addressLine}
                             </motion.p>
@@ -99,7 +99,7 @@ export function HeaderPartiesStrip({
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="rounded-xl border border-[#E6C673]/12 bg-[#E6C673]/[0.04] px-2.5 py-1.5 text-[10px] text-white/45 truncate"
+                        className="rounded-[16px] border border-[#E6C673]/12 bg-[#E6C673]/[0.05] px-2.5 py-2 text-[10px] text-white/52 truncate"
                     >
                         {addressLine}
                     </motion.p>

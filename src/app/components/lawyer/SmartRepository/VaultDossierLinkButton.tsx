@@ -31,6 +31,8 @@ export function VaultDossierLinkButton({
         });
     }, [open]);
 
+    useEffect(() => () => setOpen(false), []);
+
     const filtered = dossiers.filter((d) => {
         const q = query.trim();
         if (!q) return true;
@@ -50,7 +52,7 @@ export function VaultDossierLinkButton({
 
     const menu = open ? (
         <div
-            className="fixed z-[200] rounded-2xl border border-[#B87333]/25 bg-[#0a0f1c]/96 backdrop-blur-xl shadow-2xl p-2"
+            className="fixed z-[136] rounded-2xl border border-[#B87333]/25 bg-[#0a0f1c]/96 backdrop-blur-xl shadow-2xl p-2"
             style={{ top: menuPos.top, left: menuPos.left, width: menuPos.width }}
             dir="rtl"
             data-testid="vault-dossier-link-menu"
@@ -83,30 +85,34 @@ export function VaultDossierLinkButton({
         </div>
     ) : null;
 
+    const backdrop =
+        open && typeof document !== 'undefined' ? (
+            <button
+                type="button"
+                className="fixed inset-0 z-[135] cursor-default bg-transparent"
+                aria-label="إغلاق القائمة"
+                onClick={() => setOpen(false)}
+            />
+        ) : null;
+
     return (
         <>
             <button
                 ref={anchorRef}
                 type="button"
                 disabled={disabled || busy || dossiers.length === 0}
-                onClick={() => setOpen((v) => !v)}
-                className={`${REPO_TOUCH_CHIP} gap-1.5 px-2.5 rounded-lg text-[10px] font-bold bg-[#E6C673]/12 border border-[#E6C673]/28 text-[#E6C673] hover:bg-[#E6C673]/20 disabled:opacity-40`}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    setOpen((v) => !v);
+                }}
+                className={`${REPO_TOUCH_CHIP} gap-1.5 px-2.5 rounded-lg text-[10px] font-bold bg-[#E6C673]/12 border border-[#E6C673]/28 text-[#E6C673] hover:bg-[#E6C673]/20 disabled:opacity-40 relative z-[2] pointer-events-auto`}
                 data-testid="vault-link-dossier-btn"
             >
                 {busy ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
                 ربط بإضبارة
             </button>
-            {typeof document !== 'undefined' && menu
-                ? createPortal(menu, document.body)
-                : null}
-            {open ? (
-                <button
-                    type="button"
-                    className="fixed inset-0 z-[199] cursor-default"
-                    aria-label="إغلاق القائمة"
-                    onClick={() => setOpen(false)}
-                />
-            ) : null}
+            {backdrop ? createPortal(backdrop, document.body) : null}
+            {typeof document !== 'undefined' && menu ? createPortal(menu, document.body) : null}
         </>
     );
 }

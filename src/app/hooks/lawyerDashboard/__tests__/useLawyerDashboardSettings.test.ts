@@ -14,6 +14,13 @@ vi.mock('@/app/components/ui/SmartToast', () => ({
 vi.mock('@/app/runtime/hamiSettingsLoader', () => ({
     loadHamiSettingsModule: vi.fn(() => Promise.resolve({})),
     prefetchHamiSettingsModule: vi.fn(),
+    isHamiSettingsModuleResolved: vi.fn(() => false),
+}));
+
+vi.mock('@/app/runtime/settingsBootHydrator', () => ({
+    SETTINGS_SHELL_HYDRATED_EVENT: 'hami:settings-shell-hydrated',
+    hydrateSettingsShellForInstantOpen: vi.fn(() => Promise.resolve(true)),
+    isSettingsShellFullyHydrated: vi.fn(() => false),
 }));
 
 vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
@@ -26,6 +33,7 @@ vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
 vi.mock('@/app/hooks/lawyerDashboard/settingsIntentWarm', () => ({
     warmSettingsOnHover: vi.fn(),
     warmSettingsOnOpen: vi.fn(),
+    primeSettingsShellForOpen: vi.fn(),
 }));
 
 import { warmSettingsOnHover, warmSettingsOnOpen } from '@/app/hooks/lawyerDashboard/settingsIntentWarm';
@@ -35,12 +43,13 @@ describe('useLawyerDashboardSettings', () => {
         vi.clearAllMocks();
     });
 
-    it('primeSettingsShellMount ي prefetch فقط — بلا فتح', () => {
+    it('primeSettingsShellMount ي arm الـ host و prefetch — بلا فتح', () => {
         const { result } = renderHook(() => useLawyerDashboardSettings('lawyer-1'));
         act(() => {
             result.current.primeSettingsShellMount();
         });
         expect(result.current.showSettings).toBe(false);
+        expect(result.current.settingsHostMounted).toBe(true);
         expect(warmSettingsOnHover).toHaveBeenCalled();
     });
 

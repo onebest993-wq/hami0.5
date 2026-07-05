@@ -10,6 +10,7 @@ import {
 import { resolveCaseLinkPeerNav } from '@/app/components/lawyer/smart-modal/smartFile/caseLinking';
 import { syncLawsuitFileToCalendar } from '@/app/services/calendarDossierSync';
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import { LawyerDB } from '@/app/services/lawyerDbRuntime';
 import { debug } from '@/app/utils/debug';
 import { warmLawsuitWorkspace } from '@/app/utils/lazyComponents';
 
@@ -116,12 +117,10 @@ export function useLawsuitActiveDossier({
                     childLink?.type === 'counter' ? 'الدعوى المتقابلة' : 'الدعوى المنضمة';
                 SmartToast.success(`تم حسم ${label} — نُقلت نتيجة الحكم من الإضبارة المرتبطة ✅`);
                 if (userId) {
-                    void import('@/app/services/lawyer-cloud').then(({ LawyerDB }) => {
-                        LawyerDB.saveCase(
-                            userId,
-                            parentIncidentalPatch as unknown as Record<string, unknown>,
-                        ).catch(debug.error);
-                    });
+                    void LawyerDB.saveCase(
+                        userId,
+                        parentIncidentalPatch as unknown as Record<string, unknown>,
+                    ).catch(debug.error);
                 }
                 syncLawsuitFileToCalendar(
                     parentIncidentalPatch as unknown as Record<string, unknown>,
@@ -130,12 +129,10 @@ export function useLawsuitActiveDossier({
             }
 
             if (userId) {
-                void import('@/app/services/lawyer-cloud').then(({ LawyerDB }) => {
-                    LawyerDB.saveCase(
-                        userId,
-                        normalizedFile as unknown as Record<string, unknown>,
-                    ).catch(debug.error);
-                });
+                void LawyerDB.saveCase(
+                    userId,
+                    normalizedFile as unknown as Record<string, unknown>,
+                ).catch(debug.error);
             }
             syncLawsuitFileToCalendar(normalizedFile as unknown as Record<string, unknown>, userId);
 

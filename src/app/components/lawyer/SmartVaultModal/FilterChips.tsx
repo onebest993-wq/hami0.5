@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { countDocsInCategory } from '@/app/services/vaultCustomCategories';
-import type { SmartVaultDoc } from '@/app/services/lawyer-cloud';
+import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import { VAULT_CHIP_ACTIVE, VAULT_CHIP_IDLE, VAULT_INPUT } from './vaultDustyRoseTheme';
 
 interface FilterChipsProps {

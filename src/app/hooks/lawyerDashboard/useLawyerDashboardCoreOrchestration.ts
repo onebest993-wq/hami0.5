@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useCallback, useMemo, useRef } from 'react';
 import { useLawyerDashboardOverlays } from '@/app/hooks/useLawyerDashboardOverlays';
 import { useLawyerDashboardAppAlerts } from '@/app/hooks/useLawyerDashboardAppAlerts';
@@ -39,6 +38,8 @@ import { closeOverlaysBeforeTransactionsOpen } from '@/app/services/transactions
 import { closeOverlaysBeforeSettingsOpen } from '@/app/services/settings/settingsShellOrchestration';
 import { closeOverlaysBeforeGlobalSearchOpen } from '@/app/services/search/globalSearchShellOrchestration';
 import { closeOverlaysBeforeProfileOpen } from '@/app/services/profile/profileShellOrchestration';
+import { coerceExecutionFilePreserveId } from '@/app/components/lawyer/LawyerDashboardParts/utils';
+import type { ExecutionFile as DashboardExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { UseLawyerDashboardCoreParams } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCore.types';
 
 export function useLawyerDashboardCoreOrchestration({
@@ -55,9 +56,11 @@ export function useLawyerDashboardCoreOrchestration({
     const pushAllowed = useLawyerSettingsPushAllowed();
     const appLock = useAppLock(securitySettings);
     const localAutoSave = dataSettings.autoSave;
-    const syncNotesOn = dataSettings.cloudSync && dataSettings.syncNotes;
-    const syncFilesOn = dataSettings.cloudSync && dataSettings.syncFiles;
-    const syncExecutionOn = dataSettings.cloudSync && dataSettings.syncExecution;
+    const cloudSyncReady =
+        dataSettings.cloudSync && !securitySettings.localOnlyMode;
+    const syncNotesOn = cloudSyncReady;
+    const syncFilesOn = cloudSyncReady;
+    const syncExecutionOn = cloudSyncReady;
 
     const { user: authUser } = useAuthSafe();
     const { user, authGate } = useLawyerDashboardAuth({
@@ -195,9 +198,14 @@ export function useLawyerDashboardCoreOrchestration({
         closeNotepad: dashboardRepository.closeRepository,
     });
 
+    const dashboardExecutionFiles = useMemo<DashboardExecutionFile[]>(
+        () => workspace.executionFiles.map((file) => coerceExecutionFilePreserveId(file)),
+        [workspace.executionFiles],
+    );
+
     const navigation = useLawyerDashboardNavigation({
         files: workspace.files,
-        executionFiles: workspace.executionFiles,
+        executionFiles: dashboardExecutionFiles,
         setActiveTab: overlays.setActiveTab,
         setShowCommunity: dashboardCommunity.setShowCommunity,
         setCommunityDeepLink: dashboardCommunity.setCommunityDeepLink,
@@ -221,7 +229,7 @@ export function useLawyerDashboardCoreOrchestration({
         userId: user?.id,
         authUserId: authUser?.id,
         files: workspace.files,
-        executionFiles: workspace.executionFiles,
+        executionFiles: dashboardExecutionFiles,
         globalNotes: workspace.globalNotes,
         quantumTasks,
         criminalCasesForCluster,
@@ -251,7 +259,7 @@ export function useLawyerDashboardCoreOrchestration({
 
     const globalSearchNav = useLawyerDashboardGlobalSearchNav({
         files: workspace.files,
-        executionFiles: workspace.executionFiles,
+        executionFiles: dashboardExecutionFiles,
         setShowGlobalSearch: dashboardGlobalSearch.setShowGlobalSearch,
         setGlobalSearchInitialQuery: dashboardGlobalSearch.setGlobalSearchInitialQuery,
         openNotifications,
@@ -275,7 +283,7 @@ export function useLawyerDashboardCoreOrchestration({
         user,
         authUser,
         files: workspace.files,
-        executionFiles: workspace.executionFiles,
+        executionFiles: dashboardExecutionFiles,
         globalNotes: workspace.globalNotes,
         searchNotifications: notifications.searchNotifications,
         criminalCasesForCluster,

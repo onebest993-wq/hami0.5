@@ -50,6 +50,7 @@ export type UseLawyerHomeHubCardParams = {
     onResolved?: (alert: SecretaryAlert) => void;
     blockOverride?: HomeBlockStyleOverride;
     themePrimary?: string;
+    layoutEditMode?: boolean;
 };
 
 export type LawyerHomeHubCardViewModel = {

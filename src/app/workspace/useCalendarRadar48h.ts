@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDB, type CalendarEvent } from '@/app/services/lawyer-cloud';
+import { CalendarDB } from '@/app/services/cloud/lawyerCalendarCloud';
 import { CALENDAR_UPDATED_EVENT } from '@/app/services/calendarBridge.types';
+import type { CalendarEvent } from '@/app/services/calendar/calendarTypes';
 import type { CalendarRadarEvent } from './types';
 import { buildWorkspaceRoute } from './workspaceRoutes';
 import type { WorkspacePinType } from './types';

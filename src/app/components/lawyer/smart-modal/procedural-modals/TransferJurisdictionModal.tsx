@@ -26,9 +26,9 @@ export const TransferJurisdictionModal = ({ isOpen, onClose, onConfirm }: ModalP
     if (!isOpen) return null;
 
     return (
-        <MoroccanGlassShell onOverlayClick={onClose} maxWidth="max-w-lg">
+        <MoroccanGlassShell onOverlayClick={onClose} maxWidth="max-w-2xl">
             <SmartModalHeader icon={Scale} title="إحالة لعدم الاختصاص" onClose={onClose} />
-            <div className={T.body}>
+            <div className={`${T.body} md:min-h-[26rem] md:space-y-6`}>
                 <div>
                     <label className={T.label}>
                         المحكمة المحال إليها <span className={required}>*</span>
@@ -46,7 +46,7 @@ export const TransferJurisdictionModal = ({ isOpen, onClose, onConfirm }: ModalP
                 </div>
                 <div>
                     <label className={T.label}>ملاحظات (اختياري)</label>
-                    <textarea value={notes} onChange={(e) => setNotes(e.target.value)} className={`${T.field} min-h-[70px]`} />
+                    <textarea value={notes} onChange={(e) => setNotes(e.target.value)} className={`${T.field} min-h-[120px] resize-none`} />
                 </div>
                 <button
                     type="button"

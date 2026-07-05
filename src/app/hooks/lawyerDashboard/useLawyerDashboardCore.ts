@@ -5,8 +5,8 @@ import { buildLawyerDashboardTabStackMask } from '@/app/hooks/lawyerDashboard/bu
 import { useLawyerDashboardCoreOrchestration } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCoreOrchestration';
 import {
     dashboardHeaderOverlayFingerprint,
-    dashboardShellFingerprint,
 } from '@/app/hooks/lawyerDashboard/dashboardViewFingerprint';
+import { getCachedDashboardShellFingerprint } from '@/app/hooks/lawyerDashboard/dashboardShellFingerprintCache';
 import { patchLawyerDashboardHeaderOverlayOpen } from '@/app/hooks/lawyerDashboard/patchLawyerDashboardHeaderOverlayOpen';
 import type {
     LawyerDashboardCoreViewModel,
@@ -34,7 +34,7 @@ export function useLawyerDashboardCore({
         ? `gate:${String(orchestration.authGate)}`
         : !orchestration.user
           ? 'boot'
-          : dashboardShellFingerprint(orchestration);
+          : getCachedDashboardShellFingerprint(orchestration);
 
     const headerOverlayFingerprint =
         orchestration.authGate || !orchestration.user
@@ -67,6 +67,7 @@ export function useLawyerDashboardCore({
             showSettings: orchestration.dashboardSettings.showSettings,
             showGlobalSearch: orchestration.overlays.showGlobalSearch,
             showNotifications: orchestration.notifications.showNotifications,
+            notificationsUnreadCount: orchestration.notifications.notificationsUnreadCount,
             activeTab: orchestration.overlays.activeTab,
             tabStackMask: buildLawyerDashboardTabStackMask(orchestration),
             headerVisibility: {

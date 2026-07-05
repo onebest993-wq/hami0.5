@@ -1,4 +1,4 @@
-import { buildContentSecurityPolicy, resolveCspMode } from './contentSecurityPolicy.ts';
+import { buildContentSecurityPolicy, resolveCspMode } from './contentSecurityPolicy';
 
 const BASE_SECURITY_HEADERS: Readonly<Record<string, string>> = {
   'X-Content-Type-Options': 'nosniff',

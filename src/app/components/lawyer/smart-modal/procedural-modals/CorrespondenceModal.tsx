@@ -27,9 +27,9 @@ export const CorrespondenceModal = ({ isOpen, onClose, onConfirm }: Corresponden
     if (!isOpen) return null;
 
     return (
-        <MoroccanGlassShell onOverlayClick={onClose} maxWidth="max-w-lg">
+        <MoroccanGlassShell onOverlayClick={onClose} maxWidth="max-w-2xl">
             <SmartModalHeader icon={Send} title="المخاطبات" onClose={onClose} />
-            <div className={T.body}>
+            <div className={`${T.body} md:min-h-[28rem] md:space-y-6`}>
                 <div>
                     <label className={T.label}>
                         الجهة المخاطبة <span className={required}>*</span>
@@ -53,7 +53,7 @@ export const CorrespondenceModal = ({ isOpen, onClose, onConfirm }: Corresponden
                     <textarea
                         value={content}
                         onChange={(e) => setContent(e.target.value)}
-                        className={`${T.field} min-h-[100px]`}
+                        className={`${T.field} min-h-[160px] resize-none`}
                         placeholder="نص المخاطبة أو ملخصها"
                     />
                 </div>

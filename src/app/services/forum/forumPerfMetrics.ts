@@ -6,7 +6,7 @@ import {
 
 const MARK_PREFIX = 'hami:forum:';
 
-export type ForumPerfPhase = 'open-request' | 'first-paint' | 'interactive';
+export type ForumPerfPhase = 'open-request' | 'first-paint' | 'interactive' | 'chunk-ready';
 
 export type { ForumPerfReportContext };
 
@@ -22,7 +22,7 @@ export function markForumPerfPhase(phase: ForumPerfPhase): void {
 export function clearForumPerfMarks(): void {
     if (typeof performance === 'undefined' || typeof performance.clearMarks !== 'function') return;
     try {
-        for (const phase of ['open-request', 'first-paint', 'interactive'] as const) {
+        for (const phase of ['open-request', 'first-paint', 'interactive', 'chunk-ready'] as const) {
             performance.clearMarks(`${MARK_PREFIX}${phase}`);
         }
     } catch {

@@ -59,6 +59,17 @@ describe('fieldTaskAlerts', () => {
         expect(classified.urgentAlerts.some((a) => a.id === 'field-task:t1')).toBe(true);
     });
 
+    it('يحقن مهمة مؤجلة بتاريخ reminderAt', () => {
+        const in3 = new Date(now);
+        in3.setDate(in3.getDate() + 3);
+        const alerts = buildFieldTaskAlerts(
+            [pendingTask({ id: 'sn', title: 'مؤجلة', reminderAt: in3 })],
+            now,
+            registry,
+        );
+        expect(alerts.some((a) => a.id === 'field-task:sn')).toBe(true);
+    });
+
     it('يوزّع 3 أيام في قريبة و5 أيام في قادمة', () => {
         const in3 = new Date(now);
         in3.setDate(in3.getDate() + 3);

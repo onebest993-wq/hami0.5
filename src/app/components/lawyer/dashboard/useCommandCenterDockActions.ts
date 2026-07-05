@@ -83,6 +83,12 @@ export function useCommandCenterDockActions({
         [userId],
     );
 
+    const openSmartRepository = useCallback(() => {
+        dismissTransientOverlays('repository');
+        if (onOpenRepository) onOpenRepository({ tab: 'vault' });
+        else onOpenFullNotepad?.();
+    }, [onOpenFullNotepad, onOpenRepository]);
+
     const resolveDockWidgetClick = useCallback(
         (widgetId: HomeWidgetId, isEditing: boolean): (() => void) | undefined => {
             if (isEditing) return undefined;
@@ -99,16 +105,12 @@ export function useCommandCenterDockActions({
                 case 'dockRepository':
                     return run(() => {
                         if (!requireSignedIn('المستودع الذكي')) return;
-                        dismissTransientOverlays('repository');
-                        if (onOpenRepository) onOpenRepository();
-                        else onOpenFullNotepad?.();
+                        openSmartRepository();
                     });
                 case 'dockNotepad':
                     return run(() => {
-                        if (!requireSignedIn('المفكرة')) return;
-                        dismissTransientOverlays('repository');
-                        if (onOpenRepository) onOpenRepository({ tab: 'notepad' });
-                        else onOpenFullNotepad?.();
+                        if (!requireSignedIn('المستودع الذكي')) return;
+                        openSmartRepository();
                     });
                 case 'dockCalendar':
                     return run(() => {
@@ -124,11 +126,13 @@ export function useCommandCenterDockActions({
                     });
                 case 'dockVault':
                     return run(() => {
-                        if (!requireSignedIn('مخزن الملفات')) return;
-                        dismissTransientOverlays('repository');
-                        if (onOpenRepository) onOpenRepository({ tab: 'vault' });
-                        else if (onOpenVault) onOpenVault();
-                        else SmartToast.info('مخزن الملفات');
+                        if (!requireSignedIn('المستودع الذكي')) return;
+                        if (onOpenRepository || onOpenFullNotepad) {
+                            openSmartRepository();
+                            return;
+                        }
+                        if (onOpenVault) onOpenVault();
+                        else SmartToast.info('المستودع الذكي');
                     });
                 case 'dockTasks':
                     return run(() => {
@@ -152,7 +156,7 @@ export function useCommandCenterDockActions({
                     });
                 case 'dockQuickNote':
                     return run(() => {
-                        if (!requireSignedIn('المفكرة')) return;
+                        if (!requireSignedIn('المستودع الذكي')) return;
                         dismissTransientOverlays('repository');
                         if (onOpenRepository) onOpenRepository({ tab: 'notepad', notepadMode: 'create' });
                         else onOpenFullNotepad?.();
@@ -190,6 +194,7 @@ export function useCommandCenterDockActions({
             onOpenRepository,
             onOpenCalendar,
             requireSignedIn,
+            openSmartRepository,
             onOpenFieldTasksSheet,
             onOpenCommunity,
             onOpenArchive,

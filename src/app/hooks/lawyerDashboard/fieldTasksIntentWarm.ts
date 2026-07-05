@@ -1,13 +1,18 @@
-import { warmTasksWorkspace } from '@/app/utils/lazyComponents';
-import { prefetchFieldTasksHubModule } from '@/app/runtime/fieldTasksHubLoader';
+import {
+    prefetchFieldTasksSheetModule,
+    prefetchTasksManagerModule,
+} from '@/app/runtime/fieldTasksHubLoader';
+import { hydrateFieldTasksShellForInstantOpen } from '@/app/runtime/fieldTasksBootHydrator';
 
-/** hover/idle: prefetch chunk فقط — بلا mount React */
+/** hover/idle: prefetch chunk الستارة + تهيئة للفتح الفوري */
 export function warmFieldTasksOnHover(): void {
-    prefetchFieldTasksHubModule();
+    prefetchFieldTasksSheetModule();
+    void hydrateFieldTasksShellForInstantOpen();
 }
 
-/** عند فتح مهام الميدان */
+/** عند فتح مهام الميدان — الستارة أولاً ثم الأجندة في الخلفية */
 export function warmFieldTasksOnOpen(): void {
-    warmFieldTasksOnHover();
-    warmTasksWorkspace();
+    prefetchFieldTasksSheetModule();
+    void hydrateFieldTasksShellForInstantOpen(true);
+    prefetchTasksManagerModule();
 }

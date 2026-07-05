@@ -4,6 +4,7 @@ import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts
 import { isFileData } from '@/app/components/lawyer/LawyerDashboardParts/utils';
 import { buildFileDataFromNewCaseSave } from '@/app/domain/lawsuit/lawsuitFileFactory';
 import { persistLawsuitFiles } from '@/app/domain/lawsuit/lawsuitFilesRepository';
+import { prefetchLawyerNewCaseModule } from '@/app/runtime/lawyerNewCaseLoader';
 import {
     findFileById,
     patchIncidentalLinkedFile,
@@ -20,8 +21,9 @@ import {
 } from '@/app/components/lawyer/smart-modal/smartFile/caseLinking';
 import { syncLawsuitFileToCalendar } from '@/app/services/calendarDossierSync';
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import { LawyerDB } from '@/app/services/lawyerDbRuntime';
 import { debug } from '@/app/utils/debug';
-import { saveLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
+import { dismissTransientOverlays, reconcileBodyScrollLock } from '@/app/utils/bodyScrollLock';
 
 type ActiveFile = FileData | ExecutionFile | null;
 
@@ -69,6 +71,7 @@ export function useLawsuitNewCaseFlow({
     }, [resetSpawnContexts]);
 
     const openNormalNewCaseModal = useCallback(() => {
+        prefetchLawyerNewCaseModule();
         criminalBridge.prepareNormalCriminalCaseForm();
         setIsCriminalSeveranceRedirect(false);
         setIsNewCaseModalOpen(true);
@@ -117,15 +120,13 @@ export function useLawsuitNewCaseFlow({
     const persistConsolidatedFiles = useCallback(
         (mergedPrimary: FileData, archivedSecondary: FileData) => {
             if (userId) {
-                void import('@/app/services/lawyer-cloud').then(({ LawyerDB }) => {
-                    LawyerDB.saveCase(userId, mergedPrimary as unknown as Record<string, unknown>).catch(
-                        debug.error,
-                    );
-                    LawyerDB.saveCase(
-                        userId,
-                        archivedSecondary as unknown as Record<string, unknown>,
-                    ).catch(debug.error);
-                });
+                void LawyerDB.saveCase(userId, mergedPrimary as unknown as Record<string, unknown>).catch(
+                    debug.error,
+                );
+                void LawyerDB.saveCase(
+                    userId,
+                    archivedSecondary as unknown as Record<string, unknown>,
+                ).catch(debug.error);
             }
             syncLawsuitFileToCalendar(mergedPrimary as unknown as Record<string, unknown>, userId);
             syncLawsuitFileToCalendar(archivedSecondary as unknown as Record<string, unknown>, userId);
@@ -282,6 +283,8 @@ export function useLawsuitNewCaseFlow({
                 SmartToast.success('تم توحيد الدعاوى بنجاح');
                 setIsNewCaseModalOpen(false);
                 resetSpawnContexts();
+                dismissTransientOverlays();
+                reconcileBodyScrollLock();
                 setActiveFile(mergedPrimary);
                 return;
             }
@@ -289,8 +292,7 @@ export function useLawsuitNewCaseFlow({
             setFiles((prev) => {
                 const withNew = [created, ...prev];
                 if (!incidentalSpawnContext) {
-                    saveLawsuitFilesRaw(withNew as unknown[]);
-                    return withNew;
+                    return persistLawsuitFiles(withNew);
                 }
                 const next = withNew.map((f) => {
                     if (f.id !== incidentalSpawnContext.parentFileId) return f;
@@ -301,12 +303,10 @@ export function useLawsuitNewCaseFlow({
                         created.caseNo,
                     );
                     if (userId) {
-                        void import('@/app/services/lawyer-cloud').then(({ LawyerDB }) => {
-                            LawyerDB.saveCase(
-                                userId,
-                                patched as unknown as Record<string, unknown>,
-                            ).catch(debug.error);
-                        });
+                        void LawyerDB.saveCase(
+                            userId,
+                            patched as unknown as Record<string, unknown>,
+                        ).catch(debug.error);
                     }
                     syncLawsuitFileToCalendar(
                         patched as unknown as Record<string, unknown>,
@@ -314,14 +314,15 @@ export function useLawsuitNewCaseFlow({
                     );
                     return patched;
                 });
-                saveLawsuitFilesRaw(next as unknown[]);
-                return next;
+                return persistLawsuitFiles(next);
             });
 
             SmartToast.success('تم إنشاء الملف بنجاح');
             setIsNewCaseModalOpen(false);
             setSubFileBase(null);
             setIncidentalSpawnContext(null);
+            dismissTransientOverlays();
+            reconcileBodyScrollLock();
             setActiveFile(created);
         },
         [

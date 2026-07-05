@@ -18,6 +18,7 @@ export type HubPanelTabsProps = {
     alertsCount: number;
     pinsCount: number;
     reduceMotion: boolean;
+    layoutEditMode?: boolean;
 };
 
 export const HubPanelTabs = memo(function HubPanelTabs({
@@ -26,6 +27,7 @@ export const HubPanelTabs = memo(function HubPanelTabs({
     alertsCount,
     pinsCount,
     reduceMotion,
+    layoutEditMode = false,
 }: HubPanelTabsProps) {
     const handleTabKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, panel: HomeHubPanel) => {
         if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
@@ -87,7 +89,7 @@ export const HubPanelTabs = memo(function HubPanelTabs({
                         ) : (
                             <Pin size={12} className="relative z-[1]" aria-hidden />
                         )}
-                        <span className="relative z-[1]" aria-hidden>
+                        <span className="relative z-[1]" aria-hidden data-hami-edit-hide-in-layout={layoutEditMode || undefined}>
                             {panel === 'alerts' ? 'التنبيهات' : 'التثبيت'}
                         </span>
                         {shouldShowHomeHubTabBadge(count) ? (

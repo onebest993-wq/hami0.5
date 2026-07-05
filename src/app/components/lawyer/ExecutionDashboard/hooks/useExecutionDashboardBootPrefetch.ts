@@ -9,24 +9,32 @@ import {
 import { prefetchExecutionFollowupDefaultTab } from '../executionFollowupTabPrefetch';
 import { prefetchExecutionDashboardPhoneBody } from '../executionDashboardPhoneBodyLazy';
 
-/** تحميل مسبق لـ chunks الإضبارة — مؤجَّل على الأجهزة الخفيفة */
+/** تحميل مسبق متدرج بعد فتح الإضبارة — لا يدفع phone body/modals فوراً. */
 export function useExecutionDashboardBootPrefetch(): void {
     useEffect(() => {
         if (isLitePerformanceActive()) {
             const cancel = scheduleIdleWork(() => {
                 prefetchExecutionDashboardShell();
+                prefetchExecutionFollowupDefaultTab();
             }, 8_000);
             return cancel;
         }
 
-        prefetchExecutionDashboardPhoneBody();
         prefetchExecutionDashboardShell();
         prefetchExecutionFollowupDefaultTab();
-        prefetchExecutionModalContainers();
-
-        const cancel = scheduleIdleWork(() => {
+        const cancelPhoneBody = scheduleIdleWork(() => {
+            prefetchExecutionDashboardPhoneBody();
+        }, 1_200);
+        const cancelModalContainers = scheduleIdleWork(() => {
+            prefetchExecutionModalContainers();
+        }, 2_400);
+        const cancelOverlays = scheduleIdleWork(() => {
             prefetchExecutionOverlayModals();
-        }, 2_500);
-        return cancel;
+        }, 4_000);
+        return () => {
+            cancelPhoneBody();
+            cancelModalContainers();
+            cancelOverlays();
+        };
     }, []);
 }

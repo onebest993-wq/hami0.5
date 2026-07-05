@@ -46,6 +46,8 @@ export function ProfileContactSection({
     addContactChannel,
 }: ProfileContactSectionProps) {
     const reduceMotion = useReduceMotion();
+    const editingActions = isEditing ? actions : visibleActions;
+    const hasRenderedActions = editingActions.length > 0;
     return (
         <motion.div
             initial={reduceMotion ? false : fadeUp.initial}
@@ -92,17 +94,17 @@ export function ProfileContactSection({
                     </div>
                 ) : null}
 
-                {visibleActions.length === 0 && isEditing ? (
+                {!hasRenderedActions && isEditing ? (
                     <p className="text-xs text-white/35 text-center py-4">
                         اضغط «إضافة» أو اختر نوع القناة أعلاه.
                     </p>
-                ) : visibleActions.length === 0 ? (
+                ) : !hasRenderedActions ? (
                     <p className="text-xs text-white/35 text-center py-4">
                         أضف واتساب، هاتف، بريد، أو موقعك من «تعديل».
                     </p>
                 ) : (
                     <div className="hami-profile-contact-stack">
-                        {(isEditing ? actions : visibleActions).map((action) =>
+                        {editingActions.map((action) =>
                             isEditing && draft ? (
                                 <div key={action.id} className="hami-profile-edit-channel-row">
                                     <ActionIcon type={action.type} />

@@ -219,7 +219,7 @@ export function useAppAlerts(params: {
             typeof document === 'undefined' || document.visibilityState !== 'hidden';
         if (isVisible()) startInterval();
 
-        const onCalendar = () => scheduleRefresh({ syncCalendar: true });
+        const onCalendar = () => scheduleRefresh({ syncCalendar: false });
         const onVisibilityChange = () => {
             if (isVisible()) {
                 scheduleRefresh({ syncCalendar: false });

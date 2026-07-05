@@ -1,9 +1,7 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useRef, useState } from 'react';
 import { Mic, Save } from 'lucide-react';
 import type { DossierNoteContext } from '@/app/services/dossier-notes/dossierLawArticleTooltips';
 import { dossierNoteTimestampLabel } from '@/app/services/dossier-notes/dossierNoteTimestamp';
-import { VoiceRecorderModal } from '@/app/components/lawyer/ActionModals/VoiceRecorderModal';
-import { VoiceRecorderErrorBoundary } from '@/app/components/lawyer/ActionModals/VoiceRecorderErrorBoundary';
 import {
     isVoiceBlobWithinLimit,
     isVoiceDurationValid,
@@ -18,6 +16,9 @@ import {
     type DossierLawArticleRichEditorHandle,
 } from './DossierLawArticleRichEditor';
 import { REPO_BTN_GOLD, REPO_INPUT } from '@/app/components/lawyer/SmartRepository/smartRepositoryTheme';
+
+const VoiceRecorderModal = lazy(() => import('@/app/components/lawyer/ActionModals/VoiceRecorderModal').then(mod => ({ default: mod.VoiceRecorderModal })));
+const VoiceRecorderErrorBoundary = lazy(() => import('@/app/components/lawyer/ActionModals/VoiceRecorderErrorBoundary').then(mod => ({ default: mod.VoiceRecorderErrorBoundary })));
 
 type DossierFastNoteComposerProps = {
     title: string;
@@ -122,7 +123,7 @@ export function DossierFastNoteComposer({
                 context={context}
                 expanded={expanded}
             />
-            <div className="flex flex-row flex-nowrap items-center justify-start gap-2" dir="rtl">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5" dir="rtl">
                 {onVoiceNote ? (
                     <button
                         type="button"
@@ -130,7 +131,7 @@ export function DossierFastNoteComposer({
                             setVoiceRecorderKey((k) => k + 1);
                             setShowVoiceRecorder(true);
                         }}
-                        className={`${REPO_BTN_GOLD} shrink-0 whitespace-nowrap`}
+                        className={`${REPO_BTN_GOLD} min-h-[48px] w-full justify-center whitespace-nowrap`}
                         data-testid="dossier-note-voice"
                     >
                         <Mic size={16} />
@@ -141,7 +142,7 @@ export function DossierFastNoteComposer({
                     type="button"
                     disabled={saving}
                     onClick={handleSave}
-                    className={`${REPO_BTN_GOLD} shrink-0 whitespace-nowrap`}
+                    className={`${REPO_BTN_GOLD} min-h-[48px] w-full justify-center whitespace-nowrap`}
                     data-testid="dossier-note-save"
                 >
                     <Save size={16} />
@@ -151,20 +152,22 @@ export function DossierFastNoteComposer({
                     <button
                         type="button"
                         onClick={onCancel}
-                        className="shrink-0 px-4 py-2 text-sm text-white/55 whitespace-nowrap"
+                        className="min-h-[48px] w-full rounded-xl border border-white/[0.12] bg-white/[0.04] px-5 py-2.5 text-sm font-bold text-white/80 transition-all hover:bg-white/[0.08] hover:text-white whitespace-nowrap"
                     >
                         إلغاء
                     </button>
                 ) : null}
             </div>
             {showVoiceRecorder && onVoiceNote ? (
-                <VoiceRecorderErrorBoundary onClose={() => setShowVoiceRecorder(false)}>
-                    <VoiceRecorderModal
-                        key={voiceRecorderKey}
-                        onClose={() => setShowVoiceRecorder(false)}
-                        onSaveVoice={(payload) => void handleVoiceSave(payload)}
-                    />
-                </VoiceRecorderErrorBoundary>
+                <Suspense fallback={null}>
+                    <VoiceRecorderErrorBoundary onClose={() => setShowVoiceRecorder(false)}>
+                        <VoiceRecorderModal
+                            key={voiceRecorderKey}
+                            onClose={() => setShowVoiceRecorder(false)}
+                            onSaveVoice={(payload) => void handleVoiceSave(payload)}
+                        />
+                    </VoiceRecorderErrorBoundary>
+                </Suspense>
             ) : null}
         </div>
     );

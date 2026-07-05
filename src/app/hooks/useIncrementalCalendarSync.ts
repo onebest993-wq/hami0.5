@@ -2,6 +2,11 @@ import { useEffect, useMemo, useRef } from 'react';
 import { CRIMINAL_STORAGE_PATCHED_EVENT } from '@/app/utils/criminalCasesStorage';
 import { ensureCalendarPopulatedFromLiveDossiers } from '@/app/services/calendarDossierSync';
 import { buildCalendarDossierFingerprint } from '@/app/services/calendar/calendarDossierFingerprint';
+import {
+    clearDossierSyncFingerprint,
+    markDossierSyncFingerprint,
+    shouldSkipDossierSyncForFingerprint,
+} from '@/app/services/calendar/calendarDossierSyncState';
 import { CALENDAR_REQUEST_SYNC_EVENT } from '@/app/services/calendarBridge.types';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { getQuantumPendingSnapshot } from '@/app/utils/quantumTasksMetrics';
@@ -20,7 +25,8 @@ type SyncPayload = {
     criminalCases: unknown[];
 };
 
-function runIncrementalSync(lawyerId: string, payload: SyncPayload): void {
+function runIncrementalSync(lawyerId: string, payload: SyncPayload, fingerprint: string): void {
+    if (shouldSkipDossierSyncForFingerprint(lawyerId, fingerprint)) return;
     lastPayloadByLawyer.set(lawyerId, payload);
     void ensureCalendarPopulatedFromLiveDossiers({
         lawyerId,
@@ -29,10 +35,12 @@ function runIncrementalSync(lawyerId: string, payload: SyncPayload): void {
         criminalCases: payload.criminalCases,
         globalNotes: payload.globalNotes,
         fieldTasks: payload.fieldTasks,
+    }).then(() => {
+        markDossierSyncFingerprint(lawyerId, fingerprint);
     });
 }
 
-function scheduleIncrementalSync(lawyerId: string, payload: SyncPayload): void {
+function scheduleIncrementalSync(lawyerId: string, payload: SyncPayload, fingerprint: string): void {
     lastPayloadByLawyer.set(lawyerId, payload);
     const prev = timers.get(lawyerId);
     if (prev) clearTimeout(prev);
@@ -41,7 +49,7 @@ function scheduleIncrementalSync(lawyerId: string, payload: SyncPayload): void {
         setTimeout(() => {
             timers.delete(lawyerId);
             const latest = lastPayloadByLawyer.get(lawyerId) ?? payload;
-            runIncrementalSync(lawyerId, latest);
+            runIncrementalSync(lawyerId, latest, fingerprint);
         }, DEBOUNCE_MS),
     );
 }
@@ -91,25 +99,35 @@ export function useIncrementalCalendarSync(
 
     useEffect(() => {
         if (!lawyerId) return;
-        scheduleIncrementalSync(lawyerId, payload);
+        scheduleIncrementalSync(lawyerId, payload, dossierFingerprint);
 
         const onCriminalStoragePatched = () => {
             if (!mountedRef.current || !lawyerId) return;
+            clearDossierSyncFingerprint(lawyerId);
             const latest = lastPayloadByLawyer.get(lawyerId) ?? payload;
-            scheduleIncrementalSync(lawyerId, latest);
+            scheduleIncrementalSync(lawyerId, latest, dossierFingerprint);
         };
 
         const onQuantumTasks = () => {
             if (!mountedRef.current || !lawyerId) return;
             const latest = lastPayloadByLawyer.get(lawyerId) ?? payload;
-            scheduleIncrementalSync(lawyerId, {
-                ...latest,
-                fieldTasks: getQuantumPendingSnapshot(),
-            });
+            scheduleIncrementalSync(
+                lawyerId,
+                {
+                    ...latest,
+                    fieldTasks: getQuantumPendingSnapshot(),
+                },
+                dossierFingerprint,
+            );
         };
         const onCalendarRequest = () => {
             if (!mountedRef.current || !lawyerId) return;
-            scheduleIncrementalSync(lawyerId, lastPayloadByLawyer.get(lawyerId) ?? payload);
+            if (shouldSkipDossierSyncForFingerprint(lawyerId, dossierFingerprint)) return;
+            scheduleIncrementalSync(
+                lawyerId,
+                lastPayloadByLawyer.get(lawyerId) ?? payload,
+                dossierFingerprint,
+            );
         };
         window.addEventListener(QUANTUM_TASKS_CHANGED_EVENT, onQuantumTasks);
         window.addEventListener(CALENDAR_REQUEST_SYNC_EVENT, onCalendarRequest);
@@ -136,7 +154,7 @@ export function bumpThreadingCalendarSync(lawyerId: string | null | undefined): 
         fieldTasks: [],
         criminalCases: [],
     };
-    scheduleIncrementalSync(lawyerId, latest);
+    scheduleIncrementalSync(lawyerId, latest, buildCalendarDossierFingerprint());
 }
 
 /** يُستدعى بعد حفظ إضبارة دعوى أو تنفيذ */
@@ -149,11 +167,23 @@ export function bumpDossierCalendarSync(
     criminalCases: unknown[] = [],
 ): void {
     if (!lawyerId) return;
-    scheduleIncrementalSync(lawyerId, {
+    const fingerprint = buildCalendarDossierFingerprint(
         lawsuitFiles,
         executionFiles,
         globalNotes,
         fieldTasks,
         criminalCases,
-    });
+    );
+    clearDossierSyncFingerprint(lawyerId);
+    scheduleIncrementalSync(
+        lawyerId,
+        {
+            lawsuitFiles,
+            executionFiles,
+            globalNotes,
+            fieldTasks,
+            criminalCases,
+        },
+        fingerprint,
+    );
 }

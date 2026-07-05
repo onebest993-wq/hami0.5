@@ -21,6 +21,7 @@ vi.mock('@/app/components/ui/SmartToast', () => ({
     SmartToast: {
         error: vi.fn(),
         success: vi.fn(),
+        info: vi.fn(),
     },
 }));
 
@@ -78,6 +79,40 @@ describe('useProfileEditSession', () => {
 
         expect(result.current.isEditing).toBe(true);
         expect(result.current.draft?.header.name).toBe('أحمد');
+    });
+
+    it('يخرج من التحرير فوراً عند الحفظ دون انتظار السحابة', () => {
+        vi.mocked(ProfileDB.saveProfile).mockImplementation(
+            () => new Promise((resolve) => window.setTimeout(resolve, 5_000)),
+        );
+        const { result } = renderHook(() =>
+            useProfileEditSession({
+                userId: 'owner-1',
+                isOwnProfile: true,
+                profile: baseProfile as never,
+                setProfile,
+                profileRef,
+            }),
+        );
+
+        act(() => {
+            result.current.startEdit();
+        });
+        act(() => {
+            result.current.setDraft({
+                header: { ...baseProfile.header, name: 'محمد' },
+                actions: [],
+                gallery: [],
+            });
+        });
+
+        act(() => {
+            void result.current.saveProfile();
+        });
+
+        expect(result.current.isEditing).toBe(false);
+        expect(result.current.draft).toBeNull();
+        expect(setProfile).toHaveBeenCalled();
     });
 
     it('يلغي التحرير ويمسح المسودة', () => {

@@ -4,7 +4,12 @@ import type {
     LegalTask,
     TaskExpenseEntry,
 } from '@/app/types/TaskEngine';
+import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
+import SecureStoreService from '@/app/services/SecureStoreService';
 import { countFieldDaySheetTasks } from '@/app/services/tasks/fieldCurtainTasks';
+import { shouldRejectDossierWipe } from '@/app/services/dossierPersistence/dossierWipeGuard';
+import { scheduleProtectedBackupFromRaw } from '@/app/services/dossierPersistence/protectedBackupService';
+import { prepareAgendaTasks } from '@/app/components/lawyer/dashboard/tasksManager/utils';
 
 export const QUANTUM_TASKS_STORAGE_KEY = 'hami_quantum_legal_tasks_v1';
 
@@ -18,6 +23,7 @@ function mapSubTasks(raw: unknown): LegalSubTask[] {
                 title: String(o.title ?? ''),
                 location: o.location == null ? null : String(o.location),
                 isCompleted: !!o.isCompleted,
+                kind: o.kind === 'field' || o.kind === 'branch' ? o.kind : undefined,
             } as LegalSubTask;
         })
         .filter((s) => s.id.length > 0 && s.title.length > 0);
@@ -50,6 +56,36 @@ function mapExpenses(raw: unknown): TaskExpenseEntry[] {
             } as TaskExpenseEntry;
         })
         .filter((s) => s.id.length > 0 && s.amount > 0);
+}
+
+function readRawFromDiskSync(): string | null {
+    try {
+        if (typeof localStorage !== 'undefined') {
+            const fromLs = localStorage.getItem(QUANTUM_TASKS_STORAGE_KEY);
+            if (fromLs?.trim()) return fromLs;
+        }
+    } catch {
+        /* ignore */
+    }
+    return SecureStoreService.getItemSync(QUANTUM_TASKS_STORAGE_KEY);
+}
+
+function shouldRejectQuantumTasksWipe(incomingSerialized: string): boolean {
+    const existing = readRawFromDiskSync();
+    if (!existing?.trim()) return false;
+    return shouldRejectDossierWipe(QUANTUM_TASKS_STORAGE_KEY, incomingSerialized, existing);
+}
+
+/** قراءة فورية عند الإقلاع — localStorage أولاً (يبقى بعد F5) */
+export function readQuantumTasksFromDiskSync(now = new Date()): LegalTask[] {
+    const raw = readRawFromDiskSync();
+    if (!raw?.trim()) return [];
+    try {
+        const blob: unknown = JSON.parse(raw);
+        return prepareAgendaTasks(deserializeQuantumTasks(blob), now, { skipRetentionPurge: true });
+    } catch {
+        return [];
+    }
 }
 
 /** استعادة المهام من blob التخزين (localStorage). */
@@ -133,7 +169,48 @@ export function serializeQuantumTasks(tasks: LegalTask[]): { tasks: Record<strin
     };
 }
 
-/** عداد شارة الدوك — مهام اليوم الميدانية المستحقة أو المثبتة على الستارة. */
+/** عداد شارة الدوك — مهام مثبتة على الستارة فقط */
 export function countPendingFieldTasks(pendingTasks: LegalTask[]): number {
     return countFieldDaySheetTasks(pendingTasks);
+}
+
+/** حفظ متزامن — يُكتب فوراً في localStorage قبل أي إعادة تحميل */
+export function persistQuantumTasksSync(tasks: LegalTask[]): boolean {
+    const blob = serializeQuantumTasks(tasks);
+    const serialized = JSON.stringify(blob);
+    if (shouldRejectQuantumTasksWipe(serialized)) return false;
+
+    persistenceRepository.primeEntry(QUANTUM_TASKS_STORAGE_KEY, serialized, blob);
+    SecureStoreService.setItemSync(QUANTUM_TASKS_STORAGE_KEY, serialized);
+    try {
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem(QUANTUM_TASKS_STORAGE_KEY, serialized);
+        }
+    } catch {
+        /* ignore quota / private mode */
+    }
+    return true;
+}
+
+function readPersistedQuantumTasksRaw(tasks: LegalTask[]): string {
+    return (
+        (typeof localStorage !== 'undefined'
+            ? localStorage.getItem(QUANTUM_TASKS_STORAGE_KEY)
+            : null) ??
+        SecureStoreService.getItemSync(QUANTUM_TASKS_STORAGE_KEY) ??
+        JSON.stringify(serializeQuantumTasks(tasks))
+    );
+}
+
+/** IndexedDB + نسخة احتياطية — بعد persistQuantumTasksSync */
+export async function persistQuantumTasksBackground(tasks: LegalTask[]): Promise<void> {
+    const serialized = readPersistedQuantumTasksRaw(tasks);
+    scheduleProtectedBackupFromRaw(QUANTUM_TASKS_STORAGE_KEY, serialized);
+    await SecureStoreService.setItem(QUANTUM_TASKS_STORAGE_KEY, serialized);
+}
+
+/** حفظ كامل — sync فوري + IndexedDB + نسخة احتياطية */
+export async function persistQuantumTasksImmediate(tasks: LegalTask[]): Promise<void> {
+    if (!persistQuantumTasksSync(tasks)) return;
+    await persistQuantumTasksBackground(tasks);
 }

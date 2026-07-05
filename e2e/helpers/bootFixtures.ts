@@ -78,7 +78,8 @@ export async function collectBootTimeline(page: Page): Promise<
 export async function bootToLawyerHome(page: Page): Promise<void> {
     await expect(page.getByTestId('lawyer-dashboard-ready')).toBeVisible({ timeout: 45_000 });
     await expect(page.locator('[data-hami-drop-zone="main"]')).toBeVisible({ timeout: 25_000 });
-    await expect(page.getByTestId('home-dock-chrome')).toBeVisible({ timeout: 25_000 });
+    await expect(page.getByTestId('home-bottom-chrome')).toBeVisible({ timeout: 25_000 });
+    await expect(page.getByTestId('home-dock-shell-zone')).toBeVisible({ timeout: 25_000 });
     await expect(page.getByTestId('hami-static-boot')).toHaveCount(0, { timeout: 5_000 });
     await expect(page.getByTestId('lawyer-boot-shell')).toBeHidden({ timeout: 5_000 });
 }
@@ -87,5 +88,5 @@ export async function bootToLawyerHome(page: Page): Promise<void> {
 export async function expectHomeContainersVisible(page: Page): Promise<void> {
     await expect(page.locator('[data-hami-lawyer-dashboard]')).toBeVisible();
     await expect(page.getByTestId('home-bottom-chrome')).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByTestId('home-dock-chrome')).toBeVisible();
+    await expect(page.getByTestId('home-dock-shell-zone')).toBeVisible();
 }

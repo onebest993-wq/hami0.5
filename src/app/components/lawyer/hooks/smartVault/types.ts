@@ -10,7 +10,10 @@ export type PendingUploadItem = { file: File; previewUrl?: string; kind: VaultUp
 export type VaultFileViewerState = {
     doc: SmartVaultDoc;
     url: string;
+    blob?: Blob | null;
     kind: VaultDocViewerKind;
+    /** إبطال blob URL عند الإغلاق فقط إذا أنشأناه هنا وليس من signedUrl المخزّن */
+    revokeOnClose?: boolean;
 } | null;
 
 /** @deprecated use docMatchesCategoryFilter from vaultCustomCategories */
@@ -70,5 +73,6 @@ export interface UseSmartVaultReturn {
     handleSearchSubmit: (e: React.KeyboardEvent<HTMLInputElement>) => void;
     handleDropdownAction: (doc: SmartVaultDoc, action: DropdownAction) => void;
     refreshDocs: () => Promise<void>;
+    prependVaultDoc: (doc: SmartVaultDoc) => void;
     onClose: () => void;
 }

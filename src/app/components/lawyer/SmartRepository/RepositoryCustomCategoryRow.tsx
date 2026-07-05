@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { Check, Plus, X } from 'lucide-react';
-import { countDocsInCategory } from '@/app/services/vaultCustomCategories';
-import type { SmartVaultDoc } from '@/app/services/lawyer-cloud';
+import {
+    countDocsInCategory,
+    getVisibleVaultCustomCategories,
+} from '@/app/services/vaultCustomCategories';
+import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import { REPO_CUSTOM_CAT_ADD, REPO_CUSTOM_CAT_CHIP, REPO_CUSTOM_CAT_CHIP_ACTIVE, REPO_CUSTOM_CAT_ROW, REPO_INPUT, REPO_TOUCH_ICON } from './smartRepositoryTheme';
 
 type RepositoryCustomCategoryRowProps = {
@@ -23,6 +26,7 @@ export function RepositoryCustomCategoryRow({
 }: RepositoryCustomCategoryRowProps) {
     const [creating, setCreating] = useState(false);
     const [newName, setNewName] = useState('');
+    const visibleCategories = getVisibleVaultCustomCategories(customCategories);
 
     const submitCategory = () => {
         const trimmed = newName.trim();
@@ -33,7 +37,7 @@ export function RepositoryCustomCategoryRow({
         setCreating(false);
     };
 
-    if (customCategories.length === 0 && !creating) {
+    if (visibleCategories.length === 0 && !creating) {
         return (
             <div className={REPO_CUSTOM_CAT_ROW}>
                 <button
@@ -91,7 +95,7 @@ export function RepositoryCustomCategoryRow({
                 </div>
             ) : (
                 <div className="flex items-center gap-2 overflow-x-auto scrollbar-none w-full">
-                    {customCategories.map((category) => {
+                    {visibleCategories.map((category) => {
                         const count = countDocsInCategory(docs, category);
                         const isActive = activeFilter === category;
                         return (

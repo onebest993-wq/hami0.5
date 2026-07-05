@@ -61,7 +61,9 @@ export async function putForumBlob(cacheKey: string, blob: Blob, mimeType: strin
     });
 }
 
-export async function getForumBlobObjectUrl(cacheKey: string): Promise<string | null> {
+export async function getForumBlob(
+    cacheKey: string,
+): Promise<{ blob: Blob; mimeType: string } | null> {
     const db = await openDb();
     if (!db) return null;
 
@@ -73,5 +75,14 @@ export async function getForumBlobObjectUrl(cacheKey: string): Promise<string | 
     });
 
     if (!row?.blob) return null;
+    return {
+        blob: row.blob,
+        mimeType: row.mimeType || row.blob.type || 'application/octet-stream',
+    };
+}
+
+export async function getForumBlobObjectUrl(cacheKey: string): Promise<string | null> {
+    const row = await getForumBlob(cacheKey);
+    if (!row) return null;
     return URL.createObjectURL(row.blob);
 }

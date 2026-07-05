@@ -1,10 +1,15 @@
 import { FileText, MoreVertical, Trash2 } from 'lucide-react';
 import type { TransactionDocument } from '@/app/modules/transactionsThreading/types';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/app/components/ui/dropdown-menu';
+import {
+    TransactionsDropdownMenu,
+    TransactionsDropdownMenuContent,
+    TransactionsDropdownMenuItem,
+    TransactionsDropdownMenuTrigger,
+    runAfterTransactionsMenuClose,
+} from './TransactionsDropdownMenu';
 import {
     TX_ACCENT_SURFACE,
     TX_CARD_SURFACE,
-    TX_DROPDOWN_CONTENT,
     TX_DROPDOWN_FOCUS,
     TX_ICON_BTN,
     TX_TEXT_MUTED,
@@ -34,24 +39,27 @@ export function DocumentCard({
     >
       {!readOnly && (
         <div className="absolute top-3 left-3">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          <TransactionsDropdownMenu>
+            <TransactionsDropdownMenuTrigger asChild>
               <button type="button" className={TX_ICON_BTN} aria-label="خيارات المستمسك">
                 <MoreVertical className="w-4 h-4" />
               </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className={TX_DROPDOWN_CONTENT}>
-              <DropdownMenuItem
-                onSelect={() => onDelete(doc)}
+            </TransactionsDropdownMenuTrigger>
+            <TransactionsDropdownMenuContent>
+              <TransactionsDropdownMenuItem
+                onSelect={(event) => {
+                  event.preventDefault();
+                  runAfterTransactionsMenuClose(() => onDelete(doc));
+                }}
                 className={`${TX_DROPDOWN_FOCUS} text-[#D49248] focus:text-[#D49248]`}
               >
                 <span className="inline-flex items-center gap-2">
                   <Trash2 className="w-4 h-4" />
                   حذف
                 </span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              </TransactionsDropdownMenuItem>
+            </TransactionsDropdownMenuContent>
+          </TransactionsDropdownMenu>
         </div>
       )}
 

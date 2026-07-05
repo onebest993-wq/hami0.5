@@ -7,8 +7,28 @@ vi.mock('@/app/components/ui/SmartToast', () => ({
 }));
 
 vi.mock('@/app/runtime/hamiSettingsLoader', () => ({
-    loadHamiSettingsModule: vi.fn(() => Promise.resolve({})),
+    loadHamiSettingsModule: vi.fn(() => Promise.resolve({ HamiSettings: vi.fn() })),
     prefetchHamiSettingsModule: vi.fn(),
+    isHamiSettingsModuleResolved: vi.fn(() => false),
+}));
+
+vi.mock('@/app/runtime/settingsBootHydrator', () => ({
+    SETTINGS_SHELL_HYDRATED_EVENT: 'hami:settings-shell-hydrated',
+    hydrateSettingsShellForInstantOpen: vi.fn(() => Promise.resolve(true)),
+    isSettingsShellFullyHydrated: vi.fn(() => false),
+}));
+
+vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
+    scheduleIdleWork: (fn: () => void) => {
+        fn();
+        return () => undefined;
+    },
+}));
+
+vi.mock('@/app/hooks/lawyerDashboard/settingsIntentWarm', () => ({
+    warmSettingsOnHover: vi.fn(),
+    warmSettingsOnOpen: vi.fn(),
+    primeSettingsShellForOpen: vi.fn(),
 }));
 
 /** @deprecated — استخدم useLawyerDashboardSettings.test.ts */
@@ -22,5 +42,6 @@ describe('useLawyerDashboardOverlays — الإعدادات (legacy)', () => {
             await Promise.resolve();
         });
         expect(result.current.showSettings).toBe(true);
+        expect(result.current.settingsHostMounted).toBe(true);
     });
 });

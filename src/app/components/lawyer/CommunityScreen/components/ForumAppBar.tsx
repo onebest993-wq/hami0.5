@@ -14,6 +14,7 @@ import {
     FORUM_APP_BAR_ICON,
     FORUM_ACCENT_CHIP,
     FORUM_PANEL,
+    FORUM_REPO_SEARCH_BAR,
     FORUM_TEXT_APRICOT,
     FORUM_TEXT_MUTED,
     FORUM_TEXT_PRIMARY,
@@ -77,6 +78,7 @@ export const ForumAppBar = ({
 }: ForumAppBarProps) => {
     const [showForumFilterPanel, setShowForumFilterPanel] = useState(false);
     const [showRepositoryFilterPanel, setShowRepositoryFilterPanel] = useState(false);
+    const forumFilterTriggerRef = useRef<HTMLButtonElement>(null);
     const notif = useForumAppBarNotifications(
         userId,
         notificationStreamActive,
@@ -109,7 +111,18 @@ export const ForumAppBar = ({
 
     const handleForumSearchClick = () => {
         setShowForumFilterPanel(false);
+        setShowRepositoryFilterPanel(false);
+        notif.setShowNotifPanel(false);
+        onAppBarDropdownChange?.(false);
         onSearchOpen();
+    };
+
+    const handleOpenFollowing = () => {
+        setShowForumFilterPanel(false);
+        setShowRepositoryFilterPanel(false);
+        notif.setShowNotifPanel(false);
+        onAppBarDropdownChange?.(false);
+        onOpenFollowing?.();
     };
 
     const handleForumFilterToggle = () => {
@@ -171,7 +184,8 @@ export const ForumAppBar = ({
                     {activeSection === 'forum' && onOpenFollowing ? (
                         <button
                             type="button"
-                            onClick={onOpenFollowing}
+                            data-testid="forum-following-trigger"
+                            onClick={handleOpenFollowing}
                             aria-label="المتابَعون"
                             className={`${FORUM_APP_BAR_ICON} relative ${
                                 forumFeedScope === 'following'
@@ -207,7 +221,7 @@ export const ForumAppBar = ({
                         <ForumNotificationsPanel
                             open={notif.showNotifPanel}
                             unreadCount={notif.unreadCount}
-                            loading={notif.loadingNotifs}
+                            refreshing={notif.refreshingNotifs}
                             notifications={notif.notifications}
                             onClose={() => {
                                 notif.setShowNotifPanel(false);
@@ -215,6 +229,7 @@ export const ForumAppBar = ({
                             }}
                             onMarkAllRead={() => void notif.handleMarkAllRead()}
                             onNotificationClick={(n) => void notif.handleNotificationClick(n)}
+                            onNotificationDismiss={(n) => void notif.handleNotificationDismiss(n)}
                         />
                     </div>
 
@@ -236,25 +251,27 @@ export const ForumAppBar = ({
                                     aria-hidden
                                 />
                                 <button
+                                    ref={forumFilterTriggerRef}
                                     type="button"
                                     onClick={handleForumFilterToggle}
                                     aria-label="تصنيفات المنتدى"
                                     aria-expanded={showForumFilterPanel}
-                                    className={`relative h-10 px-2.5 flex items-center gap-1 transition-colors ${
+                                    className={`relative flex h-10 items-center gap-1.5 rounded-full border px-3 text-xs font-bold transition-all duration-150 ${
                                         showForumFilterPanel || hasForumFilter
-                                            ? `${FORUM_TEXT_APRICOT} bg-[#F0B896]/12 shadow-[inset_0_0_14px_rgba(240,184,150,0.1)]`
-                                            : 'text-[#9A9098] hover:text-[#F0B896] hover:bg-[#342C3E]'
+                                            ? `${FORUM_TEXT_APRICOT} border-[#F0B896]/35 bg-[#F0B896]/12`
+                                            : 'border-transparent text-[#9A9098] hover:border-[#F0B896]/18 hover:text-[#F0B896] hover:bg-[#342C3E]'
                                     }`}
                                 >
+                                    <span className="truncate">التصنيف</span>
+                                    {hasForumFilter ? (
+                                        <span className="max-w-[72px] truncate rounded-full bg-[#F0B896]/12 px-2 py-0.5 text-[10px] leading-none">
+                                            {activeFilterLabel}
+                                        </span>
+                                    ) : null}
                                     <ChevronDown
                                         size={16}
                                         className={`transition-transform duration-200 ${showForumFilterPanel ? 'rotate-180' : ''}`}
                                     />
-                                    {hasForumFilter ? (
-                                        <span className="max-w-[72px] truncate text-[10px] font-bold leading-none">
-                                            {activeFilterLabel}
-                                        </span>
-                                    ) : null}
                                 </button>
                             </div>
 
@@ -271,6 +288,7 @@ export const ForumAppBar = ({
                                             selectedFilterIndex={selectedFilterIndex}
                                             onFilterSelect={onFilterSelect}
                                             onClose={() => setShowForumFilterPanel(false)}
+                                            anchorRef={forumFilterTriggerRef}
                                         />
                                     </>
                                 ) : null}
@@ -287,20 +305,20 @@ export const ForumAppBar = ({
             {activeSection === 'repository' ? (
                 <div className="px-4 pb-3">
                     <div className="relative">
-                        <div className="flex items-center h-11 rounded-2xl bg-[#25293C] border border-white/10 overflow-hidden shadow-lg shadow-black/20 focus-within:border-[#E6C673]/30 transition-colors">
+                        <div className={FORUM_REPO_SEARCH_BAR}>
                             <div className="flex flex-1 items-center gap-2 px-3 min-w-0">
-                                <Search size={17} className="text-white/35 shrink-0" />
+                                <Search size={17} className="text-[#9A9098] shrink-0" />
                                 <input
                                     type="search"
                                     value={repositorySearchTerm}
                                     onChange={(e) => onRepositorySearchTermChange(e.target.value)}
                                     placeholder="ابحث في المستندات، الوسوم، المؤلف..."
                                     aria-label="بحث في المستودع"
-                                    className="w-full bg-transparent text-white text-sm placeholder-white/30 outline-none"
+                                    className="w-full bg-transparent text-[#E6E0E4] text-sm placeholder-[#9A9098]/55 outline-none"
                                 />
                             </div>
                             <div
-                                className="w-px h-6 bg-gradient-to-b from-transparent via-white/15 to-transparent shrink-0"
+                                className="w-px h-6 bg-gradient-to-b from-transparent via-[#4A3D52]/60 to-transparent shrink-0"
                                 aria-hidden
                             />
                             <button
@@ -310,8 +328,8 @@ export const ForumAppBar = ({
                                 aria-expanded={showRepositoryFilterPanel}
                                 className={`relative h-11 px-3 flex items-center gap-1.5 shrink-0 transition-colors ${
                                     showRepositoryFilterPanel || hasRepositoryFilter
-                                        ? 'text-[#E6C673] bg-[#E6C673]/10'
-                                        : 'text-white/70 hover:text-white hover:bg-[#2f3346]'
+                                        ? `${FORUM_TEXT_APRICOT} bg-[#F0B896]/10`
+                                        : 'text-[#9A9098] hover:text-[#F0B896] hover:bg-[#342C3E]'
                                 }`}
                             >
                                 <ChevronDown

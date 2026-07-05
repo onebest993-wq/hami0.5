@@ -55,6 +55,8 @@ export async function POST(request: Request): Promise<Response> {
 
     if (payload.action === 'mark_read' && typeof payload.notificationId === 'string') {
       await ServerNotificationDB.markAsRead(payload.notificationId, userId);
+    } else if (payload.action === 'dismiss' && typeof payload.notificationId === 'string') {
+      await ServerNotificationDB.removeNotification(payload.notificationId, userId);
     } else if (payload.action === 'mark_all_read') {
       await ServerNotificationDB.markAllAsRead(userId);
     } else {

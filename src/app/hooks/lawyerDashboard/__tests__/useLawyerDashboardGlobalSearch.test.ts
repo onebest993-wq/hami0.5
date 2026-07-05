@@ -19,6 +19,10 @@ vi.mock('@/app/hooks/lawyerDashboard/globalSearchIntentWarm', () => ({
     warmGlobalSearchOnOpen: vi.fn(),
 }));
 
+vi.mock('@/app/runtime/globalSearchBootHydrator', () => ({
+    hydrateGlobalSearchShellForInstantOpen: vi.fn(() => Promise.resolve(true)),
+}));
+
 vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
     scheduleIdleWork: (fn: () => void) => {
         fn();
@@ -54,12 +58,11 @@ describe('useLawyerDashboardGlobalSearch', () => {
         expect(result.current.showGlobalSearch).toBe(false);
     });
 
-    it('يفتح البحث للمستخدم المسجّل فوراً (flushSync)', async () => {
+    it('يفتح البحث للمستخدم المسجّل فوراً (flushSync)', () => {
         const { result } = renderHook(() => useLawyerDashboardGlobalSearch({ userId: 'lawyer-1' }));
 
-        await act(async () => {
+        act(() => {
             result.current.openGlobalSearch('جلسة');
-            await Promise.resolve();
         });
 
         expect(result.current.showGlobalSearch).toBe(true);

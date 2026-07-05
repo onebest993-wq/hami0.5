@@ -11,6 +11,7 @@ export function useSettingsLifecycle(
     open: boolean,
     activeSection: SettingsSectionId,
     userId?: string | null,
+    onHydrated?: () => void,
 ) {
     const reportedRef = useRef(false);
 
@@ -37,7 +38,8 @@ export function useSettingsLifecycle(
                     activeSection,
                     hadChunkCached: isHamiSettingsModuleResolved(),
                 });
+                onHydrated?.();
             },
         });
-    }, [activeSection, open, userId]);
+    }, [activeSection, onHydrated, open, userId]);
 }

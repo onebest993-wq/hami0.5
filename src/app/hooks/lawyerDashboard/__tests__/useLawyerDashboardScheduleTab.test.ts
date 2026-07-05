@@ -10,9 +10,8 @@ vi.mock('@/app/components/ui/SmartToast', () => ({
     },
 }));
 
-vi.mock('@/app/runtime/scheduleHubLoader', () => ({
-    loadScheduleHubModule: vi.fn(() => Promise.resolve([])),
-    prefetchScheduleHubModule: vi.fn(),
+vi.mock('@/app/runtime/scheduleBootHydrator', () => ({
+    hydrateScheduleShellForInstantOpenWithData: vi.fn(() => Promise.resolve(true)),
 }));
 
 vi.mock('@/app/hooks/lawyerDashboard/scheduleIntentWarm', async (importOriginal) => {

@@ -38,7 +38,7 @@ async function toWebRequest(req: VercelRequest): Promise<Request> {
     return new Request(url, {
         method,
         headers,
-        body: raw.byteLength > 0 ? raw : undefined,
+        body: raw.byteLength > 0 ? new Uint8Array(raw) : undefined,
     });
 }
 

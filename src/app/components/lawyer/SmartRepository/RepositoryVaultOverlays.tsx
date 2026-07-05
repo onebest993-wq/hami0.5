@@ -12,7 +12,7 @@ type VaultOverlayApi = Pick<
     | 'currentUserId'
     | 'customCategories'
     | 'addVaultCategory'
-    | 'refreshDocs'
+    | 'prependVaultDoc'
     | 'pendingUpload'
     | 'uploadQueueCount'
     | 'isSavingMeta'
@@ -24,6 +24,7 @@ type VaultOverlayApi = Pick<
     | 'closeEditDoc'
     | 'fileViewer'
     | 'closeFileViewer'
+    | 'handleViewFile'
 >;
 
 type RepositoryVaultOverlaysProps = {
@@ -51,8 +52,13 @@ export const RepositoryVaultOverlays = memo(function RepositoryVaultOverlays({
                 <RepositoryScannerPanel
                     userId={vault.currentUserId}
                     onClose={onCloseScanner}
-                    onSaved={() => void vault.refreshDocs()}
-                    onViewDoc={onCloseScanner}
+                    onSaved={(result) => {
+                        vault.prependVaultDoc(result.doc);
+                    }}
+                    onViewDoc={(doc) => {
+                        onCloseScanner();
+                        void vault.handleViewFile(doc);
+                    }}
                     onCategoryUsed={vault.addVaultCategory}
                     categorySuggestions={vault.customCategories}
                 />
@@ -69,7 +75,7 @@ export const RepositoryVaultOverlays = memo(function RepositoryVaultOverlays({
                     onAddCategory={vault.addVaultCategory}
                     onConfirm={(meta) => void vault.confirmPendingUpload(meta)}
                     onCancel={vault.cancelPendingUpload}
-                    overlayScope="viewport"
+                    overlayScope="panel"
                 />
             ) : null}
 
@@ -81,7 +87,7 @@ export const RepositoryVaultOverlays = memo(function RepositoryVaultOverlays({
                     onAddCategory={vault.addVaultCategory}
                     onSave={(values) => void vault.saveDocEdit(values)}
                     onClose={vault.closeEditDoc}
-                    overlayScope="viewport"
+                    overlayScope="panel"
                 />
             ) : null}
 
@@ -89,6 +95,7 @@ export const RepositoryVaultOverlays = memo(function RepositoryVaultOverlays({
                 <VaultDocViewer
                     doc={vault.fileViewer.doc}
                     fileUrl={vault.fileViewer.url}
+                    fileBlob={vault.fileViewer.blob}
                     kind={vault.fileViewer.kind}
                     onClose={vault.closeFileViewer}
                     overlayScope="viewport"

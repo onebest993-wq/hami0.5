@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
+
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useNotificationStore } from '@/app/stores/notificationStore';
 import { useIncomingCaseShares } from '@/app/hooks/useIncomingCaseShares';
@@ -17,20 +18,20 @@ import {
 import { loadNotificationPanelModule } from '@/app/runtime/notificationPanelLoader';
 import {
     dismissTransientOverlays,
-    HAMI_DISMISS_OVERLAYS_EVENT,
-    releaseBodyScrollLock,
-    type TransientOverlayId,
 } from '@/app/utils/bodyScrollLock';
+import { registerDashboardOverlayCloser } from '@/app/hooks/lawyerDashboard/dashboardOverlayCoordinator';
 import {
     warmNotificationsOnHover,
     warmNotificationsOnOpen,
 } from '@/app/hooks/lawyerDashboard/notificationIntentWarm';
+import { hydrateNotificationShellForInstantOpen } from '@/app/runtime/notificationBootHydrator';
 
 export function useLawyerDashboardNotifications(userId: string | null) {
     const notifications = useNotificationStore((s) => s.notifications);
     const storeUnreadCount = useNotificationStore((s) => s.unreadCount);
     const { pendingCount: caseSharePendingCount } = useIncomingCaseShares(userId, Boolean(userId), {
         pollIntervalMs: null,
+        deferInitialFetch: true,
     });
     const notificationsUnreadCount = computeNotificationsShellUnreadCount(
         storeUnreadCount,
@@ -45,6 +46,7 @@ export function useLawyerDashboardNotifications(userId: string | null) {
     useNotificationBackgroundSync(userId, {
         panelOpen: showNotifications,
         enabled: Boolean(userId),
+        deferUntilBootIdle: true,
     });
 
     const closeNotifications = useCallback(() => {
@@ -55,20 +57,13 @@ export function useLawyerDashboardNotifications(userId: string | null) {
 
     const primeNotificationPanelMount = useCallback(() => {
         warmNotificationsOnHover();
+        void hydrateNotificationShellForInstantOpen().catch(() => undefined);
     }, []);
 
     useEffect(() => {
-        const onDismiss = (e: Event) => {
-            const except = (e as CustomEvent<{ except?: TransientOverlayId }>).detail?.except;
-            if (except !== 'notifications') {
-                setShowNotifications(false);
-            }
-            if (except == null) {
-                releaseBodyScrollLock();
-            }
-        };
-        window.addEventListener(HAMI_DISMISS_OVERLAYS_EVENT, onDismiss);
-        return () => window.removeEventListener(HAMI_DISMISS_OVERLAYS_EVENT, onDismiss);
+        return registerDashboardOverlayCloser('notifications', () => {
+            setShowNotifications(false);
+        });
     }, []);
 
     const openNotifications = useCallback(() => {
@@ -79,22 +74,25 @@ export function useLawyerDashboardNotifications(userId: string | null) {
             onOpen: () => {
                 if (showNotificationsRef.current || openInFlightRef.current) return;
                 openInFlightRef.current = true;
-                void (async () => {
-                    try {
-                        clearNotificationPerfMarks();
-                        markNotificationPerfPhase('open-request');
-                        warmNotificationsOnOpen(userId);
-                        await loadNotificationPanelModule().catch(() => undefined);
-                        markNotificationPerfPhase('chunk-ready');
-                        flushSync(() => {
-                            setShowNotifications(true);
-                        });
+                try {
+                    clearNotificationPerfMarks();
+                    markNotificationPerfPhase('open-request');
+                    warmNotificationsOnOpen(userId);
+
+                    flushSync(() => {
+                        setShowNotifications(true);
                         showNotificationsRef.current = true;
-                        queueMicrotask(() => dismissTransientOverlays('notifications'));
-                    } finally {
-                        openInFlightRef.current = false;
-                    }
-                })();
+                    });
+
+                    queueMicrotask(() => dismissTransientOverlays('notifications'));
+
+                    void loadNotificationPanelModule()
+                        .catch(() => undefined)
+                        .then(() => markNotificationPerfPhase('chunk-ready'));
+                    void hydrateNotificationShellForInstantOpen(true).catch(() => undefined);
+                } finally {
+                    openInFlightRef.current = false;
+                }
             },
         });
     }, [userId]);

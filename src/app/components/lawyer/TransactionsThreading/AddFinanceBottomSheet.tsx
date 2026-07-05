@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Drawer, DrawerContent } from '@/app/components/ui/drawer';
 import { useTransactionsThreadingStore } from '@/app/modules/transactionsThreading/store';
 import { FinanceRecordType } from '@/app/modules/transactionsThreading/types';
 import type { FinanceRecord } from '@/app/modules/transactionsThreading/types';
@@ -8,12 +7,13 @@ import {
     GLASS_CHIP,
     GLASS_CHIP_ACTIVE,
     GLASS_FIELD,
-    TX_DRAWER_SHELL,
     TX_TEXT_MUTED,
     TxFieldLabel,
     TxGlassDrawerFrame,
     TX_TEXT_OCHRE,
 } from './transactionsGlassTheme';
+import { TransactionsHubSheet } from './TransactionsHubSheet';
+import { TxDateInput } from './TxDateInput';
 
 function todayDateInput(): string {
     const d = new Date();
@@ -95,9 +95,8 @@ export function AddFinanceBottomSheet({
     };
 
     return (
-        <Drawer open={open} onOpenChange={onOpenChange}>
-            <DrawerContent className={TX_DRAWER_SHELL}>
-                <TxGlassDrawerFrame
+        <TransactionsHubSheet open={open} onOpenChange={onOpenChange}>
+            <TxGlassDrawerFrame
                     title={record ? 'تعديل حركة مالية' : 'إضافة حركة مالية'}
                     subtitle="مقبوضات من الموكل أو مصروف"
                     footer={
@@ -134,12 +133,10 @@ export function AddFinanceBottomSheet({
                     </div>
                     <div>
                         <TxFieldLabel>تاريخ الحركة</TxFieldLabel>
-                        <input
+                        <TxDateInput
                             value={financeDate}
                             onChange={(e) => setFinanceDate(e.target.value)}
-                            type="date"
                             disabled={!!readOnly}
-                            className={`${GLASS_FIELD} disabled:opacity-50 [color-scheme:dark]`}
                         />
                         <p className={`${TX_TEXT_MUTED} text-[10px] mt-1.5 leading-5 font-medium`}>
                             يُزامَن تلقائياً مع التقويم (معاملات إدارية).
@@ -168,7 +165,6 @@ export function AddFinanceBottomSheet({
                         />
                     </div>
                 </TxGlassDrawerFrame>
-            </DrawerContent>
-        </Drawer>
+        </TransactionsHubSheet>
     );
 }

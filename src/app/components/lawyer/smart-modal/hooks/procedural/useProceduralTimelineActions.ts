@@ -55,6 +55,8 @@ import {
 } from '../../smartFile/petitionVoidFlow';
 import { buildLawsuitCalendarContext } from './lawsuitCalendarContext';
 import { emitDossierNotesChanged } from '@/app/services/dossier-notes/dossierNoteSyncEvents';
+import { saveFileToVault } from '@/app/services/vaultUploadService';
+import { SmartVaultDB } from '@/app/services/vault/smartVaultRuntime';
 
 
 export function useProceduralTimelineActions(options: UseSmartFileProceduralActionsOptions) {
@@ -100,105 +102,155 @@ export function useProceduralTimelineActions(options: UseSmartFileProceduralActi
     } = options;
 
     const lawsuitCalendarContext = () => buildLawsuitCalendarContext(parentData, calendarUserId);
+    const buildTimelineVaultDocSnapshot = (doc: Record<string, unknown> | undefined) =>
+        doc
+            ? {
+                  id: typeof doc.id === 'string' ? doc.id : '',
+                  title: typeof doc.title === 'string' ? doc.title : '',
+                  type: doc.type,
+                  tags: Array.isArray(doc.tags) ? doc.tags : [],
+                  authorId: typeof doc.authorId === 'string' ? doc.authorId : '',
+                  createdAt: typeof doc.createdAt === 'string' ? doc.createdAt : '',
+                  updatedAt: typeof doc.updatedAt === 'string' ? doc.updatedAt : '',
+                  fileSize: typeof doc.fileSize === 'number' ? doc.fileSize : 0,
+                  fileName: typeof doc.fileName === 'string' ? doc.fileName : '',
+                  mimeType: typeof doc.mimeType === 'string' ? doc.mimeType : '',
+                  storagePath: typeof doc.storagePath === 'string' ? doc.storagePath : '',
+                  signedUrl: null,
+                  aiSummary: typeof doc.aiSummary === 'string' ? doc.aiSummary : null,
+                  lawyerNote: typeof doc.lawyerNote === 'string' ? doc.lawyerNote : null,
+                  customCategory: typeof doc.customCategory === 'string' ? doc.customCategory : null,
+                  isProcessing: Boolean(doc.isProcessing),
+                  boundDossierId: typeof doc.boundDossierId === 'string' ? doc.boundDossierId : null,
+              }
+            : undefined;
 
-const handleAddAppointment = (data: {
-    date: string;
-    title?: string;
-    details?: string;
-    description?: string;
-    purpose?: string;
-    id?: string;
-    [key: string]: unknown;
-}) => {
-    const updatedStages = [...stages];
-    let autoLock = false;
-    
-    // 🔥 NEW: Auto-Task Generation for Witnesses/Experts
-    if (data.purpose === 'انتخاب خبير / كشف') {
-        // We can't call handleAddTask directly because it modifies state and triggers save.
-        // Instead, we should modify the updatedStages object directly if we want atomic update, 
-        // OR just accept that we trigger two updates. 
-        // Calling handleAddTask is safer for code reuse but might cause race condition if we don't handle it carefully.
-        // Let's modify updatedStages directly to be safe.
-        const newTask: Task = {
-            id: `task_auto_${Date.now()}`,
-            title: `⚠️ تسديد أمانة الخبير والمصاريف لجلسة ${data.date}`,
-            dueDate: data.date,
-            isCompleted: false
-        };
-        updatedStages[activeStageIndex].tasks = [newTask, ...(stageTasks(currentStage) || [])];
-        SmartToast.info("تم إضافة مهمة إدارية لتسديد أجور الخبير تلقائياً 🤖");
-    }
-    if (data.purpose === 'استماع شهود') {
-         const newTask: Task = {
-            id: `task_auto_${Date.now()}`,
-            title: `⚠️ تسديد نفقات الشهود لجلسة ${data.date}`,
-            dueDate: data.date,
-            isCompleted: false
-        };
-        updatedStages[activeStageIndex].tasks = [newTask, ...(stageTasks(currentStage) || [])];
-         SmartToast.info("تم إضافة مهمة إدارية لتسديد نفقات الشهود تلقائياً 🤖");
-    }
+    const resolveAppointmentSubType = (purpose: string, tags: string[]): AppointmentType => {
+        const blob = `${purpose} ${tags.join(' ')}`.toLowerCase();
+        if (blob.includes('مرافعة')) return 'pleading';
+        if (blob.includes('شهود') || blob.includes('شاهد')) return 'witness';
+        if (blob.includes('قرار') || blob.includes('حكم')) return 'verdict';
+        if (blob.includes('تحقيق') || blob.includes('كشف') || blob.includes('خبير')) return 'investigation';
+        return 'other';
+    };
 
-    // 🔮 AUTOMATIC LOCK TRIGGER
-    // If the hearing outcome/title mentions "Closing of Pleadings", lock the case globally.
-    const apptTitle = String(data.title ?? data.description ?? '');
-    const apptDetails = String(data.details ?? data.description ?? '');
-    if (
-        apptTitle.includes('ختام المرافعة') ||
-        apptTitle.includes('حجز الدعوى') ||
-        apptDetails.includes('ختام المرافعة') ||
-        apptDetails.includes('حجز الدعوى')
-    ) {
-        updatedStages[activeStageIndex].isPleadingsClosed = true;
-        autoLock = true;
-    }
+    const handleAddAppointment = async (data: {
+        date: string;
+        title?: string;
+        details?: string;
+        description?: string;
+        purpose?: string;
+        id?: string;
+        [key: string]: unknown;
+    }) => {
+        try {
+            const isEditing = Boolean(data.id);
+            const updatedStages = [...stages];
+            let autoLock = false;
 
-    if (data.id) {
-        // Update existing
-        updatedStages[activeStageIndex].timeline = stageTimeline(currentStage).map((e: TimelineEvent) => 
-            e.id === data.id ? { ...e, ...data, type: 'appointment' as const } : e
-        );
-        setEditingEvent(null);
-    } else {
-        const newApptId = `appt_${Date.now()}`;
-        updatedStages[activeStageIndex].timeline = [{
-            id: newApptId,
-            type: 'appointment',
-            date: data.date,
-            title: apptTitle,
-            details: apptDetails,
-            subType: data.purpose as AppointmentType | undefined,
-            tags: Array.isArray(data.tags) ? (data.tags as string[]) : undefined,
-            isNew: true
-        }, ...(updatedStages[activeStageIndex].timeline || [])];
-        data.id = newApptId;
-    }
-    
-    setStages(updatedStages);
-    saveToCloud(updatedStages);
+            if (data.purpose === 'انتخاب خبير / كشف') {
+                const newTask: Task = {
+                    id: `task_auto_${Date.now()}`,
+                    title: `⚠️ تسديد أمانة الخبير والمصاريف لجلسة ${data.date}`,
+                    dueDate: data.date,
+                    isCompleted: false,
+                };
+                updatedStages[activeStageIndex].tasks = [newTask, ...(stageTasks(currentStage) || [])];
+                SmartToast.info('تم إضافة مهمة إدارية لتسديد أجور الخبير تلقائياً');
+            }
 
-    const ctx = lawsuitCalendarContext();
-    const timelineEventId = String(data.id ?? `appt_${Date.now()}`);
-    syncLawsuitTimelineAppointment({
-        userId: ctx.userId,
-        fileId: ctx.fileId,
-        event: {
-            id: timelineEventId,
-            date: data.date,
-            title: apptTitle || String(data.purpose ?? 'موعد'),
-            details: apptDetails,
-        },
-        caseNo: ctx.caseNo,
-        court: ctx.court,
-        parties: ctx.parties,
-        clientName: ctx.clientName,
-    });
+            if (data.purpose === 'استماع شهود') {
+                const newTask: Task = {
+                    id: `task_auto_${Date.now()}`,
+                    title: `⚠️ تسديد نفقات الشهود لجلسة ${data.date}`,
+                    dueDate: data.date,
+                    isCompleted: false,
+                };
+                updatedStages[activeStageIndex].tasks = [newTask, ...(stageTasks(currentStage) || [])];
+                SmartToast.info('تم إضافة مهمة إدارية لتسديد نفقات الشهود تلقائياً');
+            }
 
-    if (autoLock) {
-        SmartToast.success("تم حجز الدعوى للقرار تلقائياً بناءً على نتيجة الجلسة 🔒");
-    }
-};
+            const appointmentTags = Array.isArray(data.tags) ? (data.tags as string[]) : [];
+            const apptTitle = String(data.title ?? data.purpose ?? data.description ?? '').trim();
+            const apptDetails = String(data.details ?? data.description ?? '').trim();
+            const appointmentSubType = resolveAppointmentSubType(
+                String(data.purpose ?? apptTitle),
+                appointmentTags,
+            );
+
+            if (
+                apptTitle.includes('ختام المرافعة') ||
+                apptTitle.includes('حجز الدعوى') ||
+                apptDetails.includes('ختام المرافعة') ||
+                apptDetails.includes('حجز الدعوى')
+            ) {
+                updatedStages[activeStageIndex].isPleadingsClosed = true;
+                autoLock = true;
+            }
+
+            if (data.id) {
+                updatedStages[activeStageIndex].timeline = stageTimeline(currentStage).map((e: TimelineEvent) =>
+                    e.id === data.id
+                        ? {
+                              ...e,
+                              ...data,
+                              type: 'appointment' as const,
+                              title: apptTitle,
+                              details: apptDetails,
+                              subType: appointmentSubType,
+                              tags: appointmentTags.length ? appointmentTags : undefined,
+                          }
+                        : e,
+                );
+                setEditingEvent(null);
+            } else {
+                const newApptId = `appt_${Date.now()}`;
+                updatedStages[activeStageIndex].timeline = [
+                    {
+                        id: newApptId,
+                        type: 'appointment',
+                        date: data.date,
+                        title: apptTitle,
+                        details: apptDetails,
+                        subType: appointmentSubType,
+                        tags: appointmentTags.length ? appointmentTags : undefined,
+                        isNew: true,
+                    },
+                    ...(updatedStages[activeStageIndex].timeline || []),
+                ];
+                data.id = newApptId;
+            }
+
+            setStages(updatedStages);
+            saveToCloud(updatedStages);
+
+            const ctx = lawsuitCalendarContext();
+            const timelineEventId = String(data.id ?? `appt_${Date.now()}`);
+            syncLawsuitTimelineAppointment({
+                userId: ctx.userId,
+                fileId: ctx.fileId,
+                event: {
+                    id: timelineEventId,
+                    date: data.date,
+                    title: apptTitle || String(data.purpose ?? 'موعد'),
+                    details: apptDetails,
+                },
+                caseNo: ctx.caseNo,
+                court: ctx.court,
+                parties: ctx.parties,
+                clientName: ctx.clientName,
+            });
+
+            SmartToast.success(isEditing ? 'تم تحديث الموعد بنجاح ✅' : 'تمت إضافة الموعد بنجاح ✅');
+            if (autoLock) {
+                SmartToast.success('تم حجز الدعوى للقرار تلقائياً بناءً على نتيجة الجلسة 🔒');
+            }
+        } catch (error) {
+            logError('handleAddAppointment', error, data);
+            SmartToast.error('حدث خطأ أثناء حفظ الموعد');
+            throw error;
+        }
+    };
 
 const handleAddAction = (data: { title: string; date: string; description: string; [key: string]: unknown }) => {
     const updatedStages = [...stages];
@@ -433,7 +485,7 @@ const handleAddNote = (data: { text: string; date: string; [key: string]: unknow
     }
 };
 
-const handleAddDoc = (data: { title: string; file: File | string; notes?: string; date: string; [key: string]: unknown }) => {
+const handleAddDoc = async (data: { title: string; file: File | string | null; notes?: string; date: string; [key: string]: unknown }) => {
     try {
         // ✅ Validation
         const validation = validateDocumentData({ 
@@ -447,6 +499,43 @@ const handleAddDoc = (data: { title: string; file: File | string; notes?: string
         }
 
         const updatedStages = [...stages];
+        const title = String(data.title ?? '').trim();
+        const noteBody = String(data.details ?? data.notes ?? '').trim();
+        const file =
+            typeof File !== 'undefined' && data.file instanceof File ? data.file : null;
+        const fileName =
+            (typeof data.fileName === 'string' && data.fileName.trim()) ||
+            file?.name ||
+            title;
+        const fileType =
+            (typeof data.fileType === 'string' && data.fileType.trim()) ||
+            file?.type ||
+            '';
+        const ctx = lawsuitCalendarContext();
+        let attachmentDocId: string | undefined;
+        let savedVaultDoc: Record<string, unknown> | undefined;
+        const priorEvent = data.id
+            ? stageTimeline(currentStage).find((e: TimelineEvent) => e.id === data.id)
+            : null;
+        const priorMeta = (priorEvent?.metadata as Record<string, unknown> | undefined) ?? {};
+        const priorAttachmentDocId =
+            typeof priorMeta.attachmentDocId === 'string' ? priorMeta.attachmentDocId : undefined;
+
+        if (!data.id && !file) {
+            SmartToast.error('اختر ملف المستند أولاً');
+            return;
+        }
+
+        if (file && ctx.userId) {
+            const saved = await saveFileToVault(ctx.userId, file, {
+                title,
+                customCategory: typeof data.category === 'string' ? data.category : null,
+                fileName,
+                lawyerNote: noteBody || null,
+            });
+            attachmentDocId = saved.doc.id;
+            savedVaultDoc = buildTimelineVaultDocSnapshot(saved.doc);
+        }
         
         const docCategory = data.category as DocumentCategory | undefined;
         const evidentiaryWeight = data.evidentiaryWeight as TimelineEvent['evidentiaryWeight'];
@@ -455,23 +544,43 @@ const handleAddDoc = (data: { title: string; file: File | string; notes?: string
                 e.id === data.id ? {
                     ...e,
                     type: 'document',
-                    title: data.title,
-                    details: String(data.details ?? data.notes ?? ''),
+                    title,
+                    details: [`نوع المستند: ${String(docCategory ?? '').trim() || 'عام'}`, fileName ? `الملف: ${fileName}` : '', noteBody]
+                        .filter(Boolean)
+                        .join('\n'),
                     docCategory,
                     evidentiaryWeight,
+                    metadata: {
+                        ...(typeof e.metadata === 'object' && e.metadata ? e.metadata : {}),
+                        attachmentDocId: attachmentDocId ?? (e.metadata as Record<string, unknown> | undefined)?.attachmentDocId,
+                        fileName,
+                        fileType,
+                        vaultDoc: savedVaultDoc ?? (e.metadata as Record<string, unknown> | undefined)?.vaultDoc,
+                    },
                 } : e
             );
             setEditingEvent(null);
+            if (file && priorAttachmentDocId && attachmentDocId && priorAttachmentDocId !== attachmentDocId && ctx.userId) {
+                void SmartVaultDB.deleteDoc(priorAttachmentDocId, ctx.userId).catch(() => undefined);
+            }
             SmartToast.success('تم تحديث المستند بنجاح ✅');
         } else {
             updatedStages[activeStageIndex].timeline = [{
                 id: `doc_${Date.now()}`,
                 type: 'document',
-                date: getLocalTodayYmd(),
-                title: data.title,
-                details: String(data.details ?? data.notes ?? ''),
+                date: String(data.date || getLocalTodayYmd()),
+                title,
+                details: [`نوع المستند: ${String(docCategory ?? '').trim() || 'عام'}`, fileName ? `الملف: ${fileName}` : '', noteBody]
+                    .filter(Boolean)
+                    .join('\n'),
                 docCategory,
                 evidentiaryWeight,
+                metadata: {
+                    attachmentDocId,
+                    fileName,
+                    fileType,
+                    vaultDoc: savedVaultDoc,
+                },
                 isNew: true
             }, ...stageTimeline(currentStage)];
             SmartToast.success('تمت إضافة المستند بنجاح ✅');

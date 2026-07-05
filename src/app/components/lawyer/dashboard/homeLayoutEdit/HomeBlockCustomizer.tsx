@@ -230,9 +230,9 @@ export function HomeBlockCustomizer({
                 <p className="text-[10px] text-white/40 leading-relaxed">
                     في الشريط السفلي: العرض والارتفاع ثابتان — الألوان والشكل والنمط فقط.
                 </p>
-            ) : blockId !== 'dockShell' && blockId !== 'dockQuickNote' && isHomeWidgetId(blockId) && !isHeightProtectedWidget(blockId) ? (
+            ) : blockId !== 'dockShell' && blockId !== 'dockQuickNote' && isHomeWidgetId(blockId) ? (
                 <p className="text-[10px] text-white/40 leading-relaxed">
-                    الأبعاد (الارتفاع والعرض): اضغط زر المقاس على البطاقة ثم اسحب الحافة أو الزاوية.
+                    العرض (نصف / كامل) من شريط البطاقة — الألوان والشكل والنمط من هنا.
                 </p>
             ) : null}
 

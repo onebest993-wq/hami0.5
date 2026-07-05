@@ -1,5 +1,4 @@
 import type { BackgroundPresetId } from './backgroundPresets';
-import type { DockItemId } from './homeLayout';
 
 /** كل عناصر الواجهة القابلة للنقل بين المناطق */
 export const HOME_WIDGET_IDS = [
@@ -27,7 +26,7 @@ export interface HomeWidgetPlacement {
 
 export type HomeWidgetPlacements = Record<HomeWidgetId, HomeWidgetPlacement>;
 
-/** دُمجت في المستودع الذكي — تُخفى من العرض العادي وتبقى في وضع تخصيص التخطيط */
+/** دُمجت في المستودع الذكي — تبقى في placements للترحيل فقط ولا تُعرض على السطح */
 export const REPOSITORY_LEGACY_WIDGET_IDS = ['dockNotepad', 'dockVault'] as const satisfies readonly HomeWidgetId[];
 
 export type RepositoryLegacyWidgetId = (typeof REPOSITORY_LEGACY_WIDGET_IDS)[number];
@@ -38,9 +37,8 @@ export function isRepositoryLegacyWidget(id: HomeWidgetId): id is RepositoryLega
 
 export function filterDisplayHomeWidgets(
     ids: HomeWidgetId[],
-    layoutEditMode: boolean,
+    _layoutEditMode: boolean,
 ): HomeWidgetId[] {
-    if (layoutEditMode) return ids;
     return ids.filter((id) => !isRepositoryLegacyWidget(id));
 }
 
@@ -264,7 +262,7 @@ export function consolidateLegacyRepositoryDock(
     return reindexZone(reindexZone(stashed.placements, 'main'), 'dock');
 }
 
-export const DOCK_ONLY_WIDGETS: DockItemId[] = [
+export const DOCK_ONLY_WIDGETS: HomeWidgetId[] = [
     'dockRepository',
     'dockNotepad',
     'dockCalendar',

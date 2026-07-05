@@ -24,19 +24,19 @@ const ACCENT_THEME: Record<
 > = {
     emerald: {
         bar: 'bg-gradient-to-b from-emerald-300/90 via-emerald-400/70 to-emerald-600/40',
-        shell: 'border-emerald-500/15 hover:border-emerald-400/30 bg-gradient-to-l from-emerald-500/[0.07] via-emerald-500/[0.03] to-transparent',
+        shell: 'border-emerald-500/12 hover:border-emerald-400/24 bg-gradient-to-l from-emerald-500/[0.06] via-emerald-500/[0.025] to-transparent',
         open: 'border-emerald-400/40 bg-emerald-500/[0.1] ring-1 ring-emerald-400/20 shadow-[0_0_24px_rgba(52,211,153,0.1)]',
         dot: 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.55)]',
     },
     rose: {
         bar: 'bg-gradient-to-b from-rose-300/90 via-rose-400/70 to-rose-600/40',
-        shell: 'border-rose-500/15 hover:border-rose-400/30 bg-gradient-to-l from-rose-500/[0.07] via-rose-500/[0.03] to-transparent',
+        shell: 'border-rose-500/12 hover:border-rose-400/24 bg-gradient-to-l from-rose-500/[0.06] via-rose-500/[0.025] to-transparent',
         open: 'border-rose-400/40 bg-rose-500/[0.1] ring-1 ring-rose-400/20 shadow-[0_0_24px_rgba(244,63,94,0.1)]',
         dot: 'bg-rose-400 shadow-[0_0_8px_rgba(244,63,94,0.55)]',
     },
     gold: {
         bar: 'bg-gradient-to-b from-[#E6C673]/90 via-[#D4AF37]/70 to-[#B8941F]/40',
-        shell: 'border-[#E6C673]/18 hover:border-[#E6C673]/32 bg-gradient-to-l from-[#E6C673]/[0.08] via-[#E6C673]/[0.03] to-transparent',
+        shell: 'border-[#E6C673]/14 hover:border-[#E6C673]/26 bg-gradient-to-l from-[#E6C673]/[0.07] via-[#E6C673]/[0.025] to-transparent',
         open: 'border-[#E6C673]/42 bg-[#E6C673]/[0.1] ring-1 ring-[#E6C673]/22 shadow-[0_0_24px_rgba(230,198,115,0.12)]',
         dot: 'bg-[#E6C673] shadow-[0_0_8px_rgba(230,198,115,0.55)]',
     },
@@ -45,6 +45,7 @@ const ACCENT_THEME: Record<
 export const PartyChip = ({ party, accent, isOpen, onToggle, variant = 'compact' }: PartyChipProps) => {
     const name = String(party.name ?? '').trim() || '—';
     const role = String(party.role ?? '');
+    const roleLabel = role.trim();
     const affiliative = isAffiliativeThirdPartyRole(role);
     const interpleader = isInterpleaderThirdPartyRole(role);
     const appealIntegratedInterpleader = isAppealIntegratedInterpleaderRole(role);
@@ -59,39 +60,44 @@ export const PartyChip = ({ party, accent, isOpen, onToggle, variant = 'compact'
             onClick={onToggle}
             title={affiliative ? `${name} — انضمامي` : interpleader && !appealIntegratedInterpleader ? `${name} — اختصامي` : name}
             className={[
-                'group relative overflow-hidden rounded-xl border backdrop-blur-md transition-all duration-200 touch-manipulation text-right',
+                'group relative overflow-hidden border backdrop-blur-md transition-all duration-200 touch-manipulation text-right',
                 isMain
-                    ? 'flex w-full items-center gap-2 min-w-0 px-2.5 py-2'
+                    ? 'flex w-full items-center gap-2 min-w-0 rounded-[16px] px-2.5 py-2'
                     : variant === 'affiliative' || variant === 'interpleader'
-                      ? 'flex w-full min-w-0 items-center gap-2 px-2.5 py-1.5'
-                      : 'inline-flex items-center gap-1.5 max-w-[10rem] shrink-0 px-2 py-1',
+                      ? 'flex w-full min-w-0 items-center gap-1.5 rounded-[15px] px-2 py-1.5'
+                      : 'inline-flex items-center gap-1.5 max-w-[10rem] shrink-0 rounded-xl px-2 py-1',
                 isOpen ? theme.open : theme.shell,
             ].join(' ')}
         >
             <span
-                className={`absolute inset-y-1.5 right-0 w-[3px] rounded-full ${theme.bar}`}
+                className={`absolute inset-y-1 right-0 w-0.5 rounded-full ${theme.bar}`}
                 aria-hidden
             />
 
             {showClientMarker ? (
                 <span className={CLIENT_MARKER_SLOT} aria-hidden={!isClient}>
                     {isClient ? (
-                        <span className="text-[7px] font-black leading-none text-[#0A0F1C] bg-[#E6C673] px-1.5 py-0.5 rounded-full shadow-[0_0_10px_rgba(230,198,115,0.35)]">
+                        <span className="text-[8px] font-black leading-none text-[#0A0F1C] bg-[#E6C673] px-1.5 py-0.5 rounded-full shadow-[0_0_10px_rgba(230,198,115,0.28)]">
                             موكل
                         </span>
                     ) : null}
                 </span>
             ) : null}
 
-            <div className="flex-1 min-w-0 flex flex-col gap-0.5 pr-1">
+            <div className="flex-1 min-w-0 flex flex-col gap-0.5 pr-0.5">
                 <span
                     className={[
                         'font-bold text-white truncate',
-                        isMain ? 'text-[14px] leading-snug' : 'text-[11px] leading-tight',
+                        isMain ? 'text-[13px] leading-snug' : 'text-[11px] leading-tight',
                     ].join(' ')}
                 >
                     {name}
                 </span>
+                {isMain && roleLabel ? (
+                    <span className="truncate text-[9px] font-semibold text-white/42">
+                        {roleLabel}
+                    </span>
+                ) : null}
                 {variant === 'compact' && affiliative ? (
                     <span className="text-[8px] font-bold text-indigo-200/80">طرف انضمامي</span>
                 ) : null}

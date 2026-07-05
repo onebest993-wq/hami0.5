@@ -171,7 +171,9 @@ export async function ensureE2eTransactionInHub(page: Page): Promise<void> {
 }
 
 export async function expectTransactionsAddSheetClosed(page: Page) {
-    await expect(page.getByTestId('transactions-add-sheet')).toHaveAttribute('data-state', 'closed', {
+    const sheet = page.getByTestId('transactions-add-sheet');
+    if ((await sheet.count()) === 0) return;
+    await expect(sheet).toHaveAttribute('data-state', 'closed', {
         timeout: 8_000,
     });
 }

@@ -5,6 +5,7 @@ import type { HomeBlockStyleOverride } from '@/app/services/settings/homeLayout'
 export function resolveHubRouteTileVisuals(params: {
     accent: string;
     size: HomeBlockStyleOverride['size'];
+    layoutSpan?: 1 | 2;
 }): {
     iconWrapStyle: CSSProperties;
     iconGlowStyle: CSSProperties;
@@ -14,10 +15,11 @@ export function resolveHubRouteTileVisuals(params: {
     titleRuleStyle: CSSProperties;
     glowOrbStyle: CSSProperties;
 } {
-    const { accent, size = 'normal' } = params;
-    const boxPx = hubIconBoxPx(size ?? 'normal');
-    const iconPx = hubIconStrokePx(size ?? 'normal');
-    const baseRem = hubRouteTitleRem(size ?? 'normal');
+    const { accent, size = 'normal', layoutSpan = 2 } = params;
+    const spanScale = layoutSpan === 1 ? 0.84 : 1;
+    const boxPx = hubIconBoxPx(size ?? 'normal') * spanScale;
+    const iconPx = hubIconStrokePx(size ?? 'normal') * spanScale;
+    const baseRem = hubRouteTitleRem(size ?? 'normal') * spanScale;
     const scale = 'var(--hami-content-scale, 1)';
 
     return {
@@ -48,7 +50,7 @@ export function resolveHubRouteTileVisuals(params: {
             filter: `drop-shadow(0 3px 16px color-mix(in srgb, ${accent} 45%, transparent))`,
         },
         titleRuleStyle: {
-            width: `calc(2.85rem * ${scale})`,
+            width: `calc(${layoutSpan === 1 ? 2.1 : 2.85}rem * ${scale})`,
             height: `max(2px, calc(2.5px * ${scale}))`,
             background: `linear-gradient(to left, color-mix(in srgb, ${accent} 95%, #FFF8E7), color-mix(in srgb, ${accent} 30%, transparent), transparent)`,
             boxShadow: `0 0 14px color-mix(in srgb, ${accent} 38%, transparent)`,

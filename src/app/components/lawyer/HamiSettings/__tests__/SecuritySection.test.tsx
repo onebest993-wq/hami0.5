@@ -27,9 +27,9 @@ describe('SecuritySection', () => {
         vi.clearAllMocks();
     });
 
-    it('يعرض عنوان الأمان والتoggles المربوطة', () => {
+    it('يعرض التoggles المربوطة', () => {
         render(<SecuritySection />);
-        expect(screen.getByText('الأمان والخصوصية')).toBeInTheDocument();
+        expect(screen.getByTestId('settings-section-security')).toBeInTheDocument();
         expect(screen.getByTestId('settings-toggle-security-privacyBlur')).toHaveAttribute('aria-checked', 'true');
         expect(screen.getByTestId('settings-toggle-security-localOnlyMode')).toHaveAttribute('aria-checked', 'false');
     });

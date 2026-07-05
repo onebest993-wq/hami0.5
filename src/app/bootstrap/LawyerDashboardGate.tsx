@@ -1,14 +1,16 @@
 import React, { Suspense, useCallback, useEffect, useState } from 'react';
 
-import { LawyerDashboardLazy, preloadLawyerDashboardChunk } from '@/app/bootstrap/lawyerDashboardChunk';
-import { LawyerBootShell } from '@/app/bootstrap/LawyerBootShell';
+import { HamiBootOverlay } from '@/app/bootstrap/HamiBootOverlay';
+import { useBootReveal } from '@/app/bootstrap/useBootReveal';
+import { LawyerDashboardLazy, preloadLawyerDashboardChunk, resetLawyerDashboardChunkPreload } from '@/app/bootstrap/lawyerDashboardChunk';
 import { LawyerDashboardBootErrorBoundary } from '@/app/bootstrap/LawyerDashboardBootErrorBoundary';
 import { LawyerSettingsProvider } from '@/app/context/LawyerSettingsContext';
 import type { LawyerDashboardShellProps } from '@/app/components/lawyer/dashboard/LawyerDashboardQuantumShell';
 
-/** chunk يُحمَّل عند دخول شاشة المحامي — LawyerBootShell أثناء الانتظار */
+/** chunk يُحمَّل عند دخول شاشة المحامي — طبقة «حامي» حتى جاهزية الواجهة */
 export function LawyerDashboardGate(props: LawyerDashboardShellProps) {
     const [bootKey, setBootKey] = useState(0);
+    const { overlayPhase, dashboardVisible } = useBootReveal();
 
     useEffect(() => {
         void preloadLawyerDashboardChunk();
@@ -20,16 +22,26 @@ export function LawyerDashboardGate(props: LawyerDashboardShellProps) {
         } catch {
             /* ignore */
         }
-        void import('@/app/bootstrap/lawyerDashboardChunk').then((m) => m.resetLawyerDashboardChunkPreload());
+        resetLawyerDashboardChunkPreload();
         setBootKey((k) => k + 1);
     }, []);
 
     return (
         <LawyerSettingsProvider>
             <LawyerDashboardBootErrorBoundary bootKey={bootKey} onReset={handleBootReset}>
-                <Suspense fallback={<LawyerBootShell />}>
-                    <LawyerDashboardLazy key={bootKey} {...props} />
-                </Suspense>
+                <div
+                    className="relative min-h-screen"
+                    style={{
+                        visibility: dashboardVisible ? 'visible' : 'hidden',
+                        pointerEvents: dashboardVisible ? 'auto' : 'none',
+                    }}
+                    aria-hidden={!dashboardVisible}
+                >
+                    <Suspense fallback={null}>
+                        <LawyerDashboardLazy key={bootKey} {...props} />
+                    </Suspense>
+                </div>
+                {overlayPhase !== 'gone' ? <HamiBootOverlay phase={overlayPhase} /> : null}
             </LawyerDashboardBootErrorBoundary>
         </LawyerSettingsProvider>
     );

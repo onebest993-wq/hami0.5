@@ -45,6 +45,19 @@ describe('homeHubCardLogic', () => {
         expect(filtered.map((e) => e.id)).toEqual(['ev-2']);
     });
 
+    it('hides mirrored judgment dates from home hub radar', () => {
+        const filtered = filterRadarEventsExcludingCalendarAlerts(
+            [
+                { id: 'appt_judgment_stage-1' },
+                { id: 'hami_bridge_lawsuit_1783156902323_appt_judgment_stage_1783189537629' },
+                { id: 'appt_appeal_deadline_stage-1' },
+                { id: 'ev-2' },
+            ],
+            new Set<string>(),
+        );
+        expect(filtered.map((e) => e.id)).toEqual(['appt_appeal_deadline_stage-1', 'ev-2']);
+    });
+
     it('detects fully empty hub card', () => {
         expect(
             isHomeHubFullyEmpty({

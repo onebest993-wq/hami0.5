@@ -8,7 +8,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Execution Management Flow', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('http://localhost:5173');
+    await page.goto('/');
   });
 
   test('User can create new execution file', async ({ page }) => {
@@ -160,7 +160,7 @@ test.describe('Execution Management Flow', () => {
 
 test.describe('Alimony Calculator Tests', () => {
   test('Calculator shows correct results', async ({ page }) => {
-    await page.goto('http://localhost:5173');
+    await page.goto('/');
     await page.click('text=التنفيذ');
     await page.click('text=حاسبة النفقة');
 
@@ -176,7 +176,7 @@ test.describe('Alimony Calculator Tests', () => {
   });
 
   test('Calculator validates input', async ({ page }) => {
-    await page.goto('http://localhost:5173');
+    await page.goto('/');
     await page.click('text=التنفيذ');
     await page.click('text=حاسبة النفقة');
 
@@ -187,7 +187,7 @@ test.describe('Alimony Calculator Tests', () => {
   });
 
   test('Calculator updates on input change', async ({ page }) => {
-    await page.goto('http://localhost:5173');
+    await page.goto('/');
     await page.click('text=التنفيذ');
     await page.click('text=حاسبة النفقة');
 
@@ -210,7 +210,7 @@ test.describe('Alimony Calculator Tests', () => {
 
 test.describe('Security Tests', () => {
   test('Execution data is encrypted', async ({ page }) => {
-    await page.goto('http://localhost:5173');
+    await page.goto('/');
     await page.click('text=التنفيذ');
 
     // إنشاء ملف
@@ -228,7 +228,7 @@ test.describe('Security Tests', () => {
 
   test('User cannot access execution without auth', async ({ page }) => {
     // محاولة الوصول مباشرة بدون تسجيل دخول
-    await page.goto('http://localhost:5173/execution/123');
+    await page.goto('/execution/123');
 
     // يجب إعادة التوجيه إلى صفحة تسجيل الدخول
     await expect(page).toHaveURL(/login/);

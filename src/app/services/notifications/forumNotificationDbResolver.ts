@@ -1,4 +1,5 @@
-import type { ForumNotification } from '@/app/services/lawyer-cloud';
+import type { ForumNotification } from '@/app/services/forum/forumTypes';
+import { NotificationDB } from '@/app/services/notifications/notificationForumStorage';
 
 type ForumNotificationDb = {
     getNotifications(userId: string): Promise<ForumNotification[]>;
@@ -26,9 +27,7 @@ export async function resolveForumNotificationDb(): Promise<ForumNotificationDb>
         return serverDbPromise;
     }
     if (!clientDbPromise) {
-        clientDbPromise = import('@/app/services/notifications/notificationForumStorage').then(
-            (m) => m.NotificationDB,
-        );
+        clientDbPromise = Promise.resolve(NotificationDB);
     }
     return clientDbPromise;
 }

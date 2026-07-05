@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { Plus, Search, Sparkles, Loader2, X, Check } from 'lucide-react';
-import { countDocsInCategory } from '@/app/services/vaultCustomCategories';
-import type { SmartVaultDoc } from '@/app/services/lawyer-cloud';
+import {
+    countDocsInCategory,
+    getVisibleVaultCustomCategories,
+} from '@/app/services/vaultCustomCategories';
+import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import { VAULT_TRAVERTINE_HUB, VAULT_CHIP_ACTIVE, VAULT_CHIP_IDLE, VAULT_INPUT } from './vaultDustyRoseTheme';
 
 export type VaultSearchFilterHubProps = {
@@ -41,6 +44,7 @@ export const VaultSearchFilterHub: React.FC<VaultSearchFilterHubProps> = ({
 }) => {
     const [creating, setCreating] = useState(false);
     const [newName, setNewName] = useState('');
+    const visibleCategories = getVisibleVaultCustomCategories(customCategories);
 
     const submitCategory = () => {
         const trimmed = newName.trim();
@@ -55,14 +59,21 @@ export const VaultSearchFilterHub: React.FC<VaultSearchFilterHubProps> = ({
         'shrink-0 px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-bold transition-all border whitespace-nowrap';
 
     const searchRowMinH = searchOnly ? 'min-h-[44px]' : 'min-h-[40px]';
+    const searchRowShellClass = searchOnly
+        ? `flex items-center gap-2 px-3 py-2.5 ${searchRowMinH}`
+        : `flex items-center gap-2 px-2.5 py-2 ${searchRowMinH}`;
     const clearSearchBtnClass = searchOnly
-        ? 'shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-md hover:bg-[#0E1B2E]/40 text-[#C9BCA8]/60 touch-manipulation'
+        ? 'shrink-0 inline-flex items-center justify-center min-h-[40px] min-w-[40px] rounded-xl hover:bg-white/[0.06] text-white/42 hover:text-white/70 touch-manipulation transition-colors'
         : 'shrink-0 p-1 rounded-md hover:bg-[#0E1B2E]/40 text-[#C9BCA8]/60';
 
     const searchRow = (
-        <div className={`flex items-center gap-2 px-2.5 py-2 ${searchRowMinH}`}>
+        <div className={searchRowShellClass}>
             <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                <Search size={15} className="text-[#B87333]/65 shrink-0" aria-hidden />
+                <Search
+                    size={15}
+                    className={searchOnly ? 'text-white/32 shrink-0' : 'text-[#B87333]/65 shrink-0'}
+                    aria-hidden
+                />
                 <input
                     ref={searchInputRef}
                     type="search"
@@ -71,7 +82,11 @@ export const VaultSearchFilterHub: React.FC<VaultSearchFilterHubProps> = ({
                     onChange={(e) => onSearchChange(e.target.value)}
                     onKeyDown={onSearchKeyDown}
                     placeholder={liveSearch || searchOnly ? 'بحث في المستودع...' : 'بحث...'}
-                    className="flex-1 min-w-0 bg-transparent text-[#E8E4DC] text-sm placeholder:text-[#C9BCA8]/38 outline-none border-none"
+                    className={`flex-1 min-w-0 bg-transparent text-sm outline-none border-none ${
+                        searchOnly
+                            ? 'text-[#F4F0E8] placeholder:text-white/28'
+                            : 'text-[#E8E4DC] placeholder:text-[#C9BCA8]/38'
+                    }`}
                 />
                 {!liveSearch && isSearching ? (
                     <Loader2 size={13} className="text-[#B87333] animate-spin shrink-0" />
@@ -100,7 +115,10 @@ export const VaultSearchFilterHub: React.FC<VaultSearchFilterHubProps> = ({
 
     if (searchOnly) {
         return (
-            <div className={VAULT_TRAVERTINE_HUB} dir="rtl">
+            <div
+                className="rounded-2xl border border-white/10 bg-[#0B1220]/82 shadow-[0_10px_28px_rgba(0,0,0,0.18)]"
+                dir="rtl"
+            >
                 {searchRow}
             </div>
         );
@@ -162,7 +180,7 @@ export const VaultSearchFilterHub: React.FC<VaultSearchFilterHubProps> = ({
                         <span className="mr-1 opacity-50 tabular-nums">{docs.length}</span>
                     </button>
 
-                    {customCategories.map((category) => {
+                    {visibleCategories.map((category) => {
                         const count = countDocsInCategory(docs, category);
                         const isActive = activeFilter === category;
                         return (

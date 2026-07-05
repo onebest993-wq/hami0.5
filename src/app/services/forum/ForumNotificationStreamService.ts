@@ -1,5 +1,5 @@
 import { SecureAPIClient } from '@/app/services/SecureAPIClient';
-import type { ForumNotification } from '@/app/services/lawyer-cloud';
+import type { ForumNotification } from '@/app/services/forum/forumTypes';
 import { emitForumUnreadCount } from '@/app/services/forum/forumNotificationBridge';
 import { PushNotificationService } from '@/app/services/PushNotificationService';
 

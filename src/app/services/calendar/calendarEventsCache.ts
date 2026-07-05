@@ -1,4 +1,4 @@
-import type { CalendarEvent } from '@/app/services/lawyer-cloud';
+import type { CalendarEvent } from '@/app/services/calendar/calendarTypes';
 
 type CacheEntry = {
     events: CalendarEvent[];
@@ -22,6 +22,12 @@ export function getCachedCalendarEvents(userId: string): CalendarEvent[] | null 
     const entry = memoryByUser.get(userId);
     if (!entry) return null;
     return entry.events;
+}
+
+/** هل وُجدت لقطة ذاكرة (حتى لو فارغة بعد جلب سابق)؟ */
+export function hasCachedCalendarEvents(userId: string): boolean {
+    if (!userId) return false;
+    return memoryByUser.has(userId);
 }
 
 export function setCachedCalendarEvents(userId: string, events: CalendarEvent[]): void {

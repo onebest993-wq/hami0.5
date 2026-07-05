@@ -40,7 +40,7 @@ export type HomeScrollBlockId = (typeof HOME_SCROLL_BLOCK_IDS)[number];
 export const HOME_HUB_TILE_IDS = ['hubExecution', 'hubLawsuit', 'hubTransaction'] as const;
 export type HomeHubTileId = (typeof HOME_HUB_TILE_IDS)[number];
 
-export const DOCK_ITEM_IDS = ['dockRepository', 'dockNotepad', 'dockCalendar', 'dockVault', 'dockTasks', 'dockQuickNote'] as const;
+export const DOCK_ITEM_IDS = ['dockRepository', 'dockCalendar', 'dockTasks', 'dockQuickNote'] as const;
 export type DockItemId = (typeof DOCK_ITEM_IDS)[number];
 
 export type HomeCustomizableId = HomeScrollBlockId | HomeHubTileId | DockItemId | 'dockShell';

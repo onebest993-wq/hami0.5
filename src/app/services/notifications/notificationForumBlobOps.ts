@@ -5,7 +5,7 @@ import {
     mapModelToForumNotification,
 } from '@/app/services/notifications/forumNotificationMapper';
 import { capMergedNotificationLists, mergeNotificationRecord } from '@/app/services/notifications/notificationMerge';
-import type { ForumNotification } from '@/app/services/lawyer-cloud';
+import type { ForumNotification } from '@/app/services/forum/forumTypes';
 
 export const NOTIFICATION_BLOB_KEY_PREFIX = 'notifications_';
 
@@ -72,6 +72,18 @@ export function markAllForumReadInModels(models: NotificationModel[], userId: st
     return models.map((n) =>
         deriveNotificationCategory(n) === 'forum' ? { ...n, isRead: true } : n,
     );
+}
+
+export function dismissForumNotificationInModels(
+    models: NotificationModel[],
+    userId: string,
+    notificationId: string,
+): NotificationModel[] {
+    return models.filter((n) => {
+        if (n.id !== notificationId) return true;
+        const forum = mapModelToForumNotification(n, userId);
+        return forum == null;
+    });
 }
 
 export function mergeLegacyForumIntoModels(

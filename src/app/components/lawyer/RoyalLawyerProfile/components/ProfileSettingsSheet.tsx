@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import type { ProfileAction } from '@/app/services/lawyer-cloud';
 import type { ProfilePageCustomization } from '@/app/services/profile/profilePageCustomization';
-import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
+import { useBodyScrollLock, releaseBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { useProfileSettingsSheetState, type ProfileSettingsTab } from '@/app/components/lawyer/RoyalLawyerProfile/hooks/useProfileSettingsSheetState';
 import { useProfileSettingsSheetChrome } from '@/app/components/lawyer/RoyalLawyerProfile/hooks/useProfileSettingsSheetChrome';
 import { useProfileSettingsFocusTrap } from '@/app/components/lawyer/RoyalLawyerProfile/hooks/useProfileSettingsFocusTrap';
@@ -15,7 +16,7 @@ import { ProfileSettingsSheetHeader } from './settings/ProfileSettingsSheetHeade
 import { ProfileSettingsSheetPanels } from './settings/ProfileSettingsSheetPanels';
 import { ProfileSettingsSheetFooter } from './settings/ProfileSettingsSheetFooter';
 import { ProfileSettingsSheetFileInputs } from './settings/ProfileSettingsSheetFileInputs';
-import { prefetchProfileSettingsStudioTabs } from '@/app/utils/lazyComponents';
+import { prefetchProfileSettingsStudioTabsModule } from '@/app/runtime/profileSettingsStudioTabsLoader';
 
 import '@/app/components/lawyer/RoyalLawyerProfile/profileSettingsFx.css';
 
@@ -53,9 +54,7 @@ export function ProfileSettingsSheet({
 
     useEffect(() => {
         if (!open) return;
-        prefetchProfileSettingsStudioTabs();
-        void import('./TextBlockStudioEditor');
-        void import('./ImageBlockStudioEditor');
+        prefetchProfileSettingsStudioTabsModule();
     }, [open]);
 
     const handleTabChange = useCallback(
@@ -67,8 +66,12 @@ export function ProfileSettingsSheet({
 
     const handleSave = useCallback(async () => {
         if (saving) return;
-        const ok = await onSave(draft);
-        if (ok) onClose();
+        const snapshot = draft;
+        flushSync(() => {
+            onClose();
+        });
+        releaseBodyScrollLock();
+        await onSave(snapshot);
     }, [onClose, onSave, draft, saving]);
 
     const onTabKeyDown = (event: React.KeyboardEvent) => {

@@ -1,4 +1,4 @@
-import type { RepositoryDocument, SmartVaultDoc } from '@/app/services/lawyer-cloud';
+import type { RepositoryDocument, SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import type { SearchLifecycle } from '@/app/services/searchLifecycle';
 import type { GlobalSearchEntry, PreparedDocsVaultDoc } from '@/app/services/globalSearchIndex';
 import { blob, norm, withLifecycle } from '@/app/services/search/globalSearchIndexPureHelpers';
@@ -21,7 +21,7 @@ export function vaultToEntry(d: SmartVaultDoc): GlobalSearchEntry {
             id: `vault-${d.id}`,
             category: 'vault',
             title: d.title || d.fileName,
-            subtitle: d.tags.length ? d.tags.join(' • ') : 'مخزن الملفات الذكي',
+            subtitle: d.tags.length ? d.tags.join(' • ') : 'المستودع الذكي',
             snippet: d.aiSummary || undefined,
             _searchStr: norm(text),
             navigate: { type: 'vault' },

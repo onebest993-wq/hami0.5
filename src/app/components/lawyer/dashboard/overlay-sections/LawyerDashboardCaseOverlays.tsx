@@ -1,11 +1,14 @@
 // @ts-nocheck
-import React, { Suspense, useCallback } from 'react';
+import React, { Suspense, useCallback, useEffect } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { ConsolidationNavBar } from '@/app/components/lawyer/smart-modal/parts/ConsolidationNavBar';
-import { LazyClientRequestsHub, LazyArchivePortal, LazyLawsuitsWorkspace } from '@/app/utils/lazyComponents';
+import { LazyClientRequestsHub } from '@/app/utils/lazyComponents';
+import { ArchivePortalHost } from '@/app/components/lawyer/dashboard/ArchivePortalHost';
+import { ExecutionArchiveOverlayHost } from '@/app/components/lawyer/dashboard/ExecutionArchiveOverlayHost';
+import { LawsuitsWorkspaceHost } from '@/app/components/lawyer/dashboard/LawsuitsWorkspaceHost';
 import { SmartFileModalPortal } from '@/app/components/lawyer/dashboard/SmartFileModalPortal';
-import { LazyLawyerNewCase } from '@/app/utils/lazy/lawyerNewCaseModal';
+import { LawyerNewCasePortal } from '@/app/components/lawyer/dashboard/LawyerNewCasePortal';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ThemeConfig } from '@/app/types/common';
 import {
@@ -15,8 +18,6 @@ import {
 } from '@/app/components/lawyer/LawyerDashboardParts/utils';
 import {
     LAWYER_LAZY_FALLBACK,
-    LAWSUITS_WORKSPACE_FALLBACK,
-    ARCHIVE_PORTAL_FALLBACK,
 } from '@/app/components/lawyer/LawyerDashboardParts/constants';
 import { ExecutionDashboardPortal } from '@/app/components/lawyer/dashboard/ExecutionDashboardPortal';
 import { ExecutionCreationPortal } from '@/app/components/lawyer/dashboard/ExecutionCreationPortal';
@@ -106,6 +107,26 @@ export function LawyerDashboardCaseOverlays({
     const closeExecutionCreate = useCallback(() => {
         setIsExecutionModalOpen(false);
     }, [setIsExecutionModalOpen]);
+    const closeLawsuitsWorkspace = useCallback(() => {
+        setShowLawsuitsWorkspace(false);
+        setUrgentFocusCaseId(undefined);
+    }, [setShowLawsuitsWorkspace, setUrgentFocusCaseId]);
+    const onNewCaseOpenCriminalDashboardFromHub = useCallback(
+        (caseId: string) => {
+            onNewCaseOpenCriminalDashboard(caseId);
+            if (showLawsuitsWorkspace) {
+                closeLawsuitsWorkspace();
+            }
+        },
+        [onNewCaseOpenCriminalDashboard, showLawsuitsWorkspace, closeLawsuitsWorkspace],
+    );
+    const handleNewCaseSaveFromHub = useCallback(
+        (data: unknown) => {
+            closeLawsuitsWorkspace();
+            handleNewCaseSave(data);
+        },
+        [handleNewCaseSave, closeLawsuitsWorkspace],
+    );
     const executionArchiveOpen = Boolean(archiveType && archiveType !== 'client_requests');
     const executionFileOpen = Boolean(activeFile?.type === 'execution');
 
@@ -117,6 +138,12 @@ export function LawyerDashboardCaseOverlays({
         onCloseExecutionFile: closeExecutionFile,
         onCloseExecutionCreate: closeExecutionCreate,
     });
+
+    useEffect(() => {
+        if (activeFile && showLawsuitsWorkspace) {
+            closeLawsuitsWorkspace();
+        }
+    }, [activeFile, showLawsuitsWorkspace, closeLawsuitsWorkspace]);
 
     return (
         <>
@@ -159,10 +186,32 @@ export function LawyerDashboardCaseOverlays({
                         }}
                     />
                 </Suspense>
+            ) : archiveType === 'execution' ? (
+                <ExecutionArchiveOverlayHost
+                    files={executionFiles}
+                    lawsuitFilesForCluster={files.filter((f) => f.status !== 'deleted')}
+                    theme={theme as ThemeConfig}
+                    shapeClass={shapeClass}
+                    executionFilesHydrating={Boolean(executionFilesHydrating)}
+                    onClose={closeArchive}
+                    onFileClick={(f: unknown) => {
+                        if (isRecord(f) && f.type === 'execution') {
+                            openArchiveFile(f);
+                        }
+                    }}
+                    onAddAction={() => {
+                        prefetchExecutionCreationView();
+                        setIsExecutionModalOpen(true);
+                    }}
+                    onMoveExecutionToTrash={moveExecutionToTrash}
+                    onRestoreExecutionFromTrash={restoreExecutionFromTrash}
+                    onArchiveExecution={archiveExecution}
+                    onRestoreArchivedExecution={restoreArchivedExecution}
+                    onPermanentlyDeleteExecutions={permanentlyDeleteExecutions}
+                />
             ) : archiveType ? (
-                <Suspense fallback={ARCHIVE_PORTAL_FALLBACK}>
-                    <LazyArchivePortal
-                        type={lawyerOverlayToArchivePortalType(archiveType)}
+                <ArchivePortalHost
+                    type={lawyerOverlayToArchivePortalType(archiveType)}
                         files={
                             archiveType === 'execution'
                                 ? executionFiles
@@ -222,12 +271,10 @@ export function LawyerDashboardCaseOverlays({
                             archiveType === 'execution' ? Boolean(executionFilesHydrating) : false
                         }
                     />
-                </Suspense>
             ) : null}
 
             {showLawsuitsWorkspace ? (
-                <Suspense fallback={LAWSUITS_WORKSPACE_FALLBACK}>
-                    <LazyLawsuitsWorkspace
+                <LawsuitsWorkspaceHost
                         key="lawsuits-workspace"
                         files={files as FileData[]}
                         criminalCases={criminalCasesForCluster}
@@ -236,17 +283,14 @@ export function LawyerDashboardCaseOverlays({
                         defaultTab={lawsuitsWorkspaceTab}
                         urgentFocusCaseId={urgentFocusCaseId}
                         initialDossierSection={lawsuitsDossierSection}
-                        onClose={() => {
-                            setShowLawsuitsWorkspace(false);
-                            setUrgentFocusCaseId(undefined);
-                        }}
+                        onClose={closeLawsuitsWorkspace}
                         onOpenCriminalCase={(id: string) => {
                             openCriminalCase(id, { fromLawsuitsWorkspace: true });
                         }}
                         onDeleteCriminalCase={(id: string) => criminalBridge.deleteCriminalCase(id)}
                         onOpenFile={(f: unknown) => {
                             if (openArchiveFile(f)) {
-                                setShowLawsuitsWorkspace(false);
+                                closeLawsuitsWorkspace();
                             }
                         }}
                         onAddNewCase={() => {
@@ -258,7 +302,6 @@ export function LawyerDashboardCaseOverlays({
                         onRestoreArchivedLawsuit={restoreArchivedLawsuit}
                         onPermanentlyDeleteLawsuits={permanentlyDeleteLawsuits}
                     />
-                </Suspense>
             ) : null}
 
             <AnimatePresence>
@@ -297,18 +340,16 @@ export function LawyerDashboardCaseOverlays({
                 ) : null}
 
                 {isNewCaseModalOpen ? (
-                    <Suspense fallback={LAWYER_LAZY_FALLBACK}>
-                        <LazyLawyerNewCase
-                            key={newCaseModalKey}
-                            isOpen={isNewCaseModalOpen}
-                            presetSelectedType={newCasePresetType}
-                            criminalSeveranceFormMode={isCriminalSeveranceRedirect}
-                            consolidationNavActive={consolidationNavActive}
-                            onClose={closeNewCaseModal}
-                            onOpenCriminalDashboard={onNewCaseOpenCriminalDashboard}
-                            onSave={handleNewCaseSave}
-                        />
-                    </Suspense>
+                    <LawyerNewCasePortal
+                        key={newCaseModalKey}
+                        isOpen={isNewCaseModalOpen}
+                        presetSelectedType={newCasePresetType}
+                        criminalSeveranceFormMode={isCriminalSeveranceRedirect}
+                        consolidationNavActive={consolidationNavActive}
+                        onClose={closeNewCaseModal}
+                        onOpenCriminalDashboard={onNewCaseOpenCriminalDashboardFromHub}
+                        onSave={handleNewCaseSaveFromHub}
+                    />
                 ) : null}
             </AnimatePresence>
         </>

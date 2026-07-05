@@ -51,7 +51,7 @@ export function suggestedFutureActionForAlert(alert: {
         case 'transactions':
             return 'فتح ملف المعاملة';
         case 'notepad':
-            return 'فتح المفكرة';
+            return 'فتح المستودع الذكي';
         case 'client_requests':
             return 'مراجعة الطلب';
         default:

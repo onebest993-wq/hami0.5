@@ -1,4 +1,5 @@
-import type { CalendarEvent, CommunityPost } from '@/app/services/lawyer-cloud';
+import type { CalendarEvent } from '@/app/services/calendar/calendarTypes';
+import type { CommunityPost } from '@/app/services/forum/forumTypes';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import {
     TransactionStatus,

@@ -81,7 +81,10 @@ export type AddTaskModalProps = ModalShellProps &
 
 export type AddDocumentModalProps = ModalShellProps &
     EditDataProps<DocumentEditData> & {
-        onAdd: (data: Record<string, unknown>) => void;
+        onAdd: (data: Record<string, unknown>) => void | Promise<void>;
+        recentDocuments?: TimelineEvent[];
+        onDeleteDocument?: (id: string) => void | Promise<void>;
+        onReplaceDocument?: (event: TimelineEvent) => void;
     };
 
 export type AddNoteModalProps = ModalShellProps &
@@ -106,7 +109,10 @@ export type AddIncidentalCaseModalProps = ModalShellProps &
 
 export type AddAppointmentModalProps = ModalShellProps &
     EditDataProps<AppointmentEditData> & {
-        onAdd: (data: Record<string, unknown>) => void;
+        onAdd: (data: Record<string, unknown>) => void | Promise<void>;
+        recentAppointments?: TimelineEvent[];
+        onDeleteAppointment?: (id: string) => void;
+        onEditAppointment?: (event: TimelineEvent) => void;
     };
 
 export type PauseCaseModalProps = ModalShellProps &

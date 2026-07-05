@@ -1,9 +1,14 @@
+import type { ComponentProps, ComponentType } from 'react';
+
 type GlobalSearchOverlayModule = typeof import('@/app/components/lawyer/GlobalSearchOverlay');
+type GlobalSearchOverlayProps = ComponentProps<GlobalSearchOverlayModule['GlobalSearchOverlay']>;
+export type GlobalSearchOverlayComponent = ComponentType<GlobalSearchOverlayProps>;
 
 import {
     markGlobalSearchOverlayModuleResolved,
     resetGlobalSearchOverlayModuleStateForTests,
 } from '@/app/runtime/globalSearchModuleState';
+import { prefetchFuseModule } from '@/app/services/globalSearchFuse';
 
 export {
     isGlobalSearchOverlayModuleResolved,
@@ -11,13 +16,33 @@ export {
 } from '@/app/runtime/globalSearchModuleState';
 
 let overlayModulePromise: Promise<GlobalSearchOverlayModule> | null = null;
+let cachedGlobalSearchOverlay: GlobalSearchOverlayComponent | null = null;
+
+export function getCachedGlobalSearchOverlay(): GlobalSearchOverlayComponent | null {
+    return cachedGlobalSearchOverlay;
+}
+
+/** للاختبارات */
+export function resetGlobalSearchOverlayModuleCacheForTests(): void {
+    overlayModulePromise = null;
+    cachedGlobalSearchOverlay = null;
+    resetGlobalSearchOverlayModuleStateForTests();
+}
 
 function ensureOverlayModulePromise(): Promise<GlobalSearchOverlayModule> {
     if (!overlayModulePromise) {
-        overlayModulePromise = import('@/app/components/lawyer/GlobalSearchOverlay').then((mod) => {
-            markGlobalSearchOverlayModuleResolved();
-            return mod;
-        });
+        overlayModulePromise = import('@/app/components/lawyer/GlobalSearchOverlay')
+            .then((mod) => {
+                if (mod?.GlobalSearchOverlay) {
+                    cachedGlobalSearchOverlay = mod.GlobalSearchOverlay;
+                }
+                markGlobalSearchOverlayModuleResolved();
+                return mod;
+            })
+            .catch((err) => {
+                overlayModulePromise = null;
+                throw err;
+            });
     }
     return overlayModulePromise;
 }
@@ -25,13 +50,13 @@ function ensureOverlayModulePromise(): Promise<GlobalSearchOverlayModule> {
 /** تحميل مسبق لـ chunk واجهة البحث فقط — خفيف للإقلاع ومسار الفتح. */
 export function prefetchGlobalSearchOverlayChunk(): void {
     if (typeof window === 'undefined') return;
-    void ensureOverlayModulePromise();
+    void ensureOverlayModulePromise().catch(() => undefined);
 }
 
 /** Fuse + worker + motion — ثقيل؛ يُؤجَّل بعد ظهور الـ shell أو idle. */
 export function prefetchGlobalSearchSearchEngine(): void {
     if (typeof window === 'undefined') return;
-    void import('@/app/services/globalSearchFuse').then((m) => m.prefetchFuseModule());
+    prefetchFuseModule();
     void import('@/app/services/search/globalSearchIndexWorkerClient').then((m) =>
         m.prefetchGlobalSearchIndexWorker(),
     );
@@ -55,4 +80,11 @@ export function loadGlobalSearchOverlayModule(): Promise<GlobalSearchOverlayModu
 export function loadGlobalSearchOverlayWithEngine(): Promise<GlobalSearchOverlayModule> {
     prefetchGlobalSearchOverlay();
     return ensureOverlayModulePromise();
+}
+
+/** يضمن جاهزية واجهة البحث للفتح الفوري */
+export function hydrateGlobalSearchOverlayForInstantOpen(): Promise<boolean> {
+    return ensureOverlayModulePromise()
+        .then(() => true)
+        .catch(() => false);
 }

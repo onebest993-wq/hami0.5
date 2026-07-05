@@ -1,15 +1,13 @@
 // @ts-nocheck
-import React, { Suspense } from 'react';
+import React from 'react';
 import { ArrowRightLeft, ChevronDown, Clock } from 'lucide-react';
-import {
-    LazySmartHeader,
-    LazyQuickActions,
-    LazyToDoList,
-    LazySessionAndRequestsHub,
-    LazyCivilLawReferenceHub,
-    LazyIncidentalCasesManager,
-    LazyTimelineFeed,
-} from '../lazySmartFileModalWidgets';
+import { SmartHeader } from '../parts/SmartHeader';
+import { ToDoList } from '../parts/ToDoList';
+import { SessionAndRequestsHub } from '../parts/SessionAndRequestsHub';
+import { CivilLawReferenceHub } from '../parts/CivilLawReferenceHub';
+import { IncidentalCasesManager } from '../parts/IncidentalCasesManager';
+import { QuickActions } from '../parts/QuickActions';
+import { TimelineFeed } from '../parts/TimelineFeed';
 import { storedFastTrackStatus } from '../smartFile/fastTrackStatus';
 import type { IncidentalStatus, Task, TimelineEvent } from '../../LawyerShared';
 import { buildSessionRecordPayload, isOpponentProceedingsEvent, isSessionTimelineEvent } from '../smartFile/sessionRecordEngine';
@@ -144,7 +142,7 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
     return (
         <div className="flex flex-col flex-1 min-h-0 min-w-0">
                         <div 
-                            className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y scrollbar-hide print:overflow-visible print:max-h-max p-3 pb-2 sm:p-6"
+                            className="relative z-[1] flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y scrollbar-hide print:overflow-visible print:max-h-max p-3 pb-2 sm:p-6 pointer-events-auto"
                             onTouchStart={onTouchStart}
                             onTouchMove={onTouchMove}
                             onTouchEnd={onTouchEnd}
@@ -165,28 +163,28 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                                 handleResume={handleResume}
                             />
 
-                            <Suspense fallback={null}>
-                            <LazySmartHeader 
+                            <SmartHeader 
                                 formData={{
                                     ...displayStage,
                                     parties: headerParties,
-                                    caseNo: primaryCaseNo,
+                                    caseNo: pickNonemptyString(displayStage?.caseNo, primaryCaseNo),
                                     court: pickNonemptyString(
+                                        displayStage?.court,
+                                        (displayStage as Record<string, unknown> | undefined)?.courtName,
                                         file?.court,
                                         parentData?.court,
                                         readFileDetailsField(file, 'court'),
-                                        displayStage?.court,
                                     ),
                                     judge: pickNonemptyString(
+                                        displayStage?.judge,
+                                        (displayStage as Record<string, unknown> | undefined)?.judgeName,
+                                        (displayStage as Record<string, unknown> | undefined)?.judge_name,
                                         file?.judge,
                                         parentData?.judge,
                                         (file as Record<string, unknown> | undefined)?.judgeName,
                                         readFileDetailsField(file, 'judge'),
                                         readFileDetailsField(file, 'judgeName'),
                                         readFileDetailsField(file, 'judge_name'),
-                                        displayStage?.judge,
-                                        (displayStage as Record<string, unknown> | undefined)?.judgeName,
-                                        (displayStage as Record<string, unknown> | undefined)?.judge_name,
                                     ),
                                     docType: primaryDocType,
                                     claimValue: pickNonemptyString(
@@ -250,7 +248,6 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                                     !isViewingArchived ? handleUpdateIncidentalEntryDecision : undefined
                                 }
                             />
-                            </Suspense>
                             
                             <SmartFileAppealDeadlineBanner
                                 displayStage={displayStage}
@@ -337,41 +334,34 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                                               </button>
                                           ))
                                         : null}
-                                    <Suspense fallback={null}>
-                                    <LazyIncidentalCasesManager 
+                                    <IncidentalCasesManager 
                                         cases={displayStage?.incidentalCases || []} 
                                         onResolve={!isViewingArchived ? handleResolveIncidentalCase : undefined}
                                         onOpenLinkedFile={onOpenLinkedFile}
                                     />
-                                    </Suspense>
                                 </div>
                             ) : null}
 
                             {/* 4. Quick Actions */}
                             {!isViewingArchived && !isCassationStage && (
                                 <div className="print:hidden">
-                                    <Suspense fallback={null}>
-                                    <LazyQuickActions 
+                                    <QuickActions
                                         variant={quickActionsVariant}
-                                        onAction={handleQuickAction} 
-                                        onPause={() => setShowPauseModal(true)} 
+                                        onAction={handleQuickAction}
+                                        onPause={() => setShowPauseModal(true)}
                                         onOpenLegalActions={() => setIsActionsMenuOpen(true)}
                                     />
-                                    </Suspense>
                                 </div>
                             )}
 
                             {/* Civil law reference — القضاء المدني فقط */}
                             {!isViewingArchived && !isCassationStage && (
-                                <Suspense fallback={null}>
-                                    <LazyCivilLawReferenceHub readOnly={isViewingArchived} />
-                                </Suspense>
+                                <CivilLawReferenceHub readOnly={isViewingArchived} />
                             )}
 
                             {/* 5. Session record + Requests — فقط أثناء المرافعة المفتوحة */}
                             {!isViewingArchived && !isCassationStage && !displayStage?.isPleadingsClosed && (
-                                <Suspense fallback={null}>
-                                <LazySessionAndRequestsHub
+                                <SessionAndRequestsHub
                                     readOnly={isViewingArchived}
                                     visualVariant="civil"
                                     timeline={displayTimeline}
@@ -418,14 +408,12 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                                         });
                                     }}
                                 />
-                                </Suspense>
                             )}
 
                             {/* 6. To-Do List - CRITICAL: Display viewedStage tasks - Hide in Cassation OR Pleadings Closed */}
                             {!isViewingArchived && !isCassationStage && !displayStage?.isPleadingsClosed && (
                                 <div className="mt-4 pt-1">
-                                <Suspense fallback={null}>
-                                <LazyToDoList 
+                                <ToDoList 
                                     tasks={displayStage?.tasks || []} 
                                     visualVariant="civil"
                                     onAddTask={() => setShowTaskModal(true)}
@@ -435,7 +423,6 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                                     onCorrespondenceResponse={handleCorrespondenceResponse}
                                     onEditTask={(task) => setEditingTask(task)}
                                 />
-                                </Suspense>
                                 </div>
                             )}
 
@@ -467,14 +454,12 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
 
                                 {isTimelineExpanded ? (
                                     <div className="mt-3 print:block">
-                                        <Suspense fallback={null}>
-                                            <LazyTimelineFeed
-                                                events={displayTimeline}
-                                                visualVariant="civil"
-                                                onDelete={!isViewingArchived ? handleDeleteEvent : undefined}
-                                                onEdit={!isViewingArchived ? handleEditEvent : undefined}
-                                            />
-                                        </Suspense>
+                                        <TimelineFeed
+                                            events={displayTimeline}
+                                            visualVariant="civil"
+                                            onDelete={!isViewingArchived ? handleDeleteEvent : undefined}
+                                            onEdit={!isViewingArchived ? handleEditEvent : undefined}
+                                        />
                                     </div>
                                 ) : null}
                             </div>

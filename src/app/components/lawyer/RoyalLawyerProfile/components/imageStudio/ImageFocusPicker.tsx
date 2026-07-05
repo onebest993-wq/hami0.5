@@ -10,6 +10,8 @@ function clampZoom(value: number) {
     return Math.max(50, Math.min(400, Math.round(value)));
 }
 
+const ZOOM_COMMIT_DELAY_MS = 120;
+
 type ImageFocusPickerProps = {
     block: ProfileCustomBlock;
     src: string;
@@ -20,6 +22,8 @@ export function ImageFocusPicker({ block, src, onChange }: ImageFocusPickerProps
     const ref = useRef<HTMLDivElement>(null);
     const dragging = useRef(false);
     const pendingFocus = useRef<{ x: number; y: number } | null>(null);
+    const pendingZoom = useRef<number | null>(null);
+    const zoomCommitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const committedX = block.imageFocusX ?? 50;
     const committedY = block.imageFocusY ?? 50;
     const committedZoom = block.imageZoom ?? 100;
@@ -36,6 +40,15 @@ export function ImageFocusPicker({ block, src, onChange }: ImageFocusPickerProps
     useEffect(() => {
         setLiveZoom(committedZoom);
     }, [committedZoom]);
+
+    useEffect(
+        () => () => {
+            if (zoomCommitTimer.current) {
+                clearTimeout(zoomCommitTimer.current);
+            }
+        },
+        [],
+    );
 
     const computeFocus = useCallback((clientX: number, clientY: number) => {
         const el = ref.current;
@@ -79,12 +92,26 @@ export function ImageFocusPicker({ block, src, onChange }: ImageFocusPickerProps
         }
     };
 
+    const commitZoomSoon = useCallback(
+        (nextZoom: number) => {
+            pendingZoom.current = nextZoom;
+            if (zoomCommitTimer.current) clearTimeout(zoomCommitTimer.current);
+            zoomCommitTimer.current = setTimeout(() => {
+                const pending = pendingZoom.current;
+                pendingZoom.current = null;
+                zoomCommitTimer.current = null;
+                if (pending !== null) onChange({ imageZoom: pending });
+            }, ZOOM_COMMIT_DELAY_MS);
+        },
+        [onChange],
+    );
+
     const onWheel = (e: React.WheelEvent<HTMLDivElement>) => {
         e.preventDefault();
         const delta = e.deltaY > 0 ? -8 : 8;
         const nextZoom = clampZoom(liveZoom + delta);
         setLiveZoom(nextZoom);
-        onChange({ imageZoom: nextZoom });
+        commitZoomSoon(nextZoom);
     };
 
     const previewBlock: ProfileCustomBlock = {

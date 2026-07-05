@@ -54,39 +54,6 @@ export function ProfileSettingsPrivacyTab({
                         }))
                     }
                 />
-                <LuxuryToggleRow
-                    testId="profile-privacy-toggle-phone-meta"
-                    label="رقم الهاتف في البطاقة"
-                    checked={draft.privacy.showPhoneMeta}
-                    onChange={(v) =>
-                        onDraftChange((p) => ({
-                            ...p,
-                            privacy: { ...p.privacy, showPhoneMeta: v },
-                        }))
-                    }
-                />
-                <LuxuryToggleRow
-                    testId="profile-privacy-toggle-city-meta"
-                    label="المدينة في البطاقة"
-                    checked={draft.privacy.showCityMeta}
-                    onChange={(v) =>
-                        onDraftChange((p) => ({
-                            ...p,
-                            privacy: { ...p.privacy, showCityMeta: v },
-                        }))
-                    }
-                />
-                <LuxuryToggleRow
-                    testId="profile-privacy-toggle-syndicate"
-                    label="رقم النقابة"
-                    checked={draft.privacy.showSyndicate}
-                    onChange={(v) =>
-                        onDraftChange((p) => ({
-                            ...p,
-                            privacy: { ...p.privacy, showSyndicate: v },
-                        }))
-                    }
-                />
             </div>
 
             {actions.length > 0 ? (

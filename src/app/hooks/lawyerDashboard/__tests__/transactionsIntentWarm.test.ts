@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+    registerTransactionsWarmUserId,
     warmTransactionsOnHover,
     warmTransactionsOnOpen,
 } from '@/app/hooks/lawyerDashboard/transactionsIntentWarm';
@@ -23,6 +24,13 @@ describe('transactionsIntentWarm', () => {
     it('يحمّل chunk المعاملات عند hover', () => {
         warmTransactionsOnHover();
         expect(loadTransactionsHubModule).toHaveBeenCalledTimes(1);
+    });
+
+    it('يُحمّي المخزن عند hover مع userId مسجّل', () => {
+        const unregister = registerTransactionsWarmUserId('lawyer-1');
+        warmTransactionsOnHover();
+        expect(warmTransactionsThreadingStore).toHaveBeenCalledWith('lawyer-1');
+        unregister();
     });
 
     it('يُحمّي المخزن عند الفتح مع userId', () => {

@@ -1,11 +1,10 @@
-import React, { memo, useLayoutEffect } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import React, { memo, useLayoutEffect, useRef } from 'react';
+import { motion } from 'motion/react';
 import { HeaderToolbarNav } from './HeaderToolbarNav';
 import { HeaderProfileTrigger } from './HeaderProfileTrigger';
 import { useAuthUser } from '@/app/context/AuthContext';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { resolveCalendarUserId } from '@/app/services/calendarBridge';
-import { hydrateLawyerDashboardHeaderShellChunks } from '@/app/hooks/lawyerDashboard/headerShellIntentWarm';
 
 export interface HeaderProps {
     shouldShow: boolean;
@@ -44,44 +43,47 @@ export const Header = memo(function Header({
     const user = useAuthUser();
     const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
     const calendarUserId = resolveCalendarUserId(user?.id ?? null);
+    const headerRef = useRef<HTMLElement>(null);
 
     useLayoutEffect(() => {
-        if (!shouldShow || !calendarUserId) return;
-        hydrateLawyerDashboardHeaderShellChunks(calendarUserId);
-    }, [shouldShow, calendarUserId]);
+        const node = headerRef.current;
+        if (!node) return;
+        if (shouldShow) node.removeAttribute('inert');
+        else node.setAttribute('inert', '');
+    }, [shouldShow]);
 
     return (
-        <AnimatePresence>
-            {shouldShow ? (
-                <motion.header
-                    initial={reduceMotion ? false : { opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={reduceMotion ? undefined : { opacity: 0 }}
-                    transition={{ duration: reduceMotion ? 0 : 0.22 }}
-                    className="fixed top-0 left-0 right-0 z-50 h-[84px] flex items-center justify-between px-4 sm:px-5 pointer-events-none"
-                >
-                    <HeaderProfileTrigger
-                        userId={calendarUserId}
-                        userMetadata={meta}
-                        onClick={onProfileClick}
-                        onPointerEnter={onProfilePointerEnter}
-                        onPointerDown={onProfilePointerDown}
-                    />
+        <motion.header
+            ref={headerRef}
+            initial={false}
+            animate={{ opacity: shouldShow ? 1 : 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.18 }}
+            className="fixed top-0 left-0 right-0 z-50 h-[84px] flex items-center justify-between px-4 sm:px-5"
+            style={{ pointerEvents: shouldShow ? 'auto' : 'none' }}
+            aria-hidden={!shouldShow}
+        >
+            <HeaderProfileTrigger
+                interactive={shouldShow}
+                userId={calendarUserId}
+                userMetadata={meta}
+                onClick={onProfileClick}
+                onPointerEnter={onProfilePointerEnter}
+                onPointerDown={onProfilePointerDown}
+            />
 
-                    <HeaderToolbarNav
-                        unreadCount={unreadCount}
-                        onSearchClick={onSearchClick}
-                        onSearchPointerEnter={onSearchPointerEnter}
-                        onSearchPointerDown={onSearchPointerDown}
-                        onNotificationsClick={onNotificationsClick}
-                        onNotificationsPointerEnter={onNotificationsPointerEnter}
-                        onNotificationsPointerDown={onNotificationsPointerDown}
-                        onSettingsClick={onSettingsClick}
-                        onSettingsPointerEnter={onSettingsPointerEnter}
-                        onSettingsPointerDown={onSettingsPointerDown}
-                    />
-                </motion.header>
-            ) : null}
-        </AnimatePresence>
+            <HeaderToolbarNav
+                interactive={shouldShow}
+                unreadCount={unreadCount}
+                onSearchClick={onSearchClick}
+                onSearchPointerEnter={onSearchPointerEnter}
+                onSearchPointerDown={onSearchPointerDown}
+                onNotificationsClick={onNotificationsClick}
+                onNotificationsPointerEnter={onNotificationsPointerEnter}
+                onNotificationsPointerDown={onNotificationsPointerDown}
+                onSettingsClick={onSettingsClick}
+                onSettingsPointerEnter={onSettingsPointerEnter}
+                onSettingsPointerDown={onSettingsPointerDown}
+            />
+        </motion.header>
     );
 });

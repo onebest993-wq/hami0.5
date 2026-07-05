@@ -88,6 +88,7 @@ export const UniversalEntryCard = React.memo(function UniversalEntryCard({
             onUpdateLawsuit={onUpdateLawsuit}
             onUpdateExecution={onUpdateExecution}
             onLinkGlobalToDossier={onLinkGlobalToDossier}
+            onViewVaultDoc={onViewVaultDoc}
         />
     );
 });

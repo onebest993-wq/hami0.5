@@ -1,7 +1,9 @@
-import React, { memo } from 'react';
+import React, { memo, useEffect, useMemo } from 'react';
 import { Loader2, Save } from 'lucide-react';
 import type { RefObject } from 'react';
 import type { DossierLawArticleRichEditorHandle } from '@/app/components/lawyer/dossier-notes/DossierLawArticleRichEditor';
+import { isVaultImageFile } from '@/app/services/vaultUploadService';
+import { revokeBlobUrlIfNeeded } from '@/app/services/vault/vaultDocUtils';
 import { REPO_BTN_GOLD, REPO_INPUT, REPO_TOUCH_CHIP } from './smartRepositoryTheme';
 import { RepositoryRichEditor } from './RepositoryLazyPanels';
 
@@ -36,6 +38,17 @@ export const RepositoryComposePanel = memo(function RepositoryComposePanel({
     onSave,
     onCancel,
 }: RepositoryComposePanelProps) {
+    const attachmentPreviewUrl = useMemo(() => {
+        if (!attachmentFile || !isVaultImageFile(attachmentFile)) return undefined;
+        try {
+            return URL.createObjectURL(attachmentFile);
+        } catch {
+            return undefined;
+        }
+    }, [attachmentFile]);
+
+    useEffect(() => () => revokeBlobUrlIfNeeded(attachmentPreviewUrl), [attachmentPreviewUrl]);
+
     return (
         <div
             className="rounded-2xl border border-[#E6C673]/22 bg-[#0A0F1C]/60 p-4 space-y-3 mb-4"
@@ -68,7 +81,20 @@ export const RepositoryComposePanel = memo(function RepositoryComposePanel({
                     />
                 </label>
                 {attachmentFile ? (
-                    <span className="text-xs text-[#E6C673] truncate max-w-[180px]">{attachmentFile.name}</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                        {attachmentPreviewUrl ? (
+                            <div className="w-14 h-14 rounded-lg overflow-hidden border border-white/10 bg-[#0A0F1C]/50 flex items-center justify-center shrink-0">
+                                <img
+                                    src={attachmentPreviewUrl}
+                                    alt={attachmentFile.name}
+                                    className="block max-w-full max-h-full w-auto h-auto object-contain"
+                                    loading="eager"
+                                    decoding="async"
+                                />
+                            </div>
+                        ) : null}
+                        <span className="text-xs text-[#E6C673] truncate max-w-[180px]">{attachmentFile.name}</span>
+                    </div>
                 ) : null}
                 <button
                     type="button"

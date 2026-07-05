@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react';
+import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 
 /** مراحل تشغيل التطبيق — تفصل التفاعل الأول عن الخدمات الثقيلة. */
 export type RuntimePhase = 'boot' | 'interactive' | 'background';
 
-const BACKGROUND_IDLE_TIMEOUT_MS = 1_200;
+function backgroundIdleTimeoutMs(): number {
+    if (isCapacitorNativePlatform()) return 4_500;
+    return 1_200;
+}
 
 export function useRuntimePhase(): RuntimePhase {
     const [phase, setPhase] = useState<RuntimePhase>('boot');
@@ -22,10 +26,10 @@ export function useRuntimePhase(): RuntimePhase {
 
             if (typeof requestIdleCallback !== 'undefined') {
                 idleId = requestIdleCallback(armBackground, {
-                    timeout: BACKGROUND_IDLE_TIMEOUT_MS,
+                    timeout: backgroundIdleTimeoutMs(),
                 });
             } else {
-                window.setTimeout(armBackground, 1_200);
+                window.setTimeout(armBackground, backgroundIdleTimeoutMs());
             }
         });
 

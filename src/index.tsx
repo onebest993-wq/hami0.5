@@ -1,5 +1,7 @@
 import { markBootPhase } from '@/app/bootstrap/bootMetrics';
 import { removeStaticBootShell } from '@/app/bootstrap/bootStaticShell';
+import { probeSameOriginApi } from '@/app/runtime/sameOriginApiProbe';
+import SecureStoreService from '@/app/services/SecureStoreService';
 import { appModulePromise } from '@/boot/appModule';
 import { scheduleDeferredAppStyles } from '@/app/runtime/deferredAppStyles';
 import { installConsoleHygiene } from '@/app/utils/consoleHygiene';
@@ -90,15 +92,11 @@ function renderFatalBootError(e: unknown): void {
 }
 
 function runBackgroundBootTasks(): void {
-    void import('@/app/services/SecureStoreService')
-        .then(({ default: SecureStoreService }) => {
-            SecureStoreService.kickoffBootShellSync();
-            void SecureStoreService.ensureBootShellReady().catch(() => {});
-            void SecureStoreService.ensurePersistedReady().catch(() => {});
-        })
-        .catch(() => {});
+    SecureStoreService.kickoffBootShellSync();
+    void SecureStoreService.ensureBootShellReady().catch(() => {});
+    void SecureStoreService.ensurePersistedReady().catch(() => {});
 
-    void import('@/app/runtime/sameOriginApiProbe').then((m) => m.probeSameOriginApi());
+    void probeSameOriginApi();
     void import('@/app/bootstrap/deferredBoot').then((m) => m.runDeferredBootTasks());
 }
 
@@ -142,5 +140,6 @@ async function mountApplication(): Promise<void> {
     }
 }
 
-void mountApplication();
-runBackgroundBootTasks();
+void mountApplication().finally(() => {
+    runBackgroundBootTasks();
+});

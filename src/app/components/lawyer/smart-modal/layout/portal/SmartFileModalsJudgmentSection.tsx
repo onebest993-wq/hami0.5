@@ -43,17 +43,67 @@ export function SmartFileModalsJudgmentSection(props: SmartFileModalsPortalProps
     return (
         <>
                 {showJudgmentModal && (
-                    <LazySmartJudgmentModal
-                        key="judgment"
-                        isOpen={showJudgmentModal}
-                        onClose={() => setShowJudgmentModal(false)}
-                        onConfirm={h.handleJudgmentConfirm}
-                        currentParties={currentStage.parties ?? []}
-                        currentStage={currentStage.stageName}
-                        representedParty={parentData.representedParty}
-                    />
+                    <>
+                        {/* #region debug-point B:judgment-modal-render */}
+                        {(() => {
+                            fetch('http://127.0.0.1:7778/event', {
+                                method: 'POST',
+                                body: JSON.stringify({
+                                    sessionId: 'pleadings-close-button',
+                                    runId: 'pre-fix',
+                                    hypothesisId: 'B',
+                                    location: 'SmartFileModalsJudgmentSection.tsx:showJudgmentModal',
+                                    msg: '[DEBUG] judgment modal render path reached',
+                                    data: {
+                                        stageName: currentStage.stageName ?? null,
+                                        partyCount: Array.isArray(currentStage.parties) ? currentStage.parties.length : 0,
+                                        showAppealModal,
+                                        showAppealTransitionModal,
+                                        showCrossAppealModal,
+                                    },
+                                    ts: Date.now(),
+                                }),
+                            }).catch(() => {});
+                            return null;
+                        })()}
+                        {/* #endregion */}
+                        <LazySmartJudgmentModal
+                            key="judgment"
+                            isOpen={showJudgmentModal}
+                            onClose={() => setShowJudgmentModal(false)}
+                            onConfirm={h.handleJudgmentConfirm}
+                            currentParties={currentStage.parties ?? []}
+                            currentStage={currentStage.stageName}
+                            representedParty={parentData.representedParty}
+                        />
+                    </>
                 )}
                 {showAppealModal && (
+                    <>
+                    {/* #region debug-point B:appeal-modal-render */}
+                    {(() => {
+                        fetch('http://127.0.0.1:7777/event', {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                sessionId: 'opponent-appeal-crash',
+                                runId: 'pre-fix',
+                                hypothesisId: 'B',
+                                location: 'SmartFileModalsJudgmentSection.tsx:showAppealModal',
+                                msg: '[DEBUG] opponent appeal modal render',
+                                data: {
+                                    stageName: currentStage.stageName ?? null,
+                                    judgmentForm: currentStage.judgmentForm ?? null,
+                                    lastJudgmentType: currentStage.lastJudgmentType ?? null,
+                                    partyCount: Array.isArray(currentStage.parties) ? currentStage.parties.length : 0,
+                                    incidentalCount: Array.isArray(currentStage.incidentalCases) ? currentStage.incidentalCases.length : 0,
+                                    appealRouteStage: appealRoute?.stageName ?? appealRoute?.currentStage ?? null,
+                                },
+                                ts: Date.now(),
+                            }),
+                        }).catch(() => {});
+                        return null;
+                    })()}
+                    {/* #endregion */}
                     <LazyAppealTransitionModal
                         key="appeal-reg"
                         isOpen={showAppealModal}
@@ -65,7 +115,6 @@ export function SmartFileModalsJudgmentSection(props: SmartFileModalsPortalProps
                                         ? 'اعتراض غيابي'
                                         : data.appealType,
                                 appealCaseNo: data.newCaseNumber,
-                                appealCourt: data.newCourt ?? '',
                                 appellant: data.appellant,
                                 filingDate: data.filingDate,
                                 includedAppellantPartyIds: data.includedAppellantPartyIds,
@@ -82,6 +131,7 @@ export function SmartFileModalsJudgmentSection(props: SmartFileModalsPortalProps
                         incidentalCases={currentStage.incidentalCases}
                         appealRoute={appealRoute}
                     />
+                    </>
                 )}
                 {showAppealTransitionModal && (
                     <LazyAppealTransitionModal

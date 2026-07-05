@@ -26,10 +26,6 @@ const WIRED_SETTING_KEYS = [
     // البيانات
     'data.autoSave',
     'data.cloudSync',
-    'data.syncNotes',
-    'data.syncFiles',
-    'data.syncExecution',
-    'data.weeklyBackupReminder',
     'data.businessBackup',
     'data.clearLocal',
     'data.resetSettings',

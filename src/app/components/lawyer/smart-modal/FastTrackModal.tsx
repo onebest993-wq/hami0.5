@@ -114,7 +114,7 @@ export const FastTrackModal = ({ isOpen, onClose, onSave, editMode = false, edit
 
     return (
         <div className={T.overlay} dir="rtl" onClick={onClose}>
-            <div className={`w-full max-w-md ${T.shell}`} onClick={(e) => e.stopPropagation()}>
+            <div className={`w-full max-w-3xl ${T.shell}`} onClick={(e) => e.stopPropagation()}>
                 <div className={T.shellCard}>
                     <div className={T.header}>
                         <h3 className={T.headerTitle}>
@@ -126,7 +126,7 @@ export const FastTrackModal = ({ isOpen, onClose, onSave, editMode = false, edit
                         </button>
                     </div>
 
-                    <div className={T.body}>
+                    <div className={`${T.body} md:min-w-[46rem]`}>
                     <div>
                         <label className={T.label}>
                             نوع الطلب <span className="text-red-400">*</span>

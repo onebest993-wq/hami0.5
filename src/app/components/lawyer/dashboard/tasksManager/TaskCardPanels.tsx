@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { CheckCircle2, ChevronDown } from 'lucide-react';
+import { ChevronDown, GitBranch, MapPinned, Plus } from 'lucide-react';
 import type { DocumentRequirementItem, LegalSubTask, TaskExpenseEntry } from '@/app/types/TaskEngine';
 import { formatIqd, parseAmountInput } from './utils';
 import { TASKS_INPUT } from './tasksBoucleTheme';
+import { TaskRingToggle } from './TaskRingToggle';
 
 export type TaskCardBranchPanelProps = {
     subTasks: LegalSubTask[];
@@ -42,19 +43,20 @@ export function TaskCardBranchPanel({
     };
 
     return (
-        <div className="mx-3 mb-3 border-r-2 border-emerald-500/35 pr-2.5 py-2 bg-[#0c0c0e]/35 rounded-lg rounded-tr-none text-right">
+        <div className="mx-3 mb-3 rounded-xl border border-sky-500/22 bg-[#0c0c0e]/45 overflow-hidden text-right">
             <button
                 type="button"
                 onClick={onToggleSection}
-                className="w-full min-h-[44px] flex flex-row-reverse items-center justify-between gap-2 rounded-md px-1 py-0.5 hover:bg-slate-800/40 transition touch-manipulation"
+                className="w-full min-h-[44px] flex flex-row-reverse items-center justify-between gap-2 px-3 py-2.5 border-b border-sky-500/15 bg-sky-500/6 hover:bg-sky-500/10 transition touch-manipulation"
                 aria-expanded={branchOpen}
             >
-                <span className="text-[11px] font-bold text-emerald-200/90">
+                <span className="text-[11px] font-extrabold text-sky-200/95 flex flex-row-reverse items-center gap-1.5">
+                    <GitBranch className="size-3.5 shrink-0 opacity-90" aria-hidden />
                     مسار إجرائي متفرع
                     {hasSubTasks ? ` (${subTasks.length})` : ''}
                 </span>
                 <ChevronDown
-                    className={`size-4 text-emerald-300/80 shrink-0 transition-transform duration-200 ${
+                    className={`size-4 text-sky-300/75 shrink-0 transition-transform duration-200 ${
                         branchOpen ? 'rotate-180' : ''
                     }`}
                     aria-hidden
@@ -62,66 +64,73 @@ export function TaskCardBranchPanel({
             </button>
 
             {branchOpen ? (
-                <>
+                <div className="px-3 py-2.5 space-y-2">
                     {hasSubTasks ? (
-                        <ul className="mt-1.5 space-y-1 mb-1.5">
+                        <ul className="space-y-1.5">
                             {subTasks.map((st, idx) => (
                                 <li
                                     key={st.id}
-                                    className={`rounded-lg border px-2.5 py-1.5 flex flex-row items-center gap-2 ${
+                                    className={`rounded-lg border px-2.5 py-2 flex flex-row-reverse items-start gap-2 ${
                                         st.isCompleted
-                                            ? 'border-emerald-500/25 bg-emerald-950/15'
-                                            : 'border-[#A67C52]/18 bg-slate-900/35'
+                                            ? 'border-[#1A7059]/30 bg-[#1A7059]/8'
+                                            : 'border-[#A67C52]/18 bg-[#0c0c0e]/35'
                                     }`}
                                 >
+                                    <span className="text-[10px] font-bold text-[#A67C52]/55 tabular-nums shrink-0 pt-0.5">
+                                        {idx + 1}.
+                                    </span>
                                     <div className="flex-1 min-w-0 text-right">
-                                        <div className="flex flex-row-reverse items-center gap-1.5">
-                                            <span className="text-[10px] font-bold text-slate-500 tabular-nums shrink-0">
-                                                {idx + 1}.
-                                            </span>
-                                            <span
-                                                className={`text-sm font-bold leading-snug break-words ${
-                                                    st.isCompleted
-                                                        ? 'text-slate-500 line-through'
-                                                        : 'text-[#E8F5F0]'
-                                                }`}
-                                            >
-                                                {st.title}
-                                            </span>
-                                        </div>
+                                        <span
+                                            className={`block text-sm font-bold leading-snug break-words ${
+                                                st.isCompleted
+                                                    ? 'text-[#6BC4A8]/55 line-through'
+                                                    : 'text-[#E8F5F0]'
+                                            }`}
+                                        >
+                                            {st.title}
+                                        </span>
                                         {st.location ? (
-                                            <p className="mt-0.5 text-[10px] font-semibold text-emerald-300/85 truncate">
+                                            <p className="mt-1 text-[10px] font-semibold text-[#6BC4A8]/90 flex flex-row-reverse items-center gap-1 justify-end">
+                                                <MapPinned className="size-3 shrink-0 opacity-75" aria-hidden />
                                                 {st.location}
                                             </p>
-                                        ) : null}
+                                        ) : (
+                                            <p className="mt-0.5 text-[10px] font-medium text-[#E8F5F0]/30 italic">
+                                                بدون موقع فرعي
+                                            </p>
+                                        )}
                                     </div>
                                     {st.isCompleted ? (
-                                        <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-600/20 border border-emerald-500/35 text-[10px] font-extrabold text-emerald-200 whitespace-nowrap">
-                                            <CheckCircle2 className="size-3" aria-hidden />
-                                            تم
-                                        </span>
+                                        <TaskRingToggle
+                                            checked
+                                            disabled={readOnly}
+                                            label={`إلغاء إنجاز: ${st.title}`}
+                                            onToggle={() => onToggleSubComplete(st.id)}
+                                            tone="sky"
+                                            size="sm"
+                                        />
                                     ) : readOnly ? null : (
-                                        <button
-                                            type="button"
-                                            onClick={() => onToggleSubComplete(st.id)}
-                                            className="shrink-0 min-h-[44px] px-3 py-1 rounded-md bg-emerald-600/80 hover:bg-emerald-600 border border-emerald-500/45 text-white text-[10px] font-extrabold transition whitespace-nowrap touch-manipulation"
-                                        >
-                                            تم الإجراء الفرعي
-                                        </button>
+                                        <TaskRingToggle
+                                            checked={false}
+                                            label={`إنجاز: ${st.title}`}
+                                            onToggle={() => onToggleSubComplete(st.id)}
+                                            tone="sky"
+                                            size="sm"
+                                        />
                                     )}
                                 </li>
                             ))}
                         </ul>
                     ) : !addStepOpen ? (
-                        <p className="text-[11px] text-slate-500 mt-1.5 mb-1">لا توجد خطوات فرعية بعد.</p>
+                        <p className="text-[11px] text-[#E8F5F0]/45 py-1">لا توجد خطوات فرعية بعد.</p>
                     ) : null}
 
                     {!readOnly && addStepOpen ? (
-                        <div className="border-t border-[#A67C52]/20 pt-2 space-y-1.5">
+                        <div className="rounded-lg border border-sky-500/18 bg-[#0c0c0e]/30 p-2.5 space-y-1.5">
                             <input
                                 dir="rtl"
                                 type="text"
-                                placeholder="خطوة جديدة…"
+                                placeholder="خطوة فرعية جديدة…"
                                 value={subDraft}
                                 onChange={(e) => setSubDraft(e.target.value)}
                                 onKeyDown={(e) => {
@@ -144,16 +153,16 @@ export function TaskCardBranchPanel({
                                     type="button"
                                     onClick={() => commitNewSubTask()}
                                     disabled={!subDraft.trim()}
-                                    className={`flex-1 min-h-[44px] py-1.5 rounded-lg bg-emerald-600/80 hover:bg-emerald-600 text-white text-xs font-extrabold disabled:opacity-40 transition touch-manipulation`}
+                                    className="flex-1 min-h-[44px] py-1.5 rounded-full bg-[#1A7059]/85 hover:bg-[#1A7059] text-white text-xs font-extrabold disabled:opacity-40 transition touch-manipulation"
                                 >
-                                    إضافة الخطوة
+                                    إضافة
                                 </button>
                                 <button
                                     type="button"
                                     onClick={onCloseAddStep}
-                                    className="flex-1 min-h-[44px] py-1.5 rounded-lg border border-slate-600/80 bg-slate-800/60 text-slate-200 text-xs font-extrabold hover:bg-slate-800 transition touch-manipulation"
+                                    className="flex-1 min-h-[44px] py-1.5 rounded-full border border-[#A67C52]/25 bg-[#0c0c0e]/50 text-[#E8F5F0]/80 text-xs font-extrabold hover:bg-[#0c0c0e]/70 transition touch-manipulation"
                                 >
-                                    حفظ
+                                    إلغاء
                                 </button>
                             </div>
                         </div>
@@ -161,12 +170,13 @@ export function TaskCardBranchPanel({
                         <button
                             type="button"
                             onClick={onOpenAddStep}
-                            className="mt-1 w-full min-h-[44px] py-1.5 rounded-lg border border-dashed border-emerald-500/35 text-emerald-200/90 text-[11px] font-extrabold hover:bg-emerald-950/20 transition touch-manipulation"
+                            className="w-full min-h-[44px] py-2 rounded-full border border-dashed border-sky-500/30 text-sky-200/90 text-[11px] font-extrabold hover:bg-sky-500/8 transition touch-manipulation flex flex-row-reverse items-center justify-center gap-1"
                         >
-                            + إضافة خطوة
+                            <Plus className="size-3.5 shrink-0" aria-hidden />
+                            إضافة خطوة فرعية
                         </button>
                     ) : null}
-                </>
+                </div>
             ) : null}
         </div>
     );
@@ -176,52 +186,107 @@ export type TaskCardDocPanelProps = {
     taskId: string;
     items: DocumentRequirementItem[];
     readOnly: boolean;
+    embedded?: boolean;
+    showAdd?: boolean;
     onToggle: (itemId: string) => void;
     onAdd: (text: string) => void;
 };
 
-export function TaskCardDocPanel({ items, readOnly, onToggle, onAdd }: TaskCardDocPanelProps) {
+export function TaskCardDocPanel({
+    items,
+    readOnly,
+    embedded = false,
+    showAdd = true,
+    onToggle,
+    onAdd,
+}: TaskCardDocPanelProps) {
     const [docDraft, setDocDraft] = useState('');
+    const openCount = items.filter((d) => !d.isChecked).length;
 
     return (
-        <div className="mx-3.5 mb-3.5 mr-5 border-r-2 border-violet-500/35 pr-3 py-2.5 bg-[#0c0c0e]/35 rounded-lg rounded-tr-none text-right space-y-2">
-            <p className="text-[11px] font-bold text-violet-200/90">حقيبة المستندات</p>
-            <ul className="space-y-1.5 max-h-36 overflow-y-auto overscroll-y-contain">
-                {items.map((d) => (
-                    <li key={d.id} className="flex flex-row-reverse items-center gap-2 min-h-[44px]">
-                        <input
-                            type="checkbox"
-                            className="rounded border-slate-600 accent-violet-500 size-5 touch-manipulation"
-                            checked={d.isChecked}
-                            disabled={readOnly}
-                            onChange={() => !readOnly && onToggle(d.id)}
-                        />
-                        <span
-                            className={`text-sm flex-1 ${d.isChecked ? 'text-slate-500 line-through' : 'text-slate-200'}`}
+        <div
+            className={
+                embedded
+                    ? 'text-right space-y-1.5'
+                    : 'mx-3.5 mb-3.5 mr-5 border-r-2 border-violet-500/35 pr-3 py-2.5 bg-[#0c0c0e]/35 rounded-lg rounded-tr-none text-right space-y-2'
+            }
+        >
+            {embedded && items.length > 0 ? (
+                <p className="text-[10px] font-bold text-violet-200/75 flex flex-row-reverse items-center justify-between gap-2 px-0.5">
+                    <span>الطلبات</span>
+                    <span className="tabular-nums text-violet-300/60">
+                        {openCount > 0 ? `${openCount} متبق` : 'مكتمل'}
+                    </span>
+                </p>
+            ) : !embedded ? (
+                <p className="text-[11px] font-bold text-violet-200/90">حقيبة المستندات</p>
+            ) : null}
+            {items.length > 0 ? (
+                <ul className="space-y-0.5 max-h-32 overflow-y-auto overscroll-y-contain">
+                    {items.map((d, idx) => (
+                        <li
+                            key={d.id}
+                            className={`flex flex-row-reverse items-center gap-2 min-h-[36px] rounded-md px-1 ${
+                                d.isChecked ? 'opacity-65' : ''
+                            }`}
                         >
-                            {d.text}
-                        </span>
-                    </li>
-                ))}
-            </ul>
-            {!readOnly ? (
-                <div className="flex gap-2 flex-row-reverse">
+                            <TaskRingToggle
+                                checked={d.isChecked}
+                                disabled={readOnly}
+                                label={d.isChecked ? `إلغاء: ${d.text}` : `إنجاز: ${d.text}`}
+                                onToggle={() => !readOnly && onToggle(d.id)}
+                                tone="violet"
+                                size="sm"
+                            />
+                            {items.length > 1 ? (
+                                <span className="text-[10px] font-extrabold tabular-nums text-violet-300/55 shrink-0 w-4 text-center">
+                                    {idx + 1}
+                                </span>
+                            ) : null}
+                            <span
+                                className={`text-[12px] flex-1 leading-snug break-words ${
+                                    d.isChecked
+                                        ? 'text-[#E8F5F0]/45 line-through decoration-violet-300/30'
+                                        : 'text-[#E8F5F0]/90'
+                                }`}
+                            >
+                                {d.text}
+                            </span>
+                        </li>
+                    ))}
+                </ul>
+            ) : embedded ? (
+                <p className="text-[11px] text-[#E8F5F0]/40 py-1">لا طلبات بعد — أضف من الأسفل.</p>
+            ) : null}
+            {!readOnly && showAdd ? (
+                <div className="flex gap-1.5 flex-row-reverse pt-0.5">
                     <input
                         dir="rtl"
                         type="text"
-                        placeholder="مستند مطلوب…"
+                        placeholder="طلب أو مستند…"
                         value={docDraft}
                         onChange={(e) => setDocDraft(e.target.value)}
-                        className={`flex-1 min-h-[44px] ${TASKS_INPUT}`}
+                        onKeyDown={(e) => {
+                            if (e.key !== 'Enter') return;
+                            e.preventDefault();
+                            const t = docDraft.trim();
+                            if (!t) return;
+                            onAdd(t);
+                            setDocDraft('');
+                        }}
+                        className={`flex-1 min-h-[40px] ${TASKS_INPUT} !py-2 text-[12px]`}
                     />
                     <button
                         type="button"
                         onClick={() => {
-                            onAdd(docDraft);
+                            const t = docDraft.trim();
+                            if (!t) return;
+                            onAdd(t);
                             setDocDraft('');
                         }}
                         disabled={!docDraft.trim()}
-                        className="shrink-0 min-h-[44px] min-w-[44px] px-3 rounded-lg bg-violet-600/85 text-white text-xs font-extrabold disabled:opacity-40 touch-manipulation"
+                        className="shrink-0 min-h-[40px] min-w-[40px] px-2 rounded-lg border border-violet-400/35 bg-violet-500/15 text-violet-100 text-sm font-bold disabled:opacity-40 touch-manipulation"
+                        aria-label="إضافة طلب"
                     >
                         +
                     </button>

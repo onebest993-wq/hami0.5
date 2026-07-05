@@ -31,9 +31,8 @@ export function resolveStepperStageDisplayName(
 }
 
 export function shouldShowFutureCassationStage(stages: CaseStage[]): boolean {
-    const hasAppeal = stages.some((s) => isAppealStageName(stageNameOf(s)));
-    const hasCassation = stages.some((s) => isCassationStageName(stageNameOf(s)));
-    return hasAppeal && !hasCassation;
+    void stages;
+    return false;
 }
 
 /** شريط المراحل: مراحل فعلية + تمييز قادم + تمييز ما قبل/بعد النقض */
@@ -58,19 +57,6 @@ export function buildChromeStageStripItems(
             postCassationRemand,
         };
     });
-
-    if (shouldShowFutureCassationStage(stages)) {
-        items.push({
-            key: 'placeholder-cassation',
-            displayName: 'التمييز',
-            realIndex: null,
-            isPlaceholder: true,
-            isPast: false,
-            isActive: false,
-            isViewing: false,
-            postCassationRemand: false,
-        });
-    }
 
     return items;
 }

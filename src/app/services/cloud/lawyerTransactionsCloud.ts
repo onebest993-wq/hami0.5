@@ -4,6 +4,12 @@ import type {
     TransactionsThreadingSaveInput,
     TransactionsThreadingState,
 } from '@/app/services/cloud/lawyerTransactionTypes';
+import {
+    getTransactionsThreadingLocalKey,
+    mirrorTransactionsThreadingLocalSync,
+    parseTransactionsThreadingState,
+    peekTransactionsThreadingState,
+} from '@/app/services/transactions/transactionsThreadingMirror';
 
 export type { TransactionsThreadingState, TransactionsThreadingSaveInput } from '@/app/services/cloud/lawyerTransactionTypes';
 
@@ -140,10 +146,37 @@ export const TransactionDB = {
     },
 };
 
-const TRANSACTIONS_THREADING_LOCAL_KEY_PREFIX = 'hami:transactionsThreading:v1:';
+let threadingKvMergeInflight = new Map<string, Promise<void>>();
 
-function getTransactionsThreadingLocalKey(userId: string): string {
-    return `${TRANSACTIONS_THREADING_LOCAL_KEY_PREFIX}${userId}`;
+function kickTransactionsThreadingKvMerge(
+    userId: string,
+    localBaseline: TransactionsThreadingState | null,
+): void {
+    if (threadingKvMergeInflight.has(userId)) return;
+    const job = (async () => {
+        try {
+            const remote = await lawyerCloudKv.get(`transactionsThreading:${userId}:state`);
+            if (!remote || typeof remote !== 'object') return;
+            const parsedRemote = parseTransactionsThreadingState(userId, remote);
+            if (!parsedRemote) return;
+            const lTime =
+                localBaseline && Number.isFinite(Date.parse(localBaseline.updatedAt))
+                    ? Date.parse(localBaseline.updatedAt)
+                    : 0;
+            const rTime = Number.isFinite(Date.parse(parsedRemote.updatedAt))
+                ? Date.parse(parsedRemote.updatedAt)
+                : 0;
+            const merged = parsedRemote && rTime >= lTime ? parsedRemote : localBaseline;
+            if (merged) {
+                await saveLocalTransactionsThreadingState(userId, merged);
+            }
+        } catch {
+            /* مزامنة خلفية */
+        } finally {
+            threadingKvMergeInflight.delete(userId);
+        }
+    })();
+    threadingKvMergeInflight.set(userId, job);
 }
 
 async function loadLocalTransactionsThreadingState(userId: string): Promise<TransactionsThreadingState | null> {
@@ -163,79 +196,32 @@ async function loadLocalTransactionsThreadingState(userId: string): Promise<Tran
     }
 }
 
-function parseTransactionsThreadingState(userId: string, parsed: unknown): TransactionsThreadingState | null {
-    if (!parsed || typeof parsed !== 'object') return null;
-    const s = parsed as Partial<TransactionsThreadingState>;
-    if (s.userId !== userId) return null;
-    if (
-        !Array.isArray(s.transactions) ||
-        !Array.isArray(s.tasks) ||
-        !Array.isArray(s.financeRecords) ||
-        !Array.isArray(s.documents)
-    ) {
-        return null;
-    }
-    return {
-        schemaVersion: 1,
-        userId,
-        updatedAt: String(s.updatedAt ?? ''),
-        transactions: s.transactions,
-        tasks: s.tasks,
-        financeRecords: s.financeRecords,
-        documents: s.documents,
-    };
-}
-
 async function saveLocalTransactionsThreadingState(
     userId: string,
     state: TransactionsThreadingState,
 ): Promise<void> {
     const key = getTransactionsThreadingLocalKey(userId);
     const payload = JSON.stringify(state);
-    try {
-        await SecureStoreService.setItem(key, payload);
-    } catch {
+    if (typeof localStorage !== 'undefined') {
         try {
             localStorage.setItem(key, payload);
         } catch {
-            /* optional mirror */
+            /* ignore mirror write */
         }
     }
+    void SecureStoreService.setItem(key, payload).catch(() => undefined);
 }
 
 export const TransactionsThreadingDB = {
     async getState(userId: string): Promise<TransactionsThreadingState | null> {
+        const mirrored = peekTransactionsThreadingState(userId);
+        if (mirrored) {
+            kickTransactionsThreadingKvMerge(userId, mirrored);
+            return mirrored;
+        }
+
         const local = await loadLocalTransactionsThreadingState(userId);
-        try {
-            const remote = await lawyerCloudKv.get(`transactionsThreading:${userId}:state`);
-            if (remote && typeof remote === 'object') {
-                const r = parseTransactionsThreadingState(userId, remote);
-                if (!r) return local;
-                const rTime = Number.isFinite(Date.parse(r.updatedAt)) ? Date.parse(r.updatedAt) : 0;
-                const lTime = local && Number.isFinite(Date.parse(local.updatedAt)) ? Date.parse(local.updatedAt) : 0;
-                const merged = rTime >= lTime ? r : local;
-                if (merged) {
-                    await saveLocalTransactionsThreadingState(userId, merged);
-                    if (merged === local && local) {
-                        try {
-                            await lawyerCloudKv.set(`transactionsThreading:${userId}:state`, local);
-                        } catch {
-                            // Cloud-First
-                        }
-                    }
-                }
-                return merged ?? null;
-            }
-        } catch {
-            // Cloud-First
-        }
-        if (local) {
-            try {
-                await lawyerCloudKv.set(`transactionsThreading:${userId}:state`, local);
-            } catch {
-                // Cloud-First
-            }
-        }
+        kickTransactionsThreadingKvMerge(userId, local);
         return local;
     },
 
@@ -249,11 +235,7 @@ export const TransactionsThreadingDB = {
             financeRecords: Array.isArray(input.financeRecords) ? input.financeRecords : [],
             documents: Array.isArray(input.documents) ? input.documents : [],
         };
-        try {
-            await lawyerCloudKv.set(`transactionsThreading:${userId}:state`, state);
-        } catch {
-            // Cloud-First
-        }
         await saveLocalTransactionsThreadingState(userId, state);
+        void lawyerCloudKv.set(`transactionsThreading:${userId}:state`, state).catch(() => undefined);
     },
 };

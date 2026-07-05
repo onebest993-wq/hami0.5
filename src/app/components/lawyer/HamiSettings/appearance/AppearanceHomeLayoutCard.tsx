@@ -40,7 +40,6 @@ export function AppearanceHomeLayoutCard({
                 <SettingRow
                     icon={PanelBottom}
                     label="الشريط السفلي"
-                    subLabel="إيقاف التفعيل ينقل أيقونات الشريط إلى الواجهة الرئيسية"
                     isLast
                     action={
                         <Toggle

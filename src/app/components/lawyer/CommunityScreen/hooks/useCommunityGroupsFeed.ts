@@ -14,6 +14,8 @@ import {
     normalizeCommunityPostsPage,
     trimCommunityPostsRetention,
 } from './communityPostFeedUtils';
+import { withForumAsyncTimeout } from '../forumAsync';
+import { createForumGroupResilient } from '../forumGroupCreate';
 
 export type UseCommunityGroupsFeedParams = {
     lists: Pick<CommunityDualPostLists, 'groupPosts' | 'setGroupPosts' | 'groupPostsRef'>;
@@ -56,10 +58,10 @@ export function useCommunityGroupsFeed({
     );
 
     useEffect(() => {
-        if (authIsLoading || activeSection !== 'groups' || activeGroupId) return;
+        if (authIsLoading || activeGroupId) return;
         let cancelled = false;
         setGroupsLoading(true);
-        void ForumApiService.listGroups(groupsSearchQuery)
+        void withForumAsyncTimeout(ForumApiService.listGroups(groupsSearchQuery), 8_000, [])
             .then((rows) => {
                 if (!cancelled) setGroups(rows);
             })
@@ -72,7 +74,7 @@ export function useCommunityGroupsFeed({
         return () => {
             cancelled = true;
         };
-    }, [authIsLoading, activeSection, activeGroupId, groupsSearchQuery]);
+    }, [authIsLoading, activeGroupId, groupsSearchQuery]);
 
     useEffect(() => {
         if (!activeGroupId) {
@@ -124,7 +126,7 @@ export function useCommunityGroupsFeed({
             }
             setJoiningGroupId(groupId);
             try {
-                const updated = await ForumApiService.joinGroup(groupId);
+                const updated = await ForumApiService.joinGroup(groupId, currentUserId);
                 setGroups((prev) => prev.map((g) => (g.id === groupId ? updated : g)));
                 SmartToast.success('انضممت للمجموعة');
             } catch (err) {
@@ -153,7 +155,7 @@ export function useCommunityGroupsFeed({
         if (!activeGroupId) return;
         setLeavingGroup(true);
         try {
-            await ForumApiService.leaveGroup(activeGroupId);
+            await ForumApiService.leaveGroup(activeGroupId, currentUserId);
             setActiveGroupId(null);
             const rows = await ForumApiService.listGroups(groupsSearchQuery);
             setGroups(rows);
@@ -167,11 +169,15 @@ export function useCommunityGroupsFeed({
         } finally {
             setLeavingGroup(false);
         }
-    }, [activeGroupId, groupsSearchQuery]);
+    }, [activeGroupId, currentUserId, groupsSearchQuery]);
 
     const handleCreateGroup = useCallback(async () => {
         const name = newGroupName.trim();
         const description = newGroupDesc.trim();
+        if (!currentUserId) {
+            SmartToast.warning('سجّل الدخول لإنشاء مجموعة');
+            return;
+        }
         if (name.length < 3) {
             SmartToast.warning('اسم المجموعة قصير جداً (3 أحرف على الأقل)');
             return;
@@ -182,7 +188,7 @@ export function useCommunityGroupsFeed({
         }
         setSubmittingGroup(true);
         try {
-            const group = await ForumApiService.createGroup({ name, description });
+            const group = await createForumGroupResilient({ name, description }, currentUserId);
             setGroups((prev) => [group, ...prev.filter((g) => g.id !== group.id)]);
             setIsCreateGroupOpen(false);
             setNewGroupName('');
@@ -197,7 +203,7 @@ export function useCommunityGroupsFeed({
         } finally {
             setSubmittingGroup(false);
         }
-    }, [newGroupDesc, newGroupName]);
+    }, [currentUserId, newGroupDesc, newGroupName]);
 
     const handleLoadMoreGroupPosts = useCallback(async () => {
         if (!activeGroupId || groupPostsLoadingMore || !groupPostsHasMore) return;

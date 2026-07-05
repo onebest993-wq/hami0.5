@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { CalendarDB, type CalendarEvent } from '@/app/services/lawyer-cloud';
+import { CalendarDB } from '@/app/services/cloud/lawyerCalendarCloud';
+import type { CalendarEvent } from '@/app/services/calendar/calendarTypes';
 import { CALENDAR_UPDATED_EVENT } from '@/app/services/calendarBridge.types';
 import type { CalendarSourceModule } from '@/app/services/calendarBridge.types';
 import { resolveCalendarUserId } from '@/app/services/calendarBridge';

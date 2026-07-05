@@ -1,4 +1,5 @@
 import { SecureAPIClient, SecureFetchError } from '@/app/services/SecureAPIClient';
+import { NotificationDB } from '@/app/services/notifications/notificationForumStorage';
 
 type ApiOk<T> = { ok: true } & T;
 type ApiErr = { ok: false; error?: string };
@@ -21,7 +22,6 @@ export async function persistForumNotificationRead(
     userId: string,
     notificationId: string,
 ): Promise<void> {
-    const { NotificationDB } = await import('@/app/services/lawyer-cloud');
     await NotificationDB.markAsRead(notificationId, userId);
     try {
         await postForumJson<ApiOk<Record<string, never>>>('/api/forum/notifications', {
@@ -34,7 +34,6 @@ export async function persistForumNotificationRead(
 }
 
 export async function persistForumMarkAllRead(userId: string): Promise<void> {
-    const { NotificationDB } = await import('@/app/services/lawyer-cloud');
     await NotificationDB.markAllAsRead(userId);
     try {
         await postForumJson<ApiOk<Record<string, never>>>('/api/forum/notifications', {
@@ -45,8 +44,22 @@ export async function persistForumMarkAllRead(userId: string): Promise<void> {
     }
 }
 
+export async function persistForumNotificationDismiss(
+    userId: string,
+    notificationId: string,
+): Promise<void> {
+    await NotificationDB.removeNotification(notificationId, userId);
+    try {
+        await postForumJson<ApiOk<Record<string, never>>>('/api/forum/notifications', {
+            action: 'dismiss',
+            notificationId,
+        });
+    } catch {
+        /* local ok */
+    }
+}
+
 export async function countForumUnread(userId: string): Promise<number> {
-    const { NotificationDB } = await import('@/app/services/lawyer-cloud');
     const rows = await NotificationDB.getNotifications(userId);
     return rows.filter((n) => !n.read).length;
 }

@@ -30,6 +30,7 @@ vi.mock('@/app/modules/transactionsThreading/store', () => ({
             getState: () => ({ transactions: mockTransactions }),
         },
     ),
+    ensureTransactionsUserBound: vi.fn(),
 }));
 
 const smartToastWarning = vi.fn();

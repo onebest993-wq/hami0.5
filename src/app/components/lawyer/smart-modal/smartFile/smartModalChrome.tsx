@@ -1,5 +1,6 @@
 import React from 'react';
 import { X } from 'lucide-react';
+import { SMART_FILE_NESTED_MODAL_OVERLAY_CLASS } from './smartFileOverlayZ';
 import {
     GLASS_MODAL_HEADER,
     MoroccanCloseButton,
@@ -113,8 +114,7 @@ export function useJudgmentModalStyles(): JudgmentModalStyles {
     if (!isPearl) {
         return {
             isPearl: false,
-            overlay:
-                "fixed inset-0 z-[200] flex items-center justify-center bg-[#05060D]/65 backdrop-blur-[3px] p-4 font-['Tajawal']",
+            overlay: SMART_FILE_NESTED_MODAL_OVERLAY_CLASS,
             shell:
                 'w-full max-w-2xl rounded-2xl border border-white/[0.1] bg-[#0A0F1C]/80 backdrop-blur-2xl shadow-[0_24px_80px_rgba(0,0,0,0.65)] overflow-hidden max-h-[92vh] flex flex-col',
             header:
@@ -163,8 +163,7 @@ export function useJudgmentModalStyles(): JudgmentModalStyles {
 
     return {
         isPearl: true,
-        overlay:
-            "fixed inset-0 z-[200] flex items-center justify-center bg-[#101018]/88 backdrop-blur-md p-4 font-['Tajawal']",
+        overlay: `${SMART_FILE_NESTED_MODAL_OVERLAY_CLASS} bg-[#101018]/88`,
         shell:
             'relative overflow-hidden w-full max-w-2xl max-h-[92vh] flex flex-col rounded-2xl border border-white/[0.14] bg-gradient-to-br from-white/[0.11] via-[#F8F6F0]/[0.06] to-[#ECE8E2]/[0.04] backdrop-blur-2xl shadow-[0_24px_64px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.14)]',
         header:

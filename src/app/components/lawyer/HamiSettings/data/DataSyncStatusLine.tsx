@@ -83,7 +83,7 @@ export const DataSyncStatusLine = memo(function DataSyncStatusLine() {
             resolveCloudSyncStatusMessage({
                 localOnlyMode: security.localOnlyMode,
                 cloudSyncEnabled: data.cloudSync,
-                anyBucketEnabled: data.syncNotes || data.syncFiles || data.syncExecution,
+                anyBucketEnabled: data.cloudSync,
                 cloudBuildEnabled: isCloudSyncBuildEnabled(),
                 signedIn,
                 isOnline,
@@ -95,9 +95,6 @@ export const DataSyncStatusLine = memo(function DataSyncStatusLine() {
         [
             security.localOnlyMode,
             data.cloudSync,
-            data.syncNotes,
-            data.syncFiles,
-            data.syncExecution,
             signedIn,
             isOnline,
             isSyncing,

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { GlobalNote } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
@@ -11,9 +11,11 @@ import { RepositoryComposePanel } from './RepositoryComposePanel';
 import { RepositoryFeedSection } from './RepositoryFeedSection';
 import { RepositoryVaultOverlays } from './RepositoryVaultOverlays';
 import { useRepositoryFeed } from './hooks/useRepositoryFeed';
-import { useRepositoryCompose, useRepositoryVaultDocHandlers } from './hooks/useRepositoryCompose';
+import { useRepositoryCompose } from './hooks/useRepositoryCompose';
 import { useRepositoryLifecycle } from './hooks/useRepositoryLifecycle';
 import { useRepositoryEscapeStack } from './hooks/useRepositoryEscapeStack';
+import { prefetchRepositoryDialogs } from './repositoryDialog';
+import { prefetchVaultBlobStore } from '@/app/services/vaultBlobStore';
 
 export type SmartRepositoryUnifiedFeedProps = {
     currentUserId?: string;
@@ -39,7 +41,6 @@ export function SmartRepositoryUnifiedFeed({
     executionFiles,
     startMode,
     focusNoteId,
-    initialFilter = 'all',
     vaultOpenScanner = false,
     onSaveNote,
     onDeleteNote,
@@ -50,17 +51,12 @@ export function SmartRepositoryUnifiedFeed({
 }: SmartRepositoryUnifiedFeedProps) {
     const feedScrollRef = useRef<HTMLDivElement>(null);
     const [modalRoot, setModalRoot] = useState<HTMLDivElement | null>(null);
+    const effectiveInitialFilter: RepositoryFeedFilter = 'all';
 
-    const vault = useSmartVault(() => undefined, currentUserId, { embedded: true });
-    const vaultRef = useRef(vault);
-    vaultRef.current = vault;
-
-    const { feedLoading } = useRepositoryLifecycle(
-        currentUserId,
-        vault.isLoading,
-        vault.docs.length,
-        notes.length,
-    );
+    const vault = useSmartVault(() => undefined, currentUserId, {
+        embedded: true,
+        onAfterVaultSave: () => undefined,
+    });
 
     const feed = useRepositoryFeed({
         notes,
@@ -69,11 +65,28 @@ export function SmartRepositoryUnifiedFeed({
         vaultDocs: vault.docs,
         vaultCategoryFilter: vault.activeFilter,
         vaultSearchQuery: vault.searchQuery,
-        initialFilter,
+        initialFilter: effectiveInitialFilter,
         focusNoteId,
         feedScrollRef,
         vault,
     });
+
+    useEffect(() => {
+        prefetchVaultBlobStore();
+        prefetchRepositoryDialogs();
+    }, []);
+
+    const handleAfterComposeSave = useCallback(
+        (_kind: 'note' | 'media') => undefined,
+        [],
+    );
+
+    const { feedLoading } = useRepositoryLifecycle(
+        currentUserId,
+        vault.isLoading,
+        vault.docs.length,
+        notes.length,
+    );
 
     const compose = useRepositoryCompose({
         startMode,
@@ -85,18 +98,30 @@ export function SmartRepositoryUnifiedFeed({
         onUpdateLawsuitFile,
         onUpdateExecutionFile,
         vault,
+        onAfterSave: handleAfterComposeSave,
     });
 
-    const { handleEditVaultDoc, handleViewVaultDoc, handleDeleteVaultDoc } =
-        useRepositoryVaultDocHandlers(vaultRef);
+    const actionToolbarDisabled =
+        compose.composing ||
+        compose.scannerOpen ||
+        compose.showVoiceRecorder ||
+        Boolean(vault.pendingUpload) ||
+        Boolean(vault.editDoc);
 
     useRepositoryEscapeStack({
         enabled: escapeEnabled,
         composing: compose.composing,
         scannerOpen: compose.scannerOpen,
         showVoiceRecorder: compose.showVoiceRecorder,
+        fileViewerOpen: Boolean(vault.fileViewer),
+        editDocOpen: Boolean(vault.editDoc),
+        pendingUploadOpen: Boolean(vault.pendingUpload),
+        pendingUploadSaving: vault.isSavingMeta,
         onResetComposer: compose.resetComposer,
         onCloseScanner: () => compose.setScannerOpen(false),
+        onCloseFileViewer: vault.closeFileViewer,
+        onCloseEditDoc: vault.closeEditDoc,
+        onCancelPendingUpload: vault.cancelPendingUpload,
         onCloseModal: onRequestClose,
     });
 
@@ -110,10 +135,8 @@ export function SmartRepositoryUnifiedFeed({
                 <RepositoryControlsSection
                     vault={vault}
                     unboundVaultDocs={feed.unboundVaultDocs}
-                    activeFilter={feed.activeFilter}
-                    filterCounts={feed.filterCounts}
                     feedLayout={feed.feedLayout}
-                    onSelectMainFilter={feed.selectMainFilter}
+                    actionToolbarDisabled={actionToolbarDisabled}
                     onFeedLayoutChange={feed.handleFeedLayoutChange}
                     onCreateNote={() => compose.setComposing(true)}
                     onOpenScanner={() => compose.setScannerOpen(true)}
@@ -158,9 +181,9 @@ export function SmartRepositoryUnifiedFeed({
                         onUpdateExecution={onUpdateExecutionFile}
                         onLinkGlobalToDossier={compose.handleLinkGlobalToDossier}
                         onBindVaultDoc={compose.handleBindVaultDoc}
-                        onDeleteVaultDoc={handleDeleteVaultDoc}
-                        onEditVaultDoc={handleEditVaultDoc}
-                        onViewVaultDoc={handleViewVaultDoc}
+                        onDeleteVaultDoc={(doc) => void vault.handleDelete(doc)}
+                        onEditVaultDoc={(doc) => vault.handleEdit(doc)}
+                        onViewVaultDoc={(doc) => void vault.handleViewFile(doc)}
                     />
                 </div>
 

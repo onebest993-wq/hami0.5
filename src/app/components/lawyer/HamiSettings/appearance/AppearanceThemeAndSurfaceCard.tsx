@@ -1,6 +1,5 @@
 import React from 'react';
 import { Shapes, Square } from 'lucide-react';
-import { settingWiringHint } from '@/app/services/settings/settingsCapabilities';
 import {
     BACKGROUND_PATTERN_OPACITY_MIN,
     BACKGROUND_PATTERN_OPACITY_MAX,
@@ -22,7 +21,6 @@ export function AppearanceThemeAndSurfaceCard({ vm }: { vm: AppearanceSectionVie
                 <div className="flex items-start justify-between gap-2 mb-1">
                     <div className="min-w-0">
                         <label className="text-sm font-bold text-white block">لون الخلفية</label>
-                        <p className="text-[10px] text-white/40 mt-1">{settingWiringHint('appearance.theme')}</p>
                     </div>
                     <SettingsCollapseToggle
                         expanded={vm.themesExpanded}
@@ -68,9 +66,6 @@ export function AppearanceThemeAndSurfaceCard({ vm }: { vm: AppearanceSectionVie
                 <div className="flex items-start justify-between gap-2 mb-1">
                     <div className="min-w-0">
                         <label className="text-sm font-bold text-white block">خلفية اللوحة</label>
-                        <p className="text-[10px] text-white/40 mt-1">
-                            {settingWiringHint('appearance.backgroundPreset')}
-                        </p>
                     </div>
                     <SettingsCollapseToggle
                         expanded={vm.patternsExpanded}

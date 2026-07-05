@@ -96,11 +96,12 @@ export function CommentSheetComposer({
                 </div>
                 <button
                     type="button"
-                    className={`p-3 rounded-xl transition-all ${comment.trim() && !submittingComment && !isLocked ? FORUM_PUBLISH_BTN : FORUM_PUBLISH_BTN_DISABLED}`}
-                    disabled={!comment.trim() || submittingComment || isLocked}
-                    onClick={() => {
+                    className={`min-h-[44px] min-w-[44px] touch-manipulation p-3 rounded-xl transition-all ${comment.trim() && !submittingComment && !isLocked ? FORUM_PUBLISH_BTN : FORUM_PUBLISH_BTN_DISABLED}`}
+                    aria-disabled={!comment.trim() || submittingComment || isLocked}
+                    onClick={(event) => {
+                        event.stopPropagation();
                         const text = comment.trim();
-                        if (!text || submittingComment) return;
+                        if (!text || submittingComment || isLocked) return;
                         void onSubmitComment(text, replyingTo?.id);
                     }}
                 >

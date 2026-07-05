@@ -6,6 +6,16 @@ import { areInAppNotificationsEnabled } from '@/app/services/settings/settingsRu
 const MAX_VISIBLE = 2;
 const AUTO_DISMISS_MS = 6_500;
 
+const MAX_KNOWN_NOTIFICATION_IDS = 400;
+
+function rememberNotificationId(knownIds: Set<string>, id: string): void {
+    knownIds.add(id);
+    if (knownIds.size <= MAX_KNOWN_NOTIFICATION_IDS) return;
+    const trimmed = [...knownIds].slice(-MAX_KNOWN_NOTIFICATION_IDS);
+    knownIds.clear();
+    for (const entry of trimmed) knownIds.add(entry);
+}
+
 export type IncomingNotificationPopup = {
     id: string;
     title: string;
@@ -87,21 +97,22 @@ export function useIncomingNotificationPopups(options: {
 
         if (!baselineReadyRef.current) {
             if (isLoading) return;
-            knownIdsRef.current = new Set(notifications.map((n) => n.id));
+            knownIdsRef.current = new Set();
+            for (const n of notifications) rememberNotificationId(knownIdsRef.current, n.id);
             baselineReadyRef.current = true;
             return;
         }
 
         if (isPanelOpen) {
             setQueue([]);
-            for (const n of notifications) knownIdsRef.current.add(n.id);
+            for (const n of notifications) rememberNotificationId(knownIdsRef.current, n.id);
             return;
         }
 
         const fresh = notifications.filter((n) => !n.isRead && !knownIdsRef.current.has(n.id));
         if (fresh.length === 0) return;
 
-        for (const n of fresh) knownIdsRef.current.add(n.id);
+        for (const n of fresh) rememberNotificationId(knownIdsRef.current, n.id);
 
         setQueue((prev) => {
             const existing = new Set(prev.map((p) => p.id));

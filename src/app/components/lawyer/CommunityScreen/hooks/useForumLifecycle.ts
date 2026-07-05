@@ -1,9 +1,11 @@
 import { useEffect, useRef } from 'react';
+import { CommunityDB } from '@/app/services/forum/forumCommunityRuntime';
 import {
     markForumPerfPhase,
     reportForumPerf,
 } from '@/app/services/forum/forumPerfMetrics';
 import { peekForumPostsCache } from '@/app/services/forum/forumPostsWarmCache';
+import { sortCommunityPosts } from '@/app/services/cloud/lawyerCommunityCloud';
 
 export function useForumLifecycle(
     userId: string | null,
@@ -20,17 +22,12 @@ export function useForumLifecycle(
         }
 
         let cancelled = false;
-        void Promise.all([
-            import('@/app/services/lawyer-cloud'),
-            import('@/app/services/cloud/lawyerCommunityCloud'),
-        ])
-            .then(([{ CommunityDB }, { sortCommunityPosts }]) =>
-                CommunityDB.listPosts().then((rows) => {
-                    if (cancelled) return;
-                    const local = sortCommunityPosts(rows).filter((p) => !p.groupId);
-                    hadLocalCacheRef.current = local.length > 0;
-                }),
-            )
+        void CommunityDB.listPosts()
+            .then((rows) => {
+                if (cancelled) return;
+                const local = sortCommunityPosts(rows).filter((p) => !p.groupId);
+                hadLocalCacheRef.current = local.length > 0;
+            })
             .catch(() => undefined);
         return () => {
             cancelled = true;

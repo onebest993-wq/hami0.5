@@ -1,4 +1,5 @@
 import type { LegalTask } from '@/app/types/TaskEngine';
+import { WORK_WEEK_LAST_OFFSET } from './constants';
 import { addDays, startOfLocalDay } from '@/app/utils/nlpParser';
 import { removeTaskVoiceAttachment } from '@/app/services/tasks/taskVoiceAttachment';
 
@@ -58,12 +59,16 @@ export function isTaskDayOverdueIncomplete(task: LegalTask, now = new Date()): b
     return day < today && isTaskInCurrentAgendaWeek(task, now);
 }
 
-/** عند بداية أسبوع جديد: نقل مهام الأسبوع السابق إلى الأرشيف */
+/** عند بداية أسبوع جديد: نقل مهام الأسبوع السابق إلى أرشيف المهام المنتهية */
 export function finalizePastWeekTasks(tasks: LegalTask[], now = new Date()): LegalTask[] {
     return tasks.map((t) => {
         if (!isTaskArchivedToHistory(t, now)) return t;
         if (t.status === 'completed') return t;
-        return { ...t, status: 'completed' as const };
+        return {
+            ...t,
+            status: 'completed' as const,
+            completedAt: t.completedAt ?? startOfLocalDay(t.parsedDate ?? now),
+        };
     });
 }
 
@@ -104,12 +109,63 @@ export function prepareAgendaTasks(
     now = new Date(),
     options?: { skipRetentionPurge?: boolean },
 ): LegalTask[] {
-    let result = releaseExpiredFieldCurtainPins(tasks, now);
+    let result = promoteDueSnoozedTasks(tasks, now);
+    result = releaseExpiredFieldCurtainPins(result, now);
     result = finalizePastWeekTasks(result, now);
     if (!options?.skipRetentionPurge) {
         result = purgeExpiredCompletedTasks(result, now);
     }
     return result;
+}
+
+/** مهمة مؤجلة — أسبوع الموعد لا يزال في المستقبل */
+export function snoozedTaskAgendaWeekStart(task: LegalTask, now = new Date()): Date | null {
+    if (task.reminderAt === null || Number.isNaN(task.reminderAt.getTime())) return null;
+    return getSaturdayOfWeekContaining(task.reminderAt);
+}
+
+export function isDeferredSnoozedTask(task: LegalTask, now = new Date()): boolean {
+    if (task.parsedDate !== null || task.reminderAt === null) return false;
+    if (task.status !== 'pending' || isTaskMarkedDone(task)) return false;
+    const taskWeek = snoozedTaskAgendaWeekStart(task, now);
+    if (!taskWeek) return false;
+    const thisWeek = getSaturdayOfWeekContaining(now).getTime();
+    return taskWeek.getTime() > thisWeek;
+}
+
+/** مهمة مؤجلة — حان أسبوعها؛ تُرقّى إلى الأجندة الأساسية بيوم الموعد */
+export function isSnoozedTaskDueOrOverdue(task: LegalTask, now = new Date()): boolean {
+    if (task.parsedDate !== null || task.reminderAt === null) return false;
+    if (task.status !== 'pending' || isTaskMarkedDone(task)) return false;
+    const taskWeek = snoozedTaskAgendaWeekStart(task, now);
+    if (!taskWeek) return false;
+    const thisWeek = getSaturdayOfWeekContaining(now).getTime();
+    return taskWeek.getTime() <= thisWeek;
+}
+
+export function promoteDueSnoozedTasks(tasks: LegalTask[], now = new Date()): LegalTask[] {
+    return tasks.map((t) => {
+        if (!isSnoozedTaskDueOrOverdue(t, now)) return t;
+        const day = startOfLocalDay(t.reminderAt!);
+        return {
+            ...t,
+            parsedDate: new Date(day.getTime()),
+            reminderAt: null,
+        };
+    });
+}
+
+export function formatLocalYmdInput(date: Date): string {
+    const d = startOfLocalDay(date);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
+export function snoozedTaskDueDate(task: LegalTask): Date | null {
+    if (task.reminderAt && !Number.isNaN(task.reminderAt.getTime())) return startOfLocalDay(task.reminderAt);
+    return null;
 }
 
 export function getArchivedTasks(tasks: LegalTask[], now = new Date()): LegalTask[] {
@@ -121,9 +177,27 @@ export function isAgendaDayPast(dayDate: Date, now = new Date()): boolean {
     return startOfLocalDay(dayDate).getTime() < startOfLocalDay(now).getTime();
 }
 
+/** هل يُعرض عمود اليوم في الأجندة الأسبوعية؟ الأيام المنتهية الفارغة تُخفى */
+export function isWeeklyAgendaDayVisible(
+    dayDate: Date,
+    taskCount: number,
+    now = new Date(),
+    weekAddDayKey?: string | null,
+    dayKey?: string,
+): boolean {
+    if (weekAddDayKey && dayKey === weekAddDayKey) return true;
+    if (isAgendaDayPast(dayDate, now) && taskCount === 0) return false;
+    return true;
+}
+
+/** هل يوم منتهٍ يُعرض بشكل مختزل (فيه مهام) */
+export function isWeeklyPastDayCompact(dayDate: Date, taskCount: number, now = new Date()): boolean {
+    return isAgendaDayPast(dayDate, now) && taskCount > 0;
+}
+
 export function isDateInWorkWeek(date: Date, weekStartSaturday: Date): boolean {
     const start = startOfLocalDay(weekStartSaturday).getTime();
-    const end = addDays(weekStartSaturday, 5).getTime();
+    const end = addDays(weekStartSaturday, WORK_WEEK_LAST_OFFSET).getTime();
     const t = startOfLocalDay(date).getTime();
     return t >= start && t <= end;
 }

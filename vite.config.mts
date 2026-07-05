@@ -6,8 +6,9 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
+import sirv from 'sirv'
 import { preferFileOverDirectory } from './src/vite-plugins/preferFileOverDirectory'
-import { getDevSecurityHeaders, getProductionSecurityHeaders } from './src/app/api/security/wifeSecurityHeaders.ts'
+import { getDevSecurityHeaders, getProductionSecurityHeaders } from './src/app/api/security/wifeSecurityHeaders'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = __dirname
@@ -99,7 +100,7 @@ function attachApiRouteMiddleware(
             if (!handler) return next()
             const hasBody = method !== 'GET' && method !== 'HEAD'
             const raw = hasBody ? await readRequestBody(req) : Buffer.alloc(0)
-            const body = raw.byteLength ? raw : undefined
+            const body = raw.byteLength ? new Uint8Array(raw) : undefined
             const forwardedHeaders = forwardRequestHeaders(req)
             const webReq = new Request(`http://127.0.0.1${req.url}`, {
                 method,
@@ -125,6 +126,32 @@ function attachApiRouteMiddleware(
     })
 }
 
+function pdfjsAssetsPlugin(command: string) {
+    const cmapsDir = path.join(projectRoot, 'node_modules/pdfjs-dist/cmaps')
+    const fontsDir = path.join(projectRoot, 'node_modules/pdfjs-dist/standard_fonts')
+
+    return {
+        name: 'hami-pdfjs-assets',
+        configureServer(server: ViteDevServer) {
+            server.middlewares.use(
+                '/pdfjs-assets/cmaps',
+                sirv(cmapsDir, { dev: true, etag: true, single: false }),
+            )
+            server.middlewares.use(
+                '/pdfjs-assets/standard_fonts',
+                sirv(fontsDir, { dev: true, etag: true, single: false }),
+            )
+        },
+        closeBundle() {
+            if (command !== 'build') return
+            const outDir = path.join(projectRoot, 'dist/pdfjs-assets')
+            fs.mkdirSync(outDir, { recursive: true })
+            fs.cpSync(cmapsDir, path.join(outDir, 'cmaps'), { recursive: true })
+            fs.cpSync(fontsDir, path.join(outDir, 'standard_fonts'), { recursive: true })
+        },
+    }
+}
+
 function legalAnalysisDevApiPlugin() {
     return {
         name: 'dev-api-routes',
@@ -144,11 +171,64 @@ function bootstrapGatePath(relative: string, command: string): string {
   return path.resolve(projectRoot, useProdGate ? relative.replace('.dev.', '.prod.') : relative)
 }
 
+function normalizeModuleId(id: string): string {
+  return id.replace(/\\/g, '/')
+}
+
+function resolveVendorChunk(id: string): string | undefined {
+  const normalized = normalizeModuleId(id)
+  if (!normalized.includes('/node_modules/')) return undefined
+  if (normalized.endsWith('.css')) return undefined
+
+  if (normalized.includes('/@supabase/') || normalized.includes('/supabase-js/')) {
+    return 'vendor-supabase'
+  }
+  if (normalized.includes('/framer-motion/') || normalized.includes('/motion/')) {
+    return 'vendor-motion'
+  }
+  if (normalized.includes('/@sentry/') || normalized.includes('/@sentry-internal/')) {
+    return 'vendor-sentry'
+  }
+  if (normalized.includes('/pdfjs-dist/')) {
+    return 'vendor-pdf'
+  }
+  if (
+    normalized.includes('/@capacitor/') ||
+    normalized.includes('/@aparajita/') ||
+    normalized.includes('/@capacitor-community/')
+  ) {
+    return 'vendor-capacitor'
+  }
+  if (
+    normalized.includes('/@radix-ui/') ||
+    normalized.includes('/vaul/') ||
+    normalized.includes('/embla-carousel-react/') ||
+    normalized.includes('/lucide-react/')
+  ) {
+    return 'vendor-ui'
+  }
+  if (normalized.includes('/dompurify/') || normalized.includes('/isomorphic-dompurify/')) {
+    return 'vendor-sanitize'
+  }
+  if (normalized.includes('/fuse.js/') || normalized.includes('/@tanstack/react-virtual/')) {
+    return 'vendor-search'
+  }
+  if (
+    normalized.includes('/clsx/') ||
+    normalized.includes('/tailwind-merge/') ||
+    normalized.includes('/tailwindcss-animate/')
+  ) {
+    return 'vendor-style-utils'
+  }
+  return 'vendor-misc'
+}
+
 export default defineConfig(({ command }) => ({
   plugins: [
     preferFileOverDirectory(projectRoot),
     react(),
     tailwindcss(),
+    pdfjsAssetsPlugin(command),
     legalAnalysisDevApiPlugin(),
   ],
   esbuild: {
@@ -209,6 +289,7 @@ export default defineConfig(({ command }) => ({
       'motion/react',
       '@supabase/supabase-js',
       'zustand',
+      'pdfjs-dist',
     ],
   },
   build: {
@@ -223,7 +304,7 @@ export default defineConfig(({ command }) => ({
       resolveDependencies: (_filename, deps) =>
         deps.filter(
           (dep) =>
-            !/(lawyer-dashboard|execution-dashboard|execution-shared|execution-dashboard-static-scope|execution-dashboard-loader|execution-lazy-registry|execution-tab-|execution-orchestrators|execution-hooks|execution-helpers|execution-modals|execution-overlays|execution-shell-overlays|execution-phone-body|execution-law-articles|criminal-dashboard|criminal-tab-|criminal-dashboard-request-ui|criminal-dashboard-parties|criminal-legal-codes|criminal-store|criminal-store-slices|criminal-lazy-modals|community-overlays|community-repository|CommunityScreen|global-search-|smart-file-modal|iraqi-law-loader|articles\.json|ExecutionDashboard|CriminalDashboard|vendor-motion|vendor-supabase|SmartToastContainer|SmartDialogContainer|auth-context|app-deferred-boot|runtime-|deferred-app)/i.test(
+            !/(lawyer-dashboard|execution-dashboard|execution-dashboard-static-scope|execution-dashboard-loader|execution-lazy-registry|execution-tab-|execution-orchestrators|execution-hooks|execution-helpers|execution-modals|execution-overlays|execution-shell-overlays|execution-phone-body|execution-law-articles|criminal-dashboard|criminal-tab-|criminal-dashboard-request-ui|criminal-dashboard-parties|criminal-legal-codes|criminal-store|criminal-store-slices|criminal-lazy-modals|community-overlays|community-repository|CommunityScreen|global-search-|smart-file-modal|iraqi-law-loader|articles\.json|ExecutionDashboard|CriminalDashboard|vendor-core|vendor-motion|vendor-supabase|vendor-sentry|SmartToastContainer|SmartDialogContainer|auth-context|app-deferred-boot|runtime-|deferred-app)/i.test(
               dep,
             ),
         ),
@@ -234,374 +315,9 @@ export default defineConfig(({ command }) => ({
           ? ['html2canvas', 'expo-secure-store', 'expo-modules-core']
           : ['expo-secure-store', 'expo-modules-core'],
       output: {
+        experimentalMinChunkSize: 50 * 1024,
         manualChunks(id) {
-          if (
-            id.includes('context/authProviderRuntime') ||
-            id.includes('context\\authProviderRuntime')
-          ) {
-            return 'auth-context';
-          }
-          if (
-            id.includes('/runtime/lawyerDashboardLoader') ||
-            id.includes('\\runtime\\lawyerDashboardLoader')
-          ) {
-            return 'app-runtime';
-          }
-          /**
-           * deferredBoot يُحمَّل ديناميكياً — يترك لـ Rollup ليقسّمه تلقائياً (خالٍ من الدوائر).
-           * التجميع اليدوي هنا كان يُنشئ circular chunk على مسار الإقلاع → انهيار TDZ.
-           */
-          if (
-            (id.includes('/runtime/') || id.includes('\\runtime\\')) &&
-            !id.includes('sameOriginApiProbe')
-          ) {
-            if (id.includes('executionDashboardLoader')) return 'execution-dashboard-loader';
-            if (id.includes('globalSearchLoader')) return 'global-search-loader';
-            if (/HubLoader|hubLoader|Loader\.ts/i.test(id)) {
-              const base = id.split(/[/\\]/).pop()?.replace(/\.ts$/, '') ?? 'hub';
-              return `runtime-${base}`;
-            }
-            return;
-          }
-          if (
-            id.includes('workers/globalSearchIndex.worker') ||
-            id.includes('workers\\globalSearchIndex.worker')
-          ) {
-            return 'global-search-worker';
-          }
-          if (id.includes('globalSearchLoad')) {
-            return 'global-search-extras';
-          }
-          if (
-            /globalSearchIndexPure|globalSearchIndex\w+Entries|globalSearchIndexPureHelpers/.test(id) ||
-            /[/\\]globalSearchIndex\.ts$/.test(id) ||
-            id.includes('executionSearchIndex') ||
-            id.includes('globalSearchFileSliceCache')
-          ) {
-            return 'global-search-index-build';
-          }
-          if (
-            id.includes('globalSearchIndexRuntime') ||
-            id.includes('globalSearchIndexPrepare') ||
-            id.includes('globalSearchWarm') ||
-            id.includes('globalSearchQuerySecurity') ||
-            id.includes('globalSearchProfileCache') ||
-            id.includes('globalSearchIndexWorkerClient') ||
-            id.includes('globalSearchFuse')
-          ) {
-            return 'global-search-index-runtime';
-          }
-          if (id.includes('GlobalSearchOverlay') || id.includes('GlobalSearchOverlay\\')) {
-            if (
-              /GlobalSearchOverlay[/\\]hooks[/\\](useSearchIndex|useSearchExtras|GlobalSearchRuntimeProvider)/.test(
-                id,
-              )
-            ) {
-              return 'global-search-index-runtime';
-            }
-            if (
-              /GlobalSearchOverlay[/\\]components[/\\](SearchResultsPanel|ResultsBody|ResultRow)/.test(id)
-            ) {
-              return 'global-search-results-panel';
-            }
-            return 'global-search-overlay';
-          }
-          if (id.includes('node_modules')) {
-            if (id.includes('fuse.js')) return 'global-search-fuse';
-            if (id.includes('lucide-react')) return 'vendor-icons';
-            if (id.includes('react-dom')) return 'vendor-react';
-            if (id.includes('node_modules/react/')) return 'vendor-react';
-            if (id.includes('motion')) return 'vendor-motion';
-            if (id.includes('@supabase')) return 'vendor-supabase';
-            if (id.includes('@sentry')) return 'vendor-sentry';
-            return;
-          }
-          /**
-           * أدوات تنفيذ ورقية نقية — chunk مشترك خفيف يستورده مسار الإقلاع وlazy معاً.
-           * MUST NOT import execution-dashboard — وإلا تعود الدائرة/الانهيار.
-           * يأتي أولاً ليُلتقط قبل قواعد execution-dashboard.
-           */
-          if (
-            id.includes('executionStateMachine') ||
-            id.includes('executionDashboardConstants') ||
-            id.includes('executionStorageKeys') ||
-            id.includes('executionYmdCalendar') ||
-            id.includes('executionModuleStrategies') ||
-            id.includes('residentialEvictionGrace') ||
-            id.includes('publicationNoticeDebtor') ||
-            id.includes('executorApprovalWorkflow') ||
-            id.includes('executionModalStack')
-          ) {
-            return 'execution-shared';
-          }
-          /**
-           * عنقود التنفيذ الأساسي — chunk واحد (lazy) لمنع circular chunks/TDZ.
-           * هذه الوحدات متشابكة الاعتماد؛ تقسيمها يُسبب انهيار الإقلاع في الإنتاج.
-           * يبقى منفصلاً: التبويبات، المودالات، phone-body، law-articles (أوراق lazy نظيفة).
-           */
-          if (
-            id.includes('useFollowupModalPersistNavigation') ||
-            id.includes('useExecutionDashboardView') ||
-            id.includes('useExecutionDashboardState') ||
-            id.includes('useExecutionDashboardCore')
-          ) {
-            return 'execution-dashboard';
-          }
-          if (
-            id.includes('ExecutionDashboard/hooks/executionDashboardCore') ||
-            id.includes('ExecutionDashboard\\hooks\\executionDashboardCore') ||
-            id.includes('useExecutionDashboardShellOrchestrators') ||
-            id.includes('useExecutionDashboardClaimFinancials') ||
-            id.includes('useExecutionDashboardGraceAndSummoning') ||
-            id.includes('useExecutionDashboardFollowupSeizureTabs') ||
-            id.includes('useExecutionDashboardOtherPartyMirror') ||
-            id.includes('useExecutionDashboardSalarySeizureTabRows') ||
-            id.includes('useExecutionDashboardCoerciveActionBridge') ||
-            id.includes('useExecutionDashboardSeizureReleaseHandlers') ||
-            id.includes('useExecutionDashboardThirdPartyReceiveHandlers') ||
-            id.includes('useFollowupModalTabGuards')
-          ) {
-            return 'execution-dashboard';
-          }
-          if (
-            id.includes('executionDashboardLazyChunkScope') ||
-            id.includes('executionDashboardLazyRegistry') ||
-            id.includes('executionFollowupModalLazy') ||
-            id.includes('executionFollowupTabPrefetch')
-          ) {
-            return 'execution-dashboard';
-          }
-          if (id.includes('executionDashboardLazyShellUi') || id.includes('DebtorFinancialProgressBar')) {
-            return 'execution-dashboard';
-          }
-          /**
-           * أدوات تنفيذ نقية (state machines/policies/z-index) — chunk ورقي مشترك.
-           * يستوردها كود مسار الإقلاع (تنبيهات/تقويم) لذا يجب ألا تعتمد على execution-dashboard.
-           */
-          if (id.includes('executionModalStack')) {
-            return 'execution-dashboard';
-          }
-          if (
-            id.includes('executorApprovalWorkflow') ||
-            id.includes('publicationNoticeDebtor') ||
-            id.includes('residentialEvictionGrace') ||
-            id.includes('executionModuleStrategies')
-          ) {
-            return 'execution-shared';
-          }
-          if (id.includes('ExecutionDashboard/components/PersonalTab') || id.includes('ExecutionDashboard\\components\\PersonalTab')) {
-            return 'execution-tab-personal';
-          }
-          if (id.includes('PersonalCoerciveFollowupPanel')) {
-            return 'execution-tab-personal';
-          }
-          if (id.includes('ExecutionDashboard/components/CoerciveTab') || id.includes('ExecutionDashboard\\components\\CoerciveTab')) {
-            return 'execution-tab-coercive';
-          }
-          if (id.includes('ExecutionDashboard/components/FinancialTab') || id.includes('ExecutionDashboard\\components\\FinancialTab')) {
-            return 'execution-tab-financial';
-          }
-          if (id.includes('ExecutionDashboard/components/SeizureRequestsTab') || id.includes('ExecutionDashboard\\components\\SeizureRequestsTab')) {
-            return 'execution-tab-seizure';
-          }
-          if (id.includes('ExecutionDashboard/components/CommunicationsTab') || id.includes('ExecutionDashboard\\components\\CommunicationsTab')) {
-            return 'execution-tab-correspondences';
-          }
-          if (id.includes('ExecutionDashboard/components/RequestsTab') || id.includes('ExecutionDashboard\\components\\RequestsTab')) {
-            return 'execution-tab-requests';
-          }
-          if (id.includes('ExecutionDashboard/components/DossierControlsTab') || id.includes('ExecutionDashboard\\components\\DossierControlsTab')) {
-            return 'execution-tab-dossier-controls';
-          }
-          if (id.includes('ExecutionDashboard/components/OtherPartyTab') || id.includes('ExecutionDashboard\\components\\OtherPartyTab')) {
-            return 'execution-tab-other-party';
-          }
-          if (id.includes('followupModalTabTypes')) {
-            return 'execution-dashboard';
-          }
-          if (
-            /followupModalContext|followupModalSnapshot|followupTabKeepAlive|useExecutionFollowupModalSnapshot|FollowupTabKeepAlivePanel/.test(
-              id,
-            )
-          ) {
-            return 'execution-dashboard';
-          }
-          if (
-            id.includes('ExecutionDashboard/orchestrators') ||
-            id.includes('ExecutionDashboard\\orchestrators')
-          ) {
-            return 'execution-dashboard';
-          }
-          if (
-            id.includes('executionDashboardStaticChunkScope') ||
-            id.includes('executionDashboardConstants') ||
-            id.includes('ExecutionDashboard/hooks/executionDashboardStaticChunkScope')
-          ) {
-            return 'execution-dashboard';
-          }
-          if (id.includes('executionDashboardClaimFinancials')) {
-            return 'execution-dashboard';
-          }
-          if (id.includes('executionDashboardGraceSummoning')) {
-            return 'execution-dashboard';
-          }
-          if (id.includes('executionDashboardRuntimeChunkScope')) {
-            return 'execution-dashboard';
-          }
-          if (id.includes('executionDashboardUiChunkScope')) {
-            return 'execution-dashboard';
-          }
-          if (id.includes('followupSnapshotFieldKeys')) {
-            return 'execution-dashboard';
-          }
-          if (id.includes('ExecutionDashboard/hooks/') || id.includes('ExecutionDashboard\\hooks\\')) {
-            return 'execution-dashboard';
-          }
-          if (id.includes('requestsTabConstants')) {
-            return 'execution-dashboard';
-          }
-          if (id.includes('ExecutionDashboard/helpers/') || id.includes('ExecutionDashboard\\helpers\\')) {
-            return 'execution-dashboard';
-          }
-          if (
-            id.includes('ExecutionDashboard/ExecutionFollowupModalPortal') ||
-            id.includes('ExecutionDashboard\\ExecutionFollowupModalPortal')
-          ) {
-            return 'execution-modals-followup';
-          }
-          if (
-            id.includes('ExecutionDashboard/components/ExecutionModalsContainer') ||
-            id.includes('ExecutionDashboard\\components\\ExecutionModalsContainer')
-          ) {
-            return 'execution-modals-core';
-          }
-          if (
-            id.includes('ExecutionDashboard/components/UnifiedSummonsModalContainer') ||
-            id.includes('ExecutionDashboard\\components\\UnifiedSummonsModalContainer')
-          ) {
-            return 'execution-modals-summons';
-          }
-          if (
-            id.includes('ExecutionDashboard/components/ExecutionDashboardPhoneBody') ||
-            id.includes('ExecutionDashboard\\components\\ExecutionDashboardPhoneBody')
-          ) {
-            return 'execution-phone-body';
-          }
-          if (id.includes('executionLaws.articles.json')) {
-            return 'execution-law-articles';
-          }
-          if (
-            id.includes('ExecutionDashboard/components/ExecutionDashboardHeavyModals') ||
-            id.includes('ExecutionDashboard\\components\\ExecutionDashboardHeavyModals')
-          ) {
-            return 'execution-overlays-heavy';
-          }
-          if (
-            id.includes('ExecutionDashboard/components/ExecutionDashboardEditOverlays') ||
-            id.includes('ExecutionDashboard\\components\\ExecutionDashboardEditOverlays')
-          ) {
-            return 'execution-overlays-edit';
-          }
-          if (
-            id.includes('ExecutionDashboard/components/ExecutionDashboardNotesOverlays') ||
-            id.includes('ExecutionDashboard\\components\\ExecutionDashboardNotesOverlays')
-          ) {
-            return 'execution-overlays-notes';
-          }
-          if (
-            id.includes('ExecutionDashboard/components/ExecutionDashboardExecutorWorkflowOverlays') ||
-            id.includes('ExecutionDashboard\\components\\ExecutionDashboardExecutorWorkflowOverlays')
-          ) {
-            return 'execution-overlays-executor';
-          }
-          if (
-            id.includes('ExecutionDashboard/components/ExecutionDashboardSolidaryEvictionOverlays') ||
-            id.includes('ExecutionDashboard\\components\\ExecutionDashboardSolidaryEvictionOverlays')
-          ) {
-            return 'execution-overlays-solidary';
-          }
-          if (
-            id.includes('ExecutionDashboard/components/ExecutionDashboardShellOverlays') ||
-            id.includes('ExecutionDashboard\\components\\ExecutionDashboardShellOverlays')
-          ) {
-            return 'execution-overlays-shell';
-          }
-          if (id.includes('criminal-system/criminalStore') || id.includes('criminal-system\\criminalStore')) {
-            return 'criminal-store';
-          }
-          if (
-            /criminal-system[/\\]CriminalPartiesGrid/.test(id)
-          ) {
-            return 'criminal-dashboard-parties';
-          }
-          if (
-            /criminal-system[/\\]components[/\\](RequestModalEntryLanes|ConcernedPartyDecisionPicker|LawyerRequestUxAddons)\./.test(
-              id,
-            )
-          ) {
-            return 'criminal-dashboard-request-ui';
-          }
-          if (
-            /criminal-system[/\\](lawFilters|penalLawFilters|juvenileLawFilters)\./.test(id) ||
-            /criminal-system[/\\]legalCodes[/\\]LegalCodesTab/.test(id)
-          ) {
-            return 'criminal-tab-legal-codes';
-          }
-          if (/criminal-system[/\\]CriminalNewCase/.test(id)) {
-            return 'criminal-tab-new-case';
-          }
-          if (/criminal-system[/\\]components[/\\]TrialsTab/.test(id)) {
-            return 'criminal-tab-trials';
-          }
-          if (/criminal-system[/\\]components[/\\]RecursiveProceduralCanvas/.test(id)) {
-            return 'criminal-tab-procedural-canvas';
-          }
-          if (/criminal-system[/\\]components[/\\]JudicialDecisionsLedger/.test(id)) {
-            return 'criminal-tab-judicial-ledger';
-          }
-          if (/criminal-system[/\\]components[/\\]StatementsPhaseSections/.test(id)) {
-            return 'criminal-tab-statements';
-          }
-          if (
-            /criminal-system[/\\](trialSessions|trialDepositions|trialCharge|trialSessionPreparatory|stageFinalDecision|verdictCassation|partyPersonalStage|cassation|stageTransitionAppeal|proceduralCassation|complainantCassation|decisionAppealPeriod|proceduralContainers|proceduralSandbox|proceduralItemLink|proceduralRequestTypes|journeyOrder|lawyerRequestsEngine|lawyerMotionFeed|investigationDefendant|investigationDraft|investigationPhase|juvenileInvestigation|criminalUnknown|detentionEngine|statementRecording)/.test(
-              id,
-            )
-          ) {
-            /** دُمج مع criminal-store لمنع circular chunk (slices ↔ store متشابكان). */
-            return 'criminal-store';
-          }
-          if (
-            id.includes('bundledIraqiLawLoader') ||
-            id.includes('iraqiLawBundleRegistry')
-          ) {
-            return 'iraqi-law-loader';
-          }
-          if (
-            id.includes('criminal-system/legalCodes') ||
-            id.includes('criminal-system\\legalCodes')
-          ) {
-            return 'criminal-legal-codes';
-          }
-          if (id.includes('criminalDashboardLazyModals')) {
-            return 'criminal-lazy-modals';
-          }
-          if (id.includes('CommunityScreen') || id.includes('CommunityScreen\\')) {
-            if (
-              /CommunityScreen[/\\]components[/\\](LegalRepository|UploadDocumentModal|RepositoryCard|RepositoryFilterPanel|ForumDeleteConfirmModal)/.test(
-                id,
-              )
-            ) {
-              return 'community-repository';
-            }
-            if (
-              /CommunityScreen[/\\]components[/\\](AddQuestionSheet|CommentBottomSheet|SearchOverlay|CreateGroupModal|EditPostModal|ForumMemberProfileOverlay|FullscreenImageOverlay)/.test(
-                id,
-              )
-            ) {
-              return 'community-overlays';
-            }
-          }
-          // لا تقسيم يدوي أوسع — يسبب circular chunks أو modulepreload لحزم lazy.
+          return resolveVendorChunk(id);
         },
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',

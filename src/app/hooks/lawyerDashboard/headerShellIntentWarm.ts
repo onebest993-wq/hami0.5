@@ -1,8 +1,8 @@
 import { isRealSignedIn } from '@/app/services/auth/shellAuth';
 import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
 import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
+import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 import {
-    loadHamiSettingsModule,
     prefetchHamiSettingsModule,
 } from '@/app/runtime/hamiSettingsLoader';
 import {
@@ -18,6 +18,15 @@ import { warmGlobalSearchOnHover, warmGlobalSearchOnOpen } from '@/app/hooks/law
 import { warmNotificationsOnHover, warmNotificationsOnOpen } from '@/app/hooks/lawyerDashboard/notificationIntentWarm';
 import { warmProfileOnHover, warmProfileOnOpen } from '@/app/hooks/lawyerDashboard/profileIntentWarm';
 import { warmSettingsOnHover, warmSettingsOnOpen } from '@/app/hooks/lawyerDashboard/settingsIntentWarm';
+import { hydrateSettingsShellForInstantOpen } from '@/app/runtime/settingsBootHydrator';
+
+export type HeaderShellWarmPhase = 'hover' | 'open';
+
+let headerShellHydrateStarted = false;
+
+export function resetHeaderShellIntentWarmForTests(): void {
+    headerShellHydrateStarted = false;
+}
 
 export function shouldAggressiveHeaderShellWarm(): boolean {
     try {
@@ -32,10 +41,15 @@ export function shouldAggressiveHeaderShellWarm(): boolean {
 }
 
 /** تسخين موحّد لأزرار الهيدر — آمن للتكرار (prefetch/idempotent). */
-export function warmLawyerDashboardHeaderShell(userId: string | null | undefined): void {
+export function warmLawyerDashboardHeaderShell(
+    userId: string | null | undefined,
+    phase: HeaderShellWarmPhase = 'open',
+): void {
     if (!isRealSignedIn(userId)) return;
 
-    if (shouldAggressiveHeaderShellWarm()) {
+    const useOpenWarm = phase === 'open' && shouldAggressiveHeaderShellWarm();
+
+    if (useOpenWarm) {
         warmSettingsOnOpen();
         warmNotificationsOnOpen(userId);
         warmGlobalSearchOnOpen();
@@ -50,8 +64,8 @@ export function warmLawyerDashboardHeaderShell(userId: string | null | undefined
 }
 
 /**
- * تحميل chunks إعدادات/إشعارات بالتوازي مع chunk اللوحة — بلا userId.
- * يُستدعى من LawyerBootShell و preloadLawyerDashboardChunk قبل اكتمال auth.
+ * prefetch خفيف أثناء تحميل chunk اللوحة — بلا تحميل كامل للوحدات (لا منافسة TTFI).
+ * يُستدعى من lawyerDashboardChunk قبل اكتمال auth.
  */
 export function preloadLawyerDashboardHeaderShellChunks(): void {
     if (typeof window === 'undefined') return;
@@ -59,30 +73,66 @@ export function preloadLawyerDashboardHeaderShellChunks(): void {
     prefetchHamiSettingsModule();
     prefetchNotificationPanel();
     prefetchGlobalSearchOverlayChunk();
-
-    if (!shouldAggressiveHeaderShellWarm()) return;
-
-    void Promise.all([
-        loadHamiSettingsModule().catch(() => undefined),
-        loadNotificationPanelModule().catch(() => undefined),
-    ]);
 }
 
-/** تسخين + تحميل كامل لـ chunks الهيدر بالتوازي — يُستدعى عند جاهزية اللوحة. */
+function scheduleHeaderShellHeavyWarm(userId: string): void {
+    scheduleIdleWork(
+        () => {
+            if (typeof document !== 'undefined' && document.hidden) return;
+            void hydrateSettingsShellForInstantOpen();
+        },
+        {
+            minDelayMs: 0,
+            timeoutMs: 8_000,
+        },
+    );
+
+    scheduleIdleWork(
+        () => {
+            if (typeof document !== 'undefined' && document.hidden) return;
+            void loadNotificationPanelModule().catch(() => undefined);
+        },
+        {
+            minDelayMs: import.meta.env.DEV ? 600 : 1_500,
+            timeoutMs: 8_000,
+        },
+    );
+
+    scheduleIdleWork(
+        () => {
+            if (typeof document !== 'undefined' && document.hidden) return;
+            void loadGlobalSearchOverlayWithEngine().catch(() => undefined);
+        },
+        {
+            minDelayMs: import.meta.env.DEV ? 1_200 : 3_500,
+            timeoutMs: 12_000,
+        },
+    );
+
+    scheduleIdleWork(
+        () => {
+            if (typeof document !== 'undefined' && document.hidden) return;
+            void loadRoyalLawyerProfileWithData(userId).catch(() => undefined);
+        },
+        {
+            minDelayMs: import.meta.env.DEV ? 2_000 : 5_000,
+            timeoutMs: 15_000,
+        },
+    );
+}
+
+/**
+ * بعد جاهزية اللوحة: prefetch خفيف فوراً، ثم تحميل تدريجي idle للـ chunks الثقيلة.
+ * لا warm*OnOpen دفعة واحدة — يُحجّب التفاعل الأول.
+ */
 export function hydrateLawyerDashboardHeaderShellChunks(userId: string | null | undefined): void {
     if (!isRealSignedIn(userId)) return;
+    if (headerShellHydrateStarted) return;
+    headerShellHydrateStarted = true;
 
-    warmLawyerDashboardHeaderShell(userId);
+    warmLawyerDashboardHeaderShell(userId, 'hover');
 
     if (!shouldAggressiveHeaderShellWarm()) return;
 
-    void Promise.all([
-        loadHamiSettingsModule().catch(() => undefined),
-        loadNotificationPanelModule().catch(() => undefined),
-    ]);
-
-    queueMicrotask(() => {
-        void loadGlobalSearchOverlayWithEngine().catch(() => undefined);
-        void loadRoyalLawyerProfileWithData(userId).catch(() => undefined);
-    });
+    scheduleHeaderShellHeavyWarm(userId);
 }

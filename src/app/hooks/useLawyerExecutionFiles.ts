@@ -69,7 +69,7 @@ import { resolveCalendarUserId } from '@/app/services/calendarBridge';
 
 import { unpinWorkspaceItem } from '@/app/workspace/unpinWorkspaceEntity';
 
-import { prefetchArchivePortal, warmExecutionWorkspace } from '@/app/utils/lazyComponents';
+import { prefetchArchivePortal, warmExecutionDossier, warmExecutionWorkspace } from '@/app/utils/lazyComponents';
 
 import {
 
@@ -616,7 +616,7 @@ export function useLawyerExecutionFiles({
     const openExecutionArchiveFile = useCallback(
         (f: unknown): boolean => {
             if (!f || typeof f !== 'object' || (f as { type?: string }).type !== 'execution') return false;
-            warmExecutionWorkspace();
+            warmExecutionDossier('urgent');
             setActiveFile(coerceExecutionFilePreserveId(f as ExecutionFile));
             return true;
         },

@@ -1,4 +1,4 @@
-import React, { useState, memo } from 'react';
+import React, { useEffect, useState, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { Activity, AlertOctagon, Archive, Ban, Clock, X, type LucideIcon } from 'lucide-react';
 import { resolveAbandonmentFlowAction } from '../smartFile/caseFlowAbandonment';
@@ -10,6 +10,11 @@ import type { CaseStage } from '../../LawyerShared';
 import { personalPearlModalTheme, PS_DOCK_BTN_ROSE } from '@/app/components/lawyer/personal-status/personalStatusPearlTheme';
 import { PersonalStatusFlowConfirmDialog } from '@/app/components/lawyer/personal-status/PersonalStatusFlowConfirmDialog';
 import { useSmartFileModalTheme } from '../smartFile/smartFileModalTheme';
+import {
+    SMART_FILE_FLOW_PANEL_BACKDROP_CLASS,
+    SMART_FILE_FLOW_PANEL_SHELL_CLASS,
+} from '../smartFile/smartFileOverlayZ';
+import { registerSmartFileInlineOverlay } from '../smartFile/smartFileInlineOverlayRegistry';
 
 type FlowConfirmState = {
     title: string;
@@ -174,12 +179,27 @@ export const CaseFlowActionsPanel = memo(({
         });
     }
 
+    useEffect(() => {
+        if (!isOpen || actions.length === 0) return;
+        const unregister = registerSmartFileInlineOverlay();
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                setIsOpen(false);
+            }
+        };
+        window.addEventListener('keydown', onKeyDown, true);
+        return () => {
+            unregister();
+            window.removeEventListener('keydown', onKeyDown, true);
+        };
+    }, [isOpen, actions.length]);
+
     if (actions.length === 0) return null;
 
-    const panelBackdrop = isDock ? pearlFlow.flowBackdrop : 'fixed inset-0 z-[9998] bg-[#05060D]/50 backdrop-blur-[2px] animate-in fade-in duration-200';
-    const panelShell = isDock
-        ? pearlFlow.flowPanel
-        : 'fixed top-[72px] left-1/2 -translate-x-1/2 w-[92vw] max-w-[360px] z-[9999] font-[\'Tajawal\'] animate-in zoom-in-95 fade-in duration-200 rounded-2xl border border-white/[0.1] bg-[#0A0F1C]/85 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.6)] overflow-hidden';
+    const panelBackdrop = isDock ? pearlFlow.flowBackdrop : SMART_FILE_FLOW_PANEL_BACKDROP_CLASS;
+    const panelShell = isDock ? pearlFlow.flowPanel : SMART_FILE_FLOW_PANEL_SHELL_CLASS;
     const panelHeader = isDock
         ? pearlFlow.header
         : 'relative px-4 py-3.5 border-b border-white/[0.08] bg-gradient-to-l from-[#E6C673]/10 via-transparent to-transparent';
@@ -211,17 +231,21 @@ export const CaseFlowActionsPanel = memo(({
         </>
     );
 
-    const confirmDialog = pendingConfirm ? (
-        <PersonalStatusFlowConfirmDialog
-            isOpen
-            title={pendingConfirm.title}
-            message={pendingConfirm.message}
-            confirmLabel={pendingConfirm.confirmLabel}
-            danger={pendingConfirm.danger}
-            onConfirm={pendingConfirm.onConfirm}
-            onCancel={() => setPendingConfirm(null)}
-        />
-    ) : null;
+    const confirmDialog =
+        pendingConfirm && typeof document !== 'undefined'
+            ? createPortal(
+                  <PersonalStatusFlowConfirmDialog
+                      isOpen
+                      title={pendingConfirm.title}
+                      message={pendingConfirm.message}
+                      confirmLabel={pendingConfirm.confirmLabel}
+                      danger={pendingConfirm.danger}
+                      onConfirm={pendingConfirm.onConfirm}
+                      onCancel={() => setPendingConfirm(null)}
+                  />,
+                  document.body,
+              )
+            : null;
 
     if (isDock) {
         return (

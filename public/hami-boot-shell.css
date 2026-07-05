@@ -1,4 +1,11 @@
-/* هيكل الرئيسية — مرئي فوراً (قبل React/CSS) — ليس شاشة سوداء */
+/* شاشة الإقلاع — canvas كامل + كلمة «حامي» مزخرفة */
+:root {
+    --hami-boot-canvas: #0a0f1c;
+    --hami-boot-canvas-deep: #05060d;
+    --hami-boot-gold: #e6c673;
+    --hami-boot-gold-bright: #f5dfa0;
+}
+
 @keyframes hami-boot-pulse {
     0%,
     100% {
@@ -18,6 +25,122 @@
     }
 }
 
+@keyframes hami-wordmark-char-in {
+    0% {
+        opacity: 0;
+        transform: translateY(28px) scale(0.82) rotate(-4deg);
+        filter: blur(6px);
+    }
+    65% {
+        opacity: 1;
+        transform: translateY(-4px) scale(1.04) rotate(0deg);
+        filter: blur(0);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1) rotate(0deg);
+        filter: blur(0);
+    }
+}
+
+@keyframes hami-wordmark-breathe {
+    0%,
+    100% {
+        opacity: 0.92;
+        transform: scale(0.992);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes hami-wordmark-glow-breathe {
+    0%,
+    100% {
+        opacity: 0.38;
+        transform: scale(0.92);
+    }
+    50% {
+        opacity: 0.68;
+        transform: scale(1.08);
+    }
+}
+
+@keyframes hami-wordmark-shimmer-sweep {
+    0% {
+        transform: translateX(-150%) skewX(-8deg);
+        opacity: 0;
+    }
+    40% {
+        opacity: 0.55;
+    }
+    100% {
+        transform: translateX(150%) skewX(-8deg);
+        opacity: 0;
+    }
+}
+
+@keyframes hami-wordmark-char-out {
+    0% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        filter: blur(0);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-22px) scale(1.12);
+        filter: blur(8px);
+    }
+}
+
+@keyframes hami-boot-overlay-out {
+    0% {
+        opacity: 1;
+        backdrop-filter: blur(0);
+    }
+    100% {
+        opacity: 0;
+        backdrop-filter: blur(6px);
+        visibility: hidden;
+    }
+}
+
+@keyframes hami-boot-skeleton-deferred-in {
+    0%,
+    55% {
+        opacity: 0;
+        transform: translateY(18px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes hami-boot-skeleton-pulse {
+    0%,
+    100% {
+        opacity: 0.35;
+    }
+    50% {
+        opacity: 0.55;
+    }
+}
+
+@keyframes hami-wordmark-ornament-in {
+    0% {
+        opacity: 0;
+        transform: scaleX(0.2);
+    }
+    100% {
+        opacity: 1;
+        transform: scaleX(1);
+    }
+}
+
+/* ——— Canvas مشترك (static + React) ——— */
+.hami-boot-cinematic,
 #hami-static-boot {
     position: fixed;
     inset: 0;
@@ -25,115 +148,237 @@
     min-height: 100vh;
     min-height: 100dvh;
     width: 100%;
-    background:
-        radial-gradient(ellipse 90% 55% at 50% -8%, rgba(230, 198, 115, 0.14), transparent 58%),
-        linear-gradient(180deg, #0a0f1c 0%, #05060d 48%, #000 100%);
-    color: #e6c673;
-    direction: rtl;
-    font-family: 'Tajawal', 'Cairo', system-ui, sans-serif;
     overflow: hidden;
+    color: var(--hami-boot-gold);
+    direction: rtl;
+    font-family: 'Amiri', 'Cairo', 'Tajawal', system-ui, sans-serif;
+}
+
+.hami-boot-canvas,
+#hami-static-boot::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background:
+        radial-gradient(ellipse 85% 65% at 50% 48%, rgba(230, 198, 115, 0.07), transparent 72%),
+        radial-gradient(ellipse 120% 80% at 50% 100%, rgba(5, 6, 13, 0.85), transparent 55%),
+        var(--hami-boot-canvas);
+    pointer-events: none;
+}
+
+#hami-static-boot::before {
+    z-index: 0;
 }
 
 #hami-static-boot::after {
     content: '';
     position: absolute;
     inset: 0;
+    z-index: 1;
     background: linear-gradient(
         105deg,
-        transparent 40%,
-        rgba(230, 198, 115, 0.04) 50%,
-        transparent 60%
+        transparent 38%,
+        rgba(230, 198, 115, 0.035) 50%,
+        transparent 62%
     );
-    animation: hami-boot-shimmer 2.8s ease-in-out infinite;
+    animation: hami-boot-shimmer 3.2s ease-in-out infinite;
     pointer-events: none;
 }
 
-#hami-static-boot .hami-boot-brand {
-    position: fixed;
-    top: 1.35rem;
-    inset-inline-start: max(1.25rem, env(safe-area-inset-left, 0px));
-    z-index: 60;
-    font-size: 1.15rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    color: #e6c673;
-    text-shadow: 0 0 24px rgba(230, 198, 115, 0.35);
+.hami-boot-cinematic--exiting {
+    animation: hami-boot-overlay-out 0.85s cubic-bezier(0.4, 0, 0.2, 1) forwards;
     pointer-events: none;
 }
 
-#hami-static-boot .hami-boot-header {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 50;
-    height: 84px;
-    padding: 0 max(1.25rem, env(safe-area-inset-right, 0px)) 0 max(1.25rem, env(safe-area-inset-left, 0px));
+.hami-boot-center-stage,
+#hami-static-boot .hami-boot-center-stage {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
     display: flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: center;
+    padding: max(1.25rem, env(safe-area-inset-top, 0px)) 1.25rem
+        max(1.25rem, env(safe-area-inset-bottom, 0px));
     pointer-events: none;
 }
 
-#hami-static-boot .hami-boot-actions {
+/* ——— كلمة حامي ——— */
+.hami-boot-wordmark-stage,
+#hami-static-boot .hami-boot-wordmark-stage {
+    position: relative;
     display: flex;
-    gap: 0.5rem;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0.5rem;
 }
 
-#hami-static-boot .hami-boot-icon {
-    width: 2.25rem;
-    height: 2.25rem;
-    border-radius: 0.75rem;
-    border: 1px solid rgba(230, 198, 115, 0.18);
-    background: rgba(230, 198, 115, 0.08);
-    animation: hami-boot-pulse 1.5s ease-in-out infinite;
+.hami-boot-wordmark-glow,
+#hami-static-boot .hami-boot-wordmark-glow {
+    position: absolute;
+    inset: -35% -45%;
+    z-index: 0;
+    border-radius: 50%;
+    background: radial-gradient(
+        ellipse 50% 45% at 50% 50%,
+        rgba(230, 198, 115, 0.42) 0%,
+        rgba(230, 198, 115, 0.1) 45%,
+        transparent 72%
+    );
+    filter: blur(18px);
+    animation: hami-wordmark-glow-breathe 3.4s ease-in-out infinite;
+    pointer-events: none;
+    will-change: transform, opacity;
 }
 
-#hami-static-boot .hami-boot-main {
+.hami-boot-wordmark,
+#hami-static-boot .hami-boot-wordmark {
+    position: relative;
+    z-index: 2;
+    margin: 0;
+    padding: 0;
+    font-family: 'Amiri', 'Cairo', 'Tajawal', serif;
+    font-weight: 700;
+    font-size: clamp(3.25rem, 14vw, 5.75rem);
+    line-height: 1;
+    letter-spacing: 0.04em;
+    background: linear-gradient(
+        165deg,
+        #fff4d4 0%,
+        var(--hami-boot-gold-bright) 22%,
+        var(--hami-boot-gold) 55%,
+        #b89446 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 0 28px rgba(230, 198, 115, 0.45))
+        drop-shadow(0 4px 18px rgba(0, 0, 0, 0.5));
+    animation: hami-wordmark-breathe 3.2s ease-in-out infinite;
+    will-change: transform, opacity;
+}
+
+.hami-boot-wordmark-char,
+#hami-static-boot .hami-boot-wordmark-char {
+    display: inline-block;
+    opacity: 0;
+    animation: hami-wordmark-char-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation-delay: calc(0.15s + var(--char-i, 0) * 0.11s);
+    will-change: transform, opacity, filter;
+}
+
+.hami-boot-wordmark-stage--exit .hami-boot-wordmark-char,
+.hami-boot-cinematic--exiting .hami-boot-wordmark-char,
+#hami-static-boot.hami-boot-cinematic--exiting .hami-boot-wordmark-char {
+    animation: hami-wordmark-char-out 0.72s cubic-bezier(0.4, 0, 1, 1) forwards;
+    animation-delay: calc(var(--char-i, 0) * 0.05s);
+}
+
+.hami-boot-wordmark-ornament,
+#hami-static-boot .hami-boot-wordmark-ornament {
+    position: relative;
+    z-index: 1;
+    width: min(12rem, 52vw);
+    height: 2px;
+    margin: 0.85rem 0;
+    border-radius: 999px;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(230, 198, 115, 0.15) 15%,
+        rgba(230, 198, 115, 0.55) 50%,
+        rgba(230, 198, 115, 0.15) 85%,
+        transparent
+    );
+    opacity: 0;
+    animation: hami-wordmark-ornament-in 1s ease-out forwards;
+}
+
+.hami-boot-wordmark-ornament--top,
+#hami-static-boot .hami-boot-wordmark-ornament--top {
+    animation-delay: 0.55s;
+}
+
+.hami-boot-wordmark-ornament--bottom,
+#hami-static-boot .hami-boot-wordmark-ornament--bottom {
+    animation-delay: 0.72s;
+}
+
+.hami-boot-wordmark-shimmer,
+#hami-static-boot .hami-boot-wordmark-shimmer {
+    position: absolute;
+    inset: -10% -20%;
+    z-index: 3;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.hami-boot-wordmark-shimmer::after,
+#hami-static-boot .hami-boot-wordmark-shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        105deg,
+        transparent 30%,
+        rgba(255, 244, 212, 0.35) 50%,
+        transparent 70%
+    );
+    animation: hami-wordmark-shimmer-sweep 3.2s ease-in-out infinite;
+}
+
+/* ——— Skeleton مؤجّل ——— */
+.hami-boot-skeleton-deferred,
+#hami-static-boot .hami-boot-skeleton-deferred {
     position: absolute;
     inset-inline: 0;
-    top: 84px;
-    z-index: 1;
-    padding: 0.5rem max(1.25rem, env(safe-area-inset-right, 0px)) 0 max(1.25rem, env(safe-area-inset-left, 0px));
+    bottom: max(2.75rem, calc(env(safe-area-inset-bottom, 0px) + 2rem));
+    z-index: 5;
+    display: flex;
+    justify-content: center;
+    padding-inline: max(1.5rem, env(safe-area-inset-right, 0px))
+        max(1.5rem, env(safe-area-inset-left, 0px));
+    opacity: 0;
+    pointer-events: none;
+    animation: hami-boot-skeleton-deferred-in 2.8s ease-out 1.75s forwards;
 }
 
-#hami-static-boot .hami-boot-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.875rem;
-    max-width: 72rem;
-    margin: 0 auto;
+.hami-boot-skeleton-deferred-inner,
+#hami-static-boot .hami-boot-skeleton-deferred-inner {
+    width: min(100%, 18rem);
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    opacity: 0.22;
 }
 
-#hami-static-boot .hami-boot-block {
-    width: 100%;
-    border-radius: 1.625rem;
-    border: 1px solid rgba(230, 198, 115, 0.16);
-    background: linear-gradient(155deg, rgba(230, 198, 115, 0.1), rgba(13, 13, 26, 0.72));
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.06),
-        0 8px 28px rgba(0, 0, 0, 0.28);
-    animation: hami-boot-pulse 1.5s ease-in-out infinite;
+.hami-boot-skeleton-wire,
+#hami-static-boot .hami-boot-skeleton-wire {
+    border-radius: 999px;
+    background: linear-gradient(
+        90deg,
+        rgba(230, 198, 115, 0.06) 0%,
+        rgba(230, 198, 115, 0.14) 50%,
+        rgba(230, 198, 115, 0.06) 100%
+    );
+    animation: hami-boot-skeleton-pulse 2.2s ease-in-out infinite;
 }
 
-#hami-static-boot .hami-boot-block--span2 {
-    grid-column: span 2;
+.hami-boot-skeleton-wire--wide,
+#hami-static-boot .hami-boot-skeleton-wire--wide {
+    height: 0.32rem;
+    width: 72%;
+    margin-inline: auto;
 }
 
-#hami-static-boot .hami-boot-block--h52 {
-    min-height: 52px;
-}
-
-#hami-static-boot .hami-boot-block--h280 {
-    min-height: 280px;
-}
-
-#hami-static-boot .hami-boot-block--h180 {
-    min-height: 180px;
-}
-
-#hami-static-boot .hami-boot-block--h120 {
-    min-height: 120px;
+.hami-boot-skeleton-wire--medium,
+#hami-static-boot .hami-boot-skeleton-wire--medium {
+    height: 0.28rem;
+    width: 52%;
+    margin-inline: auto;
 }
 
 #hami-static-boot .hami-boot-status {
@@ -151,27 +396,40 @@
     border-radius: 999px;
     font-size: 0.68rem;
     font-weight: 700;
-    color: rgba(230, 198, 115, 0.88);
-    border: 1px solid rgba(230, 198, 115, 0.22);
-    background: rgba(4, 6, 12, 0.72);
+    color: rgba(230, 198, 115, 0.72);
+    border: 1px solid rgba(230, 198, 115, 0.18);
+    background: rgba(4, 6, 12, 0.55);
     backdrop-filter: blur(8px);
-    animation: hami-boot-pulse 1.5s ease-in-out infinite;
+    animation: hami-boot-pulse 2.4s ease-in-out infinite;
 }
 
-@media (min-width: 640px) {
-    #hami-static-boot .hami-boot-header,
-    #hami-static-boot .hami-boot-main {
-        padding-left: max(1.5rem, env(safe-area-inset-left, 0px));
-        padding-right: max(1.5rem, env(safe-area-inset-right, 0px));
+@media (prefers-reduced-motion: reduce) {
+    .hami-boot-wordmark-char,
+    #hami-static-boot .hami-boot-wordmark-char {
+        animation: none;
+        opacity: 1;
+        transform: none;
+        filter: none;
+    }
+
+    .hami-boot-wordmark,
+    .hami-boot-wordmark-glow,
+    .hami-boot-wordmark-shimmer::after,
+    .hami-boot-cinematic--exiting {
+        animation: none !important;
+    }
+
+    .hami-boot-cinematic--exiting {
+        opacity: 0;
+        visibility: hidden;
     }
 }
 
 html.hami-boot-static-active,
 html.hami-boot-static-active body {
-    background: #05060d;
+    background: var(--hami-boot-canvas);
 }
 
-/* Capacitor shell — overscroll وارتفاع ديناميكي */
 html.hami-native-shell,
 html[data-hami-native='1'] {
     -webkit-tap-highlight-color: transparent;
@@ -183,4 +441,5 @@ html[data-hami-native='1'] body {
     min-height: 100dvh;
     overscroll-behavior-y: none;
     touch-action: manipulation;
+    background: var(--hami-boot-canvas);
 }

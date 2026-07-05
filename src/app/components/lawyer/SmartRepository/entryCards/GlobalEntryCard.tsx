@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import { Pin, Trash2 } from 'lucide-react';
+import { Eye, Loader2, Pin, Trash2 } from 'lucide-react';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import { isVoiceNote } from '@/app/components/lawyer/dashboard/notepadNoteUtils';
 import { VoiceNoteAudio } from '@/app/components/lawyer/dashboard/VoiceNoteAudio';
@@ -27,6 +27,7 @@ type GlobalEntryCardProps = Pick<
     | 'onUpdateLawsuit'
     | 'onUpdateExecution'
     | 'onLinkGlobalToDossier'
+    | 'onViewVaultDoc'
 > & {
     item: Extract<UniversalEntryCardProps['item'], { kind: 'global' }>;
     cardRef: React.RefObject<HTMLElement | null>;
@@ -50,6 +51,7 @@ export const GlobalEntryCard = React.memo(function GlobalEntryCard({
     onUpdateLawsuit,
     onUpdateExecution,
     onLinkGlobalToDossier,
+    onViewVaultDoc,
 }: GlobalEntryCardProps) {
     const note = item.note;
     const voice = isVoiceNote(note);
@@ -104,6 +106,29 @@ export const GlobalEntryCard = React.memo(function GlobalEntryCard({
                     dossiers={dossiers}
                     onConfirm={async (dossier) => onLinkGlobalToDossier(note, dossier)}
                 />
+                {note.attachmentDocId && onViewVaultDoc ? (
+                    attachment ? (
+                        <button
+                            type="button"
+                            onClick={() => void onViewVaultDoc(attachment)}
+                            className={`${REPO_CARD_ICON_BTN} text-white/45 hover:text-[#E6C673]`}
+                            aria-label="عرض المرفق"
+                            data-testid={`repository-global-attachment-view-${attachment.id}`}
+                        >
+                            <Eye size={14} />
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            disabled
+                            className={`${REPO_CARD_ICON_BTN} text-white/30 opacity-60`}
+                            aria-label="جاري تحميل المرفق"
+                            title="جاري تحميل المرفق..."
+                        >
+                            <Loader2 size={14} className="animate-spin" />
+                        </button>
+                    )
+                ) : null}
             </div>
             <button
                 type="button"

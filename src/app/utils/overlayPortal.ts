@@ -3,7 +3,24 @@ export type OverlayPortalOptions = {
     zIndex: number;
 };
 
-/** طبقة portal مستقلة عن #root — تتجنّب كسر position:fixed داخل شجرة الواجهة */
+const PORTAL_ANCHOR_STYLE: Partial<CSSStyleDeclaration> = {
+    position: 'fixed',
+    top: '0',
+    left: '0',
+    width: '0',
+    height: '0',
+    overflow: 'visible',
+    pointerEvents: 'none',
+};
+
+function applyPortalAnchorStyle(root: HTMLElement, zIndex: number) {
+    Object.assign(root.style, PORTAL_ANCHOR_STYLE, { zIndex: String(zIndex) });
+    root.style.inset = '';
+    root.style.right = '';
+    root.style.bottom = '';
+}
+
+/** طبقة portal مستقلة عن #root — anchor صفري بدون حجب pointer-events للشاشة كاملة */
 export function getHamiOverlayPortalRoot({ id, zIndex }: OverlayPortalOptions): HTMLElement {
     if (typeof document === 'undefined') {
         return null as unknown as HTMLElement;
@@ -14,18 +31,9 @@ export function getHamiOverlayPortalRoot({ id, zIndex }: OverlayPortalOptions): 
         root = document.createElement('div');
         root.id = id;
         root.setAttribute('data-hami-overlay-portal', '');
-        Object.assign(root.style, {
-            position: 'fixed',
-            inset: '0',
-            width: '100vw',
-            height: '100dvh',
-            pointerEvents: 'none',
-            zIndex: String(zIndex),
-        });
         document.body.appendChild(root);
-    } else if (root.style.zIndex !== String(zIndex)) {
-        root.style.zIndex = String(zIndex);
     }
 
+    applyPortalAnchorStyle(root, zIndex);
     return root;
 }

@@ -9,26 +9,37 @@ import {
 
 export type GlobalSearchWarmSnapshot = WarmGlobalSearchInput;
 
-let snapshot: GlobalSearchWarmSnapshot | null = null;
+let snapshotProvider: (() => GlobalSearchWarmSnapshot | null) | null = null;
 
-/** يُحدَّث من runtime effects عند توفر بيانات مساحة العمل — بدون تسخين تلقائي عند الإقلاع. */
+function resolveWarmSnapshot(): GlobalSearchWarmSnapshot | null {
+    return snapshotProvider?.() ?? null;
+}
+
+/** يُحدَّث من runtime effects — لقطة حية عبر provider بدون effect عند كل تغيير ملف */
 export function registerGlobalSearchWarmSnapshot(input: GlobalSearchWarmSnapshot): void {
-    snapshot = input;
+    snapshotProvider = () => input;
+}
+
+export function registerGlobalSearchWarmSnapshotProvider(
+    provider: () => GlobalSearchWarmSnapshot | null,
+): void {
+    snapshotProvider = provider;
 }
 
 export function clearGlobalSearchWarmSnapshot(): void {
-    snapshot = null;
+    snapshotProvider = null;
 }
 
 /** عند hover/لمس أيقونة البحث: chunk + محرك مؤجَّل + فهرس idle. */
 export function warmGlobalSearchOnHover(): void {
     prefetchGlobalSearchOverlay();
-    const uid = snapshot?.userId;
+    const snap = resolveWarmSnapshot();
+    const uid = snap?.userId;
     if (uid) {
         void import('@/app/services/globalSearchLoad').then((m) => m.warmGlobalSearchExtras(uid));
     }
-    if (snapshot) {
-        void import('@/app/services/globalSearchWarm').then((m) => m.warmGlobalSearchPipeline(snapshot, false));
+    if (snap) {
+        void import('@/app/services/globalSearchWarm').then((m) => m.warmGlobalSearchPipeline(snap, false));
     }
 }
 
@@ -38,15 +49,17 @@ export function warmGlobalSearchOnHover(): void {
  */
 export function warmGlobalSearchOnOpen(): void {
     prefetchGlobalSearchOverlayChunk();
-    const uid = snapshot?.userId;
+    const snap = resolveWarmSnapshot();
+    const uid = snap?.userId;
     if (uid && typeof document !== 'undefined' && !document.hidden) {
         void import('@/app/services/globalSearchLoad').then((m) => m.warmGlobalSearchExtras(uid));
     }
     queueMicrotask(() => {
         prefetchGlobalSearchSearchEngine();
-        if (!snapshot || (typeof document !== 'undefined' && document.hidden)) return;
+        const live = resolveWarmSnapshot();
+        if (!live || (typeof document !== 'undefined' && document.hidden)) return;
         void import('@/app/services/globalSearchWarm').then((m) =>
-            m.warmGlobalSearchPipeline(snapshot, false),
+            m.warmGlobalSearchPipeline(live, false),
         );
     });
 }

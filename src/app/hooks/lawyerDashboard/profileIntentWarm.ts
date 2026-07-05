@@ -1,7 +1,5 @@
-import {
-    prefetchRoyalLawyerProfile,
-    prefetchRoyalLawyerProfileChunk,
-} from '@/app/runtime/royalLawyerProfileLoader';
+import { prefetchProfileHubModule } from '@/app/runtime/profileHubLoader';
+import { hydrateProfileShellForInstantOpenWithData } from '@/app/runtime/profileBootHydrator';
 import { prefetchProfileData } from '@/app/services/profile/profileWarmCache';
 import {
     prefetchProfileCanvasFxCore,
@@ -27,11 +25,14 @@ function shouldAggressiveProfileWarm(): boolean {
 /** عند hover/لمس الملف المهني: chunk + بيانات + FX أساسي + استوديو */
 export function warmProfileOnHover(userId?: string | null): void {
     prefetchLawyerDashboardProfileTabShell();
-    prefetchRoyalLawyerProfile(userId);
+    prefetchProfileHubModule();
     prefetchProfileSettingsSheet();
     prefetchProfileCanvasFxCore();
     if (shouldAggressiveProfileWarm()) {
         prefetchProfileCanvasStudioFx();
+    }
+    if (userId?.trim()) {
+        prefetchProfileData(userId);
     }
 }
 
@@ -41,7 +42,7 @@ export function warmProfileOnHover(userId?: string | null): void {
  */
 export function warmProfileOnOpen(userId?: string | null): void {
     prefetchLawyerDashboardProfileTabShell();
-    prefetchRoyalLawyerProfileChunk();
+    void hydrateProfileShellForInstantOpenWithData(userId, true);
     if (userId?.trim() && typeof document !== 'undefined' && !document.hidden) {
         prefetchProfileData(userId);
     }
@@ -50,7 +51,6 @@ export function warmProfileOnOpen(userId?: string | null): void {
         prefetchProfileCanvasFxCore();
         if (!shouldAggressiveProfileWarm()) return;
         if (typeof document !== 'undefined' && document.hidden) return;
-        prefetchRoyalLawyerProfile(userId);
         prefetchProfileCanvasStudioFx();
     });
 }

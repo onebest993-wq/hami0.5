@@ -17,6 +17,8 @@ import {
     unlinkGlobal,
 } from '@/app/services/notesSyncBridge';
 import { normalizeNotesList, dashboardNoteToCloudPayload } from '@/app/services/notesCloudAdapter';
+import { saveGlobalNotesRaw } from '@/app/utils/globalNotesStorage';
+import { invalidateRepositoryFeedCache } from '@/app/services/repository/repositoryFeedWarmCache';
 import { SupabaseService } from '@/app/services/SupabaseService';
 import { unpinWorkspaceItem } from '@/app/workspace/unpinWorkspaceEntity';
 import { invalidateGlobalSearchExtrasCache } from '@/app/services/globalSearchLoad';
@@ -145,8 +147,11 @@ export function useLawyerGlobalNotes({
                 if (localAutoSave && notesHydrated) {
                     persistenceRepository.save(STORAGE_KEYS.LAWYER_NOTES, nextNotes);
                 }
+                saveGlobalNotesRaw(nextNotes);
                 return nextNotes;
             });
+
+            invalidateRepositoryFeedCache();
 
             const bodyPlain = (note.body || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
             if (uid && bodyPlain) {

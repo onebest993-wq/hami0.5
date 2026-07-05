@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
-import { Drawer, DrawerContent } from '@/app/components/ui/drawer';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
+import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
+import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { useTransactionsThreadingStore } from '@/app/modules/transactionsThreading/store';
 import type { Transaction, TransactionDocument, TransactionDocumentOwnerTag } from '@/app/modules/transactionsThreading/types';
 import { DocumentCard } from './DocumentCard';
+import { TransactionsHubSheet } from './TransactionsHubSheet';
+import { TransactionsThreadDialogContent } from './TransactionsThreadDialogContent';
 import {
     GLASS_BTN,
     GLASS_CHIP,
@@ -15,7 +17,6 @@ import {
     TX_DIALOG_DESC,
     TX_DIALOG_SHELL,
     TX_DIALOG_TITLE,
-    TX_DRAWER_SHELL,
     TX_GOLD_BTN,
     TX_INNER_SURFACE,
     TX_TEXT_MUTED,
@@ -34,6 +35,7 @@ export function DocumentsTabView({ transaction, readOnly }: { transaction: Trans
   const documents = useTransactionsThreadingStore((s) => s.documentsByTransactionId[transaction.id] ?? EMPTY_DOCS);
   const addDocument = useTransactionsThreadingStore((s) => s.addDocument);
   const deleteDocument = useTransactionsThreadingStore((s) => s.deleteDocument);
+  const reduceMotion = useReduceMotion();
 
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
@@ -106,7 +108,7 @@ export function DocumentsTabView({ transaction, readOnly }: { transaction: Trans
           if (!o) setDeleteTarget(null);
         }}
       >
-        <DialogContent className={TX_DIALOG_SHELL}>
+        <TransactionsThreadDialogContent instant={reduceMotion} hideCloseButton className={TX_DIALOG_SHELL}>
           <DialogHeader className="text-right">
             <DialogTitle className={TX_DIALOG_TITLE}>حذف مستمسك</DialogTitle>
             <DialogDescription className={TX_DIALOG_DESC}>سيتم حذف المستمسك من هذه المعاملة</DialogDescription>
@@ -125,52 +127,50 @@ export function DocumentsTabView({ transaction, readOnly }: { transaction: Trans
               حذف
             </button>
           </DialogFooter>
-        </DialogContent>
+        </TransactionsThreadDialogContent>
       </Dialog>
 
-      <Drawer open={open} onOpenChange={setOpen}>
-        <DrawerContent className={TX_DRAWER_SHELL}>
-          <TxGlassDrawerFrame
-            title="إضافة مرفق"
-            subtitle="أدخل وصف المستمسك وحدد عائدية المستمسك"
-            footer={
-              <button type="button" disabled={!canSubmit || !!readOnly} onClick={submit} className={GLASS_BTN}>
-                إضافة
-              </button>
-            }
-          >
-            <div>
-              <TxFieldLabel>
-                اسم/وصف المستمسك <span className={TX_TEXT_OCHRE}>*</span>
-              </TxFieldLabel>
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="مثال: هوية الكفيل / كتاب صحة صدور"
-                className={GLASS_FIELD}
-              />
+      <TransactionsHubSheet open={open} onOpenChange={setOpen} testId="transactions-add-document-sheet">
+        <TxGlassDrawerFrame
+          title="إضافة مرفق"
+          subtitle="أدخل وصف المستمسك وحدد عائدية المستمسك"
+          footer={
+            <button type="button" disabled={!canSubmit || !!readOnly} onClick={() => void submit()} className={GLASS_BTN}>
+              إضافة
+            </button>
+          }
+        >
+          <div>
+            <TxFieldLabel>
+              اسم/وصف المستمسك <span className={TX_TEXT_OCHRE}>*</span>
+            </TxFieldLabel>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="مثال: هوية الكفيل / كتاب صحة صدور"
+              className={GLASS_FIELD}
+            />
+          </div>
+          <div>
+            <TxFieldLabel>عائدية المستمسك</TxFieldLabel>
+            <div className="flex gap-2">
+              {OWNER_TAGS.map((t) => {
+                const active = ownerTag === t;
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setOwnerTag(t)}
+                    className={active ? GLASS_CHIP_ACTIVE + ' flex-1 !rounded-[3px] !py-2.5' : GLASS_CHIP + ' flex-1 !rounded-[3px] !py-2.5'}
+                  >
+                    {t}
+                  </button>
+                );
+              })}
             </div>
-            <div>
-              <TxFieldLabel>عائدية المستمسك</TxFieldLabel>
-              <div className="flex gap-2">
-                {OWNER_TAGS.map((t) => {
-                  const active = ownerTag === t;
-                  return (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setOwnerTag(t)}
-                      className={active ? GLASS_CHIP_ACTIVE + ' flex-1 !rounded-[3px] !py-2.5' : GLASS_CHIP + ' flex-1 !rounded-[3px] !py-2.5'}
-                    >
-                      {t}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </TxGlassDrawerFrame>
-        </DrawerContent>
-      </Drawer>
+          </div>
+        </TxGlassDrawerFrame>
+      </TransactionsHubSheet>
     </div>
   );
 }

@@ -1,9 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, beforeEach } from 'vitest';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import {
     countPendingFieldTasks,
     deserializeQuantumTasks,
+    persistQuantumTasksSync,
+    readQuantumTasksFromDiskSync,
     serializeQuantumTasks,
+    QUANTUM_TASKS_STORAGE_KEY,
 } from '../quantumTasksStorage';
 
 function task(partial: Partial<LegalTask> & Pick<LegalTask, 'id' | 'title'>): LegalTask {
@@ -116,5 +119,31 @@ describe('countPendingFieldTasks', () => {
             task({ id: '3', title: 'بدون', location: null }),
         ];
         expect(countPendingFieldTasks(pending)).toBe(0);
+    });
+});
+
+describe('persistQuantumTasksSync / readQuantumTasksFromDiskSync', () => {
+    beforeEach(() => {
+        localStorage.clear();
+    });
+
+    it('writes synchronously to localStorage and survives reload read', () => {
+        const tasks = [
+            task({
+                id: 'persist-1',
+                title: 'مهمة أسبوعية',
+                location: 'بغداد',
+                parsedDate: new Date(2026, 5, 21),
+            }),
+        ];
+        expect(persistQuantumTasksSync(tasks)).toBe(true);
+        const raw = localStorage.getItem(QUANTUM_TASKS_STORAGE_KEY);
+        expect(raw).toContain('persist-1');
+        expect(raw).toContain('بغداد');
+
+        const restored = readQuantumTasksFromDiskSync(new Date(2026, 5, 21));
+        expect(restored).toHaveLength(1);
+        expect(restored[0]!.id).toBe('persist-1');
+        expect(restored[0]!.location).toBe('بغداد');
     });
 });

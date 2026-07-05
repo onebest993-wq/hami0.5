@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CheckSquare, Plus, Clock, Check, Edit3 } from 'lucide-react';
 import type { Task } from '../../LawyerShared';
@@ -170,7 +170,7 @@ const AppealBriefPanel = ({ task, onFileBrief, onRecordOutcome }: AppealBriefPan
     );
 };
 
-export const ToDoList = ({
+export const ToDoList = memo(function ToDoList({
     tasks,
     onAddTask,
     onToggleTask,
@@ -188,7 +188,7 @@ export const ToDoList = ({
     onAppealBriefOutcome?: (taskId: string, outcome: 'quashed' | 'upheld') => void;
     onCorrespondenceResponse?: (taskId: string, received: boolean) => void;
     visualVariant?: 'civil' | 'personal' | 'personal-pearl';
-}) => {
+}) {
     const [expandedAppealTaskId, setExpandedAppealTaskId] = useState<string | null>(null);
     const [expandedCorrespondenceTaskId, setExpandedCorrespondenceTaskId] = useState<string | null>(null);
     const sortedTasks = filterCivilLawsuitVisibleTasks(tasks).sort((a, b) => (a.isCompleted === b.isCompleted ? 0 : a.isCompleted ? 1 : -1));
@@ -345,4 +345,4 @@ export const ToDoList = ({
             </div>
         </div>
     );
-};
+});

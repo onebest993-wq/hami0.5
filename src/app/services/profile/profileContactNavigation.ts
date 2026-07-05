@@ -1,4 +1,4 @@
-import type { ProfileAction, ProfileLocationMode } from '@/app/services/lawyer-cloud';
+import type { ProfileAction, ProfileLocationMode } from '@/app/services/profile/profileTypes';
 
 export type ProfileContactOpenResult = 'opened' | 'invalid' | 'display_only';
 

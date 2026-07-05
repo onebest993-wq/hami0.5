@@ -6,7 +6,7 @@
     "module": "ESNext",
     "skipLibCheck": true,
 
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
@@ -14,9 +14,24 @@
     "jsx": "react-jsx",
 
     /*
-     * Heavy lawyer/service modules still use `// @ts-nocheck`; `src/app/components/ui` is checked.
-     * Core entry, context, stores, and shared execution types are checked. `noImplicitReturns`
-     * is off to reduce noise in partially-typed areas.
+     * TypeScript Strict Mode - Incremental Enablement
+     * Note: Heavy modules still use `// @ts-nocheck`; `src/app/components/ui` is fully checked.
+     * Core entry, context, stores, and shared execution types are checked.
+     * ------------------------------------------
+     * 🚀 Incremental improvements:
+     * - Enabled `strictFunctionTypes` ✓
+     * - Enabled `strictBindCallApply` ✓
+     * - Enabled `noImplicitThis` ✓
+     * - Enabled `alwaysStrict` ✓
+     * - Enabled `noFallthroughCasesInSwitch` ✓
+     *
+     * 📝 To enable more strictness over time, enable the following one by one:
+     * 1. "strict": true
+     * 2. "noImplicitAny": true
+     * 3. "strictNullChecks": true
+     * 4. "noImplicitReturns": true
+     * 5. "noUncheckedIndexedAccess": true
+     * ------------------------------------------
      */
     "strict": false,
     "noImplicitAny": false,
@@ -31,8 +46,13 @@
     "noFallthroughCasesInSwitch": true,
     "noImplicitReturns": false,
     "noUncheckedIndexedAccess": false,
+
+    /* Best Practices */
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmitOnError": false, /* Keep false for now to avoid breaking builds */
+
     "types": ["vite/client", "vitest/globals"],
 
     "baseUrl": ".",

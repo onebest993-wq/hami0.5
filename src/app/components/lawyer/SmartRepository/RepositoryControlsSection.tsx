@@ -1,17 +1,9 @@
 import React, { memo } from 'react';
 import { VaultSearchFilterHub } from '@/app/components/lawyer/SmartVaultModal/VaultSearchFilterHub';
-import {
-    repositoryFeedFilterLabel,
-    REPOSITORY_FEED_FILTERS,
-    type RepositoryFeedFilter,
-} from '@/app/services/repository/repositoryUnifiedFeed';
-import type { SmartVaultDoc } from '@/app/services/lawyer-cloud';
+import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import type { useSmartVault } from '@/app/components/lawyer/hooks/useSmartVault';
 import {
     REPO_CONTROLS_SHELL,
-    REPO_FILTER_CHIP,
-    REPO_FILTER_CHIP_ACTIVE,
-    REPO_FILTER_ROW,
 } from './smartRepositoryTheme';
 import { RepositoryCustomCategoryRow } from './RepositoryCustomCategoryRow';
 import { RepositoryActionToolbar } from './RepositoryActionToolbar';
@@ -37,10 +29,8 @@ type VaultControls = Pick<
 type RepositoryControlsSectionProps = {
     vault: VaultControls;
     unboundVaultDocs: SmartVaultDoc[];
-    activeFilter: RepositoryFeedFilter;
-    filterCounts: Record<RepositoryFeedFilter, number>;
     feedLayout: RepositoryFeedLayoutId;
-    onSelectMainFilter: (filter: RepositoryFeedFilter) => void;
+    actionToolbarDisabled?: boolean;
     onFeedLayoutChange: (layout: RepositoryFeedLayoutId) => void;
     onCreateNote: () => void;
     onOpenScanner: () => void;
@@ -50,10 +40,8 @@ type RepositoryControlsSectionProps = {
 export const RepositoryControlsSection = memo(function RepositoryControlsSection({
     vault,
     unboundVaultDocs,
-    activeFilter,
-    filterCounts,
     feedLayout,
-    onSelectMainFilter,
+    actionToolbarDisabled = false,
     onFeedLayoutChange,
     onCreateNote,
     onOpenScanner,
@@ -80,26 +68,6 @@ export const RepositoryControlsSection = memo(function RepositoryControlsSection
                 />
             </div>
 
-            <div className={REPO_FILTER_ROW} role="tablist" aria-label="تصفية المستودع">
-                {REPOSITORY_FEED_FILTERS.map((filter) => {
-                    const active = activeFilter === filter;
-                    return (
-                        <button
-                            key={filter}
-                            type="button"
-                            role="tab"
-                            aria-selected={active}
-                            data-testid={`repository-filter-${filter}`}
-                            onClick={() => onSelectMainFilter(filter)}
-                            className={active ? REPO_FILTER_CHIP_ACTIVE : REPO_FILTER_CHIP}
-                        >
-                            {repositoryFeedFilterLabel(filter)}
-                            <span className="mr-1 opacity-70">({filterCounts[filter]})</span>
-                        </button>
-                    );
-                })}
-            </div>
-
             <RepositoryCustomCategoryRow
                 activeFilter={vault.activeFilter}
                 customCategories={vault.customCategories}
@@ -115,6 +83,7 @@ export const RepositoryControlsSection = memo(function RepositoryControlsSection
                 onCreateNote={onCreateNote}
                 onOpenScanner={onOpenScanner}
                 onOpenVoice={onOpenVoice}
+                disabled={actionToolbarDisabled}
                 imageInputRef={vault.imageInputRef}
                 pdfInputRef={vault.pdfInputRef}
                 onImageSelect={(e) => void vault.handleImageUploadSelect(e)}

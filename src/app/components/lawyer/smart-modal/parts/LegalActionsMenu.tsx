@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
     Scale,
@@ -13,9 +14,10 @@ import {
     Mail,
     type LucideIcon,
 } from 'lucide-react';
-import type { CaseStage } from '../../LawyerShared';
+import { HUB_DOSSIER_MODAL_Z_CLASS } from '@/app/components/lawyer/dashboard/hubOverlayStack';
 import type { SmartFileParentData } from '../smartFile/parentDataInit';
 import { useSmartFileModalTheme } from '../smartFile/smartFileModalTheme';
+import type { CaseStage } from '../../LawyerShared';
 
 const EXTRAORDINARY_APPEAL_TYPES = {
     retrial: 'إعادة المحاكمة',
@@ -67,10 +69,10 @@ const ActionRow = ({
     return (
         <button type="button" onClick={onClick} className={danger ? T.actionRowDanger : T.actionRow}>
             <div className={`${danger ? T.actionRowIconDanger : T.actionRowIcon} ${iconClass}`}>
-                <Icon size={15} strokeWidth={1.75} />
+                <Icon size={17} strokeWidth={1.75} />
             </div>
             <span
-                className={`flex-1 text-[13px] font-semibold transition-colors ${
+                className={`flex-1 text-[14px] font-semibold transition-colors ${
                     danger ? 'text-rose-200/90 group-hover:text-rose-100' : T.variant === 'personal-pearl' ? 'text-[#FFFEF9]/90 group-hover:text-[#FFFEF9]' : 'text-white/85 group-hover:text-white'
                 }`}
             >
@@ -208,7 +210,7 @@ export const LegalActionsMenu = ({
         }
     }
 
-    return (
+    const menu = (
         <AnimatePresence>
             {isOpen && (
                 <>
@@ -218,7 +220,7 @@ export const LegalActionsMenu = ({
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={onClose}
-                        className={isPearl ? 'fixed inset-0 bg-[#131211]/60 backdrop-blur-[2px] z-[100]' : 'fixed inset-0 bg-[#05060D]/60 backdrop-blur-[3px] z-[100]'}
+                        className={`pointer-events-auto ${isPearl ? `fixed inset-0 bg-[#131211]/82 backdrop-blur-[4px] ${HUB_DOSSIER_MODAL_Z_CLASS}` : `fixed inset-0 bg-[#020309]/90 backdrop-blur-[7px] ${HUB_DOSSIER_MODAL_Z_CLASS}`}`}
                     />
                     <motion.div
                         key="legal-actions-sheet"
@@ -270,4 +272,6 @@ export const LegalActionsMenu = ({
             )}
         </AnimatePresence>
     );
+
+    return typeof document !== 'undefined' ? createPortal(menu, document.body) : menu;
 };

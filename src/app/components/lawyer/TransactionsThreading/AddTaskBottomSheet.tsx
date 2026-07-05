@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react';
-import { Drawer, DrawerContent } from '@/app/components/ui/drawer';
+import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useTransactionsThreadingStore } from '@/app/modules/transactionsThreading/store';
 import {
     GLASS_BTN,
     GLASS_FIELD,
-    TX_DRAWER_SHELL,
     TX_TEXT_MUTED,
     TxFieldLabel,
     TxGlassDrawerFrame,
 } from './transactionsGlassTheme';
+import { TxDateInput } from './TxDateInput';
+import { TransactionsHubSheet } from './TransactionsHubSheet';
 
 export function AddTaskBottomSheet({
     open,
@@ -27,6 +28,7 @@ export function AddTaskBottomSheet({
 
     const [title, setTitle] = useState('');
     const [deadlineDate, setDeadlineDate] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const canSubmit = useMemo(() => title.trim().length > 0, [title]);
 
     const deadlineIso = useMemo(() => {
@@ -38,16 +40,23 @@ export function AddTaskBottomSheet({
     }, [deadlineDate]);
 
     const submit = async () => {
-        if (!canSubmit || readOnly) return;
-        await addTask({
-            transactionId,
-            title: title.trim(),
-            parentTaskId: parentTask?.id ?? null,
-            deadline: deadlineIso,
-        });
-        setTitle('');
-        setDeadlineDate('');
-        onOpenChange(false);
+        if (!canSubmit || readOnly || isSubmitting) return;
+        setIsSubmitting(true);
+        try {
+            await addTask({
+                transactionId,
+                title: title.trim(),
+                parentTaskId: parentTask?.id ?? null,
+                deadline: deadlineIso,
+            });
+            setTitle('');
+            setDeadlineDate('');
+            onOpenChange(false);
+        } catch {
+            SmartToast.error('تعذر حفظ المهمة — حاول مرة أخرى');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const subtitle = parentTask
@@ -55,19 +64,18 @@ export function AddTaskBottomSheet({
         : 'ستُضاف كمهمة رئيسية ضمن المعاملة';
 
     return (
-        <Drawer open={open} onOpenChange={onOpenChange}>
-            <DrawerContent className={TX_DRAWER_SHELL}>
-                <TxGlassDrawerFrame
+        <TransactionsHubSheet open={open} onOpenChange={onOpenChange}>
+            <TxGlassDrawerFrame
                     title="إضافة مهمة"
                     subtitle={subtitle}
                     footer={
                         <button
                             type="button"
-                            disabled={!canSubmit || !!readOnly}
-                            onClick={submit}
-                            className={GLASS_BTN}
+                            disabled={!canSubmit || !!readOnly || isSubmitting}
+                            onClick={() => void submit()}
+                            className={GLASS_BTN + ' disabled:opacity-50'}
                         >
-                            حفظ المهمة
+                            {isSubmitting ? 'جاري الحفظ...' : 'حفظ المهمة'}
                         </button>
                     }
                 >
@@ -83,12 +91,10 @@ export function AddTaskBottomSheet({
                     </div>
                     <div>
                         <TxFieldLabel>تاريخ نفاذ الصلاحية / المهلة (اختياري)</TxFieldLabel>
-                        <input
+                        <TxDateInput
                             value={deadlineDate}
                             onChange={(e) => setDeadlineDate(e.target.value)}
-                            type="date"
                             disabled={!!readOnly}
-                            className={`${GLASS_FIELD} disabled:opacity-50 [color-scheme:dark]`}
                         />
                         <p className={`${TX_TEXT_MUTED} text-[10px] mt-1.5 leading-5 font-medium`}>
                             {deadlineDate
@@ -97,7 +103,6 @@ export function AddTaskBottomSheet({
                         </p>
                     </div>
                 </TxGlassDrawerFrame>
-            </DrawerContent>
-        </Drawer>
+        </TransactionsHubSheet>
     );
 }

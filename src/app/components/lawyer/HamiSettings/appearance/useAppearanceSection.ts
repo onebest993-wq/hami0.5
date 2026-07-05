@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import {
     useLawyerSettingsActions,
@@ -60,9 +60,18 @@ export function useAppearanceSection() {
     const wallpaperRef = useRef<HTMLInputElement>(null);
     const [themesExpanded, setThemesExpanded] = useState(false);
     const [patternsExpanded, setPatternsExpanded] = useState(false);
+    const [wallpaperPreview, setWallpaperPreview] = useState<string | undefined>();
 
-    const wallpaperSrc = resolveWallpaperSrc(appearance);
+    const persistedWallpaperSrc = resolveWallpaperSrc(appearance);
+    const wallpaperSrc = wallpaperPreview ?? persistedWallpaperSrc;
     const hasWallpaper = !!wallpaperSrc;
+
+    useEffect(() => {
+        if (!wallpaperPreview || !persistedWallpaperSrc) return;
+        if (wallpaperPreview === persistedWallpaperSrc) {
+            setWallpaperPreview(undefined);
+        }
+    }, [wallpaperPreview, persistedWallpaperSrc, appearance.wallpaperStamp]);
     const activePreset = normalizeBackgroundPreset(appearance.backgroundPreset);
     const activeTheme = appearance.theme;
     const themeToken = LAWYER_THEME_TOKENS[activeTheme] ?? LAWYER_THEME_TOKENS.gold;
@@ -74,7 +83,10 @@ export function useAppearanceSection() {
 
     const selectBackgroundPreset = (id: BackgroundPresetId) => {
         const clearsWallpaper = wallpaperSrc && id !== 'none';
-        if (clearsWallpaper) persistWallpaper(undefined);
+        if (clearsWallpaper) {
+            setWallpaperPreview(undefined);
+            persistWallpaper(undefined);
+        }
         patchAppearance({
             backgroundPreset: id,
             ...(clearsWallpaper ? { wallpaper: undefined, wallpaperStamp: Date.now() } : {}),
@@ -93,20 +105,29 @@ export function useAppearanceSection() {
             SmartToast.error('الصورة كبيرة جداً — الحد 8 ميغابايت');
             return;
         }
+        let previewUrl: string | undefined;
         try {
+            previewUrl = URL.createObjectURL(file);
+            setWallpaperPreview(previewUrl);
             const dataUrl = await compressWallpaperToDataUrl(file);
             if (!persistWallpaper(dataUrl)) {
+                setWallpaperPreview(undefined);
                 SmartToast.error('تعذر حفظ الصورة — مساحة التخزين ممتلئة');
                 return;
             }
+            setWallpaperPreview(dataUrl);
             patchAppearance({ wallpaper: undefined, wallpaperStamp: Date.now() });
             SmartToast.success('تم تطبيق خلفية اللوحة');
         } catch {
+            setWallpaperPreview(undefined);
             SmartToast.error('تعذر رفع الصورة — جرّب صورة أصغر');
+        } finally {
+            if (previewUrl) URL.revokeObjectURL(previewUrl);
         }
     };
 
     const removeWallpaper = () => {
+        setWallpaperPreview(undefined);
         persistWallpaper(undefined);
         patchAppearance({ wallpaper: undefined, wallpaperStamp: Date.now() });
         SmartToast.info('تمت إزالة الخلفية');

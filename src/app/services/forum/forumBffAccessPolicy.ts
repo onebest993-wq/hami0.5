@@ -1,4 +1,4 @@
-import type { CommunityPost } from '@/app/services/lawyer-cloud';
+import type { CommunityPost } from '@/app/services/forum/forumTypes';
 
 /**
  * سياسات وصول BFF — defense-in-depth فوق service-role.

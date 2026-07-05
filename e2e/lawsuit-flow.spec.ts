@@ -11,7 +11,7 @@ import { test, expect } from '@playwright/test';
 test.describe.skip('Lawsuit Management Flow (legacy)', () => {
   test.beforeEach(async ({ page }) => {
     // الانتقال إلى الصفحة الرئيسية
-    await page.goto('http://localhost:5173');
+    await page.goto('/');
     
     // تسجيل الدخول (إذا كان مطلوباً)
     // await page.fill('[data-testid="email"]', 'lawyer@test.com');
@@ -192,7 +192,7 @@ test.describe('Performance Tests', () => {
   test('Dashboard loads within 3 seconds', async ({ page }) => {
     const startTime = Date.now();
     
-    await page.goto('http://localhost:5173');
+    await page.goto('/');
     await page.waitForSelector('text=نظام حامي القانوني');
     
     const loadTime = Date.now() - startTime;
@@ -200,7 +200,7 @@ test.describe('Performance Tests', () => {
   });
 
   test('File creation completes within 2 seconds', async ({ page }) => {
-    await page.goto('http://localhost:5173');
+    await page.goto('/');
     
     const startTime = Date.now();
     
@@ -221,7 +221,7 @@ test.describe('Performance Tests', () => {
 
 test.describe('Accessibility Tests', () => {
   test('Page has proper heading structure', async ({ page }) => {
-    await page.goto('http://localhost:5173');
+    await page.goto('/');
     
     // التحقق من وجود H1
     const h1 = await page.locator('h1').count();
@@ -229,7 +229,7 @@ test.describe('Accessibility Tests', () => {
   });
 
   test('All buttons are keyboard accessible', async ({ page }) => {
-    await page.goto('http://localhost:5173');
+    await page.goto('/');
     
     // Tab through buttons
     await page.keyboard.press('Tab');
@@ -238,7 +238,7 @@ test.describe('Accessibility Tests', () => {
   });
 
   test('Forms have proper labels', async ({ page }) => {
-    await page.goto('http://localhost:5173');
+    await page.goto('/');
     await page.click('text=إنشاء ملف جديد');
     await page.click('text=دعوى مدنية');
     

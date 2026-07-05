@@ -3,6 +3,7 @@ import { loadOptionalCapacitorPlugin } from '@/app/runtime/optionalCapacitorPlug
 
 const GUARD_DATASET_KEY = 'hamiScreenshotGuard';
 const PRIVACY_SCREEN_MODULE = '@capacitor-community/privacy-screen';
+let allowedClipboardActionDepth = 0;
 
 type PrivacyScreenPlugin = {
     PrivacyScreen: {
@@ -32,7 +33,10 @@ export async function syncNativeScreenshotGuard(enabled: boolean): Promise<void>
 /** مستمعات الويب — تُكمّل (لا تستبدل) الحماية الأصلية */
 export function bindWebScreenshotDeterrent(): () => void {
     const blockMenu = (e: Event) => e.preventDefault();
-    const blockClipboard = (e: ClipboardEvent) => e.preventDefault();
+    const blockClipboard = (e: ClipboardEvent) => {
+        if (allowedClipboardActionDepth > 0) return;
+        e.preventDefault();
+    };
 
     document.documentElement.dataset[GUARD_DATASET_KEY] = '1';
     document.addEventListener('contextmenu', blockMenu);
@@ -48,4 +52,14 @@ export function bindWebScreenshotDeterrent(): () => void {
         document.removeEventListener('cut', blockClipboard, true);
         void syncNativeScreenshotGuard(false);
     };
+}
+
+/** يسمح لنسخ/قص برمجي موثوق من داخل التطبيق دون تعطيل الحارس العام بشكل دائم. */
+export async function withAllowedClipboardAction<T>(action: () => Promise<T> | T): Promise<T> {
+    allowedClipboardActionDepth += 1;
+    try {
+        return await action();
+    } finally {
+        allowedClipboardActionDepth = Math.max(0, allowedClipboardActionDepth - 1);
+    }
 }

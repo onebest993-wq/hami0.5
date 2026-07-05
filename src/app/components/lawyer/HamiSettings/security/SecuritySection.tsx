@@ -1,8 +1,7 @@
 import React, { memo } from 'react';
 import { Eye, Fingerprint, Shield, WifiOff } from 'lucide-react';
-import { settingWiringHint } from '@/app/services/settings/settingsCapabilities';
 import { AUTO_LOCK_OPTIONS } from '@/app/services/settings';
-import { SectionHeader, SettingCard, SettingRow, Toggle, SelectRow } from '../settings-ui';
+import { SettingCard, SettingRow, Toggle, SelectRow } from '../settings-ui';
 import { useSecuritySection } from './useSecuritySection';
 
 export const SecuritySection = memo(function SecuritySection() {
@@ -10,7 +9,6 @@ export const SecuritySection = memo(function SecuritySection() {
 
     return (
         <div data-testid="settings-section-security">
-            <SectionHeader title="الأمان والخصوصية" subtitle="حماية بيانات الموكلين والمكتب" icon={Shield} />
 
             {vm.security.localOnlyMode ? (
                 <div
@@ -26,7 +24,6 @@ export const SecuritySection = memo(function SecuritySection() {
                 <SettingRow
                     icon={WifiOff}
                     label="قطع الاتصال"
-                    subLabel={settingWiringHint('security.localOnlyMode')}
                     action={
                         <Toggle
                             testId="settings-toggle-security-localOnlyMode"
@@ -38,7 +35,6 @@ export const SecuritySection = memo(function SecuritySection() {
                 <SettingRow
                     icon={Shield}
                     label="تمويه عند الخروج"
-                    subLabel={settingWiringHint('security.privacyBlur')}
                     action={
                         <Toggle
                             testId="settings-toggle-security-privacyBlur"
@@ -50,14 +46,12 @@ export const SecuritySection = memo(function SecuritySection() {
                 <SettingRow
                     icon={Fingerprint}
                     label="قفل بيومتري"
-                    subLabel={settingWiringHint('security.biometricLock')}
                     action={
                         <Toggle checked={vm.security.biometricLock} onChange={vm.toggleBiometric} />
                     }
                 />
                 <SelectRow
                     label="قفل تلقائي بعد"
-                    hint={settingWiringHint('security.autoLockMinutes')}
                     value={String(vm.security.autoLockMinutes)}
                     options={AUTO_LOCK_OPTIONS.map((o) => ({ value: String(o.value), label: o.label }))}
                     onChange={vm.setAutoLockMinutes}
@@ -65,7 +59,6 @@ export const SecuritySection = memo(function SecuritySection() {
                 <SettingRow
                     icon={Eye}
                     label="حماية لقطة الشاشة"
-                    subLabel={settingWiringHint('security.screenshotDeterrent')}
                     isLast
                     action={
                         <Toggle

@@ -9,7 +9,7 @@ type ProfileBackBarProps = {
 export function ProfileBackBar({ onBack }: ProfileBackBarProps) {
     return (
         <div
-            className="fixed z-50 left-4 pointer-events-none"
+            className="fixed z-[60] left-4 pointer-events-none"
             style={{ top: 'max(0.75rem, calc(env(safe-area-inset-top) + 0.5rem))' }}
         >
             <motion.button

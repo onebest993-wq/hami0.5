@@ -1,10 +1,14 @@
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { lawyerCloudKv, fetchPrefixOnceInTick } from '@/app/services/cloud/lawyerCloudKv';
 import {
+    clearCalendarEventsLocalStorageMirror,
+    mirrorCalendarEventsToLocalStorage,
+} from '@/app/services/calendar/calendarLocalSnapshot';
+import {
     dedupeCalendarGetEvents,
     invalidateCalendarEventsCache,
 } from '@/app/services/calendar/calendarEventsCache';
-import { CALENDAR_UPDATED_EVENT } from '@/app/services/calendarBridge.types';
+import { notifyCalendarUpdated } from '@/app/services/calendar/bridge/core';
 import type { CalendarEvent } from '@/app/services/cloud/lawyerCalendarTypes';
 
 export type { CalendarEventType, CalendarEvent } from '@/app/services/cloud/lawyerCalendarTypes';
@@ -67,10 +71,11 @@ async function loadLocalCalendarEvents(): Promise<CalendarEvent[]> {
 
 type CalendarPersistMode = 'normal' | 'replace';
 
-function notifyCalendarUpdated(): void {
-    if (typeof window === 'undefined') return;
-    window.dispatchEvent(new CustomEvent(CALENDAR_UPDATED_EVENT));
-}
+type SaveLocalOptions = {
+    mode?: CalendarPersistMode;
+    /** لا يُطلق CALENDAR_UPDATED — لمسار القراءة/الدمج فقط */
+    silent?: boolean;
+};
 
 async function persistCalendarEventsToSecureStore(payload: string): Promise<void> {
     try {
@@ -88,23 +93,22 @@ async function persistCalendarEventsToSecureStore(payload: string): Promise<void
 
 async function saveLocalCalendarEvents(
     events: CalendarEvent[],
-    mode: CalendarPersistMode = 'normal',
+    options?: SaveLocalOptions,
 ): Promise<void> {
-    const { mirrorCalendarEventsToLocalStorage, clearCalendarEventsLocalStorageMirror } = await import(
-        '@/app/services/calendar/calendarLocalSnapshot'
-    );
+    const mode = options?.mode ?? 'normal';
+    const silent = options?.silent ?? false;
 
     if (events.length === 0) {
         if (mode !== 'replace') return;
         clearCalendarEventsLocalStorageMirror();
-        notifyCalendarUpdated();
+        if (!silent) notifyCalendarUpdated();
         void SecureStoreService.deleteItem(CALENDAR_LOCAL_KEY).catch(() => undefined);
         return;
     }
 
     const payload = JSON.stringify(events);
     mirrorCalendarEventsToLocalStorage(payload);
-    notifyCalendarUpdated();
+    if (!silent) notifyCalendarUpdated();
     void persistCalendarEventsToSecureStore(payload);
 }
 
@@ -149,7 +153,7 @@ async function fetchCalendarEventsForUser(userId: string): Promise<CalendarEvent
         );
         const others = local.filter((e) => e.userId !== userId);
         const fullLocal = mergeCalendarEvents(others, mergedForUser);
-        await saveLocalCalendarEvents(fullLocal);
+        await saveLocalCalendarEvents(fullLocal, { silent: true });
         return mergedForUser;
     } catch {
         return userLocal.sort(
@@ -170,15 +174,22 @@ export const CalendarDB = {
 
     async saveEvent(event: CalendarEvent): Promise<void> {
         if (!event.userId) throw new Error('userId مطلوب لحفظ الموعد');
-        const local = await loadLocalCalendarEvents();
-        const merged = mergeCalendarEvents(local, [event]);
-        try {
-            await lawyerCloudKv.set(`calendar:${event.userId}:${event.id}`, event);
-        } catch {
-            // Cloud-First
+        const mirrored = readCalendarEventsFromMirrors();
+        let local: CalendarEvent[];
+        if (mirrored !== null) {
+            local = mirrored;
+        } else if (
+            typeof localStorage !== 'undefined' &&
+            localStorage.getItem(CALENDAR_LOCAL_KEY) === null
+        ) {
+            local = [];
+        } else {
+            local = await loadLocalCalendarEvents();
         }
+        const merged = mergeCalendarEvents(local, [event]);
         await saveLocalCalendarEvents(merged);
         invalidateCalendarEventsCache(event.userId);
+        void lawyerCloudKv.set(`calendar:${event.userId}:${event.id}`, event).catch(() => undefined);
     },
 
     async saveEventsBatch(events: CalendarEvent[]): Promise<void> {
@@ -212,7 +223,7 @@ export const CalendarDB = {
         const local = await loadLocalCalendarEvents();
         if (!local.some((e) => e.id === eventId)) return;
         const next = local.filter((e) => e.id !== eventId);
-        await saveLocalCalendarEvents(next, 'replace');
+        await saveLocalCalendarEvents(next, { mode: 'replace' });
         invalidateCalendarEventsCache(userId);
     },
 

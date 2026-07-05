@@ -30,7 +30,7 @@ export const RADAR_MONTH_NAV =
 
 export const RADAR_GLASS_PANEL =
     'hami-radar-glass-panel rounded-3xl border border-[#F5EDE0]/12 bg-[#2d2219]/55 ' +
-    'backdrop-blur-xl backdrop-saturate-150 ' +
+    'backdrop-blur-md backdrop-saturate-125 ' +
     'shadow-[0_8px_32px_rgba(20,16,12,0.42),inset_0_1px_0_rgba(245,237,224,0.07)]';
 
 export const RADAR_CALENDAR_SHELL =
@@ -61,7 +61,7 @@ export const RADAR_BTN_GHOST_ACTIVE =
     'shadow-[0_0_16px_rgba(196,149,106,0.18)]';
 
 export const RADAR_FORM_OVERLAY =
-    'fixed inset-0 z-[99999] bg-[#14100c]/88 backdrop-blur-sm flex items-end sm:items-center justify-center';
+    'fixed inset-0 z-[99999] bg-[#14100c]/84 backdrop-blur-[2px] flex items-end sm:items-center justify-center';
 
 export const RADAR_ICON_GOLD = 'text-[#D4A87A]';
 export const RADAR_ICON_ACCENT = 'text-[#C4956A]';

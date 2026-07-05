@@ -71,21 +71,29 @@ export class TransactionsThreadingService {
     private readonly now: () => string = () => new Date().toISOString(),
   ) {}
 
-  async createTransaction(input: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>): Promise<Transaction> {
+  buildTransaction(input: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>): Transaction {
     const now = this.now();
     const sanitized = sanitizeTransactionCreateFields({
       title: input.title,
       clientName: input.clientName,
       targetDepartment: input.targetDepartment,
     });
-    const tx: Transaction = {
+    return {
       ...input,
       ...sanitized,
       id: this.idFactory(),
       createdAt: now,
       updatedAt: now,
     };
-    await this.repo.saveTransaction(tx);
+  }
+
+  async persistTransaction(transaction: Transaction): Promise<void> {
+    await this.repo.saveTransaction(transaction);
+  }
+
+  async createTransaction(input: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>): Promise<Transaction> {
+    const tx = this.buildTransaction(input);
+    await this.persistTransaction(tx);
     return tx;
   }
 

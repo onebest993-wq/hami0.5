@@ -24,7 +24,6 @@ export const SectionHeader = memo(function SectionHeader({
             </div>
             <div>
                 <h3 className="text-sm font-bold text-white">{title}</h3>
-                {subtitle && <p className="text-[11px] text-white/45 mt-0.5 leading-relaxed">{subtitle}</p>}
             </div>
         </div>
     );
@@ -65,7 +64,6 @@ export const SettingRow = memo(function SettingRow({
                 </div>
                 <div className="min-w-0">
                     <div className="text-sm font-semibold text-white truncate">{label}</div>
-                    {subLabel && <div className="text-[10px] text-white/40 leading-snug mt-0.5">{subLabel}</div>}
                 </div>
             </div>
             <div className="shrink-0">{action}</div>
@@ -202,7 +200,6 @@ export const SliderRow = memo(function SliderRow({
             <span className="text-sm font-semibold text-white">{label}</span>
             <span className="text-xs font-mono text-[#E6C673]">{format(displayed)}</span>
         </div>
-        {hint ? <p className="text-[10px] text-amber-400/80 mb-2 leading-snug">{hint}</p> : null}
         <input
             type="range"
             min={min}
@@ -242,7 +239,6 @@ export const SelectRow = ({
 }) => (
     <div className="p-4 border-b border-white/[0.03] last:border-0">
         <label className="text-sm font-semibold text-white block mb-2">{label}</label>
-        {hint ? <p className="text-[10px] text-amber-400/80 mb-2 leading-snug">{hint}</p> : null}
         <select
             value={value}
             onChange={(e) => onChange(e.target.value)}

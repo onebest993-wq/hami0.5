@@ -1,0 +1,21 @@
+@import './theme.css';
+@import 'tailwindcss' source(none);
+
+/**
+ * Tailwind لأقسام lazy ثقيلة — يُحمَّل مع deferred-features.css بعد جاهزية اللوحة
+ * أو عند intent (تنفيذ/جنائي/مستودع…).
+ */
+@source '../app/components/lawyer/ExecutionDashboard/**';
+@source '../app/components/lawyer/criminal-system/**';
+@source '../app/components/lawyer/smart-modal/**';
+@source '../app/components/lawyer/SmartRepository/**';
+@source '../app/components/lawyer/CommunityScreen/**';
+@source '../app/components/lawyer/dossier-notes/**';
+@source '../app/components/lawyer/execution/**';
+@source '../app/components/AdminDashboard.tsx';
+@source '../app/components/admin/**';
+@source '../app/components/lawyer/FinancialOperationsCenter.tsx';
+@source '../app/components/lawyer/Modal_Unified_Summons_Hub.tsx';
+@source '../app/components/lawyer/Form_Urgent_Actions.tsx';
+
+@plugin 'tailwindcss-animate';

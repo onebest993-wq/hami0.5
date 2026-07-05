@@ -42,9 +42,9 @@ describe('useRepositoryLifecycle', () => {
         expect(result.current.isShellReady).toBe(true);
     });
 
-    it('feedLoading=true بدون ملاحظات ولا vault ولا كاش — لكن shell جاهز', () => {
+    it('feedLoading=false دائماً — القائمة لا تُحجب بانتظار vault', () => {
         const { result } = renderHook(() => useRepositoryLifecycle('u1', true, 0, 0));
-        expect(result.current.feedLoading).toBe(true);
+        expect(result.current.feedLoading).toBe(false);
         expect(result.current.isShellReady).toBe(true);
     });
 

@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
+    applyTransactionsEscapeAction,
     resolveTransactionsEscapeAction,
     type TransactionsEscapeSnapshot,
 } from '@/app/components/lawyer/TransactionsThreading/transactionsEscapeStack';
@@ -63,5 +64,35 @@ describe('resolveTransactionsEscapeAction', () => {
 
     it('يخرج من مركز المعاملات من القائمة', () => {
         expect(resolveTransactionsEscapeAction(listBase)).toBe('exit-hub');
+    });
+});
+
+describe('applyTransactionsEscapeAction', () => {
+    it('يغلق ورقة الإضافة قبل الخروج', () => {
+        const onCloseListAddSheet = vi.fn();
+        const onBack = vi.fn();
+
+        applyTransactionsEscapeAction('close-add-transaction', {
+            onBack,
+            onCloseListAddSheet,
+            onBackToList: vi.fn(),
+            onCloseDetailsOverlay: vi.fn(),
+        });
+
+        expect(onCloseListAddSheet).toHaveBeenCalledTimes(1);
+        expect(onBack).not.toHaveBeenCalled();
+    });
+
+    it('يخرج من المركز عند exit-hub', () => {
+        const onBack = vi.fn();
+
+        applyTransactionsEscapeAction(resolveTransactionsEscapeAction(listBase), {
+            onBack,
+            onCloseListAddSheet: vi.fn(),
+            onBackToList: vi.fn(),
+            onCloseDetailsOverlay: vi.fn(),
+        });
+
+        expect(onBack).toHaveBeenCalledTimes(1);
     });
 });

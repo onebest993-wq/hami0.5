@@ -1,14 +1,12 @@
-import React, { Suspense, lazy } from 'react';
+import React from 'react';
 import { ChevronDown, Image as ImageIcon, Trash2, Type } from 'lucide-react';
 import type { ProfileCustomBlock } from '@/app/services/profile/profilePageCustomization';
 import type { ContainerKindTab } from '../../hooks/useProfileSettingsSheetState';
-
-const LazyTextBlockStudioEditor = lazy(() =>
-    import('../TextBlockStudioEditor').then((m) => ({ default: m.TextBlockStudioEditor })),
-);
-const LazyImageBlockStudioEditor = lazy(() =>
-    import('../ImageBlockStudioEditor').then((m) => ({ default: m.ImageBlockStudioEditor })),
-);
+import {
+    getCachedImageBlockStudioEditor,
+    getCachedTextBlockStudioEditor,
+} from '@/app/runtime/profileSettingsStudioTabsLoader';
+import { ProfileSettingsTabSkeleton } from './ProfileSettingsTabSkeleton';
 
 type ProfileSettingsContainersTabProps = {
     containerKind: ContainerKindTab;
@@ -41,6 +39,9 @@ export function ProfileSettingsContainersTab({
     onPickBlockImage,
     onUploadCanvasBg,
 }: ProfileSettingsContainersTabProps) {
+    const TextBlockStudioEditor = getCachedTextBlockStudioEditor();
+    const ImageBlockStudioEditor = getCachedImageBlockStudioEditor();
+
     const renderContainerBlock = (block: ProfileCustomBlock, blockIndex: number, isText: boolean) => {
         const isOpen = expandedBlockId === block.id;
         const previewText = isText
@@ -94,23 +95,25 @@ export function ProfileSettingsContainersTab({
                 {isOpen ? (
                     <div className="profile-settings-block-body" data-testid={`profile-block-body-${block.id}`}>
                         {isText ? (
-                            <Suspense fallback={null}>
-                                <LazyTextBlockStudioEditor
+                            TextBlockStudioEditor ? (
+                                <TextBlockStudioEditor
                                     block={block}
                                     onChange={(patch) => onUpdateBlock(block.id, patch)}
                                     uploadingCanvasBg={uploadingCanvasBlockId === block.id}
                                     onUploadCanvasBg={() => onUploadCanvasBg(block.id)}
                                 />
-                            </Suspense>
+                            ) : (
+                                <ProfileSettingsTabSkeleton />
+                            )
+                        ) : ImageBlockStudioEditor ? (
+                            <ImageBlockStudioEditor
+                                block={block}
+                                uploading={uploadingBlockId === block.id}
+                                onChange={(patch) => onUpdateBlock(block.id, patch)}
+                                onPickImage={() => onPickBlockImage(block.id)}
+                            />
                         ) : (
-                            <Suspense fallback={null}>
-                                <LazyImageBlockStudioEditor
-                                    block={block}
-                                    uploading={uploadingBlockId === block.id}
-                                    onChange={(patch) => onUpdateBlock(block.id, patch)}
-                                    onPickImage={() => onPickBlockImage(block.id)}
-                                />
-                            </Suspense>
+                            <ProfileSettingsTabSkeleton />
                         )}
                     </div>
                 ) : null}

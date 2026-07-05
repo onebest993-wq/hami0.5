@@ -18,10 +18,9 @@ describe('AccountSection', () => {
         vi.stubGlobal('open', vi.fn(() => null));
     });
 
-    it('يعرض عنوان الحساب وخيارات الدعم', () => {
+    it('يعرض خيارات الدعم', () => {
         render(<AccountSection onClose={vi.fn()} />);
-        expect(screen.getByText('الحساب')).toBeInTheDocument();
-        expect(screen.getByText('الملف والدعم')).toBeInTheDocument();
+        expect(screen.getByTestId('settings-section-account')).toBeInTheDocument();
         expect(screen.getByText('واتساب')).toBeInTheDocument();
     });
 

@@ -131,9 +131,9 @@ export const CaseConsolidationModal = ({
                 : 'غير موجودة في المخزن';
 
     return (
-        <MoroccanGlassShell onOverlayClick={onClose} maxWidth="max-w-xl">
+        <MoroccanGlassShell onOverlayClick={onClose} maxWidth="max-w-3xl">
             <SmartModalHeader icon={Layers} title="توحيد الدعاوى" onClose={onClose} />
-            <div className={T.body}>
+            <div className={`${T.body} md:min-h-[31rem] md:space-y-6`}>
                 <div className={cardSecondary}>
                     <p className="text-[10px] text-white/50 mb-0.5">الدعوى الثانية</p>
                     <p
@@ -150,7 +150,7 @@ export const CaseConsolidationModal = ({
 
                 {step === 'choose' ? (
                     <>
-                        <div className="grid grid-cols-1 gap-2">
+                        <div className="grid grid-cols-1 gap-3">
                             <button type="button" onClick={() => setStep('existing')} className={optionBtn}>
                                 إضبارة موجودة في المخزن ({candidates.length})
                             </button>
@@ -182,7 +182,7 @@ export const CaseConsolidationModal = ({
                             placeholder="بحث برقم الدعوى، المحكمة، أو اسم الموكل..."
                             className={T.field}
                         />
-                        <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                        <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                             {candidates.length === 0 ? (
                                 <p className="text-xs text-white/50 py-4 text-center">لا توجد إضابير أخرى في المخزن للتوحيد</p>
                             ) : filteredCandidates.length === 0 ? (
@@ -195,7 +195,7 @@ export const CaseConsolidationModal = ({
                                             key={candidate.id}
                                             type="button"
                                             onClick={() => setSelectedId(candidate.id)}
-                                            className={`w-full text-right rounded-xl border px-3 py-2.5 transition-colors ${
+                                            className={`w-full text-right rounded-xl border px-4 py-3.5 transition-colors ${
                                                 active ? listItemActive : listItemIdle
                                             }`}
                                         >
@@ -270,7 +270,7 @@ export const CaseConsolidationModal = ({
                         </div>
                         <div>
                             <label className={T.label}>سبب التوحيد (اختياري)</label>
-                            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} className={`${T.field} min-h-[70px]`} />
+                            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} className={`${T.field} min-h-[120px] resize-none`} />
                         </div>
                         {step === 'existing' ? (
                             <button

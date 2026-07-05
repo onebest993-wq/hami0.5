@@ -37,8 +37,9 @@ export type QuestionCardHeaderProps = {
     onFollow: (targetUserId: string) => void;
     onOpenProfile?: (userId: string, displayName?: string) => void;
     onToggleLock?: (postId: string) => void;
-    onSaveToNotes?: (postId: string) => void;
+    onCopyPostText?: (postId: string) => void;
     onSaveToVault?: (postId: string) => void;
+    onSaveToDevice?: (postId: string) => void;
     onToggleBookmark?: (postId: string) => void;
     onToggleThreadFollow?: (postId: string) => void;
     onMuteUser?: (userId: string) => void;
@@ -73,8 +74,9 @@ export function QuestionCardHeader({
     onFollow,
     onOpenProfile,
     onToggleLock,
-    onSaveToNotes,
+    onCopyPostText,
     onSaveToVault,
+    onSaveToDevice,
     onToggleBookmark,
     onToggleThreadFollow,
     onMuteUser,
@@ -83,6 +85,8 @@ export function QuestionCardHeader({
     onDelete,
     onReport,
 }: QuestionCardHeaderProps) {
+    const authorId = post.authorId || post.author_id || '';
+
     return (
         <div className="flex items-center gap-2 mb-3">
             <div className={`p-1.5 rounded-full ${isAnonymous ? `${FORUM_ACCENT_CHIP}` : 'bg-[#342C3E] text-[#9A9098]'}`}>
@@ -92,10 +96,11 @@ export function QuestionCardHeader({
                 <button
                     type="button"
                     data-testid={isAnonymous ? undefined : 'forum-open-author-profile'}
-                    onClick={() => {
+                    onClick={(event) => {
+                        event.stopPropagation();
                         if (isAnonymous) return;
                         if (onOpenProfile) {
-                            onOpenProfile(post.authorId, post.authorName);
+                            onOpenProfile(authorId, post.authorName);
                             return;
                         }
                         setShowUserPopup(!showUserPopup);
@@ -130,8 +135,9 @@ export function QuestionCardHeader({
                             {canFollow && (
                                 <button
                                     type="button"
-                                    onClick={() => {
-                                        onFollow(post.authorId);
+                                    onClick={(event) => {
+                                        event.stopPropagation();
+                                        onFollow(authorId);
                                         setShowUserPopup(false);
                                     }}
                                     className={`w-full text-xs flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg transition-colors mb-2 ${
@@ -148,8 +154,9 @@ export function QuestionCardHeader({
                             {onOpenProfile ? (
                                 <button
                                     type="button"
-                                    onClick={() => {
-                                        onOpenProfile(post.authorId, post.authorName);
+                                    onClick={(event) => {
+                                        event.stopPropagation();
+                                        onOpenProfile(authorId, post.authorName);
                                         setShowUserPopup(false);
                                     }}
                                     className="w-full text-xs font-bold py-2 rounded-lg bg-white/[0.06] border border-white/10 text-white/80 hover:bg-white/10"
@@ -164,7 +171,10 @@ export function QuestionCardHeader({
             {canFollow && (
                 <button
                     type="button"
-                    onClick={() => onFollow(post.authorId)}
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        onFollow(authorId);
+                    }}
                     className={`text-xs flex items-center gap-1 px-2 py-0.5 rounded-full transition-colors ${
                         isFollowing
                             ? 'text-emerald-400 bg-emerald-950/30 border border-emerald-500/20 hover:bg-emerald-950/50'
@@ -227,8 +237,9 @@ export function QuestionCardHeader({
                 isThreadFollowing={isThreadFollowing}
                 canLockUnlock={canLockUnlock}
                 onToggleLock={onToggleLock}
-                onSaveToNotes={onSaveToNotes}
+                onCopyPostText={onCopyPostText}
                 onSaveToVault={onSaveToVault}
+                onSaveToDevice={onSaveToDevice}
                 onToggleBookmark={onToggleBookmark}
                 onToggleThreadFollow={onToggleThreadFollow}
                 onMuteUser={onMuteUser}

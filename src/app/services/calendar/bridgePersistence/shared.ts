@@ -9,7 +9,8 @@ import {
     serializeQuantumTasks,
 } from '@/app/utils/quantumTasksStorage';
 import { UrgentActionsDB } from '@/app/services/urgent-actions-db';
-import { TransactionDB, TransactionsThreadingDB, type CalendarEvent } from '@/app/services/lawyer-cloud';
+import type { CalendarEvent } from '@/app/services/calendar/calendarTypes';
+import { TransactionDB, TransactionsThreadingDB } from '@/app/services/cloud/lawyerTransactionsCloud';
 import { patchCriminalCaseRecord } from '@/app/utils/criminalCasesStorage';
 import { debug } from '@/app/utils/debug';
 import { normalizeDateToYmd, resolveCalendarUserId } from '@/app/services/calendar/bridge/core';
@@ -508,4 +509,3 @@ export async function patchUrgentHearing(
         return false;
     }
 }
-

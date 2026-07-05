@@ -60,10 +60,10 @@ export const CaseLinkModal = ({
     };
 
     return (
-        <MoroccanGlassShell onOverlayClick={onClose} maxWidth="max-w-xl">
+        <MoroccanGlassShell onOverlayClick={onClose} maxWidth="max-w-3xl">
             <SmartModalHeader icon={Link} title="ربط الدعوى" onClose={onClose} />
-            <div className={T.body}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className={`${T.body} md:min-h-[30rem] md:space-y-6`}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className={cardPrimary}>
                         <p className="text-[10px] text-white/50 mb-0.5">الدعوى الحالية</p>
                         <p className={`text-sm font-bold ${highlight}`}>{currentCaseNo || `#${currentFileId}`}</p>
@@ -85,7 +85,7 @@ export const CaseLinkModal = ({
                         <p className="text-xs text-white/60 leading-relaxed">
                             الربط لا يوحّد الدعاوى — يتيح التنقل بينهما فقط عند وجود الإضبارة بالمخزن.
                         </p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <button type="button" onClick={() => setStep('existing')} className={optionBtn}>
                                 إضبارة موجودة
                             </button>
@@ -106,7 +106,7 @@ export const CaseLinkModal = ({
                         >
                             ← رجوع
                         </button>
-                        <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                        <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                             {candidates.length === 0 ? (
                                 <p className="text-xs text-white/50 py-4 text-center">لا توجد إضابير متاحة</p>
                             ) : (
@@ -117,7 +117,7 @@ export const CaseLinkModal = ({
                                             key={candidate.id}
                                             type="button"
                                             onClick={() => setSelectedId(candidate.id)}
-                                            className={`w-full text-right rounded-xl border px-3 py-2.5 transition-colors ${
+                                            className={`w-full text-right rounded-xl border px-4 py-3.5 transition-colors ${
                                                 active ? listItemActive : listItemIdle
                                             }`}
                                         >
@@ -159,7 +159,7 @@ export const CaseLinkModal = ({
                         </div>
                         <div>
                             <label className={T.label}>سبب الربط (اختياري)</label>
-                            <textarea value={reason} onChange={(e) => setReason(e.target.value)} className={`${T.field} min-h-[60px]`} />
+                            <textarea value={reason} onChange={(e) => setReason(e.target.value)} className={`${T.field} min-h-[110px] resize-none`} />
                         </div>
                         <button
                             type="button"

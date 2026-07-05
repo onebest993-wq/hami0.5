@@ -2,6 +2,7 @@ import React from 'react';
 import { Briefcase, Coins, Check } from 'lucide-react';
 import { formatNumberInput } from '@/app/components/lawyer/FinancialOperationsCenter/utils';
 import { NC_FIELD, NC_LABEL, NC_SECTION, NC_SECTION_TITLE, ncFieldClass } from '../newCaseGlassTheme';
+import { CaseFieldSelect } from './CaseFieldSelect';
 import {
     getUnderlyingStageFieldLabel,
     getUnderlyingStageOptions,
@@ -46,9 +47,9 @@ export interface CaseBasicsFormProps {
     exceptionWarning: string | null;
     courtRef: React.RefObject<HTMLInputElement | null>;
     typeRef: React.RefObject<HTMLInputElement | null>;
-    stageRef: React.RefObject<HTMLSelectElement | null>;
+    stageRef: React.RefObject<HTMLButtonElement | null>;
     numberRef: React.RefObject<HTMLInputElement | null>;
-    retrialTargetRef?: React.RefObject<HTMLSelectElement | null>;
+    retrialTargetRef?: React.RefObject<HTMLButtonElement | null>;
 }
 
 export const CaseBasicsForm = ({
@@ -135,17 +136,15 @@ export const CaseBasicsForm = ({
 
                     <div>
                         <label className={NC_LABEL}>المرحلة الحالية</label>
-                        <select
+                        <CaseFieldSelect
                             ref={stageRef}
                             value={caseDetails.stage}
-                            onChange={(e) => setCaseDetails({ ...caseDetails, stage: e.target.value })}
-                            className={`${ncFieldClass(Boolean(errorMap['stage']))} appearance-none`}
-                        >
-                            <option value="" disabled>اختر المرحلة...</option>
-                            {stageOptions.map(opt => (
-                                <option key={opt} value={opt} className="bg-[#1A1E2E]">{opt}</option>
-                            ))}
-                        </select>
+                            onChange={(stage) => setCaseDetails({ ...caseDetails, stage })}
+                            options={stageOptions}
+                            placeholder="اختر المرحلة..."
+                            hasError={Boolean(errorMap['stage'])}
+                            aria-label="المرحلة الحالية"
+                        />
                         {errorMap['stage'] && <p className="text-yellow-600/90 text-[10px] mt-1 font-medium">{errorMap['stage']}</p>}
                     </div>
                 </div>
@@ -166,19 +165,17 @@ export const CaseBasicsForm = ({
                                 <label className="text-[10px] text-[#E6C673] font-bold mb-1.5 block">
                                     {getUnderlyingStageFieldLabel(caseDetails.stage)}
                                 </label>
-                                <select
+                                <CaseFieldSelect
                                     ref={retrialTargetRef}
                                     value={caseDetails.retrialTargetStage ?? ''}
-                                    onChange={(e) =>
-                                        setCaseDetails({ ...caseDetails, retrialTargetStage: e.target.value })
+                                    onChange={(retrialTargetStage) =>
+                                        setCaseDetails({ ...caseDetails, retrialTargetStage })
                                     }
-                                    className={`${ncFieldClass(Boolean(errorMap['retrialTargetStage']))} appearance-none`}
-                                >
-                                    <option value="" disabled>اختر المرحلة...</option>
-                                    {underlyingStageOptions.map((opt) => (
-                                        <option key={opt} value={opt} className="bg-[#1A1E2E]">{opt}</option>
-                                    ))}
-                                </select>
+                                    options={underlyingStageOptions}
+                                    placeholder="اختر المرحلة..."
+                                    hasError={Boolean(errorMap['retrialTargetStage'])}
+                                    aria-label={getUnderlyingStageFieldLabel(caseDetails.stage)}
+                                />
                                 {errorMap['retrialTargetStage'] && (
                                     <p className="text-yellow-600/90 text-[10px] mt-1 font-medium">
                                         {errorMap['retrialTargetStage']}

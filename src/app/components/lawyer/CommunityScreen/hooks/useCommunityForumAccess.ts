@@ -25,7 +25,7 @@ export function useCommunityForumAccess({
         (authUser != null && hasRole('lawyer')) ||
         (persistedUser != null && userHasRole(persistedUser, 'lawyer'));
 
-    const currentUserId = authUser?.id ?? fallbackUserId ?? persistedUser?.id ?? null;
+    const currentUserId = authUser?.id ?? persistedUser?.id ?? fallbackUserId ?? null;
 
     const showLoadingShell =
         authIsLoading &&

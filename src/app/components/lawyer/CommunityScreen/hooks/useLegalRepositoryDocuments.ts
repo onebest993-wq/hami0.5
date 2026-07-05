@@ -1,22 +1,50 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useAuthSafe } from '@/app/context/AuthContext';
 import {
     RepositoryDB,
     LawyerStorage,
+    listRepositoryDocumentsSync,
     uuidv4,
     type RepositoryDocument,
 } from '@/app/services/lawyer-cloud';
 import { notifyFollowers } from '@/app/services/cloud/lawyerCommunityCloud';
-import { repositorySortLabel, type RepositorySortKey } from '../repositoryListFilters';
+import {
+    repositoryHasActiveListFilters,
+    repositorySortLabel,
+    type RepositorySortKey,
+} from '../repositoryListFilters';
 import { repositoryDocMatchesTag, repositoryDocMatchesSearch, resolveRepositoryDocTags } from '../repositoryTagUtils';
-import { cacheRepositoryFileLocally, resolveRepositoryStorageUrl } from '../repositoryStorageService';
+import {
+    downloadRepositoryFile,
+    releaseRepositoryBlobUrl,
+    reserveRepositoryFileLocally,
+    resolveRepositoryStorageUrl,
+} from '../repositoryStorageService';
 import { inferRepositoryMimeType, getRepositoryMediaKind } from '../components/repositoryMedia';
 import {
     sanitizeRepositoryUploadDescription,
     sanitizeRepositoryUploadTitle,
     validateRepositoryUploadFile,
 } from '../repositoryUploadValidation';
+import { withForumAsyncTimeout } from '../forumAsync';
+import { peekRepositoryDocsCache, readRepositoryDocsCache, setRepositoryDocsCache } from '@/app/services/forum/repositoryDocsWarmCache';
+
+const REPOSITORY_CACHE_HYDRATE_TIMEOUT_MS = 2_000;
+const REPOSITORY_FETCH_TIMEOUT_MS = 6_000;
+
+function resolveInitialRepositoryDocuments(): RepositoryDocument[] {
+    const cached = peekRepositoryDocsCache();
+    if (cached && cached.length > 0) {
+        return normalizeRepositoryRows(cached);
+    }
+    const local = listRepositoryDocumentsSync();
+    if (local.length > 0) {
+        return normalizeRepositoryRows(local);
+    }
+    return [];
+}
 
 export type LegalRepositoryFilters = {
     searchTerm?: string;
@@ -33,6 +61,13 @@ export type RepositoryUploadPayload = {
     tags: string[];
 };
 
+function normalizeRepositoryRows(docs: RepositoryDocument[]): RepositoryDocument[] {
+    return docs.map((doc) => ({
+        ...doc,
+        tags: resolveRepositoryDocTags(doc.title, doc.description, doc.tags),
+    }));
+}
+
 export function useLegalRepositoryDocuments({
     searchTerm = '',
     selectedType = 'الكل',
@@ -42,9 +77,10 @@ export function useLegalRepositoryDocuments({
     const { user, hasRole } = useAuthSafe();
     const userId = user?.id ?? null;
 
-    const [documents, setDocuments] = useState<RepositoryDocument[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [documents, setDocuments] = useState<RepositoryDocument[]>(resolveInitialRepositoryDocuments);
+    const [syncing, setSyncing] = useState(false);
     const [downloadingId, setDownloadingId] = useState<string | null>(null);
+    const [openingId, setOpeningId] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [editingDoc, setEditingDoc] = useState<RepositoryDocument | null>(null);
@@ -52,36 +88,91 @@ export function useLegalRepositoryDocuments({
     const [previewDoc, setPreviewDoc] = useState<RepositoryDocument | null>(null);
     const [previewSignedUrl, setPreviewSignedUrl] = useState<string | null>(null);
     const [previewLoading, setPreviewLoading] = useState(false);
+    const [previewMode, setPreviewMode] = useState<'peek' | 'open'>('peek');
     const [deleteTarget, setDeleteTarget] = useState<RepositoryDocument | null>(null);
+    const actionInflightRef = useRef(new Set<string>());
+    const documentsRef = useRef<RepositoryDocument[]>([]);
+    documentsRef.current = documents;
 
     const canUpload = Boolean(user && hasRole('lawyer'));
     const authorName = user?.user_metadata?.fullName || user?.email || 'محامي';
+
+    const hasActiveFilters =
+        repositoryHasActiveListFilters(selectedType, sortBy, selectedTag) ||
+        searchTerm.trim().length > 0;
 
     const isOwner = useCallback(
         (doc: RepositoryDocument) => userId !== null && doc.authorId === userId,
         [userId],
     );
 
-    const fetchDocuments = useCallback(async () => {
-        setLoading(true);
-        try {
-            const docs = await RepositoryDB.listDocuments();
-            setDocuments(
-                docs.map((doc) => ({
-                    ...doc,
-                    tags: resolveRepositoryDocTags(doc.title, doc.description, doc.tags),
-                })),
-            );
-        } catch {
-            SmartToast.error('فشل تحميل المستندات');
-        } finally {
-            setLoading(false);
-        }
+    const applyDocuments = useCallback((docs: RepositoryDocument[]) => {
+        const normalized = normalizeRepositoryRows(docs);
+        setDocuments(normalized);
+        setRepositoryDocsCache(normalized);
     }, []);
 
     useEffect(() => {
-        void fetchDocuments();
-    }, [fetchDocuments]);
+        let cancelled = false;
+
+        const runBootstrap = async () => {
+            let hydratedCount = documentsRef.current.length;
+
+            const cached = peekRepositoryDocsCache();
+            if (cached && cached.length > 0) {
+                applyDocuments(cached);
+                hydratedCount = Math.max(hydratedCount, cached.length);
+            }
+
+            const localSync = listRepositoryDocumentsSync();
+            if (localSync.length > 0) {
+                applyDocuments(localSync);
+                hydratedCount = Math.max(hydratedCount, localSync.length);
+            }
+
+            const warmed = await withForumAsyncTimeout(
+                readRepositoryDocsCache(),
+                REPOSITORY_CACHE_HYDRATE_TIMEOUT_MS,
+                [],
+            );
+            if (!cancelled && warmed.length > 0) {
+                applyDocuments(warmed);
+                hydratedCount = Math.max(hydratedCount, warmed.length);
+            }
+
+            if (cancelled) return;
+
+            if (hydratedCount === 0) {
+                setSyncing(true);
+            }
+
+            try {
+                const docs = await withForumAsyncTimeout(
+                    RepositoryDB.listDocuments(),
+                    REPOSITORY_FETCH_TIMEOUT_MS,
+                    documentsRef.current,
+                );
+                if (!cancelled) {
+                    applyDocuments(docs);
+                }
+            } catch {
+                if (!cancelled && documentsRef.current.length === 0) {
+                    SmartToast.error('فشل تحميل المستندات');
+                }
+            } finally {
+                if (!cancelled) {
+                    setSyncing(false);
+                }
+            }
+        };
+
+        void runBootstrap();
+        return () => {
+            cancelled = true;
+            setSyncing(false);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- bootstrap once on mount
+    }, [applyDocuments]);
 
     const filteredDocuments = useMemo(() => {
         const filtered = documents.filter((doc) => {
@@ -105,30 +196,81 @@ export function useLegalRepositoryDocuments({
     }, [searchTerm, selectedType, selectedTag, documents, sortBy]);
 
     const handleDownload = useCallback(async (doc: RepositoryDocument) => {
+        if (actionInflightRef.current.has(`dl:${doc.id}`)) return;
+        actionInflightRef.current.add(`dl:${doc.id}`);
         setDownloadingId(doc.id);
         try {
             if (!doc.storagePath) {
                 SmartToast.warning('الملف غير متاح للتحميل');
                 return;
             }
-            const url = await resolveRepositoryStorageUrl(doc.storagePath);
-            if (url) {
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = doc.fileName;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                SmartToast.success(`جاري تحميل "${doc.title}"`);
-            } else {
-                SmartToast.warning('رابط التحميل غير متاح');
+            const url = await withForumAsyncTimeout(
+                resolveRepositoryStorageUrl(doc.storagePath),
+                8_000,
+                null,
+            );
+            if (!url) {
+                SmartToast.warning('رابط التحميل غير متاح — جرّب بعد لحظات');
+                return;
             }
+            await downloadRepositoryFile(url, doc.fileName || doc.title);
+            SmartToast.success(`تم تحميل "${doc.title}"`);
         } catch {
             SmartToast.error('فشل تحميل المستند');
         } finally {
+            actionInflightRef.current.delete(`dl:${doc.id}`);
             setDownloadingId(null);
         }
     }, []);
+
+    const openPreviewWithMode = useCallback(
+        async (doc: RepositoryDocument, mode: 'peek' | 'open') => {
+            const inflightKey = `${mode}:${doc.id}`;
+            if (actionInflightRef.current.has(inflightKey)) return;
+
+            actionInflightRef.current.add(inflightKey);
+            if (mode === 'open') {
+                setOpeningId(doc.id);
+            }
+
+            setPreviewDoc(doc);
+            setPreviewMode(mode);
+
+            if (!doc.storagePath) {
+                setPreviewSignedUrl(null);
+                setPreviewLoading(false);
+                actionInflightRef.current.delete(inflightKey);
+                if (mode === 'open') setOpeningId(null);
+                SmartToast.warning(mode === 'open' ? 'الملف غير متاح للفتح' : 'الملف غير متاح للاطلاع');
+                return;
+            }
+
+            setPreviewLoading(true);
+            try {
+                const url = await withForumAsyncTimeout(
+                    resolveRepositoryStorageUrl(doc.storagePath),
+                    mode === 'open' ? 8_000 : 5_000,
+                    null,
+                );
+                setPreviewSignedUrl(url);
+                if (!url) {
+                    SmartToast.warning(mode === 'open' ? 'تعذر فتح الملف حالياً' : 'تعذر تحميل المعاينة');
+                }
+            } catch {
+                setPreviewSignedUrl(null);
+                SmartToast.error(mode === 'open' ? 'فشل فتح الملف' : 'فشل تحميل المعاينة');
+            } finally {
+                setPreviewLoading(false);
+                actionInflightRef.current.delete(inflightKey);
+                if (mode === 'open') setOpeningId(null);
+            }
+        },
+        [],
+    );
+
+    const handleOpenDocument = useCallback(async (doc: RepositoryDocument) => {
+        await openPreviewWithMode(doc, 'open');
+    }, [openPreviewWithMode]);
 
     const handleDeleteRequest = useCallback(
         (doc: RepositoryDocument) => {
@@ -148,18 +290,21 @@ export function useLegalRepositoryDocuments({
             setDeleteTarget(null);
             return;
         }
-        setDeletingId(deleteTarget.id);
+        const target = deleteTarget;
+        const snapshot = documents;
+        setDeleteTarget(null);
+        setDocuments((prev) => prev.filter((d) => d.id !== target.id));
+        setDeletingId(target.id);
+        SmartToast.success(`تم حذف "${target.title}"`);
         try {
-            await RepositoryDB.deleteDocument(deleteTarget.id);
-            setDocuments((prev) => prev.filter((d) => d.id !== deleteTarget.id));
-            SmartToast.success(`تم حذف "${deleteTarget.title}"`);
-            setDeleteTarget(null);
+            await RepositoryDB.deleteDocument(target.id);
         } catch {
+            setDocuments(snapshot);
             SmartToast.error('فشل حذف المستند');
         } finally {
             setDeletingId(null);
         }
-    }, [deleteTarget, isOwner]);
+    }, [deleteTarget, documents, isOwner]);
 
     const handleEditDocument = useCallback(
         (doc: RepositoryDocument) => {
@@ -167,8 +312,10 @@ export function useLegalRepositoryDocuments({
                 SmartToast.warning('غير مصرح لك بتعديل هذا المستند');
                 return;
             }
-            setEditingDoc(doc);
-            setIsUploadModalOpen(true);
+            flushSync(() => {
+                setEditingDoc(doc);
+                setIsUploadModalOpen(true);
+            });
         },
         [isOwner],
     );
@@ -178,36 +325,58 @@ export function useLegalRepositoryDocuments({
     }, []);
 
     const handlePreview = useCallback(async (doc: RepositoryDocument) => {
-        setPreviewDoc(doc);
-        if (!doc.storagePath) {
-            setPreviewSignedUrl(null);
-            return;
-        }
-        setPreviewLoading(true);
-        try {
-            const url = await resolveRepositoryStorageUrl(doc.storagePath);
-            setPreviewSignedUrl(url);
-        } catch {
-            setPreviewSignedUrl(null);
-        } finally {
-            setPreviewLoading(false);
-        }
-    }, []);
+        await openPreviewWithMode(doc, 'peek');
+    }, [openPreviewWithMode]);
 
     const closePreview = useCallback(() => {
         setPreviewDoc(null);
         setPreviewSignedUrl(null);
+        setPreviewMode('peek');
     }, []);
 
     const openUploadModal = useCallback(() => {
-        setEditingDoc(null);
-        setIsUploadModalOpen(true);
+        flushSync(() => {
+            setEditingDoc(null);
+            setIsUploadModalOpen(true);
+        });
     }, []);
 
-    const closeUploadModal = useCallback(() => {
+    const closeUploadModal = useCallback((options?: { force?: boolean }) => {
+        if (!options?.force && isSubmitting) return;
         setIsUploadModalOpen(false);
         setEditingDoc(null);
-    }, []);
+    }, [isSubmitting]);
+
+    const syncRepositoryDocToCloud = useCallback(
+        async (savedDoc: RepositoryDocument, file: File, ownerId: string) => {
+            const localPath = savedDoc.storagePath;
+            try {
+                const uploadResult = await LawyerStorage.uploadSmartFile(ownerId, file, 'repository');
+                if (!uploadResult?.path) return;
+                const signedUrl = await withForumAsyncTimeout(
+                    LawyerStorage.getSignedUrl(uploadResult.path),
+                    6_000,
+                    null,
+                );
+                if (!signedUrl) return;
+                const cloudDoc: RepositoryDocument = {
+                    ...savedDoc,
+                    storagePath: uploadResult.path,
+                    fileName: file.name,
+                    mimeType: inferRepositoryMimeType(file),
+                    fileSize: file.size,
+                };
+                await RepositoryDB.saveDocument(cloudDoc);
+                setDocuments((prev) => prev.map((d) => (d.id === cloudDoc.id ? cloudDoc : d)));
+                if (localPath?.startsWith('idb:forum:')) {
+                    releaseRepositoryBlobUrl(localPath);
+                }
+            } catch {
+                /* النسخة المحلية تبقى متاحة */
+            }
+        },
+        [],
+    );
 
     const handleUploadSubmit = useCallback(
         async (data: RepositoryUploadPayload) => {
@@ -246,20 +415,19 @@ export function useLegalRepositoryDocuments({
                 let fileName = editingDoc?.fileName ?? '';
                 let mimeType = editingDoc?.mimeType ?? '';
                 let fileSize = editingDoc?.fileSize ?? 0;
+                const uploadFile = data.file;
 
-                if (data.file) {
+                if (uploadFile) {
+                    const reserved = reserveRepositoryFileLocally(uploadFile);
+                    storagePath = reserved.storagePath;
+                    fileName = reserved.fileName;
+                    mimeType = reserved.mimeType;
+                    fileSize = reserved.fileSize;
                     try {
-                        const uploadResult = await LawyerStorage.uploadSmartFile(user.id, data.file, 'repository');
-                        storagePath = uploadResult.path;
-                        fileName = data.file.name;
-                        mimeType = inferRepositoryMimeType(data.file);
-                        fileSize = data.file.size;
+                        await reserved.persist();
                     } catch {
-                        const cached = await cacheRepositoryFileLocally(data.file);
-                        storagePath = cached.storagePath;
-                        fileName = cached.fileName;
-                        mimeType = cached.mimeType;
-                        fileSize = cached.fileSize;
+                        SmartToast.error('تعذّر حفظ نسخة الملف محلياً');
+                        throw new Error('persist-failed');
                     }
                 }
 
@@ -295,15 +463,36 @@ export function useLegalRepositoryDocuments({
                           fileSize,
                       };
 
-                await RepositoryDB.saveDocument(savedDoc);
-
+                const snapshot = documentsRef.current;
                 if (editingDoc) {
                     setDocuments((prev) => prev.map((d) => (d.id === savedDoc.id ? savedDoc : d)));
+                    setRepositoryDocsCache(
+                        snapshot.map((d) => (d.id === savedDoc.id ? savedDoc : d)),
+                    );
+                } else {
+                    const nextDocs = [savedDoc, ...snapshot];
+                    setDocuments(nextDocs);
+                    setRepositoryDocsCache(nextDocs);
+                }
+
+                try {
+                    await RepositoryDB.saveDocument(savedDoc);
+                } catch {
+                    setDocuments(snapshot);
+                    setRepositoryDocsCache(snapshot);
+                    SmartToast.error('فشل حفظ المستند محلياً');
+                    throw new Error('save-failed');
+                }
+
+                flushSync(() => {
+                    closeUploadModal({ force: true });
+                });
+
+                if (editingDoc) {
                     SmartToast.success('تم تحديث المستند');
                 } else {
-                    setDocuments((prev) => [savedDoc, ...prev]);
                     SmartToast.success('تم رفع المستند بنجاح');
-                    notifyFollowers(
+                    void notifyFollowers(
                         user.id,
                         'new_document',
                         'مستند جديد من متابَع',
@@ -311,11 +500,15 @@ export function useLegalRepositoryDocuments({
                     );
                 }
 
-                closeUploadModal();
+                if (uploadFile) {
+                    void syncRepositoryDocToCloud(savedDoc, uploadFile, user.id);
+                }
             } catch (err) {
                 if (
                     err instanceof Error &&
-                    ['auth', 'no-file', 'no-storage', 'invalid-fields', 'invalid-file'].includes(err.message)
+                    ['auth', 'no-file', 'no-storage', 'invalid-fields', 'invalid-file', 'persist-failed', 'save-failed'].includes(
+                        err.message,
+                    )
                 ) {
                     /* toast shown */
                 } else {
@@ -326,16 +519,19 @@ export function useLegalRepositoryDocuments({
                 setIsSubmitting(false);
             }
         },
-        [user, editingDoc, authorName, closeUploadModal],
+        [user, editingDoc, authorName, closeUploadModal, syncRepositoryDocToCloud],
     );
 
     return {
         canUpload,
         authorName,
-        loading,
+        syncing,
         filteredDocuments,
+        totalDocuments: documents.length,
+        hasActiveFilters,
         activeSortLabel: repositorySortLabel(sortBy),
         downloadingId,
+        openingId,
         deletingId,
         isUploadModalOpen,
         editingDoc,
@@ -343,12 +539,14 @@ export function useLegalRepositoryDocuments({
         previewDoc,
         previewSignedUrl,
         previewLoading,
+        previewMode,
         deleteTarget,
         isOwner,
         openUploadModal,
         closeUploadModal,
         closePreview,
         handleDownload,
+        handleOpenDocument,
         handleDeleteRequest,
         handleConfirmDelete,
         handleEditDocument,

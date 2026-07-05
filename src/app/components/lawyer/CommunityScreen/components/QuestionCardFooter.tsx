@@ -2,6 +2,7 @@ import {
     ArrowUp, MessageCircle, Link2,
 } from 'lucide-react';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
+import { canUpvotePost } from '../communityPermissions';
 import {
     FORUM_INTERACT_BTN,
     FORUM_INTERACT_ICON,
@@ -29,14 +30,25 @@ export function QuestionCardFooter({
     onCommentClick,
     onShare,
 }: QuestionCardFooterProps) {
+    const canUpvote = Boolean(currentUserId && canUpvotePost(post, currentUserId));
+
     return (
         <div className="flex items-center gap-4 mt-2">
             <button
                 type="button"
-                onClick={() => onToggleUpvote(post.id)}
-                className={`group/up ${FORUM_INTERACT_BTN}`}
-                disabled={!currentUserId}
-                title={!currentUserId ? 'سجّل الدخول للتصويت' : 'تصويت'}
+                onClick={(event) => {
+                    event.stopPropagation();
+                    onToggleUpvote(post.id);
+                }}
+                aria-disabled={!canUpvote}
+                className={`group/up ${FORUM_INTERACT_BTN} ${!canUpvote ? 'opacity-50' : ''}`}
+                title={
+                    !currentUserId
+                        ? 'سجّل الدخول للتصويت'
+                        : !canUpvote
+                          ? 'لا يمكنك التصويت على منشورك'
+                          : 'تصويت'
+                }
             >
                 <ArrowUp
                     size={20}
@@ -45,14 +57,29 @@ export function QuestionCardFooter({
                 <span className={isUpvoted ? FORUM_INTERACT_LABEL_ACTIVE : FORUM_INTERACT_LABEL}>{upvoteCount}</span>
             </button>
 
-            <button type="button" onClick={() => onCommentClick(post.id)} className={`group/c ${FORUM_INTERACT_BTN}`}>
+            <button
+                type="button"
+                onClick={(event) => {
+                    event.stopPropagation();
+                    onCommentClick(post.id);
+                }}
+                className={`group/c ${FORUM_INTERACT_BTN}`}
+            >
                 <MessageCircle size={20} className={`${FORUM_INTERACT_ICON} group-hover/c:text-[#F0B896]`} />
                 <span className={`${FORUM_INTERACT_LABEL} group-hover/c:text-[#E6E0E4]`}>
                     {post.comments.length} تعليقات زملاء
                 </span>
             </button>
 
-            <button type="button" onClick={() => onShare(post.id)} className={`group/s ${FORUM_INTERACT_BTN}`} title="مشاركة">
+            <button
+                type="button"
+                onClick={(event) => {
+                    event.stopPropagation();
+                    onShare(post.id);
+                }}
+                className={`group/s ${FORUM_INTERACT_BTN}`}
+                title="مشاركة"
+            >
                 <Link2 size={20} className={`${FORUM_INTERACT_ICON} group-hover/s:text-[#F0B896]`} />
                 <span className={`${FORUM_INTERACT_LABEL} group-hover/s:text-[#E6E0E4]`}>مشاركة 🔗</span>
             </button>

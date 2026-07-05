@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useTransactionsThreadingStore } from '@/app/modules/transactionsThreading/store';
 import { buildTaskTree } from '@/app/modules/transactionsThreading/service';
 import { TransactionTaskStatus, type TransactionTask } from '@/app/modules/transactionsThreading/types';
@@ -108,26 +109,29 @@ export function useTaskThreadController({
     const onToggleStatus = useCallback(
         async (task: TransactionTask) => {
             if (readOnly) return;
-            await updateTaskStatus(task.id, nextTaskStatus(task.status));
+            const next = nextTaskStatus(task.status);
+            if (next === TransactionTaskStatus.Done && task.status !== TransactionTaskStatus.Done) {
+                setCompleteTarget(task);
+                setOfficialRef('');
+                setCompleteOpen(true);
+                return;
+            }
+            await updateTaskStatus(task.id, next);
         },
         [readOnly, updateTaskStatus],
     );
 
-    const onMarkDone = useCallback(
-        (task: TransactionTask) => {
-            if (readOnly) return;
-            if (task.status === TransactionTaskStatus.Done) return;
-            setCompleteTarget(task);
-            setOfficialRef('');
-            setCompleteOpen(true);
-        },
-        [readOnly],
-    );
-
     const confirmComplete = useCallback(async () => {
         if (!completeTarget) return;
-        await completeTask(completeTarget.id, officialRef);
+        const taskId = completeTarget.id;
+        const ref = officialRef;
         resetComplete();
+        try {
+            await completeTask(taskId, ref);
+            SmartToast.success('تم إكمال المهمة');
+        } catch {
+            SmartToast.error('تعذر إكمال المهمة — حاول مرة أخرى');
+        }
     }, [completeTarget, completeTask, officialRef, resetComplete]);
 
     const openEdit = useCallback((task: TransactionTask) => {
@@ -142,8 +146,13 @@ export function useTaskThreadController({
         const title = editTitle.trim();
         if (!title) return;
         const deadlineIso = editDeadlineDate ? new Date(`${editDeadlineDate}T00:00:00`).toISOString() : null;
-        await updateTask(editTarget.id, { title, deadline: deadlineIso });
-        resetEdit();
+        try {
+            await updateTask(editTarget.id, { title, deadline: deadlineIso });
+            resetEdit();
+            SmartToast.success('تم تحديث المهمة');
+        } catch {
+            SmartToast.error('تعذر تحديث المهمة — حاول مرة أخرى');
+        }
     }, [editDeadlineDate, editTarget, editTitle, resetEdit, updateTask]);
 
     const openDelete = useCallback(
@@ -157,20 +166,25 @@ export function useTaskThreadController({
 
     const confirmDelete = useCallback(async () => {
         if (!deleteTarget) return;
-        await deleteTaskCascade(deleteTarget.id);
+        const taskId = deleteTarget.id;
         resetDelete();
+        try {
+            await deleteTaskCascade(taskId);
+            SmartToast.success('تم حذف المهمة');
+        } catch {
+            SmartToast.error('تعذر حذف المهمة — حاول مرة أخرى');
+        }
     }, [deleteTarget, deleteTaskCascade, resetDelete]);
 
     const nodeHandlers: TaskNodeActionHandlers = useMemo(
         () => ({
             onToggleStatus,
-            onMarkDone,
             onAddSubTask: onRequestAddTask,
             onEdit: openEdit,
             onDelete: openDelete,
             readOnly,
         }),
-        [onMarkDone, onRequestAddTask, onToggleStatus, openDelete, openEdit, readOnly],
+        [onRequestAddTask, onToggleStatus, openDelete, openEdit, readOnly],
     );
 
     const dialogState: TaskThreadDialogState = {

@@ -30,11 +30,12 @@ describe('homeWidgetPlacements repository legacy', () => {
         expect(getWidgetsInZone(next, 'dock')).toContain('dockRepository');
     });
 
-    it('layout edit mode keeps legacy widgets available in placements', () => {
+    it('layout edit mode still hides legacy widgets from display', () => {
         const placements = buildDefaultPlacements();
         const dock = filterDisplayHomeWidgets(getWidgetsInZone(placements, 'dock'), true);
 
-        expect(dock).toContain('dockNotepad');
-        expect(dock).toContain('dockVault');
+        expect(dock).not.toContain('dockNotepad');
+        expect(dock).not.toContain('dockVault');
+        expect(dock).toContain('dockRepository');
     });
 });

@@ -7,10 +7,10 @@ type DashboardWallpaperLayerProps = {
 
 /** صورة خلفية اللوحة — طبقة GPU واحدة خلف المحتوى */
 export function DashboardWallpaperLayer({ src, enabled }: DashboardWallpaperLayerProps) {
-    const style = useMemo(
-        () => (src ? ({ backgroundImage: `url("${src}")` } as const) : undefined),
-        [src],
-    );
+    const style = useMemo(() => {
+        if (!src) return undefined;
+        return { backgroundImage: `url(${JSON.stringify(src)})` } as const;
+    }, [src]);
 
     if (!enabled || !src || !style) return null;
 

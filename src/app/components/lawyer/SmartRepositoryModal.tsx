@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, Warehouse } from 'lucide-react';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
@@ -16,6 +16,8 @@ export type RepositoryTab = 'notepad' | 'vault';
 export type SmartRepositoryModalProps = {
     isOpen: boolean;
     onClose: () => void;
+    /** يُبقي الطبقة والمحتوى mounted بعد الإغلاق — فتح/إغلاق أسرع */
+    keepAlive?: boolean;
     initialTab?: RepositoryTab;
     notepadMode?: 'list' | 'create';
     focusNoteId?: string;
@@ -32,6 +34,10 @@ export type SmartRepositoryModalProps = {
 
 const REPO_OVERLAY_FADE_MS = 140;
 
+function overlaySnapClass(keepAlive: boolean): string {
+    return keepAlive ? 'hami-repository-overlay-layer--snap' : '';
+}
+
 function initialFilterFromTab(tab: RepositoryTab): RepositoryFeedFilter {
     return tab === 'vault' ? 'media' : 'all';
 }
@@ -39,6 +45,7 @@ function initialFilterFromTab(tab: RepositoryTab): RepositoryFeedFilter {
 export function SmartRepositoryModal({
     isOpen,
     onClose,
+    keepAlive = false,
     initialTab = 'notepad',
     notepadMode = 'list',
     focusNoteId,
@@ -53,55 +60,58 @@ export function SmartRepositoryModal({
     onUpdateExecutionFile,
 }: SmartRepositoryModalProps) {
     const reduceMotion = useReduceMotion();
-    const [layerMounted, setLayerMounted] = useState(isOpen);
+    const [layerMounted, setLayerMounted] = useState(isOpen || keepAlive);
     const [isVisible, setIsVisible] = useState(isOpen);
+    const wasLayerMountedRef = useRef(layerMounted);
     const [initialFilter, setInitialFilter] = useState<RepositoryFeedFilter>(() =>
         initialFilterFromTab(initialTab),
     );
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (isOpen) {
             setLayerMounted(true);
+            wasLayerMountedRef.current = true;
             setInitialFilter(initialFilterFromTab(initialTab));
-            if (reduceMotion) {
-                setIsVisible(true);
-                return;
-            }
-            setIsVisible(false);
-            const enterFrame = requestAnimationFrame(() => {
-                requestAnimationFrame(() => setIsVisible(true));
-            });
-            return () => cancelAnimationFrame(enterFrame);
+            setIsVisible(true);
+            return;
         }
 
         setIsVisible(false);
-        if (reduceMotion) {
+        if (!keepAlive && reduceMotion) {
             setLayerMounted(false);
+            wasLayerMountedRef.current = false;
         }
-    }, [initialTab, isOpen, reduceMotion]);
+    }, [initialTab, isOpen, keepAlive, reduceMotion]);
 
-    useEffect(() => {
-        if (isOpen || !layerMounted) return;
+    useLayoutEffect(() => {
+        if (isOpen || !layerMounted || keepAlive) return;
         const ms = reduceMotion ? 0 : REPO_OVERLAY_FADE_MS + 16;
-        const timer = window.setTimeout(() => setLayerMounted(false), ms);
+        const timer = window.setTimeout(() => {
+            setLayerMounted(false);
+            wasLayerMountedRef.current = false;
+        }, ms);
         return () => window.clearTimeout(timer);
-    }, [isOpen, layerMounted, reduceMotion]);
+    }, [isOpen, keepAlive, layerMounted, reduceMotion]);
 
     useBodyScrollLock(isOpen);
     useOpaqueFeatureSurface(isOpen);
 
     const requestClose = useCallback(() => {
+        if (keepAlive) {
+            setIsVisible(false);
+        }
         onClose();
-    }, [onClose]);
+    }, [keepAlive, onClose]);
 
     const handleOverlayTransitionEnd = useCallback(
         (e: React.TransitionEvent<HTMLDivElement>) => {
-            if (e.target !== e.currentTarget || e.propertyName !== 'opacity' || isOpen) {
+            if (keepAlive || e.target !== e.currentTarget || e.propertyName !== 'opacity' || isOpen) {
                 return;
             }
             setLayerMounted(false);
+            wasLayerMountedRef.current = false;
         },
-        [isOpen],
+        [isOpen, keepAlive],
     );
 
     if (!layerMounted) return null;
@@ -109,6 +119,7 @@ export function SmartRepositoryModal({
     const overlayClassName = [
         REPO_OVERLAY,
         'hami-repository-overlay-layer',
+        overlaySnapClass(keepAlive),
         isVisible ? 'hami-repository-overlay-layer--visible' : 'pointer-events-none',
     ]
         .filter(Boolean)

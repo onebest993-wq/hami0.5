@@ -27,11 +27,6 @@ const editPostImport = () =>
         default: m.EditPostModal,
     }));
 
-const deleteConfirmImport = () =>
-    import('@/app/components/lawyer/CommunityScreen/components/ForumDeleteConfirmModal').then((m) => ({
-        default: m.ForumDeleteConfirmModal,
-    }));
-
 const memberProfileImport = () =>
     import('@/app/components/lawyer/CommunityScreen/components/ForumMemberProfileOverlay').then((m) => ({
         default: m.ForumMemberProfileOverlay,
@@ -42,45 +37,52 @@ const fullscreenImageImport = () =>
         default: m.FullscreenImageOverlay,
     }));
 
-export const LazyAddQuestionSheet = lazy(addQuestionImport);
 export const LazyCommentBottomSheet = lazy(commentSheetImport);
-export const LazySearchOverlay = lazy(searchOverlayImport);
-export const LazyCreateGroupModal = lazy(createGroupImport);
 export const LazyEditPostModal = lazy(editPostImport);
-export const LazyForumDeleteConfirmModal = lazy(deleteConfirmImport);
 export const LazyForumMemberProfileOverlay = lazy(memberProfileImport);
 export const LazyFullscreenImageOverlay = lazy(fullscreenImageImport);
+export const LazyAddQuestionSheet = lazy(addQuestionImport);
+export const LazySearchOverlay = lazy(searchOverlayImport);
+export const LazyCreateGroupModal = lazy(createGroupImport);
 
 export function prefetchCommunityCommentOverlay(): void {
-    if (typeof window === 'undefined' || isLitePerformanceActive()) return;
+    if (typeof window === 'undefined') return;
     void commentSheetImport().catch(() => undefined);
 }
 
 export function prefetchCommunityAddQuestionOverlay(): void {
-    if (typeof window === 'undefined' || isLitePerformanceActive()) return;
+    if (typeof window === 'undefined') return;
     void addQuestionImport().catch(() => undefined);
 }
 
 export function prefetchCommunitySearchOverlay(): void {
-    if (typeof window === 'undefined' || isLitePerformanceActive()) return;
+    if (typeof window === 'undefined') return;
     void searchOverlayImport().catch(() => undefined);
 }
 
-/** prefetch طبقات المنتدى الثقيلة — hover/idle فقط */
+export function prefetchCommunityEditPostOverlay(): void {
+    if (typeof window === 'undefined') return;
+    void editPostImport().catch(() => undefined);
+}
+
+export function prefetchCommunityDeleteConfirmOverlay(): void {
+    /* small static modal; no separate prefetch needed */
+}
+
+/** prefetch طبقات المنتدى — يُستدعى عند فتح الشاشة */
 export function prefetchCommunityHeavyOverlays(): void {
-    if (typeof window === 'undefined' || isLitePerformanceActive()) return;
+    if (typeof window === 'undefined') return;
     void commentSheetImport().catch(() => undefined);
     void addQuestionImport().catch(() => undefined);
     void searchOverlayImport().catch(() => undefined);
     void createGroupImport().catch(() => undefined);
     void editPostImport().catch(() => undefined);
-    void deleteConfirmImport().catch(() => undefined);
     void fullscreenImageImport().catch(() => undefined);
 }
 
-/** بعد فتح الشاشة — prefetch مؤجَّل للملف الشخصي (يُحمَّل RoyalLawyerProfile داخلياً) */
+/** بعد فتح الشاشة — prefetch مؤجَّل للملف الشخصي */
 export function scheduleCommunityProfileOverlayPrefetch(): void {
-    if (typeof window === 'undefined' || isLitePerformanceActive()) return;
+    if (typeof window === 'undefined') return;
     scheduleIdleWork(() => {
         void memberProfileImport().catch(() => undefined);
     }, 4_000);

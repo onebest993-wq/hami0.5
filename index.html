@@ -7,6 +7,12 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <link rel="stylesheet" href="/hami-boot-shell.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Amiri:wght@700&display=swap"
+      rel="stylesheet"
+    />
     <script>
       (function () {
         if (typeof window === 'undefined' || typeof console === 'undefined') return;
@@ -54,7 +60,7 @@
     <style>
       html,
       body {
-        background: #05060d;
+        background: #0a0f1c;
         color: #e6c673;
         margin: 0;
         min-height: 100%;
@@ -69,27 +75,31 @@
   <body>
     <div
       id="hami-static-boot"
+      class="hami-boot-cinematic"
       data-testid="hami-static-boot"
       aria-busy="true"
       aria-label="تهيئة لوحة المحامي"
     >
-      <div class="hami-boot-brand" aria-hidden="true">HAMI</div>
-      <header class="hami-boot-header" aria-hidden="true">
-        <div class="hami-boot-actions">
-          <div class="hami-boot-icon"></div>
-          <div class="hami-boot-icon"></div>
-          <div class="hami-boot-icon"></div>
+      <div class="hami-boot-center-stage" aria-hidden="true">
+        <div class="hami-boot-wordmark-stage">
+          <div class="hami-boot-wordmark-glow" aria-hidden="true"></div>
+          <div class="hami-boot-wordmark-ornament hami-boot-wordmark-ornament--top" aria-hidden="true"></div>
+          <h1 class="hami-boot-wordmark" aria-label="حامي">
+            <span class="hami-boot-wordmark-char" style="--char-i: 0">ح</span
+            ><span class="hami-boot-wordmark-char" style="--char-i: 1">ا</span
+            ><span class="hami-boot-wordmark-char" style="--char-i: 2">م</span
+            ><span class="hami-boot-wordmark-char" style="--char-i: 3">ي</span>
+          </h1>
+          <div class="hami-boot-wordmark-ornament hami-boot-wordmark-ornament--bottom" aria-hidden="true"></div>
+          <div class="hami-boot-wordmark-shimmer" aria-hidden="true"></div>
         </div>
-      </header>
-      <main class="hami-boot-main" aria-hidden="true">
-        <div class="hami-boot-grid">
-          <div class="hami-boot-block hami-boot-block--span2 hami-boot-block--h52"></div>
-          <div class="hami-boot-block hami-boot-block--span2 hami-boot-block--h280"></div>
-          <div class="hami-boot-block hami-boot-block--span2 hami-boot-block--h180"></div>
-          <div class="hami-boot-block hami-boot-block--h120"></div>
-          <div class="hami-boot-block hami-boot-block--h120"></div>
+      </div>
+      <div class="hami-boot-skeleton-deferred" aria-hidden="true">
+        <div class="hami-boot-skeleton-deferred-inner">
+          <div class="hami-boot-skeleton-wire hami-boot-skeleton-wire--wide"></div>
+          <div class="hami-boot-skeleton-wire hami-boot-skeleton-wire--medium"></div>
         </div>
-      </main>
+      </div>
       <div class="hami-boot-status" aria-hidden="true">
         <span class="hami-boot-status-pill">جاري التهيئة…</span>
       </div>

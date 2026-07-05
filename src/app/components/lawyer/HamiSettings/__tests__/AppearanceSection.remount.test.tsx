@@ -27,7 +27,7 @@ describe('AppearanceSection remount', () => {
         );
 
         await waitFor(() => {
-            expect(screen.getByText('تخصيص المنظر')).toBeInTheDocument();
+            expect(screen.getByTestId('settings-section-appearance')).toBeInTheDocument();
         });
 
         await act(async () => {
@@ -42,7 +42,7 @@ describe('AppearanceSection remount', () => {
             );
         });
 
-        expect(screen.getByText('تخصيص المنظر')).toBeInTheDocument();
+        expect(screen.getByTestId('settings-section-appearance')).toBeInTheDocument();
         expect(screen.getByTestId('settings-toggle-appearance-reduceMotion')).toBeInTheDocument();
     });
 });

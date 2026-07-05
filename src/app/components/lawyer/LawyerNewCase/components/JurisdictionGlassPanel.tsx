@@ -4,9 +4,10 @@ import type { JurisdictionId, JurisdictionItem } from '../constants';
 export interface JurisdictionGlassPanelProps {
     items: JurisdictionItem[];
     onSelect: (id: JurisdictionId) => void;
+    onItemPointerEnter?: (id: JurisdictionId) => void;
 }
 
-export function JurisdictionGlassPanel({ items, onSelect }: JurisdictionGlassPanelProps) {
+export function JurisdictionGlassPanel({ items, onSelect, onItemPointerEnter }: JurisdictionGlassPanelProps) {
     return (
         <div
             className="relative overflow-hidden rounded-[1.75rem] border border-white/[0.09] bg-white/[0.038] backdrop-blur-xl shadow-[0_16px_48px_rgba(0,0,0,0.32)] ring-1 ring-inset ring-white/[0.05]"
@@ -28,6 +29,8 @@ export function JurisdictionGlassPanel({ items, onSelect }: JurisdictionGlassPan
                     type="button"
                     role="listitem"
                     onClick={() => onSelect(item.id)}
+                    onPointerEnter={() => onItemPointerEnter?.(item.id)}
+                    onFocus={() => onItemPointerEnter?.(item.id)}
                     data-testid={`new-case-jurisdiction-${item.id}`}
                     className={`group relative w-full min-h-[5.75rem] px-7 py-6 text-right transition-[background-color] duration-200 hover:bg-white/[0.055] focus-visible:outline-none focus-visible:bg-white/[0.07] active:bg-white/[0.08] ${
                         index < items.length - 1 ? 'border-b border-white/[0.065]' : ''

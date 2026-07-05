@@ -75,9 +75,9 @@ export const InterlocutoryAppealModal = ({ isOpen, onClose, onConfirm, editMode 
     const title = editMode ? 'تحديث قرار تمييزي' : 'تمييز قرار إعدادي / مستعجل (مادة 216)';
 
     return (
-        <MoroccanGlassShell onOverlayClick={onClose} maxWidth="max-w-md">
+        <MoroccanGlassShell onOverlayClick={onClose} maxWidth="max-w-xl">
             <SmartModalHeader icon={Gavel} title={title} onClose={onClose} />
-            <div className={T.body}>
+            <div className={`${T.body} md:min-h-[28rem] md:space-y-6`}>
                 <div>
                     <label className={T.label}>
                         نوع القرار المطعون فيه <span className={required}>*</span>
@@ -163,7 +163,7 @@ export const JudicialNotificationModal = ({ isOpen, onClose, onConfirm }: Judici
     const checkboxIcon = T.variant === 'personal-pearl' ? 'text-[#FFD4DC]' : 'text-[#E6C673]';
 
     return (
-        <MoroccanGlassShell onOverlayClick={onClose} maxWidth="max-w-sm">
+        <MoroccanGlassShell onOverlayClick={onClose} maxWidth="max-w-lg">
             <div className={T.useMoroccanCorners ? GLASS_MODAL_HEADER : T.header}>
                 <h3 className={T.useMoroccanCorners ? 'font-bold text-sm text-white/95' : T.headerTitle}>
                     <Bell size={16} className={T.headerIcon} strokeWidth={1.75} />
@@ -179,7 +179,7 @@ export const JudicialNotificationModal = ({ isOpen, onClose, onConfirm }: Judici
                 {T.useMoroccanCorners ? <MoroccanHeaderDivider /> : null}
             </div>
 
-            <div className={T.body}>
+            <div className={`${T.body} md:min-h-[24rem] md:space-y-6`}>
                 <div>
                     <label className={T.label}>
                         الشخص المراد تبليغه <span className={accentRequired}>*</span>
@@ -377,7 +377,7 @@ export const ObjectionRegistrationModal = ({ isOpen, onClose, onConfirm }: Objec
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-['Tajawal']">
+        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-['Tajawal']">
             <div className="bg-[#1A1E2E] border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
                 <div className="bg-gradient-to-r from-teal-500 to-emerald-600 p-4 text-white flex justify-between items-center">
                     <h3 className="font-bold flex items-center gap-2">
@@ -453,7 +453,7 @@ export const ObjectionJudgmentModal = ({ isOpen, onClose, onConfirm }: Objection
     ];
 
     return (
-        <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-['Tajawal']">
+        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-['Tajawal']">
             <div className="bg-[#1A1E2E] border border-white/10 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
                 <div className="bg-gradient-to-r from-indigo-600 to-purple-700 p-4 text-white flex justify-between items-center">
                     <h3 className="font-bold flex items-center gap-2">

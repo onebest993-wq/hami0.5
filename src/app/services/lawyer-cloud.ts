@@ -1,15 +1,23 @@
-import { supabase } from '../lib/supabase-client';
 import { SecureAPIClient } from './SecureAPIClient';
 import { UserRole } from '../types/admin-types';
 import SecureStoreService from './SecureStoreService';
-import { stripImageMetadata } from '@/app/utils/stripMetadata';
 import { isKvProxyNetworkEnabled } from '@/app/services/kvProxyConfig';
 import { lawyerCloudKv as kv, uuidv4 } from '@/app/services/cloud/lawyerCloudKv';
 export { uuidv4 } from '@/app/services/cloud/lawyerCloudKv';
-import { deleteVaultBlobByPath, isVaultIdbStoragePath } from '@/app/services/vaultBlobStore';
-
-// --- INITIALIZATION ---
-// Supabase client imported from singleton
+export { LawyerDB } from '@/app/services/lawyerDbRuntime';
+export { SmartVaultDB } from '@/app/services/vault/smartVaultRuntime';
+import { isVaultIdbStoragePath } from '@/app/services/vaultBlobStore';
+import { LawyerStorage } from '@/app/services/storage/lawyerStorageRuntime';
+import {
+    BanDB as CommunityBanDB,
+    CommunityDB as CommunityRuntimeDB,
+    getCommunityReports,
+} from '@/app/services/cloud/lawyerCommunityCloud';
+import { CalendarDB as CalendarRuntimeDB } from '@/app/services/cloud/lawyerCalendarCloud';
+import {
+    TransactionDB as TransactionsRuntimeDB,
+    TransactionsThreadingDB as TransactionsThreadingRuntimeDB,
+} from '@/app/services/cloud/lawyerTransactionsCloud';
 
 function isRemoteStorageObjectPath(path: string): boolean {
     const p = path.trim();
@@ -19,7 +27,6 @@ function isRemoteStorageObjectPath(path: string): boolean {
     return true;
 }
 
-/** WIFE-protected BFF delete — best effort (لا يُوقف حذف السجل المحلي). */
 async function removeStoragePathsBestEffort(paths: string[]): Promise<void> {
     const toRemove = [...new Set(paths.map((p) => p.trim()).filter(isRemoteStorageObjectPath))];
     if (toRemove.length === 0) return;
@@ -34,127 +41,6 @@ async function removeStoragePathsBestEffort(paths: string[]): Promise<void> {
     }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return Boolean(value) && typeof value === 'object';
-}
-
-// --- 1. CLOUD FIRESTORE EQUIVALENT (KV STORE STRUCTURE) ---
-// Structure: user:{uid}:{collection}:{id}
-
-const LAWYER_LOCAL_PREFIX = 'hami:lawyerdb:';
-
-export const LawyerDB = {
-    // A. Users Collection
-    async saveUserProfile(userId: string, data: Record<string, unknown>) {
-        try {
-            await kv.set(`user:${userId}:profile`, data);
-        } catch {
-            const key = `${LAWYER_LOCAL_PREFIX}${userId}:profile`;
-            await SecureStoreService.setItem(key, JSON.stringify(data));
-        }
-    },
-
-    async getUserProfile(userId: string) {
-        try {
-            return await kv.get(`user:${userId}:profile`);
-        } catch {
-            const key = `${LAWYER_LOCAL_PREFIX}${userId}:profile`;
-            const raw = await SecureStoreService.getItem(key);
-            return raw ? JSON.parse(raw) : null;
-        }
-    },
-
-    // B. Cases Collection (Sub-collection)
-    async saveCase(userId: string, caseData: Record<string, unknown>) {
-        const providedId = typeof caseData.id === 'string' ? caseData.id : undefined;
-        const id = providedId ?? uuidv4();
-        const key = `user:${userId}:cases:${id}`;
-        try {
-            await kv.set(key, { ...caseData, id, updatedAt: new Date().toISOString() });
-        } catch {
-            const localKey = `${LAWYER_LOCAL_PREFIX}${key}`;
-            const existing = await this.getCases(userId);
-            const updated = [...(Array.isArray(existing) ? existing : []).filter((c: any) => c.id !== id), { ...caseData, id, updatedAt: new Date().toISOString() }];
-            await SecureStoreService.setItem(`${LAWYER_LOCAL_PREFIX}${userId}:cases`, JSON.stringify(updated));
-        }
-        return id;
-    },
-
-    async getCases(userId: string) {
-        try {
-            const cases = await kv.getByPrefix(`user:${userId}:cases:`);
-            return cases || [];
-        } catch {
-            const raw = await SecureStoreService.getItem(`${LAWYER_LOCAL_PREFIX}${userId}:cases`);
-            return raw ? JSON.parse(raw) : [];
-        }
-    },
-
-    // C. Notes Vault (Sub-collection)
-    async saveNote(userId: string, noteData: Record<string, unknown>) {
-        const providedId = typeof noteData.id === 'string' ? noteData.id : undefined;
-        const id = providedId ?? uuidv4();
-        const key = `user:${userId}:notes:${id}`;
-        try {
-            await kv.set(key, { ...noteData, id, createdAt: new Date().toISOString() });
-        } catch {
-            const existing = await this.getNotes(userId);
-            const updated = [...(Array.isArray(existing) ? existing : []).filter((n: any) => n.id !== id), { ...noteData, id, createdAt: new Date().toISOString() }];
-            await SecureStoreService.setItem(`${LAWYER_LOCAL_PREFIX}${userId}:notes`, JSON.stringify(updated));
-        }
-        return id;
-    },
-
-    async getNotes(userId: string) {
-        try {
-            const notes = await kv.getByPrefix(`user:${userId}:notes:`);
-            return notes || [];
-        } catch {
-            const raw = await SecureStoreService.getItem(`${LAWYER_LOCAL_PREFIX}${userId}:notes`);
-            return raw ? JSON.parse(raw) : [];
-        }
-    },
-
-    // D. Deadlines (Sub-collection for Notifications)
-    async saveDeadline(userId: string, deadlineData: Record<string, unknown>) {
-        const providedId = typeof deadlineData.id === 'string' ? deadlineData.id : undefined;
-        const id = providedId ?? uuidv4();
-        const key = `user:${userId}:deadlines:${id}`;
-        try {
-            await kv.set(key, { ...deadlineData, id, status: 'pending' });
-        } catch {
-            const existing = await this.getDeadlines(userId);
-            const updated = [...(Array.isArray(existing) ? existing : []).filter((d: any) => d.id !== id), { ...deadlineData, id, status: 'pending' }];
-            await SecureStoreService.setItem(`${LAWYER_LOCAL_PREFIX}${userId}:deadlines`, JSON.stringify(updated));
-        }
-        return id;
-    },
-
-    async checkUpcomingDeadlines(userId: string) {
-        const deadlines = await this.getDeadlines(userId);
-        const list = Array.isArray(deadlines) ? deadlines : [];
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        tomorrow.setHours(0, 0, 0, 0);
-
-        return list.filter((d) => {
-            if (!isRecord(d) || typeof d.date !== 'string') return false;
-            const date = new Date(d.date);
-            const t = date.getTime();
-            return t >= tomorrow.getTime() && t < tomorrow.getTime() + 86400000;
-        });
-    },
-
-    async getDeadlines(userId: string) {
-        try {
-            return await kv.getByPrefix(`user:${userId}:deadlines:`) || [];
-        } catch {
-            const raw = await SecureStoreService.getItem(`${LAWYER_LOCAL_PREFIX}${userId}:deadlines`);
-            return raw ? JSON.parse(raw) : [];
-        }
-    }
-};
-
 export type {
     CommunityAttachment,
     ForumEditHistoryEntry,
@@ -167,32 +53,12 @@ export type {
     FollowRecord,
 } from '@/app/services/cloud/lawyerCommunityTypes';
 
-/** واجهة توافق — dynamic import لتفادي circular chunk مع monolith */
-export const CommunityDB = {
-    async listPosts() {
-        const mod = await import('@/app/services/cloud/lawyerCommunityCloud');
-        return mod.CommunityDB.listPosts();
-    },
-    async savePost(post: import('@/app/services/cloud/lawyerCommunityTypes').CommunityPost) {
-        const mod = await import('@/app/services/cloud/lawyerCommunityCloud');
-        return mod.CommunityDB.savePost(post);
-    },
-    async persistPostsBatch(posts: import('@/app/services/cloud/lawyerCommunityTypes').CommunityPost[]) {
-        const mod = await import('@/app/services/cloud/lawyerCommunityCloud');
-        return mod.CommunityDB.persistPostsBatch(posts);
-    },
-    async deletePost(postId: string) {
-        const mod = await import('@/app/services/cloud/lawyerCommunityCloud');
-        return mod.CommunityDB.deletePost(postId);
-    },
-    async saveReport(report: import('@/app/services/cloud/lawyerCommunityTypes').CommunityReport) {
-        const mod = await import('@/app/services/cloud/lawyerCommunityCloud');
-        return mod.CommunityDB.saveReport(report);
-    },
-};
+/** واجهة توافق — موصولة مباشرة بمخزن المجتمع المحلي. */
+export const CommunityDB = CommunityRuntimeDB;
 
 // --- NOTIFICATION SYSTEM (unified blob — see notificationForumStorage.ts) ---
 export { NotificationDB } from '@/app/services/notifications/notificationForumStorage';
+export { LawyerStorage };
 
 // --- FORUM STATS ---
 
@@ -207,9 +73,8 @@ export async function getForumStats(): Promise<{
     topTags: { tag: string; count: number }[];
 }> {
     const posts = await CommunityDB.listPosts();
-    const { BanDB, getCommunityReports } = await import('@/app/services/cloud/lawyerCommunityCloud');
     const reports = await getCommunityReports();
-    const banned = await BanDB.listBannedUsers();
+    const banned = await CommunityBanDB.listBannedUsers();
     const docs = await RepositoryDB.listDocuments();
 
     const tagCount = new Map<string, number>();
@@ -254,6 +119,73 @@ export type RepositoryDocument = {
 };
 
 const REPOSITORY_LOCAL_KEY = 'hami:repository:docs:v1';
+
+function parseRepositoryDocsRaw(raw: string | null | undefined): RepositoryDocument[] | null {
+    if (raw == null) return null;
+    try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed as RepositoryDocument[];
+    } catch {
+        return null;
+    }
+}
+
+/** قراءة فورية — localStorage mirror ثم SecureStore sync cache */
+function readRepositoryDocsFromMirrors(): RepositoryDocument[] | null {
+    if (typeof localStorage !== 'undefined') {
+        try {
+            if (localStorage.getItem(REPOSITORY_LOCAL_KEY) !== null) {
+                return parseRepositoryDocsRaw(localStorage.getItem(REPOSITORY_LOCAL_KEY)) ?? [];
+            }
+        } catch {
+            /* fall through */
+        }
+    }
+    try {
+        const syncRaw = SecureStoreService.getItemSync(REPOSITORY_LOCAL_KEY);
+        if (syncRaw != null) {
+            return parseRepositoryDocsRaw(syncRaw) ?? [];
+        }
+    } catch {
+        /* fall through */
+    }
+    return null;
+}
+
+function sortRepositoryDocs(docs: RepositoryDocument[]): RepositoryDocument[] {
+    return [...docs].sort(
+        (a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime(),
+    );
+}
+
+const REPOSITORY_PERSIST_LOAD_MS = 2_500;
+
+async function withRepositoryAsyncTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+    try {
+        return await Promise.race([
+            promise,
+            new Promise<never>((_, reject) => {
+                setTimeout(() => reject(new Error('repository-async-timeout')), ms);
+            }),
+        ]);
+    } catch {
+        return fallback;
+    }
+}
+
+function normalizeRepositoryDocList(raw: unknown[]): RepositoryDocument[] {
+    return raw
+        .map(normalizeRepositoryDocument)
+        .filter((d): d is RepositoryDocument => d !== null);
+}
+
+/** قراءة فورية من مرآة localStorage / SecureStore sync — بدون انتظار IDB */
+export function listRepositoryDocumentsSync(): RepositoryDocument[] {
+    const mirrored = readRepositoryDocsFromMirrors();
+    if (mirrored === null) return [];
+    return sortRepositoryDocs(normalizeRepositoryDocList(mirrored));
+}
 
 function normalizeRepositoryDocument(raw: unknown): RepositoryDocument | null {
     if (!raw || typeof raw !== 'object') return null;
@@ -303,6 +235,9 @@ function normalizeRepositoryDocument(raw: unknown): RepositoryDocument | null {
 }
 
 async function loadLocalRepositoryDocs(): Promise<RepositoryDocument[]> {
+    const mirrored = readRepositoryDocsFromMirrors();
+    if (mirrored !== null) return mirrored;
+
     try {
         const raw = await SecureStoreService.getItem(REPOSITORY_LOCAL_KEY);
         if (!raw) return [];
@@ -310,16 +245,20 @@ async function loadLocalRepositoryDocs(): Promise<RepositoryDocument[]> {
         if (!Array.isArray(parsed)) return [];
         return parsed.map(normalizeRepositoryDocument).filter((d): d is RepositoryDocument => d !== null);
     } catch {
-        return [];
+        return readRepositoryDocsFromMirrors()?.map(normalizeRepositoryDocument).filter((d): d is RepositoryDocument => d !== null) ?? [];
     }
 }
 
 async function saveLocalRepositoryDocs(docs: RepositoryDocument[]): Promise<void> {
-    try {
-        await SecureStoreService.setItem(REPOSITORY_LOCAL_KEY, JSON.stringify(docs));
-    } catch {
-        // silent
+    const payload = JSON.stringify(docs);
+    if (typeof localStorage !== 'undefined') {
+        try {
+            localStorage.setItem(REPOSITORY_LOCAL_KEY, payload);
+        } catch {
+            /* ignore mirror write */
+        }
     }
+    void SecureStoreService.setItem(REPOSITORY_LOCAL_KEY, payload).catch(() => undefined);
 }
 
 function mergeRepositoryDocs(local: RepositoryDocument[], remote: RepositoryDocument[]): RepositoryDocument[] {
@@ -338,59 +277,99 @@ function mergeRepositoryDocs(local: RepositoryDocument[], remote: RepositoryDocu
     return Array.from(map.values());
 }
 
+let repositoryKvMergeInflight: Promise<void> | null = null;
+
+async function mergeRepositoryDocsFromKvInBackground(localBaseline: RepositoryDocument[]): Promise<void> {
+    if (!isKvProxyNetworkEnabled()) return;
+    try {
+        const res = await kv.getByPrefix('repository:docs:');
+        const remoteDocs = Array.isArray(res)
+            ? res.map(normalizeRepositoryDocument).filter((d): d is RepositoryDocument => d !== null)
+            : [];
+        const merged = sortRepositoryDocs(mergeRepositoryDocs(localBaseline, remoteDocs));
+        await saveLocalRepositoryDocs(merged);
+    } catch {
+        /* background sync — لا نُعطّل التفاعل */
+    }
+}
+
+function kickRepositoryKvMerge(localBaseline: RepositoryDocument[]): void {
+    if (!isKvProxyNetworkEnabled() || repositoryKvMergeInflight) return;
+    repositoryKvMergeInflight = mergeRepositoryDocsFromKvInBackground(localBaseline).finally(() => {
+        repositoryKvMergeInflight = null;
+    });
+}
+
+function kickRepositoryPersistHydrateInBackground(): void {
+    void loadLocalRepositoryDocs()
+        .then((docs) => {
+            const sorted = sortRepositoryDocs(normalizeRepositoryDocList(docs));
+            if (sorted.length > 0) {
+                return saveLocalRepositoryDocs(sorted);
+            }
+            return undefined;
+        })
+        .catch(() => undefined);
+}
+
 export const RepositoryDB = {
     async listDocuments(): Promise<RepositoryDocument[]> {
-        const localDocs = await loadLocalRepositoryDocs();
-        try {
-            const res = await kv.getByPrefix('repository:docs:');
-            const remoteDocs = Array.isArray(res)
-                ? res
-                      .map(normalizeRepositoryDocument)
-                      .filter((d): d is RepositoryDocument => d !== null)
-                : [];
-            const merged = mergeRepositoryDocs(localDocs, remoteDocs).sort(
-                (a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime()
-            );
-            await saveLocalRepositoryDocs(merged);
-            return merged;
-        } catch {
-            return localDocs.sort(
-                (a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime()
-            );
+        const mirrored = readRepositoryDocsFromMirrors();
+        if (mirrored !== null) {
+            const sorted = sortRepositoryDocs(normalizeRepositoryDocList(mirrored));
+            kickRepositoryKvMerge(sorted);
+            return sorted;
         }
+
+        const persisted = await withRepositoryAsyncTimeout(
+            loadLocalRepositoryDocs(),
+            REPOSITORY_PERSIST_LOAD_MS,
+            [],
+        );
+        const sorted = sortRepositoryDocs(normalizeRepositoryDocList(persisted));
+        if (sorted.length > 0) {
+            void saveLocalRepositoryDocs(sorted);
+        } else {
+            kickRepositoryPersistHydrateInBackground();
+        }
+        kickRepositoryKvMerge(sorted);
+        return sorted;
     },
 
     async saveDocument(doc: RepositoryDocument): Promise<void> {
         const normalized = normalizeRepositoryDocument(doc);
         if (!normalized) throw new Error('بيانات المستند غير صالحة');
-        const localDocs = await loadLocalRepositoryDocs();
-        const merged = mergeRepositoryDocs(localDocs, [normalized]);
+        const mirrored = readRepositoryDocsFromMirrors();
+        const localDocs = mirrored !== null ? mirrored : listRepositoryDocumentsSync();
+        const normalizedLocal = localDocs
+            .map(normalizeRepositoryDocument)
+            .filter((d): d is RepositoryDocument => d !== null);
+        const merged = sortRepositoryDocs(mergeRepositoryDocs(normalizedLocal, [normalized]));
         await saveLocalRepositoryDocs(merged);
         if (isKvProxyNetworkEnabled()) {
-            try {
-                await kv.set(`repository:docs:${normalized.id}`, normalized);
-            } catch {
-                /* المحلي محفوظ — kv اختياري في التطوير */
-            }
+            void kv.set(`repository:docs:${normalized.id}`, normalized).catch(() => undefined);
         }
     },
 
     async deleteDocument(docId: string): Promise<void> {
-        const localDocs = await loadLocalRepositoryDocs();
-        const target = localDocs.find((d) => d?.id === docId);
-        await saveLocalRepositoryDocs(localDocs.filter((d) => d?.id !== docId));
+        const mirrored = readRepositoryDocsFromMirrors();
+        const localDocs = mirrored !== null ? mirrored : await loadLocalRepositoryDocs();
+        const target = localDocs
+            .map(normalizeRepositoryDocument)
+            .find((d) => d?.id === docId);
+        await saveLocalRepositoryDocs(
+            localDocs
+                .map(normalizeRepositoryDocument)
+                .filter((d): d is RepositoryDocument => d !== null && d.id !== docId),
+        );
 
         const storagePath = target?.storagePath?.trim();
         if (storagePath && !storagePath.startsWith('idb:forum:')) {
-            await removeStoragePathsBestEffort([storagePath]);
+            void removeStoragePathsBestEffort([storagePath]);
         }
 
         if (isKvProxyNetworkEnabled()) {
-            try {
-                await kv.del(`repository:docs:${docId}`);
-            } catch {
-                /* المحلي محدّث — kv اختياري في التطوير */
-            }
+            void kv.del(`repository:docs:${docId}`).catch(() => undefined);
         }
     },
 };
@@ -443,360 +422,18 @@ export async function updateRepositoryDocument(
     await RepositoryDB.saveDocument(doc);
 }
 
-export const LawyerStorage = {
-    /**
-     * Uploads a file via WIFE-protected /api/upload (malware scan + ownership on server).
-     */
-    async uploadSmartFile(userId: string, file: File, category: 'scans' | 'audio' | 'drafts' | 'repository' | 'vault') {
-        const sessionUserId = (await supabase.auth.getSession()).data.session?.user?.id ?? null;
-        if (!sessionUserId || sessionUserId !== userId) {
-            throw new Error('Unauthorized upload: session user mismatch');
-        }
-
-        const looksLikeImage =
-            file.type.startsWith('image/') || /\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(file.name);
-        let uploadFile = file;
-        if (looksLikeImage) {
-            try {
-                uploadFile = await stripImageMetadata(file);
-            } catch {
-                uploadFile = file;
-            }
-        }
-
-        const formData = new FormData();
-        formData.append('file', uploadFile);
-        formData.append('category', category);
-
-        const response = await SecureAPIClient.fetchSecureResponse('/api/upload', {
-            method: 'POST',
-            body: formData,
-        });
-        const text = await response.text().catch(() => '');
-        let body: Record<string, unknown> = {};
-        try {
-            body = JSON.parse(text) as Record<string, unknown>;
-        } catch {
-            /* ignore */
-        }
-        if (!response.ok) {
-            const message =
-                typeof body.error === 'string' && body.error.trim()
-                    ? body.error.trim()
-                    : `Upload failed (${response.status})`;
-            throw new Error(message);
-        }
-
-        const path = typeof body.path === 'string' ? body.path : '';
-        const downloadUrl = typeof body.downloadUrl === 'string' ? body.downloadUrl : null;
-        if (!path) {
-            throw new Error('Upload response missing path');
-        }
-
-        return {
-            path,
-            fullPath: path,
-            downloadUrl,
-        };
-    },
-
-    async getSignedUrl(path: string): Promise<string | null> {
-        try {
-            const res = await SecureAPIClient.fetchSecure<{ ok: boolean; downloadUrl?: string }>(
-                '/api/upload/signed-url',
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ path }),
-                },
-            );
-            return res?.downloadUrl?.trim() || null;
-        } catch {
-            return null;
-        }
-    }
-};
-
 // ============================================================
 //  SMARTER VAULT — المخزن الذكي (Smart Vault)
 // ============================================================
 
-export type SmartVaultDocType = 'pdf' | 'image';
-export type SmartVaultFilterTag = 'الكل' | 'عقود' | 'طابو' | 'عرائض' | 'أخرى';
-
-export type SmartVaultDoc = {
-    id: string;
-    title: string;
-    type: SmartVaultDocType;
-    tags: string[];
-    authorId: string;
-    createdAt: string;
-    updatedAt: string;
-    fileSize: number;
-    fileName: string;
-    mimeType: string;
-    storagePath: string;
-    signedUrl?: string | null;
-    aiSummary?: string | null;
-    /** ملاحظة/وصف يدوي من المحامي */
-    lawyerNote?: string | null;
-    /** تصنيف مخصص يختاره المحامي */
-    customCategory?: string | null;
-    isProcessing?: boolean;
-    boundDossierId?: string | null;
-};
-
-const VAULT_LOCAL_KEY = 'hami:smartvault:docs:v1';
-
-async function loadLocalVaultDocs(): Promise<SmartVaultDoc[]> {
-    try {
-        const raw = await SecureStoreService.getItem(VAULT_LOCAL_KEY);
-        if (!raw) return [];
-        const parsed = JSON.parse(raw);
-        if (!Array.isArray(parsed)) return [];
-        return parsed as SmartVaultDoc[];
-    } catch {
-        return [];
-    }
-}
-
-async function saveLocalVaultDocs(docs: SmartVaultDoc[]): Promise<void> {
-    const payload = JSON.stringify(docs);
-    try {
-        await SecureStoreService.setItem(VAULT_LOCAL_KEY, payload);
-    } catch (e) {
-        console.error('[Vault] Failed to persist vault docs:', e);
-        throw new Error('vault persist failed');
-    }
-}
-
-function vaultDocPayloadForKv(doc: SmartVaultDoc): SmartVaultDoc {
-    const path = doc.storagePath || '';
-    if (isVaultIdbStoragePath(path)) {
-        return { ...doc, signedUrl: null };
-    }
-    if (path.startsWith('local:vault:') && doc.signedUrl?.startsWith('data:')) {
-        return { ...doc, signedUrl: null };
-    }
-    return doc;
-}
-
-function vaultDocsPersistSignature(docs: SmartVaultDoc[]): string {
-    return docs
-        .map(
-            (d) =>
-                `${d.id}\0${d.updatedAt}\0${d.storagePath}\0${d.signedUrl ? 1 : 0}\0${d.customCategory ?? ''}\0${d.title}`,
-        )
-        .join('\x01');
-}
-
-function mergeVaultDocs(local: SmartVaultDoc[], remote: SmartVaultDoc[]): SmartVaultDoc[] {
-    const map = new Map<string, SmartVaultDoc>();
-    for (const d of local) map.set(d.id, d);
-    for (const d of remote) {
-        const prev = map.get(d.id);
-        if (!prev) {
-            map.set(d.id, d);
-            continue;
-        }
-        const prevTime = Number.isFinite(Date.parse(prev.updatedAt)) ? Date.parse(prev.updatedAt) : 0;
-        const nextTime = Number.isFinite(Date.parse(d.updatedAt)) ? Date.parse(d.updatedAt) : 0;
-        const winner = nextTime > prevTime ? d : prev;
-        const other = nextTime > prevTime ? prev : d;
-        map.set(d.id, {
-            ...winner,
-            signedUrl: winner.signedUrl ?? other.signedUrl ?? null,
-            storagePath: winner.storagePath || other.storagePath,
-        });
-    }
-    return Array.from(map.values());
-}
-
-export const SmartVaultDB = {
-    async listDocs(userId?: string): Promise<SmartVaultDoc[]> {
-        if (!userId?.trim()) return [];
-        const uid = userId.trim();
-        const localDocs = (await loadLocalVaultDocs()).filter((d) => d.authorId === uid);
-        try {
-            const raw = await kv.getByPrefix(`vault:docs:${uid}:`);
-            const remoteDocs = Array.isArray(raw)
-                ? raw.filter((d): d is SmartVaultDoc => {
-                      if (!d || typeof d !== 'object') return false;
-                      const o = d as Record<string, unknown>;
-                      return (
-                          typeof o.id === 'string' &&
-                          typeof o.title === 'string' &&
-                          o.authorId === uid
-                      );
-                  })
-                : [];
-            const mergedForUser = mergeVaultDocs(localDocs, remoteDocs)
-                .filter((d) => d.authorId === uid)
-                .sort(
-                (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-            );
-            const allLocal = await loadLocalVaultDocs();
-            const others = allLocal.filter((d) => d.authorId !== uid);
-            const nextLocal = [...others, ...mergedForUser];
-            const prevUserSig = vaultDocsPersistSignature(allLocal.filter((d) => d.authorId === uid));
-            const nextUserSig = vaultDocsPersistSignature(mergedForUser);
-            if (prevUserSig !== nextUserSig) {
-                await saveLocalVaultDocs(nextLocal);
-            }
-            return mergedForUser;
-        } catch {
-            return localDocs.sort(
-                (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-            );
-        }
-    },
-
-    async saveDoc(doc: SmartVaultDoc): Promise<void> {
-        if (!doc.authorId || typeof doc.authorId !== 'string') {
-            throw new Error('authorId مطلوب لحفظ الملف');
-        }
-        const localDocs = await loadLocalVaultDocs();
-        const merged = mergeVaultDocs(localDocs, [doc]);
-        try {
-            await kv.set(`vault:docs:${doc.authorId}:${doc.id}`, vaultDocPayloadForKv(doc));
-        } catch {
-            // Cloud-First: save locally even if remote fails
-        }
-        await saveLocalVaultDocs(merged);
-    },
-
-    async deleteDoc(docId: string, authorId: string): Promise<void> {
-        if (!authorId || !docId) throw new Error('معرف الملف والمستخدم مطلوب');
-        const localDocs = await loadLocalVaultDocs();
-        const localDoc = localDocs.find((d) => d?.id === docId && d.authorId === authorId);
-        try {
-            const raw = await kv.get(`vault:docs:${authorId}:${docId}`);
-            if (raw && typeof raw === 'object') {
-                const doc = raw as SmartVaultDoc;
-                const path = doc.storagePath || '';
-                if (path && !path.startsWith('local:') && !isVaultIdbStoragePath(path)) {
-                    await removeStoragePathsBestEffort([path]);
-                }
-            }
-        } catch {
-            // continue — try KV deletion even if Storage fails
-        }
-        try {
-            await kv.del(`vault:docs:${authorId}:${docId}`);
-        } catch {
-            // Cloud-First: delete locally even if remote fails
-        }
-        if (localDoc?.storagePath && isVaultIdbStoragePath(localDoc.storagePath)) {
-            await deleteVaultBlobByPath(localDoc.storagePath);
-        }
-        const remaining = localDocs.filter((d) => d?.id !== docId);
-        await saveLocalVaultDocs(remaining);
-    },
-
-    async updateDoc(doc: SmartVaultDoc, requesterId?: string): Promise<void> {
-        if (requesterId && doc.authorId !== requesterId) {
-            throw new Error('غير مصرح بتعديل هذا الملف');
-        }
-        await this.saveDoc(doc);
-    },
-
-    async bindToDossier(docId: string, authorId: string, dossierId: string): Promise<void> {
-        if (!docId || !authorId || !dossierId) throw new Error('جميع الحقول مطلوبة');
-
-        let doc: SmartVaultDoc | null = null;
-        const localDocs = await loadLocalVaultDocs();
-        const localIdx = localDocs.findIndex((d) => d.id === docId);
-        if (localIdx !== -1) {
-            doc = localDocs[localIdx];
-        } else {
-            try {
-                const raw = await kv.get(`vault:docs:${authorId}:${docId}`);
-                if (raw && typeof raw === 'object') {
-                    doc = raw as SmartVaultDoc;
-                }
-            } catch {
-                // not found remotely either
-            }
-        }
-        if (!doc) throw new Error('الملف غير موجود');
-        if (doc.authorId !== authorId) throw new Error('غير مصرح بربط هذا الملف');
-
-        const updated: SmartVaultDoc = { ...doc, boundDossierId: dossierId, updatedAt: new Date().toISOString() };
-        try {
-            await kv.set(`vault:docs:${authorId}:${docId}`, vaultDocPayloadForKv(updated));
-        } catch {
-            // Cloud-First: save locally even if remote fails
-        }
-        const merged = mergeVaultDocs(localDocs, [updated]);
-        await saveLocalVaultDocs(merged);
-    },
-
-    async getSignedUrl(storagePath: string): Promise<string | null> {
-        return await LawyerStorage.getSignedUrl(storagePath);
-    },
-};
+export type { SmartVaultDocType, SmartVaultFilterTag, SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 
 export type { CalendarEventType, CalendarEvent } from '@/app/services/cloud/lawyerCalendarTypes';
-
-/** واجهة توافق — dynamic import لتفادي circular chunk مع monolith */
-export const CalendarDB = {
-    async getAllStoredEvents() {
-        const mod = await import('@/app/services/cloud/lawyerCalendarCloud');
-        return mod.CalendarDB.getAllStoredEvents();
-    },
-    async getEvents(userId: string, options?: { forceRefresh?: boolean }) {
-        const mod = await import('@/app/services/cloud/lawyerCalendarCloud');
-        return mod.CalendarDB.getEvents(userId, options);
-    },
-    async saveEvent(event: import('@/app/services/cloud/lawyerCalendarTypes').CalendarEvent) {
-        const mod = await import('@/app/services/cloud/lawyerCalendarCloud');
-        return mod.CalendarDB.saveEvent(event);
-    },
-    async saveEventsBatch(events: import('@/app/services/cloud/lawyerCalendarTypes').CalendarEvent[]) {
-        const mod = await import('@/app/services/cloud/lawyerCalendarCloud');
-        return mod.CalendarDB.saveEventsBatch(events);
-    },
-    async deleteEvent(eventId: string, userId: string) {
-        const mod = await import('@/app/services/cloud/lawyerCalendarCloud');
-        return mod.CalendarDB.deleteEvent(eventId, userId);
-    },
-    async updateEvent(event: import('@/app/services/cloud/lawyerCalendarTypes').CalendarEvent) {
-        const mod = await import('@/app/services/cloud/lawyerCalendarCloud');
-        return mod.CalendarDB.updateEvent(event);
-    },
-};
+export const CalendarDB = CalendarRuntimeDB;
 
 export type { TransactionsThreadingState } from '@/app/services/cloud/lawyerTransactionTypes';
-
-/** واجهة توافق — dynamic import لتفادي circular chunk مع monolith */
-export const TransactionDB = {
-    async getTransactions(userId: string) {
-        const mod = await import('@/app/services/cloud/lawyerTransactionsCloud');
-        return mod.TransactionDB.getTransactions(userId);
-    },
-    async saveTransaction(transaction: unknown) {
-        const mod = await import('@/app/services/cloud/lawyerTransactionsCloud');
-        return mod.TransactionDB.saveTransaction(transaction);
-    },
-    async updateTransaction(transaction: unknown) {
-        const mod = await import('@/app/services/cloud/lawyerTransactionsCloud');
-        return mod.TransactionDB.updateTransaction(transaction);
-    },
-};
-
-export const TransactionsThreadingDB = {
-    async getState(userId: string) {
-        const mod = await import('@/app/services/cloud/lawyerTransactionsCloud');
-        return mod.TransactionsThreadingDB.getState(userId);
-    },
-    async saveState(
-        userId: string,
-        input: import('@/app/services/cloud/lawyerTransactionTypes').TransactionsThreadingSaveInput,
-    ) {
-        const mod = await import('@/app/services/cloud/lawyerTransactionsCloud');
-        return mod.TransactionsThreadingDB.saveState(userId, input);
-    },
-};
+export const TransactionDB = TransactionsRuntimeDB;
+export const TransactionsThreadingDB = TransactionsThreadingRuntimeDB;
 
 export { UrgentActionsDB } from './urgent-actions-db';
 

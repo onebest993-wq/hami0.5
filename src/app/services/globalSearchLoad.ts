@@ -1,7 +1,18 @@
 import type { CalendarEvent } from '@/app/services/cloud/lawyerCalendarTypes';
-import type { CommunityPost, RepositoryDocument, SmartVaultDoc } from '@/app/services/lawyer-cloud';
+import {
+    RepositoryDB,
+    type CommunityPost,
+} from '@/app/services/lawyer-cloud';
+import { SmartVaultDB } from '@/app/services/vault/smartVaultRuntime';
+import type { RepositoryDocument, SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import type { Transaction, TransactionTask, FinanceRecord } from '@/app/modules/transactionsThreading/types';
+import { fetchCommunityPosts } from '@/app/services/forum/communityCloudLoader';
+import { invalidateGlobalSearchFuseCache } from '@/app/services/globalSearchFuse';
+import { invalidateGlobalSearchIndexCache } from '@/app/services/globalSearchIndexRuntime';
+import { invalidateProfileLineCache } from '@/app/services/globalSearchProfileCache';
+import { invalidateFileSearchSliceCache } from '@/app/services/search/globalSearchFileSliceCache';
+import { resetGlobalSearchWarmState } from '@/app/services/globalSearchWarm';
 
 export type GlobalSearchExtras = {
     quantumTasks: LegalTask[];
@@ -39,15 +50,11 @@ export function invalidateGlobalSearchExtrasCache(userId?: string | null): void 
     if (userId && resolvedExtrasCache?.userId !== userId) return;
     resolvedExtrasCache = null;
     if (!userId || inflightExtras?.userId === userId) inflightExtras = null;
-    void import('@/app/services/globalSearchIndexRuntime').then((m) => m.invalidateGlobalSearchIndexCache());
-    void import('@/app/services/globalSearchFuse').then((m) => m.invalidateGlobalSearchFuseCache());
-    void import('@/app/services/search/globalSearchFileSliceCache').then((m) =>
-        m.invalidateFileSearchSliceCache(),
-    );
-    void import('@/app/services/globalSearchProfileCache').then((m) =>
-        m.invalidateProfileLineCache(userId ?? undefined),
-    );
-    void import('@/app/services/globalSearchWarm').then((m) => m.resetGlobalSearchWarmState());
+    invalidateGlobalSearchIndexCache();
+    invalidateGlobalSearchFuseCache();
+    invalidateFileSearchSliceCache();
+    invalidateProfileLineCache(userId ?? undefined);
+    resetGlobalSearchWarmState();
 }
 
 /** تسخين مصادر البحث في الخلفية — لا يُعيد التحميل إذا كان الكاش سارياً. */
@@ -60,21 +67,17 @@ export function warmGlobalSearchExtras(userId: string | null): void {
 
 async function fetchGlobalSearchExtras(userId: string): Promise<GlobalSearchExtras> {
     const [
-        { RepositoryDB, SmartVaultDB },
         { UrgentActionsDB },
         { persistenceRepository },
         { QUANTUM_TASKS_STORAGE_KEY, deserializeQuantumTasks },
         { fetchCalendarEvents },
         { fetchTransactionsThreadingState },
-        { fetchCommunityPosts },
     ] = await Promise.all([
-        import('@/app/services/lawyer-cloud'),
         import('@/app/services/urgent-actions-db'),
         import('@/app/infrastructure/persistence/LocalStorageRepository'),
         import('@/app/utils/quantumTasksStorage'),
         import('@/app/services/calendar/calendarCloudLoader'),
         import('@/app/services/transactions/transactionsCloudLoader'),
-        import('@/app/services/forum/communityCloudLoader'),
     ]);
 
     const [calendarEvents, vaultDocs, repositoryDocs, urgentState, threadingState, communityPosts] =

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Calendar, Plus, AlertTriangle, Loader2 } from 'lucide-react';
+import { Calendar, Plus, AlertTriangle } from 'lucide-react';
+import { prefetchRadarEventForm } from '@/app/runtime/radarWidgetLoader';
 import { getDayName } from './utils';
 import { EmptyState } from './CalendarGrid';
 import { EventCardsList } from './EventCardsList';
@@ -11,7 +12,6 @@ export type RadarSelectedDaySectionProps = {
     selectedDate: string;
     selectedEvents: UnifiedEvent[];
     highlightEventId?: string;
-    loadingDay: boolean;
     aiBriefing: string | null;
     conflictMessage: string | null;
     onAddEvent: () => void;
@@ -24,7 +24,6 @@ export const RadarSelectedDaySection = React.memo(function RadarSelectedDaySecti
     selectedDate,
     selectedEvents,
     highlightEventId,
-    loadingDay,
     aiBriefing,
     conflictMessage,
     onAddEvent,
@@ -46,6 +45,7 @@ export const RadarSelectedDaySection = React.memo(function RadarSelectedDaySecti
                 <button
                     type="button"
                     onClick={onAddEvent}
+                    onPointerEnter={prefetchRadarEventForm}
                     data-testid="radar-add-event"
                     className={RADAR_BTN_GOLD}
                 >
@@ -54,40 +54,30 @@ export const RadarSelectedDaySection = React.memo(function RadarSelectedDaySecti
                 </button>
             </div>
 
-            {loadingDay ? (
-                <div
-                    className="flex items-center justify-center py-12"
-                    data-testid="radar-day-loading"
-                    aria-busy="true"
-                >
-                    <Loader2 size={32} className={`${RADAR_ICON_GOLD} animate-spin`} />
-                </div>
-            ) : (
-                <>
-                    {selectedEvents.length > 0 && aiBriefing ? (
-                        <RadarAiBriefing briefing={aiBriefing} />
-                    ) : null}
+            <>
+                {selectedEvents.length > 0 && aiBriefing ? (
+                    <RadarAiBriefing briefing={aiBriefing} />
+                ) : null}
 
-                    {conflictMessage ? (
-                        <div className="bg-rose-950/25 border border-rose-500/35 text-rose-300 text-sm p-3 rounded-xl flex items-start gap-2">
-                            <AlertTriangle size={16} className="shrink-0 mt-0.5" />
-                            <span>{conflictMessage}</span>
-                        </div>
-                    ) : null}
+                {conflictMessage ? (
+                    <div className="bg-rose-950/25 border border-rose-500/35 text-rose-300 text-sm p-3 rounded-xl flex items-start gap-2">
+                        <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                        <span>{conflictMessage}</span>
+                    </div>
+                ) : null}
 
-                    {selectedEvents.length === 0 ? (
-                        <EmptyState />
-                    ) : (
-                        <EventCardsList
-                            events={selectedEvents}
-                            highlightEventId={highlightEventId}
-                            onEdit={onEditEvent}
-                            onDelete={onDeleteEvent}
-                            onOpenSource={onOpenSource}
-                        />
-                    )}
-                </>
-            )}
+                {selectedEvents.length === 0 ? (
+                    <EmptyState />
+                ) : (
+                    <EventCardsList
+                        events={selectedEvents}
+                        highlightEventId={highlightEventId}
+                        onEdit={onEditEvent}
+                        onDelete={onDeleteEvent}
+                        onOpenSource={onOpenSource}
+                    />
+                )}
+            </>
         </div>
     );
 });

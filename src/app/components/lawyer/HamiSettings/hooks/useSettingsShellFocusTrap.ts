@@ -1,13 +1,14 @@
 import { useCallback, useEffect, type KeyboardEvent, type RefObject } from 'react';
-import { releaseBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { dismissActiveSmartDialog, isSmartDialogOpen } from '@/app/components/ui/smartDialogBus';
 import { resolveSettingsEscapeAction } from '@/app/components/lawyer/HamiSettings/settingsEscapeStack';
+import { isSettingsFilePickerGraceActive } from '@/app/components/lawyer/HamiSettings/settingsFilePickerGrace';
 
 const FOCUSABLE_SELECTOR =
     'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-export function useSettingsShellEscape(onClose: () => void): void {
+export function useSettingsShellEscape(onClose: () => void, enabled = true): void {
     useEffect(() => {
+        if (!enabled) return;
         const onKey = (e: globalThis.KeyboardEvent) => {
             if (e.key !== 'Escape') return;
             const action = resolveSettingsEscapeAction({ smartDialogOpen: isSmartDialogOpen() });
@@ -18,11 +19,10 @@ export function useSettingsShellEscape(onClose: () => void): void {
                 return;
             }
             onClose();
-            releaseBodyScrollLock();
         };
         window.addEventListener('keydown', onKey, true);
         return () => window.removeEventListener('keydown', onKey, true);
-    }, [onClose]);
+    }, [enabled, onClose]);
 }
 
 export function useSettingsShellFocusTrap(
@@ -30,15 +30,17 @@ export function useSettingsShellFocusTrap(
     onClose: () => void,
     enabled = true,
 ) {
-    useSettingsShellEscape(onClose);
+    useSettingsShellEscape(onClose, enabled);
 
     useEffect(() => {
         if (!enabled || !shellRef.current) return;
         const root = shellRef.current;
 
         const onFocusIn = (e: FocusEvent) => {
+            if (isSettingsFilePickerGraceActive()) return;
             const target = e.target;
             if (!(target instanceof Node) || root.contains(target)) return;
+            if (target instanceof HTMLInputElement && target.type === 'file') return;
             e.stopPropagation();
             const focusables = Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
                 (el) => el.offsetParent !== null,

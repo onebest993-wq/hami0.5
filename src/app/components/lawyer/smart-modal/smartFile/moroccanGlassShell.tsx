@@ -1,10 +1,12 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useSmartFileModalTheme } from './smartFileModalTheme';
 
+import { SMART_FILE_NESTED_MODAL_OVERLAY_CLASS } from './smartFileOverlayZ';
+
 /** Shared premium Moroccan glass styling for smart-file surfaces. */
-export const GLASS_MODAL_OVERLAY =
-    "fixed inset-0 z-[160] flex items-center justify-center bg-[#05060D]/65 backdrop-blur-[3px] p-4 font-['Tajawal']";
+export const GLASS_MODAL_OVERLAY = SMART_FILE_NESTED_MODAL_OVERLAY_CLASS;
 
 export const GLASS_MODAL_SHELL =
     'relative overflow-visible animate-in zoom-in-95 duration-200';
@@ -56,10 +58,10 @@ export const GLASS_CHIP_ACTIVE =
     'px-3 py-1 rounded-full text-[11px] font-bold transition-all border border-[#E6C673]/35 bg-[#E6C673]/18 text-[#E6C673] shadow-[0_0_14px_rgba(230,198,115,0.18)]';
 
 export const GLASS_PANEL_SHELL =
-    'relative rounded-2xl border border-white/[0.08] bg-[#0A0F1C]/30 backdrop-blur-2xl overflow-hidden shadow-[0_8px_28px_rgba(0,0,0,0.28)]';
+    'relative rounded-[24px] border border-[#E6C673]/14 bg-[radial-gradient(circle_at_top,rgba(230,198,115,0.08),transparent_34%),linear-gradient(180deg,rgba(17,22,35,0.92),rgba(10,15,28,0.94))] backdrop-blur-2xl overflow-hidden shadow-[0_14px_36px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.05)]';
 
 export const GLASS_ACTION_BTN =
-    'flex flex-col items-center justify-center gap-1.5 h-14 rounded-xl border border-[#E6C673]/15 bg-white/[0.03] backdrop-blur-xl hover:bg-[#E6C673]/[0.08] hover:border-[#E6C673]/30 transition-all shadow-[0_4px_18px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.05)] group hover:scale-[1.02]';
+    'flex flex-col items-center justify-center rounded-[1.35rem] border border-[#E6C673]/16 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(230,198,115,0.06))] backdrop-blur-xl hover:bg-[#E6C673]/[0.08] hover:border-[#E6C673]/28 transition-all shadow-[0_10px_28px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.05)] group hover:-translate-y-[1px]';
 
 const ZELLIGE_SVG = encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
@@ -179,17 +181,19 @@ type MoroccanGlassShellProps = {
     className?: string;
     maxWidth?: string;
     onOverlayClick?: () => void;
+    overlayTestId?: string;
 };
 
 export function MoroccanGlassShell({
     children,
     className = '',
-    maxWidth = 'max-w-sm',
+    maxWidth = 'max-w-2xl',
     onOverlayClick,
+    overlayTestId,
 }: MoroccanGlassShellProps) {
     const T = useSmartFileModalTheme();
-    return (
-        <div className={T.overlay} dir="rtl" onClick={onOverlayClick}>
+    const layer = (
+        <div className={T.overlay} dir="rtl" onClick={onOverlayClick} data-testid={overlayTestId}>
             <div
                 className={`w-full ${maxWidth} ${T.shell} ${className}`}
                 onClick={(e) => e.stopPropagation()}
@@ -197,7 +201,9 @@ export function MoroccanGlassShell({
                 {T.useMoroccanCorners ? (
                     <>
                         <MoroccanArtCornerBrackets />
-                        <div className="relative z-[1] px-5 py-4">{children}</div>
+                        <div className="absolute inset-0 rounded-[28px] border border-[#E6C673]/12 bg-[radial-gradient(circle_at_top,rgba(230,198,115,0.10),transparent_34%),linear-gradient(180deg,rgba(18,24,38,0.96),rgba(10,15,28,0.97))] shadow-[0_24px_64px_rgba(0,0,0,0.46),inset_0_1px_0_rgba(255,255,255,0.05)]" aria-hidden />
+                        <MoroccanGlassBackdrop className="opacity-20 rounded-[28px]" />
+                        <div className="relative z-[1] px-5 py-4 rounded-[28px]">{children}</div>
                     </>
                 ) : (
                     <div className={T.shellCard}>{children}</div>
@@ -205,6 +211,7 @@ export function MoroccanGlassShell({
             </div>
         </div>
     );
+    return typeof document !== 'undefined' ? createPortal(layer, document.body) : layer;
 }
 
 type MoroccanGlassPanelProps = React.HTMLAttributes<HTMLElement> & {

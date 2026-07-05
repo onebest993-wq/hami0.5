@@ -6,6 +6,9 @@ import {
     isVaultDocLocal,
     isVaultPdfFile,
     resolveVaultDocUrl,
+    resolveVaultDocForViewing,
+    toVaultPdfViewerUrl,
+    uploadVaultFileWithFallback,
 } from '@/app/services/vaultUploadService';
 
 vi.mock('@/app/services/lawyer-cloud', async (importOriginal) => {
@@ -16,6 +19,7 @@ vi.mock('@/app/services/lawyer-cloud', async (importOriginal) => {
             ...actual.SmartVaultDB,
             getSignedUrl: vi.fn(),
         },
+        uuidv4: () => 'doc-test-id',
     };
 });
 
@@ -28,12 +32,17 @@ vi.mock('@/app/services/vaultBlobStore', () => ({
         return { userId, docId: rest.join(':') };
     },
     getVaultBlobObjectUrl: vi.fn(),
+    getVaultBlob: vi.fn(),
+    peekVaultBlob: vi.fn(() => null),
+    primeVaultBlobCache: vi.fn(),
+    prefetchVaultBlobStore: vi.fn(),
+    waitForVaultBlobWrites: vi.fn(async () => undefined),
     putVaultBlob: vi.fn(),
     deleteVaultBlobByPath: vi.fn(),
 }));
 
 import { SmartVaultDB } from '@/app/services/lawyer-cloud';
-import { getVaultBlobObjectUrl } from '@/app/services/vaultBlobStore';
+import { getVaultBlob, getVaultBlobObjectUrl, peekVaultBlob, putVaultBlob } from '@/app/services/vaultBlobStore';
 
 const baseDoc = (overrides: Partial<SmartVaultDoc> = {}): SmartVaultDoc => ({
     id: 'doc-1',
@@ -62,6 +71,12 @@ describe('isVaultDocImage / isVaultDocPdf', () => {
     it('detects pdf docs', () => {
         expect(isVaultDocPdf(baseDoc())).toBe(true);
         expect(isVaultDocImage(baseDoc())).toBe(false);
+    });
+
+    it('detects image by mime even when type is pdf', () => {
+        const misclassified = baseDoc({ type: 'pdf', mimeType: 'image/jpeg', fileName: 'photo.jpg' });
+        expect(isVaultDocImage(misclassified)).toBe(true);
+        expect(isVaultDocPdf(misclassified)).toBe(false);
     });
 });
 
@@ -97,7 +112,19 @@ describe('resolveVaultDocUrl', () => {
         vi.mocked(getVaultBlobObjectUrl).mockResolvedValue('blob:idb-preview');
         const doc = baseDoc({ id: 'doc-1', storagePath: 'idb:vault:u1:doc-1', signedUrl: null });
         await expect(resolveVaultDocUrl(doc)).resolves.toBe('blob:idb-preview');
-        expect(getVaultBlobObjectUrl).toHaveBeenCalledWith('u1', 'doc-1');
+        expect(getVaultBlobObjectUrl).toHaveBeenCalledWith('u1', 'doc-1', {
+            mimeType: 'application/pdf',
+        });
+    });
+
+    it('does not reuse stale signed blob urls for idb vault files', async () => {
+        vi.mocked(getVaultBlobObjectUrl).mockResolvedValue('blob:fresh-idb-preview');
+        const doc = baseDoc({
+            id: 'doc-1',
+            storagePath: 'idb:vault:u1:doc-1',
+            signedUrl: 'blob:http://localhost:8080/stale-preview',
+        });
+        await expect(resolveVaultDocUrl(doc)).resolves.toBe('blob:fresh-idb-preview');
     });
 
     it('returns null when local file has no signedUrl', async () => {
@@ -117,5 +144,141 @@ describe('resolveVaultDocUrl', () => {
         const cached = 'https://cached.example/pdf';
         const doc = baseDoc({ storagePath: 'u1/vault/file.pdf', signedUrl: cached });
         await expect(resolveVaultDocUrl(doc)).resolves.toBe(cached);
+    });
+});
+
+describe('resolveVaultDocForViewing', () => {
+    beforeEach(() => {
+        vi.mocked(getVaultBlob).mockReset();
+        vi.mocked(getVaultBlobObjectUrl).mockReset();
+        vi.mocked(peekVaultBlob).mockReset();
+        vi.mocked(peekVaultBlob).mockReturnValue(null);
+    });
+
+    it('opens from idb blob url', async () => {
+        vi.mocked(getVaultBlobObjectUrl).mockResolvedValue('blob:idb-preview');
+        const doc = baseDoc({ id: 'doc-1', storagePath: 'idb:vault:u1:doc-1' });
+        const payload = await resolveVaultDocForViewing(doc);
+        expect(payload?.url).toBe('blob:idb-preview');
+        expect(payload?.kind).toBe('pdf');
+    });
+
+    it('creates preview url when blob exists but object url resolver fails', async () => {
+        const pdfBlob = new Blob(['%PDF-1.4'], { type: 'application/pdf' });
+        vi.mocked(getVaultBlob).mockResolvedValue(pdfBlob);
+        vi.mocked(getVaultBlobObjectUrl).mockResolvedValue(null);
+        const createObjectURL = vi.fn(() => 'blob:from-blob');
+        Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectURL });
+        const doc = baseDoc({ id: 'doc-2', storagePath: 'idb:vault:u1:doc-2' });
+        const payload = await resolveVaultDocForViewing(doc);
+        expect(payload?.url).toBe('blob:from-blob');
+        expect(payload?.blob).toBe(pdfBlob);
+        expect(payload?.revokeOnClose).toBe(true);
+        expect(createObjectURL).toHaveBeenCalled();
+    });
+
+    it('falls back to https signedUrl when local blob missing', async () => {
+        vi.mocked(getVaultBlobObjectUrl).mockResolvedValue(null);
+        vi.mocked(getVaultBlob).mockResolvedValue(null);
+        const cached = 'https://cdn.example/doc.pdf';
+        const doc = baseDoc({
+            storagePath: 'idb:vault:u1:doc-3',
+            signedUrl: cached,
+        });
+        const payload = await resolveVaultDocForViewing(doc);
+        expect(payload?.url).toBe(cached);
+        expect(payload?.revokeOnClose).toBe(false);
+    });
+});
+
+describe('toVaultPdfViewerUrl', () => {
+    it('normalizes octet-stream blob to application/pdf for inline viewer', async () => {
+        const pdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
+        const blob = new Blob([pdfBytes], { type: 'application/octet-stream' });
+        const createObjectURL = vi.fn(() => 'blob:normalized');
+        Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectURL });
+        global.fetch = vi.fn(async () => new Response(blob)) as typeof fetch;
+        const viewerUrl = await toVaultPdfViewerUrl('blob:source');
+        expect(viewerUrl).toBe('blob:normalized');
+        expect(createObjectURL).toHaveBeenCalled();
+    });
+});
+
+describe('uploadVaultFileWithFallback', () => {
+    beforeEach(() => {
+        vi.mocked(putVaultBlob).mockReset();
+    });
+
+    it('stores large pdf files locally in idb without cloud upload', async () => {
+        vi.mocked(putVaultBlob).mockResolvedValue(undefined);
+
+        const file = new File([new Uint8Array(600 * 1024)], 'big.pdf', {
+            type: 'application/pdf',
+        });
+        const result = uploadVaultFileWithFallback('u1', file, { docId: 'doc-1' });
+
+        expect(result.localOnly).toBe(true);
+        expect(result.storagePath).toBe('idb:vault:u1:doc-1');
+        expect(putVaultBlob).toHaveBeenCalled();
+    });
+
+    it('stores small pdf files in idb with blob preview', async () => {
+        vi.mocked(putVaultBlob).mockResolvedValue(undefined);
+        const createObjectURL = vi.fn(() => 'blob:preview-pdf');
+        const originalCreateObjectURL = URL.createObjectURL;
+        Object.defineProperty(URL, 'createObjectURL', {
+            configurable: true,
+            writable: true,
+            value: createObjectURL,
+        });
+
+        try {
+            const file = new File(['pdf'], 'small.pdf', {
+                type: 'application/pdf',
+            });
+            const result = uploadVaultFileWithFallback('u1', file, { docId: 'doc-2' });
+
+            expect(result.localOnly).toBe(true);
+            expect(result.storagePath).toBe('idb:vault:u1:doc-2');
+            expect(result.signedUrl).toBe('blob:preview-pdf');
+            expect(putVaultBlob).toHaveBeenCalled();
+            expect(createObjectURL).toHaveBeenCalledWith(file);
+        } finally {
+            Object.defineProperty(URL, 'createObjectURL', {
+                configurable: true,
+                writable: true,
+                value: originalCreateObjectURL,
+            });
+        }
+    });
+
+    it('stores images in idb with an instant blob preview url', () => {
+        vi.mocked(putVaultBlob).mockResolvedValue(undefined);
+        const createObjectURL = vi.fn(() => 'blob:preview-image');
+        const originalCreateObjectURL = URL.createObjectURL;
+        Object.defineProperty(URL, 'createObjectURL', {
+            configurable: true,
+            writable: true,
+            value: createObjectURL,
+        });
+
+        try {
+            const file = new File([new Uint8Array(64 * 1024)], 'photo.jpg', {
+                type: 'image/jpeg',
+            });
+            const result = uploadVaultFileWithFallback('u1', file, { docId: 'img-1' });
+
+            expect(result.localOnly).toBe(true);
+            expect(result.storagePath).toBe('idb:vault:u1:img-1');
+            expect(result.signedUrl).toBe('blob:preview-image');
+            expect(putVaultBlob).toHaveBeenCalled();
+            expect(createObjectURL).toHaveBeenCalledWith(file);
+        } finally {
+            Object.defineProperty(URL, 'createObjectURL', {
+                configurable: true,
+                writable: true,
+                value: originalCreateObjectURL,
+            });
+        }
     });
 });

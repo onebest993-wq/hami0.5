@@ -4,6 +4,7 @@ import { X, FileText, Image, File, Calendar, Trash2 } from 'lucide-react';
 import { executionDocumentFoldersStorageKey, executionDocumentsStorageKey } from '@/app/utils/executionStorageKeys';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import { VaultPdfJsViewer } from '@/app/components/lawyer/SmartVaultModal/VaultPdfJsViewer';
 import { beginPrivacySensitiveSurface, endPrivacySensitiveSurface } from '@/app/runtime/privacyScreenSession';
 
 interface Document {
@@ -601,10 +602,9 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                                         if (!d || !d.dataUrl) return null;
                                         if (d.type === 'pdf') {
                                             return (
-                                                <iframe
-                                                    src={d.dataUrl}
-                                                    className="w-full h-full rounded-2xl border border-white/10 bg-black"
-                                                />
+                                                <div className="w-full h-full rounded-2xl border border-white/10 bg-[#16111B] p-2">
+                                                    <VaultPdfJsViewer source={d.dataUrl} title={d.name} />
+                                                </div>
                                             );
                                         }
                                         return (

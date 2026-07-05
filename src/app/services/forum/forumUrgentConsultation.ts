@@ -1,4 +1,4 @@
-import type { CommunityPost } from '@/app/services/lawyer-cloud';
+import type { CommunityPost } from '@/app/services/forum/forumTypes';
 
 /** مدة أولوية «الاستشارة العاجلة» في الترتيب (24 ساعة من وقت النشر). */
 export const URGENT_CONSULTATION_WINDOW_MS = 24 * 60 * 60 * 1000;

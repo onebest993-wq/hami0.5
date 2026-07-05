@@ -36,6 +36,10 @@ vi.mock('@/app/runtime/hamiSettingsLoader', () => ({
     prefetchHamiSettingsModule: vi.fn(),
 }));
 
+vi.mock('@/app/runtime/settingsBootHydrator', () => ({
+    hydrateSettingsShellForInstantOpen: vi.fn(() => Promise.resolve(true)),
+}));
+
 vi.mock('@/app/runtime/notificationPanelLoader', () => ({
     loadNotificationPanelModule: vi.fn(() => Promise.resolve({})),
     prefetchNotificationPanel: vi.fn(),
@@ -56,11 +60,22 @@ vi.mock('@/app/runtime/royalLawyerProfileLoader', () => ({
     prefetchRoyalLawyerProfileChunk: vi.fn(),
 }));
 
-import { loadHamiSettingsModule, prefetchHamiSettingsModule } from '@/app/runtime/hamiSettingsLoader';
+vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
+    scheduleIdleWork: (fn: () => void) => {
+        fn();
+        return () => undefined;
+    },
+}));
+
+import {
+    loadHamiSettingsModule,
+    prefetchHamiSettingsModule,
+} from '@/app/runtime/hamiSettingsLoader';
 import {
     loadNotificationPanelModule,
     prefetchNotificationPanel,
 } from '@/app/runtime/notificationPanelLoader';
+import { hydrateSettingsShellForInstantOpen } from '@/app/runtime/settingsBootHydrator';
 import {
     loadGlobalSearchOverlayWithEngine,
     prefetchGlobalSearchOverlayChunk,
@@ -74,6 +89,7 @@ import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRunti
 import {
     hydrateLawyerDashboardHeaderShellChunks,
     preloadLawyerDashboardHeaderShellChunks,
+    resetHeaderShellIntentWarmForTests,
     shouldAggressiveHeaderShellWarm,
     warmLawyerDashboardHeaderShell,
 } from '@/app/hooks/lawyerDashboard/headerShellIntentWarm';
@@ -81,6 +97,7 @@ import {
 describe('headerShellIntentWarm', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        resetHeaderShellIntentWarmForTests();
         vi.mocked(getLawyerSettingsSnapshot).mockReturnValue({
             security: { localOnlyMode: false },
             performance: { prefetchScreens: true, litePerformance: false },
@@ -124,42 +141,34 @@ describe('headerShellIntentWarm', () => {
         expect(warmSettingsOnHover).not.toHaveBeenCalled();
     });
 
-    it('preloadLawyerDashboardHeaderShellChunks ي prefetch دائماً ويحمّل عند التسخين الكامل', async () => {
-        preloadLawyerDashboardHeaderShellChunks();
-        await Promise.resolve();
-
-        expect(prefetchHamiSettingsModule).toHaveBeenCalledTimes(1);
-        expect(prefetchNotificationPanel).toHaveBeenCalledTimes(1);
-        expect(prefetchGlobalSearchOverlayChunk).toHaveBeenCalledTimes(1);
-        expect(loadHamiSettingsModule).toHaveBeenCalled();
-        expect(loadNotificationPanelModule).toHaveBeenCalled();
-        expect(loadGlobalSearchOverlayWithEngine).not.toHaveBeenCalled();
-    });
-
-    it('preloadLawyerDashboardHeaderShellChunks — prefetch فقط عند تعطيل prefetch', () => {
-        vi.mocked(getLawyerSettingsSnapshot).mockReturnValue({
-            security: { localOnlyMode: false },
-            performance: { prefetchScreens: false, litePerformance: false },
-        } as never);
-
+    it('preloadLawyerDashboardHeaderShellChunks — prefetch فقط بلا تحميل كامل', () => {
         preloadLawyerDashboardHeaderShellChunks();
 
         expect(prefetchHamiSettingsModule).toHaveBeenCalledTimes(1);
         expect(prefetchNotificationPanel).toHaveBeenCalledTimes(1);
         expect(prefetchGlobalSearchOverlayChunk).toHaveBeenCalledTimes(1);
-        expect(loadHamiSettingsModule).not.toHaveBeenCalled();
+        expect(hydrateSettingsShellForInstantOpen).not.toHaveBeenCalled();
         expect(loadNotificationPanelModule).not.toHaveBeenCalled();
         expect(loadGlobalSearchOverlayWithEngine).not.toHaveBeenCalled();
     });
 
-    it('hydrateLawyerDashboardHeaderShellChunks يحمّل chunks بالتوازي ويؤجّل البحث والملف', async () => {
+    it('hydrateLawyerDashboardHeaderShellChunks — hover فوراً ثم تحميل idle متدرج', async () => {
         hydrateLawyerDashboardHeaderShellChunks('lawyer-1');
         await Promise.resolve();
-        expect(warmSettingsOnOpen).toHaveBeenCalled();
-        expect(loadHamiSettingsModule).toHaveBeenCalled();
+
+        expect(warmSettingsOnHover).toHaveBeenCalled();
+        expect(warmSettingsOnOpen).not.toHaveBeenCalled();
+        expect(hydrateSettingsShellForInstantOpen).toHaveBeenCalled();
         expect(loadNotificationPanelModule).toHaveBeenCalled();
-        await Promise.resolve();
         expect(loadGlobalSearchOverlayWithEngine).toHaveBeenCalled();
         expect(loadRoyalLawyerProfileWithData).toHaveBeenCalledWith('lawyer-1');
+    });
+
+    it('hydrateLawyerDashboardHeaderShellChunks — idempotent', async () => {
+        hydrateLawyerDashboardHeaderShellChunks('lawyer-1');
+        hydrateLawyerDashboardHeaderShellChunks('lawyer-1');
+        await Promise.resolve();
+
+        expect(warmSettingsOnHover).toHaveBeenCalledTimes(1);
     });
 });

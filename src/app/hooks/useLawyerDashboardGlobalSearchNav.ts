@@ -7,6 +7,7 @@ import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { LawyerDashboardTab } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import type { OpenCriminalCaseOptions } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
+import { warmExecutionDossier } from '@/app/utils/lazyComponents';
 
 type GlobalSearchNav =
     | { type: 'notifications' }
@@ -145,6 +146,9 @@ export function useLawyerDashboardGlobalSearchNav({
                     files.find((f) => String(f.id) === id) ||
                     executionFiles.find((f) => String(f.id) === id);
                 if (target) {
+                    if ((target as { type?: string }).type === 'execution') {
+                        warmExecutionDossier('urgent');
+                    }
                     if (typeof nav.stageIndex === 'number' || typeof nav.eventId === 'string') {
                         const enriched = {
                             ...(target as unknown as Record<string, unknown>),
@@ -167,7 +171,12 @@ export function useLawyerDashboardGlobalSearchNav({
                 const target =
                     files.find((f) => String(f.id) === nav.caseId) ||
                     executionFiles.find((f) => String(f.id) === nav.caseId);
-                if (target) setActiveFile(target as FileData);
+                if (target) {
+                    if ((target as { type?: string }).type === 'execution') {
+                        warmExecutionDossier('urgent');
+                    }
+                    setActiveFile(target as FileData);
+                }
                 onNavigateToCase?.(nav.caseId);
             }
         },

@@ -96,6 +96,41 @@ describe('useQuantumTasks', () => {
         expect(t.location).toBe('محكمة الرصافة');
         expect(t.subTasks).toHaveLength(1);
         expect(t.subTasks[0]!.title).toBe('تصوير قرار');
+        expect(t.subTasks[0]!.kind).toBe('field');
+    });
+
+    it('addWeeklyLocationBundle with details string creates task without sub tasks', () => {
+        const { result } = renderHook(() => useQuantumTasks([]));
+        const day = startOfLocalDay(new Date(2026, 4, 18));
+
+        act(() => {
+            result.current.addWeeklyLocationBundle(day, 'محكمة الرصافة', 'متابعة قرار');
+        });
+
+        expect(result.current.pendingTasks).toHaveLength(1);
+        const t = result.current.pendingTasks[0]!;
+        expect(t.title).toBe('متابعة قرار');
+        expect(t.location).toBe('محكمة الرصافة');
+        expect(t.subTasks).toHaveLength(0);
+    });
+
+    it('notifies onTasksCommitted with the post-update task list', () => {
+        const onTasksCommitted = vi.fn();
+        const { result } = renderHook(() => useQuantumTasks([], { onTasksCommitted }));
+
+        act(() => {
+            result.current.addWeeklyLocationBundle(
+                startOfLocalDay(new Date(2026, 5, 21)),
+                'بغداد',
+                'جلسة مرافعة',
+            );
+        });
+
+        expect(onTasksCommitted).toHaveBeenCalled();
+        const committed = onTasksCommitted.mock.calls.at(-1)?.[0] as LegalTask[];
+        expect(committed).toHaveLength(1);
+        expect(committed[0]?.location).toBe('بغداد');
+        expect(committed[0]?.title).toBe('جلسة مرافعة');
     });
 
     it('toggleTaskPinnedToFieldCurtain pins only the target task', () => {
@@ -122,6 +157,20 @@ describe('useQuantumTasks', () => {
 
         expect(result.current.tasks.find((t) => t.id === idA)?.pinnedToFieldCurtain).toBe(false);
         expect(result.current.tasks.find((t) => t.id === idB)?.pinnedToFieldCurtain).toBe(true);
+    });
+
+    it('toggleTaskPinnedToFieldCurtain ignores fatal deadlines', () => {
+        const { result } = renderHook(() =>
+            useQuantumTasks([
+                task({ id: 'fatal-1', title: 'موعد حتمي', isFatalDeadline: true }),
+            ]),
+        );
+
+        act(() => {
+            result.current.toggleTaskPinnedToFieldCurtain('fatal-1');
+        });
+
+        expect(result.current.tasks[0]!.pinnedToFieldCurtain).toBe(false);
     });
 
     it('addTaskFromVoice persists voice blob and creates task with voice fields', async () => {

@@ -87,7 +87,7 @@ export function pickLawyerDashboardNotepadBundle(
     notepad: {
         isNotepadOpen: boolean;
         notepadMode: 'list' | 'create';
-        notepadFocusNoteId: string | undefined;
+        notepadFocusNoteId?: string;
         notepadSessionKey: number;
         repositoryTab: 'notepad' | 'vault';
         vaultOpenScanner: boolean;

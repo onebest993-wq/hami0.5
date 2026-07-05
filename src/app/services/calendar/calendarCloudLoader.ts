@@ -20,9 +20,20 @@ export async function fetchCalendarEvents(
     return mod.CalendarDB.getEvents(userId, options);
 }
 
+const CALENDAR_SAVE_TIMEOUT_MS = 8_000;
+
+function withSaveTimeout<T>(promise: Promise<T>): Promise<T> {
+    return Promise.race([
+        promise,
+        new Promise<T>((_, reject) => {
+            window.setTimeout(() => reject(new Error('calendar-save-timeout')), CALENDAR_SAVE_TIMEOUT_MS);
+        }),
+    ]);
+}
+
 export async function saveCalendarEvent(event: CalendarEvent): Promise<void> {
     const mod = await loadCalendarCloudModule();
-    return mod.CalendarDB.saveEvent(event);
+    await withSaveTimeout(mod.CalendarDB.saveEvent(event));
 }
 
 export async function updateCalendarEvent(event: CalendarEvent): Promise<void> {

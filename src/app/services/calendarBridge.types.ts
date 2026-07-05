@@ -1,4 +1,4 @@
-import type { CalendarEventType } from '@/app/services/lawyer-cloud';
+import type { CalendarEventType } from '@/app/services/calendar/calendarTypes';
 
 /** مصدر الحدث في التطبيق — للربط دون تغيير واجهات الأقسام */
 export type CalendarSourceModule =

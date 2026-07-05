@@ -5,4 +5,3 @@ export {
     type PromptPayload,
     type DialogPayload,
 } from '@/app/components/ui/smartDialogBus';
-export { SmartDialogContainer } from '@/app/components/ui/SmartDialogContainer';

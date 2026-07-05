@@ -1,5 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { persistenceRepository } from '../infrastructure/persistence/LocalStorageRepository';
+import SecureStoreService from '@/app/services/SecureStoreService';
+import { LAWSUIT_FILES_STORAGE_KEY } from '@/app/services/dossierPersistence/dossierStorageKeys';
 import { debug } from '@/app/utils/debug';
 
 function stableSerialize(data: unknown): string | null {
@@ -40,6 +42,10 @@ export function useAutoSave<T>(
         lastSavedSerializedRef.current = serialized;
         debug.log(`[AutoSave] ${key}`);
         persistenceRepository.save(key, dataRef.current);
+        persistenceRepository.flushPending(key);
+        if (key === LAWSUIT_FILES_STORAGE_KEY) {
+            SecureStoreService.flushHeavyPersistPending();
+        }
     }, [key, enabled, storageHydrated]);
 
     useEffect(() => {

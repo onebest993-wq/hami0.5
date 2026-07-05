@@ -1,4 +1,4 @@
-import type { CommunityComment, CommunityPost } from '@/app/services/lawyer-cloud';
+import type { CommunityComment, CommunityPost } from '@/app/services/forum/forumTypes';
 
 /** القيمة المجهولة الموحّدة عند النشر المجهول (للحماية من تسريب الهوية) */
 export const ANONYMOUS_USER_ID = '__anonymous__';

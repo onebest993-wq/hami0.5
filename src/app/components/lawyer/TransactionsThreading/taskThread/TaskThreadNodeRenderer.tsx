@@ -5,7 +5,6 @@ import { CHILD_NEST_CLASS } from './taskThreadUtils';
 
 export type TaskNodeActionHandlers = {
     onToggleStatus: (task: TransactionTask) => void;
-    onMarkDone: (task: TransactionTask) => void;
     onAddSubTask: (task: TransactionTask) => void;
     onEdit: (task: TransactionTask) => void;
     onDelete: (task: TransactionTask) => void;
@@ -29,7 +28,7 @@ export const TaskThreadNodeRenderer = memo(function TaskThreadNodeRenderer({
 }) {
     void index;
     void siblingsCount;
-    const { onToggleStatus, onMarkDone, onAddSubTask, onEdit, onDelete, readOnly } = handlers;
+    const { onToggleStatus, onAddSubTask, onEdit, onDelete, readOnly } = handlers;
 
     return (
         <div className="w-full min-w-0">
@@ -38,7 +37,6 @@ export const TaskThreadNodeRenderer = memo(function TaskThreadNodeRenderer({
                 taskNumber={taskNumber}
                 depth={depth}
                 onToggleStatus={onToggleStatus}
-                onMarkDone={onMarkDone}
                 onAddSubTask={onAddSubTask}
                 onEdit={onEdit}
                 onDelete={onDelete}

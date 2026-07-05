@@ -1,14 +1,34 @@
 import type { CaseStage, Party } from '../../LawyerShared';
 import {
+    classifyPartySideBucket,
+    extractParentheticalUnderlyingSide,
     isAppellantAppealRole,
     isAppelleeAppealRole,
+    isDefendantSideRole,
     isInterpleaderThirdPartyRole,
+    isPlaintiffSideRole,
     partitionPartiesForHeader,
 } from './partyRoleClassification';
 import {
     listAppellantPartiesForAppeal,
     type AppealSide,
 } from './appealPartyEngine';
+import {
+    JUDGMENT_TYPE_FULL_WIN,
+    JUDGMENT_TYPE_VOID,
+    JUDGMENT_TYPE_WAIVER,
+    JUDGMENT_TYPE_SULH,
+    JUDGMENT_TYPE_SULH_LEGACY,
+    isNonMeritTerminationType,
+    resolveFirstInstanceHadoriAppealRights,
+} from './judgmentTypes';
+import {
+    isInterpleaderJudgmentType,
+    resolveInterpleaderHadoriAppealRights,
+    type LawyerJudgmentBucket,
+} from './interpleaderJudgmentEngine';
+
+type PartyAppealBucket = LawyerJudgmentBucket;
 
 export function isPartialMeritJudgmentType(judgmentType?: string | null): boolean {
     const t = String(judgmentType ?? '').trim();
@@ -84,15 +104,147 @@ function hasCrossAppealFiled(party: Party, crossAppealedIds: Set<string>): boole
     return crossAppealedIds.has(id) || String(party.role ?? '').includes('متقابل');
 }
 
-/** أطراف من المرحلة السابقة على جانب الطاعن ولم ينضموا للطعن الأول */
+function normalizeJudgmentTypeForAppealRights(
+    priorJudgmentType?: string | null,
+    previousStage?: CaseStage | null,
+): string | null {
+    const raw = String(priorJudgmentType ?? '').trim();
+    const previousFinal = String(previousStage?.finalDecision ?? '').trim();
+    const previousType = String(previousStage?.lastJudgmentType ?? '').trim();
+
+    if (isInterpleaderJudgmentType(raw)) return raw;
+    if (isInterpleaderJudgmentType(previousType)) return previousType;
+
+    if (
+        isPartialMeritJudgmentType(raw)
+        || isPartialMeritDecisionText(raw)
+        || isPartialMeritDecisionText(previousFinal)
+        || isPartialMeritDecisionText(previousType)
+    ) {
+        return 'رد الدعوى جزئياً';
+    }
+
+    const merged = `${raw} ${previousFinal} ${previousType}`;
+    if (merged.includes('رد الدعوى كلياً')) return 'رد الدعوى كلياً';
+    if (merged.includes('إجابة الدعوى بالكامل') || merged.includes('إجابة الدعوى ')) {
+        return JUDGMENT_TYPE_FULL_WIN;
+    }
+    if (merged.includes(JUDGMENT_TYPE_SULH)) return JUDGMENT_TYPE_SULH;
+    if (merged.includes(JUDGMENT_TYPE_SULH_LEGACY)) return JUDGMENT_TYPE_SULH_LEGACY;
+    if (merged.includes(JUDGMENT_TYPE_WAIVER)) return JUDGMENT_TYPE_WAIVER;
+    if (merged.includes(JUDGMENT_TYPE_VOID) || merged.includes('إبطال')) return JUDGMENT_TYPE_VOID;
+
+    return raw || previousType || null;
+}
+
+function resolveCurrentRoleBucket(party: Party): PartyAppealBucket | null {
+    const role = String(party.role ?? '');
+    if (isInterpleaderThirdPartyRole(role)) return 'interpleader';
+
+    const underlying = extractParentheticalUnderlyingSide(role);
+    if (underlying === 'المدعي') return 'plaintiff';
+    if (underlying === 'المدعى عليه') return 'defendant';
+
+    if (isPlaintiffSideRole(role)) return 'plaintiff';
+    if (isDefendantSideRole(role)) return 'defendant';
+    return null;
+}
+
+function resolvePartyAppealBucket(
+    party: Party,
+    previousStage: CaseStage | null,
+): PartyAppealBucket | null {
+    if (previousStage) {
+        const byId = previousStage.parties?.find(
+            (prev) => partyIdKey(prev.id) !== '' && partyIdKey(prev.id) === partyIdKey(party.id),
+        );
+        if (byId) {
+            if (isInterpleaderThirdPartyRole(String(byId.role ?? ''))) return 'interpleader';
+            const bucket = classifyPartySideBucket(byId);
+            if (bucket === 'plaintiff') return 'plaintiff';
+            if (bucket === 'defendant') return 'defendant';
+            if (bucket === 'third') return 'interpleader';
+        }
+    }
+    return resolveCurrentRoleBucket(party);
+}
+
+function partyHasOwnAppealRight(input: {
+    party: Party;
+    previousStage: CaseStage | null;
+    normalizedJudgmentType: string | null;
+}): boolean {
+    const { party, previousStage, normalizedJudgmentType } = input;
+    if (!normalizedJudgmentType) return false;
+
+    const bucket = resolvePartyAppealBucket(party, previousStage);
+    if (!bucket) return false;
+
+    if (isInterpleaderJudgmentType(normalizedJudgmentType)) {
+        return resolveInterpleaderHadoriAppealRights(normalizedJudgmentType, bucket).action === 'self_appeal';
+    }
+
+    if (bucket === 'interpleader') {
+        if (normalizedJudgmentType === JUDGMENT_TYPE_VOID) return false;
+        if (isNonMeritTerminationType(normalizedJudgmentType)) return false;
+        return true;
+    }
+
+    const lawyerSide =
+        bucket === 'plaintiff'
+            ? 'المدعي'
+            : bucket === 'defendant'
+              ? 'المدعى عليه'
+              : null;
+    if (!lawyerSide) return false;
+
+    return resolveFirstInstanceHadoriAppealRights(normalizedJudgmentType, lawyerSide).action === 'self_appeal';
+}
+
+function resolveEligibleCrossAppealCandidates(input: {
+    appealStageParties: Party[];
+    initialAppellantIds: Set<string>;
+    crossAppealedIds: Set<string>;
+    previousStage: CaseStage | null;
+    normalizedJudgmentType: string | null;
+}): Party[] {
+    const {
+        appealStageParties,
+        initialAppellantIds,
+        crossAppealedIds,
+        previousStage,
+        normalizedJudgmentType,
+    } = input;
+
+    return appealStageParties.filter((party) => {
+        const id = partyIdKey(party.id);
+        if (!id || initialAppellantIds.has(id)) return false;
+        if (hasCrossAppealFiled(party, crossAppealedIds)) return false;
+        if (isAppellantAppealRole(String(party.role ?? ''))) return false;
+        return partyHasOwnAppealRight({
+            party,
+            previousStage,
+            normalizedJudgmentType,
+        });
+    });
+}
+
 function resolveOmittedCoLitigants(input: {
     previousStage: CaseStage | null;
     appellantSide: AppealSide | null;
     initialAppellantIds: Set<string>;
     crossAppealedIds: Set<string>;
     appealStageParties: Party[];
+    normalizedJudgmentType: string | null;
 }): Party[] {
-    const { previousStage, appellantSide, initialAppellantIds, crossAppealedIds, appealStageParties } = input;
+    const {
+        previousStage,
+        appellantSide,
+        initialAppellantIds,
+        crossAppealedIds,
+        appealStageParties,
+        normalizedJudgmentType,
+    } = input;
     if (!previousStage || !appellantSide) return [];
 
     const priorOnSide = listAppellantPartiesForAppeal(
@@ -100,9 +252,7 @@ function resolveOmittedCoLitigants(input: {
         appellantSide,
         previousStage.incidentalCases,
     );
-    const appealById = new Map(
-        appealStageParties.map((party) => [partyIdKey(party.id), party]),
-    );
+    const appealById = new Map(appealStageParties.map((party) => [partyIdKey(party.id), party]));
 
     const out: Party[] = [];
     for (const prior of priorOnSide) {
@@ -110,24 +260,18 @@ function resolveOmittedCoLitigants(input: {
         if (!id || initialAppellantIds.has(id)) continue;
         const onAppeal = appealById.get(id) ?? prior;
         if (hasCrossAppealFiled(onAppeal, crossAppealedIds)) continue;
+        if (
+            !partyHasOwnAppealRight({
+                party: onAppeal,
+                previousStage,
+                normalizedJudgmentType,
+            })
+        ) {
+            continue;
+        }
         out.push(onAppeal);
     }
     return out;
-}
-
-/** كل من لم يطعن أولاً ولم يُسجَّل استئنافه المتقابل بعد */
-function listPendingCrossAppealCandidates(
-    appealStageParties: Party[],
-    initialAppellantIds: Set<string>,
-    crossAppealedIds: Set<string>,
-): Party[] {
-    return appealStageParties.filter((party) => {
-        const id = partyIdKey(party.id);
-        if (!id || initialAppellantIds.has(id)) return false;
-        if (hasCrossAppealFiled(party, crossAppealedIds)) return false;
-        if (isAppellantAppealRole(String(party.role ?? ''))) return false;
-        return true;
-    });
 }
 
 function mergeUniqueParties(...lists: Party[][]): Party[] {
@@ -166,8 +310,13 @@ export function resolveCrossAppealEligibility(input: {
             : null;
 
     const priorJudgmentType = resolvePriorJudgmentType(appealStage, previousStage);
+    const normalizedJudgmentType = normalizeJudgmentTypeForAppealRights(
+        priorJudgmentType,
+        previousStage,
+    );
+
     const isPartialJudgment =
-        isPartialMeritJudgmentType(priorJudgmentType)
+        normalizedJudgmentType === 'رد الدعوى جزئياً'
         || isPartialMeritDecisionText(previousStage?.finalDecision)
         || isPartialMeritDecisionText(previousStage?.lastJudgmentType);
 
@@ -179,14 +328,11 @@ export function resolveCrossAppealEligibility(input: {
         ).map(partyIdKey),
     );
 
-    const crossAppealedIds = new Set(
-        (meta?.crossAppealPartyIds ?? []).map(partyIdKey),
-    );
-
+    const crossAppealedIds = new Set((meta?.crossAppealPartyIds ?? []).map(partyIdKey));
     const appealStageParties = appealStage.parties ?? [];
     const { plaintiffs, defendants } = partitionPartiesForHeader(appealStageParties);
-    const appealAppellants = plaintiffs.filter((p) => isAppellantAppealRole(String(p.role ?? '')));
 
+    const appealAppellants = plaintiffs.filter((p) => isAppellantAppealRole(String(p.role ?? '')));
     const appealAppellees = defendants.filter((p) => {
         const role = String(p.role ?? '');
         if (isAppellantAppealRole(role)) return false;
@@ -195,9 +341,14 @@ export function resolveCrossAppealEligibility(input: {
         return false;
     });
 
-    const filedCrossAppellants = appealAppellees.filter((p) =>
-        hasCrossAppealFiled(p, crossAppealedIds),
-    );
+    const filedCrossAppellants = appealAppellees.filter((p) => hasCrossAppealFiled(p, crossAppealedIds));
+    const pendingOnStage = resolveEligibleCrossAppealCandidates({
+        appealStageParties,
+        initialAppellantIds,
+        crossAppealedIds,
+        previousStage,
+        normalizedJudgmentType,
+    });
 
     const omittedCoLitigants = resolveOmittedCoLitigants({
         previousStage,
@@ -205,34 +356,17 @@ export function resolveCrossAppealEligibility(input: {
         initialAppellantIds,
         crossAppealedIds,
         appealStageParties,
+        normalizedJudgmentType,
     });
     const hasStaggeredCoLitigants = omittedCoLitigants.length > 0;
 
-    const pendingInterpleaderAppellees = appealAppellees.filter((p) => {
-        if (!isInterpleaderThirdPartyRole(String(p.role ?? ''))) return false;
-        return !hasCrossAppealFiled(p, crossAppealedIds);
-    });
-
-    const partialCandidates = isPartialJudgment
-        ? listPendingCrossAppealCandidates(
-              appealStageParties,
-              initialAppellantIds,
-              crossAppealedIds,
-          )
-        : [];
-
     const pendingCrossAppellants = mergeUniqueParties(
+        pendingOnStage,
         omittedCoLitigants,
-        isPartialJudgment ? partialCandidates : [],
-        !isPartialJudgment ? pendingInterpleaderAppellees : [],
     );
 
-    const showButton =
-        pendingCrossAppellants.length > 0
-        && (isPartialJudgment || hasStaggeredCoLitigants || pendingInterpleaderAppellees.length > 0);
-
     return {
-        showButton,
+        showButton: pendingCrossAppellants.length > 0,
         isPartialJudgment,
         hasStaggeredCoLitigants,
         pendingCrossAppellants,

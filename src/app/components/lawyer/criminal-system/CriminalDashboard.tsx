@@ -1292,10 +1292,23 @@ export const CriminalDashboard = React.memo(function CriminalDashboard({
     }, [id]);
 
     useEffect(() => {
-        void import('./legalCodes/legalCodesDataCache').then(({ prefetchLegalCodeArticles }) => {
-            prefetchLegalCodeArticles(['penal', 'procedure']);
-        });
-    }, [id]);
+        let cancelled = false;
+        const schedule = () => {
+            if (cancelled) return;
+            void import('./legalCodes/legalCodesDataCache').then(({ prefetchLegalCodeArticles }) => {
+                if (cancelled) return;
+                prefetchLegalCodeArticles(hasJuvenileInCase ? ['penal', 'procedure', 'juvenile'] : ['penal', 'procedure']);
+            });
+        };
+        if (typeof requestIdleCallback !== 'undefined') {
+            requestIdleCallback(schedule, { timeout: 2500 });
+        } else {
+            window.setTimeout(schedule, 900);
+        }
+        return () => {
+            cancelled = true;
+        };
+    }, [id, hasJuvenileInCase]);
 
     const prevTrialUiStageRef = useRef(effectiveUiStage);
     useEffect(() => {

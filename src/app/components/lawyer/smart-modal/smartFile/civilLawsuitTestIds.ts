@@ -54,6 +54,13 @@ export const CIVIL_LAWSUIT_TEST_IDS = {
         `smart-file-appointment-tag-template-${label.replace(/^#+/, '').replace(/\s+/g, '-').slice(0, 40)}`,
     appointmentTagTemplateRemove: (label: string) =>
         `smart-file-appointment-tag-template-remove-${label.replace(/^#+/, '').replace(/\s+/g, '-').slice(0, 40)}`,
+    quickActionAppointment: 'smart-file-quick-appointment',
+    quickActionNote: 'smart-file-quick-note',
+    quickActionDocument: 'smart-file-quick-document',
+    quickActionLegal: 'smart-file-quick-legal',
+    appointmentModal: 'smart-file-appointment-modal',
+    noteModal: 'smart-file-note-modal',
+    documentModal: 'smart-file-document-modal',
     requestsEmpty: 'smart-file-requests-empty',
     requestsTemplateInput: 'smart-file-requests-template-input',
     requestsTemplateAdd: 'smart-file-requests-template-add',

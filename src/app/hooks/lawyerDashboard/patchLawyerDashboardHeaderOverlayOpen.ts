@@ -14,6 +14,7 @@ export type LawyerDashboardHeaderOverlayPatchInput = {
     showSettings: boolean;
     showGlobalSearch: boolean;
     showNotifications: boolean;
+    notificationsUnreadCount: number;
     activeTab: LawyerDashboardTab;
     tabStackMask: LawyerDashboardTabStackMaskState;
     headerVisibility: LawyerDashboardHeaderVisibilityInput;
@@ -30,16 +31,18 @@ export function patchLawyerDashboardHeaderOverlayOpen(
     const headerShouldShow = computeLawyerDashboardHeaderShouldShow(input.headerVisibility);
     const homeTabBaseActive = input.activeTab === 'home';
     const scheduleTabBaseActive = input.activeTab === 'schedule';
+    const homeTabMounted = isLawyerDashboardTabMounted(homeTabBaseActive, input.tabStackMask);
+    const scheduleTabMounted = isLawyerDashboardTabMounted(scheduleTabBaseActive, input.tabStackMask);
 
     if (
         view.tabStackHidden === tabStackHidden &&
         view.headerProps.shouldShow === headerShouldShow &&
         view.notificationPanel.isOpen === input.showNotifications &&
+        view.headerProps.unreadCount === input.notificationsUnreadCount &&
         view.overlaysHostProps.overlays.showSettings === input.showSettings &&
         view.overlaysHostProps.overlays.showGlobalSearch === input.showGlobalSearch &&
-        view.homeTabProps.visible === isLawyerDashboardTabMounted(homeTabBaseActive, input.tabStackMask) &&
-        view.scheduleTabProps.visible ===
-            isLawyerDashboardTabMounted(scheduleTabBaseActive, input.tabStackMask)
+        view.homeTabProps.visible === homeTabMounted &&
+        view.scheduleTabProps.visible === scheduleTabMounted
     ) {
         return view;
     }
@@ -49,15 +52,16 @@ export function patchLawyerDashboardHeaderOverlayOpen(
         headerProps: {
             ...view.headerProps,
             shouldShow: headerShouldShow,
+            unreadCount: input.notificationsUnreadCount,
         },
         tabStackHidden,
         homeTabProps: {
             ...view.homeTabProps,
-            visible: isLawyerDashboardTabMounted(homeTabBaseActive, input.tabStackMask),
+            visible: homeTabMounted,
         },
         scheduleTabProps: {
             ...view.scheduleTabProps,
-            visible: isLawyerDashboardTabMounted(scheduleTabBaseActive, input.tabStackMask),
+            visible: scheduleTabMounted,
         },
         notificationPanel: {
             ...view.notificationPanel,

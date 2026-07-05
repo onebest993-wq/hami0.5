@@ -1,5 +1,5 @@
 
-import type { CalendarEvent } from '@/app/services/lawyer-cloud';
+import type { CalendarEvent } from '@/app/services/calendar/calendarTypes';
 import { normalizeDateToYmd } from '@/app/services/calendar/bridge/core';
 import {
     isBridgedCalendarEvent,
@@ -221,4 +221,3 @@ export async function propagateBridgedCalendarRemoval(event: CalendarEvent): Pro
     }
     return ok;
 }
-

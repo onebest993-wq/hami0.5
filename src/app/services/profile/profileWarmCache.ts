@@ -1,4 +1,4 @@
-import type { LawyerProfileData } from '@/app/services/lawyer-cloud';
+import type { LawyerProfileData } from '@/app/services/profile/profileTypes';
 import { sanitizeLawyerProfile } from '@/app/services/profileSanitizer';
 import { redactProfileForVisitorView } from '@/app/services/profile/profileVisitorView';
 

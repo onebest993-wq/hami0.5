@@ -1,10 +1,29 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import type { SmartFileModalsPortalProps } from './smartFileModalsPortalTypes';
-import { LazyEditCaseInfoModal, LazyAddDocumentModal, LazyAddNoteModal, LazyAddPaymentModal, LazyAddIncidentalCaseModal, LazyFastTrackModal, LazyAttachmentShieldModal, LazyAddAppointmentModal } from '../../lazySmartFileModalChunks';
+import type { TimelineEvent } from '@/app/components/lawyer/LawyerShared';
+import {
+    AddAppointmentModal,
+    AddDocumentModal,
+    AddNoteModal,
+    AddPaymentModal,
+} from '../../modals/contentEntryModals';
+import { LazyEditCaseInfoModal, LazyAddIncidentalCaseModal, LazyFastTrackModal, LazyAttachmentShieldModal } from '../../lazySmartFileModalChunks';
 import type { SmartFileCaseFormData } from '../../smartFile/modalFormTypes';
 import { inferLawsuitTypeFromDocType } from '@/app/services/dossier-notes/dossierLawArticleTooltips';
 import { resolveCalendarUserId } from '@/app/services/calendarBridge';
 
+function visibleTimelineByType(
+    timeline: TimelineEvent[] | undefined,
+    type: 'appointment' | 'document',
+) {
+    return (timeline ?? []).filter(
+        (event) =>
+            event?.type === type &&
+            !(event as { isDeleted?: boolean }).isDeleted,
+    );
+}
+
+/** نوافذ الإدخال السريع — تحميل مباشر (بدون lazy) لتفادي تجميد React */
 export function SmartFileModalsContentSection(props: SmartFileModalsPortalProps) {
     const {
         showEditInfoModal,
@@ -36,10 +55,19 @@ export function SmartFileModalsContentSection(props: SmartFileModalsPortalProps)
         parentData,
         handlers: h,
     } = props;
+    const recentAppointments = visibleTimelineByType(
+        displayStage.timeline,
+        'appointment',
+    );
+    const recentDocuments = visibleTimelineByType(
+        displayStage.timeline,
+        'document',
+    );
 
     return (
         <>
-                {showEditInfoModal && (
+                {showEditInfoModal ? (
+                    <Suspense fallback={null}>
                     <LazyEditCaseInfoModal
                         key="edit-info"
                         isOpen={showEditInfoModal}
@@ -51,9 +79,10 @@ export function SmartFileModalsContentSection(props: SmartFileModalsPortalProps)
                         }}
                         onSave={h.handleUpdateCaseInfo}
                     />
-                )}
-                {showDocModal && (
-                    <LazyAddDocumentModal
+                    </Suspense>
+                ) : null}
+                {showDocModal ? (
+                    <AddDocumentModal
                         key="add-doc"
                         isOpen={showDocModal}
                         onClose={() => {
@@ -63,10 +92,13 @@ export function SmartFileModalsContentSection(props: SmartFileModalsPortalProps)
                         onAdd={h.handleAddDoc}
                         editMode={!!editingEvent}
                         editData={editingEvent}
+                        recentDocuments={recentDocuments as never}
+                        onDeleteDocument={(id) => h.handleDeleteEvent(id)}
+                        onReplaceDocument={(event) => setEditingEvent(event)}
                     />
-                )}
-                {showNoteModal && (
-                    <LazyAddNoteModal
+                ) : null}
+                {showNoteModal ? (
+                    <AddNoteModal
                         key="add-note"
                         isOpen={showNoteModal}
                         onClose={() => {
@@ -95,16 +127,17 @@ export function SmartFileModalsContentSection(props: SmartFileModalsPortalProps)
                             }))}
                         onDeleteNote={(id) => h.handleDeleteEvent(id)}
                     />
-                )}
-                {showPaymentModal && (
-                    <LazyAddPaymentModal
+                ) : null}
+                {showPaymentModal ? (
+                    <AddPaymentModal
                         key="add-payment"
                         isOpen={showPaymentModal}
                         onClose={() => setShowPaymentModal(false)}
                         onAdd={h.handleAddPayment}
                     />
-                )}
-                {showIncidentalModal && (
+                ) : null}
+                {showIncidentalModal ? (
+                    <Suspense fallback={null}>
                     <LazyAddIncidentalCaseModal
                         key="add-incidental"
                         isOpen={showIncidentalModal}
@@ -118,8 +151,10 @@ export function SmartFileModalsContentSection(props: SmartFileModalsPortalProps)
                         editMode={!!editingIncidental}
                         editData={editingIncidental ?? undefined}
                     />
-                )}
-                {showFastTrackModal && (
+                    </Suspense>
+                ) : null}
+                {showFastTrackModal ? (
+                    <Suspense fallback={null}>
                     <LazyFastTrackModal
                         key="fast-track"
                         isOpen={showFastTrackModal}
@@ -131,8 +166,10 @@ export function SmartFileModalsContentSection(props: SmartFileModalsPortalProps)
                         editMode={Boolean(editingFastTrack?.id)}
                         editData={editingFastTrack as never}
                     />
-                )}
-                {showAttachmentModal && (
+                    </Suspense>
+                ) : null}
+                {showAttachmentModal ? (
+                    <Suspense fallback={null}>
                     <LazyAttachmentShieldModal
                         key="attachment-shield"
                         isOpen={showAttachmentModal}
@@ -144,9 +181,10 @@ export function SmartFileModalsContentSection(props: SmartFileModalsPortalProps)
                         editMode={!!editingAttachment}
                         editData={editingAttachment as never}
                     />
-                )}
-                {showApptModal && (
-                    <LazyAddAppointmentModal
+                    </Suspense>
+                ) : null}
+                {showApptModal ? (
+                    <AddAppointmentModal
                         key="add-appt"
                         isOpen={showApptModal}
                         onClose={() => {
@@ -156,8 +194,11 @@ export function SmartFileModalsContentSection(props: SmartFileModalsPortalProps)
                         onAdd={h.handleAddAppointment}
                         editMode={!!editingEvent}
                         editData={editingEvent}
+                        recentAppointments={recentAppointments as never}
+                        onDeleteAppointment={(id) => h.handleDeleteEvent(id)}
+                        onEditAppointment={(event) => setEditingEvent(event)}
                     />
-                )}
+                ) : null}
         </>
     );
 }

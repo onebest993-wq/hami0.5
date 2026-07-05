@@ -1,19 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { SmartDialog } from '@/app/components/ui/SmartDialog';
+import { confirmRepositoryAction } from '@/app/components/lawyer/SmartRepository/repositoryDialog';
 import { SmartVaultDB, type SmartVaultDoc } from '@/app/services/lawyer-cloud';
-import {
-    resolveVaultDocUrl,
-    isVaultDocImage,
-    isVaultDocPdf,
-} from '@/app/services/vaultUploadService';
+import { resolveVaultDocForViewing } from '@/app/services/vaultUploadService';
 import { revokeBlobUrlIfNeeded } from '@/app/services/vault/vaultDocUtils';
+import { prefetchVaultBlobStore } from '@/app/services/vaultBlobStore';
 import type { DropdownAction, VaultFileViewerState } from './types';
 
 type UseSmartVaultDocActionsParams = {
     currentUserId: string;
     docsRef: React.RefObject<SmartVaultDoc[]>;
     loadDocs: () => Promise<void>;
+    removeDocFromState: (docId: string) => void;
     addVaultCategory: (name: string) => void;
     setActiveFilter: React.Dispatch<React.SetStateAction<string>>;
     setOpenDropdownId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -23,6 +21,7 @@ export function useSmartVaultDocActions({
     currentUserId,
     docsRef,
     loadDocs,
+    removeDocFromState,
     addVaultCategory,
     setActiveFilter,
     setOpenDropdownId,
@@ -32,14 +31,31 @@ export function useSmartVaultDocActions({
     const [editDoc, setEditDoc] = useState<SmartVaultDoc | null>(null);
     const [viewingDocId, setViewingDocId] = useState<string | null>(null);
     const fileViewerUrlRef = useRef<string | null>(null);
+    const fileViewerRevokeRef = useRef(false);
+    const fileViewerRef = useRef(fileViewer);
     fileViewerUrlRef.current = fileViewer?.url ?? null;
+    fileViewerRevokeRef.current = fileViewer?.revokeOnClose ?? false;
+    fileViewerRef.current = fileViewer;
 
     useEffect(
         () => () => {
-            revokeBlobUrlIfNeeded(fileViewerUrlRef.current);
+            if (fileViewerRevokeRef.current) revokeBlobUrlIfNeeded(fileViewerUrlRef.current);
         },
         [],
     );
+
+    useEffect(() => {
+        if (!viewingDocId) return;
+        const timer = window.setTimeout(() => setViewingDocId(null), 20_000);
+        return () => window.clearTimeout(timer);
+    }, [viewingDocId]);
+
+    const closeFileViewer = useCallback(() => {
+        setFileViewer((prev) => {
+            if (prev?.revokeOnClose) revokeBlobUrlIfNeeded(prev.url);
+            return null;
+        });
+    }, []);
 
     const handleDelete = useCallback(
         async (doc: SmartVaultDoc) => {
@@ -51,15 +67,18 @@ export function useSmartVaultDocActions({
                 SmartToast.error('ليس لديك صلاحية لحذف هذا الملف');
                 return;
             }
+            const authorId = doc.authorId || currentUserId;
+            closeFileViewer();
+            removeDocFromState(doc.id);
             try {
-                await SmartVaultDB.deleteDoc(doc.id, doc.authorId || currentUserId);
+                await SmartVaultDB.deleteDoc(doc.id, authorId);
                 SmartToast.success('تم حذف الملف بنجاح');
-                await loadDocs();
             } catch {
+                await loadDocs();
                 SmartToast.error('فشل حذف الملف');
             }
         },
-        [currentUserId, loadDocs],
+        [closeFileViewer, currentUserId, loadDocs, removeDocFromState],
     );
 
     const handleEdit = useCallback(
@@ -112,43 +131,49 @@ export function useSmartVaultDocActions({
     );
 
     const handleViewFile = useCallback(async (doc: SmartVaultDoc) => {
+        if (fileViewerRef.current?.doc.id === doc.id) {
+            closeFileViewer();
+            return;
+        }
+
+        prefetchVaultBlobStore();
         setViewingDocId(doc.id);
         try {
             const fresh = docsRef.current?.find((d) => d.id === doc.id) ?? doc;
-            const url = await resolveVaultDocUrl(fresh);
-            if (!url) {
-                SmartToast.error('تعذر فتح الملف — قد تحتاج إعادة رفعه');
+            const payload = await resolveVaultDocForViewing(fresh);
+            if (!payload) {
+                SmartToast.error('تعذر فتح الملف — قد يكون غير محفوظ على الجهاز. أعد رفعه أو حدّث الصفحة');
                 return;
             }
-            if (isVaultDocImage(fresh)) {
-                setFileViewer({ doc: fresh, url, kind: 'image' });
+
+            if (payload.kind === 'file') {
+                const opened = window.open(payload.url, '_blank', 'noopener,noreferrer');
+                if (!opened) {
+                    SmartToast.error('تعذّر فتح الملف — اسمح بالنوافذ المنبثقة أو استخدم زر التحميل');
+                }
                 return;
             }
-            if (isVaultDocPdf(fresh)) {
-                setFileViewer({ doc: fresh, url, kind: 'pdf' });
-                return;
-            }
-            window.open(url, '_blank');
+
+            setFileViewer({
+                doc: payload.doc,
+                url: payload.url,
+                blob: payload.blob,
+                kind: payload.kind,
+                revokeOnClose: payload.revokeOnClose,
+            });
         } catch {
             SmartToast.error('تعذر فتح الملف');
         } finally {
             setViewingDocId(null);
         }
-    }, [docsRef]);
-
-    const closeFileViewer = useCallback(() => {
-        setFileViewer((prev) => {
-            revokeBlobUrlIfNeeded(prev?.url);
-            return null;
-        });
-    }, []);
+    }, [closeFileViewer, docsRef]);
 
     const handleDropdownAction = useCallback(
         async (doc: SmartVaultDoc, action: DropdownAction) => {
             setOpenDropdownId(null);
             if (action === 'edit') handleEdit(doc);
             else if (action === 'delete') {
-                const ok = await SmartDialog.confirm(`هل أنت متأكد من حذف "${doc.title}"؟`);
+                const ok = await confirmRepositoryAction(`هل أنت متأكد من حذف "${doc.title}"؟`);
                 if (ok) void handleDelete(doc);
             }
         },

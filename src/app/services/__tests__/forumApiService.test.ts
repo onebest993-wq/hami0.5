@@ -57,6 +57,13 @@ vi.mock('@/app/services/auditLogPublisher', () => ({
     },
 }));
 
+const prepareForumAttachmentForPublish = vi.fn();
+
+vi.mock('@/app/services/forumAttachmentService', () => ({
+    prepareForumAttachmentForPublish: (...args: unknown[]) =>
+        prepareForumAttachmentForPublish(...args),
+}));
+
 // محاكاة lawyer-cloud (مسار fallback)
 const lawyerCloudMocks = {
     listPosts: vi.fn(),
@@ -165,6 +172,8 @@ beforeEach(async () => {
     readPersistedSupabaseAuth.mockReset();
     readPersistedSupabaseAuth.mockReturnValue({ user: { id: 'session-user' } });
     lawyerCloudMocks.savePost.mockResolvedValue(undefined);
+    prepareForumAttachmentForPublish.mockReset();
+    prepareForumAttachmentForPublish.mockImplementation(async (attachment: unknown) => attachment);
 });
 
 afterEach(() => {
@@ -293,23 +302,55 @@ describe('ForumApiService.withFallback', () => {
     });
 
     describe('createPost', () => {
-        it('يستخدم API ويُرجع المنشور المحفوظ', async () => {
+        it('يحفظ محلياً أولاً ثم يُزامِن مع API', async () => {
             const post = makePost('new-1');
             const savedFromServer = { ...post, isPinned: false };
+            lawyerCloudMocks.addCommunityPost.mockResolvedValueOnce(undefined);
             (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
                 ok: true,
                 post: savedFromServer,
             });
             const result = await ForumApiService.createPost(post);
             expect(result.id).toBe('new-1');
+            expect(lawyerCloudMocks.addCommunityPost).toHaveBeenCalledBefore(
+                SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>,
+            );
         });
 
-        it('يقع على fallback عند فشل API', async () => {
+        it('يُرجع المنشور المحلي عند فشل API بعد الحفظ المحلي', async () => {
             const post = makePost('new-2');
             (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('5xx'));
             lawyerCloudMocks.addCommunityPost.mockResolvedValueOnce(undefined);
             const result = await ForumApiService.createPost(post);
             expect(result.id).toBe('new-2');
+            expect(lawyerCloudMocks.addCommunityPost).toHaveBeenCalledWith(
+                sanitizeCommunityPostForCreate(
+                    { ...post, content: post.content.trim() },
+                    post.authorId,
+                ),
+            );
+        });
+
+        it('لا يعيد تجهيز المرفق إذا كان لديه storagePath محلي ثابت', async () => {
+            const post = makePost('new-3', {
+                attachment: {
+                    type: 'image',
+                    name: 'scan.png',
+                    mimeType: 'image/png',
+                    storagePath: 'idb:forum:stable-scan',
+                },
+            });
+            const savedFromServer = { ...post };
+            lawyerCloudMocks.addCommunityPost.mockResolvedValueOnce(undefined);
+            (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+                ok: true,
+                post: savedFromServer,
+            });
+
+            const result = await ForumApiService.createPost(post);
+
+            expect(result.attachment).toEqual(post.attachment);
+            expect(prepareForumAttachmentForPublish).not.toHaveBeenCalled();
             expect(lawyerCloudMocks.addCommunityPost).toHaveBeenCalledWith(
                 sanitizeCommunityPostForCreate(
                     { ...post, content: post.content.trim() },

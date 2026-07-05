@@ -1,5 +1,7 @@
 import type { CommunityPost } from '@/app/services/cloud/lawyerCommunityTypes';
 import { fetchCommunityPosts, prefetchCommunityCloudModule } from '@/app/services/forum/communityCloudLoader';
+import { sortCommunityPosts } from '@/app/services/forum/forumCommunityRuntime';
+import { withForumAsyncTimeout } from '@/app/components/lawyer/CommunityScreen/forumAsync';
 
 let warmedPosts: CommunityPost[] | null = null;
 let warmPromise: Promise<CommunityPost[]> | null = null;
@@ -8,18 +10,18 @@ let warmPromise: Promise<CommunityPost[]> | null = null;
 export function warmForumPostsCache(): void {
     if (warmPromise) return;
     prefetchCommunityCloudModule();
-    warmPromise = import('@/app/services/cloud/lawyerCommunityCloud')
-        .then(({ sortCommunityPosts }) =>
-            fetchCommunityPosts().then((rows) => {
-                const local = sortCommunityPosts(rows).filter((p) => !p.groupId);
-                warmedPosts = local;
-                return local;
-            }),
-        )
-        .catch(() => {
-            warmedPosts = [];
-            return [];
-        });
+    warmPromise = withForumAsyncTimeout(
+        fetchCommunityPosts().then((rows) => {
+            const local = sortCommunityPosts(rows).filter((p) => !p.groupId);
+            warmedPosts = local;
+            return local;
+        }),
+        4_000,
+        [],
+    ).catch(() => {
+        warmedPosts = [];
+        return [];
+    });
 }
 
 export function peekForumPostsCache(): CommunityPost[] | null {

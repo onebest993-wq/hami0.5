@@ -43,11 +43,9 @@ vi.mock('@/app/components/lawyer/HamiSettings/data/DataDangerZone', () => ({
 describe('DataSection', () => {
     beforeEach(() => vi.clearAllMocks());
 
-    it('يعرض testid وعنوان البيانات والمكونات الفرعية', () => {
+    it('يعرض testid والمكونات الفرعية', () => {
         render(<DataSection />);
         expect(screen.getByTestId('settings-section-data')).toBeInTheDocument();
-        expect(screen.getByText('البيانات')).toBeInTheDocument();
-        expect(screen.getByText('حفظ ونسخ وتصدير')).toBeInTheDocument();
         expect(screen.getByTestId('data-sync-card-mock')).toBeInTheDocument();
         expect(screen.getByTestId('business-backup-mock')).toBeInTheDocument();
         expect(screen.getByTestId('data-danger-zone-mock')).toBeInTheDocument();

@@ -2,6 +2,7 @@
  * تحميل مرحلي لإضبارة التنفيذ — chunk رئيسي أولاً، ثم shell عند الخمول أو النية.
  */
 import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
+import { prefetchDeferredFeatureStyles } from '@/app/runtime/deferredFeatureStyles';
 
 type ExecutionDashboardModule = typeof import('@/app/components/lawyer/ExecutionDashboard');
 
@@ -51,6 +52,7 @@ function prefetchExecutionShellChunks(urgent: boolean): void {
 /** يبدأ تحميل الـ chunk الرئيسي فقط — بدون منافسة أرشيف التنفيذ */
 export function prefetchExecutionDashboardCore(): void {
     if (typeof window === 'undefined') return;
+    prefetchDeferredFeatureStyles();
     void loadExecutionDashboardModule().catch(() => {
         executionModulePromise = null;
     });

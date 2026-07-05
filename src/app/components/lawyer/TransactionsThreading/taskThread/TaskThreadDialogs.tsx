@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import type { TransactionTask } from '@/app/modules/transactionsThreading/types';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
+import { TransactionsHubDialog } from '../TransactionsHubDialog';
 import {
     GLASS_BTN,
     GLASS_FIELD,
@@ -15,6 +15,7 @@ import {
     TX_TEXT_PRIMARY,
     TX_TEXT_SECONDARY,
 } from '../transactionsGlassTheme';
+import { TxDateInput } from '../TxDateInput';
 
 export type TaskThreadDialogState = {
     editOpen: boolean;
@@ -65,60 +66,62 @@ export const TaskThreadDialogs = memo(function TaskThreadDialogs({
 
     return (
         <>
-            <Dialog
+            <TransactionsHubDialog
                 open={editOpen}
                 onOpenChange={(open) => {
                     actions.setEditOpen(open);
                     if (!open) actions.resetEdit();
                 }}
+                testId="task-thread-edit-dialog"
+                ariaLabel="تعديل المهمة"
             >
-                <DialogContent className={TX_DIALOG_SHELL}>
-                    <DialogHeader className="text-right">
-                        <DialogTitle className={TX_DIALOG_TITLE}>تعديل المهمة</DialogTitle>
-                        <DialogDescription className={TX_DIALOG_DESC}>تعديل العنوان والمهلة (اختياري)</DialogDescription>
-                    </DialogHeader>
-                    <div dir="rtl" className="text-right space-y-3">
+                <div className={TX_DIALOG_SHELL}>
+                    <div className="text-right space-y-1">
+                        <h2 className={TX_DIALOG_TITLE}>تعديل المهمة</h2>
+                        <p className={TX_DIALOG_DESC}>تعديل العنوان والمهلة (اختياري)</p>
+                    </div>
+                    <div dir="rtl" className="text-right space-y-3 mt-4">
                         <div>
                             <div className={`${TX_TEXT_MUTED} text-sm mb-2 font-medium`}>عنوان المهمة</div>
                             <input value={editTitle} onChange={(e) => actions.setEditTitle(e.target.value)} className={GLASS_FIELD} />
                         </div>
                         <div>
                             <div className={`${TX_TEXT_MUTED} text-sm mb-2 font-medium`}>تاريخ نفاذ الصلاحية / المهلة</div>
-                            <input
+                            <TxDateInput
                                 value={editDeadlineDate}
                                 onChange={(e) => actions.setEditDeadlineDate(e.target.value)}
-                                type="date"
-                                className={`${GLASS_FIELD} [color-scheme:dark]`}
                             />
                             <p className={`${TX_TEXT_MUTED} text-[10px] mt-1.5 leading-5 font-medium`}>
                                 يُربط تلقائياً بالتقويم للمهام غير المنجزة.
                             </p>
                         </div>
                     </div>
-                    <DialogFooter className="sm:justify-start gap-2">
+                    <div className="mt-5 flex flex-wrap justify-start gap-2">
                         <button type="button" onClick={() => actions.setEditOpen(false)} className={TX_DIALOG_BTN_CANCEL}>
                             إلغاء
                         </button>
-                        <button type="button" onClick={actions.saveEdit} className={TX_GOLD_BTN + ' !h-11 !px-5 !text-sm'}>
+                        <button type="button" onClick={actions.saveEdit} className={TX_GOLD_BTN + ' !h-11 !px-5 !text-sm !w-auto'}>
                             حفظ
                         </button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                    </div>
+                </div>
+            </TransactionsHubDialog>
 
-            <Dialog
+            <TransactionsHubDialog
                 open={deleteOpen}
                 onOpenChange={(open) => {
                     actions.setDeleteOpen(open);
                     if (!open) actions.resetDelete();
                 }}
+                testId="task-thread-delete-dialog"
+                ariaLabel="حذف مهمة"
             >
-                <DialogContent className={TX_DIALOG_SHELL}>
-                    <DialogHeader className="text-right">
-                        <DialogTitle className={TX_DIALOG_TITLE}>حذف مهمة</DialogTitle>
-                        <DialogDescription className={TX_DIALOG_DESC}>سيتم حذف المهمة من المسار</DialogDescription>
-                    </DialogHeader>
-                    <div dir="rtl" className="text-right">
+                <div className={TX_DIALOG_SHELL}>
+                    <div className="text-right space-y-1">
+                        <h2 className={TX_DIALOG_TITLE}>حذف مهمة</h2>
+                        <p className={TX_DIALOG_DESC}>سيتم حذف المهمة من المسار</p>
+                    </div>
+                    <div dir="rtl" className="text-right mt-4">
                         <div className={`${TX_INNER_SURFACE} p-4 ${TX_TEXT_SECONDARY} text-sm leading-7`}>
                             {deleteCount > 1 ? (
                                 <div>
@@ -130,32 +133,32 @@ export const TaskThreadDialogs = memo(function TaskThreadDialogs({
                             <div className={`mt-2 ${TX_TEXT_PRIMARY} font-extrabold truncate`}>{deleteTarget?.title}</div>
                         </div>
                     </div>
-                    <DialogFooter className="sm:justify-start gap-2">
+                    <div className="mt-5 flex flex-wrap justify-start gap-2">
                         <button type="button" onClick={() => actions.setDeleteOpen(false)} className={TX_DIALOG_BTN_CANCEL}>
                             إلغاء
                         </button>
                         <button type="button" onClick={actions.confirmDelete} className={TX_DIALOG_BTN_DANGER}>
                             حذف
                         </button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                    </div>
+                </div>
+            </TransactionsHubDialog>
 
-            <Dialog
+            <TransactionsHubDialog
                 open={completeOpen}
                 onOpenChange={(open) => {
                     actions.setCompleteOpen(open);
                     if (!open) actions.resetComplete();
                 }}
+                testId="task-thread-complete-dialog"
+                ariaLabel="إكمال المهمة"
             >
-                <DialogContent className={TX_DIALOG_SHELL}>
-                    <DialogHeader className="text-right">
-                        <DialogTitle className={TX_DIALOG_TITLE}>إكمال المهمة</DialogTitle>
-                        <DialogDescription className={TX_DIALOG_DESC}>
-                            إضافة رقم الصادر/الوارد أو الوصل؟ (اختياري)
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div dir="rtl" className="text-right">
+                <div className={TX_DIALOG_SHELL}>
+                    <div className="text-right space-y-1">
+                        <h2 className={TX_DIALOG_TITLE}>إكمال المهمة</h2>
+                        <p className={TX_DIALOG_DESC}>إضافة رقم الصادر/الوارد أو الوصل؟ (اختياري)</p>
+                    </div>
+                    <div dir="rtl" className="text-right mt-4">
                         <div className={`${TX_TEXT_PRIMARY} text-sm font-extrabold truncate`}>{completeTarget?.title}</div>
                         <input
                             value={officialRef}
@@ -164,16 +167,16 @@ export const TaskThreadDialogs = memo(function TaskThreadDialogs({
                             className={`${GLASS_FIELD} mt-3`}
                         />
                     </div>
-                    <DialogFooter className="sm:justify-start gap-2">
-                        <button type="button" onClick={actions.resetComplete} className={TX_DIALOG_BTN_CANCEL}>
+                    <div className="mt-5 flex flex-wrap justify-start gap-2">
+                        <button type="button" onClick={() => actions.setCompleteOpen(false)} className={TX_DIALOG_BTN_CANCEL}>
                             إلغاء
                         </button>
                         <button type="button" onClick={actions.confirmComplete} className={GLASS_BTN + ' !w-auto !h-11 !px-5'}>
                             إكمال
                         </button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                    </div>
+                </div>
+            </TransactionsHubDialog>
         </>
     );
 });

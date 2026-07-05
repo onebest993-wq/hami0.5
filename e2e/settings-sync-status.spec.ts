@@ -4,13 +4,20 @@
 import { test, expect } from '@playwright/test';
 import { ensureLawyerDashboard, seedLawyerFiles } from './helpers/civilLawsuitFixtures';
 import { dismissBlockingOverlays } from './helpers/notificationFixtures';
-import { openSettingsDataTab, openSettingsFromHeader } from './helpers/settingsFixtures';
+import { openSettingsDataTab, openSettingsFromHeader, prepareSettingsE2E, teardownSettingsE2E } from './helpers/settingsFixtures';
+import { prepareProductivityE2E } from './helpers/productivityE2EFixtures';
 
 test.describe('حالة المزامنة في الإعدادات', () => {
     test.describe.configure({ timeout: 90_000 });
 
     test.beforeEach(async ({ page }) => {
+        await prepareProductivityE2E(page);
+        await prepareSettingsE2E(page);
         await seedLawyerFiles(page);
+    });
+
+    test.afterEach(async ({ page }) => {
+        await teardownSettingsE2E(page);
     });
 
     test('تعرض سطر حالة صادقاً في تبويب البيانات', async ({ page }) => {

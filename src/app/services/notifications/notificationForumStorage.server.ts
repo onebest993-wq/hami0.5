@@ -1,7 +1,8 @@
 import { kvGetByPrefix } from '@/app/api/security/kvStoreAdmin';
-import type { ForumNotification } from '@/app/services/lawyer-cloud';
+import type { ForumNotification } from '@/app/services/forum/forumTypes';
 import { mapForumNotificationToModel } from '@/app/services/notifications/forumNotificationMapper';
 import {
+    dismissForumNotificationInModels,
     extractForumNotificationsFromModels,
     markAllForumReadInModels,
     markForumReadInModels,
@@ -44,6 +45,12 @@ export const ServerNotificationDB = {
     async markAllAsRead(userId: string): Promise<void> {
         const models = await readNotificationBlobServer(userId);
         const next = markAllForumReadInModels(models, userId);
+        await saveNotificationBlobServer(userId, next);
+    },
+
+    async removeNotification(notificationId: string, userId: string): Promise<void> {
+        const models = await readNotificationBlobServer(userId);
+        const next = dismissForumNotificationInModels(models, userId, notificationId);
         await saveNotificationBlobServer(userId, next);
     },
 

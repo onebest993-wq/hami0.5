@@ -1,6 +1,6 @@
 export type CommunityAttachment = {
     type: 'image' | 'document' | 'audio';
-    url: string;
+    url?: string;
     name: string;
     mimeType?: string;
     storagePath?: string;

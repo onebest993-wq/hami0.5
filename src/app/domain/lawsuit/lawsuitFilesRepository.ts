@@ -23,9 +23,16 @@ export function loadInitialLawsuitFiles(): FileData[] {
 
 /** تحميل غير متزامn بعد جاهزية IndexedDB — يستعيد من النسخة الاحتياطية عند الحاجة */
 export async function loadInitialLawsuitFilesAsync(): Promise<FileData[]> {
-    const loaded = (await loadDossierCollectionAsync('lawsuit')) as FileData[];
-    const stripped = stripStaleMockLawsuitFile(loaded);
-    if (stripped.length !== loaded.length) {
+    const asyncLoaded = (await loadDossierCollectionAsync('lawsuit')) as FileData[];
+    const syncLoaded = loadLawsuitFilesRaw() as FileData[];
+    const primary =
+        asyncLoaded.length > 0
+            ? asyncLoaded
+            : syncLoaded.length > 0
+              ? syncLoaded
+              : asyncLoaded;
+    const stripped = stripStaleMockLawsuitFile(primary);
+    if (stripped.length !== primary.length) {
         persistLawsuitFiles(stripped);
     }
     return stripped;

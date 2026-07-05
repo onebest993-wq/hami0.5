@@ -4,6 +4,7 @@ import { HeaderNotificationsTrigger } from './HeaderNotificationsTrigger';
 import { HeaderSettingsTrigger } from './HeaderSettingsTrigger';
 
 export type HeaderToolbarNavProps = {
+    interactive?: boolean;
     unreadCount: number;
     onSearchClick: () => void;
     onSearchPointerEnter?: () => void;
@@ -17,6 +18,7 @@ export type HeaderToolbarNavProps = {
 };
 
 export const HeaderToolbarNav = memo(function HeaderToolbarNav({
+    interactive = true,
     unreadCount,
     onSearchClick,
     onSearchPointerEnter,
@@ -30,7 +32,7 @@ export const HeaderToolbarNav = memo(function HeaderToolbarNav({
 }: HeaderToolbarNavProps) {
     return (
         <nav
-            className="pointer-events-auto flex items-center gap-2 px-2.5 py-2 rounded-[1.35rem] hami-sovereign-glass hami-sovereign-rim hami-home-themed-border border border-white/[0.08] shadow-[0_12px_40px_rgba(0,0,0,0.35)]"
+            className={`flex items-center gap-2 px-2.5 py-2 rounded-[1.35rem] hami-sovereign-glass hami-sovereign-rim hami-home-themed-border border border-white/[0.08] shadow-[0_12px_40px_rgba(0,0,0,0.35)] ${interactive ? 'pointer-events-auto' : 'pointer-events-none'}`}
             aria-label="أدوات اللوحة"
             data-testid="header-toolbar-nav"
         >

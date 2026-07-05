@@ -35,8 +35,8 @@ export interface CommentBottomSheetProps {
   onAddComment: (postId: string, content: string, parentId?: string) => Promise<boolean> | void;
   currentUserId: string;
   onToggleBestAnswer: (postId: string, commentId: string) => void;
-  onDeleteComment: (postId: string, commentId: string) => void;
-  onEditComment: (postId: string, commentId: string, newContent: string) => void;
+  onDeleteComment: (postId: string, commentId: string) => Promise<void> | void;
+  onEditComment: (postId: string, commentId: string, newContent: string) => Promise<boolean> | boolean | void;
   onFollow: (targetUserId: string) => void;
   followingIds: Set<string>;
   userStats: Record<string, { followerCount: number; postCount: number }>;
@@ -73,7 +73,7 @@ export const CommentBottomSheet = ({
   const [submittingComment, setSubmittingComment] = useState(false);
   const [sortMode, setSortMode] = useState<CommentSortMode>('oldest');
   const bestCommentId = post.bestCommentId ?? null;
-  const canSelectBest = currentUserId === post.authorId;
+  const canSelectBest = currentUserId === (post.authorId || post.author_id || '');
   const isLocked = post.isLocked === true;
   const [replyingToCommentId, setReplyingToCommentId] = useState<string | null>(null);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
@@ -135,8 +135,8 @@ export const CommentBottomSheet = ({
       ));
   };
 
-  const sheetLayer = (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center pointer-events-none" data-testid="forum-comment-sheet">
+    const sheetLayer = (
+    <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center pointer-events-none" data-testid="forum-comment-sheet">
       <AnimatePresence>
         <motion.div
           key="backdrop"

@@ -57,7 +57,7 @@ export const AddProvisionalOrderModal = ({ isOpen, onClose, onConfirm, currentPa
     const allParties = currentParties.map((p: any) => p.name).filter(Boolean);
 
     return (
-        <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-['Tajawal']">
+        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-['Tajawal']">
             <div className="bg-[#1A1E2E] border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
                 <div className="bg-rose-900/80 border-b border-rose-500/30 p-4 text-white flex justify-between items-center">
                     <h3 className="font-bold flex items-center gap-2">

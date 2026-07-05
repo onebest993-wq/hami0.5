@@ -1,15 +1,19 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, memo, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { BookOpen, ChevronDown, X } from 'lucide-react';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../smartFile/civilLawsuitTestIds';
 import { prefetchCivilLawArticles } from '@/app/utils/civilLawRemoteCache';
-import { CivilLawReferencePanel } from './CivilLawReferencePanel';
+import { SMART_FILE_FULLSCREEN_PANEL_OVERLAY_CLASS } from '../smartFile/smartFileOverlayZ';
+import { registerSmartFileInlineOverlay } from '../smartFile/smartFileInlineOverlayRegistry';
+
+const LazyCivilLawReferencePanel = lazy(() =>
+    import('./CivilLawReferencePanel').then((m) => ({ default: m.CivilLawReferencePanel })),
+);
 
 const GLASS_TRIGGER =
     'w-full min-h-[72px] px-3 rounded-xl border border-sky-400/22 bg-[#0A0F1C]/40 backdrop-blur-md hover:bg-[#0A0F1C]/55 hover:border-sky-400/38 flex flex-col items-center justify-center gap-1 transition-all text-center shadow-[0_4px_24px_rgba(0,0,0,0.25)]';
 
-const GLASS_OVERLAY =
-    'fixed inset-0 z-[150] bg-[#05060D]/75 backdrop-blur-md font-[\'Tajawal\']';
+const GLASS_OVERLAY = SMART_FILE_FULLSCREEN_PANEL_OVERLAY_CLASS;
 const GLASS_SHELL =
     'w-full h-full flex flex-col bg-[#0A0F1C]/92 backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]';
 const GLASS_HEADER =
@@ -19,7 +23,7 @@ export interface CivilLawReferenceHubProps {
     readOnly?: boolean;
 }
 
-export function CivilLawReferenceHub({ readOnly = false }: CivilLawReferenceHubProps) {
+export const CivilLawReferenceHub = memo(function CivilLawReferenceHub({ readOnly = false }: CivilLawReferenceHubProps) {
     const [panelOpen, setPanelOpen] = useState(false);
 
     useEffect(() => {
@@ -28,15 +32,18 @@ export function CivilLawReferenceHub({ readOnly = false }: CivilLawReferenceHubP
 
     useEffect(() => {
         if (!panelOpen || typeof document === 'undefined') return;
-        const prev = document.body.style.overflow;
-        document.body.style.overflow = 'hidden';
+        const unregister = registerSmartFileInlineOverlay();
         const onKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') setPanelOpen(false);
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                setPanelOpen(false);
+            }
         };
-        window.addEventListener('keydown', onKeyDown);
+        window.addEventListener('keydown', onKeyDown, true);
         return () => {
-            document.body.style.overflow = prev;
-            window.removeEventListener('keydown', onKeyDown);
+            unregister();
+            window.removeEventListener('keydown', onKeyDown, true);
         };
     }, [panelOpen]);
 
@@ -81,7 +88,15 @@ export function CivilLawReferenceHub({ readOnly = false }: CivilLawReferenceHubP
                               </div>
                               <span className="w-9 shrink-0" aria-hidden />
                           </div>
-                          <CivilLawReferencePanel />
+                          <Suspense
+                              fallback={
+                                  <div className="flex-1 flex items-center justify-center text-white/45 text-sm">
+                                      جاري تحميل المرجع القانوني…
+                                  </div>
+                              }
+                          >
+                              <LazyCivilLawReferencePanel />
+                          </Suspense>
                       </div>
                   </div>,
                   document.body,
@@ -114,4 +129,4 @@ export function CivilLawReferenceHub({ readOnly = false }: CivilLawReferenceHubP
             </button>
         </div>
     );
-}
+});

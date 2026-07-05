@@ -29,9 +29,10 @@ const HUB_TILE_BUTTON_A11Y =
 
 function bindArchivePrefetch(archiveId: string, interactionDisabled: boolean) {
     if (interactionDisabled) {
-        return { onPointerEnter: undefined };
+        return { onPointerEnter: undefined, onPointerDown: undefined };
     }
-    return { onPointerEnter: () => prefetchHubArchiveIntentDebounced(archiveId) };
+    const run = () => prefetchHubArchiveIntentDebounced(archiveId);
+    return { onPointerEnter: run, onPointerDown: run };
 }
 
 function hubTilePressClass(
@@ -112,6 +113,7 @@ export const RouteTile = memo(function RouteTile({
     blockOverride,
     themePrimary,
     interactionDisabled = false,
+    layoutSpan = 2,
 }: {
     card: HubCard;
     onOpenArchive: (id: string) => void;
@@ -119,15 +121,21 @@ export const RouteTile = memo(function RouteTile({
     blockOverride?: HomeBlockStyleOverride;
     themePrimary: string;
     interactionDisabled?: boolean;
+    layoutSpan?: 1 | 2;
 }) {
     const appearance = useLawyerSettingsAppearance();
     const accent = resolveHomeBlockAccent(blockOverride, card.accent || themePrimary);
     const tileSize = blockOverride?.size ?? 'normal';
     const baseH = 156;
-    const minH = blockOverride?.heightPx ? '' : resolveHubTileMinHeight(card.tileId, tileSize);
+    const minH =
+        layoutSpan === 1
+            ? 'min-h-[5.5rem]'
+            : blockOverride?.heightPx
+              ? ''
+              : resolveHubTileMinHeight(card.tileId, tileSize);
     const tileVisuals = useMemo(
-        () => resolveHubRouteTileVisuals({ accent, size: tileSize }),
-        [accent, tileSize],
+        () => resolveHubRouteTileVisuals({ accent, size: tileSize, layoutSpan }),
+        [accent, tileSize, layoutSpan],
     );
     const style: React.CSSProperties = {
         ...resolveHomeBlockInlineStyle(blockOverride, themePrimary, {
@@ -157,6 +165,7 @@ export const RouteTile = memo(function RouteTile({
             onClick={interactionDisabled ? undefined : handleOpen}
             disabled={interactionDisabled}
             tabIndex={interactionDisabled ? -1 : 0}
+            data-hami-layout-span={layoutSpan}
             className={`${tileShellClasses(blockOverride, card.tileId, minH)} group${
                 blockOverride?.heightPx ? ' overflow-y-auto' : ' overflow-hidden'
             }${hubTilePressClass('route', reduceMotion, interactionDisabled)}`}
@@ -164,15 +173,25 @@ export const RouteTile = memo(function RouteTile({
         >
             <HomeBlockPatternOverlay override={blockOverride} themePrimary={themePrimary} />
             <HomeMoroccanGlassDecor pattern={blockOverride?.pattern} />
+            {layoutSpan === 2 ? (
+                <div
+                    className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full blur-3xl opacity-40 pointer-events-none transition-opacity duration-500 group-hover:opacity-70"
+                    style={tileVisuals.glowOrbStyle}
+                    aria-hidden
+                />
+            ) : null}
             <div
-                className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full blur-3xl opacity-40 pointer-events-none transition-opacity duration-500 group-hover:opacity-70"
-                style={tileVisuals.glowOrbStyle}
-                aria-hidden
-            />
-            <div className="relative z-10 flex h-full min-h-0 flex-col items-end gap-3 p-4 sm:p-5">
+                className={`relative z-10 flex h-full min-h-0 w-full ${
+                    layoutSpan === 1
+                        ? 'hami-hub-tile--half flex-row items-center justify-end gap-3 px-3.5 py-3'
+                        : 'flex-col items-end gap-3 p-4 sm:p-5'
+                }`}
+            >
                 <HubIconBadge icon={card.icon} reduceMotion={reduceMotion} visuals={tileVisuals} />
-                <div className="mt-auto w-full min-w-0 pt-0.5">
-                    <HubTileTitle label={card.label} visuals={tileVisuals} />
+                <div className={`w-full min-w-0 ${layoutSpan === 1 ? 'hami-hub-tile-body pt-0' : 'mt-auto pt-0.5'}`}>
+                    <div data-hami-edit-hide-in-layout={interactionDisabled || undefined}>
+                        <HubTileTitle label={card.label} visuals={tileVisuals} />
+                    </div>
                 </div>
             </div>
         </button>
@@ -186,6 +205,7 @@ export const ExecutionHero = memo(function ExecutionHero({
     blockOverride,
     themePrimary,
     interactionDisabled = false,
+    layoutSpan = 2,
 }: {
     accent: string;
     onOpenArchive: (id: string) => void;
@@ -193,12 +213,19 @@ export const ExecutionHero = memo(function ExecutionHero({
     blockOverride?: HomeBlockStyleOverride;
     themePrimary: string;
     interactionDisabled?: boolean;
+    layoutSpan?: 1 | 2;
 }) {
     const appearance = useLawyerSettingsAppearance();
     const resolvedAccent = resolveHomeBlockAccent(blockOverride, accent || themePrimary);
     const execSize = blockOverride?.size ?? 'normal';
-    const titleRem = hubExecutionTitleRem(execSize);
-    const minH = blockOverride?.heightPx ? '' : resolveHubTileMinHeight('hubExecution', execSize);
+    const spanScale = layoutSpan === 1 ? 0.84 : 1;
+    const titleRem = hubExecutionTitleRem(execSize) * spanScale;
+    const minH =
+        layoutSpan === 1
+            ? 'min-h-[5.5rem]'
+            : blockOverride?.heightPx
+              ? ''
+              : resolveHubTileMinHeight('hubExecution', execSize);
     const style: React.CSSProperties = {
         ...resolveHomeBlockInlineStyle(blockOverride, themePrimary, {
             baseMinHeightPx: 196,
@@ -228,6 +255,7 @@ export const ExecutionHero = memo(function ExecutionHero({
             onClick={interactionDisabled ? undefined : handleOpen}
             disabled={interactionDisabled}
             tabIndex={interactionDisabled ? -1 : 0}
+            data-hami-layout-span={layoutSpan}
             className={`${tileShellClasses(blockOverride, 'hubExecution', minH)} group${
                 blockOverride?.heightPx ? ' overflow-y-auto' : ' overflow-hidden'
             }${hubTilePressClass('hero', reduceMotion, interactionDisabled)}`}
@@ -235,36 +263,45 @@ export const ExecutionHero = memo(function ExecutionHero({
         >
             <HomeBlockPatternOverlay override={blockOverride} themePrimary={themePrimary} />
             <HomeMoroccanGlassDecor pattern={blockOverride?.pattern} />
-            <div
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                    background: `
+            {layoutSpan === 2 ? (
+                <div
+                    className="absolute inset-0 pointer-events-none"
+                    style={{
+                        background: `
                         radial-gradient(ellipse 70% 90% at 100% 0%, ${resolvedAccent}16, transparent 55%),
                         radial-gradient(ellipse 50% 70% at 0% 100%, rgba(255,255,255,0.04), transparent 50%)
                     `,
-                }}
-                aria-hidden
-            />
-            <div className="relative z-10 h-full flex flex-col justify-end p-5 sm:p-6">
-                <div className="flex items-end justify-between gap-4">
-                    <div className="min-w-0 text-right flex-1">
-                        <p
-                            dir="rtl"
-                            lang="ar"
-                            aria-hidden
-                            className="font-['Cairo'] font-black leading-[1.02] tracking-[-0.04em]"
-                            style={{
-                                fontSize: `calc(${titleRem}rem * var(--hami-content-scale, 1))`,
-                                backgroundImage: `linear-gradient(148deg, #FFF9EE 0%, #F5F0E6 35%, color-mix(in srgb, ${resolvedAccent} 55%, #F5F0E6) 100%)`,
-                                WebkitBackgroundClip: 'text',
-                                backgroundClip: 'text',
-                                color: 'transparent',
-                                filter: `drop-shadow(0 4px 22px color-mix(in srgb, ${resolvedAccent} 40%, transparent))`,
-                            }}
-                        >
-                            {executionLabel}
-                        </p>
-                    </div>
+                    }}
+                    aria-hidden
+                />
+            ) : null}
+            <div
+                className={`relative z-10 h-full flex ${
+                    layoutSpan === 1
+                        ? 'hami-hub-tile--half flex-row items-center justify-between gap-3 px-3.5 py-3'
+                        : 'flex-col justify-end p-5 sm:p-6'
+                }`}
+            >
+                <div className="min-w-0 text-right flex-1">
+                    <p
+                        dir="rtl"
+                        lang="ar"
+                        aria-hidden
+                        data-hami-edit-hide-in-layout={interactionDisabled || undefined}
+                        className="font-['Cairo'] font-black leading-[1.02] tracking-[-0.04em]"
+                        style={{
+                            fontSize: `calc(${titleRem}rem * var(--hami-content-scale, 1))`,
+                            backgroundImage: `linear-gradient(148deg, #FFF9EE 0%, #F5F0E6 35%, color-mix(in srgb, ${resolvedAccent} 55%, #F5F0E6) 100%)`,
+                            WebkitBackgroundClip: 'text',
+                            backgroundClip: 'text',
+                            color: 'transparent',
+                            filter: `drop-shadow(0 4px 22px color-mix(in srgb, ${resolvedAccent} 40%, transparent))`,
+                        }}
+                    >
+                        {executionLabel}
+                    </p>
+                </div>
+                {layoutSpan === 2 ? (
                     <div
                         className="shrink-0 rounded-2xl flex items-center justify-center hami-sovereign-float ml-5 hami-hub-hero-icon"
                         style={{
@@ -284,7 +321,21 @@ export const ExecutionHero = memo(function ExecutionHero({
                             }}
                         />
                     </div>
-                </div>
+                ) : (
+                    <div
+                        className="shrink-0 rounded-xl flex items-center justify-center"
+                        style={{
+                            width: `calc(2.5rem * var(--hami-content-scale, 1))`,
+                            height: `calc(2.5rem * var(--hami-content-scale, 1))`,
+                            background: `linear-gradient(160deg, ${resolvedAccent}28, rgba(0,0,0,0.5))`,
+                            border: `1px solid ${resolvedAccent}35`,
+                            color: resolvedAccent,
+                        }}
+                        aria-hidden
+                    >
+                        <ArrowLeft strokeWidth={1.75} className="w-4 h-4" />
+                    </div>
+                )}
             </div>
         </button>
     );

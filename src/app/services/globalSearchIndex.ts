@@ -134,7 +134,7 @@ export const SEARCH_CATEGORY_LABELS: Record<GlobalSearchCategory, string> = {
     criminal: 'قضايا جزائية',
     note: 'ملاحظات',
     voice: 'تسجيلات صوتية',
-    vault: 'مخزن الملفات',
+    vault: 'المستودع الذكي',
     repository: 'المكتبة القانونية',
     case: 'سجل القضايا',
     party: 'موكلون وخصوم',

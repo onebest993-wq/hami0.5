@@ -1,5 +1,6 @@
 import React from 'react';
 import { ArrowRight, Calendar, ChevronRight, ChevronLeft, ArrowLeft, Loader2 } from 'lucide-react';
+import { prefetchRadarCalendarGrid } from '@/app/runtime/radarWidgetLoader';
 import { MONTHS } from './utils';
 import {
     RADAR_BTN_GHOST,
@@ -103,6 +104,7 @@ export const MonthNav = React.memo(function MonthNav({
                 <button
                     type="button"
                     onClick={onToggleFullMonth}
+                    onPointerEnter={prefetchRadarCalendarGrid}
                     data-testid="radar-toggle-full-month"
                     className={showFullMonth ? RADAR_BTN_GHOST_ACTIVE : RADAR_BTN_GHOST}
                 >

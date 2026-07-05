@@ -1,4 +1,4 @@
-import type { ForumNotification, NotificationType as ForumNotificationType } from '@/app/services/lawyer-cloud';
+import type { ForumNotification, NotificationType as ForumNotificationType } from '@/app/services/forum/forumTypes';
 import {
     deriveNotificationCategory,
     type NotificationModel,

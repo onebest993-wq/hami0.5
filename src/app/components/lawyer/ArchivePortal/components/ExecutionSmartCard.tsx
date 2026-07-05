@@ -10,7 +10,7 @@ import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
 import { buildExecutionWorkspacePin } from '@/app/workspace/workspacePinBuilders';
 import { resolveExecutionArchiveCardView } from '../utils';
 import { ExecutionArchivePartyBlock } from './ExecutionArchivePartyBlock';
-import { warmExecutionWorkspace } from '@/app/utils/lazyComponents';
+import { warmExecutionDossier } from '@/app/utils/lazyComponents';
 
 interface ExecutionSmartCardProps {
     file: any;
@@ -81,16 +81,16 @@ function ExecutionSmartCard({
     const reduceMotion = useReduceMotion();
     const prefetchFiredRef = React.useRef(false);
 
-    const warmExecutionDossier = React.useCallback(() => {
+    const primeExecutionDossier = React.useCallback(() => {
         if (prefetchFiredRef.current) return;
         prefetchFiredRef.current = true;
-        warmExecutionWorkspace();
+        warmExecutionDossier();
     }, []);
 
     const handleOpen = React.useCallback(() => {
-        warmExecutionDossier();
+        warmExecutionDossier('urgent');
         onOpen();
-    }, [onOpen, warmExecutionDossier]);
+    }, [onOpen]);
 
     const handleToolbarAction = React.useCallback(
         (event: React.MouseEvent, action?: () => void) => {
@@ -230,7 +230,7 @@ function ExecutionSmartCard({
                                         type="button"
                                         onClick={(event) => {
                                             event.stopPropagation();
-                                            warmExecutionDossier();
+                                            warmExecutionDossier('urgent');
                                             onPreview();
                                         }}
                                         className="flex items-center gap-1.5 rounded-lg border border-[#E6C673]/30 bg-[#E6C673]/10 px-2.5 py-1.5 text-[10px] font-bold text-[#E6C673] hover:bg-[#E6C673]/15"
@@ -251,7 +251,7 @@ function ExecutionSmartCard({
                                     type="button"
                                     onClick={(event) => {
                                         event.stopPropagation();
-                                        warmExecutionDossier();
+                                        warmExecutionDossier('urgent');
                                         onPreview();
                                     }}
                                     className="flex items-center gap-1.5 rounded-lg border border-[#E6C673]/30 bg-[#E6C673]/10 px-2.5 py-1.5 text-[10px] font-bold text-[#E6C673] hover:bg-[#E6C673]/15"
@@ -357,8 +357,8 @@ function ExecutionSmartCard({
     if (reduceMotion) {
         return (
             <div
-                onPointerEnter={warmExecutionDossier}
-                onFocus={warmExecutionDossier}
+                    onPointerEnter={primeExecutionDossier}
+                    onFocus={primeExecutionDossier}
                 onClick={handleCardClick}
                 className={cardClassName}
             >
@@ -372,8 +372,8 @@ function ExecutionSmartCard({
             initial={false}
             animate={{ opacity: 1, y: 0 }}
             whileHover={reduceMotion ? undefined : { y: -6 }}
-            onPointerEnter={warmExecutionDossier}
-            onFocus={warmExecutionDossier}
+            onPointerEnter={primeExecutionDossier}
+            onFocus={primeExecutionDossier}
             onClick={handleCardClick}
             className={cardClassName}
         >

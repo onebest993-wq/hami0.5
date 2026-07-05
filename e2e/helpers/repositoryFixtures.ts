@@ -57,7 +57,8 @@ export async function waitRepositoryFeedReady(page: Page): Promise<void> {
 /** ينتظر جاهزية شريط الدوك قبل النقر */
 async function waitHomeDockReady(page: Page): Promise<void> {
     await dismissRepositoryBlockers(page);
-    await page.getByTestId('home-dock-chrome').waitFor({ state: 'visible', timeout: 15_000 });
+    await page.getByTestId('home-bottom-chrome').waitFor({ state: 'visible', timeout: 15_000 });
+    await page.getByTestId('home-dock-shell-zone').waitFor({ state: 'visible', timeout: 15_000 });
     await page.getByTestId('home-dock-shell-dockRepository').waitFor({ state: 'visible', timeout: 15_000 });
 }
 

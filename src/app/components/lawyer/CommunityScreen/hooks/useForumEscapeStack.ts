@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { releaseBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { resolveForumEscapeAction } from '@/app/components/lawyer/CommunityScreen/forumEscapeStack';
+import { isForumAddQuestionFilePickerGraceActive } from '@/app/components/lawyer/CommunityScreen/forumAddQuestionFilePickerGrace';
 
 export type UseForumEscapeStackParams = {
     fullscreenImage: string | null;
@@ -96,6 +97,7 @@ export function useForumEscapeStack(params: UseForumEscapeStackParams): void {
                     releaseBodyScrollLock();
                     break;
                 case 'close-add-question':
+                    if (isForumAddQuestionFilePickerGraceActive()) break;
                     onCloseAddQuestion();
                     releaseBodyScrollLock();
                     break;

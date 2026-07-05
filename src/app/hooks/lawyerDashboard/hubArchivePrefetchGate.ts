@@ -2,6 +2,8 @@ import {
     prefetchHubArchiveIntent,
     type HubArchivePrefetchPhase,
 } from '@/app/hooks/lawyerDashboard/lawyerDashboardIntentPrefetch';
+import { prefetchTransactionsHubModule } from '@/app/runtime/transactionsHubLoader';
+import { prefetchTransactionsHub } from '@/app/utils/lazyComponents';
 
 const HUB_ARCHIVE_PREFETCH_COOLDOWN_MS = 300;
 const lastPrefetchAt = new Map<string, number>();
@@ -36,11 +38,15 @@ export function scheduleTransactionHubTileIdlePrefetch(): void {
     if (typeof window === 'undefined' || transactionIdleScheduled) return;
     transactionIdleScheduled = true;
 
-    const run = () => prefetchHubArchiveIntentDebounced('transaction');
+    const run = () => {
+        prefetchHubArchiveIntentDebounced('transaction');
+        prefetchTransactionsHub();
+        prefetchTransactionsHubModule();
+    };
 
     if (typeof requestIdleCallback !== 'undefined') {
-        requestIdleCallback(run, { timeout: 5_000 });
+        requestIdleCallback(run, { timeout: 2_000 });
     } else {
-        window.setTimeout(run, 2_000);
+        window.setTimeout(run, 500);
     }
 }

@@ -19,6 +19,8 @@ import {
 } from '@/app/utils/authSupabaseLazy';
 import { GUEST_LAWYER_ID } from '@/app/utils/guestLawyerSession';
 import { getDevMockLawyerSession } from '@/app/services/auth/devMockLawyerAuth';
+import { prefetchLawyerDashboardEntry } from '@/app/runtime/lawyerDashboardLoader';
+import { probeSameOriginApi } from '@/app/runtime/sameOriginApiProbe';
 import {
     bffLogin,
     bffLogout,
@@ -77,8 +79,7 @@ export function startAuthSessionSync(bindings: AuthProviderRuntimeBindings): () 
     if (isBffAuthEnabled()) {
         setIsLoading(true);
         let stopKeeper: (() => void) | undefined;
-        void import('@/app/runtime/sameOriginApiProbe')
-            .then((m) => m.probeSameOriginApi())
+        void probeSameOriginApi()
             .then(async (apiState) => {
                 if (!mounted) return;
                 if (apiState !== 'available') {
@@ -276,7 +277,7 @@ async function applyMockSession(
     writeDevMockAuth(mockSession);
 
     if (params.role === 'lawyer' && !import.meta.env.DEV) {
-        void import('@/app/runtime/lawyerDashboardLoader').then((m) => m.prefetchLawyerDashboardEntry());
+        prefetchLawyerDashboardEntry();
     }
 }
 

@@ -14,6 +14,7 @@ vi.mock('@/app/hooks/lawyerDashboard/globalSearchIntentWarm', () => ({
 vi.mock('@/app/hooks/lawyerDashboard/settingsIntentWarm', () => ({
     warmSettingsOnHover: vi.fn(),
     warmSettingsOnOpen: vi.fn(),
+    primeSettingsShellForOpen: vi.fn(),
 }));
 
 vi.mock('@/app/hooks/lawyerDashboard/notificationIntentWarm', () => ({
@@ -29,6 +30,11 @@ vi.mock('@/app/runtime/notificationPanelLoader', () => ({
     loadNotificationPanelModule: vi.fn(() => Promise.resolve({})),
 }));
 
+vi.mock('@/app/runtime/hamiSettingsLoader', () => ({
+    loadHamiSettingsModule: vi.fn(() => Promise.resolve({})),
+    prefetchHamiSettingsModule: vi.fn(),
+}));
+
 vi.mock('@/app/runtime/globalSearchLoader', () => ({
     loadGlobalSearchOverlayModule: vi.fn(() => Promise.resolve({})),
 }));
@@ -37,8 +43,14 @@ vi.mock('@/app/hooks/lawyerDashboard/vaultIntentWarm', () => ({
     warmVaultOnHover: vi.fn(),
 }));
 
+import { loadHamiSettingsModule } from '@/app/runtime/hamiSettingsLoader';
+
 import { warmProfileOnHover, warmProfileOnOpen } from '@/app/hooks/lawyerDashboard/profileIntentWarm';
-import { warmSettingsOnHover, warmSettingsOnOpen } from '@/app/hooks/lawyerDashboard/settingsIntentWarm';
+vi.mock('@/app/components/lawyer/HamiSettings/settingsSectionRegistry', () => ({
+    preloadAllSettingsSectionComponents: vi.fn(() => Promise.resolve()),
+}));
+
+import { warmSettingsOnHover, primeSettingsShellForOpen } from '@/app/hooks/lawyerDashboard/settingsIntentWarm';
 import { warmNotificationsOnHover, warmNotificationsOnOpen } from '@/app/hooks/lawyerDashboard/notificationIntentWarm';
 import { loadNotificationPanelModule } from '@/app/runtime/notificationPanelLoader';
 import { loadGlobalSearchOverlayModule } from '@/app/runtime/globalSearchLoader';
@@ -84,22 +96,24 @@ describe('createLawyerDashboardHeaderPrefetch', () => {
         expect(warmProfileOnOpen).not.toHaveBeenCalled();
     });
 
-    it('يسخّن الإعدادات خفيفاً عند pointer down — بلا warmOnOpen', () => {
+    it('يسخّن الإعدادات بالكامل عند pointer down', () => {
         const prefetch = createLawyerDashboardHeaderPrefetch('lawyer-1');
 
         prefetch.onSettingsPointerDown();
 
-        expect(warmSettingsOnHover).toHaveBeenCalledTimes(1);
-        expect(warmSettingsOnOpen).not.toHaveBeenCalled();
+        expect(primeSettingsShellForOpen).toHaveBeenCalledTimes(1);
+        expect(loadHamiSettingsModule).toHaveBeenCalledTimes(1);
+        expect(warmSettingsOnHover).not.toHaveBeenCalled();
     });
 
-    it('يسخّن الإعدادات خفيفاً عند hover', () => {
+    it('يسخّن الإعدادات chunk عند hover', () => {
         const prefetch = createLawyerDashboardHeaderPrefetch('lawyer-1');
 
         prefetch.onSettingsPointerEnter();
 
         expect(warmSettingsOnHover).toHaveBeenCalledTimes(1);
-        expect(warmSettingsOnOpen).not.toHaveBeenCalled();
+        expect(loadHamiSettingsModule).toHaveBeenCalledTimes(1);
+        expect(primeSettingsShellForOpen).not.toHaveBeenCalled();
     });
 
     it('يسخّن الإشعارات chunk عند pointer down — بلا warmOnOpen', () => {

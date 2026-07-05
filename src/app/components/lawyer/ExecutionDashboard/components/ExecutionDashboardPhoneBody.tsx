@@ -100,6 +100,7 @@ import {
     readExecutionPhoneBodyScope,
     useExecutionPhoneBodyScopeRef,
 } from '../hooks/executionPhoneBodyScope';
+import { useExecutionDashboardPhoneBodyMountStages } from '../hooks/useExecutionDashboardPhoneBodyMountStages';
 import * as PhoneBodyLazyFallback from '../executionDashboardLazyRegistry';
 
 function withPhoneBodyScopeFallback(scope: Record<string, unknown>): Record<string, unknown> {
@@ -125,6 +126,21 @@ function withPhoneBodyScopeFallback(scope: Record<string, unknown>): Record<stri
         }
     }
     return out;
+}
+
+function DeferredStagePlaceholder({
+    className = 'mx-3 mt-3',
+}: {
+    className?: string;
+}) {
+    return (
+        <div className={className} aria-hidden="true">
+            <div className="rounded-2xl border border-white/8 bg-white/[0.02] px-3 py-3">
+                <div className="h-3 w-24 rounded-full bg-white/10" />
+                <div className="mt-2 h-10 rounded-2xl bg-white/[0.04]" />
+            </div>
+        </div>
+    );
 }
 
 export type ExecutionDashboardPhoneBodyProps = Record<string, unknown>;
@@ -558,6 +574,13 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
         voluntaryAttendanceCount,
         voluntaryEndOptimistic,
     } = props;;
+
+    const { secondaryStageReady, tertiaryStageReady } = useExecutionDashboardPhoneBodyMountStages({
+        movableSeizureRequestModalOpen,
+        propertySeizureRequestModalOpen,
+        showExecutionFinancialHub,
+        showUnifiedSeizureLogModal,
+    });
 
     return (
             <div
@@ -1149,6 +1172,8 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
                         </div>
                     ) : null}
 
+                    {secondaryStageReady ? (
+                        <>
                     {/* إدارة الأموال + المحفظة الخاصة: تُعرضان من «المركز المالي» في أدوات الإضبارة */}
                     <LazyActionGridSection
                         Book={Book}
@@ -1220,7 +1245,13 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
                     viewExecutionData={viewExecutionData}
                 />
                 </Suspense>
+                        </>
+                    ) : (
+                        <DeferredStagePlaceholder />
+                    )}
 
+                {tertiaryStageReady ? (
+                    <>
                 <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
                 <LazyExecutionFinancialHubPortal showExecutionFinancialHub={showExecutionFinancialHub} setShowExecutionFinancialHub={setShowExecutionFinancialHub}
                     onOpenUnifiedSeizureLog={() => openUnifiedSeizureLog()} financialHubAutoOpenMode={financialHubAutoOpenMode} setFinancialHubAutoOpenMode={setFinancialHubAutoOpenMode} financialHubSeizedMovableId={financialHubSeizedMovableId} setFinancialHubSeizedMovableId={setFinancialHubSeizedMovableId} financialHubSeizedPropertyId={financialHubSeizedPropertyId} setFinancialHubSeizedPropertyId={setFinancialHubSeizedPropertyId}
@@ -1302,6 +1333,10 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
                     onSubmit={submitMovableSeizureRequest}
                 />
                 </Suspense>
+                    </>
+                ) : secondaryStageReady ? (
+                    <DeferredStagePlaceholder className="mx-3 mt-2" />
+                ) : null}
                     {/* BOTTOM SPACER FOR SMOOTH SCROLLING */}
                     <div className="h-6"></div>
                     

@@ -1,31 +1,19 @@
+import { TransactionsThreadingDB } from '@/app/services/cloud/lawyerTransactionsCloud';
 import type { TransactionsThreadingState } from '@/app/services/cloud/lawyerTransactionTypes';
-
-type TransactionsCloudModule = typeof import('@/app/services/cloud/lawyerTransactionsCloud');
-
-let transactionsCloudModulePromise: Promise<TransactionsCloudModule> | null = null;
-
-function loadTransactionsCloudModule(): Promise<TransactionsCloudModule> {
-    if (!transactionsCloudModulePromise) {
-        transactionsCloudModulePromise = import('@/app/services/cloud/lawyerTransactionsCloud');
-    }
-    return transactionsCloudModulePromise;
-}
 
 /** جلب حالة Threading — dynamic import لعدم ربط الواجهة بـ lawyer-cloud monolith. */
 export async function fetchTransactionsThreadingState(
     userId: string,
 ): Promise<TransactionsThreadingState | null> {
-    const mod = await loadTransactionsCloudModule();
-    return mod.TransactionsThreadingDB.getState(userId);
+    return TransactionsThreadingDB.getState(userId);
 }
 
-/** تحميل مسبق لـ chunk المعاملات */
+/** المسار صار مربوطاً مباشرة، فالتسخين هنا no-op متوافق مع الاستدعاءات القائمة. */
 export function prefetchTransactionsCloudModule(): void {
-    if (typeof window === 'undefined') return;
-    void loadTransactionsCloudModule();
+    void TransactionsThreadingDB;
 }
 
-/** للاختبارات — إعادة تعيين cache الوحدة. */
+/** للاختبارات — لا توجد cache ديناميكية بعد الآن. */
 export function resetTransactionsCloudLoaderForTests(): void {
-    transactionsCloudModulePromise = null;
+    /* no-op */
 }

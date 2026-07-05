@@ -1,6 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useExecutionDashboardLazyChunkGates } from '../useExecutionDashboardLazyChunkGates';
+
+vi.mock('@/app/utils/scheduleIdleWork', () => ({
+    scheduleIdleWork: (work: () => void) => {
+        work();
+        return () => {};
+    },
+}));
 
 describe('useExecutionDashboardLazyChunkGates', () => {
     it('enables phone body and shell overlays together when chunk data is ready', async () => {

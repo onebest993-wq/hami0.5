@@ -12,8 +12,14 @@ vi.mock('@/app/components/ui/SmartToast', () => ({
 }));
 
 vi.mock('@/app/runtime/fieldTasksHubLoader', () => ({
-    loadFieldTasksHubModule: vi.fn(() => Promise.resolve([])),
-    prefetchFieldTasksHubModule: vi.fn(),
+    loadFieldTasksSheetModule: vi.fn(() => Promise.resolve({})),
+    loadTasksManagerModule: vi.fn(() => Promise.resolve({})),
+    prefetchFieldTasksSheetModule: vi.fn(),
+    prefetchTasksManagerModule: vi.fn(),
+}));
+
+vi.mock('@/app/runtime/fieldTasksBootHydrator', () => ({
+    hydrateFieldTasksShellForInstantOpen: vi.fn(() => Promise.resolve(true)),
 }));
 
 vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
@@ -31,8 +37,9 @@ describe('useLawyerDashboardFieldTasks', () => {
             useLawyerDashboardFieldTasks({ userId: 'lawyer-1', setActiveTab }),
         );
 
-        act(() => {
+        await act(async () => {
             result.current.openFieldTasksSheet();
+            await Promise.resolve();
         });
 
         expect(result.current.fieldTasksSheetOpen).toBe(true);

@@ -1,20 +1,31 @@
+import { prefetchCommunityScreenModule } from '@/app/runtime/communityHubLoader';
+import { hydrateCommunityShellForInstantOpen } from '@/app/runtime/communityBootHydrator';
+import { prefetchCommunityHeavyOverlays } from '@/app/components/lawyer/CommunityScreen/communityOverlayPrefetch';
+import { warmForumNotificationsCache } from '@/app/services/forum/forumNotificationsWarmCache';
+import { warmForumPostsCache } from '@/app/services/forum/forumPostsWarmCache';
+import { warmForumSocialCache } from '@/app/services/forum/forumSocialWarmCache';
+
+export function warmForumSocialForUser(userId: string | null | undefined): void {
+    if (!userId) return;
+    warmForumSocialCache(userId);
+    warmForumNotificationsCache(userId);
+}
+
 /**
- * عند hover/لمس المنتدى — تجهيز mount فقط.
- * لا dynamic import هنا: أي import() في هذا الملف يُسحَب إلى modulepreload عبر entry graph.
- * تحميل CommunityScreen/overlays يتم عند الفتح عبر lazyComponents أو داخل CommunityScreen.
+ * عند hover/لمس المنتدى — تجهيز chunk + كاش المنشورات.
  */
-export function warmForumOnHover(): void {
-    if (typeof window !== 'undefined') {
-        void import('@/app/services/forum/forumPostsWarmCache').then((m) => m.warmForumPostsCache());
-    }
+export function warmForumOnHover(userId?: string | null): void {
+    if (typeof window === 'undefined') return;
+    prefetchCommunityScreenModule();
+    warmForumPostsCache();
+    warmForumSocialForUser(userId);
 }
 
 /** عند فتح المنتدى */
-export function warmForumOnOpen(): void {
-    warmForumOnHover();
+export function warmForumOnOpen(userId?: string | null): void {
+    warmForumOnHover(userId);
     if (typeof window === 'undefined') return;
-    void import('@/app/services/forum/forumPostsWarmCache').then((m) => m.warmForumPostsCache());
-    void import('@/app/components/lawyer/CommunityScreen/communityOverlayPrefetch').then((m) =>
-        m.prefetchCommunityHeavyOverlays(),
-    );
+    void hydrateCommunityShellForInstantOpen(true);
+    warmForumPostsCache();
+    prefetchCommunityHeavyOverlays();
 }

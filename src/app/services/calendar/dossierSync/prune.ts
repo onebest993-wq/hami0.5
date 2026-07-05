@@ -8,6 +8,8 @@ import {
     normalizeDateToYmd,
     resolveCalendarUserId,
 } from '@/app/services/calendarBridge';
+import { CalendarDB } from '@/app/services/cloud/lawyerCalendarCloud';
+import { TransactionDB, TransactionsThreadingDB } from '@/app/services/cloud/lawyerTransactionsCloud';
 import { CALENDAR_UPDATED_EVENT } from '@/app/services/calendarBridge.types';
 import { debug } from '@/app/utils/debug';
 import { loadCriminalCasesRaw } from '@/app/utils/criminalCasesStorage';
@@ -15,7 +17,6 @@ import { loadExecutionFilesRaw } from '@/app/utils/executionFilesStorage';
 import { loadGlobalNotesRaw } from '@/app/utils/globalNotesStorage';
 import { loadLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
 import { UrgentActionsDB } from '@/app/services/urgent-actions-db';
-import { CalendarDB, TransactionDB, TransactionsThreadingDB } from '@/app/services/lawyer-cloud';
 import { TransactionTaskStatus } from '@/app/modules/transactionsThreading/types';
 import { isBridgedCalendarEvent } from '@/app/services/calendarBridgePersistence';
 import {
@@ -530,4 +531,3 @@ export async function purgeInauthenticBridgedEvents(userId?: string | null): Pro
     }
     return removed;
 }
-

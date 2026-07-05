@@ -34,7 +34,7 @@ export const ProfileEditBar = memo(function ProfileEditBar({
                             type="button"
                             data-testid="lawyer-profile-edit-cancel"
                             onClick={onCancel}
-                            disabled={saving || savingSettings}
+                            disabled={saving}
                             className="flex-1 py-3.5 rounded-2xl border border-white/15 text-sm font-bold text-white/80 hover:bg-white/5 transition-colors min-h-[48px]"
                         >
                             إلغاء
@@ -43,10 +43,10 @@ export const ProfileEditBar = memo(function ProfileEditBar({
                             type="button"
                             data-testid="lawyer-profile-edit-save"
                             onClick={onSave}
-                            disabled={saving || savingSettings}
+                            disabled={saving}
                             className="flex-[1.2] py-3.5 rounded-2xl hami-profile-accent-btn-solid text-sm font-bold flex items-center justify-center gap-2 min-h-[48px]"
                         >
-                            {saving || savingSettings ? (
+                            {saving ? (
                                 <span className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
                             ) : (
                                 <Check size={16} />

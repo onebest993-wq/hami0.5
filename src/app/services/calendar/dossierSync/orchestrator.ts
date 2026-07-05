@@ -7,7 +7,7 @@ import {
     muteCalendarUpdates,
     resolveCalendarUserId,
 } from '@/app/services/calendarBridge';
-import { TransactionsThreadingDB } from '@/app/services/lawyer-cloud';
+import { TransactionsThreadingDB } from '@/app/services/cloud/lawyerTransactionsCloud';
 import { debug } from '@/app/utils/debug';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import type { DossierSyncStats, LiveCalendarSnapshots, SyncScope } from './types';
@@ -32,6 +32,7 @@ import {
     purgeNonWhitelistedBridgedEvents,
     removeAllBridgedEventsForEntity,
 } from './prune';
+import SecureStoreService from '@/app/services/SecureStoreService';
 
 
 let reconcileInFlight: Promise<DossierSyncStats> | null = null;
@@ -131,8 +132,7 @@ async function runLiveCalendarPopulate(
 
     await flushPendingCalendarSyncs();
 
-    // 🧹 ضمان نظافة CalendarDB من أي بقايا لمسارات مُلغاة سابقاً
-    await purgeNonWhitelistedBridgedEvents(uid);
+    // purgeNonWhitelistedBridgedEvents يُنفَّذ في reconcile/cleanup فقط — ليس في المسار الساخن
     } finally {
         releaseMute();
         if (options?.emitUpdated !== false) {
@@ -224,7 +224,6 @@ export async function cleanupCalendarForUser(userId?: string | null): Promise<Do
     const { shouldSkipDossierDependentCalendarPurge } = await import(
         '@/app/services/dossierPersistence/storageHydrationGuard'
     );
-    const SecureStoreService = (await import('@/app/services/SecureStoreService')).default;
     await SecureStoreService.ensurePersistedReady();
     if (await shouldSkipDossierDependentCalendarPurge()) {
         return EMPTY_STATS();
@@ -308,4 +307,3 @@ export const CALENDAR_SYNC_RULES = {
         ],
     },
 } as const;
-

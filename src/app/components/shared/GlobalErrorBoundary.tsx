@@ -1,4 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
+import { resetLawyerDashboardModuleCache } from '@/app/runtime/lawyerDashboardLoader';
+import { resetArchivePortalPrefetch } from '@/app/utils/lazyComponents';
 import { debug } from "@/app/utils/debug";
 
 interface Props {
@@ -40,21 +42,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
     }
 
     if (isStaleChunkLoadError(error) && import.meta.env.DEV) {
-      try {
-        const reloadKey = 'hami:vite-stale-import-reload';
-        if (!sessionStorage.getItem(reloadKey)) {
-          sessionStorage.setItem(reloadKey, '1');
-          void import('@/app/runtime/lawyerDashboardLoader').then((m) =>
-            m.resetLawyerDashboardModuleCache(),
-          );
-          debug.error('❌ [GlobalErrorBoundary] Stale chunk — reloading once:', error.message);
-          window.location.reload();
-          return;
-        }
-      } catch {
-        /* ignore */
-      }
-      debug.error('❌ [GlobalErrorBoundary] Stale chunk load (no auto-reload):', error.message);
+      debug.error('❌ [GlobalErrorBoundary] Stale chunk load (auto-reload disabled):', error.message);
     }
 
     debug.error("❌ [GlobalErrorBoundary] Uncaught error:", error, errorInfo);
@@ -91,8 +79,8 @@ export class GlobalErrorBoundary extends Component<Props, State> {
   }
 
   private handleReset = () => {
-    void import('@/app/runtime/lawyerDashboardLoader').then((m) => m.resetLawyerDashboardModuleCache());
-    void import('@/app/utils/lazyComponents').then((m) => m.resetArchivePortalPrefetch());
+    resetLawyerDashboardModuleCache();
+    resetArchivePortalPrefetch();
     this.setState({ hasError: false, error: null, errorInfo: null });
   };
 

@@ -1,32 +1,12 @@
-import React, { Suspense, useMemo } from 'react';
+import React, { useLayoutEffect, useState } from 'react';
 import type { SettingsSectionId } from '@/app/services/settings';
-import { loadSettingsSection } from './settingsSectionLoader';
+import { AppearanceSection } from './appearance/AppearanceSection';
 import { useSettingsSectionMountSet } from './hooks/useSettingsSectionMountSet';
 import { SettingsSectionActiveProvider } from './settingsSectionActiveContext';
-import { AppearanceSection } from './appearance/AppearanceSection';
-
-const LazySecuritySection = React.lazy(() =>
-    loadSettingsSection('security').then((m) => ({ default: m.SecuritySection! })),
-);
-const LazyDataSection = React.lazy(() =>
-    loadSettingsSection('data').then((m) => ({ default: m.DataSection! })),
-);
-const LazyAccountSection = React.lazy(() =>
-    loadSettingsSection('account').then((m) => ({ default: m.AccountSection! })),
-);
-
-type SettingsSectionRouterProps = {
-    activeSection: SettingsSectionId;
-    onClose: () => void;
-    onEnterHomeLayoutEdit?: () => void;
-    /** false مع keep-alive — لا spinner في الخلفية */
-    open?: boolean;
-    accountProps: {
-        onLogout?: () => void;
-        onOpenProfile?: () => void;
-        onOpenPrivacy?: () => void;
-    };
-};
+import {
+    getResolvedSettingsSection,
+    resolveSettingsSectionComponent,
+} from './settingsSectionRegistry';
 
 function SettingsSectionLoadingFallback() {
     return (
@@ -43,30 +23,71 @@ function SettingsSectionLoadingFallback() {
     );
 }
 
-function renderSection(
-    id: SettingsSectionId,
-    props: Omit<SettingsSectionRouterProps, 'activeSection' | 'open'>,
-): React.ReactNode {
-    switch (id) {
-        case 'appearance':
-            return <AppearanceSection onEnterHomeLayoutEdit={props.onEnterHomeLayoutEdit} />;
-        case 'security':
-            return <LazySecuritySection />;
-        case 'data':
-            return <LazyDataSection />;
-        case 'account':
-            return (
-                <LazyAccountSection
-                    onClose={props.onClose}
-                    onLogout={props.accountProps.onLogout}
-                    onOpenProfile={props.accountProps.onOpenProfile}
-                    onOpenPrivacy={props.accountProps.onOpenPrivacy}
-                />
-            );
-        default:
-            return null;
+type SettingsSectionPanelProps = {
+    sectionId: SettingsSectionId;
+    active: boolean;
+    onClose: () => void;
+    onEnterHomeLayoutEdit?: () => void;
+    accountProps: SettingsSectionRouterProps['accountProps'];
+};
+
+function SettingsSectionPanel({
+    sectionId,
+    active,
+    onClose,
+    onEnterHomeLayoutEdit,
+    accountProps,
+}: SettingsSectionPanelProps) {
+    const [Component, setComponent] = useState<React.ComponentType<object> | null>(() =>
+        sectionId === 'appearance' ? AppearanceSection : getResolvedSettingsSection(sectionId),
+    );
+
+    useLayoutEffect(() => {
+        if (!active || sectionId === 'appearance') return;
+
+        const cached = getResolvedSettingsSection(sectionId);
+        if (cached) {
+            setComponent(() => cached);
+            return;
+        }
+
+        let cancelled = false;
+        void resolveSettingsSectionComponent(sectionId).then((next) => {
+            if (!cancelled && next) setComponent(() => next);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [active, sectionId]);
+
+    if (sectionId === 'appearance') {
+        return <AppearanceSection onEnterHomeLayoutEdit={onEnterHomeLayoutEdit} />;
     }
+
+    if (!Component) {
+        return active ? <SettingsSectionLoadingFallback /> : null;
+    }
+
+    if (sectionId === 'account') {
+        const Account = Component as React.ComponentType<{
+            onClose: () => void;
+            onLogout?: () => void;
+        }>;
+        return <Account onClose={onClose} onLogout={accountProps.onLogout} />;
+    }
+
+    return <Component />;
 }
+
+export type SettingsSectionRouterProps = {
+    activeSection: SettingsSectionId;
+    onClose: () => void;
+    onEnterHomeLayoutEdit?: () => void;
+    open?: boolean;
+    accountProps: {
+        onLogout?: () => void;
+    };
+};
 
 export function SettingsSectionRouter({
     activeSection,
@@ -76,10 +97,6 @@ export function SettingsSectionRouter({
     accountProps,
 }: SettingsSectionRouterProps) {
     const mountedSections = useSettingsSectionMountSet(activeSection);
-    const sectionProps = useMemo(
-        () => ({ onClose, onEnterHomeLayoutEdit, accountProps }),
-        [accountProps, onClose, onEnterHomeLayoutEdit],
-    );
 
     return (
         <div className="hami-settings-section-frame mx-auto w-full max-w-xl lg:max-w-2xl">
@@ -87,10 +104,14 @@ export function SettingsSectionRouter({
                 const isActive = sectionId === activeSection;
                 return (
                     <div key={sectionId} hidden={!isActive} aria-hidden={!isActive}>
-                        <SettingsSectionActiveProvider active={isActive}>
-                            <Suspense fallback={<SettingsSectionLoadingFallback />}>
-                                {renderSection(sectionId, sectionProps)}
-                            </Suspense>
+                        <SettingsSectionActiveProvider active={isActive && open}>
+                            <SettingsSectionPanel
+                                sectionId={sectionId}
+                                active={isActive && open}
+                                onClose={onClose}
+                                onEnterHomeLayoutEdit={onEnterHomeLayoutEdit}
+                                accountProps={accountProps}
+                            />
                         </SettingsSectionActiveProvider>
                     </div>
                 );

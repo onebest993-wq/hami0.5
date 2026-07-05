@@ -92,6 +92,7 @@ export function useSmartFileModalOrchestrator(props: SmartFileModalProps) {
         setParentData,
         stages,
         setStages,
+        activeStageIndex,
         viewingStageIndex,
         setActiveStageIndex,
         setViewingStageIndex,

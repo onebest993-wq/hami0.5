@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { flushSync } from 'react-dom';
 import { prefetchRoyalLawyerProfile } from '@/app/utils/lazyComponents';
 import { useForumLifecycle } from './useForumLifecycle';
+import { warmForumSocialForUser } from '@/app/hooks/lawyerDashboard/forumIntentWarm';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import type { RepositoryDocument } from '@/app/services/lawyer-cloud';
 import type { RepositorySortKey } from '../repositoryListFilters';
@@ -55,6 +57,9 @@ export function useCommunityScreenController({
         useCommunityForumAccess({ lawyerShellAccess, fallbackUserId });
     useBodyScrollLock(Boolean(onBack));
     const forumStreamConnected = useForumNotificationStream(currentUserId, Boolean(currentUserId));
+    useEffect(() => {
+        warmForumSocialForUser(currentUserId);
+    }, [currentUserId]);
     const dualLists = useCommunityDualPostLists();
     const { posts, groupPosts, findPostById, updatePostList } = dualLists;
 
@@ -174,6 +179,10 @@ export function useCommunityScreenController({
         isBanned,
         activeGroupId,
         appendPublishedGroupPost,
+        onForumPostPublished: () => {
+            setForumFeedScope('all');
+            setSelectedFilterIndex(0);
+        },
     });
 
     const postActions = useCommunityPostActions({
@@ -184,6 +193,9 @@ export function useCommunityScreenController({
         authUser,
         commentingPostId,
         onThreadSubscribed: markThreadSubscribed,
+        onPostDeleted: (postId) => {
+            setCommentingPostId((current) => (current === postId ? null : current));
+        },
     });
 
     const {
@@ -199,6 +211,8 @@ export function useCommunityScreenController({
     const {
         isSearchOpen,
         setIsSearchOpen,
+        openSearchOverlay,
+        closeSearchOverlay,
         searchQuery,
         setSearchQuery,
         filterHasPdf,
@@ -231,8 +245,9 @@ export function useCommunityScreenController({
         savingEdit,
         handleTogglePin,
         handleToggleBookmark,
-        handleSavePostToNotes,
+        handleCopyPostText,
         handleSavePostToVault,
+        handleSavePostToDevice,
         handleToggleLock,
         handleEditPost,
         handleSaveEdit,
@@ -254,7 +269,6 @@ export function useCommunityScreenController({
         newAttachment,
         removeAttachment,
         submittingPost,
-        uploadingAttachment,
         isRecordingVoice,
         voiceRecordingSec,
         imageInputRef,
@@ -338,18 +352,23 @@ export function useCommunityScreenController({
     }, [setActiveSection]);
 
     const handleSearchOpenPost = useCallback((postId: string) => {
-        setIsSearchOpen(false);
+        closeSearchOverlay();
         handleNavigateToPost(postId);
-    }, [handleNavigateToPost]);
+    }, [closeSearchOverlay, handleNavigateToPost]);
 
     const handleSearchOpenDocument = useCallback((doc: RepositoryDocument) => {
         setActiveSection('repository');
         setRepositorySearchTerm(doc.title);
-        setIsSearchOpen(false);
-    }, [setActiveSection]);
+        closeSearchOverlay();
+    }, [closeSearchOverlay, setActiveSection]);
 
     const openFullscreenImage = useCallback((url: string) => setFullscreenImage(url), []);
-    const openCommentSheet = useCallback((id: string) => setCommentingPostId(id), []);
+    const openCommentSheet = useCallback((id: string) => {
+        void import('@/app/components/lawyer/CommunityScreen/communityScreenLazyOverlays').then((m) =>
+            m.prefetchCommunityCommentOverlay(),
+        );
+        setCommentingPostId(id);
+    }, []);
 
     useForumEscapeStack({
         fullscreenImage,
@@ -380,8 +399,8 @@ export function useCommunityScreenController({
         },
         onCloseComments: () => setCommentingPostId(null),
         onCloseAddQuestion: closeAddQuestion,
-        onCloseSearch: () => setIsSearchOpen(false),
-        onCloseFollowingPanel: () => setShowFollowingPanel(false),
+        onCloseSearch: closeSearchOverlay,
+        onCloseFollowingPanel: () => flushSync(() => setShowFollowingPanel(false)),
         onCloseAppBarDropdowns: () => closeAppBarDropdownsRef.current?.(),
         onLeaveGroupFeed: () => setActiveGroupId(null),
     });
@@ -396,8 +415,11 @@ export function useCommunityScreenController({
             activeSection,
             setActiveSection,
             setIsSearchOpen,
+            openSearchOverlay,
+            closeSearchOverlay,
             handleNavigateToPost,
             currentUserId,
+            isBanned,
             selectedFilterIndex,
             setSelectedFilterIndex,
             repositorySearchTerm,
@@ -438,8 +460,9 @@ export function useCommunityScreenController({
             followingIds,
             bookmarkedIds,
             handleToggleBookmark,
-            handleSavePostToNotes,
+            handleCopyPostText,
             handleSavePostToVault,
+            handleSavePostToDevice,
             handleToggleLock,
             handleMuteUser,
             userStats,
@@ -500,7 +523,6 @@ export function useCommunityScreenController({
             newAttachment,
             removeAttachment,
             submittingPost,
-            uploadingAttachment,
             isRecordingVoice,
             voiceRecordingSec,
             imageInputRef,
@@ -538,7 +560,10 @@ export function useCommunityScreenController({
             activeSection,
             setActiveSection,
             handleNavigateToPost,
+            openSearchOverlay,
+            closeSearchOverlay,
             currentUserId,
+            isBanned,
             selectedFilterIndex,
             repositorySearchTerm,
             repositorySortBy,
@@ -568,8 +593,9 @@ export function useCommunityScreenController({
             followingIds,
             bookmarkedIds,
             handleToggleBookmark,
-            handleSavePostToNotes,
+            handleCopyPostText,
             handleSavePostToVault,
+            handleSavePostToDevice,
             handleToggleLock,
             handleMuteUser,
             userStats,
@@ -617,7 +643,6 @@ export function useCommunityScreenController({
             newIsUrgent,
             newAttachment,
             submittingPost,
-            uploadingAttachment,
             isRecordingVoice,
             voiceRecordingSec,
             handleUploadAttachment,

@@ -8,6 +8,10 @@ export const NEVER_ENCRYPT_KEYS = new Set<string>([
     'hami:criminal:store',
     '__hami_secure_store_keys__',
     'hami_cache_version',
+    /** صورة خلفية كبيرة — plaintext لقراءة sync فورية وعرض CSS */
+    'lawyer_wallpaper',
+    /** فهرس المخزن — metadata خفيف؛ blobs في IDB منفصل */
+    'hami:smartvault:docs:v1',
 ]);
 
 export const ENCRYPTED_EXACT_KEYS = new Set<string>([
@@ -18,9 +22,7 @@ export const ENCRYPTED_EXACT_KEYS = new Set<string>([
     'lawyer-execution-files',
     'executionFiles',
     'hami:execution-dashboard',
-    'hami:smartvault:docs:v1',
     'hami:case-shares:v1',
-    'lawyer_wallpaper',
 ]);
 
 export const ENCRYPTED_KEY_PREFIXES = [

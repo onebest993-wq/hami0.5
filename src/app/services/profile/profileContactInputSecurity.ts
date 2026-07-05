@@ -1,4 +1,4 @@
-import type { ProfileAction } from '@/app/services/lawyer-cloud';
+import type { ProfileAction } from '@/app/services/profile/profileTypes';
 
 export const MAX_PROFILE_CONTACT_LABEL_LENGTH = 48;
 export const MAX_PROFILE_CONTACT_VALUE_LENGTH = 240;

@@ -56,7 +56,7 @@ export function useLawyerProfileHeader(
         if (cached) apply(cached);
 
         const refresh = () => {
-            void fetchLawyerProfile(userId).then(apply);
+            void fetchLawyerProfile(userId, userId).then(apply);
         };
 
         if (!cached) refresh();

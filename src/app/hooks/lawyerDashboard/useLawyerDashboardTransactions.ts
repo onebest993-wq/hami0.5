@@ -11,15 +11,14 @@ import {
     warmTransactionsOnHover,
     warmTransactionsOnOpen,
 } from '@/app/hooks/lawyerDashboard/transactionsIntentWarm';
-import { loadTransactionsHubModule } from '@/app/runtime/transactionsHubLoader';
+import { loadTransactionsHubModule, prefetchTransactionsHubModule } from '@/app/runtime/transactionsHubLoader';
+import { prefetchTransactionsHub } from '@/app/utils/lazyComponents';
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 import type { LawyerArchiveOverlay } from '@/app/hooks/useLawyerExecutionFiles';
 import {
     dismissTransientOverlays,
-    HAMI_DISMISS_OVERLAYS_EVENT,
-    releaseBodyScrollLock,
-    type TransientOverlayId,
 } from '@/app/utils/bodyScrollLock';
+import { registerDashboardOverlayCloser } from '@/app/hooks/lawyerDashboard/dashboardOverlayCoordinator';
 
 export type UseLawyerDashboardTransactionsParams = {
     userId: string | null;
@@ -33,6 +32,7 @@ export function useLawyerDashboardTransactions({
     setShowLawsuitsWorkspace,
 }: UseLawyerDashboardTransactionsParams) {
     const [showTransactions, setShowTransactions] = useState(false);
+    const [transactionsHostMounted, setTransactionsHostMounted] = useState(false);
     const [transactionsSessionKey, setTransactionsSessionKey] = useState(0);
     const [transactionsFocusId, setTransactionsFocusId] = useState<string | undefined>();
 
@@ -41,35 +41,37 @@ export function useLawyerDashboardTransactions({
         setTransactionsFocusId(undefined);
     }, []);
 
-    const primeTransactionsHubMount = useCallback(() => {
+    const armTransactionsHost = useCallback(() => {
+        setTransactionsHostMounted(true);
         warmTransactionsOnHover();
     }, []);
 
-    useEffect(() => registerTransactionsWarmUserId(userId), [userId]);
+    const primeTransactionsHubMount = useCallback(() => {
+        armTransactionsHost();
+    }, [armTransactionsHost]);
 
     useEffect(() => {
-        if (!isRealSignedIn(userId)) return;
-        return scheduleIdleWork(
-            () => {
-                warmTransactionsOnHover();
-            },
-            { minDelayMs: 6_000, timeoutMs: 15_000 },
-        );
+        return registerTransactionsWarmUserId(userId);
     }, [userId]);
 
     useEffect(() => {
-        const onDismiss = (e: Event) => {
-            const except = (e as CustomEvent<{ except?: TransientOverlayId }>).detail?.except;
-            if (except !== 'transactions') {
-                setShowTransactions(false);
-                setTransactionsFocusId(undefined);
-            }
-            if (except == null) {
-                releaseBodyScrollLock();
-            }
-        };
-        window.addEventListener(HAMI_DISMISS_OVERLAYS_EVENT, onDismiss);
-        return () => window.removeEventListener(HAMI_DISMISS_OVERLAYS_EVENT, onDismiss);
+        if (!isRealSignedIn(userId)) return;
+        prefetchTransactionsHub();
+        prefetchTransactionsHubModule();
+        return scheduleIdleWork(
+            () => {
+                armTransactionsHost();
+                warmTransactionsOnOpen(userId);
+            },
+            { minDelayMs: 600, timeoutMs: 2_500 },
+        );
+    }, [armTransactionsHost, userId]);
+
+    useEffect(() => {
+        return registerDashboardOverlayCloser('transactions', () => {
+            setShowTransactions(false);
+            setTransactionsFocusId(undefined);
+        });
     }, []);
 
     const openTransactionsHub = useCallback(
@@ -82,8 +84,9 @@ export function useLawyerDashboardTransactions({
                     dismissTransientOverlays('transactions');
                     setArchiveType(null);
                     setShowLawsuitsWorkspace(false);
-                    primeTransactionsHubMount();
+                    armTransactionsHost();
                     warmTransactionsOnOpen(userId);
+                    prefetchTransactionsHubModule();
                     if (focusId !== undefined) setTransactionsFocusId(focusId);
                     else setTransactionsFocusId(undefined);
                     setShowTransactions(true);
@@ -91,7 +94,7 @@ export function useLawyerDashboardTransactions({
                 },
             });
         },
-        [primeTransactionsHubMount, setArchiveType, setShowLawsuitsWorkspace, userId],
+        [armTransactionsHost, setArchiveType, setShowLawsuitsWorkspace, userId],
     );
 
     const resetTransactionsShell = useCallback(() => {
@@ -102,6 +105,7 @@ export function useLawyerDashboardTransactions({
 
     return {
         showTransactions,
+        transactionsHostMounted,
         setShowTransactions,
         closeTransactionsHub,
         transactionsSessionKey,

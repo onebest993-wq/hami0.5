@@ -4,6 +4,28 @@ import { ForumApiService } from '@/app/services/forumApiService';
 import type { ForumFollowRecord } from '@/app/services/forum/forumFollowTypes';
 import { collectForumParticipants } from '@/app/services/forum/forumMentionUtils';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
+import { withForumAsyncTimeout } from '../forumAsync';
+import {
+    peekForumFollowersCache,
+    peekForumFollowingCache,
+    readForumSocialCache,
+    warmForumSocialCache,
+} from '@/app/services/forum/forumSocialWarmCache';
+
+const SOCIAL_FETCH_TIMEOUT_MS = 5_000;
+const SOCIAL_CACHE_HYDRATE_MS = 2_000;
+
+function resolveInitialSocialGraph(currentUserId: string | null): {
+    followingRecords: ForumFollowRecord[];
+    followerRecords: Array<{ followerId: string; createdAt: string }>;
+} {
+    if (!currentUserId) {
+        return { followingRecords: [], followerRecords: [] };
+    }
+    const following = peekForumFollowingCache() ?? [];
+    const followers = peekForumFollowersCache() ?? [];
+    return { followingRecords: following, followerRecords: followers };
+}
 
 export type UseCommunityScreenSocialGraphParams = {
     currentUserId: string | null;
@@ -24,11 +46,16 @@ export function useCommunityScreenSocialGraph({
     toggleMute,
     isMuted,
 }: UseCommunityScreenSocialGraphParams) {
+    const initialSocial = resolveInitialSocialGraph(currentUserId);
     const [isBanned, setIsBanned] = useState(false);
-    const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
+    const [followingIds, setFollowingIds] = useState<Set<string>>(
+        () => new Set(initialSocial.followingRecords.map((r) => r.followingId)),
+    );
     const [followBusyUserId, setFollowBusyUserId] = useState<string | null>(null);
-    const [followingRecords, setFollowingRecords] = useState<ForumFollowRecord[]>([]);
-    const [followerRecords, setFollowerRecords] = useState<Array<{ followerId: string; createdAt: string }>>([]);
+    const [followingRecords, setFollowingRecords] = useState<ForumFollowRecord[]>(initialSocial.followingRecords);
+    const [followerRecords, setFollowerRecords] = useState<Array<{ followerId: string; createdAt: string }>>(
+        initialSocial.followerRecords,
+    );
     const [threadFollowingIds, setThreadFollowingIds] = useState<Set<string>>(new Set());
     const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
 
@@ -46,41 +73,45 @@ export function useCommunityScreenSocialGraph({
         if (!currentUserId) {
             setFollowingIds(new Set());
             setFollowingRecords([]);
-            return;
-        }
-        let cancelled = false;
-        void ForumApiService.listFollowing(currentUserId)
-            .then((records) => {
-                if (cancelled) return;
-                setFollowingRecords(records);
-                setFollowingIds(new Set(records.map((r) => r.followingId)));
-            })
-            .catch(() => {
-                if (!cancelled) {
-                    setFollowingRecords([]);
-                    setFollowingIds(new Set());
-                }
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [currentUserId]);
-
-    useEffect(() => {
-        if (!currentUserId) {
             setFollowerRecords([]);
-            setThreadFollowingIds(new Set());
             return;
         }
+
         let cancelled = false;
-        void ForumApiService.listFollowers(currentUserId, currentUserId).then((rows) => {
-            if (!cancelled) {
-                setFollowerRecords(rows.map((r) => ({ followerId: r.followerId, createdAt: r.createdAt })));
+
+        const bootstrap = async () => {
+            warmForumSocialCache(currentUserId);
+            const warmed = await withForumAsyncTimeout(
+                readForumSocialCache(currentUserId),
+                SOCIAL_CACHE_HYDRATE_MS,
+                { following: [], followers: [] },
+            );
+            if (!cancelled && warmed.following.length > 0) {
+                setFollowingRecords(warmed.following);
+                setFollowingIds(new Set(warmed.following.map((r) => r.followingId)));
             }
-        });
-        void ForumApiService.listPostSubscriptions(currentUserId).then((ids) => {
-            if (!cancelled) setThreadFollowingIds(new Set(ids));
-        });
+            if (!cancelled && warmed.followers.length > 0) {
+                setFollowerRecords(warmed.followers);
+            }
+
+            const [following, followers] = await Promise.all([
+                withForumAsyncTimeout(ForumApiService.listFollowing(currentUserId), SOCIAL_FETCH_TIMEOUT_MS, []),
+                withForumAsyncTimeout(
+                    ForumApiService.listFollowers(currentUserId, currentUserId),
+                    SOCIAL_FETCH_TIMEOUT_MS,
+                    [],
+                ),
+            ]);
+
+            if (cancelled) return;
+            setFollowingRecords(following);
+            setFollowingIds(new Set(following.map((r) => r.followingId)));
+            setFollowerRecords(
+                followers.map((r) => ({ followerId: r.followerId, createdAt: r.createdAt })),
+            );
+        };
+
+        void bootstrap();
         return () => {
             cancelled = true;
         };
@@ -89,7 +120,11 @@ export function useCommunityScreenSocialGraph({
     useEffect(() => {
         if (!showFollowingPanel || !currentUserId) return;
         let cancelled = false;
-        void ForumApiService.listFollowers(currentUserId, currentUserId).then((rows) => {
+        void withForumAsyncTimeout(
+            ForumApiService.listFollowers(currentUserId, currentUserId),
+            SOCIAL_FETCH_TIMEOUT_MS,
+            [],
+        ).then((rows) => {
             if (!cancelled) {
                 setFollowerRecords(rows.map((r) => ({ followerId: r.followerId, createdAt: r.createdAt })));
             }
@@ -98,6 +133,22 @@ export function useCommunityScreenSocialGraph({
             cancelled = true;
         };
     }, [showFollowingPanel, currentUserId]);
+
+    useEffect(() => {
+        if (!currentUserId) {
+            setThreadFollowingIds(new Set());
+            return;
+        }
+        let cancelled = false;
+        void withForumAsyncTimeout(ForumApiService.listPostSubscriptions(currentUserId), SOCIAL_FETCH_TIMEOUT_MS, []).then(
+            (ids) => {
+                if (!cancelled) setThreadFollowingIds(new Set(ids));
+            },
+        );
+        return () => {
+            cancelled = true;
+        };
+    }, [currentUserId]);
 
     useEffect(() => {
         if (!currentUserId) {
@@ -212,6 +263,14 @@ export function useCommunityScreenSocialGraph({
     const handleToggleThreadFollow = useCallback(
         async (postId: string) => {
             if (!currentUserId) return;
+            const wasFollowing = threadFollowingIds.has(postId);
+            setThreadFollowingIds((prev) => {
+                const n = new Set(prev);
+                if (wasFollowing) n.delete(postId);
+                else n.add(postId);
+                return n;
+            });
+            SmartToast.success(wasFollowing ? 'أُلغيت متابعة النقاش' : 'ستصلك تنبيهات هذا النقاش');
             try {
                 const next = await ForumApiService.togglePostSubscription(postId, currentUserId);
                 setThreadFollowingIds((prev) => {
@@ -220,12 +279,17 @@ export function useCommunityScreenSocialGraph({
                     else n.delete(postId);
                     return n;
                 });
-                SmartToast.success(next ? 'ستصلك تنبيهات هذا النقاش' : 'أُلغيت متابعة النقاش');
             } catch {
+                setThreadFollowingIds((prev) => {
+                    const n = new Set(prev);
+                    if (wasFollowing) n.add(postId);
+                    else n.delete(postId);
+                    return n;
+                });
                 SmartToast.error('تعذّر تحديث متابعة النقاش');
             }
         },
-        [currentUserId],
+        [currentUserId, threadFollowingIds],
     );
 
     const handleMuteUser = useCallback(
@@ -242,11 +306,14 @@ export function useCommunityScreenSocialGraph({
         for (const p of posts) {
             if (p.authorId && p.authorName) map[p.authorId] = p.authorName;
         }
+        for (const row of followingRecords) {
+            if (!map[row.followingId]) map[row.followingId] = 'محامٍ';
+        }
         for (const row of followerRecords) {
             if (!map[row.followerId]) map[row.followerId] = 'محامٍ';
         }
         return map;
-    }, [posts, followerRecords]);
+    }, [posts, followingRecords, followerRecords]);
 
     const forumMentionCandidates = useMemo(() => {
         const map = new Map<string, string>();

@@ -88,8 +88,8 @@ function judgmentOptionsForStage(currentStage: string, parties?: any[]): Judgmen
     }
     if (currentStage === 'التمييز') {
         return [
-            { value: 'تصديق الحكم', label: 'تصديق الحكم (Ratification)' },
-            { value: 'نقض الحكم وإعادة الإضبارة', label: 'نقض الحكم وإعادة الإضبارة (Quash & Remand)' },
+            { value: 'تصديق الحكم', label: 'تصديق الحكم' },
+            { value: 'نقض الحكم وإعادة الإضبارة', label: 'نقض الحكم وإعادة الإضبارة' },
             { value: 'رد الطعن التمييزي شكلاً', label: 'رد الطعن التمييزي شكلاً' },
         ];
     }
@@ -344,6 +344,28 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
     const showJudgmentFormToggle = s.isPearl
         ? isFirstInstance && !isAbsentObjectionStage
         : Boolean(currentStage?.includes('بداءة'));
+
+    useEffect(() => {
+        if (!isOpen) return;
+        // #region debug-point D:judgment-modal-mounted
+        fetch('http://127.0.0.1:7778/event', {
+            method: 'POST',
+            body: JSON.stringify({
+                sessionId: 'pleadings-close-button',
+                runId: 'pre-fix',
+                hypothesisId: 'D',
+                location: 'SmartJudgmentModal.tsx:mount',
+                msg: '[DEBUG] SmartJudgmentModal mounted',
+                data: {
+                    currentStage,
+                    partyCount: Array.isArray(currentParties) ? currentParties.length : 0,
+                    representedParty: representedParty ?? null,
+                },
+                ts: Date.now(),
+            }),
+        }).catch(() => {});
+        // #endregion
+    }, [isOpen, currentStage, currentParties, representedParty]);
 
     const handleJudgmentChange = (value: string) => {
         setJudgmentType(value);

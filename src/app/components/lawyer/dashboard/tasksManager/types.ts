@@ -4,8 +4,6 @@ export type WeekAddState = {
     dayKey: (typeof WORK_WEEK)[number]['key'];
     details: string;
     location: string;
-    actionLines: string[];
-    lineDraft: string;
 } | null;
 
-export type DetailPanel = { taskId: string; kind: 'branch' | 'brief' | 'expense' } | null;
+export type DetailPanel = { taskId: string; kind: 'brief' } | null;

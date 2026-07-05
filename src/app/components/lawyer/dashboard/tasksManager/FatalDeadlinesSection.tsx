@@ -3,9 +3,11 @@ import { ShieldAlert } from 'lucide-react';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { TASKS_GLASS_PANEL } from './tasksBoucleTheme';
 
+import type { TaskListOrdinal } from './TaskListOrdinalBadge';
+
 export type FatalDeadlinesSectionProps = {
     fatalTasks: LegalTask[];
-    renderTaskCard: (task: LegalTask, fatalPulse: boolean) => React.ReactNode;
+    renderTaskCard: (task: LegalTask, fatalPulse: boolean, listOrdinal?: TaskListOrdinal) => React.ReactNode;
 };
 
 export const FatalDeadlinesSection = React.memo(function FatalDeadlinesSection({
@@ -38,7 +40,11 @@ export const FatalDeadlinesSection = React.memo(function FatalDeadlinesSection({
                 مواعيد حتمية قاطعة
             </h2>
             {hasTasks ? (
-                <ul className="space-y-4 mt-2">{fatalTasks.map((t) => renderTaskCard(t, true))}</ul>
+                <ul className="space-y-4 mt-2">
+                    {fatalTasks.map((t, i) =>
+                        renderTaskCard(t, true, { index: i, total: fatalTasks.length }),
+                    )}
+                </ul>
             ) : (
                 <span
                     className="text-[#6BC4A8]/50 text-sm font-medium block text-center py-2"

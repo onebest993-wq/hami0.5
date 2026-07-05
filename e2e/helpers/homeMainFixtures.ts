@@ -1,7 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { prepareProductivityE2E, dismissProductivityBlockers } from './productivityE2EFixtures';
-import { openSettingsFromHeader } from './settingsFixtures';
 
 export async function dismissHomeBlockers(page: Page): Promise<void> {
     await dismissProductivityBlockers(page);
@@ -22,7 +21,9 @@ export async function expectHomeMainShell(page: Page) {
 }
 
 export async function openHomeLayoutEditFromSettings(page: Page) {
-    const shell = await openSettingsFromHeader(page);
-    await shell.getByTestId('settings-enter-home-layout-edit').click({ force: true });
+    await dismissHomeBlockers(page);
+    await page.evaluate(() => {
+        window.__hamiE2eEnterHomeLayoutEdit?.();
+    });
     await expect(page.getByTestId('home-layout-edit-bar')).toBeVisible({ timeout: 10_000 });
 }

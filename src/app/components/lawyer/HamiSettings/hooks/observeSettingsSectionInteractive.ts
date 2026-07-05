@@ -7,7 +7,7 @@ const SECTION_TEST_IDS: Record<SettingsSectionId, string> = {
     account: 'settings-section-account',
 };
 
-const SETTINGS_SHELL_SELECTOR = '[data-hami-settings-shell]';
+const SETTINGS_SHELL_SELECTOR = '[data-hami-settings-shell]:not([data-settings-loading])';
 
 export type ObserveSettingsSectionInteractiveInput = {
     activeSection: SettingsSectionId;

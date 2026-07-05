@@ -47,7 +47,7 @@ function RoyalLawyerProfileInner(props: RoyalLawyerProfileProps) {
                 <div className="absolute inset-0 hami-profile-ambient-glow" />
             </div>
 
-            {isScreenMode && onBack ? <ProfileBackBar onBack={onBack} /> : null}
+            {isScreenMode && onBack ? <ProfileBackBar onBack={() => void profile.handleBack()} /> : null}
 
             {profile.loading && !profile.header ? (
                 <ProfileLoadingState />

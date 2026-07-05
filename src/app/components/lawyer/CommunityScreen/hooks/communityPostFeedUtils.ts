@@ -54,7 +54,9 @@ export function computeVisibleCommunityPosts(params: {
         (p) =>
             !p.groupId &&
             (!mutedIds.has(p.authorId) || p.authorId === currentUserId) &&
-            (forumFeedScope === 'all' || followingIds.has(p.authorId)),
+            (forumFeedScope === 'all' ||
+                followingIds.has(p.authorId) ||
+                (currentUserId !== null && p.authorId === currentUserId)),
     );
     const list = baseList.slice();
 

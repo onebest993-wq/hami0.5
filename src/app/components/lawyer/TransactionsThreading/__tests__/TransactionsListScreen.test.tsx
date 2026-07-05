@@ -52,9 +52,9 @@ vi.mock('@/app/components/lawyer/TransactionsThreading/TransactionCard', () => (
 }));
 
 vi.mock('@/app/components/lawyer/TransactionsThreading/transactionsGlassTheme', () => ({
-    GLASS_CHIP: 'chip',
-    GLASS_CHIP_ACTIVE: 'chip-active',
     GLASS_FIELD: 'field',
+    TX_LIST_FILTER_CHIP: 'chip',
+    TX_LIST_FILTER_CHIP_ACTIVE: 'chip-active',
     TxGlassEmpty: ({ testId }: { testId?: string }) => <div data-testid={testId}>empty</div>,
     TxGlassFab: ({ testId, onClick }: { testId?: string; onClick: () => void }) => (
         <button type="button" data-testid={testId} onClick={onClick}>
@@ -98,9 +98,18 @@ describe('TransactionsListScreen', () => {
 
     it('يفلتر بالحالة', () => {
         render(<TransactionsListScreen />);
-        fireEvent.click(screen.getByRole('button', { name: 'مكتملة' }));
+        fireEvent.click(screen.getByTestId('transactions-filter-Completed'));
         expect(screen.queryByText('معاملة نشطة')).not.toBeInTheDocument();
         expect(screen.getByText('معاملة مكتملة')).toBeInTheDocument();
+    });
+
+    it('يفلتر بالبحث والحالة معاً', () => {
+        render(<TransactionsListScreen />);
+        fireEvent.change(screen.getByTestId('transactions-search'), { target: { value: 'محمد' } });
+        fireEvent.click(screen.getByTestId('transactions-filter-Completed'));
+        expect(screen.getByText('معاملة مكتملة')).toBeInTheDocument();
+        fireEvent.click(screen.getByTestId('transactions-filter-Active'));
+        expect(screen.queryByText('معاملة مكتملة')).not.toBeInTheDocument();
     });
 
     it('يفتح ورقة الإضافة من FAB', () => {

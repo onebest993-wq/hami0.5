@@ -1,7 +1,9 @@
 import { NotificationRepository } from '@/app/infrastructure/NotificationRepository';
-import type { ForumNotification } from '@/app/services/lawyer-cloud';
+import type { ForumNotification } from '@/app/services/forum/forumTypes';
 import { mapForumNotificationToModel } from '@/app/services/notifications/forumNotificationMapper';
+import { useNotificationStore } from '@/app/stores/notificationStore';
 import {
+    dismissForumNotificationInModels,
     extractForumNotificationsFromModels,
     markAllForumReadInModels,
     markForumReadInModels,
@@ -28,18 +30,19 @@ async function saveBlobModels(userId: string, models: Awaited<ReturnType<typeof 
 
 function syncStoreUpsert(notif: ForumNotification): void {
     if (typeof window === 'undefined') return;
-    void import('@/app/stores/notificationStore').then(({ useNotificationStore }) => {
-        useNotificationStore.getState().upsertNotification(mapForumNotificationToModel(notif));
-    });
+    useNotificationStore.getState().upsertNotification(mapForumNotificationToModel(notif));
+}
+
+function syncStoreRemove(notificationId: string): void {
+    if (typeof window === 'undefined') return;
+    useNotificationStore.getState().removeNotification(notificationId);
 }
 
 function syncStoreFromBlob(userId: string, models: Awaited<ReturnType<typeof loadBlobModels>>): void {
     if (typeof window === 'undefined') return;
     const forumModels = extractForumNotificationsFromModels(models, userId).map(mapForumNotificationToModel);
     if (forumModels.length === 0) return;
-    void import('@/app/stores/notificationStore').then(({ useNotificationStore }) => {
-        useNotificationStore.getState().upsertNotifications(forumModels);
-    });
+    useNotificationStore.getState().upsertNotifications(forumModels);
 }
 
 /**
@@ -90,5 +93,12 @@ export const NotificationDB = {
     async getUnreadCount(userId: string): Promise<number> {
         const notifs = await this.getNotifications(userId);
         return notifs.filter((n) => !n.read).length;
+    },
+
+    async removeNotification(notificationId: string, userId: string): Promise<void> {
+        const models = await loadBlobModels(userId);
+        const next = dismissForumNotificationInModels(models, userId, notificationId);
+        await saveBlobModels(userId, next);
+        syncStoreRemove(notificationId);
     },
 };

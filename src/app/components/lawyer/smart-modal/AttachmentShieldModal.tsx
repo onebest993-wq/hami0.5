@@ -87,7 +87,7 @@ export const AttachmentShieldModal = ({
 
     return (
         <div
-            className="fixed inset-0 z-[160] flex items-center justify-center bg-[#05060D]/65 backdrop-blur-[3px] p-4 font-['Tajawal']"
+            className="fixed inset-0 z-[250] flex items-center justify-center bg-[#05060D]/65 backdrop-blur-[3px] p-4 font-['Tajawal']"
             dir="rtl"
             onClick={onClose}
         >

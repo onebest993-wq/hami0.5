@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import {
     saveFileToVault,
@@ -6,50 +6,79 @@ import {
     isVaultImageFile,
     isVaultPdfFile,
     VAULT_MAX_FILE_SIZE,
+    reportVaultPersistFailure,
     type VaultUploadKind,
 } from '@/app/services/vaultUploadService';
+import { revokeBlobUrlIfNeeded } from '@/app/services/vault/vaultDocUtils';
+import { prefetchVaultBlobStore } from '@/app/services/vaultBlobStore';
+import type { SmartVaultDoc } from '@/app/services/lawyer-cloud';
 import type { PendingUploadItem } from './types';
 
 const MAX_FILE_SIZE = VAULT_MAX_FILE_SIZE;
 
 type UseSmartVaultUploadParams = {
     currentUserId: string;
-    loadDocs: () => Promise<void>;
+    prependVaultDoc: (doc: SmartVaultDoc) => void;
     addVaultCategory: (name: string) => void;
     setActiveFilter: React.Dispatch<React.SetStateAction<string>>;
+    onAfterVaultSave?: () => void;
 };
 
 export function useSmartVaultUpload({
     currentUserId,
-    loadDocs,
+    prependVaultDoc,
     addVaultCategory,
     setActiveFilter,
+    onAfterVaultSave,
 }: UseSmartVaultUploadParams) {
-    const [isSavingMeta, setIsSavingMeta] = useState(false);
     const [pendingUpload, setPendingUpload] = useState<PendingUploadItem | null>(null);
     const [uploadQueue, setUploadQueue] = useState<File[]>([]);
+    const [isSavingMeta, setIsSavingMeta] = useState(false);
+    const pendingUploadRef = useRef<PendingUploadItem | null>(null);
+    const uploadQueueRef = useRef<File[]>([]);
+    const isSavingMetaRef = useRef(false);
+    const saveGenerationRef = useRef(0);
+    const previewBlobRef = useRef<string | null>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
     const pdfInputRef = useRef<HTMLInputElement>(null);
+
+    const revokePreviewBlob = useCallback(() => {
+        revokeBlobUrlIfNeeded(previewBlobRef.current);
+        previewBlobRef.current = null;
+    }, []);
+
+    useEffect(() => {
+        pendingUploadRef.current = pendingUpload;
+    }, [pendingUpload]);
+
+    useEffect(() => {
+        uploadQueueRef.current = uploadQueue;
+    }, [uploadQueue]);
+
+    useEffect(() => () => revokePreviewBlob(), [revokePreviewBlob]);
 
     const resetFileInputs = useCallback(() => {
         if (imageInputRef.current) imageInputRef.current.value = '';
         if (pdfInputRef.current) pdfInputRef.current.value = '';
     }, []);
 
-    const beginNextPendingUpload = useCallback(async (files: File[], kind: VaultUploadKind) => {
+    const beginNextPendingUpload = useCallback((files: File[], kind: VaultUploadKind) => {
         if (files.length === 0) {
             setPendingUpload(null);
             setUploadQueue([]);
             return;
         }
         const [next, ...rest] = files;
-        const previewUrl = kind === 'image' ? await readFilePreviewUrl(next) : undefined;
+        const previewUrl = kind === 'image' ? readFilePreviewUrl(next) : undefined;
+        revokePreviewBlob();
+        if (previewUrl?.startsWith('blob:')) previewBlobRef.current = previewUrl;
         setUploadQueue(rest);
-        setPendingUpload({ file: next, previewUrl, kind });
-    }, []);
+        setPendingUpload({ file: next, kind, previewUrl });
+        prefetchVaultBlobStore();
+    }, [revokePreviewBlob]);
 
     const queueUploadFiles = useCallback(
-        async (fileList: FileList | null, kind: VaultUploadKind) => {
+        (fileList: FileList | null, kind: VaultUploadKind) => {
             if (!fileList || fileList.length === 0) return;
             if (!currentUserId) {
                 SmartToast.error('يرجى تسجيل الدخول أولاً لرفع الملفات');
@@ -80,103 +109,121 @@ export function useSmartVaultUpload({
                 return;
             }
 
-            try {
-                await beginNextPendingUpload(files, kind);
-            } catch {
-                SmartToast.error('تعذر تجهيز الملف للرفع');
-                resetFileInputs();
-            }
+            beginNextPendingUpload(files, kind);
         },
         [beginNextPendingUpload, currentUserId, resetFileInputs],
     );
 
     const handleImageUploadSelect = useCallback(
-        async (e: React.ChangeEvent<HTMLInputElement>) => {
-            await queueUploadFiles(e.target.files, 'image');
+        (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
+            queueUploadFiles(e.target.files, 'image');
+            return Promise.resolve();
         },
         [queueUploadFiles],
     );
 
     const handlePdfUploadSelect = useCallback(
-        async (e: React.ChangeEvent<HTMLInputElement>) => {
-            await queueUploadFiles(e.target.files, 'pdf');
+        (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
+            prefetchVaultBlobStore();
+            queueUploadFiles(e.target.files, 'pdf');
+            return Promise.resolve();
         },
         [queueUploadFiles],
     );
 
     const cancelPendingUpload = useCallback(() => {
+        if (isSavingMetaRef.current) return;
+        revokePreviewBlob();
         setPendingUpload(null);
         setUploadQueue([]);
         resetFileInputs();
-    }, [resetFileInputs]);
+    }, [resetFileInputs, revokePreviewBlob]);
 
     const confirmPendingUpload = useCallback(
         async (meta: { title: string; lawyerNote: string; classification: string }) => {
-            if (!pendingUpload || !currentUserId) return;
-            setIsSavingMeta(true);
-            let localOnly = false;
+            if (isSavingMetaRef.current) return;
+
+            const pending = pendingUploadRef.current ?? pendingUpload;
+            const uid = currentUserId?.trim();
+
+            if (!pending) {
+                SmartToast.error('انتهت جلسة الرفع — أعد اختيار الملف');
+                return;
+            }
+            if (!uid) {
+                SmartToast.error('يرجى تسجيل الدخول أولاً لرفع الملفات');
+                return;
+            }
+
             const classification = meta.classification.trim();
+            const file = pending.file;
+            const kind = pending.kind;
+            const queue = [...uploadQueueRef.current];
+            const saveGeneration = saveGenerationRef.current + 1;
+            saveGenerationRef.current = saveGeneration;
+
+            isSavingMetaRef.current = true;
+            setIsSavingMeta(true);
+
             try {
-                const saved = await saveFileToVault(currentUserId, pendingUpload.file, {
+                const saved = await saveFileToVault(uid, file, {
                     title: meta.title,
                     lawyerNote: meta.lawyerNote || null,
                     customCategory: classification || null,
                     tags: classification ? [classification] : [],
                 });
-                localOnly = saved.localOnly;
+
+                if (saveGenerationRef.current !== saveGeneration) return;
+
+                prependVaultDoc(saved.doc);
+                onAfterVaultSave?.();
+
                 if (classification) {
                     addVaultCategory(classification);
                     setActiveFilter(classification);
                 } else {
                     setActiveFilter('الكل');
                 }
-            } catch (err) {
-                if (err instanceof Error && err.message === 'vault persist failed') {
-                    SmartToast.error('تعذر حفظ الملف على الجهاز — قد تكون مساحة التخزين ممتلئة');
-                } else if (err instanceof Error && err.message === 'vault blob store unavailable') {
-                    SmartToast.error('تعذر حفظ الملف الكبير — المتصفح لا يدعم التخزين المحلي');
-                } else if (err instanceof Error && err.message === 'file too large') {
-                    SmartToast.error('يتجاوز الحد الأقصى 50MB');
-                } else {
-                    SmartToast.error(`فشل رفع ${pendingUpload.file.name}`);
-                }
-                setIsSavingMeta(false);
-                return;
-            }
 
-            setIsSavingMeta(false);
-            if (uploadQueue.length > 0) {
-                SmartToast.success(
-                    localOnly ? 'تم الحفظ محلياً — الملف التالي' : 'تم الرفع — الملف التالي',
-                );
-                await beginNextPendingUpload(uploadQueue, pendingUpload.kind);
+                revokePreviewBlob();
+                setPendingUpload(null);
+                setUploadQueue([]);
                 resetFileInputs();
-                await loadDocs();
-                return;
-            }
 
-            setPendingUpload(null);
-            setUploadQueue([]);
-            resetFileInputs();
-            SmartToast.success(localOnly ? 'تم حفظ الملف محلياً' : 'تم رفع الملف بنجاح');
-            await loadDocs();
+                SmartToast.success(saved.localOnly ? 'تم حفظ الملف محلياً' : 'تم رفع الملف بنجاح');
+
+                void saved.persistTask.catch((err) => {
+                    const message = reportVaultPersistFailure(err, file.name);
+                    if (message) SmartToast.error(message);
+                });
+
+                if (queue.length > 0) {
+                    beginNextPendingUpload(queue, kind);
+                }
+            } catch (err) {
+                SmartToast.error(reportVaultPersistFailure(err, file.name));
+            } finally {
+                isSavingMetaRef.current = false;
+                setIsSavingMeta(false);
+            }
         },
         [
             addVaultCategory,
             beginNextPendingUpload,
             currentUserId,
-            loadDocs,
             pendingUpload,
+            prependVaultDoc,
             resetFileInputs,
+            revokePreviewBlob,
             setActiveFilter,
-            uploadQueue,
+            onAfterVaultSave,
         ],
     );
 
     return {
-        isSavingMeta,
         pendingUpload,
         uploadQueueCount: uploadQueue.length,
+        isSavingMeta,
         imageInputRef,
         pdfInputRef,
         handleImageUploadSelect,

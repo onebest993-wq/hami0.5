@@ -18,7 +18,7 @@ export const JudicialNotificationModal = ({ isOpen, onClose, onSave }: any) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-['Tajawal']">
+        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-['Tajawal']">
             <div className="bg-[#1A1E2E] border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
                 <div className="bg-amber-600 p-4 text-white flex justify-between items-center">
                     <h3 className="font-bold flex items-center gap-2">📢 تبليغ قضائي</h3>

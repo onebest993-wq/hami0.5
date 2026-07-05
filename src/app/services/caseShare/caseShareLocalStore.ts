@@ -1,4 +1,5 @@
 import type { CaseShareRecord } from './caseShareTypes';
+import SecureStoreService from '@/app/services/SecureStoreService';
 
 export const CASE_SHARE_LOCAL_KEY = 'hami:case-shares:v1';
 
@@ -17,7 +18,6 @@ async function migrateLegacyPlaintextLocalStorage(): Promise<void> {
     try {
         const legacy = window.localStorage.getItem(CASE_SHARE_LOCAL_KEY);
         if (!legacy) return;
-        const SecureStoreService = (await import('@/app/services/SecureStoreService')).default;
         await SecureStoreService.ensurePersistedReady();
         await SecureStoreService.setItem(CASE_SHARE_LOCAL_KEY, legacy);
         window.localStorage.removeItem(CASE_SHARE_LOCAL_KEY);
@@ -31,7 +31,6 @@ export async function loadCaseShareRecords(): Promise<CaseShareRecord[]> {
         return [...getTestStore()];
     }
     try {
-        const SecureStoreService = (await import('@/app/services/SecureStoreService')).default;
         await SecureStoreService.ensurePersistedReady();
         await migrateLegacyPlaintextLocalStorage();
         const raw = await SecureStoreService.getItem(CASE_SHARE_LOCAL_KEY);
@@ -50,7 +49,6 @@ export async function saveCaseShareRecords(rows: CaseShareRecord[]): Promise<voi
         return;
     }
     try {
-        const SecureStoreService = (await import('@/app/services/SecureStoreService')).default;
         await SecureStoreService.ensurePersistedReady();
         await SecureStoreService.setItem(CASE_SHARE_LOCAL_KEY, JSON.stringify(rows));
     } catch {
@@ -64,7 +62,6 @@ export async function clearCaseShareRecords(): Promise<void> {
         return;
     }
     try {
-        const SecureStoreService = (await import('@/app/services/SecureStoreService')).default;
         await SecureStoreService.deleteItem(CASE_SHARE_LOCAL_KEY);
     } catch {
         /* silent */

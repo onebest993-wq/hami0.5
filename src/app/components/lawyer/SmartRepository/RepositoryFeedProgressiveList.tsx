@@ -5,7 +5,7 @@ import { REPO_FEED_ITEM } from './smartRepositoryTheme';
 import { UniversalEntryCard, type UniversalEntryCardProps } from './UniversalEntryCard';
 import { REPOSITORY_FEED_EXPAND_THRESHOLD } from './repositoryFeedConstants';
 
-const PROGRESSIVE_BATCH_SIZE = 12;
+const PROGRESSIVE_BATCH_SIZE = 24;
 
 type RepositoryFeedProgressiveListProps = Omit<UniversalEntryCardProps, 'item'> & {
     items: RepositoryFeedItem[];

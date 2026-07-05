@@ -37,6 +37,7 @@ export const BOOT_SHELL_WARM_KEYS = [
     LAWYER_SETTINGS_STORAGE_KEY,
     'lawyer_theme',
     'lawyer_shape',
+    'hami:smartvault:docs:v1',
 ] as const;
 
 /** تُحمَّل من IndexedDB عند الإقلاع قبل أي قراءة/كتابة */

@@ -1,11 +1,12 @@
-import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
 
 import { prefetchExecutionDashboardPhoneBody } from '../executionDashboardPhoneBodyLazy';
 import { prefetchExecutionDashboardShellOverlays } from '../executionDashboardShellOverlaysLazy';
 
 import type { ExecutionShellOverlayModalFlags } from './useExecutionShellOverlaysGate';
 
-/** بوابة lazy — جسم الإضبارة + shell overlays يُحمَّلان معاً */
+/** بوابة lazy — الجسم أولاً، ثم overlays لاحقاً أو فوراً عند الحاجة العاجلة. */
 export function useExecutionDashboardLazyChunkGates(
     modals: ExecutionShellOverlayModalFlags,
     chunkDataReady = true,
@@ -46,18 +47,26 @@ export function useExecutionDashboardLazyChunkGates(
         }
     }, [overlayUrgent]);
 
-    useLayoutEffect(() => {
+    useEffect(() => {
         if (!chunkDataReady) return;
-
-        prefetchExecutionDashboardPhoneBody();
-        prefetchExecutionDashboardShellOverlays();
-        setPhoneBodyReady(true);
-        setShellOverlaysReady(true);
+        const cancelPhoneBody = scheduleIdleWork(() => {
+            prefetchExecutionDashboardPhoneBody();
+            setPhoneBodyReady(true);
+        }, 120);
+        const cancelShellOverlays = scheduleIdleWork(() => {
+            prefetchExecutionDashboardShellOverlays();
+            setShellOverlaysReady(true);
+        }, 900);
+        return () => {
+            cancelPhoneBody();
+            cancelShellOverlays();
+        };
     }, [chunkDataReady]);
 
-    useLayoutEffect(() => {
+    useEffect(() => {
         if (!shellOverlaysReadyDeferred && overlayUrgent) {
             prefetchExecutionDashboardShellOverlays();
+            setShellOverlaysReady(true);
         }
     }, [overlayUrgent, shellOverlaysReadyDeferred]);
 

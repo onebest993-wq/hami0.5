@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import type { Dispatch, SetStateAction } from 'react';
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
@@ -12,10 +12,20 @@ import SecureStoreService from '@/app/services/SecureStoreService';
 import { STORAGE_KEYS } from '@/app/utils/constants';
 import { prefetchCriminalDashboard, warmLawsuitWorkspace } from '@/app/utils/lazyComponents';
 import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
+import { enqueueStaggeredBootTask } from '@/app/bootstrap/staggeredBootOrchestrator';
 import { bindDashboardPostInteractiveWarm } from '@/app/runtime/dashboardPostInteractiveWarm';
+import { hydrateFieldTasksShellForInstantOpen } from '@/app/runtime/fieldTasksBootHydrator';
+import { hydrateScheduleShellForInstantOpenWithData } from '@/app/runtime/scheduleBootHydrator';
+import { hydrateProfileShellForInstantOpenWithData } from '@/app/runtime/profileBootHydrator';
+import { hydrateRepositoryBootShellForInstantOpen } from '@/app/runtime/repositoryBootHydrator';
+import { hydrateSettingsShellForInstantOpen } from '@/app/runtime/settingsBootHydrator';
+import { hydrateNotificationShellForInstantOpen } from '@/app/runtime/notificationBootHydrator';
+import { hydrateGlobalSearchShellForInstantOpen } from '@/app/runtime/globalSearchBootHydrator';
+import { hydrateCommunityShellForInstantOpen } from '@/app/runtime/communityBootHydrator';
 import {
     clearGlobalSearchWarmSnapshot,
-    registerGlobalSearchWarmSnapshot,
+    registerGlobalSearchWarmSnapshotProvider,
+    type GlobalSearchWarmSnapshot,
 } from '@/app/hooks/lawyerDashboard/globalSearchIntentWarm';
 import { consumeOpenCriminalCasesListRequest } from '@/app/components/lawyer/criminal-system/criminalDevEntry';
 import { useNotificationStore } from '@/app/stores/notificationStore';
@@ -90,10 +100,86 @@ export function useLawyerDashboardRuntimeEffects({
         [files, executionFiles, globalNotes, quantumTasks, criminalCasesForCluster],
     );
 
-    /** intent-only: تسخين هيدر فوري + shell خفيف idle بعد التفاعل */
+    const [debouncedCalendarFingerprint, setDebouncedCalendarFingerprint] = useState(
+        calendarDossierFingerprint,
+    );
+
+    useEffect(() => {
+        const timer = window.setTimeout(() => {
+            setDebouncedCalendarFingerprint(calendarDossierFingerprint);
+        }, 2_500);
+        return () => window.clearTimeout(timer);
+    }, [calendarDossierFingerprint]);
+
+    const shellAuthUserId = resolveShellAuthUserId(authUser?.id, user?.id);
+    const searchWarmSnapshotRef = useRef<GlobalSearchWarmSnapshot | null>(null);
+    searchWarmSnapshotRef.current = shellAuthUserId
+        ? {
+              userId: shellAuthUserId,
+              files,
+              executionFiles,
+              globalNotes,
+              notifications: searchNotifications,
+              criminalCases: criminalCasesForCluster,
+              cacheGeneration: searchIndexVersion,
+          }
+        : null;
+
+    /** intent-only: تسخين هيدر فوري، ثم تهيئة القشور تدريجياً بدل burst واحد بعد interactive. */
     useEffect(() => {
         const uid = resolveShellAuthUserId(authUser?.id, user?.id);
-        return bindDashboardPostInteractiveWarm(uid);
+        const unbindWarm = bindDashboardPostInteractiveWarm(uid);
+        const cancelNotificationHydrate = enqueueStaggeredBootTask(
+            'dashboard-hydrate-notifications',
+            () => hydrateNotificationShellForInstantOpen().catch(() => undefined),
+            'secondary',
+        );
+        const cancelGlobalSearchHydrate = enqueueStaggeredBootTask(
+            'dashboard-hydrate-global-search',
+            () => hydrateGlobalSearchShellForInstantOpen().catch(() => undefined),
+            'secondary',
+        );
+        const cancelFieldTasksHydrate = enqueueStaggeredBootTask(
+            'dashboard-hydrate-field-tasks',
+            () => hydrateFieldTasksShellForInstantOpen().catch(() => undefined),
+            'secondary',
+        );
+        const cancelSettingsHydrate = enqueueStaggeredBootTask(
+            'dashboard-hydrate-settings',
+            () => hydrateSettingsShellForInstantOpen().catch(() => undefined),
+            'deferred',
+        );
+        const cancelScheduleHydrate = enqueueStaggeredBootTask(
+            'dashboard-hydrate-schedule',
+            () => hydrateScheduleShellForInstantOpenWithData(uid).catch(() => undefined),
+            'deferred',
+        );
+        const cancelRepositoryHydrate = enqueueStaggeredBootTask(
+            'dashboard-hydrate-repository',
+            () => hydrateRepositoryBootShellForInstantOpen(uid).catch(() => undefined),
+            'deferred',
+        );
+        const cancelProfileHydrate = enqueueStaggeredBootTask(
+            'dashboard-hydrate-profile',
+            () => hydrateProfileShellForInstantOpenWithData(uid).catch(() => undefined),
+            'deferred',
+        );
+        const cancelCommunityHydrate = enqueueStaggeredBootTask(
+            'dashboard-hydrate-community',
+            () => hydrateCommunityShellForInstantOpen().catch(() => undefined),
+            'deferred',
+        );
+        return () => {
+            unbindWarm();
+            cancelSettingsHydrate();
+            cancelFieldTasksHydrate();
+            cancelRepositoryHydrate();
+            cancelNotificationHydrate();
+            cancelGlobalSearchHydrate();
+            cancelScheduleHydrate();
+            cancelProfileHydrate();
+            cancelCommunityHydrate();
+        };
     }, [user?.id, authUser?.id]);
 
     useEffect(() => {
@@ -105,22 +191,42 @@ export function useLawyerDashboardRuntimeEffects({
     useEffect(() => {
         const uid = resolveShellAuthUserId(authUser?.id, user?.id);
         if (!isRealSignedIn(uid)) return;
-        return scheduleIdleWork(() => {
-            void refreshNotificationShellBadge(uid!);
-        }, 400);
+
+        return enqueueStaggeredBootTask(
+            'notification-shell-badge',
+            () => {
+                void refreshNotificationShellBadge(uid!);
+            },
+            'secondary',
+        );
     }, [user?.id, authUser?.id]);
 
     useEffect(() => {
         const uid = resolveCalendarUserId(user?.id ?? authUser?.id ?? null);
         if (!isRealSignedIn(uid)) return;
 
-        return scheduleIdleWork(() => {
-            void (async () => {
-                await SecureStoreService.ensurePersistedReady();
-                await runSmartCalendarReconcileIfNeeded(uid, calendarDossierFingerprint);
-            })();
-        }, 2_500);
-    }, [user?.id, authUser?.id, calendarDossierFingerprint]);
+        return enqueueStaggeredBootTask(
+            'calendar-reconcile',
+            () => {
+                void (async () => {
+                    await SecureStoreService.ensurePersistedReady();
+                    await runSmartCalendarReconcileIfNeeded(uid, debouncedCalendarFingerprint);
+                })();
+            },
+            'deferred',
+        );
+    }, [user?.id, authUser?.id, debouncedCalendarFingerprint]);
+
+    useEffect(() => {
+        if (!shellAuthUserId) {
+            clearGlobalSearchWarmSnapshot();
+            return;
+        }
+
+        registerGlobalSearchWarmSnapshotProvider(() => searchWarmSnapshotRef.current);
+
+        return () => clearGlobalSearchWarmSnapshot();
+    }, [shellAuthUserId]);
 
     useEffect(() => {
         const handler = (ev: Event) => {
@@ -137,36 +243,6 @@ export function useLawyerDashboardRuntimeEffects({
         window.addEventListener(CALENDAR_SOURCE_PATCHED_EVENT, handler);
         return () => window.removeEventListener(CALENDAR_SOURCE_PATCHED_EVENT, handler);
     }, [reloadExecutionFiles, reloadLawsuitFiles]);
-
-    /** لقطة بحث فقط — الفهرس يُبنى عند hover/فتح (لا warmGlobalSearchOnOpen عند كل تغيير ملفات) */
-    useEffect(() => {
-        const uid = resolveShellAuthUserId(authUser?.id, user?.id);
-        if (!uid) {
-            clearGlobalSearchWarmSnapshot();
-            return;
-        }
-
-        registerGlobalSearchWarmSnapshot({
-            userId: uid,
-            files,
-            executionFiles,
-            globalNotes,
-            notifications: searchNotifications,
-            criminalCases: criminalCasesForCluster,
-            cacheGeneration: searchIndexVersion,
-        });
-
-        return () => clearGlobalSearchWarmSnapshot();
-    }, [
-        authUser?.id,
-        criminalCasesForCluster,
-        executionFiles,
-        files,
-        globalNotes,
-        searchIndexVersion,
-        searchNotifications,
-        user?.id,
-    ]);
 
     useEffect(() => {
         const reloadFromStorage = (opts?: { clear?: boolean }) => {
@@ -211,8 +287,12 @@ export function useLawyerDashboardRuntimeEffects({
 
     useEffect(() => {
         if (files.length === 0 || storeCases.length > 0) return;
-        return scheduleIdleWork(() => {
-            hydrateCasesFromLawsuitFiles(mapLawsuitFilesToLegalCases(files));
-        }, 2_000);
+        return enqueueStaggeredBootTask(
+            'case-store-hydrate',
+            () => {
+                hydrateCasesFromLawsuitFiles(mapLawsuitFilesToLegalCases(files));
+            },
+            'deferred',
+        );
     }, [files, hydrateCasesFromLawsuitFiles, storeCases.length]);
 }

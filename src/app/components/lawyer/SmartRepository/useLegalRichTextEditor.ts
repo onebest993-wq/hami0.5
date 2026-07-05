@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
-import { DEFAULT_TEXT_COLOR } from './legalRichTextEditorConstants';
+import { DEFAULT_TEXT_COLOR, FONT_SIZES } from './legalRichTextEditorConstants';
 import { insertFormatResetSpan, sanitizeRichNoteHtml } from './legalRichTextEditorUtils';
 import {
     applyLegalHighlight,
@@ -36,7 +36,8 @@ export function useLegalRichTextEditor({ value, onChange, onBlur, ref }: UseLega
         const el = editorRef.current;
         if (!el) return;
         const safe = sanitizeRichNoteHtml(value || '');
-        if (el.innerHTML !== safe) {
+        const currentSafe = sanitizeRichNoteHtml(el.innerHTML);
+        if (currentSafe !== safe) {
             el.innerHTML = safe || '';
         }
     }, [value]);
@@ -191,12 +192,57 @@ export function useLegalRichTextEditor({ value, onChange, onBlur, ref }: UseLega
         [emitChange, focusEditor],
     );
 
+    const applyFontSize = useCallback(
+        (sizeValue: string) => {
+            const preset = FONT_SIZES.find((s) => s.value === sizeValue);
+            const fontSize = preset?.css ?? '1em';
+            const editor = editorRef.current;
+            if (!editor) return;
+            focusEditor();
+
+            const sel = window.getSelection();
+            if (!sel || sel.rangeCount === 0) {
+                document.execCommand(
+                    'insertHTML',
+                    false,
+                    `<span style="font-size:${fontSize}">&#8203;</span>`,
+                );
+                emitChange();
+                return;
+            }
+
+            const range = sel.getRangeAt(0);
+            if (range.collapsed) {
+                document.execCommand(
+                    'insertHTML',
+                    false,
+                    `<span style="font-size:${fontSize}">&#8203;</span>`,
+                );
+                emitChange();
+                return;
+            }
+
+            const span = document.createElement('span');
+            span.style.fontSize = fontSize;
+            span.appendChild(range.extractContents());
+            range.insertNode(span);
+            sel.removeAllRanges();
+            const nextRange = document.createRange();
+            nextRange.selectNodeContents(span);
+            nextRange.collapse(false);
+            sel.addRange(nextRange);
+            emitChange();
+        },
+        [emitChange, focusEditor],
+    );
+
     return {
         editorRef,
         activeBold,
         activeForeColor,
         activeHighlightColor,
         exec,
+        applyFontSize,
         toggleBold,
         toggleForeColor,
         applyHighlightColor,

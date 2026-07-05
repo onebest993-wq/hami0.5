@@ -39,7 +39,6 @@ interface AppealTransitionModalProps {
         appellant: string;
         filingDate: string;
         newCaseNumber: string;
-        newCourt?: string;
         notes: string;
         includedOpponentPartyIds?: Array<number | string>;
         includedAppellantPartyIds?: Array<number | string>;
@@ -107,6 +106,48 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
     const s = useJudgmentModalStyles();
     const isOpponentRegistration = mode === 'opponentRegistration';
     const isGhayabi = isAbsentJudgmentForm(judgmentForm, lastJudgmentType);
+    const showJudgmentFormMeta =
+        Boolean(judgmentForm) &&
+        !String(stageName ?? '').includes('استئناف') &&
+        !String(stageName ?? '').includes('تمييز');
+    useEffect(() => {
+        if (!isOpen) return;
+        // #region debug-point B:appeal-transition-modal-open
+        fetch('http://127.0.0.1:7777/event', {
+            method: 'POST',
+            body: JSON.stringify({
+                sessionId: 'opponent-appeal-crash',
+                runId: 'pre-fix',
+                hypothesisId: 'B',
+                location: 'AppealTransitionModal.tsx:useEffect:isOpen',
+                msg: '[DEBUG] AppealTransitionModal opened',
+                data: {
+                    mode,
+                    stageName: stageName ?? null,
+                    judgmentType: judgmentType ?? null,
+                    judgmentForm: judgmentForm ?? null,
+                    lastJudgmentType: lastJudgmentType ?? null,
+                    representedParty: representedParty ?? null,
+                    partyCount: Array.isArray(currentParties) ? currentParties.length : 0,
+                    incidentalCount: Array.isArray(incidentalCases) ? incidentalCases.length : 0,
+                    appealRouteStage: appealRoute?.stageName ?? appealRoute?.currentStage ?? null,
+                },
+                ts: Date.now(),
+            }),
+        }).catch(() => {});
+        // #endregion
+    }, [
+        isOpen,
+        mode,
+        stageName,
+        judgmentType,
+        judgmentForm,
+        lastJudgmentType,
+        representedParty,
+        currentParties,
+        incidentalCases,
+        appealRoute,
+    ]);
 
     const allowedOpponentMethods = useMemo(
         () =>
@@ -189,7 +230,6 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
     );
     const [filingDate, setFilingDate] = useState<string>(getLocalTodayYmd());
     const [newCaseNumber, setNewCaseNumber] = useState<string>('');
-    const [newCourt, setNewCourt] = useState<string>('');
     const wasOpenRef = useRef(false);
 
     const appealRights = useMemo(
@@ -213,7 +253,6 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
             setAppealType(defaultAppealType(judgmentForm, appealRoute, allowedOpponentMethods, stageName));
             setFilingDate(getLocalTodayYmd());
             setNewCaseNumber('');
-            setNewCourt('');
             setSelectedAppellantIds(dossierLayout.defaultAppellantIds);
             setSelectedOpponentIds(dossierLayout.defaultOpponentIds);
             wasOpenRef.current = true;
@@ -301,10 +340,6 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
             ? 'رقم دعوى الطعن'
             : 'رقم دعوى الاستئناف';
 
-    const courtPlaceholder = isPersonalAppeal
-        ? 'مثال: محكمة تمييز بغداد'
-        : 'مثال: محكمة استئناف بغداد/الرصافة';
-
     const hintShell = s.isPearl
         ? 'rounded-xl border border-[#F0A8B4]/18 bg-gradient-to-br from-[#F5C6D0]/[0.08] to-white/[0.03] px-3.5 py-2.5 space-y-1'
         : 'rounded-xl border border-[#E6C673]/15 bg-[#E6C673]/[0.05] px-3.5 py-2.5 space-y-1';
@@ -353,11 +388,6 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
             SmartToast.error('⚠️ اختر طرفاً واحداً على الأقل للمخاصمة في الطعن');
             return;
         }
-        if (!newCaseNumber.trim()) {
-            SmartToast.error(`⚠️ الرجاء إدخال رقم دعوى ${appealType}`);
-            return;
-        }
-
         const appellantLegalSide = resolveAppellantLegalSideFromSelection(
             showAppellantPicker ? selectedAppellantIds : dossierLayout.defaultAppellantIds,
             appellantParties,
@@ -369,7 +399,6 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
             appellant: appellantLegalSide,
             filingDate,
             newCaseNumber: newCaseNumber.trim(),
-            newCourt: newCourt.trim() || undefined,
             notes: '',
             includedOpponentPartyIds: showOpponentPicker ? selectedOpponentIds : undefined,
             includedAppellantPartyIds: showAppellantPicker ? selectedAppellantIds : undefined,
@@ -426,7 +455,7 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
                                             <Gavel size={12} className={`inline ml-1 ${s.labelIcon}`} />
                                             <span className={s.isPearl ? 'text-[#9894A0]' : 'text-white/45'}> المنطوق: </span>
                                             <span className={`font-bold ${s.isPearl ? 'text-[#FFFEF9]' : 'text-[#E6C673]/90'}`}>{judgmentType}</span>
-                                            {judgmentForm ? (
+                                            {showJudgmentFormMeta ? (
                                                 <span className={s.isPearl ? 'text-[#9894A0]/80' : 'text-white/35'}> · {judgmentForm}</span>
                                             ) : null}
                                         </p>
@@ -565,41 +594,25 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
                                 <div>
                                     <label className={s.label}>
                                         <Hash size={12} className={s.labelIcon} />
-                                        {caseNumberLabel}
+                                        {caseNumberLabel} (اختياري)
                                     </label>
                                     <input
                                         type="text"
                                         value={newCaseNumber}
                                         onChange={(e) => setNewCaseNumber(e.target.value)}
-                                        placeholder="مثال: 123/س/2026"
+                                        placeholder="اتركه فارغاً إذا لم يتوفر بعد"
                                         className={s.field}
                                     />
                                 </div>
                             </div>
-
-                            {isOpponentRegistration ? (
-                                <div>
-                                    <label className={s.label}>
-                                        <Scale size={12} className={s.labelIcon} />
-                                        محكمة الطعن (اختياري)
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={newCourt}
-                                        onChange={(e) => setNewCourt(e.target.value)}
-                                        placeholder={courtPlaceholder}
-                                        className={s.field}
-                                    />
-                                </div>
-                            ) : null}
                         </div>
 
                         <div className={`shrink-0 px-5 sm:px-6 py-4 border-t ${s.isPearl ? 'border-white/[0.10] bg-[#101018]/40' : 'border-white/[0.08] bg-[#0A0F1C]/50'}`}>
-                            <div className="flex gap-2.5">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                                 <button
                                     type="button"
                                     onClick={handleSubmit}
-                                    className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${s.btnPrimary}`}
+                                    className={`min-h-[50px] w-full rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${s.btnPrimary}`}
                                 >
                                     <Scale size={16} />
                                     {isOpponentRegistration ? 'تسجيل الطعن' : 'تأكيد الانتقال'}
@@ -607,8 +620,9 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
                                 <button
                                     type="button"
                                     onClick={onClose}
-                                    className={`px-5 py-3 rounded-xl font-bold text-sm transition-all ${s.btnNeutral}`}
+                                    className={`min-h-[50px] w-full rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${s.btnNeutral}`}
                                 >
+                                    <X size={16} />
                                     إلغاء
                                 </button>
                             </div>

@@ -4,7 +4,17 @@
     "skipLibCheck": true,
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@/app/*": ["src/app/*"]
+    }
   },
-  "include": ["vite.config.mts"]
+  "include": [
+    "vite.config.mts",
+    "src/vite-plugins/preferFileOverDirectory.ts",
+    "src/app/api/security/wifeSecurityHeaders.ts",
+    "src/app/api/security/contentSecurityPolicy.ts"
+  ]
 }

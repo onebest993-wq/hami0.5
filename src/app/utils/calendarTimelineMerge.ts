@@ -1,4 +1,4 @@
-import type { CalendarEvent } from '@/app/services/lawyer-cloud';
+import type { CalendarEvent } from '@/app/services/calendar/calendarTypes';
 import type { TimelineEvent } from '@/app/types/execution';
 import { normalizeDateToYmd } from '@/app/services/calendarBridge';
 

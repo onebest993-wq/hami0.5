@@ -1,18 +1,19 @@
-import { lazy, Suspense } from 'react';
+import { useEffect } from 'react';
 
+import { ensureDeferredFeatureStylesLoaded } from '@/app/runtime/deferredFeatureStyles';
 import { ForumPlumPage } from './CommunityScreen/forumPlumTheme';
 import { CommunityScreenBody } from './CommunityScreen/components/CommunityScreenBody';
 import { CommunityScreenAccessGate } from './CommunityScreen/components/CommunityScreenAccessGate';
+import { CommunityScreenOverlays } from './CommunityScreen/components/CommunityScreenOverlays';
+import { prefetchCommunityRepositorySection } from './CommunityScreen/communityScreenLazySections';
+import {
+    prefetchCommunityHeavyOverlays,
+    scheduleCommunityProfileOverlayPrefetch,
+} from './CommunityScreen/communityScreenLazyOverlays';
 import {
     useCommunityScreenController,
     type CommunityScreenControllerProps,
 } from './CommunityScreen/hooks/useCommunityScreenController';
-
-const LazyCommunityScreenOverlays = lazy(() =>
-    import('./CommunityScreen/components/CommunityScreenOverlays').then((m) => ({
-        default: m.CommunityScreenOverlays,
-    })),
-);
 
 export type CommunityScreenProps = CommunityScreenControllerProps;
 
@@ -21,16 +22,21 @@ export const CommunityScreen = (props: CommunityScreenProps) => {
     const { gateBlocked, accessGateProps, bodyProps, overlayProps } =
         useCommunityScreenController(props);
 
+    useEffect(() => {
+        ensureDeferredFeatureStylesLoaded();
+        prefetchCommunityHeavyOverlays();
+        prefetchCommunityRepositorySection();
+        scheduleCommunityProfileOverlayPrefetch();
+    }, []);
+
     if (gateBlocked) {
-        return <CommunityScreenAccessGate {...accessGateProps} />;
+        return <CommunityScreenAccessGate {...accessGateProps} onBack={props.onBack} />;
     }
 
     return (
         <ForumPlumPage>
             <CommunityScreenBody {...bodyProps} />
-            <Suspense fallback={null}>
-                <LazyCommunityScreenOverlays {...overlayProps} />
-            </Suspense>
+            <CommunityScreenOverlays {...overlayProps} />
         </ForumPlumPage>
     );
 };

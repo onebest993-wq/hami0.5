@@ -1,11 +1,11 @@
 // @ts-nocheck
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import {
     CheckCircle2, X, Plus,
     Coins, FlaskConical, Zap, Scale
 } from 'lucide-react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import { HUB_NESTED_OVERLAY_Z_CLASS } from '@/app/components/lawyer/dashboard/hubOverlayStack';
 import { getLegalRole } from './LawyerShared';
 const LazyCriminalNewCase = React.lazy(() =>
     import('./criminal-system/CriminalNewCase').then((m) => ({ default: m.CriminalNewCase })),
@@ -98,9 +98,9 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
     const topFormRef = useRef<HTMLDivElement>(null);
     const courtRef = useRef<HTMLInputElement>(null);
     const typeRef = useRef<HTMLInputElement>(null);
-    const stageRef = useRef<HTMLSelectElement>(null);
+    const stageRef = useRef<HTMLButtonElement>(null);
     const numberRef = useRef<HTMLInputElement>(null);
-    const retrialTargetRef = useRef<HTMLSelectElement>(null);
+    const retrialTargetRef = useRef<HTMLButtonElement>(null);
 
 
     const stageOptions = useMemo(
@@ -201,28 +201,6 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
             return;
         }
 
-        const cleanValue = parseInt(value.replace(/[^0-9]/g, '')) || 0;
-        const typeLower = type.toLowerCase();
-        const evictionOrSharing = isEvictionOrSharing(typeLower);
-
-        if (evictionOrSharing && stage && !stage.includes('استئناف')) {
-            if (stage !== 'بداءة بدرجة أخيرة') {
-                setCaseDetails(prev => ({ ...prev, stage: 'بداءة بدرجة أخيرة' }));
-            }
-        }
-        else if ((isFixedFee || isUndeterminedValue) && !evictionOrSharing) {
-            if (value !== '' || (stage !== 'بداءة بدرجة أخيرة' && !stage.includes('استئناف'))) {
-                setCaseDetails(prev => ({ ...prev, claimValue: '', stage: prev.stage.includes('استئناف') ? prev.stage : 'بداءة بدرجة أخيرة' }));
-            }
-        }
-        else if (cleanValue > 0 && !evictionOrSharing && !isFixedFee && !isUndeterminedValue && stage.includes('بداءة')) {
-            if (cleanValue > 1000000 && stage !== 'بداءة بدرجة أولى') {
-                setCaseDetails(prev => ({ ...prev, stage: 'بداءة بدرجة أولى' }));
-            } else if (cleanValue <= 1000000 && stage !== 'بداءة بدرجة أخيرة') {
-                setCaseDetails(prev => ({ ...prev, stage: 'بداءة بدرجة أخيرة' }));
-            }
-        }
-
         setErrorMap(prev => {
             const newMap: Record<string, string> = {};
             Object.keys(prev).forEach(key => {
@@ -236,7 +214,49 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
             return newMap;
         });
 
-    }, [caseDetails.court, caseDetails.type, caseDetails.stage, caseDetails.claimValue, caseDetails.retrialTargetStage, selectedType, isFixedFee, isUndeterminedValue, isPersonalCase, applicableLaw]);
+    }, [caseDetails.court, caseDetails.type, caseDetails.stage, caseDetails.retrialTargetStage, selectedType, isPersonalCase, applicableLaw]);
+
+    useEffect(() => {
+        if (isPersonalCase) return;
+
+        setCaseDetails((prev) => {
+            if (isExtraordinaryProcedureStage(prev.stage)) return prev;
+
+            const { type, stage, claimValue: value } = prev;
+            const cleanValue = parseInt(value.replace(/[^0-9]/g, '')) || 0;
+            const typeLower = type.toLowerCase();
+            const evictionOrSharing = isEvictionOrSharing(typeLower);
+
+            if (evictionOrSharing && stage && !stage.includes('استئناف')) {
+                if (stage !== 'بداءة بدرجة أخيرة') {
+                    return { ...prev, stage: 'بداءة بدرجة أخيرة' };
+                }
+                return prev;
+            }
+
+            if ((isFixedFee || isUndeterminedValue) && !evictionOrSharing) {
+                if (value !== '' || (stage !== 'بداءة بدرجة أخيرة' && !stage.includes('استئناف'))) {
+                    return {
+                        ...prev,
+                        claimValue: '',
+                        stage: prev.stage.includes('استئناف') ? prev.stage : 'بداءة بدرجة أخيرة',
+                    };
+                }
+                return prev;
+            }
+
+            if (cleanValue > 0 && !evictionOrSharing && !isFixedFee && !isUndeterminedValue && stage.includes('بداءة')) {
+                if (cleanValue > 1000000 && stage !== 'بداءة بدرجة أولى') {
+                    return { ...prev, stage: 'بداءة بدرجة أولى' };
+                }
+                if (cleanValue <= 1000000 && stage !== 'بداءة بدرجة أخيرة') {
+                    return { ...prev, stage: 'بداءة بدرجة أخيرة' };
+                }
+            }
+
+            return prev;
+        });
+    }, [caseDetails.claimValue, caseDetails.type, isFixedFee, isUndeterminedValue, isPersonalCase]);
 
     useEffect(() => {
         const stage = caseDetails.stage;
@@ -284,7 +304,7 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
     }, [caseDetails.stage, parties1.length, parties2.length, isPersonalCase]);
 
 
-    const scrollToElement = (ref: React.RefObject<HTMLInputElement | HTMLSelectElement>) => {
+    const scrollToElement = (ref: React.RefObject<HTMLInputElement | HTMLButtonElement | null>) => {
         ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         ref.current?.focus();
     };
@@ -353,7 +373,7 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
             parties1,
             parties2,
         );
-        const refByField: Record<string, React.RefObject<HTMLInputElement | HTMLSelectElement>> = {
+        const refByField: Record<string, React.RefObject<HTMLInputElement | HTMLButtonElement | null>> = {
             court: courtRef,
             type: typeRef,
             stage: stageRef,
@@ -590,7 +610,7 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
             className={`${
                 isPersonalCase && step === 'form'
                     ? PERSONAL_STATUS_FORM_SHELL
-                    : 'fixed inset-0 z-[100] flex flex-col overflow-hidden bg-[#080c14] font-[\'Tajawal\']'
+                    : `fixed inset-0 ${HUB_NESTED_OVERLAY_Z_CLASS} flex min-h-0 flex-col bg-[#080c14] font-[\'Tajawal\']`
             } ${consolidationNavActive ? 'pt-12' : ''}`}
         >
             {!isPersonalCase ? (
@@ -620,9 +640,8 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
             )}
 
             <div className="relative flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y [-webkit-overflow-scrolling:touch] scrollbar-hide">
-                <AnimatePresence mode='wait'>
                     {step === 'gateway' && (
-                        <motion.div key="gateway" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-4 pt-10 flex flex-col items-center justify-center h-full">
+                        <div className="p-4 pt-10 flex flex-col items-center justify-center h-full">
                             <div className="w-full max-w-lg grid gap-4">
                                 {MAIN_GATEWAY.map((item) => (
                                     <GatewayCard
@@ -632,19 +651,19 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
                                     />
                                 ))}
                             </div>
-                        </motion.div>
+                        </div>
                     )}
                     {step === 'selection' && (
-                        <motion.div
-                            key="selection"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="px-5 pt-4 pb-14 max-w-md mx-auto w-full"
-                        >
+                        <div className="px-5 pt-4 pb-14 max-w-md mx-auto w-full">
                             <h2 className="mb-7 text-right text-lg font-bold text-white/88">اختصاص الدعوى</h2>
                             <JurisdictionGlassPanel
                                 items={JURISDICTIONS}
+                                onItemPointerEnter={(id) => {
+                                    if (id === 'criminal') {
+                                        void import('@/app/components/lawyer/criminal-system/criminalStore');
+                                        void import('@/app/components/lawyer/criminal-system/CriminalNewCase');
+                                    }
+                                }}
                                 onSelect={(id) => {
                                     if (id === 'criminal' && !criminalSeveranceFormMode) {
                                         void import('@/app/components/lawyer/criminal-system/criminalStore').then(
@@ -656,11 +675,11 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
                                     setStep('form');
                                 }}
                             />
-                        </motion.div>
+                        </div>
                     )}
 
                     {step === 'form' && (
-                        <motion.div key="form" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="overflow-visible pb-6">
+                        <div className="overflow-visible pb-6">
 
                             {/* القضاء الجزائي: النموذج الفعلي في criminal-system/CriminalNewCase (نفس DOM z-[100]) */}
                             {selectedType === 'criminal' && (
@@ -728,9 +747,9 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
                                 exceptionWarning={exceptionWarning}
                                 courtRef={courtRef as React.RefObject<HTMLInputElement | null>}
                                 typeRef={typeRef as React.RefObject<HTMLInputElement | null>}
-                                stageRef={stageRef as React.RefObject<HTMLSelectElement | null>}
+                                stageRef={stageRef}
                                 numberRef={numberRef as React.RefObject<HTMLInputElement | null>}
-                                retrialTargetRef={retrialTargetRef as React.RefObject<HTMLSelectElement | null>}
+                                retrialTargetRef={retrialTargetRef}
                             />
 
                             <PartiesSection
@@ -769,9 +788,8 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
                                 </>
                             )}
 
-                        </motion.div>
+                        </div>
                     )}
-                </AnimatePresence>
             </div>
 
             {step === 'form' && selectedType !== 'criminal' && (

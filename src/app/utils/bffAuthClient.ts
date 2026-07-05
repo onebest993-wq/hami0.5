@@ -1,8 +1,15 @@
 import type { User } from '@supabase/supabase-js';
+import { applyCsrfTokenToDocument, setCsrfSessionTokenFromServer } from '@/app/security/csrfSession';
+import { CryptoService } from '@/app/services/CryptoService';
+import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import {
     clearBffCryptoWrapCredential,
     setBffCryptoWrapCredential,
 } from '@/app/utils/bffCryptoSession';
+import {
+    purgeLegacyCryptoWrapSession,
+    purgePersistedSupabaseJwtFromLocalStorage,
+} from '@/app/utils/authStorage';
 import { isBffAuthEnabled } from '@/app/utils/bffAuthFlags';
 
 export { isBffAuthEnabled } from '@/app/utils/bffAuthFlags';
@@ -31,7 +38,6 @@ async function applyCryptoWrapCredential(credential: string | undefined): Promis
     if (!credential?.trim()) return;
     setBffCryptoWrapCredential(credential);
     try {
-        const { CryptoService } = await import('@/app/services/CryptoService');
         await CryptoService.initialize();
     } catch {
         /* best effort — storage encrypt may retry */
@@ -115,8 +121,6 @@ export function startBffSessionKeeper(): () => void {
 export async function bootstrapBffCsrfSession(): Promise<void> {
     if (!isBffAuthEnabled()) return;
     try {
-        const { SecureAPIClient } = await import('@/app/services/SecureAPIClient');
-        const { setCsrfSessionTokenFromServer, applyCsrfTokenToDocument } = await import('@/app/security/csrfSession');
         const res = await SecureAPIClient.fetchSecure<{ ok?: boolean; csrfToken?: string }>(
             '/api/security/csrf',
             { method: 'GET' },
@@ -137,11 +141,6 @@ export async function bootstrapBffCsrfSession(): Promise<void> {
 export async function runBffLocalAuthMigration(): Promise<void> {
     if (!isBffAuthEnabled()) return;
 
-    const {
-        purgeLegacyCryptoWrapSession,
-        purgePersistedSupabaseJwtFromLocalStorage,
-    } = await import('@/app/utils/authStorage');
-
     const purgedJwt = purgePersistedSupabaseJwtFromLocalStorage();
     const purgedCryptoWrap = purgeLegacyCryptoWrapSession();
 
@@ -150,7 +149,6 @@ export async function runBffLocalAuthMigration(): Promise<void> {
     clearBffCryptoWrapCredential();
 
     try {
-        const { CryptoService } = await import('@/app/services/CryptoService');
         CryptoService.destroy();
     } catch {
         /* ignore */

@@ -1,5 +1,7 @@
-import { Drawer, DrawerContent } from '@/app/components/ui/drawer';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/app/components/ui/dialog';
+import { Dialog, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/app/components/ui/dialog';
+import { useReduceMotion } from '@/app/hooks/useReduceMotion';
+import { TransactionsHubSheet } from '../TransactionsHubSheet';
+import { TransactionsThreadDialogContent } from '../TransactionsThreadDialogContent';
 import type { TaskTemplate } from '@/app/modules/transactionsThreading/taskTemplates';
 import { canImportTaskTemplate } from '@/app/services/transactions/importTaskTemplateToTransaction';
 import {
@@ -9,7 +11,6 @@ import {
     TX_DIALOG_DESC,
     TX_DIALOG_SHELL,
     TX_DIALOG_TITLE,
-    TX_DRAWER_SHELL,
     TX_GOLD_BTN,
     TX_INNER_SURFACE,
     TX_TEXT_MUTED,
@@ -27,6 +28,7 @@ export type TransactionDetailsDialogsProps = {
     onCompleteTransaction: () => void | Promise<void>;
     saveTemplateOpen: boolean;
     onSaveTemplateOpenChange: (open: boolean) => void;
+    canSaveTemplate: boolean;
     templateName: string;
     onTemplateNameChange: (value: string) => void;
     onSaveTemplate: () => void;
@@ -51,6 +53,7 @@ export function TransactionDetailsDialogs({
     onCompleteTransaction,
     saveTemplateOpen,
     onSaveTemplateOpenChange,
+    canSaveTemplate,
     templateName,
     onTemplateNameChange,
     onSaveTemplate,
@@ -68,10 +71,12 @@ export function TransactionDetailsDialogs({
     copied,
     onCopyReport,
 }: TransactionDetailsDialogsProps) {
+    const reduceMotion = useReduceMotion();
+
     return (
         <>
             <Dialog open={completeOpen} onOpenChange={onCompleteOpenChange}>
-                <DialogContent className={TX_DIALOG_SHELL}>
+                <TransactionsThreadDialogContent instant={reduceMotion} hideCloseButton className={TX_DIALOG_SHELL}>
                     <DialogHeader className="text-right">
                         <DialogTitle className={TX_DIALOG_TITLE}>إنهاء المعاملة</DialogTitle>
                         <DialogDescription className={TX_DIALOG_DESC}>سيتم تحويل المعاملة إلى وضع القراءة فقط</DialogDescription>
@@ -89,79 +94,94 @@ export function TransactionDetailsDialogs({
                             تأكيد الإنهاء
                         </button>
                     </DialogFooter>
-                </DialogContent>
+                </TransactionsThreadDialogContent>
             </Dialog>
 
             <Dialog open={saveTemplateOpen} onOpenChange={onSaveTemplateOpenChange}>
-                <DialogContent className={TX_DIALOG_SHELL}>
+                <TransactionsThreadDialogContent instant={reduceMotion} hideCloseButton className={TX_DIALOG_SHELL}>
                     <DialogHeader className="text-right">
                         <DialogTitle className={TX_DIALOG_TITLE}>حفظ المسار كقالب</DialogTitle>
                         <DialogDescription className={TX_DIALOG_DESC}>سيظهر القالب ضمن “قوالبي” للاستيراد لاحقاً</DialogDescription>
                     </DialogHeader>
-                    <div dir="rtl" className="text-right">
-                        <label className={`${TX_TEXT_MUTED} text-[11px] font-bold mb-1.5 block`}>اسم القالب</label>
-                        <input
-                            value={templateName}
-                            onChange={(e) => onTemplateNameChange(e.target.value)}
-                            className={GLASS_FIELD}
-                            placeholder="مثال: مسار قسام شرعي"
-                        />
+                    <div dir="rtl" className="text-right space-y-3">
+                        {!canSaveTemplate ? (
+                            <div className={`${TX_INNER_SURFACE} p-3 ${TX_TEXT_MUTED} text-xs leading-6 font-medium`}>
+                                أضف مهمة واحدة على الأقل في المسار قبل حفظ القالب.
+                            </div>
+                        ) : null}
+                        <div>
+                            <label className={`${TX_TEXT_MUTED} text-[11px] font-bold mb-1.5 block`}>اسم القالب</label>
+                            <input
+                                value={templateName}
+                                onChange={(e) => onTemplateNameChange(e.target.value)}
+                                className={GLASS_FIELD}
+                                placeholder="مثال: مسار قسام شرعي"
+                                disabled={!canSaveTemplate}
+                            />
+                        </div>
                     </div>
                     <DialogFooter className="sm:justify-start gap-2">
                         <button type="button" onClick={() => onSaveTemplateOpenChange(false)} className={TX_DIALOG_BTN_CANCEL}>
                             إلغاء
                         </button>
-                        <button type="button" onClick={onSaveTemplate} className={GLASS_BTN + ' !w-auto px-5 h-11'}>
+                        <button
+                            type="button"
+                            disabled={!canSaveTemplate}
+                            onClick={onSaveTemplate}
+                            className={GLASS_BTN + ' !w-auto px-5 h-11 disabled:opacity-45'}
+                        >
                             حفظ
                         </button>
                     </DialogFooter>
-                </DialogContent>
+                </TransactionsThreadDialogContent>
             </Dialog>
 
-            <Drawer open={templatesOpen} onOpenChange={onTemplatesOpenChange}>
-                <DrawerContent className={TX_DRAWER_SHELL}>
-                    <TxGlassDrawerFrame title="استيراد من قوالبي" subtitle="اختر قالباً محفوظاً لاستيراده إلى هذه المعاملة">
-                        <div className="space-y-2">
-                            {templates.length === 0 ? (
-                                <TxGlassPanel className={`p-4 ${TX_TEXT_MUTED} text-sm font-medium`}>لا توجد قوالب محفوظة بعد.</TxGlassPanel>
-                            ) : (
-                                templates.map((t) => (
-                                    <TxGlassPanel key={t.id} className="p-4 flex items-center justify-between gap-3">
-                                        <div className="min-w-0">
-                                            <div className={`${TX_TEXT_PRIMARY} font-extrabold text-sm truncate`}>{t.name}</div>
-                                            <div className={`${TX_TEXT_MUTED} text-xs mt-1 font-medium`}>{t.tasks.length} خطوة</div>
-                                        </div>
-                                        <div className="flex items-center gap-2 shrink-0">
-                                            <button
-                                                type="button"
-                                                disabled={!canImportTaskTemplate({ isReadOnly, existingTaskCount })}
-                                                onClick={() => onImportTemplate(t.id)}
-                                                className={TX_GOLD_BTN + ' disabled:opacity-50'}
-                                            >
-                                                استيراد
-                                            </button>
-                                            <button
-                                                type="button"
-                                                disabled={isReadOnly}
-                                                onClick={() => {
-                                                    if (!userId) return;
-                                                    onDeleteTemplate(t.id);
-                                                }}
-                                                className={TX_DIALOG_BTN_CANCEL + ' !px-3 text-xs disabled:opacity-50'}
-                                            >
-                                                حذف
-                                            </button>
-                                        </div>
-                                    </TxGlassPanel>
-                                ))
-                            )}
-                        </div>
-                    </TxGlassDrawerFrame>
-                </DrawerContent>
-            </Drawer>
+            <TransactionsHubSheet
+                open={templatesOpen}
+                onOpenChange={onTemplatesOpenChange}
+                testId="transactions-templates-sheet"
+            >
+                <TxGlassDrawerFrame title="استيراد من قوالبي" subtitle="اختر قالباً محفوظاً لاستيراده إلى هذه المعاملة">
+                    <div className="space-y-2">
+                        {templates.length === 0 ? (
+                            <TxGlassPanel className={`p-4 ${TX_TEXT_MUTED} text-sm font-medium`}>لا توجد قوالب محفوظة بعد.</TxGlassPanel>
+                        ) : (
+                            templates.map((t) => (
+                                <TxGlassPanel key={t.id} className="p-4 flex items-center justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <div className={`${TX_TEXT_PRIMARY} font-extrabold text-sm truncate`}>{t.name}</div>
+                                        <div className={`${TX_TEXT_MUTED} text-xs mt-1 font-medium`}>{t.tasks.length} خطوة</div>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        <button
+                                            type="button"
+                                            disabled={!canImportTaskTemplate({ isReadOnly, existingTaskCount })}
+                                            onClick={() => onImportTemplate(t.id)}
+                                            className={TX_GOLD_BTN + ' disabled:opacity-50'}
+                                        >
+                                            استيراد
+                                        </button>
+                                        <button
+                                            type="button"
+                                            disabled={isReadOnly}
+                                            onClick={() => {
+                                                if (!userId) return;
+                                                onDeleteTemplate(t.id);
+                                            }}
+                                            className={TX_DIALOG_BTN_CANCEL + ' !px-3 text-xs disabled:opacity-50'}
+                                        >
+                                            حذف
+                                        </button>
+                                    </div>
+                                </TxGlassPanel>
+                            ))
+                        )}
+                    </div>
+                </TxGlassDrawerFrame>
+            </TransactionsHubSheet>
 
             <Dialog open={reportOpen} onOpenChange={onReportOpenChange}>
-                <DialogContent className={TX_DIALOG_SHELL}>
+                <TransactionsThreadDialogContent instant={reduceMotion} hideCloseButton className={TX_DIALOG_SHELL}>
                     <DialogHeader className="text-right">
                         <DialogTitle className={TX_DIALOG_TITLE}>تحديث الموكل</DialogTitle>
                         <DialogDescription className={TX_DIALOG_DESC}>نص جاهز للإرسال عبر واتساب</DialogDescription>
@@ -176,7 +196,7 @@ export function TransactionDetailsDialogs({
                             {copied ? 'تم النسخ' : 'نسخ النص'}
                         </button>
                     </DialogFooter>
-                </DialogContent>
+                </TransactionsThreadDialogContent>
             </Dialog>
         </>
     );

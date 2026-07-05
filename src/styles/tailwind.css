@@ -6,13 +6,37 @@
   --color-hami-deep: #05060d;
 }
 
-/* Tailwind v4 — مسح ضيق: ملفات الواجهة فقط، بدون api/admin/tests */
+/* Tailwind v4 — مسح ضيق: shell + لوحة المحامي؛ الأقسام الثقيلة في tailwind-features.css */
 @source '../index.tsx';
-@source '../app/**/*.{tsx,jsx}';
+@source '../app/App.tsx';
+@source '../app/bootstrap/**';
+@source '../app/context/**';
+@source '../app/hooks/**';
+@source '../app/components/shared/**';
+@source '../app/components/ui/**';
+@source '../app/components/figma/**';
+@source '../app/components/lawyer/dashboard/**';
+@source '../app/components/lawyer/LawyerDashboardParts/**';
+@source '../app/components/lawyer/LawyerHomeHubCard/**';
+@source '../app/components/lawyer/LawyerDashboard.tsx';
+@source '../app/components/lawyer/LegalCommandCenterDock/**';
+@source '../app/components/lawyer/**/*.{tsx,jsx}';
 @source not '../app/**/*.test.{ts,tsx,js,jsx}';
 @source not '../app/**/__tests__/**';
 @source not '../app/api/**';
 @source not '../app/admin/**';
 @source not '../app/services/server/**';
+@source not '../app/components/lawyer/ExecutionDashboard/**';
+@source not '../app/components/lawyer/criminal-system/**';
+@source not '../app/components/lawyer/smart-modal/**';
+@source not '../app/components/lawyer/SmartRepository/**';
+@source not '../app/components/lawyer/CommunityScreen/**';
+@source not '../app/components/lawyer/dossier-notes/**';
+@source not '../app/components/lawyer/execution/**';
+@source not '../app/components/AdminDashboard.tsx';
+@source not '../app/components/admin/**';
+@source not '../app/components/lawyer/FinancialOperationsCenter.tsx';
+@source not '../app/components/lawyer/Modal_Unified_Summons_Hub.tsx';
+@source not '../app/components/lawyer/Form_Urgent_Actions.tsx';
 
 @plugin 'tailwindcss-animate';

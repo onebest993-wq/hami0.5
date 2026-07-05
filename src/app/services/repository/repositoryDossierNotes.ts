@@ -31,6 +31,7 @@ function collectLawsuitTimelineNotes(file: FileData, dossierLabel: string): Doss
         const timeline = Array.isArray(stage.timeline) ? stage.timeline : [];
         for (const event of timeline) {
             if (event.type !== 'note') continue;
+            if ((event as { isDeleted?: boolean }).isDeleted) continue;
             const body = String(event.details ?? '').trim();
             if (!body) continue;
             refs.push({

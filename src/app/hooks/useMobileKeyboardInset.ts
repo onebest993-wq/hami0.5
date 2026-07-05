@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { isTasksDatePickerGraceActive } from '@/app/components/lawyer/dashboard/tasksManager/tasksDatePickerGrace';
 
 /**
  * ارتفاع لوحة المفاتيح الافتراضية (px) — لرفع bottom sheet فوق الكيبورد على iOS/Android.
@@ -12,6 +13,7 @@ export function useMobileKeyboardInset(): number {
         if (!vv) return;
 
         const update = () => {
+            if (isTasksDatePickerGraceActive()) return;
             const gap = window.innerHeight - vv.height - vv.offsetTop;
             setInset(gap > 48 ? Math.round(gap) : 0);
         };

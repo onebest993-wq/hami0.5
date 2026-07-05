@@ -296,6 +296,31 @@ export function applyAppealStageTransition(
         dossierLayout,
         priorJudgmentType,
     } = params;
+    // #region debug-point E:apply-appeal-stage-transition-entry
+    fetch('http://127.0.0.1:7777/event', {
+        method: 'POST',
+        body: JSON.stringify({
+            sessionId: 'opponent-appeal-crash',
+            runId: 'pre-fix',
+            hypothesisId: 'E',
+            location: 'appealStageTransition.ts:applyAppealStageTransition:entry',
+            msg: '[DEBUG] applyAppealStageTransition entry',
+            data: {
+                activeStageIndex,
+                currentStageName: currentStage.stageName ?? currentStage.name ?? null,
+                appealType,
+                appellant,
+                newCaseNumber,
+                newCourt,
+                currentPartyCount: Array.isArray(currentStage.parties) ? currentStage.parties.length : 0,
+                currentIncidentalCount: Array.isArray(currentStage.incidentalCases) ? currentStage.incidentalCases.length : 0,
+                layoutMode: dossierLayout?.mode ?? null,
+                layoutAppellantLegalSide: dossierLayout?.appellantLegalSide ?? null,
+            },
+            ts: Date.now(),
+        }),
+    }).catch(() => {});
+    // #endregion
 
     const updatedStages = [...stages];
     const stageName = String(currentStage.stageName ?? currentStage.name ?? '');
@@ -311,6 +336,28 @@ export function applyAppealStageTransition(
         dossierLayout,
     );
     const appealIncidentalCases = migrateAppealIncidentalCases(currentStage.incidentalCases);
+    // #region debug-point E:apply-appeal-stage-transition-parties
+    fetch('http://127.0.0.1:7777/event', {
+        method: 'POST',
+        body: JSON.stringify({
+            sessionId: 'opponent-appeal-crash',
+            runId: 'pre-fix',
+            hypothesisId: 'E',
+            location: 'appealStageTransition.ts:applyAppealStageTransition:parties',
+            msg: '[DEBUG] applyAppealStageTransition built stage payload',
+            data: {
+                appealStageName,
+                transferredAttachmentCount: Array.isArray(transferredAttachments) ? transferredAttachments.length : 0,
+                flippedPartyCount: Array.isArray(flippedParties) ? flippedParties.length : 0,
+                flippedRoles: Array.isArray(flippedParties)
+                    ? flippedParties.map((party) => ({ id: party.id, role: party.role, side: party.side }))
+                    : [],
+                migratedIncidentalCount: Array.isArray(appealIncidentalCases) ? appealIncidentalCases.length : 0,
+            },
+            ts: Date.now(),
+        }),
+    }).catch(() => {});
+    // #endregion
 
     const archiveEvent: TimelineEvent = archiveTimelineEvent ?? {
         id: `appeal_archive_${Date.now()}`,
@@ -351,7 +398,7 @@ export function applyAppealStageTransition(
         docType: currentStage.docType,
         claimValue: currentStage.claimValue,
         caseNo: newCaseNumber,
-        court: newCourt || currentStage.court || '',
+        court: newCourt || '',
         judge: '',
         parties: flippedParties,
         timeline: [openingEvent],

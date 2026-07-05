@@ -15,7 +15,7 @@ import {
     FORUM_GHOST_BTN,
     FORUM_ICON_BTN,
     FORUM_LAYER,
-    FORUM_SURFACE_INPUT,
+    FORUM_REPO_SEARCH_BAR,
     FORUM_TEXT_APRICOT,
     FORUM_TEXT_MUTED,
     FORUM_TEXT_PRIMARY,
@@ -61,29 +61,34 @@ export const SearchOverlay = ({
                     animate={{ x: 0 }}
                     exit={reduceMotion ? undefined : { x: '100%' }}
                     transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 300, damping: 30 }}
-                    className={`${FORUM_LAYER} z-[70] flex flex-col`}
+                    className={`${FORUM_LAYER} z-[98] flex flex-col bg-[#0E0812] isolate`}
                 >
-                    <div className="px-4 py-4 flex items-center gap-3 border-b border-[#4A3D52]/40">
-                        <button type="button"
+                    <div className="px-4 py-3 flex items-center gap-3 border-b border-[#4A3D52]/40 bg-[#140A18] shrink-0">
+                        <button
+                            type="button"
                             onClick={onClose}
-                            className={`${FORUM_ICON_BTN} ${FORUM_TEXT_MUTED} hover:text-[#F0B896] active:scale-95 transition-transform`}
+                            aria-label="إغلاق البحث"
+                            className={`${FORUM_ICON_BTN} ${FORUM_TEXT_MUTED} hover:text-[#F0B896] active:scale-95 transition-transform shrink-0`}
                         >
                             <ArrowRight size={24} />
                         </button>
-                        <div className={`flex-1 h-12 rounded-xl flex items-center px-4 gap-2 ${FORUM_SURFACE_INPUT}`}>
-                            <Search size={18} className="text-[#9A9098]/60" />
-                            <input
-                                type="text"
-                                value={searchQuery}
-                                onChange={(e) => onSearchQueryChange(e.target.value)}
-                                placeholder="ابحث في المنتدى والمستودع معاً..."
-                                className={`bg-transparent flex-1 text-sm outline-none ${FORUM_TEXT_PRIMARY} placeholder:text-[#9A9098]/55`}
-                                autoFocus
-                            />
+                        <div className={`flex-1 min-w-0 ${FORUM_REPO_SEARCH_BAR}`}>
+                            <div className="flex flex-1 items-center gap-2 px-3 min-w-0">
+                                <Search size={17} className="text-[#9A9098] shrink-0" />
+                                <input
+                                    type="search"
+                                    value={searchQuery}
+                                    onChange={(e) => onSearchQueryChange(e.target.value)}
+                                    placeholder="ابحث في المنتدى والمستودع معاً..."
+                                    aria-label="بحث في المنتدى والمستودع"
+                                    className={`w-full min-w-0 bg-transparent text-sm outline-none ${FORUM_TEXT_PRIMARY} placeholder:text-[#9A9098]/55`}
+                                    autoFocus
+                                />
+                            </div>
                         </div>
                     </div>
 
-                    <div className="px-4 py-4 space-y-4 border-b border-[#4A3D52]/40 bg-[#140A18]">
+                    <div className="px-4 py-4 space-y-4 border-b border-[#4A3D52]/40 bg-[#140A18] shrink-0">
                         <div className="flex gap-2">
                             <button type="button"
                                 onClick={() => onFilterHasPdfChange(!filterHasPdf)}
@@ -118,7 +123,7 @@ export const SearchOverlay = ({
                         ) : null}
                     </div>
 
-                    <div className="flex-1 overflow-y-auto scrollbar-hide p-4 bg-[#0E0812]">
+                    <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide p-4 bg-[#0E0812]">
                         {!hasActiveFilters ? (
                             <div className="h-full flex flex-col items-center justify-center text-center opacity-50 pb-20">
                                 <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-4">

@@ -4,7 +4,9 @@ import { FinanceRecordType } from '@/app/modules/transactionsThreading/types';
 import type { FinanceRecord, Transaction } from '@/app/modules/transactionsThreading/types';
 import { FinancialRecordCard } from './FinancialRecordCard';
 import { AddFinanceBottomSheet } from './AddFinanceBottomSheet';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
+import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
+import { useReduceMotion } from '@/app/hooks/useReduceMotion';
+import { TransactionsThreadDialogContent } from './TransactionsThreadDialogContent';
 import {
     GLASS_FIELD,
     TX_ACCENT_SURFACE,
@@ -45,6 +47,7 @@ export function FinancesTabView({ transaction, readOnly }: { transaction: Transa
   const [deleteTarget, setDeleteTarget] = useState<FinanceRecord | null>(null);
   const [feesEditing, setFeesEditing] = useState(false);
   const [feesInput, setFeesInput] = useState('');
+  const reduceMotion = useReduceMotion();
 
   useEffect(() => {
     refreshTransactionData(transaction.id);
@@ -201,7 +204,7 @@ export function FinancesTabView({ transaction, readOnly }: { transaction: Transa
           if (!o) setDeleteTarget(null);
         }}
       >
-        <DialogContent className={TX_DIALOG_SHELL}>
+        <TransactionsThreadDialogContent instant={reduceMotion} hideCloseButton className={TX_DIALOG_SHELL}>
           <DialogHeader className="text-right">
             <DialogTitle className={TX_DIALOG_TITLE}>حذف حركة مالية</DialogTitle>
             <DialogDescription className={TX_DIALOG_DESC}>سيتم حذف الحركة من سجل هذه المعاملة</DialogDescription>
@@ -220,7 +223,7 @@ export function FinancesTabView({ transaction, readOnly }: { transaction: Transa
               حذف
             </button>
           </DialogFooter>
-        </DialogContent>
+        </TransactionsThreadDialogContent>
       </Dialog>
 
       <AddFinanceBottomSheet

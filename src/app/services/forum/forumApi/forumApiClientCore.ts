@@ -1,8 +1,9 @@
 import { SecureAPIClient, SecureFetchError } from '@/app/services/SecureAPIClient';
 import { supabase } from '@/app/lib/supabase-client';
+import { BanDB, CommunityDB } from '@/app/services/forum/forumCommunityRuntime';
+import type { CommunityPost } from '@/app/services/forum/forumTypes';
 import { readPersistedSupabaseAuth } from '@/app/utils/authStorage';
 import { humanizeUnknownError, isSilentOfflineError } from '@/app/utils/humanizeAppError';
-import type { CommunityPost } from '@/app/services/lawyer-cloud';
 
 export type ForumApiOk<T> = { ok: true } & T;
 export type ForumApiErr = { ok: false; error?: string };
@@ -21,12 +22,10 @@ export async function forumApiPostJson<T>(endpoint: string, body: Record<string,
 }
 
 export async function persistForumPostLocally(post: CommunityPost): Promise<void> {
-    const { CommunityDB } = await import('@/app/services/lawyer-cloud');
     await CommunityDB.savePost(post);
 }
 
 export async function removeForumPostLocally(postId: string): Promise<void> {
-    const { CommunityDB } = await import('@/app/services/lawyer-cloud');
     await CommunityDB.deletePost(postId);
 }
 
@@ -36,6 +35,11 @@ export async function getForumSessionUserId(explicitUserId?: string | null): Pro
     const fromSession = data.session?.user?.id ?? null;
     if (fromSession) return fromSession;
     return readPersistedSupabaseAuth().user?.id ?? null;
+}
+
+export async function hasForumRemoteSession(): Promise<boolean> {
+    const { data } = await supabase.auth.getSession();
+    return Boolean(data.session?.access_token && data.session?.user?.id);
 }
 
 export function parseForumApiError(err: unknown): string {
@@ -101,7 +105,6 @@ export async function withForumMutationFallback<T>(
     } catch (err) {
         if (shouldRethrowForumMutationError(err)) throw err;
         if (options?.userId) {
-            const { BanDB } = await import('@/app/services/cloud/lawyerCommunityCloud');
             const record = await BanDB.isBanned(options.userId);
             if (record) {
                 throw new SecureFetchError('حسابك محظور من المنتدى', 403, '', '');

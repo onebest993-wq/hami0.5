@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { X } from 'lucide-react';
@@ -27,7 +28,14 @@ export function CreateGroupModal({
 }: CreateGroupModalProps) {
     const reduceMotion = useReduceMotion();
 
-    return (
+    if (typeof document === 'undefined') return null;
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onSubmit();
+    };
+
+    return createPortal(
         <AnimatePresence>
             {isOpen ? (
                 <>
@@ -36,52 +44,62 @@ export function CreateGroupModal({
                         animate={{ opacity: 1 }}
                         exit={reduceMotion ? undefined : { opacity: 0 }}
                         onClick={onClose}
-                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[80]"
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
+                        aria-hidden
                     />
                     <motion.div
                         initial={reduceMotion ? false : { y: '100%' }}
                         animate={{ y: 0 }}
                         exit={reduceMotion ? undefined : { y: '100%' }}
                         transition={reduceMotion ? { duration: 0 } : { type: 'spring', damping: 25, stiffness: 300 }}
-                        className={`fixed bottom-0 left-0 right-0 z-[80] ${FORUM_PANEL} rounded-t-[24px] p-6 shadow-2xl border-t border-[#4A3D52]/50 pb-[max(1.5rem,env(safe-area-inset-bottom))]`}
+                        className={`fixed bottom-0 left-0 right-0 z-[100] ${FORUM_PANEL} rounded-t-[24px] p-6 shadow-2xl border-t border-[#4A3D52]/50 pb-[max(1.5rem,env(safe-area-inset-bottom))]`}
+                        onClick={(e) => e.stopPropagation()}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="create-group-title"
                     >
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-white text-lg font-bold">إنشاء مجموعة تخصصية</h2>
-                            <button type="button" onClick={onClose} className={FORUM_ICON_BTN} aria-label="إغلاق">
-                                <X size={20} />
+                        <form onSubmit={handleSubmit}>
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 id="create-group-title" className="text-white text-lg font-bold">
+                                    إنشاء مجموعة تخصصية
+                                </h2>
+                                <button type="button" onClick={onClose} className={FORUM_ICON_BTN} aria-label="إغلاق">
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <div className="space-y-3 mb-5">
+                                <input
+                                    value={name}
+                                    onChange={(e) => onNameChange(e.target.value)}
+                                    className={`w-full h-12 ${FORUM_SURFACE_INPUT} rounded-xl px-4 text-sm`}
+                                    placeholder="اسم المجموعة (مثال: محامو بداءة الديوانية)"
+                                    maxLength={120}
+                                    autoComplete="off"
+                                />
+                                <textarea
+                                    value={description}
+                                    onChange={(e) => onDescriptionChange(e.target.value)}
+                                    className={`w-full h-28 ${FORUM_SURFACE_INPUT} rounded-xl p-4 resize-none text-sm`}
+                                    placeholder="التخصص أو وصف الغرفة النقاشية..."
+                                    maxLength={600}
+                                />
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={submitting}
+                                className={`w-full h-[52px] rounded-xl font-bold text-lg touch-manipulation ${
+                                    submitting ? FORUM_PUBLISH_BTN_DISABLED : FORUM_PUBLISH_BTN
+                                }`}
+                            >
+                                {submitting ? 'جاري الإنشاء…' : 'إنشاء المجموعة'}
                             </button>
-                        </div>
-
-                        <div className="space-y-3 mb-5">
-                            <input
-                                value={name}
-                                onChange={(e) => onNameChange(e.target.value)}
-                                className={`w-full h-12 ${FORUM_SURFACE_INPUT} rounded-xl px-4 text-sm`}
-                                placeholder="اسم المجموعة (مثال: محامو بداءة الديوانية)"
-                                maxLength={120}
-                            />
-                            <textarea
-                                value={description}
-                                onChange={(e) => onDescriptionChange(e.target.value)}
-                                className={`w-full h-28 ${FORUM_SURFACE_INPUT} rounded-xl p-4 resize-none text-sm`}
-                                placeholder="التخصص أو وصف الغرفة النقاشية..."
-                                maxLength={600}
-                            />
-                        </div>
-
-                        <button
-                            type="button"
-                            disabled={submitting}
-                            onClick={() => void onSubmit()}
-                            className={`w-full h-[52px] rounded-xl font-bold text-lg ${
-                                submitting ? FORUM_PUBLISH_BTN_DISABLED : FORUM_PUBLISH_BTN
-                            }`}
-                        >
-                            {submitting ? 'جاري الإنشاء…' : 'إنشاء المجموعة'}
-                        </button>
+                        </form>
                     </motion.div>
                 </>
             ) : null}
-        </AnimatePresence>
+        </AnimatePresence>,
+        document.body,
     );
 }

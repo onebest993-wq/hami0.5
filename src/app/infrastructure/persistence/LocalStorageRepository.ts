@@ -55,6 +55,32 @@ export class LocalStorageRepository implements IPersistenceRepository {
         this.pendingBackupData.clear();
     }
 
+    /** يحدّث الذاكرة دون جدولة كتابة — بعد حفظ فوري مباشر */
+    public primeEntry<T>(key: string, serializedData: string, data: T): void {
+        const pending = this.pendingFlushTimers.get(key);
+        if (pending !== undefined) {
+            window.clearTimeout(pending);
+            this.pendingFlushTimers.delete(key);
+        }
+        this.memoryCache.set(key, serializedData);
+        this.pendingBackupData.set(key, data);
+    }
+
+    /** يكتب فوراً إلى التخزين — للمهام وغيرها عند الإغلاق أو الحفظ الصريح */
+    public flushPending(key?: string): void {
+        if (!key) {
+            this.flushAllPending();
+            return;
+        }
+        const timer = this.pendingFlushTimers.get(key);
+        if (timer === undefined) return;
+        window.clearTimeout(timer);
+        this.pendingFlushTimers.delete(key);
+        const serialized = this.memoryCache.get(key);
+        if (!serialized) return;
+        this.flushKey(key, serialized, this.pendingBackupData.get(key));
+    }
+
     public static getInstance(): LocalStorageRepository {
         if (!LocalStorageRepository.instance) {
             LocalStorageRepository.instance = new LocalStorageRepository();

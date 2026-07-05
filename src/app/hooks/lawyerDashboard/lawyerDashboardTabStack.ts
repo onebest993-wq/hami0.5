@@ -21,7 +21,6 @@ export function shouldMaskLawyerDashboardTabStack(state: LawyerDashboardTabStack
         state.showLawsuitsWorkspace ||
         state.showTransactions ||
         state.isNotepadOpen ||
-        state.showSettings ||
         state.showCommunity ||
         Boolean(state.activeFile) ||
         state.showDocs

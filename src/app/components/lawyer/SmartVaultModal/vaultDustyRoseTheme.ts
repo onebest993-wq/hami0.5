@@ -56,7 +56,7 @@ export const VAULT_SHEET_OVERLAY =
 
 /** فوق طبقة المستودع الذكي (z-120) — عند العرض داخل المستودع الموحّد */
 export const VAULT_SHEET_OVERLAY_VIEWPORT =
-    'fixed inset-0 z-[130] flex items-end sm:items-center justify-center bg-[#080f18]/94 backdrop-blur-sm overscroll-contain pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]';
+    'fixed inset-0 z-[140] flex items-end sm:items-center justify-center bg-[#080f18]/94 backdrop-blur-sm overscroll-contain pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]';
 
 export const VAULT_CARD =
     'rounded-2xl border border-[#D9CFC0]/18 bg-gradient-to-br from-[#1a2840] via-[#132238] to-[#0E1B2E] ' +

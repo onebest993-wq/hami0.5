@@ -1,9 +1,18 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+const lazyComponentMocks = vi.hoisted(() => ({
+    warmExecutionDossier: vi.fn(),
+    warmExecutionWorkspace: vi.fn(),
+    warmLawsuitWorkspace: vi.fn(),
+}));
+
+vi.mock('@/app/utils/lazyComponents', () => lazyComponentMocks);
 import { buildLawyerDashboardTabBundle } from '@/app/hooks/lawyerDashboard/buildLawyerDashboardTabBundle';
 
 vi.mock('@/app/runtime/hubArchiveLoader', () => ({
-    loadLawsuitArchiveHubModule: vi.fn(() => Promise.resolve([])),
+    loadLawsuitArchiveHubModule: vi.fn(() => Promise.resolve({ ArchivePortal: () => null })),
     loadExecutionArchiveHubModule: vi.fn(() => Promise.resolve({})),
+    hydrateArchiveHubForInstantOpen: vi.fn(() => Promise.resolve(true)),
+    loadArchivePortalModule: vi.fn(() => Promise.resolve({ ArchivePortal: () => null })),
 }));
 
 function minimalTabBundleParams(
@@ -157,6 +166,23 @@ describe('buildLawyerDashboardTabBundle onOpenArchive', () => {
         expect(() => homeTabProps.onOpenArchive('transaction')).not.toThrow();
         expect(closeNotepad).toHaveBeenCalledTimes(1);
         expect(openTransactionsHub).toHaveBeenCalledTimes(1);
+    });
+
+    it('يفتح إضبارة التنفيذ بتحميل عاجل قبل تفعيل الملف', () => {
+        const setActiveFile = vi.fn();
+        const executionFile = { id: 'ex-1', type: 'execution', fileNumber: '12', year: '2026' } as any;
+
+        const { scheduleTabProps } = buildLawyerDashboardTabBundle(
+            minimalTabBundleParams({
+                executionFiles: [executionFile],
+                setActiveFile,
+            }),
+        );
+
+        scheduleTabProps.onOpenExecutionFile(executionFile);
+
+        expect(lazyComponentMocks.warmExecutionDossier).toHaveBeenCalledWith('urgent');
+        expect(setActiveFile).toHaveBeenCalledTimes(1);
     });
 
     it('يخفي الهيدر عند فتح مركز المعاملات', () => {

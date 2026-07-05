@@ -1,19 +1,9 @@
 import React, { lazy, Suspense } from 'react';
 import { Loader2 } from 'lucide-react';
-import type { SmartVaultDoc } from '@/app/services/lawyer-cloud';
+import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import type { DossierLawArticleRichEditorHandle } from '@/app/components/lawyer/dossier-notes/DossierLawArticleRichEditor';
-
-const LazyDossierLawArticleRichEditor = lazy(() =>
-    import('@/app/components/lawyer/dossier-notes/DossierLawArticleRichEditor').then((m) => ({
-        default: m.DossierLawArticleRichEditor,
-    })),
-);
-
-const LazySmartVaultScannerPanel = lazy(() =>
-    import('@/app/components/lawyer/SmartVaultModal/SmartVaultScannerPanel').then((m) => ({
-        default: m.SmartVaultScannerPanel,
-    })),
-);
+import { DossierLawArticleRichEditor } from '@/app/components/lawyer/dossier-notes/DossierLawArticleRichEditor';
+import { SmartVaultScannerPanel } from '@/app/components/lawyer/SmartVaultModal/SmartVaultScannerPanel';
 
 const LazyVoiceRecorderModal = lazy(() =>
     import('@/app/components/lawyer/ActionModals/VoiceRecorderModal').then((m) => ({
@@ -37,33 +27,27 @@ type RepositoryRichEditorProps = {
 
 export function RepositoryRichEditor({ editorRef, value, onChange }: RepositoryRichEditorProps) {
     return (
-        <Suspense fallback={<PanelFallback />}>
-            <LazyDossierLawArticleRichEditor
-                ref={editorRef}
-                value={value}
-                onChange={onChange}
-                context={{ kind: 'repository' }}
-                testId="repository-rich-editor"
-            />
-        </Suspense>
+        <DossierLawArticleRichEditor
+            ref={editorRef}
+            value={value}
+            onChange={onChange}
+            context={{ kind: 'repository' }}
+            testId="repository-rich-editor"
+        />
     );
 }
 
 type RepositoryScannerPanelProps = {
     userId: string;
     onClose: () => void;
-    onSaved: () => void;
-    onViewDoc: () => void;
+    onSaved: (result: import('@/app/components/lawyer/SmartVaultModal/SmartVaultScannerPanel').ScannerSaveResult) => void;
+    onViewDoc: (doc: import('@/app/services/vault/vaultTypes').SmartVaultDoc) => void;
     onCategoryUsed: (name: string) => void;
     categorySuggestions: string[];
 };
 
 export function RepositoryScannerPanel(props: RepositoryScannerPanelProps) {
-    return (
-        <Suspense fallback={<PanelFallback />}>
-            <LazySmartVaultScannerPanel {...props} />
-        </Suspense>
-    );
+    return <SmartVaultScannerPanel {...props} />;
 }
 
 type RepositoryVoiceRecorderProps = {

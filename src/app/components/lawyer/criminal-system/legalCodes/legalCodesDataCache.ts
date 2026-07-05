@@ -36,6 +36,7 @@ export async function loadLegalCodeArticles(tab: LegalCodeType): Promise<LegalCo
     if (pending) return pending;
 
     const promise = (async () => {
+        let remoteError: unknown = null;
         try {
             const { SecureAPIClient } = await import('@/app/services/SecureAPIClient');
             const data = await SecureAPIClient.fetchSecure<{
@@ -62,21 +63,42 @@ export async function loadLegalCodeArticles(tab: LegalCodeType): Promise<LegalCo
                     return mapped;
                 }
             }
-        } catch {
+        } catch (error) {
+            remoteError = error;
             /* fallback to bundled project files */
         }
 
-        const { loadBundledLawRows } = await import('@/app/utils/bundledIraqiLawLoader');
-        const bundled = mapAndDedupLawRows(
-            await loadBundledLawRows(CODE_TYPE_TO_LAW_NAME[tab]),
-            tab,
-        );
-        if (bundled.length > 0) {
-            cache.set(tab, bundled);
-            return bundled;
+        try {
+            const { loadBundledLawRows } = await import('@/app/utils/bundledIraqiLawLoader');
+            const bundled = mapAndDedupLawRows(
+                await loadBundledLawRows(CODE_TYPE_TO_LAW_NAME[tab]),
+                tab,
+            );
+            if (bundled.length > 0) {
+                cache.set(tab, bundled);
+                return bundled;
+            }
+            console.warn('[LegalCodes] bundled fallback is present but empty', {
+                tab,
+                lawName: CODE_TYPE_TO_LAW_NAME[tab],
+            });
+        } catch (bundledError) {
+            console.error('[LegalCodes] bundled fallback failed', {
+                tab,
+                lawName: CODE_TYPE_TO_LAW_NAME[tab],
+                remoteError,
+                bundledError,
+            });
         }
 
-        throw new Error('تعذر تحميل متون القوانين من الخادم أو من ملفات المشروع.');
+        console.error('[LegalCodes] load failed', {
+            tab,
+            lawName: CODE_TYPE_TO_LAW_NAME[tab],
+            remoteError,
+        });
+        throw new Error(
+            `تعذر تحميل متون القانون: ${CODE_TYPE_TO_LAW_NAME[tab]} — الخادم لم يرجع بيانات، والملف المحلي المضمّن لهذا القانون غير محقون.`,
+        );
     })();
 
     inflight.set(tab, promise);

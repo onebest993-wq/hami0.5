@@ -10,7 +10,7 @@ import {
     parseNotificationBlob,
     mergeLegacyForumIntoModels,
 } from '@/app/services/notifications/notificationForumBlobOps';
-import type { ForumNotification } from '@/app/services/lawyer-cloud';
+import type { ForumNotification } from '@/app/services/forum/forumTypes';
 import {
     deleteAllShellNotificationsSupabase,
     findShellNotificationByDedupeSupabase,

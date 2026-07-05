@@ -1,7 +1,8 @@
-import { useMemo, useState, type FormEvent } from 'react';
-import { Drawer, DrawerContent } from '@/app/components/ui/drawer';
-import { useTransactionsThreadingStore } from '@/app/modules/transactionsThreading/store';
+import { memo, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { SmartToast } from '@/app/components/ui/SmartToast';
+import { useTransactionsThreadingStore, ensureTransactionsUserBound } from '@/app/modules/transactionsThreading/store';
 import { TransactionStatus } from '@/app/modules/transactionsThreading/types';
+import { prefetchTransactionsCloudModule } from '@/app/services/transactions/transactionsCloudLoader';
 import {
     clampTransactionText,
     sanitizeTransactionCreateFields,
@@ -12,45 +13,76 @@ import {
 import {
     GLASS_BTN,
     GLASS_FIELD,
-    TX_DRAWER_SHELL,
     TxFieldLabel,
     TxGlassDrawerFrame,
 } from './transactionsGlassTheme';
+import { TransactionsHubSheet } from './TransactionsHubSheet';
 
-export function AddTransactionBottomSheet({
+function prefetchTransactionsPersistModule(): void {
+    prefetchTransactionsCloudModule();
+}
+
+export const AddTransactionBottomSheet = memo(function AddTransactionBottomSheet({
     open,
     onOpenChange,
+    keepMounted = false,
+    hubUserId,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    keepMounted?: boolean;
+    hubUserId?: string;
 }) {
     const createTransaction = useTransactionsThreadingStore((s) => s.createTransaction);
+    const storeUserId = useTransactionsThreadingStore((s) => s.userId);
+    const effectiveUserId = storeUserId ?? hubUserId;
 
     const [title, setTitle] = useState('');
     const [clientName, setClientName] = useState('');
     const [targetDepartment, setTargetDepartment] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const canSubmit = useMemo(
         () => title.trim().length > 0 && clientName.trim().length > 0 && targetDepartment.trim().length > 0,
         [title, clientName, targetDepartment],
     );
 
+    useEffect(() => {
+        if (keepMounted || open) prefetchTransactionsPersistModule();
+    }, [keepMounted, open]);
+
     const submit = async () => {
-        if (!canSubmit) return;
+        if (!canSubmit || isSubmitting) return;
         const sanitized = sanitizeTransactionCreateFields({
             title,
             clientName,
             targetDepartment,
         });
         if (!sanitized.title || !sanitized.clientName || !sanitized.targetDepartment) return;
-        await createTransaction({
-            ...sanitized,
-            status: TransactionStatus.Active,
-            agreedFees: 0,
-        });
-        setTitle('');
-        setClientName('');
-        setTargetDepartment('');
-        onOpenChange(false);
+
+        setIsSubmitting(true);
+        try {
+            if (!effectiveUserId) {
+                SmartToast.error('جاري تجهيز المعاملات — حاول بعد لحظة');
+                return;
+            }
+            ensureTransactionsUserBound(effectiveUserId);
+
+            await createTransaction({
+                ...sanitized,
+                status: TransactionStatus.Active,
+                agreedFees: 0,
+            });
+
+            setTitle('');
+            setClientName('');
+            setTargetDepartment('');
+            onOpenChange(false);
+            SmartToast.success('تمت إضافة المعاملة');
+        } catch {
+            SmartToast.error('تعذر إضافة المعاملة — حاول مرة أخرى');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const onFormSubmit = (e: FormEvent) => {
@@ -59,20 +91,24 @@ export function AddTransactionBottomSheet({
     };
 
     return (
-        <Drawer open={open} onOpenChange={onOpenChange}>
-            <DrawerContent className={TX_DRAWER_SHELL} data-testid="transactions-add-sheet">
-                <form onSubmit={onFormSubmit}>
+        <TransactionsHubSheet
+            open={open}
+            onOpenChange={onOpenChange}
+            keepMounted={keepMounted}
+            testId="transactions-add-sheet"
+        >
+            <form onSubmit={onFormSubmit}>
                 <TxGlassDrawerFrame
                     title="إضافة معاملة"
                     subtitle="معلومات المعاملة الأساسية"
                     footer={
                         <button
                             type="submit"
-                            disabled={!canSubmit}
-                            className={GLASS_BTN}
+                            disabled={!canSubmit || isSubmitting}
+                            className={GLASS_BTN + ' disabled:opacity-50'}
                             data-testid="transactions-add-submit"
                         >
-                            إضافة معاملة
+                            {isSubmitting ? 'جاري الحفظ...' : 'إضافة معاملة'}
                         </button>
                     }
                 >
@@ -83,6 +119,8 @@ export function AddTransactionBottomSheet({
                             onChange={(e) => setTitle(clampTransactionText(e.target.value, TX_TITLE_MAX))}
                             placeholder="مثال: نقل ملكية"
                             className={GLASS_FIELD}
+                            disabled={isSubmitting}
+                            autoComplete="off"
                         />
                     </div>
                     <div>
@@ -92,6 +130,8 @@ export function AddTransactionBottomSheet({
                             onChange={(e) => setClientName(clampTransactionText(e.target.value, TX_CLIENT_NAME_MAX))}
                             placeholder="اسم الموكل الكامل"
                             className={GLASS_FIELD}
+                            disabled={isSubmitting}
+                            autoComplete="name"
                         />
                     </div>
                     <div>
@@ -102,18 +142,19 @@ export function AddTransactionBottomSheet({
                                 setTargetDepartment(clampTransactionText(e.target.value, TX_DEPARTMENT_MAX))
                             }
                             onKeyDown={(e) => {
-                                if (e.key === 'Enter' && canSubmit) {
+                                if (e.key === 'Enter' && canSubmit && !isSubmitting) {
                                     e.preventDefault();
                                     void submit();
                                 }
                             }}
                             placeholder="مثال: دائرة الضريبة"
                             className={GLASS_FIELD}
+                            disabled={isSubmitting}
+                            autoComplete="off"
                         />
                     </div>
                 </TxGlassDrawerFrame>
-                </form>
-            </DrawerContent>
-        </Drawer>
+            </form>
+        </TransactionsHubSheet>
     );
-}
+});

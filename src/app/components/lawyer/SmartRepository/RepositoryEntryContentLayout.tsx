@@ -1,8 +1,8 @@
 import React from 'react';
-import type { SmartVaultDoc } from '@/app/services/lawyer-cloud';
+import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import type { RepositoryEntryLayoutMode } from '@/app/services/repository/repositoryUnifiedFeed';
 import { sanitizeRichNoteHtml } from './legalRichTextEditorUtils';
-import { VaultDocDisplayImage } from './VaultDocDisplayImage';
+import { REPO_FEED_IMAGE, REPO_FEED_THUMB_IMAGE, VaultDocDisplayImage } from './VaultDocDisplayImage';
 
 type RepositoryEntryContentLayoutProps = {
     layout: RepositoryEntryLayoutMode;
@@ -40,11 +40,11 @@ export function RepositoryEntryContentLayout({
     if (layout === 'image-dominant' && imageAttachment) {
         return (
             <div className={className}>
-                <div className="mb-2 rounded-xl overflow-hidden border border-white/10 bg-[#0A0F1C]/40">
+                <div className="mb-2 rounded-xl overflow-hidden border border-white/10 bg-[#0A0F1C]/40 flex justify-center">
                     <VaultDocDisplayImage
                         doc={imageAttachment}
                         alt={imageAttachment.title ?? title}
-                        className="w-full max-h-[min(42vh,320px)] object-cover"
+                        className={REPO_FEED_IMAGE}
                     />
                 </div>
                 <h3 className="font-bold text-[#F4F0E8] mb-1.5">{title}</h3>
@@ -67,11 +67,11 @@ export function RepositoryEntryContentLayout({
                     dangerouslySetInnerHTML={{ __html: safeHtml }}
                 />
                 <div className="flex justify-end">
-                    <div className="w-20 h-20 rounded-lg overflow-hidden border border-white/10 shrink-0">
+                    <div className="w-24 h-24 rounded-lg overflow-hidden border border-white/10 shrink-0 bg-[#0A0F1C]/40 flex items-center justify-center">
                         <VaultDocDisplayImage
                             doc={imageAttachment}
                             alt={imageAttachment.title ?? title}
-                            className="w-full h-full object-cover"
+                            className={REPO_FEED_THUMB_IMAGE}
                         />
                     </div>
                 </div>

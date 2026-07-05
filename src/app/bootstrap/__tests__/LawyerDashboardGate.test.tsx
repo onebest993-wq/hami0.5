@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
+import { BOOT_CONTENT_READY_EVENT } from '@/app/bootstrap/bootReveal';
 
 let suspendOnce = true;
 
@@ -33,12 +34,22 @@ describe('LawyerDashboardGate', () => {
         vi.mocked(preloadLawyerDashboardChunk).mockClear();
     });
 
-    it('يعرض هيكل الإقلاع ثم chunk اللوحة', async () => {
+    it('يعرض طبقة حامي ثم chunk اللوحة بعد جاهزية المحتوى', async () => {
         render(<LawyerDashboardGate onLogout={vi.fn()} onAppNavigate={vi.fn()} />);
         expect(preloadLawyerDashboardChunk).toHaveBeenCalled();
         expect(screen.getByTestId('lawyer-boot-shell')).toBeInTheDocument();
+
         await waitFor(() => {
             expect(screen.getByTestId('lawyer-dashboard-lazy-loaded')).toBeInTheDocument();
         });
+
+        window.dispatchEvent(new Event(BOOT_CONTENT_READY_EVENT));
+
+        await waitFor(
+            () => {
+                expect(screen.queryByTestId('lawyer-boot-shell')).not.toBeInTheDocument();
+            },
+            { timeout: 4_000 },
+        );
     });
 });

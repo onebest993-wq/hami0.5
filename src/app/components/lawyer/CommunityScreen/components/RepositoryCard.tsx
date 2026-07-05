@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FileText, Download, Loader2, Trash2, Pencil, Flag, Share2, FileImage } from 'lucide-react';
+import { FileText, Download, Loader2, Trash2, Pencil, Flag, Share2, FileImage, Eye } from 'lucide-react';
 import type { RepositoryDocument } from '@/app/services/lawyer-cloud';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { getRepositoryMediaKind, repositoryMediaLabel } from './repositoryMedia';
@@ -117,6 +117,14 @@ export const RepositoryCard = ({
                                 alt={doc.title}
                                 className={feedImageClass}
                                 loading="lazy"
+                                onError={() => {
+                                    setThumbUrl(null);
+                                    setThumbLoading(true);
+                                    void resolveRepositoryStorageUrl(doc.storagePath).then((url) => {
+                                        setThumbUrl(url);
+                                        setThumbLoading(false);
+                                    });
+                                }}
                             />
                         ) : (
                             <div className="flex flex-col items-center gap-1 py-8 text-white/30">
@@ -183,23 +191,33 @@ export const RepositoryCard = ({
                 className="flex items-center justify-between gap-2 px-3 py-2 border-t border-white/5"
                 onClick={(e) => e.stopPropagation()}
             >
-                <button
-                    type="button"
-                    onClick={() => onDownload(doc)}
-                    disabled={downloadingId === doc.id}
-                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
-                        downloadingId === doc.id
-                            ? 'bg-white/10 text-white/30 cursor-not-allowed'
-                            : 'bg-[#E6C673]/10 border border-[#E6C673]/20 text-[#E6C673] hover:bg-[#E6C673]/15'
-                    }`}
-                >
-                    {downloadingId === doc.id ? (
-                        <Loader2 size={13} className="animate-spin" />
-                    ) : (
-                        <Download size={13} />
-                    )}
-                    {downloadingId === doc.id ? 'جاري التحميل...' : 'تحميل'}
-                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                        type="button"
+                        onClick={() => onPreview(doc)}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all bg-white/5 border border-white/10 text-white/75 hover:bg-white/10"
+                    >
+                        <Eye size={13} />
+                        اطلاع
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onDownload(doc)}
+                        disabled={downloadingId === doc.id}
+                        className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+                            downloadingId === doc.id
+                                ? 'bg-white/10 text-white/30 cursor-not-allowed'
+                                : 'bg-[#E6C673]/10 border border-[#E6C673]/20 text-[#E6C673] hover:bg-[#E6C673]/15'
+                        }`}
+                    >
+                        {downloadingId === doc.id ? (
+                            <Loader2 size={13} className="animate-spin" />
+                        ) : (
+                            <Download size={13} />
+                        )}
+                        {downloadingId === doc.id ? 'جاري الحفظ...' : 'حفظ في الجهاز'}
+                    </button>
+                </div>
 
                 <div className="flex items-center gap-0.5">
                     {isOwner ? (

@@ -11,6 +11,7 @@ export type SmartFileModalStageTimelineBundleParams = {
     stages: CaseStage[];
     setStages: Dispatch<SetStateAction<CaseStage[]>>;
     activeStageIndex: number;
+    viewingStageIndex: number;
     setActiveStageIndex: Dispatch<SetStateAction<number>>;
     setViewingStageIndex: Dispatch<SetStateAction<number>>;
     currentStage: CaseStage | undefined;
@@ -29,6 +30,7 @@ export function useSmartFileModalStageTimelineBundle({
     stages,
     setStages,
     activeStageIndex,
+    viewingStageIndex,
     setActiveStageIndex,
     setViewingStageIndex,
     currentStage,
@@ -58,6 +60,7 @@ export function useSmartFileModalStageTimelineBundle({
         stages,
         setStages,
         activeStageIndex,
+        viewingStageIndex,
         setActiveStageIndex,
         setViewingStageIndex,
         currentStage,

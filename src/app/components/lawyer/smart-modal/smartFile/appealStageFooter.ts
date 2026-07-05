@@ -12,6 +12,14 @@ export type AppealStageFooterEligibility = {
     kind: AppealStageFooterKind | null;
 };
 
+export function shouldPreferPleadingCloseFooter(stage: CaseStage | undefined | null): boolean {
+    if (!stage?.wasReopened) return false;
+    if (stage.isPleadingsClosed && (Boolean(stage.finalDecision) || Boolean(stage.decisionDate))) {
+        return false;
+    }
+    return !isCassationStageName(String(stage.stageName ?? ''));
+}
+
 function stageHasActiveCassation(stages: CaseStage[]): boolean {
     return stages.some((s) => {
         if (!isCassationStageName(String(s.stageName ?? ''))) return false;
@@ -37,7 +45,6 @@ export function resolveAppealStageFooterEligibility(
         return { show: false, kind: null };
     }
     if (!stage.isPleadingsClosed) return { show: false, kind: null };
-    if (stage.wasReopened) return { show: false, kind: null };
     if (stage.status === 'locked' || stage.status === 'completed') {
         return { show: false, kind: null };
     }

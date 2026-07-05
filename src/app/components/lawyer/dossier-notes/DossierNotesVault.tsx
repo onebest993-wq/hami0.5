@@ -29,7 +29,7 @@ const variantStyles = {
     repo: {
         shell: 'rounded-2xl border border-[#E6C673]/18 bg-[#0A0F1C]/40 p-3',
         heading: 'text-xs font-bold text-[#E6C673]/90',
-        row: 'border-b border-white/[0.06] pb-2 last:border-0 last:pb-0',
+        row: 'rounded-xl border border-white/[0.06] bg-white/[0.02] p-3',
         title: 'text-white text-xs font-semibold break-words',
         date: 'text-[10px] text-white/35 font-mono tabular-nums',
         pinActive: 'border-[#E6C673]/35 bg-[#E6C673]/12 text-[#E6C673]',
@@ -41,7 +41,7 @@ const variantStyles = {
     execution: {
         shell: 'rounded-2xl border border-amber-500/15 bg-[#0A0F1C]/35 p-3',
         heading: 'text-xs font-bold text-amber-300/90',
-        row: 'border-b border-slate-700/30 pb-2 last:border-0 last:pb-0',
+        row: 'rounded-xl border border-slate-700/30 bg-white/[0.02] p-3',
         title: 'text-white text-xs font-semibold break-words',
         date: 'text-[10px] text-slate-400 font-mono tabular-nums',
         pinActive: 'border-amber-400/35 bg-amber-500/15 text-amber-200',
@@ -87,34 +87,15 @@ export function DossierNotesVault({
                 {heading}
                 {notes.length > 0 ? ` (${notes.length})` : ''}
             </p>
-            <div className={`${s.shell} max-h-44 overflow-y-auto space-y-2`}>
+            <div className={`${s.shell} min-h-[min(46vh,380px)] max-h-[min(66vh,620px)] overflow-y-auto space-y-2`}>
                 {notes.length === 0 ? (
                     <p className={s.empty}>{emptyLabel}</p>
                 ) : (
                     notes.map((note) => (
                         <div
                             key={note.id}
-                            className={`flex items-start gap-2 text-right ${s.row} ${
-                                onEdit ? 'cursor-pointer rounded-lg transition-colors hover:bg-white/[0.03]' : ''
-                            }`}
+                            className={`flex items-start gap-2 text-right ${s.row}`}
                             dir="rtl"
-                            role={onEdit ? 'button' : undefined}
-                            tabIndex={onEdit ? 0 : undefined}
-                            onClick={
-                                onEdit
-                                    ? () => onEdit(note)
-                                    : undefined
-                            }
-                            onKeyDown={
-                                onEdit
-                                    ? (e) => {
-                                          if (e.key === 'Enter' || e.key === ' ') {
-                                              e.preventDefault();
-                                              onEdit(note);
-                                          }
-                                      }
-                                    : undefined
-                            }
                         >
                             <div className="min-w-0 flex-1">
                                 <p className={s.title}>{note.title}</p>

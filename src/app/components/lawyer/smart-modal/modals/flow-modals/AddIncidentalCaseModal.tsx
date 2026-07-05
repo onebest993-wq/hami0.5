@@ -128,9 +128,9 @@ export const AddIncidentalCaseModal = ({
         : (isAppeal ? 'إضافة شخص ثالث (استئناف)' : 'إجراء دعوى حادثة');
 
     return (
-        <MoroccanGlassShell onOverlayClick={onClose} maxWidth={isThirdParty ? 'max-w-md' : 'max-w-sm'}>
+        <MoroccanGlassShell onOverlayClick={onClose} maxWidth={isThirdParty ? 'max-w-2xl' : 'max-w-xl'}>
             <SmartModalHeader icon={Briefcase} title={title} onClose={onClose} />
-            <div className={`${T.body} max-h-[80vh]`}>
+            <div className={`${T.body} max-h-[82vh] md:min-h-[28rem] md:space-y-6`}>
                 <div>
                     <label className={T.label}>نوع الإجراء</label>
                     <select value={type} onChange={(e) => handleTypeChange(e.target.value)} className={T.select}>

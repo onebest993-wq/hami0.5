@@ -1,18 +1,15 @@
-import React, { lazy, Suspense, useEffect } from 'react';
+import React, { useCallback, useLayoutEffect, useState } from 'react';
 import type { ProfileAction } from '@/app/services/lawyer-cloud';
 import type { ProfilePageCustomization } from '@/app/services/profile/profilePageCustomization';
 import {
+    getCachedProfileSettingsSheet,
     loadProfileSettingsSheetModule,
-    prefetchProfileSettingsSheet,
-    prefetchProfileSettingsStudioTabs,
-} from '@/app/utils/lazyComponents';
+    prefetchProfileSettingsSheetModule,
+} from '@/app/runtime/profileSettingsSheetLoader';
+import { prefetchProfileSettingsStudioTabsModule } from '@/app/runtime/profileSettingsStudioTabsLoader';
 import { ProfileSettingsSheetLoadingFallback } from './ProfileSettingsSheetLoadingFallback';
 
-const LazyProfileSettingsSheet = lazy(() =>
-    import('./ProfileSettingsSheet').then((m) => ({ default: m.ProfileSettingsSheet })),
-);
-
-export type ProfileSettingsSheetHostProps = {
+type ProfileSettingsSheetProps = {
     open: boolean;
     onClose: () => void;
     customization: ProfilePageCustomization;
@@ -23,35 +20,101 @@ export type ProfileSettingsSheetHostProps = {
     saving?: boolean;
 };
 
-/** يُبقى الاستوديو mounted مع الملف — يُحمَّل chunk عند دخول الصفحة لا عند النقر */
-export function ProfileSettingsSheetHost({
-    open,
-    onClose,
-    customization,
-    actions,
-    userId,
-    onSave,
-    onDraftChange,
-    saving = false,
-}: ProfileSettingsSheetHostProps) {
-    useEffect(() => {
-        prefetchProfileSettingsSheet();
-        prefetchProfileSettingsStudioTabs();
-        void loadProfileSettingsSheetModule().catch(() => undefined);
+type ProfileSettingsSheetComponent = React.ComponentType<ProfileSettingsSheetProps>;
+
+const LOAD_RETRY_MS = 700;
+const MAX_LOAD_ATTEMPTS = 3;
+
+/** يُبقى الاستوديو mounted مع الملف — chunk جاهز قبل النقر */
+export function ProfileSettingsSheetHost(props: ProfileSettingsSheetProps) {
+    const { open } = props;
+    const [Component, setComponent] = useState<ProfileSettingsSheetComponent | null>(() =>
+        getCachedProfileSettingsSheet(),
+    );
+    const [loadFailed, setLoadFailed] = useState(false);
+    const [loadGeneration, setLoadGeneration] = useState(0);
+
+    const retryLoad = useCallback(() => {
+        setLoadFailed(false);
+        setLoadGeneration((g) => g + 1);
     }, []);
 
-    return (
-        <Suspense fallback={open ? <ProfileSettingsSheetLoadingFallback /> : null}>
-            <LazyProfileSettingsSheet
-                open={open}
-                onClose={onClose}
-                customization={customization}
-                actions={actions}
-                userId={userId}
-                onSave={onSave}
-                onDraftChange={onDraftChange}
-                saving={saving}
-            />
-        </Suspense>
-    );
+    useLayoutEffect(() => {
+        prefetchProfileSettingsSheetModule();
+        prefetchProfileSettingsStudioTabsModule();
+
+        const cached = getCachedProfileSettingsSheet();
+        if (cached) {
+            setComponent(() => cached);
+            setLoadFailed(false);
+            return;
+        }
+
+        let cancelled = false;
+        let attempts = 0;
+
+        const adoptModule = () => {
+            void loadProfileSettingsSheetModule()
+                .then((mod) => {
+                    if (cancelled) return;
+                    if (mod?.ProfileSettingsSheet) {
+                        setComponent(() => mod.ProfileSettingsSheet);
+                        setLoadFailed(false);
+                        return;
+                    }
+                    throw new Error('ProfileSettingsSheet missing');
+                })
+                .catch(() => {
+                    if (cancelled) return;
+                    attempts += 1;
+                    if (attempts < MAX_LOAD_ATTEMPTS) {
+                        window.setTimeout(adoptModule, LOAD_RETRY_MS);
+                        return;
+                    }
+                    setLoadFailed(true);
+                });
+        };
+
+        adoptModule();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [loadGeneration]);
+
+    if (!Component) {
+        if (open) {
+            if (loadFailed) {
+                return (
+                    <div
+                        className="fixed inset-0 z-[120] flex items-center justify-center bg-[#010308]/80 p-6"
+                        role="alert"
+                        data-testid="profile-settings-sheet-load-error"
+                    >
+                        <div className="text-center space-y-3">
+                            <p className="text-sm text-white/80">تعذّر فتح استوديو الصفحة</p>
+                            <button
+                                type="button"
+                                onClick={retryLoad}
+                                className="rounded-lg border border-[#E6C673]/35 px-4 py-2 text-sm font-bold text-[#E6C673]"
+                            >
+                                إعادة المحاولة
+                            </button>
+                            <button
+                                type="button"
+                                onClick={props.onClose}
+                                className="block mx-auto text-xs text-white/50"
+                            >
+                                إغلاق
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+            return <ProfileSettingsSheetLoadingFallback />;
+        }
+        return null;
+    }
+
+    return <Component {...props} />;
 }

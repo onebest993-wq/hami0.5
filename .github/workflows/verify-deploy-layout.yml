@@ -23,9 +23,20 @@ jobs:
           node-version: '20'
           cache: npm
 
-      - name: Install, verify build, and test
-        run: |
-          npm ci --legacy-peer-deps
-          npm run verify:production-build
-          npm run test:run
-          node scripts/generate-vercel-api.mjs
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: 🔍 TypeScript Check (Warning-only - doesn't block build)
+        run: npm run typecheck || echo "⚠️ TypeScript check completed with warnings (not blocking build)"
+
+      - name: 📝 ESLint Check (Warning-only - doesn't block build)
+        run: npm run lint || echo "⚠️ ESLint check completed with warnings (not blocking build)"
+
+      - name: 🏗️ Verify production build
+        run: npm run verify:production-build
+
+      - name: 🧪 Run tests
+        run: npm run test:run
+
+      - name: 🔧 Generate Vercel API
+        run: node scripts/generate-vercel-api.mjs

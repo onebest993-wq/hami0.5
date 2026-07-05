@@ -1,4 +1,5 @@
-import { CalendarDB, type CalendarEvent } from '@/app/services/lawyer-cloud';
+import { CalendarDB } from '@/app/services/cloud/lawyerCalendarCloud';
+import type { CalendarEvent } from '@/app/services/calendar/calendarTypes';
 import { debug } from '@/app/utils/debug';
 import type { CalendarBridgePayload, CalendarSourceModule } from '@/app/services/calendarBridge.types';
 import {

@@ -2,7 +2,7 @@ import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import { isKvProxyNetworkEnabled } from '@/app/services/kvProxyConfig';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import type { NotificationModel } from '@/app/infrastructure/NotificationRepository';
-import type { ForumNotification } from '@/app/services/lawyer-cloud';
+import type { ForumNotification } from '@/app/services/forum/forumTypes';
 import {
     extractForumNotificationsFromModels,
     mergeLegacyForumIntoModels,

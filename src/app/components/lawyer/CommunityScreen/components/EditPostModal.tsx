@@ -31,7 +31,7 @@ export const EditPostModal = ({ editingPostId, editingText, onTextChange, onSave
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={onCancel}
-                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70]"
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
                     />
                     <motion.div
                         key="edit-modal"
@@ -40,9 +40,9 @@ export const EditPostModal = ({ editingPostId, editingText, onTextChange, onSave
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 14, scale: 0.98 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+                        className="fixed inset-0 z-[100] flex items-center justify-center p-4 pointer-events-none"
                     >
-                        <div className={`w-full max-w-xl ${FORUM_MODAL} p-6`}>
+                        <div className={`w-full max-w-xl ${FORUM_MODAL} p-6 pointer-events-auto`}>
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className={`${FORUM_TEXT_PRIMARY} font-bold text-lg`}>تعديل المنشور</h3>
                                 <button type="button" onClick={onCancel} className={`w-9 h-9 ${FORUM_ICON_BTN}`}>

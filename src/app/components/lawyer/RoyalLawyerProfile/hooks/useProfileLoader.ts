@@ -67,15 +67,60 @@ export function useProfileLoader(
         const generation = ++loadGenerationRef.current;
         const cached = profileUserId ? peekProfileWarmCache(profileUserId, cachePeekOptions) : undefined;
         if (cached) {
+            //#region debug-point profile-loader-cache-hit
+            fetch('http://127.0.0.1:7777/event', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sessionId: 'profile-edit-persist',
+                    runId: 'post-fix',
+                    hypothesisId: 'C',
+                    location: 'useProfileLoader.ts:loadProfile:cache-hit',
+                    msg: '[DEBUG] profile loader used warm cache',
+                    data: {
+                        profileUserId,
+                        viewerId,
+                        isOwnProfile,
+                        cachedName: cached.header?.name ?? null,
+                        cachedImagePath: cached.header?.profileImagePath ?? null,
+                    },
+                    ts: Date.now(),
+                }),
+            }).catch(() => undefined);
+            //#endregion debug-point profile-loader-cache-hit
             setProfile(normalizeLoadedProfile(cached));
             setLoading(false);
         } else {
             setLoading(true);
         }
         try {
-            const data = await fetchLawyerProfile(profileUserId);
+            const data = await fetchLawyerProfile(
+                profileUserId,
+                isOwnProfile ? profileUserId : viewerId,
+            );
             if (generation !== loadGenerationRef.current) return;
             const normalized = normalizeLoadedProfile(data);
+            //#region debug-point profile-loader-fetch-done
+            fetch('http://127.0.0.1:7777/event', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sessionId: 'profile-edit-persist',
+                    runId: 'post-fix',
+                    hypothesisId: 'C',
+                    location: 'useProfileLoader.ts:loadProfile:fetch-done',
+                    msg: '[DEBUG] profile loader fetched profile',
+                    data: {
+                        profileUserId,
+                        isOwnProfile,
+                        fetchedName: data.header?.name ?? null,
+                        normalizedName: normalized.header?.name ?? null,
+                        fetchedImagePath: data.header?.profileImagePath ?? null,
+                    },
+                    ts: Date.now(),
+                }),
+            }).catch(() => undefined);
+            //#endregion debug-point profile-loader-fetch-done
             setProfile(normalized);
             if (profileUserId && isOwnProfile) {
                 setProfileWarmCache(profileUserId, data);
@@ -107,6 +152,25 @@ export function useProfileLoader(
             if (!uid || uid !== profileUserId) return;
             const cached = peekProfileWarmCache(profileUserId, cachePeekOptions);
             if (cached) {
+                //#region debug-point profile-loader-event
+                fetch('http://127.0.0.1:7777/event', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sessionId: 'profile-edit-persist',
+                        runId: 'post-fix',
+                        hypothesisId: 'E',
+                        location: 'useProfileLoader.ts:onUpdated',
+                        msg: '[DEBUG] profile loader received profile update event',
+                        data: {
+                            profileUserId,
+                            cachedName: cached.header?.name ?? null,
+                            cachedImagePath: cached.header?.profileImagePath ?? null,
+                        },
+                        ts: Date.now(),
+                    }),
+                }).catch(() => undefined);
+                //#endregion debug-point profile-loader-event
                 setProfile(normalizeLoadedProfile(cached));
                 setLoading(false);
             }

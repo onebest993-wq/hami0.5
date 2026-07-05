@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, MoreVertical, Share2 } from 'lucide-react';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/app/components/ui/dropdown-menu';
+  TransactionsDropdownMenu,
+  TransactionsDropdownMenuContent,
+  TransactionsDropdownMenuItem,
+  TransactionsDropdownMenuTrigger,
+  runAfterTransactionsMenuClose,
+} from './TransactionsDropdownMenu';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/app/components/ui/tabs';
 import { useTransactionsThreadingStore } from '@/app/modules/transactionsThreading/store';
 import { listTaskTemplates, saveTaskTemplate, deleteTaskTemplate } from '@/app/modules/transactionsThreading/taskTemplates';
@@ -23,7 +24,6 @@ import {
 import { sanitizeTransactionTemplateName } from '@/app/services/transactions/transactionsInputSecurity';
 import {
     TX_ACCENT_SURFACE,
-    TX_DROPDOWN_CONTENT,
     TX_DROPDOWN_FOCUS,
     TX_GOLD_BTN,
     TX_ICON_BTN,
@@ -49,6 +49,7 @@ export function TransactionDetailsScreen({
   onBack,
   onEscapeSnapshotChange,
   registerEscapeCloser,
+  hubOpen = true,
 }: {
   transactionId: string;
   onBack?: () => void;
@@ -56,6 +57,7 @@ export function TransactionDetailsScreen({
   registerEscapeCloser?: (
     closer: ((patch: Partial<TransactionsDetailsEscapeSnapshot>) => void) | null,
   ) => void;
+  hubOpen?: boolean;
 }) {
   const tx = useTransactionsThreadingStore((s) => s.transactions.find((t) => t.id === transactionId));
   const refreshTransactionData = useTransactionsThreadingStore((s) => s.refreshTransactionData);
@@ -255,25 +257,26 @@ export function TransactionDetailsScreen({
               </button>
             )}
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+            <TransactionsDropdownMenu>
+              <TransactionsDropdownMenuTrigger asChild>
                 <button type="button" className={TX_ICON_BTN} aria-label="قائمة المعاملة">
                   <MoreVertical className="w-5 h-5" />
                 </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className={TX_DROPDOWN_CONTENT}>
-                <DropdownMenuItem
-                  disabled={!canSaveTemplate}
+              </TransactionsDropdownMenuTrigger>
+              <TransactionsDropdownMenuContent>
+                <TransactionsDropdownMenuItem
                   onSelect={() => {
-                    setTemplateName(tx.title);
-                    setSaveTemplateOpen(true);
+                    runAfterTransactionsMenuClose(() => {
+                      setTemplateName(tx.title);
+                      setSaveTemplateOpen(true);
+                    });
                   }}
                   className={TX_DROPDOWN_FOCUS}
                 >
                   حفظ المسار كقالب
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                </TransactionsDropdownMenuItem>
+              </TransactionsDropdownMenuContent>
+            </TransactionsDropdownMenu>
 
             <button type="button" onClick={() => setReportOpen(true)} className={TX_ICON_BTN} aria-label="مشاركة تحديث الموكل">
               <Share2 className="w-5 h-5" />
@@ -338,7 +341,7 @@ export function TransactionDetailsScreen({
       )}
 
       <AddTaskBottomSheet
-        open={sheetOpen}
+        open={sheetOpen && hubOpen}
         onOpenChange={(open) => {
           setSheetOpen(open);
           if (!open) setParent(null);
@@ -349,15 +352,16 @@ export function TransactionDetailsScreen({
       />
 
       <TransactionDetailsDialogs
-        completeOpen={completeOpen}
+        completeOpen={completeOpen && hubOpen}
         onCompleteOpenChange={setCompleteOpen}
         onCompleteTransaction={completeTransaction}
-        saveTemplateOpen={saveTemplateOpen}
+        saveTemplateOpen={saveTemplateOpen && hubOpen}
         onSaveTemplateOpenChange={setSaveTemplateOpen}
+        canSaveTemplate={canSaveTemplate}
         templateName={templateName}
         onTemplateNameChange={setTemplateName}
         onSaveTemplate={doSaveTemplate}
-        templatesOpen={templatesOpen}
+        templatesOpen={templatesOpen && hubOpen}
         onTemplatesOpenChange={setTemplatesOpen}
         templates={templates}
         isReadOnly={isReadOnly}
@@ -369,7 +373,7 @@ export function TransactionDetailsScreen({
           deleteTaskTemplate(userId, templateId);
           setTemplatesVersion((v) => v + 1);
         }}
-        reportOpen={reportOpen}
+        reportOpen={reportOpen && hubOpen}
         onReportOpenChange={setReportOpen}
         reportText={reportText}
         copied={copied}

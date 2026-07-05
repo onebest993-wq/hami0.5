@@ -4,26 +4,34 @@ import {
     prefetchAllSettingsSections,
     prefetchPersistedSettingsSection,
 } from '@/app/components/lawyer/HamiSettings/settingsSectionLoader';
+import { preloadAllSettingsSectionComponents } from '@/app/components/lawyer/HamiSettings/settingsSectionRegistry';
 import { readPersistedSettingsSection } from '@/app/components/lawyer/HamiSettings/settingsSectionPersistence';
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
-import { shouldAggressiveHeaderShellWarm } from '@/app/hooks/lawyerDashboard/headerShellIntentWarm';
 
-/** عند hover/لمس أيقونة الإعدادات: chunk + التبويب المحفوظ */
+/** عند hover/لمس أيقونة الإعدادات — shell + كل الأقسام في الخلفية */
 export function warmSettingsOnHover(): void {
     prefetchHamiSettingsModule();
     prefetchPersistedSettingsSection();
-}
-
-/** عند فتح الإعدادات — shell + التبويب النشط فوراً؛ بقية الأقسام idle */
-export function warmSettingsOnOpen(): void {
-    warmSettingsOnHover();
-    void loadSettingsSection(readPersistedSettingsSection()).catch(() => undefined);
-    if (typeof window === 'undefined' || !shouldAggressiveHeaderShellWarm()) return;
+    prefetchAllSettingsSections();
     scheduleIdleWork(
         () => {
-            if (typeof document !== 'undefined' && document.hidden) return;
-            prefetchAllSettingsSections();
+            void preloadAllSettingsSectionComponents().catch(() => undefined);
         },
-        { minDelayMs: 600, timeoutMs: 10_000 },
+        { minDelayMs: 0, timeoutMs: 6_000 },
     );
+}
+
+/** عند فتح الإعدادات — تحميل متوازٍ فوري للـ shell والتبويبات */
+export function warmSettingsOnOpen(): void {
+    warmSettingsOnHover();
+    const persisted = readPersistedSettingsSection();
+    void Promise.all([
+        loadSettingsSection(persisted),
+        preloadAllSettingsSectionComponents(),
+    ]).catch(() => undefined);
+}
+
+/** تحميل كامل قبل أول paint للإعدادات — يُستدعى من pointerdown */
+export function primeSettingsShellForOpen(): void {
+    warmSettingsOnOpen();
 }

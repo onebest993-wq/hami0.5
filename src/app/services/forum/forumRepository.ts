@@ -1,4 +1,5 @@
-import type { CommunityPost } from '@/app/services/lawyer-cloud';
+import { CommunityDB, getCommunityPostById } from '@/app/services/forum/forumCommunityRuntime';
+import type { CommunityPost } from '@/app/services/forum/forumTypes';
 import { communityPostToInsertRow, type ForumPostRow } from './forumMapper';
 import { getForumSupabaseAdmin, isForumSupabaseConfigured } from './supabaseAdmin';
 import { buildForumEditPatch } from './forumEditUtils';
@@ -22,7 +23,6 @@ const postRepository = {
     ): Promise<{ posts: CommunityPost[]; total: number }> {
         const admin = getForumSupabaseAdmin();
         if (!admin) {
-            const { CommunityDB } = await import('@/app/services/lawyer-cloud');
             const all = (await CommunityDB.listPosts()).filter((p) => matchesForumListScope(p, options));
             const sorted = sortForumRepositoryPosts(all);
             return { posts: sorted.slice(offset, offset + limit), total: sorted.length };
@@ -47,7 +47,6 @@ const postRepository = {
             .range(offset, offset + limit - 1);
 
         if (error || !data) {
-            const { CommunityDB } = await import('@/app/services/lawyer-cloud');
             const all = (await CommunityDB.listPosts()).filter((p) => matchesForumListScope(p, options));
             const sorted = sortForumRepositoryPosts(all);
             return { posts: sorted.slice(offset, offset + limit), total: sorted.length };
@@ -60,7 +59,6 @@ const postRepository = {
     async getPostById(postId: string): Promise<CommunityPost | null> {
         const admin = getForumSupabaseAdmin();
         if (!admin) {
-            const { getCommunityPostById } = await import('@/app/services/cloud/lawyerCommunityCloud');
             return getCommunityPostById(postId);
         }
 
@@ -75,7 +73,6 @@ const postRepository = {
     async savePost(post: CommunityPost): Promise<CommunityPost> {
         const admin = getForumSupabaseAdmin();
         if (!admin) {
-            const { CommunityDB } = await import('@/app/services/lawyer-cloud');
             await CommunityDB.savePost(post);
             return post;
         }
@@ -91,7 +88,6 @@ const postRepository = {
     async deletePost(postId: string): Promise<void> {
         const admin = getForumSupabaseAdmin();
         if (!admin) {
-            const { CommunityDB } = await import('@/app/services/lawyer-cloud');
             await CommunityDB.deletePost(postId);
             return;
         }
@@ -159,7 +155,6 @@ const postRepository = {
                 isLocked: locked || undefined,
                 updatedAt: new Date().toISOString(),
             };
-            const { CommunityDB } = await import('@/app/services/lawyer-cloud');
             await CommunityDB.savePost(updated);
             return updated;
         }

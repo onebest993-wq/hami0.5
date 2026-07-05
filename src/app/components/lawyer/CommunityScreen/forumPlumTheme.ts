@@ -13,7 +13,7 @@ export const FORUM_PAGE_BG: React.CSSProperties = {
 };
 
 export const FORUM_LAYER =
-    'fixed inset-0 z-[95] h-[100dvh] bg-[#0E0812] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]';
+    'fixed inset-0 z-[95] h-[100dvh] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]';
 
 export const FORUM_FEED_CARD =
     'group rounded-xl p-4 border bg-[#38303E] border-[#4A3D52]/55 text-[#E6E0E4] ' +
@@ -84,6 +84,23 @@ export const FORUM_SECTION_ACTIVE =
 
 export const FORUM_SECTION_IDLE =
     'bg-[#342C3A] border border-[#4A3D52]/45 text-[#9A9098] hover:border-[#F0B896]/20';
+
+export const FORUM_DROPDOWN_PANEL =
+    'rounded-2xl border border-[#4A3D52]/50 bg-[#221A28]/98 shadow-2xl shadow-black/40 overflow-hidden';
+
+export const FORUM_FILTER_CHIP_SELECTED =
+    'bg-[#F0B896]/15 border-[#F0B896]/40 text-[#F0B896] shadow-[0_0_20px_rgba(240,184,150,0.12)]';
+
+export const FORUM_FILTER_CHIP_IDLE =
+    'bg-[#38303E]/80 border-[#4A3D52]/45 text-[#9A9098] hover:border-[#F0B896]/20 hover:text-[#E6E0E4]';
+
+export const FORUM_FILTER_CHIP_ICON_SELECTED = 'bg-[#F0B896]/20';
+export const FORUM_FILTER_CHIP_ICON_IDLE = 'bg-[#342C3A]';
+
+export const FORUM_FILTER_SECTION_LABEL = 'text-[#F0B896]/80 text-[10px] font-bold tracking-wide';
+
+export const FORUM_REPO_SEARCH_BAR =
+    'flex items-center h-11 rounded-2xl bg-[#221A28] border border-[#4A3D52]/50 overflow-hidden shadow-lg shadow-black/20 focus-within:border-[#F0B896]/30 transition-colors';
 
 export function ForumPlumPage({
     children,

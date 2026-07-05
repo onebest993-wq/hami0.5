@@ -16,7 +16,10 @@ import {
     isAbsentObjectionStageName,
 } from '../../smartFile/absentJudgmentFlow';
 import { shouldShowFirstInstanceIncidentalUi } from '../../smartFile/appealStageTransition';
-import { resolveAppealStageFooterEligibility } from '../../smartFile/appealStageFooter';
+import {
+    resolveAppealStageFooterEligibility,
+    shouldPreferPleadingCloseFooter,
+} from '../../smartFile/appealStageFooter';
 import { resolveCrossAppealEligibility } from '../../smartFile/crossAppealEngine';
 import {
     daysRemainingPetitionVoidRevival,
@@ -66,8 +69,8 @@ export function useSmartFileMainPanelLayout(p: SmartFileMainPanelProps) {
     );
     const consolidatedSecondaryLabel = formatConsolidatedChipLabel(consolidationRefs);
     const externalConsolidationRefs = consolidationRefs.filter((r) => r.isExternal);
-    const primaryCaseNo = pickNonemptyString(file?.caseNo, parentData.caseNo, displayStage?.caseNo);
-    const primaryDocType = pickNonemptyString(file?.docType, parentData.docType, displayStage?.docType);
+    const primaryCaseNo = pickNonemptyString(displayStage?.caseNo, file?.caseNo, parentData.caseNo);
+    const primaryDocType = pickNonemptyString(displayStage?.docType, file?.docType, parentData.docType);
     const headerParties = resolveDisplayParties({
         displayStage,
         file,
@@ -116,10 +119,12 @@ export function useSmartFileMainPanelLayout(p: SmartFileMainPanelProps) {
         status,
         stages,
     );
+    const preferPleadingCloseFooter = shouldPreferPleadingCloseFooter(displayStage);
     const showAppealStageFooter =
         !isViewingArchived
         && viewingStageIndex === activeStageIndex
         && appealStageFooter.show
+        && !preferPleadingCloseFooter
         && !showAbsentJudgmentFooter
         && !showOpponentAppealBtnEffective;
 
@@ -141,7 +146,8 @@ export function useSmartFileMainPanelLayout(p: SmartFileMainPanelProps) {
         !showOpponentAppealBtnEffective &&
         !showAppealStageFooter &&
         !showPetitionVoidFooter &&
-        (!displayStage?.isPleadingsClosed
+        (preferPleadingCloseFooter
+            || !displayStage?.isPleadingsClosed
             || Boolean(displayStage?.isUnderObjection)
             || isAbsentObjectionStageName(displayStage?.stageName));
 
@@ -220,7 +226,28 @@ export function useSmartFileMainPanelLayout(p: SmartFileMainPanelProps) {
             </div>
             <button
                 type="button"
-                onClick={() => setShowAppealModal(true)}
+                        onClick={() => {
+                            // #region debug-point A:opponent-appeal-button
+                            fetch('http://127.0.0.1:7777/event', {
+                                method: 'POST',
+                                body: JSON.stringify({
+                                    sessionId: 'opponent-appeal-crash',
+                                    runId: 'pre-fix',
+                                    hypothesisId: 'A',
+                                    location: 'useSmartFileMainPanelLayout.tsx:opponentAppealFooterPanel',
+                                    msg: '[DEBUG] opponent appeal button clicked',
+                                    data: {
+                                        stageName: displayStage?.stageName ?? null,
+                                        finalDecision: displayStage?.finalDecision ?? null,
+                                        isPleadingsClosed: Boolean(displayStage?.isPleadingsClosed),
+                                        partyCount: Array.isArray(displayStage?.parties) ? displayStage.parties.length : 0,
+                                    },
+                                    ts: Date.now(),
+                                }),
+                            }).catch(() => {});
+                            // #endregion
+                            setShowAppealModal(true);
+                        }}
                 className="group w-full py-3.5 rounded-xl bg-gradient-to-l from-indigo-500/22 via-indigo-500/14 to-indigo-400/8 backdrop-blur-md border border-indigo-400/35 text-indigo-50 font-bold text-[15px] shadow-[0_8px_28px_rgba(99,102,241,0.22),inset_0_1px_0_rgba(255,255,255,0.1)] hover:border-indigo-300/50 hover:from-indigo-500/30 hover:to-indigo-400/12 transition-all flex items-center justify-center gap-2.5"
             >
                 <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/10 border border-white/15 group-hover:bg-white/15 transition-colors">

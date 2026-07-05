@@ -14,11 +14,13 @@ import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { LawyerProfileData } from '@/app/services/lawyer-cloud';
 import { ProfileDB } from '@/app/services/lawyer-cloud';
 import { setProfileWarmCache } from '@/app/services/profile/profileWarmCache';
+import { LAWYER_PROFILE_UPDATED } from '@/app/services/profile/profileEvents';
 import {
     loadProfileSettingsSheetModule,
     prefetchProfileSettingsSheet,
     prefetchProfileSettingsStudioTabs,
 } from '@/app/utils/lazyComponents';
+import { prefetchProfileSettingsSheetModule } from '@/app/runtime/profileSettingsSheetLoader';
 import type { createProfileSaveQueue } from '@/app/services/profile/profileSaveQueue';
 import { canOpenProfileStudio } from '@/app/services/profile/profileStudioAccessLogic';
 
@@ -30,7 +32,7 @@ type UseProfileStudioSettingsArgs = {
     enqueueProfileSave: ReturnType<typeof createProfileSaveQueue>;
 };
 
-const PROFILE_SAVE_TIMEOUT_MS = 20_000;
+const PROFILE_SAVE_TIMEOUT_MS = 12_000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
     return new Promise((resolve, reject) => {
@@ -64,6 +66,7 @@ export function useProfileStudioSettings({
     const openSettings = useCallback(() => {
         if (!canOpenProfileStudio(isOwnProfile)) return;
         prefetchProfileSettingsSheet();
+        prefetchProfileSettingsSheetModule();
         prefetchProfileSettingsStudioTabs();
         void loadProfileSettingsSheetModule().catch(() => undefined);
         dismissTransientOverlays('profile-settings');
@@ -75,10 +78,9 @@ export function useProfileStudioSettings({
     useEffect(() => {
         const onDismiss = (e: Event) => {
             const except = (e as CustomEvent<{ except?: TransientOverlayId }>).detail?.except;
-            if (except !== 'profile-settings') {
-                setSettingsOpen(false);
-                releaseBodyScrollLock();
-            }
+            if (except === 'profile-settings' || except === 'profile') return;
+            setSettingsOpen(false);
+            releaseBodyScrollLock();
         };
         window.addEventListener(HAMI_DISMISS_OVERLAYS_EVENT, onDismiss);
         return () => window.removeEventListener(HAMI_DISMISS_OVERLAYS_EVENT, onDismiss);
@@ -88,14 +90,28 @@ export function useProfileStudioSettings({
         async (next: ProfilePageCustomization, options?: { silent?: boolean }): Promise<boolean> => {
             if (!userId || !canOpenProfileStudio(isOwnProfile)) return false;
             const normalized = normalizeProfilePageCustomization(next);
+            const current = profileRef.current;
+            if (current) {
+                const optimistic: LawyerProfileData = {
+                    ...current,
+                    customization: normalized,
+                };
+                setProfile(optimistic);
+                setProfileWarmCache(userId, optimistic);
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(
+                        new CustomEvent(LAWYER_PROFILE_UPDATED, { detail: { userId } }),
+                    );
+                }
+            }
             setSavingSettings(true);
             try {
                 await withTimeout(
                     enqueueProfileSave(async () => {
-                        const current = profileRef.current;
-                        if (!current) return;
+                        const latest = profileRef.current;
+                        if (!latest) return;
                         const payload: LawyerProfileData = {
-                            ...current,
+                            ...latest,
                             customization: normalized,
                         };
                         await ProfileDB.saveProfile(userId, payload, userId);

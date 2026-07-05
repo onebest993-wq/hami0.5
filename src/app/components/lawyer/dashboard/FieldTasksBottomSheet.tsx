@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CheckCircle2, MapPin, PanelBottom, X, ClipboardList } from 'lucide-react';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
@@ -18,6 +18,12 @@ import {
     CURTAIN_SHEET,
     TASKS_BRONZE_LINE,
 } from '@/app/components/lawyer/dashboard/tasksManager/tasksBoucleTheme';
+import { TaskListOrdinalBadge, taskListStripeToneClass, type TaskListOrdinal } from '@/app/components/lawyer/dashboard/tasksManager/TaskListOrdinalBadge';
+import { useTasksLifecycle } from '@/app/components/lawyer/dashboard/fieldTasks/useTasksLifecycle';
+import {
+    blockTasksOverlayEscape,
+    unblockTasksOverlayEscape,
+} from '@/app/components/lawyer/dashboard/fieldTasks/tasksEscapeCoordinator';
 import {
     Dialog,
     DialogContent,
@@ -40,6 +46,7 @@ type FieldTasksBottomSheetProps = {
 
 type FieldCurtainTaskCardProps = {
     task: LegalTask;
+    listOrdinal?: TaskListOrdinal;
     now: Date;
     lawsuitFiles: unknown[];
     executionFiles: unknown[];
@@ -63,6 +70,7 @@ function taskCardSignature(task: LegalTask): string {
 
 const FieldCurtainTaskCard = memo(function FieldCurtainTaskCard({
     task,
+    listOrdinal,
     now,
     lawsuitFiles,
     executionFiles,
@@ -83,6 +91,8 @@ const FieldCurtainTaskCard = memo(function FieldCurtainTaskCard({
         <li
             data-testid={`field-tasks-curtain-card-${task.id}`}
             className={`relative ${CURTAIN_GLASS_INNER} px-3 py-2.5 text-right ${
+                (listOrdinal?.total ?? 0) > 1 ? 'overflow-visible' : ''
+            } ${
                 fatal
                     ? 'border-rose-500/40 shadow-[0_0_12px_rgba(239,68,68,0.15)]'
                     : markedDone
@@ -90,7 +100,15 @@ const FieldCurtainTaskCard = memo(function FieldCurtainTaskCard({
                       : ''
             }`}
         >
-            <div className="absolute top-0 right-0 bottom-0 w-0.5 bg-gradient-to-b from-[#A67C52]/50 via-[#1A7059]/30 to-transparent rounded-r-xl pointer-events-none" />
+            {(listOrdinal?.total ?? 0) > 1 ? (
+                <TaskListOrdinalBadge
+                    ordinal={listOrdinal!}
+                    compact
+                    placement="edge"
+                    testId={`field-tasks-ordinal-${task.id}`}
+                />
+            ) : null}
+            <div className={`absolute top-0 right-0 bottom-0 w-0.5 bg-gradient-to-b ${taskListStripeToneClass(listOrdinal)} to-transparent rounded-r-xl pointer-events-none`} />
 
             <div className="flex flex-row items-start gap-2">
                 <div className="flex-1 min-w-0">
@@ -171,6 +189,9 @@ const FieldCurtainTaskCard = memo(function FieldCurtainTaskCard({
         </li>
     );
 }, (prev, next) => {
+    if (prev.listOrdinal?.index !== next.listOrdinal?.index || prev.listOrdinal?.total !== next.listOrdinal?.total) {
+        return false;
+    }
     if (prev.now.toDateString() !== next.now.toDateString()) return false;
     if (prev.lawsuitFiles !== next.lawsuitFiles || prev.executionFiles !== next.executionFiles) return false;
     if (taskCardSignature(prev.task) !== taskCardSignature(next.task)) return false;
@@ -196,15 +217,21 @@ export const FieldTasksBottomSheet = memo(function FieldTasksBottomSheet({
         [pendingTasks, now],
     );
 
-    const [sheetVisible, setSheetVisible] = useState(false);
+    const [sheetVisible, setSheetVisible] = useState(open);
+    const [sheetHydrated, setSheetHydrated] = useState(false);
 
     useEffect(() => {
+        if (!open) setSheetHydrated(false);
+    }, [open]);
+
+    useTasksLifecycle(open, sheetVisible, () => setSheetHydrated(true));
+
+    useLayoutEffect(() => {
         if (!open) {
             setSheetVisible(false);
             return;
         }
-        const frame = window.requestAnimationFrame(() => setSheetVisible(true));
-        return () => window.cancelAnimationFrame(frame);
+        setSheetVisible(true);
     }, [open]);
 
     useBodyScrollLock(open);
@@ -221,20 +248,26 @@ export const FieldTasksBottomSheet = memo(function FieldTasksBottomSheet({
     );
 
     useEffect(() => {
-        if (!open && !fatalOpen) return;
+        if (!open && fatalOpen) {
+            cancelFatalComplete();
+        }
+    }, [open, fatalOpen, cancelFatalComplete]);
+
+    useEffect(() => {
+        if (!fatalOpen) return;
+        blockTasksOverlayEscape('field-fatal');
         const onKeyDown = (e: KeyboardEvent) => {
             if (e.key !== 'Escape') return;
             e.preventDefault();
             e.stopPropagation();
-            if (fatalOpen) {
-                cancelFatalComplete();
-                return;
-            }
-            if (open) handleClose();
+            cancelFatalComplete();
         };
         window.addEventListener('keydown', onKeyDown, true);
-        return () => window.removeEventListener('keydown', onKeyDown, true);
-    }, [open, fatalOpen, cancelFatalComplete, handleClose]);
+        return () => {
+            unblockTasksOverlayEscape('field-fatal');
+            window.removeEventListener('keydown', onKeyDown, true);
+        };
+    }, [fatalOpen, cancelFatalComplete]);
 
     if (typeof document === 'undefined' || (!open && !fatalOpen)) return null;
 
@@ -290,6 +323,7 @@ export const FieldTasksBottomSheet = memo(function FieldTasksBottomSheet({
                         aria-modal="true"
                         aria-labelledby="field-tasks-sheet-title"
                         data-testid="field-tasks-sheet"
+                        data-field-tasks-hydrated={sheetHydrated && sheetVisible ? 'true' : 'false'}
                         className={`${CURTAIN_SHEET} pb-[max(0px,env(safe-area-inset-bottom))] transition-transform duration-200 ease-out will-change-transform ${
                             sheetVisible ? 'translate-y-0' : 'translate-y-full'
                         }`}
@@ -346,10 +380,11 @@ export const FieldTasksBottomSheet = memo(function FieldTasksBottomSheet({
                                 </div>
                             ) : (
                                 <ul className="space-y-2.5">
-                                    {curtainTasks.map((task) => (
+                                    {curtainTasks.map((task, i) => (
                                         <FieldCurtainTaskCard
                                             key={task.id}
                                             task={task}
+                                            listOrdinal={{ index: i, total: curtainTasks.length }}
                                             now={now}
                                             lawsuitFiles={lawsuitFiles}
                                             executionFiles={executionFiles}

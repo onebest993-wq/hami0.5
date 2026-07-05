@@ -13,7 +13,7 @@
  */
 import { normalizeDateToYmd } from './calendarBridge';
 import type { CalendarSourceModule } from './calendarBridge.types';
-import type { CalendarEventType } from '@/app/services/lawyer-cloud';
+import type { CalendarEventType } from '@/app/services/calendar/calendarTypes';
 
 export type DiscoveredDate = {
     bridgeEventId: string;

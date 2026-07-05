@@ -65,13 +65,18 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
     ];
     const currentNotif = notifStatuses.find(s => s.id === notificationStatus) || notifStatuses[0];
 
-    // ✅ Check if this is an Appeal stage OR an Extraordinary Appeal with preserved First Instance data
-    const isAppealStage = isAppealStageName(formData?.stageName) || formData?.stageName?.includes('تمييز') || formData?.extraordinaryType || formData?.extraordinaryAppealType;
+    // âœ… Check if this is an Appeal stage OR an Extraordinary Appeal with preserved First Instance data
+    const hasAppealContext =
+        isAppealStageName(formData?.stageName) ||
+        formData?.stageName?.includes('ØªÙ…ÙŠÙŠØ²') ||
+        formData?.extraordinaryType ||
+        formData?.extraordinaryAppealType;
     const hasFirstInstanceData = formData?.firstInstanceCaseNumber && formData?.firstInstanceCourt;
     
     const isCassation = formData?.stageName === 'التمييز';
-    const courtName = String(formData?.court || '').trim() || 'المحكمة المختصة';
-    const judgeName = String(
+    const isAppealStage = isAppealStageName(formData?.stageName);
+    const rawCourtName = String(formData?.court || '').trim();
+    const rawJudgeName = String(
         formData?.judge ??
             formData?.judgeName ??
             (formData as Record<string, unknown> | undefined)?.judge_name ??
@@ -80,6 +85,8 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
             ((formData as Record<string, unknown> | undefined)?.details as Record<string, unknown> | undefined)?.judgeName ??
             '',
     ).trim();
+    const courtName = rawCourtName || (isAppealStage ? '' : 'Ø§Ù„Ù…Ø­ÙƒÙ…Ø© Ø§Ù„Ù…Ø®ØªØµØ©');
+    const judgeName = rawJudgeName;
     const lawsuitTypeLabel = resolveLawsuitTypeLabel(formData);
     const claimValueLabel = formatClaimValueDisplay(formData?.claimValue);
     const awaitingOpponentAppeal = shouldShowOpponentAppealRegisterButton(
@@ -116,6 +123,15 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
     const selfClaimThirdParties = activeThirdPartyCases.filter(
         (c) => c.thirdPartyEntryMode === 'selfClaim' || !c.thirdPartyEntryMode,
     );
+    const partyCount =
+        plaintiffs.length + defendants.length + interpleaders.length + activeThirdPartyCases.length;
+    const hasHeaderActions =
+        (Boolean((hasJudgment || isPleadingsClosed) && !isCassation && !isReadOnly && showPleadingLockChrome)) ||
+        (Boolean(!isCassation && !isReadOnly && (!isPleadingsClosed || isAppealStageName(formData?.stageName)) &&
+            ((isAppealStageName(formData?.stageName) && crossAppealEligibility.showButton && onAddCrossAppeal) ||
+                (isAppealStageName(formData?.stageName) &&
+                    crossAppealEligibility.filedCrossAppellants.length > 0 &&
+                    onCancelCrossAppeal))));
 
     const renderEntryDecisionActions = (c: IncidentalCase) => {
         if (isReadOnly || !onUpdateIncidentalEntryDecision) return null;
@@ -154,8 +170,8 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
 
     // 🔥 DYNAMIC STYLE — glass water
     const containerStyle = isPaused
-        ? 'rounded-3xl mb-2 relative group/card transition-all backdrop-blur-xl bg-[#0A0F1C]/50 border border-rose-500/20 shadow-[0_8px_40px_rgba(244,63,94,0.1)]'
-        : 'rounded-3xl mb-2 relative group/card transition-all backdrop-blur-xl bg-[#0A0F1C]/50 border border-[#E6C673]/15 shadow-[0_8px_40px_rgba(0,0,0,0.35)] hover:border-[#E6C673]/25 hover:shadow-[0_12px_48px_rgba(230,198,115,0.08)]';
+        ? 'rounded-[22px] mb-1.5 relative group/card transition-all backdrop-blur-2xl bg-[radial-gradient(circle_at_top,rgba(244,63,94,0.08),transparent_34%),linear-gradient(180deg,rgba(12,18,31,0.94),rgba(8,12,22,0.96))] border border-rose-500/18 shadow-[0_18px_40px_rgba(244,63,94,0.08)]'
+        : 'rounded-[22px] mb-1.5 relative group/card transition-all backdrop-blur-2xl bg-[radial-gradient(circle_at_top,rgba(230,198,115,0.08),transparent_36%),linear-gradient(180deg,rgba(12,18,31,0.94),rgba(8,12,22,0.96))] border border-[#E6C673]/12 shadow-[0_18px_40px_rgba(0,0,0,0.24)] hover:border-[#E6C673]/18';
 
     const hasPartiesSection =
         plaintiffs.length > 0 || defendants.length > 0 || interpleaders.length > 0
@@ -165,11 +181,11 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
     return (
         <>
             <div className={containerStyle}>
-            <div className="px-3 py-2 relative z-10">
-                <div className="flex items-start justify-between gap-2 border-b border-white/[0.06] pb-1.5 mb-1.5">
+            <div className="px-3 py-2.5 relative z-10">
+                <div className="flex items-start justify-between gap-2 border-b border-white/[0.05] pb-2 mb-2">
                     <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                            <h1 className="text-lg font-black text-[#E6C673] tracking-wide font-sans leading-none">
+                            <h1 className="text-[17px] font-black text-[#E6C673] tracking-wide font-sans leading-none">
                                 <span dir="ltr" className="inline-block [unicode-bidi:bidi-override] [direction:ltr]">
                                     {displayCaseNo(formData.caseNo)}
                                 </span>
@@ -213,44 +229,40 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
                                 )}
                             </p>
                         ) : null}
-                        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 text-sm">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                                <Scale size={13} className="shrink-0 text-[#E6C673]/70" />
-                                <span className="font-bold text-white/92 leading-snug break-words" title={courtName}>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 min-w-0">
+                            <div className="inline-flex min-w-0 items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1">
+                                <Scale size={12} className="shrink-0 text-[#E6C673]/70" />
+                                <span className="truncate text-[11px] font-bold text-white/92 leading-snug" title={courtName}>
                                     {isCassation ? 'محكمة التمييز الاتحادية' : courtName}
                                 </span>
                             </div>
-                            <span className="text-white/20 shrink-0" aria-hidden>·</span>
-                            <div className="flex items-center gap-1 min-w-0">
-                                <Gavel size={12} className="shrink-0 text-[#E6C673]/65" />
+                            <div className="inline-flex min-w-0 items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1">
+                                <Gavel size={11} className="shrink-0 text-[#E6C673]/65" />
                                 <span
-                                    className={`font-semibold break-words ${judgeName ? 'text-white/80' : 'text-white/35'}`}
+                                    className={`truncate text-[11px] font-semibold ${judgeName ? 'text-white/80' : 'text-white/35'}`}
                                     title={judgeName || 'اسم القاضي غير مدخل'}
                                 >
                                     {judgeName || '—'}
                                 </span>
                             </div>
-                            {isAppealStage && hasFirstInstanceData ? (
-                                <>
-                                    <span className="text-white/20 shrink-0">·</span>
-                                    <span className="text-[10px] text-white/35 truncate" dir="ltr">
+                            {hasAppealContext && hasFirstInstanceData ? (
+                                <span className="inline-flex min-w-0 items-center rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1 text-[10px] text-white/40 truncate" dir="ltr">
                                         أساس {formData.firstInstanceCaseNumber}
-                                    </span>
-                                </>
+                                </span>
                             ) : null}
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0 self-start">
                         {!isCassation && !isReadOnly && !isPleadingsClosed && onClosePleadings ? (
                             <button
                                 type="button"
                                 onClick={onClosePleadings}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-white/60 text-[9px] font-bold hover:bg-[#E6C673]/10 hover:border-[#E6C673]/25 hover:text-[#E6C673] transition-all"
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white/60 text-[10px] font-bold hover:bg-[#E6C673]/10 hover:border-[#E6C673]/25 hover:text-[#E6C673] transition-all"
                                 title="حجز الدعوى للقرار"
                             >
                                 <Lock size={10} />
-                                <span className="hidden sm:inline">حجز للقرار</span>
+                                <span>حجز للقرار</span>
                             </button>
                         ) : null}
                         {isLockedArchive ? (
@@ -296,29 +308,9 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
                     </div>
                 </div>
 
-                {/* 3. ROW 3: COMPACT ACTION BUTTONS (The Tools) */}
-                <div className="flex flex-wrap items-center gap-2 w-full mb-1">
+                {hasHeaderActions ? (
+                <div className="flex flex-wrap items-center gap-1.5 w-full mb-0.5">
 
-                    {/* CASSATION OUTCOME BUTTONS (Exclusive to Cassation) */}
-                    {isCassation && !isReadOnly && onCassationDecision && (
-                        <>
-                            <button type="button" 
-                                onClick={() => onCassationDecision('ratified')}
-                                className="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-md font-bold hover:bg-emerald-500/20 transition-all flex items-center gap-1.5 text-[10px]"
-                            >
-                                <Check size={12} strokeWidth={3} />
-                                مصدق
-                            </button>
-                            <button type="button" 
-                                onClick={() => onCassationDecision('quashed')}
-                                className="px-3 py-1 bg-rose-500/10 text-rose-400 border border-rose-500/30 rounded-md font-bold hover:bg-rose-500/20 transition-all flex items-center gap-1.5 text-[10px]"
-                            >
-                                <X size={12} strokeWidth={3} />
-                                منقوض
-                            </button>
-                        </>
-                    )}
-                    
                     {/* 4. POST-JUDGMENT ACTIONS (The Critical Restoration) - ASYMMETRIC LEGAL LOGIC ENGINE */}
                     {(hasJudgment || isPleadingsClosed) && !isCassation && !isReadOnly && showPleadingLockChrome && (
                         isPleadingsClosed && !shouldShowAbsentJudgmentFooter(formData) ? (
@@ -394,15 +386,27 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
                         </>
                     )}
                 </div>
+                ) : null}
 
                 {/* 4. END OF HEADER ACTIONS */}
             </div>
             </div>
 
             {hasPartiesSection ? (
-            <div className={`${PARTIES_CARD_SHELL} mt-2.5`} dir="rtl">
-                <div className="px-3 py-2.5 border-b border-[#E6C673]/10">
-                    <p className="text-[10px] font-bold text-[#E6C673]/80 tracking-wide">أطراف الدعوى</p>
+            <div className={`${PARTIES_CARD_SHELL} mt-2`} dir="rtl">
+                <div className="px-3 py-2 border-b border-[#E6C673]/10 bg-white/[0.02]">
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-xl bg-[#E6C673]/10 text-[#E6C673] border border-[#E6C673]/18">
+                                <Users size={12} />
+                            </span>
+                            <p className="text-[11px] font-black text-[#E6C673]/85 tracking-wide">أطراف الدعوى</p>
+                        </div>
+                        <div className="inline-flex items-center gap-1 rounded-full border border-white/[0.06] bg-white/[0.04] px-2 py-1 text-[10px] font-bold text-white/45">
+                            <span>{partyCount}</span>
+                            <span>أطراف</span>
+                        </div>
+                    </div>
                 </div>
                 <div className="px-3 py-2.5">
                 <HeaderPartiesStrip
@@ -421,7 +425,7 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
                     {affiliativeThirdParties.map((c) => (
                         <div
                             key={c.id}
-                            className={`${PARTY_STRIP_SHELL} px-2 py-1.5`}
+                            className={`${PARTY_STRIP_SHELL} px-2.5 py-2`}
                         >
                             <div className="flex items-center justify-between gap-2 min-w-0">
                                 <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
@@ -440,7 +444,7 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
                     {selfClaimThirdParties.map((c) => (
                         <div
                             key={c.id}
-                            className={`${PARTY_STRIP_SHELL} px-2 py-1.5 flex items-center justify-between gap-2`}
+                            className={`${PARTY_STRIP_SHELL} px-2.5 py-2 flex items-center justify-between gap-2`}
                         >
                             <div className="flex items-center gap-2 min-w-0">
                                 <span className="shrink-0 rounded-md px-1 py-px text-[7px] font-black bg-[#E6C673]/12 text-[#E6C673] border border-[#E6C673]/28">

@@ -1,4 +1,4 @@
-import type { CommunityAttachment, CommunityPost } from '@/app/services/lawyer-cloud';
+import type { CommunityAttachment, CommunityPost } from '@/app/services/forum/forumTypes';
 
 const BLOCKED_URL_SCHEMES = /^(javascript|data:text\/html|vbscript):/i;
 
@@ -17,13 +17,17 @@ function sanitizeAttachment(raw: CommunityPost['attachment']): CommunityAttachme
         raw.type === 'image' ? 'image' : raw.type === 'document' ? 'document' : raw.type === 'audio' ? 'audio' : null;
     const url = typeof raw.url === 'string' ? raw.url.trim() : '';
     const name = typeof raw.name === 'string' ? raw.name.trim() : '';
-    if (!type || !url || !name || !isSafeExternalUrl(url)) return null;
+    const storagePath = typeof raw.storagePath === 'string' ? raw.storagePath.trim() : '';
+    const hasDurableStorage = storagePath.length > 0;
+    if (!type || !name || (!url && !hasDurableStorage) || (url && !isSafeExternalUrl(url))) {
+        return null;
+    }
     return {
         type,
-        url,
+        ...(url ? { url } : {}),
         name,
         mimeType: typeof raw.mimeType === 'string' ? raw.mimeType : undefined,
-        storagePath: typeof raw.storagePath === 'string' ? raw.storagePath : undefined,
+        storagePath: storagePath || undefined,
     };
 }
 

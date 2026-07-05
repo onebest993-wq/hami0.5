@@ -36,6 +36,11 @@ describe('filterTransactionsList', () => {
         expect(filterTransactionsList(SAMPLE, 'xyz', 'all')).toHaveLength(0);
     });
 
+    it('يبحث في الدائرة ويطبّع العربية', () => {
+        expect(filterTransactionsList(SAMPLE, 'دائرة الضريبة', 'all')).toHaveLength(3);
+        expect(filterTransactionsList([baseTx({ clientName: 'إبراهيم' })], 'ابراهيم', 'all')).toHaveLength(1);
+    });
+
     it('يجمع البحث والفلتر', () => {
         expect(filterTransactionsList(SAMPLE, 'معاملة', TransactionStatus.Active)).toHaveLength(1);
         expect(filterTransactionsList(SAMPLE, 'معاملة', TransactionStatus.Completed)).toHaveLength(1);

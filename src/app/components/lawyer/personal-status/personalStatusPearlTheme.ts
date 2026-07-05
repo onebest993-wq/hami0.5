@@ -2,6 +2,7 @@
  * Luminous Pearl — إضبارة الأحوال الشخصية
  * لؤلؤي مضيء #FFFEF9 · فضي لؤلؤي #ECE8E2 · صدفي للّمسات فقط #C9B89A
  */
+import { HUB_DOSSIER_MODAL_Z_CLASS } from '@/app/components/lawyer/dashboard/hubOverlayStack';
 export const PS_PEARL = {
     ink: '#101018',
     surface: '#16161F',
@@ -157,7 +158,7 @@ export function personalPearlModalTheme() {
         sheetTitle: 'text-[#FFFEF9] font-bold text-sm mb-3 text-center flex items-center justify-center gap-2',
         accentText: 'text-[#C9B89A]',
         flowPanel:
-            'fixed top-[72px] left-1/2 -translate-x-1/2 w-[92vw] max-w-[320px] z-[9999] font-[\'Tajawal\'] animate-in zoom-in-95 fade-in duration-200 rounded-xl border border-white/[0.14] bg-gradient-to-br from-white/[0.10] to-[#F8F6F0]/[0.05] backdrop-blur-xl shadow-[0_16px_48px_rgba(0,0,0,0.38)] overflow-hidden',
-        flowBackdrop: 'fixed inset-0 z-[9998] bg-[#101018]/55 backdrop-blur-[2px] animate-in fade-in duration-200',
+            `fixed top-[72px] left-1/2 -translate-x-1/2 w-[92vw] max-w-[320px] z-[251] font-['Tajawal'] animate-in zoom-in-95 fade-in duration-200 rounded-xl border border-white/[0.14] bg-gradient-to-br from-white/[0.10] to-[#F8F6F0]/[0.05] backdrop-blur-xl shadow-[0_16px_48px_rgba(0,0,0,0.38)] overflow-hidden pointer-events-auto`,
+        flowBackdrop: `fixed inset-0 ${HUB_DOSSIER_MODAL_Z_CLASS} bg-[#101018]/55 backdrop-blur-[2px] animate-in fade-in duration-200 pointer-events-auto`,
     };
 }

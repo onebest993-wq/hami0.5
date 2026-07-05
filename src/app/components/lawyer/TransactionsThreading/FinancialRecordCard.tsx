@@ -1,10 +1,15 @@
 import { ArrowDownLeft, ArrowUpRight, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { FinanceRecordType, type FinanceRecord } from '@/app/modules/transactionsThreading/types';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/app/components/ui/dropdown-menu';
+import {
+    TransactionsDropdownMenu,
+    TransactionsDropdownMenuContent,
+    TransactionsDropdownMenuItem,
+    TransactionsDropdownMenuTrigger,
+    runAfterTransactionsMenuClose,
+} from './TransactionsDropdownMenu';
 import {
     TX_ACCENT_SURFACE,
     TX_CARD_SURFACE,
-    TX_DROPDOWN_CONTENT,
     TX_DROPDOWN_FOCUS,
     TX_ICON_BTN,
     TX_INNER_SURFACE,
@@ -51,30 +56,39 @@ export function FinancialRecordCard({
 
         <div className="flex items-center gap-2 shrink-0">
           {!readOnly && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+            <TransactionsDropdownMenu>
+              <TransactionsDropdownMenuTrigger asChild>
                 <button type="button" className={TX_ICON_BTN} aria-label="خيارات الحركة">
                   <MoreVertical className="w-4 h-4" />
                 </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className={TX_DROPDOWN_CONTENT}>
-                <DropdownMenuItem onSelect={() => onEdit(record)} className={TX_DROPDOWN_FOCUS}>
+              </TransactionsDropdownMenuTrigger>
+              <TransactionsDropdownMenuContent>
+                <TransactionsDropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    runAfterTransactionsMenuClose(() => onEdit(record));
+                  }}
+                  className={TX_DROPDOWN_FOCUS}
+                >
                   <span className="inline-flex items-center gap-2">
                     <Pencil className="w-4 h-4" />
                     تعديل
                   </span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={() => onDelete(record)}
+                </TransactionsDropdownMenuItem>
+                <TransactionsDropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    runAfterTransactionsMenuClose(() => onDelete(record));
+                  }}
                   className={`${TX_DROPDOWN_FOCUS} text-[#D49248] focus:text-[#D49248]`}
                 >
                   <span className="inline-flex items-center gap-2">
                     <Trash2 className="w-4 h-4" />
                     حذف
                   </span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                </TransactionsDropdownMenuItem>
+              </TransactionsDropdownMenuContent>
+            </TransactionsDropdownMenu>
           )}
 
           <div

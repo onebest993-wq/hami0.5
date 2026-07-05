@@ -1,11 +1,10 @@
-// @ts-nocheck
 import type React from 'react';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { GlobalNote, ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { LawyerArchiveOverlay } from '@/app/hooks/useLawyerExecutionFiles';
 import type { LawyerDashboardMergedOverlaysState } from '@/app/hooks/lawyerDashboard/lawyerDashboardMergedOverlaysState';
 import type { useCriminalDashboardBridge } from '@/app/components/lawyer/criminal-system/criminalDashboardBridge';
-import type { LazyGlobalSearchOverlay } from '@/app/utils/lazyComponents';
+import type { GlobalSearchNavigate } from '@/app/services/globalSearchIndex';
 
 type OverlayState = LawyerDashboardMergedOverlaysState;
 type CriminalBridge = ReturnType<typeof useCriminalDashboardBridge>;
@@ -102,9 +101,7 @@ export type LawyerDashboardExecutionCreateBundle = {
 export type LawyerDashboardNavBundle = {
     setActiveTab: OverlayState['setActiveTab'];
     refreshAppAlerts: () => void;
-    handleGlobalSearchNavigate: (
-        nav: Parameters<React.ComponentProps<typeof LazyGlobalSearchOverlay>['onNavigate']>[0],
-    ) => void;
+    handleGlobalSearchNavigate: (navigate: GlobalSearchNavigate) => void;
     closeGlobalSearch: () => void;
 };
 

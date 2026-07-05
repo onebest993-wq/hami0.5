@@ -12,13 +12,11 @@ export function useRepositoryLifecycle(
     notesCount: number,
 ) {
     const uid = userId?.trim() ?? '';
-    const hadVaultCacheRef = useRef(Boolean(uid && peekVaultDocsWarmCache(uid)));
+    const hadVaultCacheRef = useRef(peekVaultDocsWarmCache(uid) !== undefined);
 
-    /** الفلاتر والشريط يظهران فور mount — لا ننتظر vault */
+    /** الفلاتر والقائمة تظهر فوراً — بيانات vault تُدمَج عند وصولها دون حجب كامل */
     const isShellReady = true;
-
-    const feedLoading =
-        vaultLoading && vaultDocCount === 0 && notesCount === 0 && !hadVaultCacheRef.current;
+    const feedLoading = false;
 
     useEffect(() => {
         if (!isShellReady) return;

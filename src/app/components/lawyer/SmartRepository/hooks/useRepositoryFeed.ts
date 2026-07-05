@@ -3,7 +3,7 @@ import type { RefObject } from 'react';
 import type { GlobalNote } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
-import type { SmartVaultDoc } from '@/app/services/lawyer-cloud';
+import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import { listLinkableDossiers } from '@/app/services/repository/repositoryDossierRegistry';
 import {
     buildRepositoryFeed,
@@ -15,6 +15,7 @@ import {
     buildRepositoryFeedCacheKey,
     peekRepositoryFeedCache,
     setRepositoryFeedCache,
+    invalidateRepositoryFeedCache,
 } from '@/app/services/repository/repositoryFeedWarmCache';
 import {
     getRepositoryFeedContainerClass,
@@ -78,6 +79,11 @@ export function useRepositoryFeed({
         setFeedLayout(next);
         persistRepositoryFeedLayout(next);
     }, []);
+
+    useEffect(() => {
+        invalidateRepositoryFeedCache();
+        setFeedEpoch((n) => n + 1);
+    }, [notes, vaultDocs]);
 
     const feedItems = useMemo(() => {
         const input = {

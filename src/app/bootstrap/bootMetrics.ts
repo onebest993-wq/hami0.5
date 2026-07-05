@@ -9,7 +9,8 @@ export type BootPhase =
     | 'app-render'
     | 'shell-visible'
     | 'dashboard-chunk-loaded'
-    | 'dashboard-interactive';
+    | 'dashboard-interactive'
+    | 'first-tab-open';
 
 export type BootTimelineRow = { phase: BootPhase; ms: number | null };
 
@@ -33,6 +34,7 @@ export function getBootTimeline(origin: 'start' | 'navigation' = 'start'): BootT
         'shell-visible',
         'dashboard-chunk-loaded',
         'dashboard-interactive',
+        'first-tab-open',
     ];
 
     let originMs = 0;
@@ -62,6 +64,20 @@ export function getBootPhaseMs(phase: BootPhase): number | null {
 /** TTFI — وقت الجاهزية التفاعلية للوحة (ms من hami:boot:start) */
 export function getDashboardInteractiveMs(): number | null {
     return getBootPhaseMs('dashboard-interactive');
+}
+
+/** أول لحظة يصبح فيها تبويب اللوحة الأساسي ظاهراً وقابلاً للاستخدام بصرياً. */
+export function getFirstTabOpenMs(): number | null {
+    return getBootPhaseMs('first-tab-open');
+}
+
+/** ms بين dashboard-interactive و first-tab-open (null إذا لم تكتمل المرحلتان). */
+export function getDashboardToFirstTabOpenMs(): number | null {
+    const interactive = getDashboardInteractiveMs();
+    const firstTabOpen = getFirstTabOpenMs();
+    if (interactive == null || firstTabOpen == null) return null;
+    if (firstTabOpen < interactive) return null;
+    return firstTabOpen - interactive;
 }
 
 export function reportBootTimeline(): void {

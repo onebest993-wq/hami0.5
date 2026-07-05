@@ -1,15 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { releaseBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { useLawyerDashboardTasksOverlayEscape } from '@/app/hooks/lawyerDashboard/useLawyerDashboardTasksOverlayEscape';
 
-vi.mock('@/app/utils/bodyScrollLock', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('@/app/utils/bodyScrollLock')>();
-    return {
-        ...actual,
-        releaseBodyScrollLock: vi.fn(),
-    };
-});
+vi.mock('@/app/components/lawyer/dashboard/fieldTasks/tasksEscapeCoordinator', () => ({
+    isTasksOverlayEscapeBlocked: () => false,
+}));
 
 describe('useLawyerDashboardTasksOverlayEscape', () => {
     beforeEach(() => {
@@ -34,7 +29,6 @@ describe('useLawyerDashboardTasksOverlayEscape', () => {
         });
 
         expect(onCloseFieldTasksSheet).toHaveBeenCalledTimes(1);
-        expect(releaseBodyScrollLock).toHaveBeenCalledTimes(1);
         expect(onCloseTasksManager).not.toHaveBeenCalled();
     });
 
@@ -56,7 +50,6 @@ describe('useLawyerDashboardTasksOverlayEscape', () => {
         });
 
         expect(onCloseTasksManager).toHaveBeenCalledTimes(1);
-        expect(releaseBodyScrollLock).toHaveBeenCalledTimes(1);
         expect(onCloseFieldTasksSheet).not.toHaveBeenCalled();
     });
 });

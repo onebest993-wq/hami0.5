@@ -7,6 +7,7 @@ import {
     prefetchLawyerHomeHubCard,
     prefetchNotificationPanel,
     prefetchVoiceRecorderModal,
+    warmExecutionDossier,
     warmExecutionWorkspace,
     warmLawsuitWorkspace,
     warmNotepadAndProfile,
@@ -17,7 +18,7 @@ import { warmForumOnHover } from '@/app/hooks/lawyerDashboard/forumIntentWarm';
 import { warmHomeOnHover } from '@/app/hooks/lawyerDashboard/homeIntentWarm';
 import { warmNotepadOnHover } from '@/app/hooks/lawyerDashboard/notepadIntentWarm';
 import { warmFieldTasksOnHover } from '@/app/hooks/lawyerDashboard/fieldTasksIntentWarm';
-import { warmScheduleOnHover } from '@/app/hooks/lawyerDashboard/scheduleIntentWarm';
+import { warmScheduleOnHover, warmScheduleOnOpen } from '@/app/hooks/lawyerDashboard/scheduleIntentWarm';
 import { warmTransactionsOnHover, warmTransactionsOnOpen } from '@/app/hooks/lawyerDashboard/transactionsIntentWarm';
 import { warmVaultOnHover } from '@/app/hooks/lawyerDashboard/vaultIntentWarm';
 import {
@@ -43,7 +44,8 @@ export function prefetchHubArchiveIntent(
     if (typeof window === 'undefined') return;
     switch (archiveId) {
         case 'execution':
-            warmExecutionWorkspace();
+            if (phase === 'open') warmExecutionWorkspace();
+            else warmExecutionDossier();
             break;
         case 'lawsuit':
             warmLawsuitWorkspace();
@@ -73,17 +75,20 @@ export function prefetchDockWidgetIntent(
             else warmRepositoryHubOnHover();
             break;
         case 'dockNotepad':
-            warmNotepadOnHover();
+            if (phase === 'open') warmRepositoryOnOpen();
+            else warmRepositoryHubOnHover();
             break;
         case 'dockQuickNote':
             warmNotepadOnHover();
             if (phase === 'open') prefetchVoiceRecorderModal();
             break;
         case 'dockCalendar':
-            warmScheduleOnHover();
+            if (phase === 'open') warmScheduleOnOpen();
+            else warmScheduleOnHover();
             break;
         case 'dockVault':
-            warmVaultOnHover();
+            if (phase === 'open') warmRepositoryOnOpen();
+            else warmRepositoryHubOnHover();
             break;
         case 'dockTasks':
             warmFieldTasksOnHover();
@@ -91,7 +96,6 @@ export function prefetchDockWidgetIntent(
         case 'alerts':
             prefetchLawyerHomeHubCard();
             prefetchNotificationPanel();
-            void import('@/app/components/lawyer/dashboard/HomeDockQuickSheet').catch(() => undefined);
             break;
         case 'forum':
             warmForumOnHover();

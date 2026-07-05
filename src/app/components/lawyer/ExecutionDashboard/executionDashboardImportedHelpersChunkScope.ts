@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** مرافق مستوردة ثابتة لـ chunk scope — دوال/تخزين لا تتغير بين renders */
 import { storageCache } from '@/app/utils/storageCache';
 import { executionStorageKey } from '@/app/utils/executionStorageKeys';

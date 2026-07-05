@@ -2,7 +2,7 @@
  * فلاتر «المواعيد والتنبيهات الحقيقية» — ما أدخله المستخدم صراحةً
  * من إضبارة نشطة (غير مؤرشفة/محذوفة/موقوفة)، وليس مُولَّداً آلياً من النظام.
  */
-import type { CalendarEvent } from '@/app/services/lawyer-cloud';
+import type { CalendarEvent } from '@/app/services/calendar/calendarTypes';
 import { isBridgedCalendarEvent } from '@/app/services/calendarBridgePersistence';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';

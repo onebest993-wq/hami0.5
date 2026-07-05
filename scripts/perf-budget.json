@@ -18,10 +18,8 @@
   "chunkRegression": {
     "maxPercentIncrease": 5,
     "watchPrefixes": [
-      "execution-dashboard-core",
-      "execution-core-scope",
-      "execution-core-handlers",
-      "execution-core-pipelines",
+      "execution-dashboard",
+      "execution-shared",
       "execution-dashboard-static-scope",
       "execution-hooks",
       "execution-orchestrators",
@@ -61,7 +59,11 @@
       "settingsPerfMetrics",
       "NotificationPanel",
       "notificationPanelLoader",
-      "notificationPerfMetrics"
+      "notificationPerfMetrics",
+      "SmartLegalRadar",
+      "LawyerDashboardScheduleTab",
+      "lawyerCalendarCloud",
+      "scheduleHubLoader"
     ]
   }
 }

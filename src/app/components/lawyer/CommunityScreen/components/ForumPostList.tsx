@@ -32,8 +32,9 @@ interface ForumPostListProps {
     userStats: Record<string, { followerCount: number; postCount: number }>;
     bookmarkedIds?: Set<string>;
     onToggleBookmark?: (postId: string) => void;
-    onSaveToNotes?: (postId: string) => void;
+    onCopyPostText?: (postId: string) => void;
     onSaveToVault?: (postId: string) => void;
+    onSaveToDevice?: (postId: string) => void;
     onToggleLock?: (postId: string) => void;
     onMuteUser?: (userId: string) => void;
     emptyHint?: string;
@@ -48,7 +49,7 @@ export const ForumPostList = memo(function ForumPostList({
     onDelete, onEdit, onReport, onShare,
     onLoadMore,
     isAdmin, onTogglePin, onFollow, followingIds, userStats,
-    bookmarkedIds, onToggleBookmark, onSaveToNotes, onSaveToVault, onToggleLock, onMuteUser,
+    bookmarkedIds, onToggleBookmark, onCopyPostText, onSaveToVault, onSaveToDevice, onToggleLock, onMuteUser,
     emptyHint,
     threadFollowingIds,
     onToggleThreadFollow,
@@ -116,8 +117,9 @@ export const ForumPostList = memo(function ForumPostList({
                     userStats={userStats}
                     isBookmarked={bookmarkedIds?.has(post.id) ?? false}
                     onToggleBookmark={onToggleBookmark}
-                    onSaveToNotes={onSaveToNotes}
+                    onCopyPostText={onCopyPostText}
                     onSaveToVault={onSaveToVault}
+                    onSaveToDevice={onSaveToDevice}
                     onToggleLock={onToggleLock}
                     onMuteUser={onMuteUser}
                     isThreadFollowing={threadFollowingIds?.has(post.id) ?? false}

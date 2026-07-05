@@ -287,7 +287,7 @@ export const EditCaseInfoModal = ({ isOpen, onClose, formData, onSave }: EditCas
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-['Tajawal']">
+        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-['Tajawal']">
             <div className="bg-[#1A1E2E] border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto scrollbar-hide shadow-2xl">
                 <div className="bg-[#0F172A] border-b border-white/10 p-4 text-[#E6C673] flex justify-between items-center sticky top-0 z-10">
                     <h3 className="font-bold flex items-center gap-2">

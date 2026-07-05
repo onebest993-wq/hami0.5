@@ -10,8 +10,9 @@ import {
     registerScheduleWarmUserId,
     warmScheduleOnHover,
     warmScheduleOnOpen,
+    warmCalendarEventsCache,
 } from '@/app/hooks/lawyerDashboard/scheduleIntentWarm';
-import { loadScheduleHubModule } from '@/app/runtime/scheduleHubLoader';
+import { hydrateScheduleShellForInstantOpenWithData } from '@/app/runtime/scheduleBootHydrator';
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 import { dismissTransientOverlays } from '@/app/utils/bodyScrollLock';
 import {
@@ -46,21 +47,26 @@ export function useLawyerDashboardScheduleTab({
         warmScheduleOnHover(userId ?? undefined);
     }, [userId]);
 
-    useEffect(() => registerScheduleWarmUserId(userId), [userId]);
+    useEffect(() => {
+        return registerScheduleWarmUserId(userId);
+    }, [userId]);
 
     useEffect(() => {
         if (!isRealSignedIn(userId)) return;
+        warmScheduleOnHover(userId ?? undefined);
+        void hydrateScheduleShellForInstantOpenWithData(userId, true).catch(() => undefined);
         return scheduleIdleWork(
             () => {
                 warmScheduleOnHover(userId ?? undefined);
             },
-            { minDelayMs: 6_000, timeoutMs: 15_000 },
+            { minDelayMs: 0, timeoutMs: 4_000 },
         );
     }, [userId]);
 
     useLayoutEffect(() => {
         if (activeTab !== 'schedule') return;
         warmScheduleOnOpen(userId ?? undefined);
+        void warmCalendarEventsCache(userId ?? undefined).catch(() => undefined);
         if (!hasMarkedScheduleOpenRef.current) {
             hasMarkedScheduleOpenRef.current = true;
             setScheduleTabSessionKey((k) => (k === 0 ? 1 : k));
@@ -87,6 +93,7 @@ export function useLawyerDashboardScheduleTab({
                     clearCalendarPerfMarks();
                     markCalendarPerfPhase('open-request');
                     warmScheduleOnOpen(userId ?? undefined);
+                    void warmCalendarEventsCache(userId ?? undefined).catch(() => undefined);
                     primeScheduleTabMount();
                     if (opts?.date !== undefined || opts?.eventId !== undefined) {
                         setCalendarSearchFocus({
@@ -97,7 +104,7 @@ export function useLawyerDashboardScheduleTab({
                         setCalendarSearchFocus(null);
                     }
                     setActiveTab('schedule');
-                    void loadScheduleHubModule().catch(() => undefined);
+                    void hydrateScheduleShellForInstantOpenWithData(userId, true).catch(() => undefined);
                 },
             });
         },

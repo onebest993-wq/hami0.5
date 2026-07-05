@@ -1,6 +1,5 @@
-import React, { memo, Suspense } from 'react';
-import { LazyNotificationPanel } from '@/app/utils/lazyComponents';
-import { NotificationPanelLoadingFallback } from '@/app/components/lawyer/LawyerDashboardParts/LazyFallback';
+import React, { memo } from 'react';
+import { NotificationPanelHost } from '@/app/components/lawyer/NotificationPanel/NotificationPanelHost';
 import { IncomingNotificationPopups } from '@/app/components/lawyer/NotificationPanel/components/IncomingNotificationPopups';
 import { useIncomingNotificationPopups } from '@/app/hooks/lawyerDashboard/useIncomingNotificationPopups';
 import { useNotificationShellLifecycle } from '@/app/hooks/lawyerDashboard/useNotificationShellLifecycle';
@@ -43,16 +42,14 @@ function NotificationShellInner({
         <>
             <div data-hami-notification-shell="" hidden={!isOpen && queue.length === 0}>
             {userId && isOpen ? (
-                <Suspense fallback={<NotificationPanelLoadingFallback onClose={onClose} />}>
-                    <LazyNotificationPanel
-                        key={`notification-panel-${panelSessionKey}`}
-                        isOpen={isOpen}
-                        panelSessionKey={panelSessionKey}
-                        onClose={onClose}
-                        userId={userId}
-                        onNavigate={onNavigate}
-                    />
-                </Suspense>
+                <NotificationPanelHost
+                    key={`notification-panel-${panelSessionKey}`}
+                    isOpen={isOpen}
+                    panelSessionKey={panelSessionKey}
+                    onClose={onClose}
+                    userId={userId}
+                    onNavigate={onNavigate}
+                />
             ) : null}
             </div>
             <IncomingNotificationPopups items={queue} onDismiss={dismiss} onOpen={handlePopupOpen} />

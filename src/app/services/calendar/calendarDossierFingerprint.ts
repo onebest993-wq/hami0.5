@@ -50,26 +50,15 @@ function executionFileFingerprint(file: Record<string, unknown>): string {
     return parts.join(';');
 }
 
-function buildNotesFingerprint(notes: unknown[]): string {
-    return notes
-        .filter(isRecord)
-        .map((n) => {
-            const id = String(n.id ?? '');
-            return `${id}:${readStr(n, 'apptDate')}:${readStr(n, 'reminder_at')}:${readStr(n, 'date')}`;
-        })
-        .sort()
-        .join('|');
-}
-
-function buildFieldTasksFingerprint(tasks: LegalTask[]): string {
-    return tasks
-        .map((t) => {
-            const ymd = t.parsedDate?.toISOString().slice(0, 10) ?? '';
-            const rem = t.reminderAt?.toISOString().slice(0, 10) ?? '';
-            return `${t.id}:${t.status}:${ymd}:${rem}:${t.pinnedToFieldCurtain ? 1 : 0}`;
-        })
-        .sort()
-        .join('|');
+function criminalCaseFingerprint(c: Record<string, unknown>): string {
+    const id = String(c.id ?? '');
+    const parts: string[] = [id, readStr(c, 'nextSessionDate')];
+    const trials = Array.isArray(c.trials) ? c.trials : [];
+    for (const trial of trials) {
+        if (!isRecord(trial)) continue;
+        parts.push(`t:${trial.id}:${readStr(trial, 'date')}:${readStr(trial, 'nextSessionDate')}`);
+    }
+    return parts.join(';');
 }
 
 function buildDossierFilesFingerprint(lawsuitFiles: unknown[], executionFiles: unknown[]): string {
@@ -86,13 +75,23 @@ function buildDossierFilesFingerprint(lawsuitFiles: unknown[], executionFiles: u
     return `${l}##${e}`;
 }
 
+function buildCriminalFingerprint(criminalCases: unknown[]): string {
+    return criminalCases
+        .filter(isRecord)
+        .map(criminalCaseFingerprint)
+        .sort()
+        .join('||');
+}
+
 /** بصمة الإضابير — تُستخدم لمزامنة التقويم و reconcile الذكي */
 export function buildCalendarDossierFingerprint(
     lawsuitFiles: unknown[] = [],
     executionFiles: unknown[] = [],
-    globalNotes: unknown[] = [],
-    fieldTasks: LegalTask[] = [],
+    _globalNotes: unknown[] = [],
+    _fieldTasks: LegalTask[] = [],
     criminalCases: unknown[] = [],
 ): string {
-    return `${buildDossierFilesFingerprint(lawsuitFiles, executionFiles)}##${buildNotesFingerprint(globalNotes)}##${buildFieldTasksFingerprint(fieldTasks)}##${criminalCases.length}`;
+    void _globalNotes;
+    void _fieldTasks;
+    return `${buildDossierFilesFingerprint(lawsuitFiles, executionFiles)}##${buildCriminalFingerprint(criminalCases)}`;
 }

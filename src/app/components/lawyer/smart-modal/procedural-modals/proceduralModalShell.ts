@@ -1,5 +1,6 @@
-export const GLASS_MODAL_OVERLAY =
-    "fixed inset-0 z-[160] flex items-center justify-center bg-[#05060D]/65 backdrop-blur-[3px] p-4 font-['Tajawal']";
+import { SMART_FILE_NESTED_MODAL_OVERLAY_CLASS } from '../smartFile/smartFileOverlayZ';
+
+export const GLASS_MODAL_OVERLAY = SMART_FILE_NESTED_MODAL_OVERLAY_CLASS;
 export const GLASS_MODAL_SHELL =
     'rounded-2xl border border-white/[0.1] bg-[#0A0F1C]/80 backdrop-blur-2xl shadow-[0_24px_80px_rgba(0,0,0,0.65)] w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200';
 export const GLASS_MODAL_HEADER =

@@ -2,7 +2,9 @@ import { warmGlobalSearchOnHover, warmGlobalSearchOnOpen } from '@/app/hooks/law
 import { loadGlobalSearchOverlayModule } from '@/app/runtime/globalSearchLoader';
 import { warmProfileOnHover, warmProfileOnOpen } from '@/app/hooks/lawyerDashboard/profileIntentWarm';
 import { loadRoyalLawyerProfileModule } from '@/app/runtime/royalLawyerProfileLoader';
-import { warmSettingsOnHover, warmSettingsOnOpen } from '@/app/hooks/lawyerDashboard/settingsIntentWarm';
+import { warmSettingsOnHover, warmSettingsOnOpen, primeSettingsShellForOpen } from '@/app/hooks/lawyerDashboard/settingsIntentWarm';
+import { loadHamiSettingsModule } from '@/app/runtime/hamiSettingsLoader';
+import { preloadAllSettingsSectionComponents } from '@/app/components/lawyer/HamiSettings/settingsSectionRegistry';
 import {
     warmNotificationsOnHover,
 } from '@/app/hooks/lawyerDashboard/notificationIntentWarm';
@@ -28,9 +30,14 @@ export function createLawyerDashboardHeaderPrefetch(
     };
     const prefetchSettingsHover = () => {
         warmSettingsOnHover();
+        void loadHamiSettingsModule().catch(() => undefined);
     };
     const prefetchSettingsPress = () => {
-        warmSettingsOnHover();
+        primeSettingsShellForOpen();
+        void Promise.all([
+            loadHamiSettingsModule(),
+            preloadAllSettingsSectionComponents(),
+        ]).catch(() => undefined);
     };
     const prefetchProfileHover = () => {
         warmProfileOnHover(resolvedId);

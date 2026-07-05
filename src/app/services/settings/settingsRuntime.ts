@@ -216,11 +216,8 @@ export function isCloudSyncBucketEnabled(
 
     if (!settings.data.cloudSync) return false;
 
-    if (bucket === 'notes') return settings.data.syncNotes;
-
-    if (bucket === 'files') return settings.data.syncFiles;
-
-    return settings.data.syncExecution;
+    // مفتاح رئيسي واحد — المجالات الداخلية تُفعَّل مع cloudSync للربط السحابي لاحقاً
+    return true;
 
 }
 

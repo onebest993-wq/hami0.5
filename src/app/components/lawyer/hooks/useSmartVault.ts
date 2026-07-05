@@ -28,7 +28,7 @@ export {
 export const useSmartVault = (
     onClose: () => void,
     propUserId?: string,
-    options?: { embedded?: boolean },
+    options?: { embedded?: boolean; onAfterVaultSave?: () => void },
 ): UseSmartVaultReturn => {
     const authUser = useAuthUser();
     const currentUserId =
@@ -37,9 +37,10 @@ export const useSmartVault = (
     const data = useSmartVaultData(currentUserId, propUserId, options?.embedded);
     const upload = useSmartVaultUpload({
         currentUserId,
-        loadDocs: data.loadDocs,
+        prependVaultDoc: data.prependVaultDoc,
         addVaultCategory: data.addVaultCategory,
         setActiveFilter: data.setActiveFilter,
+        onAfterVaultSave: options?.onAfterVaultSave,
     });
     const shell = useSmartVaultShell({
         onClose,
@@ -55,6 +56,7 @@ export const useSmartVault = (
         currentUserId,
         docsRef: data.docsRef,
         loadDocs: data.loadDocs,
+        removeDocFromState: data.removeVaultDoc,
         addVaultCategory: data.addVaultCategory,
         setActiveFilter: data.setActiveFilter,
         setOpenDropdownId: shell.setOpenDropdownId,
@@ -104,6 +106,7 @@ export const useSmartVault = (
         handleSearchSubmit: shell.handleSearchSubmit,
         handleDropdownAction: docActions.handleDropdownAction,
         refreshDocs: data.loadDocs,
+        prependVaultDoc: data.prependVaultDoc,
         onClose,
     };
 };

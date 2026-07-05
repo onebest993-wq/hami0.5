@@ -53,6 +53,20 @@ describe('computeVisibleCommunityPosts', () => {
         });
         expect(visible.map((p) => p.id)).toEqual(['a']);
     });
+
+    it('يُظهر منشورات المستخدم نفسه في نطاق following', () => {
+        const posts = [basePost('mine', 'me'), basePost('other', 'stranger')];
+        const visible = computeVisibleCommunityPosts({
+            posts,
+            mutedIds: new Set(),
+            currentUserId: 'me',
+            forumFeedScope: 'following',
+            followingIds: new Set(['followed']),
+            selectedFilterIndex: 0,
+            filterLabels: ['الكل'],
+        });
+        expect(visible.map((p) => p.id)).toEqual(['mine']);
+    });
 });
 
 describe('trimCommunityPostsRetention', () => {
