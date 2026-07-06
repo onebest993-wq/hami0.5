@@ -1,7 +1,7 @@
-// @ts-nocheck
 import type { LawyerDashboardOverlaysHostProps } from '@/app/components/lawyer/dashboard/lawyerDashboardOverlaysHostBundles';
 import { pickLawyerDashboardWorkspaceOverlayBundles } from '@/app/hooks/lawyerDashboard/pickLawyerDashboardWorkspaceOverlayBundles';
 import type { BuildLawyerDashboardOverlaysHostParams } from '@/app/hooks/lawyerDashboard/buildLawyerDashboardOverlaysHostProps.types';
+import { coerceExecutionFilePreserveId } from '@/app/components/lawyer/LawyerDashboardParts/utils';
 import { readPersistedSupabaseAuth } from '@/app/utils/authStorage';
 
 export function buildLawyerDashboardOverlaysHostProps({
@@ -25,7 +25,7 @@ export function buildLawyerDashboardOverlaysHostProps({
     const workspaceBundles = pickLawyerDashboardWorkspaceOverlayBundles(workspace, {
         isNotepadOpen: overlays.isNotepadOpen,
         notepadMode: overlays.notepadMode,
-        notepadFocusNoteId: overlays.notepadFocusNoteId,
+        notepadFocusNoteId: overlays.focusNoteId,
         notepadSessionKey: overlays.notepadSessionKey,
         repositoryTab: overlays.repositoryTab ?? 'notepad',
         vaultOpenScanner: overlays.vaultOpenScanner ?? false,
@@ -45,7 +45,7 @@ export function buildLawyerDashboardOverlaysHostProps({
         },
         data: {
             files,
-            executionFiles,
+            executionFiles: executionFiles.map((file) => coerceExecutionFilePreserveId(file)),
             executionFilesHydrating: !workspace.storageHydrated,
             globalNotes,
             searchNotifications,

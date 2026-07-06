@@ -59,6 +59,7 @@ function scheduleIncrementalSync(lawyerId: string, payload: SyncPayload, fingerp
  * دعاوى، تنفيذ (مع مهام الاستحقاق)، جزائي (يُمرَّر من الجسر)، Threading.
  */
 export function useIncrementalCalendarSync(
+    enabled: boolean,
     lawyerId: string | null | undefined,
     lawsuitFiles: unknown[] = [],
     executionFiles: unknown[] = [],
@@ -98,6 +99,7 @@ export function useIncrementalCalendarSync(
     }, []);
 
     useEffect(() => {
+        if (!enabled) return;
         if (!lawyerId) return;
         scheduleIncrementalSync(lawyerId, payload, dossierFingerprint);
 
@@ -141,7 +143,7 @@ export function useIncrementalCalendarSync(
             if (t) clearTimeout(t);
             timers.delete(lawyerId);
         };
-    }, [lawyerId, dossierFingerprint, payload]);
+    }, [enabled, lawyerId, dossierFingerprint, payload]);
 }
 
 /** يُستدعى بعد حفظ مهمة/معاملة Threading */

@@ -13,7 +13,6 @@ import {
     warmCalendarEventsCache,
 } from '@/app/hooks/lawyerDashboard/scheduleIntentWarm';
 import { hydrateScheduleShellForInstantOpenWithData } from '@/app/runtime/scheduleBootHydrator';
-import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 import { dismissTransientOverlays } from '@/app/utils/bodyScrollLock';
 import {
     clearCalendarPerfMarks,
@@ -49,18 +48,6 @@ export function useLawyerDashboardScheduleTab({
 
     useEffect(() => {
         return registerScheduleWarmUserId(userId);
-    }, [userId]);
-
-    useEffect(() => {
-        if (!isRealSignedIn(userId)) return;
-        warmScheduleOnHover(userId ?? undefined);
-        void hydrateScheduleShellForInstantOpenWithData(userId, true).catch(() => undefined);
-        return scheduleIdleWork(
-            () => {
-                warmScheduleOnHover(userId ?? undefined);
-            },
-            { minDelayMs: 0, timeoutMs: 4_000 },
-        );
     }, [userId]);
 
     useLayoutEffect(() => {

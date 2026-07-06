@@ -23,8 +23,6 @@ import {
 } from '@/app/hooks/lawyerDashboard/repositoryIntentWarm';
 import {
     hydrateRepositoryBootShellForInstantOpen,
-    isRepositoryShellFullyHydrated,
-    REPOSITORY_SHELL_HYDRATED_EVENT,
 } from '@/app/runtime/repositoryBootHydrator';
 import { loadRepositoryHubModule } from '@/app/runtime/repositoryHubLoader';
 import { useKeepAliveIdleRelease } from '@/app/hooks/lawyerDashboard/useKeepAliveIdleRelease';
@@ -76,23 +74,6 @@ export function useLawyerDashboardRepository({ userId }: UseLawyerDashboardRepos
 
     useEffect(() => {
         return registerRepositoryWarmUserId(userId);
-    }, [userId]);
-
-    useEffect(() => {
-        if (!isRealSignedIn(userId)) return;
-        if (isRepositoryShellFullyHydrated()) {
-            setRepositoryHostMounted(true);
-            return;
-        }
-
-        const armHost = () => setRepositoryHostMounted(true);
-        window.addEventListener(REPOSITORY_SHELL_HYDRATED_EVENT, armHost);
-        setRepositoryHostMounted(true);
-        void hydrateRepositoryBootShellForInstantOpen(userId).then((ready) => {
-            if (ready) armHost();
-        }).catch(() => undefined);
-
-        return () => window.removeEventListener(REPOSITORY_SHELL_HYDRATED_EVENT, armHost);
     }, [userId]);
 
     useLayoutEffect(() => {

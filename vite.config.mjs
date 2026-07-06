@@ -285,6 +285,36 @@ function resolveVendorChunk(id) {
     }
     return 'vendor-misc';
 }
+function resolveExecutionHandlerClusterChunk(id) {
+    var normalized = normalizeModuleId(id);
+    if (!normalized.includes('/src/app/components/lawyer/ExecutionDashboard/'))
+        return undefined;
+    if (normalized.includes('/ExecutionDashboardHandlerClusterFollowupAdminSpecialBridge') ||
+        normalized.includes('/useExecutionDashboardCoreHandlerClusterFollowupAdminSpecial') ||
+        normalized.includes('/useExecutionDashboardDossierAdminFollowupHandlers') ||
+        normalized.includes('/useExecutionDashboardCoreHandlerClusterFoundationTimeline')) {
+        return 'ExecutionDashboardHandlerClusterFollowupAdminSpecialBridge';
+    }
+    if (normalized.includes('/ExecutionDashboardHandlerClusterFollowupDossierControlsBridge') ||
+        normalized.includes('/useExecutionDashboardCoreHandlerClusterFollowupDossierControls') ||
+        normalized.includes('/useExecutionDashboardDossierControlsHandlers')) {
+        return 'ExecutionDashboardHandlerClusterFollowupDossierControlsBridge';
+    }
+    if (normalized.includes('/ExecutionDashboardHandlerClusterFollowupOtherPartyBridge') ||
+        normalized.includes('/useExecutionDashboardCoreHandlerClusterFollowupOtherParty') ||
+        normalized.includes('/useExecutionDashboardOtherPartyHandlers')) {
+        return 'ExecutionDashboardHandlerClusterFollowupOtherPartyBridge';
+    }
+    if (normalized.includes('/ExecutionDashboardHandlerClusterSeizureHeavyBridge') ||
+        normalized.includes('/useExecutionDashboardCoreHandlerClusterSeizureHeavy')) {
+        return 'ExecutionDashboardHandlerClusterSeizureHeavyBridge';
+    }
+    if (normalized.includes('/ExecutionDashboardHandlerClusterBridge') ||
+        normalized.includes('/useExecutionDashboardCoreHandlerCluster.ts')) {
+        return 'ExecutionDashboardHandlerClusterBridge';
+    }
+    return undefined;
+}
 export default defineConfig(function (_a) {
     var command = _a.command;
     return ({
@@ -374,6 +404,9 @@ export default defineConfig(function (_a) {
                 output: {
                     experimentalMinChunkSize: 50 * 1024,
                     manualChunks: function (id) {
+                        var executionHandlerClusterChunk = resolveExecutionHandlerClusterChunk(id);
+                        if (executionHandlerClusterChunk)
+                            return executionHandlerClusterChunk;
                         return resolveVendorChunk(id);
                     },
                     chunkFileNames: 'assets/[name]-[hash].js',

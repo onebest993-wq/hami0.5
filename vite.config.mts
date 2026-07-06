@@ -223,6 +223,34 @@ function resolveVendorChunk(id: string): string | undefined {
   return 'vendor-misc'
 }
 
+function resolveExecutionHandlerClusterChunk(id: string): string | undefined {
+  const normalized = normalizeModuleId(id)
+  if (!normalized.includes('/src/app/components/lawyer/ExecutionDashboard/')) return undefined
+
+  if (
+    normalized.includes('/ExecutionDashboardHandlerClusterFollowupHeavyBridge') ||
+    normalized.includes('/useExecutionDashboardCoreHandlerClusterFollowupHeavy')
+  ) {
+    return 'ExecutionDashboardHandlerClusterFollowupHeavyBridge'
+  }
+
+  if (
+    normalized.includes('/ExecutionDashboardHandlerClusterSeizureHeavyBridge') ||
+    normalized.includes('/useExecutionDashboardCoreHandlerClusterSeizureHeavy')
+  ) {
+    return 'ExecutionDashboardHandlerClusterSeizureHeavyBridge'
+  }
+
+  if (
+    normalized.includes('/ExecutionDashboardHandlerClusterBridge') ||
+    normalized.includes('/useExecutionDashboardCoreHandlerCluster.ts')
+  ) {
+    return 'ExecutionDashboardHandlerClusterBridge'
+  }
+
+  return undefined
+}
+
 export default defineConfig(({ command }) => ({
   plugins: [
     preferFileOverDirectory(projectRoot),
@@ -317,6 +345,8 @@ export default defineConfig(({ command }) => ({
       output: {
         experimentalMinChunkSize: 50 * 1024,
         manualChunks(id) {
+          const executionHandlerClusterChunk = resolveExecutionHandlerClusterChunk(id)
+          if (executionHandlerClusterChunk) return executionHandlerClusterChunk
           return resolveVendorChunk(id);
         },
         chunkFileNames: 'assets/[name]-[hash].js',

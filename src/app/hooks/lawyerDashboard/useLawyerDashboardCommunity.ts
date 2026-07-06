@@ -15,7 +15,6 @@ import {
 import { markForumPerfPhase, clearForumPerfMarks } from '@/app/services/forum/forumPerfMetrics';
 import { loadCommunityScreenModule } from '@/app/runtime/communityHubLoader';
 import { hydrateCommunityShellForInstantOpen } from '@/app/runtime/communityBootHydrator';
-import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 import { readForumPostsCache } from '@/app/services/forum/forumPostsWarmCache';
 import {
     dismissTransientOverlays,
@@ -64,18 +63,6 @@ export function useLawyerDashboardCommunity({ userId, activeTab }: UseLawyerDash
         warmForumOnHover();
         void hydrateCommunityShellForInstantOpen().catch(() => undefined);
     }, []);
-
-    useEffect(() => {
-        if (!isRealSignedIn(userId)) return;
-        warmForumOnHover();
-        void hydrateCommunityShellForInstantOpen().catch(() => undefined);
-        return scheduleIdleWork(
-            () => {
-                void hydrateCommunityShellForInstantOpen().catch(() => undefined);
-            },
-            { minDelayMs: 0, timeoutMs: 4_000 },
-        );
-    }, [userId]);
 
     useEffect(() => {
         return registerDashboardOverlayCloser('forum', () => {

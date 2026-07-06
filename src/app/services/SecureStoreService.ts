@@ -35,6 +35,7 @@ const HEAVY_PERSIST_DEBOUNCE_MS = 1_200;
 const heavyPersistTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const heavyPersistPending = new Map<string, string>();
 let heavyPersistVisibilityHook = false;
+let heavyPersistHiddenFlushTimer: ReturnType<typeof setTimeout> | null = null;
 
 const HEAVY_PERSIST_EXACT_KEYS = new Set([
   'executionFiles',
@@ -51,8 +52,7 @@ function isHeavyPersistKey(key: string): boolean {
 function installHeavyPersistFlushHook(): void {
   if (heavyPersistVisibilityHook || typeof document === 'undefined') return;
   heavyPersistVisibilityHook = true;
-  const flush = () => {
-    if (document.visibilityState !== 'hidden') return;
+  const flushPending = () => {
     for (const timer of heavyPersistTimers.values()) clearTimeout(timer);
     heavyPersistTimers.clear();
     for (const [key, value] of heavyPersistPending.entries()) {
@@ -60,8 +60,29 @@ function installHeavyPersistFlushHook(): void {
       void SecureStoreService.setItem(key, value);
     }
   };
-  document.addEventListener('visibilitychange', flush);
-  window.addEventListener('pagehide', flush);
+  const scheduleVisibilityFlush = () => {
+    if (document.visibilityState !== 'hidden') {
+      if (heavyPersistHiddenFlushTimer) {
+        clearTimeout(heavyPersistHiddenFlushTimer);
+        heavyPersistHiddenFlushTimer = null;
+      }
+      return;
+    }
+    if (heavyPersistHiddenFlushTimer) clearTimeout(heavyPersistHiddenFlushTimer);
+    heavyPersistHiddenFlushTimer = setTimeout(() => {
+      heavyPersistHiddenFlushTimer = null;
+      if (document.visibilityState === 'hidden') flushPending();
+    }, 900);
+  };
+  const flushOnPageHide = () => {
+    if (heavyPersistHiddenFlushTimer) {
+      clearTimeout(heavyPersistHiddenFlushTimer);
+      heavyPersistHiddenFlushTimer = null;
+    }
+    flushPending();
+  };
+  document.addEventListener('visibilitychange', scheduleVisibilityFlush);
+  window.addEventListener('pagehide', flushOnPageHide);
 }
 const WEB_DB_NAME = 'hami-secure-store';
 const WEB_DB_VERSION = 2;
@@ -522,15 +543,20 @@ class SecureStoreService {
     try {
       const ls = globalThis.localStorage;
       if (!ls) return;
+      const keysToMigrate: string[] = [];
       for (let i = 0; i < ls.length; i++) {
         const k = ls.key(i);
-        if (!k) continue;
-        if (!this.shouldMigrateWebKey(k)) continue;
+        if (!k || !this.shouldMigrateWebKey(k)) continue;
+        keysToMigrate.push(k);
+      }
+      for (const k of keysToMigrate) {
         const v = ls.getItem(k);
-        if (v !== null && !webFallbackStore.has(k)) {
+        if (v === null) continue;
+        if (!webFallbackStore.has(k)) {
           webFallbackStore.set(k, v);
           await this.webDbSetItem(k, v);
         }
+        ls.removeItem(k);
       }
     } catch {
       /* ignore migration issues */

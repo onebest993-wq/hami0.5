@@ -19,11 +19,7 @@ import {
     dismissTransientOverlays,
 } from '@/app/utils/bodyScrollLock';
 import { registerDashboardOverlayCloser } from '@/app/hooks/lawyerDashboard/dashboardOverlayCoordinator';
-import {
-    SETTINGS_SHELL_HYDRATED_EVENT,
-    hydrateSettingsShellForInstantOpen,
-    isSettingsShellFullyHydrated,
-} from '@/app/runtime/settingsBootHydrator';
+import { hydrateSettingsShellForInstantOpen } from '@/app/runtime/settingsBootHydrator';
 import { useKeepAliveIdleRelease } from '@/app/hooks/lawyerDashboard/useKeepAliveIdleRelease';
 
 export function useLawyerDashboardSettings(userId: string | null) {
@@ -51,21 +47,6 @@ export function useLawyerDashboardSettings(userId: string | null) {
 
     const resetSettingsShell = useCallback(() => {
         setSettingsSessionKey((k) => k + 1);
-    }, []);
-
-    useEffect(() => {
-        if (isSettingsShellFullyHydrated()) {
-            setSettingsHostMounted(true);
-            return;
-        }
-
-        const armHost = () => setSettingsHostMounted(true);
-        window.addEventListener(SETTINGS_SHELL_HYDRATED_EVENT, armHost);
-        void hydrateSettingsShellForInstantOpen().then((ready) => {
-            if (ready) armHost();
-        });
-
-        return () => window.removeEventListener(SETTINGS_SHELL_HYDRATED_EVENT, armHost);
     }, []);
 
     useEffect(() => {

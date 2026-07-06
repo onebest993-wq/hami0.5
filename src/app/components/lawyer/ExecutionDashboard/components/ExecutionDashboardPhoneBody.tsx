@@ -15,7 +15,6 @@ import {
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import { EXECUTION_DOSSIER_TEST_IDS } from '@/app/components/lawyer/ExecutionDashboard/executionDossierTestIds';
 import { ExecutionToast } from './ExecutionToast';
-import { GuarantorExternalHub } from './GuarantorExternalHub';
 import { DossierSwitcher } from './DossierSwitcher';
 import { InlineActionGate } from './InlineActionGate';
 import { UnifiedSeizureLogHost } from './UnifiedSeizureLogHost';
@@ -102,6 +101,12 @@ import {
 } from '../hooks/executionPhoneBodyScope';
 import { useExecutionDashboardPhoneBodyMountStages } from '../hooks/useExecutionDashboardPhoneBodyMountStages';
 import * as PhoneBodyLazyFallback from '../executionDashboardLazyRegistry';
+
+const LazyGuarantorExternalHub = React.lazy(() =>
+    import('./GuarantorExternalHub').then((m) => ({
+        default: m.GuarantorExternalHub,
+    })),
+);
 
 function withPhoneBodyScopeFallback(scope: Record<string, unknown>): Record<string, unknown> {
     const out = { ...scope };
@@ -575,11 +580,12 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
         voluntaryEndOptimistic,
     } = props;;
 
-    const { secondaryStageReady, tertiaryStageReady } = useExecutionDashboardPhoneBodyMountStages({
+    const { secondaryStageReady, tertiaryStageReady, quaternaryStageReady } = useExecutionDashboardPhoneBodyMountStages({
         movableSeizureRequestModalOpen,
         propertySeizureRequestModalOpen,
         showExecutionFinancialHub,
         showUnifiedSeizureLogModal,
+        showVisitationCalendarModal,
     });
 
     return (
@@ -973,22 +979,25 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
                         voluntaryEndOptimistic,
                     }} />
 
-                    {shouldShowGuarantorExternalHub(viewExecutionData) &&
+                    {quaternaryStageReady &&
+                    shouldShowGuarantorExternalHub(viewExecutionData) &&
                     !followupSpecialization.hideAllGuarantorPresence ? (
                         <div className="mx-3 mt-3.5">
-                            <GuarantorExternalHub viewExecutionData={viewExecutionData} openGuarantorDetailsModal={openGuarantorDetailsModal} archiveAndClearGuarantor={archiveAndClearGuarantor} handleGuarantorRequestFromFollowup={handleGuarantorRequestFromFollowup} setSummonsContextDebtorKey={setSummonsContextDebtorKey} setSummonsHubInitialMainTab={setSummonsHubInitialMainTab} setShowUnifiedSummonsModal={setShowUnifiedSummonsModal}
-                            />
+                            <Suspense fallback={null}>
+                                <LazyGuarantorExternalHub viewExecutionData={viewExecutionData} openGuarantorDetailsModal={openGuarantorDetailsModal} archiveAndClearGuarantor={archiveAndClearGuarantor} handleGuarantorRequestFromFollowup={handleGuarantorRequestFromFollowup} setSummonsContextDebtorKey={setSummonsContextDebtorKey} setSummonsHubInitialMainTab={setSummonsHubInitialMainTab} setShowUnifiedSummonsModal={setShowUnifiedSummonsModal}
+                                />
+                            </Suspense>
                         </div>
                     ) : null}
 
-                    {isVisitationClaim && (
+                    {quaternaryStageReady && isVisitationClaim && (
                         <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
                             <LazyVisitationScheduleModule viewExecutionData={viewExecutionData} visitChildNames={visitChildNames} fileNumber={String(executionData?.fileNumber ?? headerFields?.fileNumber ?? '')} todayYmd={todayYmd} persistExecutionMerge={persistExecutionMerge} pushTimelineEvent={pushTimelineEvent} nextTimelineId={nextTimelineId} showToast={showToast}
                             />
                         </Suspense>
                     )}
 
-                    {isMaritalFurnitureClaim && (
+                    {quaternaryStageReady && isMaritalFurnitureClaim && (
                         <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
                             <LazyMaritalFurnitureModule viewExecutionData={viewExecutionData} persistExecutionMerge={persistExecutionMerge} showToast={showToast}
                                 locked={executionToolsTimelineLockedUi}
@@ -996,7 +1005,8 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
                         </Suspense>
                     )}
 
-                    {isVisitationClaim &&
+                    {quaternaryStageReady &&
+                        isVisitationClaim &&
                         showVisitationCalendarModal &&
                         (viewExecutionData as { visitationSchedule?: import('@/app/types/visitationSchedule').VisitationScheduleBundle })
                             ?.visitationSchedule?.config && (
@@ -1021,7 +1031,7 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
                             </Suspense>
                         )}
 
-                    {isEvictionExecutionModule && (judicialCustodiansResolved?.length ?? 0) > 0 && (
+                    {quaternaryStageReady && isEvictionExecutionModule && (judicialCustodiansResolved?.length ?? 0) > 0 && (
                         <div className="mx-3 mt-1.5 space-y-1">
                             <p className="text-[9px] font-bold text-amber-500/90 text-right px-0.5">
                                 {judicialCustodiansResolved.length === 1
@@ -1094,7 +1104,7 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
                         
                         {/* نقل أزرار محضر المتابعة داخل نافذة «محضر المتابعة» فقط */}
                     
-                    {activeGraceTasks.length > 0 && evictionGracePinned && !evictionGraceHidden ? (
+                    {quaternaryStageReady && activeGraceTasks.length > 0 && evictionGracePinned && !evictionGraceHidden ? (
                         <div className="mx-3 mt-2 overflow-hidden rounded-3xl border border-amber-500/20 bg-gradient-to-br from-amber-500/[0.10] via-white/[0.03] to-transparent backdrop-blur-3xl shadow-[0_18px_60px_rgba(0,0,0,0.38)]">
                             <div className="flex flex-row-reverse items-center justify-between gap-3 px-4 py-3">
                                 <div className="min-w-0 flex-1 text-right">
@@ -1150,7 +1160,7 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
                                 ))}
                             </div>
                         </div>
-                    ) : activeGraceTasks.length > 0 && evictionGracePinned && evictionGraceHidden ? (
+                    ) : quaternaryStageReady && activeGraceTasks.length > 0 && evictionGracePinned && evictionGraceHidden ? (
                         <div className="mx-3 mt-2 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.02] px-3 py-2" dir="rtl">
                             <p className="text-[11px] font-bold text-slate-200">المهلة مخفية</p>
                             <button

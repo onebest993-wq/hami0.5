@@ -32,6 +32,292 @@ export function collectHandlerClusterContext(spreads: HandlerClusterContextSprea
     };
 }
 
+function pickHandlerClusterKeys(
+    bags: ReadonlyArray<Record<string, unknown>>,
+    keys: readonly string[],
+): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    for (const bag of bags) {
+        for (const key of keys) {
+            if (key in bag) out[key] = bag[key];
+        }
+    }
+    return out;
+}
+
+const FOUNDATION_HANDLER_CLUSTER_KEYS = [
+    'decisionsStorageExecutionId',
+    'decisionsReloadEpoch',
+    'executionData',
+    'executionDataRef',
+    'executionId',
+    'parentDossierId',
+    'persistExecutionMerge',
+    'showToast',
+    'setTimelineEvents',
+    'pushTimelineEventRef',
+    'realEstateSeizureAssets',
+    'realEstateSeizureModalDecisionId',
+    'realEstateSeizureSnapshotRef',
+    'nextTimelineId',
+    'setRealEstateSeizureAssets',
+    'setShowRealEstateSeizureModal',
+    'getLocalTodayYmd',
+    'setThirdPartySeizuresUi',
+    'linkSeizureAuctionToAppointments',
+    'pushSeizureAuctionCalendarAppointment',
+] as const;
+
+const FOUNDATION_TIMELINE_HANDLER_CLUSTER_KEYS = [
+    'executionDataRef',
+    'executionId',
+    'parentDossierId',
+    'persistExecutionMerge',
+    'setTimelineEvents',
+    'pushTimelineEventRef',
+] as const;
+
+const FOLLOWUP_ADMIN_SPECIAL_HANDLER_CLUSTER_KEYS = Array.from(
+    new Set([
+        ...FOUNDATION_TIMELINE_HANDLER_CLUSTER_KEYS,
+        'decisionsStorageExecutionId',
+        'executionData',
+        'nextTimelineId',
+        'showToast',
+        'specialRequestContent',
+        'specialRequestDate',
+        'specialRequestManualTitle',
+        'setSpecialRequestContent',
+        'setSpecialRequestDate',
+        'setSpecialRequestManualTitle',
+        'setSpecialRequestTemplatePick',
+    ]),
+) as string[];
+
+const FOLLOWUP_DOSSIER_CONTROLS_HANDLER_CLUSTER_KEYS = Array.from(
+    new Set([
+        ...FOUNDATION_TIMELINE_HANDLER_CLUSTER_KEYS,
+        'executionData',
+        'decisionsStorageExecutionId',
+        'isInabaActive',
+        'isUnifiedTabActive',
+        'parentExecutionFile',
+        'setDossierActionModalOpen',
+        'setDossierActionModalSaving',
+        'setDossierActionModalType',
+        'setExecutionStorageTick',
+        'nextTimelineId',
+        'persistExecutionMerge',
+        'showToast',
+    ]),
+) as string[];
+
+const FOLLOWUP_OTHER_PARTY_HANDLER_CLUSTER_KEYS = Array.from(
+    new Set([
+        ...FOUNDATION_TIMELINE_HANDLER_CLUSTER_KEYS,
+        'executionData',
+        'executionDataRef',
+        'executionId',
+        'decisionsStorageExecutionId',
+        'isRepresentingDebtor',
+        'openDecisionsModalWithBoot',
+        'timelineEvents',
+        'nextTimelineId',
+        'persistExecutionMerge',
+        'showToast',
+    ]),
+) as string[];
+
+const DOSSIER_SUPPORT_HANDLER_CLUSTER_KEYS = Array.from(
+    new Set([
+        ...FOUNDATION_HANDLER_CLUSTER_KEYS,
+        'classification',
+        'closeDossierLifecyclePanel',
+        'directorate',
+        'docNumber',
+        'dossierDateDraft',
+        'dossierFileKey',
+        'dossierPendingStatus',
+        'dossierReasonDraft',
+        'evictionFullAddressField',
+        'evictionPremisesUseRaw',
+        'evictionPropertyDistrict',
+        'evictionPropertyNumber',
+        'evictionPropertyTypeField',
+        'fileNumber',
+        'fileYear',
+        'financialLedgerRef',
+        'isEvictionExecutionModule',
+        'judgmentDate',
+        'onUpdate',
+        'parentExecutionFile',
+        'reconcileDossierLifecycle',
+        'seizedAssetsSnapshotRef',
+        'setDossierDateDraft',
+        'setDossierLifecyclePanelPhase',
+        'setDossierPendingStatus',
+        'setDossierReasonDraft',
+        'setExecutionStorageTick',
+    ]),
+) as string[];
+
+const SEIZURE_HEAVY_HANDLER_CLUSTER_KEYS = Array.from(
+    new Set([
+        ...FOUNDATION_HANDLER_CLUSTER_KEYS,
+        'movableSeizureSubjectDraft',
+        'openSeizureRequestsTabRef',
+        'propertySeizureSubjectDraft',
+        'publicationDateYmdDraft',
+        'publicationModalEntityId',
+        'publicationModalEntityKind',
+        'publicationNewspaperNameDraft',
+        'seizedPropertyAuctionDateDraft',
+        'seizedPropertyAuctionDepositAmountDraft',
+        'seizedPropertyAuctionResultAmountDraft',
+        'seizedPropertyAuctionResultBuyerNameDraft',
+        'seizedPropertyAuctionResultEntityKind',
+        'seizedPropertyAuctionResultOutcome',
+        'seizedPropertyAuctionResultPropertyId',
+        'seizedPropertyAwardAmountDraft',
+        'seizedPropertyBuyerNameDraft',
+        'seizedPropertyExpertPriceDraft',
+        'seizedPropertyExpertReportDateDraft',
+        'seizedPropertyExpertsNamesDraft',
+        'seizedPropertyStepDecisionId',
+        'seizedPropertyStepEntityKind',
+        'seizedPropertyStepKind',
+        'seizedPropertyStepNotesDraft',
+        'seizedPropertyStepPropertyId',
+        'seizureMarkDateDraft',
+        'seizureMarkEntityDraft',
+        'seizureMarkLetterNumberDraft',
+        'seizureMarkModalEntityId',
+        'seizureMarkModalEntityKind',
+        'seizureMatrixLedgerParamsRef',
+        'setMovableSeizureRequestModalOpen',
+        'setMovableSeizureSubjectDraft',
+        'setPropertySeizureRequestModalOpen',
+        'setPropertySeizureSubjectDraft',
+        'setPublicationDateYmdDraft',
+        'setPublicationModalEntityId',
+        'setPublicationModalEntityKind',
+        'setPublicationModalOpen',
+        'setPublicationNewspaperNameDraft',
+        'setSeizedPropertyAuctionDateDraft',
+        'setSeizedPropertyAuctionDepositAmountDraft',
+        'setSeizedPropertyAuctionResultAmountDraft',
+        'setSeizedPropertyAuctionResultBuyerNameDraft',
+        'setSeizedPropertyAuctionResultEntityKind',
+        'setSeizedPropertyAuctionResultModalOpen',
+        'setSeizedPropertyAuctionResultOutcome',
+        'setSeizedPropertyAuctionResultPropertyId',
+        'setSeizedPropertyAwardAmountDraft',
+        'setSeizedPropertyBuyerNameDraft',
+        'setSeizedPropertyExpertPriceDraft',
+        'setSeizedPropertyExpertReportDateDraft',
+        'setSeizedPropertyExpertsNamesDraft',
+        'setSeizedPropertyStepDecisionId',
+        'setSeizedPropertyStepEntityKind',
+        'setSeizedPropertyStepKind',
+        'setSeizedPropertyStepModalOpen',
+        'setSeizedPropertyStepNotesDraft',
+        'setSeizedPropertyStepPropertyId',
+        'setSeizureDetailCompletion',
+        'setSeizureMarkDateDraft',
+        'setSeizureMarkEntityDraft',
+        'setSeizureMarkLetterNumberDraft',
+        'setSeizureMarkModalEntityId',
+        'setSeizureMarkModalEntityKind',
+        'setSeizureMarkModalOpen',
+        'setShowCoerciveActionForm',
+        'setShowUnifiedExecutionModal',
+        'setUnifiedLedgerRevision',
+        'saveCoerciveActionRef',
+        'settlementGuarantorGate',
+        'seizureDetailCompletion',
+        'seizedAssets',
+        'setSeizedAssets',
+        'activeDebtorIsDeceased',
+        'activeWorkspaceDebtorForFollowup',
+        'timelineEvents',
+        'seizureDraftsByDecisionId',
+        'setSeizureDraftsByDecisionId',
+        'seizureDraftsByDecisionIdRef',
+        'coerciveSubjectRef',
+        'setLastActionDate',
+        'coerciveUiLocked',
+        'activeDebtorIsEmployee',
+        'allDebtorsUnified',
+        'executionDebtorTabIndex',
+        'isSolidaryLiability',
+        'resolveDebtorSolidaryFlag',
+        'effectiveDebtors',
+        'activeCoerciveActions',
+        'setActiveCoerciveActions',
+        'thirdPartySeizureSnapshotRef',
+        'setThirdPartySeizureAssets',
+        'standaloneExecutionMarksSnapshotRef',
+        'setStandaloneExecutionMarks',
+        'focusSeizurePropertyInlineRef',
+        'focusSeizureMovableInlineRef',
+        'focusSeizureThirdPartyInlineRef',
+        'focusSeizureNoticeInlineRef',
+    ]),
+) as string[];
+
+function handlerClusterSourceBags(spreads: HandlerClusterContextSpreads): ReadonlyArray<Record<string, unknown>> {
+    return [
+        spreads.core,
+        spreads.followupOrchestrator,
+        spreads.seizureOrchestrator,
+        spreads.coercionOrchestrator,
+        spreads.dossierLifecyclePanel,
+        spreads.claimFinancials,
+        spreads.graceAndSummoning,
+        spreads.debtorWorkspaceContext,
+        spreads.subsequentNoticeFlow,
+        spreads.followupTabAssembly,
+        spreads.followupSeizureTabs,
+        spreads.decisionsOrchestrator,
+    ];
+}
+
+export function collectFollowupAdminSpecialHandlerClusterContext(
+    spreads: HandlerClusterContextSpreads,
+): Record<string, unknown> {
+    return pickHandlerClusterKeys(handlerClusterSourceBags(spreads), FOLLOWUP_ADMIN_SPECIAL_HANDLER_CLUSTER_KEYS);
+}
+
+export function collectFollowupDossierControlsHandlerClusterContext(
+    spreads: HandlerClusterContextSpreads,
+): Record<string, unknown> {
+    return pickHandlerClusterKeys(
+        handlerClusterSourceBags(spreads),
+        FOLLOWUP_DOSSIER_CONTROLS_HANDLER_CLUSTER_KEYS,
+    );
+}
+
+export function collectFollowupOtherPartyHandlerClusterContext(
+    spreads: HandlerClusterContextSpreads,
+): Record<string, unknown> {
+    return pickHandlerClusterKeys(
+        handlerClusterSourceBags(spreads),
+        FOLLOWUP_OTHER_PARTY_HANDLER_CLUSTER_KEYS,
+    );
+}
+
+export function collectSeizureHeavyHandlerClusterContext(
+    spreads: HandlerClusterContextSpreads,
+): Record<string, unknown> {
+    return pickHandlerClusterKeys(handlerClusterSourceBags(spreads), SEIZURE_HEAVY_HANDLER_CLUSTER_KEYS);
+}
+
+export function collectDossierSupportHandlerClusterContext(
+    spreads: HandlerClusterContextSpreads,
+): Record<string, unknown> {
+    return pickHandlerClusterKeys(handlerClusterSourceBags(spreads), DOSSIER_SUPPORT_HANDLER_CLUSTER_KEYS);
+}
+
 /** مفاتي core المتبقية (مرجع للتوليد — 179 key) */
 export const HANDLER_CLUSTER_CORE_KEY_NAMES = [
     "EVICTION_WORKFLOW_BY_ACTION_ID",

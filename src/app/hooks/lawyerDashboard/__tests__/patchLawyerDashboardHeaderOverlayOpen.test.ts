@@ -147,4 +147,44 @@ describe('patchLawyerDashboardHeaderOverlayOpen', () => {
         expect(patched.homeTabProps.active).toBe(true);
         expect(patched).not.toBe(view);
     });
+
+    it('يحافظ على overlaysHostProps عندما تتغير الإشعارات فقط', () => {
+        const view = baseReadyView();
+        const patched = patchLawyerDashboardHeaderOverlayOpen(view, {
+            showSettings: false,
+            showGlobalSearch: false,
+            showNotifications: true,
+            notificationsUnreadCount: 3,
+            activeTab: 'home',
+            tabStackMask: {
+                isCriminalDossierOpen: false,
+                archiveType: null,
+                showLawsuitsWorkspace: false,
+                showTransactions: false,
+                isNotepadOpen: false,
+                showSettings: false,
+                showCommunity: false,
+                activeFile: null,
+                showDocs: false,
+            },
+            headerVisibility: {
+                showSettings: false,
+                isNewCaseModalOpen: false,
+                isNotepadOpen: false,
+                showCommunity: false,
+                activeTab: 'home',
+                activeFile: null,
+                archiveType: null,
+                showLawsuitsWorkspace: false,
+                showTransactions: false,
+                showTasksManager: false,
+                showDocs: false,
+                isCriminalDossierOpen: false,
+            },
+        });
+
+        expect(patched.notificationPanel.isOpen).toBe(true);
+        expect(patched.headerProps.unreadCount).toBe(3);
+        expect(patched.overlaysHostProps).toBe(view.overlaysHostProps);
+    });
 });

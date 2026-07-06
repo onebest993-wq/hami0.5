@@ -378,7 +378,6 @@ export function LawyerSettingsProvider({ children }: { children: React.ReactNode
             settings.data.syncNotes,
             settings.data.syncFiles,
             settings.data.syncExecution,
-            settings.data.weeklyBackupReminder,
         ],
     );
 

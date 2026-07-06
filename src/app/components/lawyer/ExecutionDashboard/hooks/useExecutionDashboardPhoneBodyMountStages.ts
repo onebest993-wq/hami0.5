@@ -8,6 +8,7 @@ export type ExecutionDashboardPhoneBodyMountFlags = ExecutionShellOverlayModalFl
     propertySeizureRequestModalOpen?: boolean;
     showExecutionFinancialHub?: boolean;
     showUnifiedSeizureLogModal?: boolean;
+    showVisitationCalendarModal?: boolean;
 };
 
 /** يوزّع mount داخل جسم الإضبارة على موجات قصيرة بدل تجميعها عند أول رسم */
@@ -27,13 +28,25 @@ export function useExecutionDashboardPhoneBodyMountStages(
 
     const [secondaryStageReady, setSecondaryStageReady] = useState(false);
     const [tertiaryStageReady, setTertiaryStageReady] = useState(false);
+    const [quaternaryStageReady, setQuaternaryStageReady] = useState(false);
+
+    const quaternaryStageUrgent = useMemo(
+        () => Boolean(flags.showVisitationCalendarModal),
+        [flags.showVisitationCalendarModal],
+    );
 
     useEffect(() => {
         if (!tertiaryStageUrgent) return;
         setSecondaryStageReady(true);
         setTertiaryStageReady(true);
+        setQuaternaryStageReady(true);
         prefetchExecutionOverlayModals();
     }, [tertiaryStageUrgent]);
+
+    useEffect(() => {
+        if (!quaternaryStageUrgent) return;
+        setQuaternaryStageReady(true);
+    }, [quaternaryStageUrgent]);
 
     useEffect(() => {
         if (secondaryStageReady) return;
@@ -45,9 +58,16 @@ export function useExecutionDashboardPhoneBodyMountStages(
         return scheduleIdleWork(() => setTertiaryStageReady(true), 900);
     }, [secondaryStageReady, tertiaryStageReady]);
 
+    useEffect(() => {
+        if (!tertiaryStageReady || quaternaryStageReady) return;
+        return scheduleIdleWork(() => setQuaternaryStageReady(true), 1_800);
+    }, [tertiaryStageReady, quaternaryStageReady]);
+
     return {
         secondaryStageReady,
         tertiaryStageReady,
+        quaternaryStageReady,
         tertiaryStageUrgent,
+        quaternaryStageUrgent,
     };
 }

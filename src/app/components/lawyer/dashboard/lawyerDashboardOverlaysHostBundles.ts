@@ -1,13 +1,14 @@
 import type React from 'react';
-import type { FileData } from '@/app/components/lawyer/LawyerShared';
-import type { GlobalNote, ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
+import type { ExecutionFile as DashboardExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { LawyerArchiveOverlay } from '@/app/hooks/useLawyerExecutionFiles';
 import type { LawyerDashboardMergedOverlaysState } from '@/app/hooks/lawyerDashboard/lawyerDashboardMergedOverlaysState';
 import type { useCriminalDashboardBridge } from '@/app/components/lawyer/criminal-system/criminalDashboardBridge';
 import type { GlobalSearchNavigate } from '@/app/services/globalSearchIndex';
+import type { useLawyerDashboardWorkspace } from '@/app/hooks/lawyerDashboard/useLawyerDashboardWorkspace';
 
 type OverlayState = LawyerDashboardMergedOverlaysState;
 type CriminalBridge = ReturnType<typeof useCriminalDashboardBridge>;
+type Workspace = ReturnType<typeof useLawyerDashboardWorkspace>;
 
 export type LawyerDashboardShellBundle = {
     onLogout: () => void;
@@ -21,51 +22,46 @@ export type LawyerDashboardShellBundle = {
 };
 
 export type LawyerDashboardDataBundle = {
-    files: FileData[];
-    executionFiles: ExecutionFile[];
+    files: Workspace['files'];
+    executionFiles: DashboardExecutionFile[];
     executionFilesHydrating?: boolean;
-    globalNotes: GlobalNote[];
+    globalNotes: Workspace['globalNotes'];
     searchNotifications: Array<{ id: string; title: string; message: string; type: string }>;
     criminalCasesForCluster: unknown[];
 };
 
 export type LawyerDashboardDossierBundle = {
-    activeFile: FileData | ExecutionFile | null;
-    setActiveFile: React.Dispatch<React.SetStateAction<FileData | ExecutionFile | null>>;
-    handleUpdateFile: (file: FileData) => void;
-    handleUpdateExecutionFile: (file: ExecutionFile) => void;
-    handleDeleteFile: (file: FileData) => void;
-    initiateSubFile: (...args: unknown[]) => void;
-    handleSpawnLinkedIncidentalCase: (...args: unknown[]) => void;
-    handleOpenLinkedFile: (fileId: number) => void;
-    handleStartConsolidationNewCase: (...args: unknown[]) => void;
-    handleConsolidateWithExisting: (...args: unknown[]) => void;
-    handleLinkWithExistingCase: (...args: unknown[]) => void;
-    consolidationNavActive: boolean;
-    caseLinkNav: { first: FileData; second: FileData } | null;
-    consolidationSpawnNav: {
-        primaryCaseNo: string;
-        activeView: 'primary' | 'secondary';
-        onSelectPrimary: () => void;
-        onSelectSecondary: () => void;
-    } | null;
+    activeFile: Workspace['activeFile'];
+    setActiveFile: Workspace['setActiveFile'];
+    handleUpdateFile: Workspace['handleUpdateFile'];
+    handleUpdateExecutionFile: Workspace['handleUpdateExecutionFile'];
+    handleDeleteFile: Workspace['handleDeleteFile'];
+    initiateSubFile: Workspace['initiateSubFile'];
+    handleSpawnLinkedIncidentalCase: Workspace['handleSpawnLinkedIncidentalCase'];
+    handleOpenLinkedFile: Workspace['handleOpenLinkedFile'];
+    handleStartConsolidationNewCase: Workspace['handleStartConsolidationNewCase'];
+    handleConsolidateWithExisting: Workspace['handleConsolidateWithExisting'];
+    handleLinkWithExistingCase: Workspace['handleLinkWithExistingCase'];
+    consolidationNavActive: Workspace['consolidationNavActive'];
+    caseLinkNav: Workspace['caseLinkNav'];
+    consolidationSpawnNav: Workspace['consolidationSpawnNav'];
 };
 
 export type LawyerDashboardArchiveBundle = {
     archiveType: LawyerArchiveOverlay;
     setArchiveType: React.Dispatch<React.SetStateAction<LawyerArchiveOverlay>>;
-    openArchiveFile: (f: unknown) => boolean;
-    handleRestoreFile: (file: FileData) => void;
-    moveExecutionToTrash: (ids: Array<string | number>) => void;
-    restoreExecutionFromTrash: (id: string | number) => void;
-    archiveExecution: (id: string | number) => void;
-    restoreArchivedExecution: (id: string | number) => void;
-    permanentlyDeleteExecutions: (ids: Array<string | number>) => void;
-    moveLawsuitToTrash: (ids: Array<string | number>) => void;
-    restoreLawsuitFromTrash: (id: string | number) => void;
-    archiveLawsuit: (id: string | number) => void;
-    restoreArchivedLawsuit: (id: string | number) => void;
-    permanentlyDeleteLawsuits: (ids: Array<string | number>) => void;
+    openArchiveFile: Workspace['openArchiveFile'];
+    handleRestoreFile: Workspace['handleRestoreFile'];
+    moveExecutionToTrash: Workspace['moveExecutionToTrash'];
+    restoreExecutionFromTrash: Workspace['restoreExecutionFromTrash'];
+    archiveExecution: Workspace['archiveExecution'];
+    restoreArchivedExecution: Workspace['restoreArchivedExecution'];
+    permanentlyDeleteExecutions: Workspace['permanentlyDeleteExecutions'];
+    moveLawsuitToTrash: Workspace['moveLawsuitToTrash'];
+    restoreLawsuitFromTrash: Workspace['restoreLawsuitFromTrash'];
+    archiveLawsuit: Workspace['archiveLawsuit'];
+    restoreArchivedLawsuit: Workspace['restoreArchivedLawsuit'];
+    permanentlyDeleteLawsuits: Workspace['permanentlyDeleteLawsuits'];
 };
 
 export type LawyerDashboardNotepadBundle = {
@@ -76,26 +72,26 @@ export type LawyerDashboardNotepadBundle = {
     repositoryTab: 'notepad' | 'vault';
     vaultOpenScanner: boolean;
     closeNotepad: () => void;
-    handleSaveNote: (note: GlobalNote) => void | Promise<void>;
-    handleDeleteNote: (id: number) => void;
-    handleNotepadConvert: (noteId: number) => void;
+    handleSaveNote: Workspace['handleSaveNote'];
+    handleDeleteNote: Workspace['handleDeleteNote'];
+    handleNotepadConvert: Workspace['handleNotepadConvert'];
 };
 
 export type LawyerDashboardNewCaseBundle = {
     isNewCaseModalOpen: boolean;
-    openNormalNewCaseModal: () => void;
-    closeNewCaseModal: () => void;
-    newCaseModalKey: string | number;
-    newCasePresetType: string | undefined;
-    isCriminalSeveranceRedirect: boolean;
-    onNewCaseOpenCriminalDashboard: (caseId: string) => void;
-    handleNewCaseSave: (...args: unknown[]) => void;
+    openNormalNewCaseModal: Workspace['openNormalNewCaseModal'];
+    closeNewCaseModal: Workspace['closeNewCaseModal'];
+    newCaseModalKey: Workspace['newCaseModalKey'];
+    newCasePresetType: Workspace['presetSelectedType'];
+    isCriminalSeveranceRedirect: Workspace['isCriminalSeveranceRedirect'];
+    onNewCaseOpenCriminalDashboard: Workspace['onNewCaseOpenCriminalDashboard'];
+    handleNewCaseSave: Workspace['handleNewCaseSave'];
 };
 
 export type LawyerDashboardExecutionCreateBundle = {
     isExecutionModalOpen: boolean;
-    setIsExecutionModalOpen: (open: boolean) => void;
-    handleAddExecutionFile: (file: Record<string, unknown>) => void;
+    setIsExecutionModalOpen: Workspace['setIsExecutionModalOpen'];
+    handleAddExecutionFile: Workspace['handleAddExecutionFile'];
 };
 
 export type LawyerDashboardNavBundle = {

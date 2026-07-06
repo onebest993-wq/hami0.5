@@ -18,6 +18,7 @@ const DEBOUNCE_MS = 800;
 
 let flushChain = Promise.resolve();
 let visibilityHookInstalled = false;
+let hiddenFlushTimer: ReturnType<typeof setTimeout> | null = null;
 
 function installVisibilityFlush(flush: () => Promise<void>) {
     if (visibilityHookInstalled || typeof document === 'undefined') return;
@@ -26,10 +27,26 @@ function installVisibilityFlush(flush: () => Promise<void>) {
         flushChain = flushChain.then(flush);
     };
     document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) return;
+        if (!document.hidden) {
+            if (hiddenFlushTimer) {
+                clearTimeout(hiddenFlushTimer);
+                hiddenFlushTimer = null;
+            }
+            return;
+        }
+        if (hiddenFlushTimer) clearTimeout(hiddenFlushTimer);
+        hiddenFlushTimer = setTimeout(() => {
+            hiddenFlushTimer = null;
+            if (document.hidden) schedule();
+        }, 900);
+    });
+    window.addEventListener('pagehide', () => {
+        if (hiddenFlushTimer) {
+            clearTimeout(hiddenFlushTimer);
+            hiddenFlushTimer = null;
+        }
         schedule();
     });
-    window.addEventListener('pagehide', schedule);
 }
 
 type PersistEnvelope = {

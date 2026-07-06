@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type {
     LawyerDashboardArchiveBundle,
     LawyerDashboardDossierBundle,
@@ -114,7 +113,7 @@ export function pickLawyerDashboardNewCaseBundle(workspace: Workspace): LawyerDa
         openNormalNewCaseModal,
         closeNewCaseModal,
         newCaseModalKey,
-        newCasePresetType,
+        presetSelectedType,
         isCriminalSeveranceRedirect,
         onNewCaseOpenCriminalDashboard,
         handleNewCaseSave,
@@ -125,7 +124,7 @@ export function pickLawyerDashboardNewCaseBundle(workspace: Workspace): LawyerDa
         openNormalNewCaseModal,
         closeNewCaseModal,
         newCaseModalKey,
-        newCasePresetType,
+        newCasePresetType: presetSelectedType,
         isCriminalSeveranceRedirect,
         onNewCaseOpenCriminalDashboard,
         handleNewCaseSave,

@@ -13,7 +13,6 @@ import {
 } from '@/app/hooks/lawyerDashboard/globalSearchIntentWarm';
 import { loadGlobalSearchOverlayModule, prefetchGlobalSearchSearchEngine } from '@/app/runtime/globalSearchLoader';
 import { hydrateGlobalSearchShellForInstantOpen } from '@/app/runtime/globalSearchBootHydrator';
-import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 import {
     clearGlobalSearchPerfMarks,
     markGlobalSearchPerfPhase,
@@ -35,18 +34,6 @@ export function useLawyerDashboardGlobalSearch({ userId }: UseLawyerDashboardGlo
     const [globalSearchInitialQuery, setGlobalSearchInitialQuery] = useState('');
     const [globalSearchSessionKey, setGlobalSearchSessionKey] = useState(0);
     const [searchIndexVersion, setSearchIndexVersion] = useState(0);
-
-    useEffect(() => {
-        if (!isRealSignedIn(userId)) return;
-        warmGlobalSearchOnHover();
-        void hydrateGlobalSearchShellForInstantOpen().catch(() => undefined);
-        return scheduleIdleWork(
-            () => {
-                void hydrateGlobalSearchShellForInstantOpen().catch(() => undefined);
-            },
-            { minDelayMs: 0, timeoutMs: 4_000 },
-        );
-    }, [userId]);
 
     const closeGlobalSearch = useCallback(() => {
         showGlobalSearchRef.current = false;

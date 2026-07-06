@@ -6,7 +6,15 @@ import {
     LazyExecutionDashboardShellOverlays,
 } from '../executionDashboardLazyShell';
 import { ExecutionDashboardChunkScopeProvider } from '../hooks/executionDashboardChunkScope';
-import { LazyExecutionDashboardHandlerClusterBridge } from '../executionDashboardHandlerClusterBridgeLazy';
+import {
+    LazyExecutionDashboardHandlerClusterDossierSupportBridge,
+    LazyExecutionDashboardHandlerClusterCoerciveHeavyBridge,
+    LazyExecutionDashboardHandlerClusterFollowupAdminSpecialBridge,
+    LazyExecutionDashboardHandlerClusterFollowupDossierControlsBridge,
+    LazyExecutionDashboardHandlerClusterFollowupOtherPartyBridge,
+    LazyExecutionDashboardHandlerClusterLightBridge,
+    LazyExecutionDashboardHandlerClusterSeizureHeavyBridge,
+} from '../executionDashboardHandlerClusterBridgeLazy';
 import { prefetchExecutionCoreHandlers } from '../executionCoreHandlersPrefetch';
 import type { ExecutionDashboardCoreHandlerClusterInput } from '../hooks/executionDashboardCore/executionDashboardCoreHandlerClusterTypes';
 
@@ -27,10 +35,29 @@ export type ExecutionDashboardChunkHostProps = {
     chunkScopeRef: MutableRefObject<Record<string, unknown>>;
     phoneBodyFingerprint: string;
     showUnifiedExecutionModal: boolean;
-    loadHandlerCluster: boolean;
-    handlerClusterInput: ExecutionDashboardCoreHandlerClusterInput;
+    loadLightHandlerCluster: boolean;
+    loadFollowupHeavyHandlerCluster: boolean;
+    loadFollowupAdminSpecialHandlerCluster: boolean;
+    loadFollowupDossierControlsHandlerCluster: boolean;
+    loadFollowupOtherPartyHandlerCluster: boolean;
+    loadSeizureHeavyHandlerCluster: boolean;
+    loadCoerciveHeavyHandlerCluster: boolean;
+    loadDossierSupportHandlerCluster: boolean;
+    lightHandlerClusterInput: ExecutionDashboardCoreHandlerClusterInput;
+    followupAdminSpecialHandlerClusterInput: ExecutionDashboardCoreHandlerClusterInput;
+    followupDossierControlsHandlerClusterInput: ExecutionDashboardCoreHandlerClusterInput;
+    followupOtherPartyHandlerClusterInput: ExecutionDashboardCoreHandlerClusterInput;
+    seizureHeavyHandlerClusterInput: ExecutionDashboardCoreHandlerClusterInput;
+    coerciveHeavyHandlerClusterInput: ExecutionDashboardCoreHandlerClusterInput;
+    dossierSupportHandlerClusterInput: ExecutionDashboardCoreHandlerClusterInput;
     handlerClusterMountKey: string;
-    onHandlerClusterReady: (cluster: Record<string, unknown>) => void;
+    onLightHandlerClusterReady: (cluster: Record<string, unknown>) => void;
+    onFollowupAdminSpecialHandlerClusterReady: (cluster: Record<string, unknown>) => void;
+    onFollowupDossierControlsHandlerClusterReady: (cluster: Record<string, unknown>) => void;
+    onFollowupOtherPartyHandlerClusterReady: (cluster: Record<string, unknown>) => void;
+    onSeizureHeavyHandlerClusterReady: (cluster: Record<string, unknown>) => void;
+    onCoerciveHeavyHandlerClusterReady: (cluster: Record<string, unknown>) => void;
+    onDossierSupportHandlerClusterReady: (cluster: Record<string, unknown>) => void;
 };
 
 /** جسم الإضبارة lazy + shell overlays عند الحاجة */
@@ -40,14 +67,64 @@ export function ExecutionDashboardChunkHost({
     chunkScopeRef,
     phoneBodyFingerprint,
     showUnifiedExecutionModal,
-    loadHandlerCluster,
-    handlerClusterInput,
+    loadLightHandlerCluster,
+    loadFollowupHeavyHandlerCluster,
+    loadFollowupAdminSpecialHandlerCluster,
+    loadFollowupDossierControlsHandlerCluster,
+    loadFollowupOtherPartyHandlerCluster,
+    loadSeizureHeavyHandlerCluster,
+    loadCoerciveHeavyHandlerCluster,
+    loadDossierSupportHandlerCluster,
+    lightHandlerClusterInput,
+    followupAdminSpecialHandlerClusterInput,
+    followupDossierControlsHandlerClusterInput,
+    followupOtherPartyHandlerClusterInput,
+    seizureHeavyHandlerClusterInput,
+    coerciveHeavyHandlerClusterInput,
+    dossierSupportHandlerClusterInput,
     handlerClusterMountKey,
-    onHandlerClusterReady,
+    onLightHandlerClusterReady,
+    onFollowupAdminSpecialHandlerClusterReady,
+    onFollowupDossierControlsHandlerClusterReady,
+    onFollowupOtherPartyHandlerClusterReady,
+    onSeizureHeavyHandlerClusterReady,
+    onCoerciveHeavyHandlerClusterReady,
+    onDossierSupportHandlerClusterReady,
 }: ExecutionDashboardChunkHostProps) {
     useEffect(() => {
-        if (loadHandlerCluster) prefetchExecutionCoreHandlers();
-    }, [loadHandlerCluster]);
+        if (loadCoerciveHeavyHandlerCluster) {
+            prefetchExecutionCoreHandlers('coercive');
+        }
+        if (loadSeizureHeavyHandlerCluster) {
+            prefetchExecutionCoreHandlers('seizure');
+        }
+        if (loadFollowupHeavyHandlerCluster) {
+            if (loadFollowupAdminSpecialHandlerCluster) {
+                prefetchExecutionCoreHandlers('followup-admin-special');
+            }
+            if (loadFollowupDossierControlsHandlerCluster) {
+                prefetchExecutionCoreHandlers('followup-dossier-controls');
+            }
+            if (loadFollowupOtherPartyHandlerCluster) {
+                prefetchExecutionCoreHandlers('followup-other-party');
+            }
+        }
+        if (loadLightHandlerCluster) {
+            prefetchExecutionCoreHandlers('light');
+        }
+        if (loadDossierSupportHandlerCluster) {
+            prefetchExecutionCoreHandlers('dossier-support');
+        }
+    }, [
+        loadFollowupHeavyHandlerCluster,
+        loadFollowupAdminSpecialHandlerCluster,
+        loadFollowupDossierControlsHandlerCluster,
+        loadFollowupOtherPartyHandlerCluster,
+        loadCoerciveHeavyHandlerCluster,
+        loadDossierSupportHandlerCluster,
+        loadLightHandlerCluster,
+        loadSeizureHeavyHandlerCluster,
+    ]);
 
     if (!phoneBodyReady && !shellOverlaysReady) {
         return <PhoneBodyLoadingShell />;
@@ -55,13 +132,69 @@ export function ExecutionDashboardChunkHost({
 
     return (
         <ExecutionDashboardChunkScopeProvider scopeRef={chunkScopeRef}>
-            {loadHandlerCluster ? (
+            {loadCoerciveHeavyHandlerCluster ? (
                 <Suspense fallback={null}>
-                    <LazyExecutionDashboardHandlerClusterBridge
-                        key={handlerClusterMountKey}
-                        input={handlerClusterInput}
-                        mountKey={handlerClusterMountKey}
-                        onCluster={onHandlerClusterReady}
+                    <LazyExecutionDashboardHandlerClusterCoerciveHeavyBridge
+                        key={`${handlerClusterMountKey}:heavy-coercive`}
+                        input={coerciveHeavyHandlerClusterInput}
+                        onCluster={onCoerciveHeavyHandlerClusterReady}
+                    />
+                </Suspense>
+            ) : null}
+            {loadSeizureHeavyHandlerCluster ? (
+                <Suspense fallback={null}>
+                    <LazyExecutionDashboardHandlerClusterSeizureHeavyBridge
+                        key={`${handlerClusterMountKey}:heavy-seizure`}
+                        input={seizureHeavyHandlerClusterInput}
+                        onCluster={onSeizureHeavyHandlerClusterReady}
+                    />
+                </Suspense>
+            ) : null}
+            {loadFollowupAdminSpecialHandlerCluster ? (
+                <Suspense fallback={null}>
+                    <LazyExecutionDashboardHandlerClusterFollowupAdminSpecialBridge
+                        key={`${handlerClusterMountKey}:followup-admin-special`}
+                        input={followupAdminSpecialHandlerClusterInput}
+                        onCluster={onFollowupAdminSpecialHandlerClusterReady}
+                    />
+                </Suspense>
+            ) : null}
+            {loadFollowupDossierControlsHandlerCluster ? (
+                <Suspense fallback={null}>
+                    <LazyExecutionDashboardHandlerClusterFollowupDossierControlsBridge
+                        key={`${handlerClusterMountKey}:followup-dossier-controls`}
+                        input={followupDossierControlsHandlerClusterInput}
+                        onCluster={onFollowupDossierControlsHandlerClusterReady}
+                    />
+                </Suspense>
+            ) : null}
+            {loadFollowupOtherPartyHandlerCluster ? (
+                <Suspense fallback={null}>
+                    <LazyExecutionDashboardHandlerClusterFollowupOtherPartyBridge
+                        key={`${handlerClusterMountKey}:followup-other-party`}
+                        input={followupOtherPartyHandlerClusterInput}
+                        onCluster={onFollowupOtherPartyHandlerClusterReady}
+                    />
+                </Suspense>
+            ) : null}
+            {loadDossierSupportHandlerCluster ? (
+                <Suspense fallback={null}>
+                    <LazyExecutionDashboardHandlerClusterDossierSupportBridge
+                        key={`${handlerClusterMountKey}:dossier-support`}
+                        input={dossierSupportHandlerClusterInput}
+                        onCluster={onDossierSupportHandlerClusterReady}
+                    />
+                </Suspense>
+            ) : null}
+            {loadLightHandlerCluster &&
+            !loadCoerciveHeavyHandlerCluster &&
+            !loadSeizureHeavyHandlerCluster &&
+            !loadFollowupHeavyHandlerCluster ? (
+                <Suspense fallback={null}>
+                    <LazyExecutionDashboardHandlerClusterLightBridge
+                        key={`${handlerClusterMountKey}:light`}
+                        input={lightHandlerClusterInput}
+                        onCluster={onLightHandlerClusterReady}
                     />
                 </Suspense>
             ) : null}

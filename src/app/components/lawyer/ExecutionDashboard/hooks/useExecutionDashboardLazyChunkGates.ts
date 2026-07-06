@@ -26,10 +26,15 @@ export function useExecutionDashboardLazyChunkGates(
                     modals.showNotesModal ||
                     modals.showAppointmentModal ||
                     modals.showEditDossierMetaModal ||
+                modals.showExecutionTrashModal ||
+                modals.showGuarantorDetailsModal ||
+                modals.showHeirsNotificationModal ||
                     modals.showLedgerModal ||
                     modals.showPauseModal ||
                     modals.showPaymentCalculator ||
-                    modals.showSettlementCalculator,
+                modals.showSettlementCalculator ||
+                modals.showTransferFileNumberChangeModal ||
+                modals.showRealEstateSeizureModal,
             ),
         [modals],
     );
@@ -53,13 +58,8 @@ export function useExecutionDashboardLazyChunkGates(
             prefetchExecutionDashboardPhoneBody();
             setPhoneBodyReady(true);
         }, 120);
-        const cancelShellOverlays = scheduleIdleWork(() => {
-            prefetchExecutionDashboardShellOverlays();
-            setShellOverlaysReady(true);
-        }, 900);
         return () => {
             cancelPhoneBody();
-            cancelShellOverlays();
         };
     }, [chunkDataReady]);
 

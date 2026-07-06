@@ -178,12 +178,26 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
 
     } = props;
 
+    const showTimelineEditModal = Boolean(timelineEditDraft);
+    const showPartyEditModal = Boolean(editPartyTarget);
+    const showHeirsQuickViewModal = Boolean(heirsQuickView);
+    const showPermanentDeleteConfirm = Boolean(permanentDeleteTimelineId);
+    const showAnyEditOverlay =
+        showExecutionTrashModal ||
+        showTimelineEditModal ||
+        showEditDossierMetaModal ||
+        showPartyEditModal ||
+        showHeirsQuickViewModal ||
+        showPermanentDeleteConfirm;
 
-
+    if (!showAnyEditOverlay) {
+        return null;
+    }
     return (
 
         <>
 
+            {showExecutionTrashModal ? (
             <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
 
                 <LazyExecutionTrashModal
@@ -213,9 +227,9 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
                 />
 
             </Suspense>
+            ) : null}
 
-
-
+            {showTimelineEditModal ? (
             <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
 
                 <LazyTimelineEditModal
@@ -237,9 +251,9 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
                 />
 
             </Suspense>
+            ) : null}
 
-
-
+            {showEditDossierMetaModal ? (
             <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
 
                 <LazyDossierMetaEditSection
@@ -259,9 +273,9 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
                 />
 
             </Suspense>
+            ) : null}
 
-
-
+            {showPartyEditModal ? (
             <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
 
                 <LazyPartyEditModal
@@ -289,9 +303,9 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
                 />
 
             </Suspense>
+            ) : null}
 
-
-
+            {showHeirsQuickViewModal ? (
             <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
 
                 <LazyExecutionHeirsQuickViewModal
@@ -305,9 +319,9 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
                 />
 
             </Suspense>
+            ) : null}
 
-
-
+            {showPermanentDeleteConfirm ? (
             <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
 
                 <LazyPermanentDeleteConfirmDialog
@@ -321,6 +335,7 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
                 />
 
             </Suspense>
+            ) : null}
 
         </>
 

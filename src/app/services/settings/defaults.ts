@@ -67,8 +67,6 @@ export const LAWYER_SETTINGS_V2_DEFAULTS: AppSettingsState = {
 
         syncExecution: false,
 
-        weeklyBackupReminder: true,
-
     },
 
     performance: {

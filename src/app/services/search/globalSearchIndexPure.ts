@@ -18,7 +18,7 @@ import {
     urgentToEntry,
 } from '@/app/services/search/globalSearchIndexExtrasEntries';
 import { fileToEntry } from '@/app/services/search/globalSearchIndexFileEntries';
-import { blob, norm, withLifecycle } from '@/app/services/search/globalSearchIndexPureHelpers';
+import { blob, isSearchEntryVisible, norm, withLifecycle } from '@/app/services/search/globalSearchIndexPureHelpers';
 import {
     docsVaultEntriesFromPrepared,
     noteRowToEntry,
@@ -35,6 +35,7 @@ export function buildGlobalSearchIndex(input: BuildGlobalSearchIndexInput): Glob
     const fileLifecycleById = new Map<string, SearchLifecycle>();
 
     const push = (e: GlobalSearchEntry) => {
+        if (!isSearchEntryVisible(e)) return;
         if (seen.has(e.id)) return;
         seen.add(e.id);
         list.push(e);

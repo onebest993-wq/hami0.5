@@ -27,7 +27,6 @@ const WIRING_HINTS: Record<string, string | undefined> = {
     'security.localOnlyMode': 'يقطع الاتصال بالإنترنت والسحابة — كل البيانات والعمل محلياً على هذا الجهاز',
     'data.autoSave': 'يحفظ الإعدادات والملفات والملاحظات محلياً كل ثانيتين',
     'data.cloudSync': 'تفعيل المزامنة السحابية — يتطلب تسجيل الدخول وربط الخادم (VITE_ENABLE_CLOUD_SYNC)',
-    'data.weeklyBackupReminder': 'تنبيه داخل التطبيق مرة كل أسبوع عند فتح لوحة المحامي',
     'data.businessBackup': 'تصدير واستيراد القضايا والتنفيذ والملاحظات كملف JSON',
     'data.clearLocal': 'مسح شامل للبيانات المحلية والسحابية — يتطلب تأكيدين مع انتظار 10 ثوانٍ',
     'data.resetSettings': 'يعيد تفضيلات المنظر والأمان فقط — لا يمس ملفات القضايا',

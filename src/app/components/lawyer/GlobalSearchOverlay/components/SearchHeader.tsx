@@ -50,7 +50,7 @@ export function SearchHeader({ open = true, query, onQueryChange, onClose, isBus
                     <Search className="text-[#E6C673] shrink-0" size={20} strokeWidth={2.2} aria-hidden />
                     <input
                         ref={inputRef}
-                        type="search"
+                        type="text"
                         role="searchbox"
                         aria-label="بحث في التطبيق"
                         data-testid="global-search-input"
@@ -58,6 +58,7 @@ export function SearchHeader({ open = true, query, onQueryChange, onClose, isBus
                         onChange={(e) => onQueryChange(e.target.value)}
                         placeholder="ابحث في التطبيق..."
                         enterKeyHint="search"
+                        inputMode="search"
                         autoComplete="off"
                         autoCorrect="off"
                         autoCapitalize="off"

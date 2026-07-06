@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { SafeView } from '@/app/components/shared/SafeView';
 import { DashboardPatternOverlay } from '@/app/components/lawyer/DashboardPatternOverlay';
@@ -6,12 +6,14 @@ import { DashboardWallpaperLayer } from '@/app/components/lawyer/DashboardWallpa
 import { useLitePerformanceActive } from '@/app/hooks/useLitePerformanceActive';
 import { AppLockOverlay } from '@/app/components/lawyer/AppLockOverlay';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
-import type { GlobalNote, ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
+import type { GlobalNote } from '@/app/components/lawyer/LawyerDashboardParts/types';
+import type { ExecutionFile } from '@/app/types/execution';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import type { AppearanceSettings } from '@/app/services/settings/types';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { lazyWithRetry, type LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
 import type { LawyerDashboardBackgroundServicesProps } from '@/app/components/lawyer/dashboard/LawyerDashboardBackgroundServices';
+import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 
 const LazyLawyerDashboardBackgroundServices = lazyWithRetry(() =>
     import('@/app/components/lawyer/dashboard/LawyerDashboardBackgroundServices.tsx').then((m) => ({
@@ -102,6 +104,24 @@ export function LawyerDashboardShell({
     children,
 }: LawyerDashboardShellProps) {
     const litePerformance = useLitePerformanceActive();
+    const [backgroundServicesVisible, setBackgroundServicesVisible] = useState(false);
+
+    useEffect(() => {
+        if (!backgroundRuntimeEnabled || !calendarUserId || appLocked) {
+            setBackgroundServicesVisible(false);
+            return;
+        }
+
+        const cancelIdle = scheduleIdleWork(
+            () => setBackgroundServicesVisible(true),
+            {
+                minDelayMs: import.meta.env.DEV ? 1_200 : 5_000,
+                timeoutMs: import.meta.env.DEV ? 4_000 : 12_000,
+            },
+        );
+
+        return () => cancelIdle();
+    }, [appLocked, backgroundRuntimeEnabled, calendarUserId]);
 
     return (
         <SafeView
@@ -117,7 +137,7 @@ export function LawyerDashboardShell({
             ) : null}
             <DashboardPatternOverlay appearance={appearance} enabled={!hasWallpaper && !litePerformance} />
             <div className="relative z-[1] min-h-screen">
-                {backgroundRuntimeEnabled && calendarUserId ? (
+                {backgroundServicesVisible && backgroundRuntimeEnabled && calendarUserId ? (
                     <DashboardBackgroundServices
                             user={user}
                             syncNotesOn={syncNotesOn}

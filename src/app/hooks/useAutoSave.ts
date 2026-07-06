@@ -33,7 +33,7 @@ export function useAutoSave<T>(
         dataRef.current = data;
     }, [data]);
 
-    const saveImmediately = useCallback(() => {
+    const saveImmediately = useCallback((forceHeavyPersistFlush: boolean = false) => {
         if (!enabled || !storageHydrated) return;
         if (dataRef.current === undefined || dataRef.current === null) return;
         const serialized = stableSerialize(dataRef.current);
@@ -43,7 +43,7 @@ export function useAutoSave<T>(
         debug.log(`[AutoSave] ${key}`);
         persistenceRepository.save(key, dataRef.current);
         persistenceRepository.flushPending(key);
-        if (key === LAWSUIT_FILES_STORAGE_KEY) {
+        if (forceHeavyPersistFlush && key === LAWSUIT_FILES_STORAGE_KEY) {
             SecureStoreService.flushHeavyPersistPending();
         }
     }, [key, enabled, storageHydrated]);
@@ -64,7 +64,7 @@ export function useAutoSave<T>(
     const prevEnabledRef = useRef(enabled);
     useEffect(() => {
         if (prevEnabledRef.current && !enabled) {
-            saveImmediately();
+            saveImmediately(true);
         }
         prevEnabledRef.current = enabled;
     }, [enabled, saveImmediately]);
@@ -72,6 +72,7 @@ export function useAutoSave<T>(
     useEffect(() => {
         if (!enabled) return;
         let idleSaveId: number | null = null;
+        let hiddenSaveTimer: number | null = null;
 
         const scheduleSave = () => {
             if (idleSaveId !== null && typeof cancelIdleCallback !== 'undefined') {
@@ -89,10 +90,27 @@ export function useAutoSave<T>(
         };
 
         const handleVisibilityChange = () => {
-            if (document.visibilityState === 'hidden') scheduleSave();
+            if (document.visibilityState !== 'hidden') {
+                if (hiddenSaveTimer !== null) {
+                    window.clearTimeout(hiddenSaveTimer);
+                    hiddenSaveTimer = null;
+                }
+                return;
+            }
+            if (hiddenSaveTimer !== null) window.clearTimeout(hiddenSaveTimer);
+            hiddenSaveTimer = window.setTimeout(() => {
+                hiddenSaveTimer = null;
+                if (document.visibilityState === 'hidden') scheduleSave();
+            }, 900);
         };
 
-        const handlePageHide = () => scheduleSave();
+        const handlePageHide = () => {
+            if (hiddenSaveTimer !== null) {
+                window.clearTimeout(hiddenSaveTimer);
+                hiddenSaveTimer = null;
+            }
+            saveImmediately(true);
+        };
 
         document.addEventListener('visibilitychange', handleVisibilityChange);
         window.addEventListener('pagehide', handlePageHide);
@@ -100,6 +118,9 @@ export function useAutoSave<T>(
         return () => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener('pagehide', handlePageHide);
+            if (hiddenSaveTimer !== null) {
+                window.clearTimeout(hiddenSaveTimer);
+            }
             if (idleSaveId !== null) {
                 if (typeof cancelIdleCallback !== 'undefined') cancelIdleCallback(idleSaveId);
                 else window.clearTimeout(idleSaveId);

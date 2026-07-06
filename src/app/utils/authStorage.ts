@@ -150,3 +150,19 @@ export function purgeLegacyCryptoWrapSession(): boolean {
     sessionStorage.removeItem(LEGACY_CRYPTO_WRAP_SESSION_KEY);
     return true;
 }
+
+/** يمسح كل بقايا المصادقة المحلية المعروفة من التخزينين. */
+export function purgeClientAuthResidue(): boolean {
+    let changed = false;
+    if (purgePersistedSupabaseJwtFromLocalStorage()) changed = true;
+    if (purgeLegacyCryptoWrapSession()) changed = true;
+
+    if (typeof localStorage !== 'undefined') {
+        const hadDevToken = localStorage.getItem(DEV_ACCESS_TOKEN_KEY) !== null;
+        const hadDevUser = localStorage.getItem(DEV_ACCESS_USER_KEY) !== null;
+        clearDevMockAuth();
+        if (hadDevToken || hadDevUser) changed = true;
+    }
+
+    return changed;
+}

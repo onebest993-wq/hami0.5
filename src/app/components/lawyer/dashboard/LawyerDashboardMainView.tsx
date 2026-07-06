@@ -5,12 +5,8 @@ import { Header } from '@/app/components/lawyer/LawyerDashboardParts/components/
 import { NotificationShell } from '@/app/components/lawyer/NotificationPanel/NotificationShell';
 import type { LawyerDashboardCoreViewModel } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCore';
 import { markBootPhase, reportBootTimeline } from '@/app/bootstrap/bootMetrics';
-import { notifyBootContentReady } from '@/app/bootstrap/bootReveal';
 import { bindFramePacingGuard } from '@/app/runtime/framePacingGuard';
 import { bindBodyScrollLockReconcile } from '@/app/utils/bodyScrollLock';
-import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
-import { SCHEDULE_SHELL_HYDRATED_EVENT } from '@/app/runtime/scheduleBootHydrator';
-import { PROFILE_SHELL_HYDRATED_EVENT } from '@/app/runtime/profileBootHydrator';
 import { ScheduleTabHost } from '@/app/components/lawyer/dashboard/schedule/ScheduleTabHost';
 import { ProfileTabHost } from '@/app/components/lawyer/dashboard/profile/ProfileTabHost';
 import { DashboardTabSurface } from '@/app/components/lawyer/dashboard/schedule/DashboardTabSurface';
@@ -77,60 +73,6 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
         if (scheduleActive) setScheduleLatched(true);
     }, [scheduleActive]);
 
-    /** يثبّت تبويب التقويم مخفياً بعد الجاهزية — فتح الدوك فوري حتى قبل أول نقرة */
-    useEffect(() => {
-        let cancelIdle: (() => void) | undefined;
-
-        const latchScheduleShell = () => setScheduleLatched(true);
-
-        const schedulePreLatch = () => {
-            cancelIdle?.();
-            cancelIdle = scheduleIdleWork(latchScheduleShell, {
-                minDelayMs: 450,
-                timeoutMs: 8_000,
-            });
-        };
-
-        window.addEventListener('hami:dashboard-interactive', schedulePreLatch, { once: true });
-        window.addEventListener(SCHEDULE_SHELL_HYDRATED_EVENT, latchScheduleShell);
-
-        if (document.querySelector('[data-testid="lawyer-dashboard-ready"]')) {
-            schedulePreLatch();
-        }
-
-        return () => {
-            cancelIdle?.();
-            window.removeEventListener(SCHEDULE_SHELL_HYDRATED_EVENT, latchScheduleShell);
-        };
-    }, []);
-
-    /** يثبّت تبويب الملف مخفياً بعد الجاهزية — فتح الهيدر فوري حتى قبل أول نقرة */
-    useEffect(() => {
-        let cancelIdle: (() => void) | undefined;
-
-        const latchProfileShell = () => setProfileLatched(true);
-
-        const scheduleProfilePreLatch = () => {
-            cancelIdle?.();
-            cancelIdle = scheduleIdleWork(latchProfileShell, {
-                minDelayMs: 600,
-                timeoutMs: 9_000,
-            });
-        };
-
-        window.addEventListener('hami:dashboard-interactive', scheduleProfilePreLatch, { once: true });
-        window.addEventListener(PROFILE_SHELL_HYDRATED_EVENT, latchProfileShell);
-
-        if (document.querySelector('[data-testid="lawyer-dashboard-ready"]')) {
-            scheduleProfilePreLatch();
-        }
-
-        return () => {
-            cancelIdle?.();
-            window.removeEventListener(PROFILE_SHELL_HYDRATED_EVENT, latchProfileShell);
-        };
-    }, []);
-
     useKeepAliveIdleRelease(
         scheduleActive,
         () => setScheduleLatched(false),
@@ -148,7 +90,6 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
         reportBootTimeline();
         delete document.documentElement.dataset.hamiInitialBoot;
         window.dispatchEvent(new Event('hami:dashboard-interactive'));
-        notifyBootContentReady();
         unbindFrameGuardRef.current = bindFramePacingGuard();
         const unbindScrollReconcile = bindBodyScrollLockReconcile();
         return () => {

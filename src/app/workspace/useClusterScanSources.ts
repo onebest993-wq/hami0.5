@@ -15,6 +15,7 @@ export type ClusterScanSources = {
 
 /** مصادر مسح الربط العنقودي — دعاوى + تنفيذ + جزائي + مستعجل + إداري + مفكرة + مهام */
 export function useClusterScanSources(params: {
+    enabled: boolean;
     lawyerId: string | null;
     lawsuitFiles: unknown[];
     executionFiles: unknown[];
@@ -23,6 +24,7 @@ export function useClusterScanSources(params: {
     fieldTasks?: unknown[];
 }): ClusterScanSources {
     const {
+        enabled,
         lawyerId,
         lawsuitFiles,
         executionFiles,
@@ -38,6 +40,12 @@ export function useClusterScanSources(params: {
     const criminalCases = criminalCasesParam;
 
     useEffect(() => {
+        if (!enabled) {
+            setUrgentCases([]);
+            setThreadingTransactions([]);
+            setExtrasReady(false);
+            return;
+        }
         if (!lawyerId) {
             setUrgentCases([]);
             setThreadingTransactions([]);
@@ -66,7 +74,7 @@ export function useClusterScanSources(params: {
         return () => {
             cancelled = true;
         };
-    }, [lawyerId]);
+    }, [enabled, lawyerId]);
 
     return {
         lawsuitFiles,

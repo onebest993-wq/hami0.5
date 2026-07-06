@@ -6,7 +6,10 @@ const lazyComponentMocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@/app/utils/lazyComponents', () => lazyComponentMocks);
-import { buildLawyerDashboardTabBundle } from '@/app/hooks/lawyerDashboard/buildLawyerDashboardTabBundle';
+import {
+    buildLawyerDashboardTabBundle,
+    resetBuildLawyerDashboardTabBundleCacheForTests,
+} from '@/app/hooks/lawyerDashboard/buildLawyerDashboardTabBundle';
 
 vi.mock('@/app/runtime/hubArchiveLoader', () => ({
     loadLawsuitArchiveHubModule: vi.fn(() => Promise.resolve({ ArchivePortal: () => null })),
@@ -101,6 +104,7 @@ function minimalTabBundleParams(
 describe('buildLawyerDashboardTabBundle onOpenArchive', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        resetBuildLawyerDashboardTabBundleCacheForTests();
     });
 
     it('يفتح التنفيذ دون رمي خطأ ويغلق المعاملات/الدعاوى', () => {
@@ -266,5 +270,18 @@ describe('buildLawyerDashboardTabBundle onOpenArchive', () => {
 
         expect(primeScheduleTabMount).toHaveBeenCalledTimes(1);
         expect(openScheduleTab).toHaveBeenCalledTimes(1);
+    });
+
+    it('يعيد بناء headerProps فقط عند تغيّر عداد الإشعارات', () => {
+        const base = minimalTabBundleParams({ notificationsUnreadCount: 0 });
+        const first = buildLawyerDashboardTabBundle(base);
+        const second = buildLawyerDashboardTabBundle({
+            ...base,
+            notificationsUnreadCount: 5,
+        });
+
+        expect(second.headerProps).not.toBe(first.headerProps);
+        expect(second.homeTabProps).toBe(first.homeTabProps);
+        expect(second.scheduleTabProps).toBe(first.scheduleTabProps);
     });
 });

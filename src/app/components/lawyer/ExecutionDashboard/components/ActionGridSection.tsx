@@ -86,11 +86,6 @@ export const ActionGridSection = memo(function ActionGridSection({
 }: ActionGridSectionProps) {
     const pinnedCount = pinnedNotes.length + pinnedTasks.length;
 
-    useEffect(() => {
-        prefetchExecutionDashboardShell();
-        prefetchLawReferencePanel();
-    }, []);
-
     const gridTiles = useMemo(
         () =>
             [

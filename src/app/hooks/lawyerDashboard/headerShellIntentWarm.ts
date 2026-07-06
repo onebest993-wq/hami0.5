@@ -9,10 +9,6 @@ import {
     loadNotificationPanelModule,
     prefetchNotificationPanel,
 } from '@/app/runtime/notificationPanelLoader';
-import {
-    loadGlobalSearchOverlayWithEngine,
-    prefetchGlobalSearchOverlayChunk,
-} from '@/app/runtime/globalSearchLoader';
 import { loadRoyalLawyerProfileWithData } from '@/app/runtime/royalLawyerProfileLoader';
 import { warmGlobalSearchOnHover, warmGlobalSearchOnOpen } from '@/app/hooks/lawyerDashboard/globalSearchIntentWarm';
 import { warmNotificationsOnHover, warmNotificationsOnOpen } from '@/app/hooks/lawyerDashboard/notificationIntentWarm';
@@ -72,7 +68,6 @@ export function preloadLawyerDashboardHeaderShellChunks(): void {
 
     prefetchHamiSettingsModule();
     prefetchNotificationPanel();
-    prefetchGlobalSearchOverlayChunk();
 }
 
 function scheduleHeaderShellHeavyWarm(userId: string): void {
@@ -95,17 +90,6 @@ function scheduleHeaderShellHeavyWarm(userId: string): void {
         {
             minDelayMs: import.meta.env.DEV ? 600 : 1_500,
             timeoutMs: 8_000,
-        },
-    );
-
-    scheduleIdleWork(
-        () => {
-            if (typeof document !== 'undefined' && document.hidden) return;
-            void loadGlobalSearchOverlayWithEngine().catch(() => undefined);
-        },
-        {
-            minDelayMs: import.meta.env.DEV ? 1_200 : 3_500,
-            timeoutMs: 12_000,
         },
     );
 

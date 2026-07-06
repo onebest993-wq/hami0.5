@@ -77,6 +77,7 @@ import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 import { useViewportShellScale } from '@/app/hooks/useViewportShellScale';
 import { scheduleTransactionHubTileIdlePrefetch } from '@/app/hooks/lawyerDashboard/hubArchivePrefetchGate';
 import { markBootPhase } from '@/app/bootstrap/bootMetrics';
+import { notifyBootContentReady } from '@/app/bootstrap/bootReveal';
 import { lazyWithRetry, type LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
 import { resolveDockShellMetrics, scaleDockShellMetrics } from '@/app/services/settings/dockShellLayout';
 import {
@@ -102,6 +103,26 @@ const LazyCommandCenterOverlays = lazyWithRetry(() =>
         default: m.CommandCenterOverlays as unknown as LazyComponent,
     })),
 );
+
+const PRIMARY_HOME_WIDGET_IDS = new Set<HomeWidgetId>([
+    'hubExecution',
+    'hubLawsuit',
+    'hubTransaction',
+    'forum',
+]);
+
+const SECONDARY_HOME_WIDGET_IDS = new Set<HomeWidgetId>([
+    'dockRepository',
+    'dockNotepad',
+    'dockCalendar',
+    'dockVault',
+    'dockTasks',
+]);
+
+const HOME_STAGE_DELAYS = {
+    overlays: { minDelayMs: 180, timeoutMs: 1_000 },
+    forumSignals: { minDelayMs: 60, timeoutMs: 500 },
+} as const;
 export type LawyerDashboardHomeTabProps = {
     visible: boolean;
     homeTabSessionKey?: number;
@@ -147,6 +168,16 @@ function HomeDockStageFallback() {
     );
 }
 
+function HomeWidgetStageFallback({ span = 1 }: { span?: 1 | 2 }) {
+    return (
+        <div
+            className={`rounded-[1.625rem] border border-white/[0.06] bg-[#0D0D1A]/40 animate-pulse ${
+                span === 2 ? 'min-h-[9.5rem]' : 'min-h-[5.75rem]'
+            }`}
+        />
+    );
+}
+
 function HomeTabContent({
     visible,
     homeLayoutEditMode,
@@ -189,65 +220,59 @@ function HomeTabContent({
     );
     const dockWidgets = useMemo(() => getWidgetsInZone(placements, 'dock'), [placements]);
     const [forumSignalsReady, setForumSignalsReady] = useState(false);
-    const [alertsStageReady, setAlertsStageReady] = useState(homeLayoutEditMode);
-    const [dockStageReady, setDockStageReady] = useState(homeLayoutEditMode);
+    const [alertsStageReady, setAlertsStageReady] = useState(true);
+    const [secondaryWidgetsStageReady, setSecondaryWidgetsStageReady] = useState(true);
+    const [forumStageReady, setForumStageReady] = useState(true);
+    const [dockStageReady, setDockStageReady] = useState(true);
     const [overlaysStageReady, setOverlaysStageReady] = useState(homeLayoutEditMode);
     const firstTabOpenMarkedRef = useRef(false);
     const enableForumSignals = useCallback(() => setForumSignalsReady(true), []);
 
     useEffect(() => {
+        if (!visible) return;
+        setAlertsStageReady(true);
+        setSecondaryWidgetsStageReady(true);
+        setForumStageReady(true);
+        setDockStageReady(true);
         if (homeLayoutEditMode) {
-            setAlertsStageReady(true);
-            setDockStageReady(true);
             setOverlaysStageReady(true);
             return;
         }
-        if (!visible) return;
 
-        const cancelAlerts = alertsStageReady
-            ? undefined
-            : scheduleIdleWork(() => setAlertsStageReady(true), {
-                  minDelayMs: 80,
-                  timeoutMs: 1_200,
-              });
-        const cancelDock = dockStageReady
-            ? undefined
-            : scheduleIdleWork(() => setDockStageReady(true), {
-                  minDelayMs: 180,
-                  timeoutMs: 2_000,
-              });
         const cancelOverlays = overlaysStageReady
             ? undefined
             : scheduleIdleWork(() => setOverlaysStageReady(true), {
-                  minDelayMs: 900,
-                  timeoutMs: 4_500,
+                  ...HOME_STAGE_DELAYS.overlays,
               });
 
         return () => {
-            cancelAlerts?.();
-            cancelDock?.();
             cancelOverlays?.();
         };
-    }, [alertsStageReady, dockStageReady, overlaysStageReady, homeLayoutEditMode, visible]);
+    }, [
+        overlaysStageReady,
+        homeLayoutEditMode,
+        visible,
+    ]);
 
     useLayoutEffect(() => {
-        if (!visible || !dockStageReady || firstTabOpenMarkedRef.current) return;
+        if (!visible || firstTabOpenMarkedRef.current) return;
         firstTabOpenMarkedRef.current = true;
         markBootPhase('first-tab-open');
-    }, [dockStageReady, visible]);
+        notifyBootContentReady();
+    }, [visible]);
 
     useEffect(() => {
-        if (!userId || homeLayoutEditMode) return;
+        if (!userId || homeLayoutEditMode || !forumStageReady || forumSignalsReady) return;
         return scheduleIdleWork(
             () => setForumSignalsReady(true),
-            { minDelayMs: 8_000, timeoutMs: 20_000 },
+            HOME_STAGE_DELAYS.forumSignals,
         );
-    }, [homeLayoutEditMode, userId]);
+    }, [forumSignalsReady, forumStageReady, homeLayoutEditMode, userId]);
 
     useEffect(() => {
-        if (!userId || homeLayoutEditMode) return;
+        if (!userId || homeLayoutEditMode || !dockStageReady) return;
         scheduleTransactionHubTileIdlePrefetch();
-    }, [homeLayoutEditMode, userId]);
+    }, [dockStageReady, homeLayoutEditMode, userId]);
 
     const forumUnreadCount = useForumUnreadCount(userId, !homeLayoutEditMode && forumSignalsReady);
     useForumNotificationStream(userId, !homeLayoutEditMode && forumSignalsReady);
@@ -300,11 +325,21 @@ function HomeTabContent({
     const renderWidgetBody = (id: HomeWidgetId) => {
         const ov = overrides[id];
         const layoutSpan = resolveWidgetSpan(id, ov);
+        const deferredFallback =
+            id === 'alerts' ? <HomeHubStageFallback /> : <HomeWidgetStageFallback span={layoutSpan} />;
+        const primaryWidget = PRIMARY_HOME_WIDGET_IDS.has(id);
+        const secondaryWidget = SECONDARY_HOME_WIDGET_IDS.has(id);
+        const shouldDeferAlerts = id === 'alerts' && !alertsStageReady && !homeLayoutEditMode;
+        const shouldDeferSecondary =
+            secondaryWidget && !secondaryWidgetsStageReady && !homeLayoutEditMode;
+        const shouldDeferForum = id === 'forum' && !forumStageReady && !homeLayoutEditMode;
+
+        if (!primaryWidget && (shouldDeferAlerts || shouldDeferSecondary || shouldDeferForum)) {
+            return deferredFallback;
+        }
+
         switch (id) {
             case 'alerts':
-                if (!alertsStageReady && !homeLayoutEditMode) {
-                    return <HomeHubStageFallback />;
-                }
                 return (
                     <HomeHubErrorBoundary>
                         <Suspense fallback={<HomeHubStageFallback />}>

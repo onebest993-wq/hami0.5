@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 
@@ -7,13 +7,10 @@ import { useAutoSave } from '@/app/hooks/useAutoSave';
 import { STORAGE_KEYS, PERSIST_DEBOUNCE_MS } from '@/app/utils/constants';
 
 import {
-
+    loadInitialLawsuitFiles,
     loadInitialLawsuitFilesAsync,
-
     persistLawsuitFiles,
-
     reloadLawsuitFilesFromStorage,
-
 } from '@/app/domain/lawsuit/lawsuitFilesRepository';
 
 
@@ -21,6 +18,8 @@ import {
 type UseLawsuitFilesStateOptions = {
 
     localAutoSave: boolean;
+
+    backgroundRuntimeEnabled: boolean;
 
     autosaveDebounceMs?: number;
 
@@ -40,13 +39,17 @@ export function useLawsuitFilesState({
 
     localAutoSave,
 
+    backgroundRuntimeEnabled,
+
     autosaveDebounceMs = PERSIST_DEBOUNCE_MS.HEAVY,
 
 }: UseLawsuitFilesStateOptions) {
 
-    const [files, setFiles] = useState<FileData[]>([]);
+    const [files, setFiles] = useState<FileData[]>(() => loadInitialLawsuitFiles());
 
-    const [storageHydrated, setStorageHydrated] = useState(false);
+    const bootstrapFilesRef = useRef(files);
+
+    const [storageHydrated, setStorageHydrated] = useState(true);
 
 
 
@@ -55,6 +58,7 @@ export function useLawsuitFilesState({
 
 
     useEffect(() => {
+        if (!backgroundRuntimeEnabled) return;
 
         let cancelled = false;
 
@@ -64,7 +68,9 @@ export function useLawsuitFilesState({
 
             if (cancelled) return;
 
-            setFiles((prev) => (hydrated.length > 0 || prev.length === 0 ? hydrated : prev));
+            setFiles((prev) =>
+                prev === bootstrapFilesRef.current || prev.length === 0 ? hydrated : prev,
+            );
 
             setStorageHydrated(true);
 
@@ -76,7 +82,7 @@ export function useLawsuitFilesState({
 
         };
 
-    }, []);
+    }, [backgroundRuntimeEnabled]);
 
 
 

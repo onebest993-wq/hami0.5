@@ -33,6 +33,9 @@ export function patchLawyerDashboardHeaderOverlayOpen(
     const scheduleTabBaseActive = input.activeTab === 'schedule';
     const homeTabMounted = isLawyerDashboardTabMounted(homeTabBaseActive, input.tabStackMask);
     const scheduleTabMounted = isLawyerDashboardTabMounted(scheduleTabBaseActive, input.tabStackMask);
+    const overlaysHostOverlayChanged =
+        view.overlaysHostProps.overlays.showSettings !== input.showSettings ||
+        view.overlaysHostProps.overlays.showGlobalSearch !== input.showGlobalSearch;
 
     if (
         view.tabStackHidden === tabStackHidden &&
@@ -67,13 +70,15 @@ export function patchLawyerDashboardHeaderOverlayOpen(
             ...view.notificationPanel,
             isOpen: input.showNotifications,
         },
-        overlaysHostProps: {
-            ...view.overlaysHostProps,
-            overlays: {
-                ...view.overlaysHostProps.overlays,
-                showSettings: input.showSettings,
-                showGlobalSearch: input.showGlobalSearch,
-            },
-        },
+        overlaysHostProps: overlaysHostOverlayChanged
+            ? {
+                  ...view.overlaysHostProps,
+                  overlays: {
+                      ...view.overlaysHostProps.overlays,
+                      showSettings: input.showSettings,
+                      showGlobalSearch: input.showGlobalSearch,
+                  },
+              }
+            : view.overlaysHostProps,
     };
 }

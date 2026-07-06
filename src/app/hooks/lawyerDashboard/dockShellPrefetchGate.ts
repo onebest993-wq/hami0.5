@@ -6,6 +6,15 @@ import {
 
 const DOCK_PREFETCH_COOLDOWN_MS = 300;
 const DOCK_IDLE_STAGGER_MS = 120;
+const HEAVY_IDLE_PREFETCH_WIDGETS = new Set<HomeWidgetId>([
+    'forum',
+    'dockRepository',
+    'dockNotepad',
+    'dockVault',
+    'hubExecution',
+    'hubLawsuit',
+    'hubTransaction',
+]);
 const lastPrefetchAt = new Map<HomeWidgetId, number>();
 const idleScheduledKeys = new Set<string>();
 let idleCallbackId: number | null = null;
@@ -58,8 +67,10 @@ export function prefetchDockWidgetIntentImmediate(widgetId: HomeWidgetId): void 
 /** prefetch تدريجي عند الخمول لأيقونات الدوك المرئية — cold open أخف */
 export function scheduleVisibleDockWidgetsPrefetch(widgetIds: readonly HomeWidgetId[]): () => void {
     if (typeof window === 'undefined' || widgetIds.length === 0) return () => undefined;
+    const eligibleWidgetIds = widgetIds.filter((widgetId) => !HEAVY_IDLE_PREFETCH_WIDGETS.has(widgetId));
+    if (eligibleWidgetIds.length === 0) return () => undefined;
 
-    const key = widgetIds.join('|');
+    const key = eligibleWidgetIds.join('|');
     if (idleScheduledKeys.has(key)) return () => undefined;
     idleScheduledKeys.add(key);
 
@@ -68,7 +79,7 @@ export function scheduleVisibleDockWidgetsPrefetch(widgetIds: readonly HomeWidge
     const run = () => {
         if (cancelled || document.hidden) return;
         clearStaggerTimers();
-        widgetIds.forEach((widgetId, index) => {
+        eligibleWidgetIds.forEach((widgetId, index) => {
             staggerTimerIds.push(
                 window.setTimeout(() => {
                     if (!cancelled && !document.hidden) prefetchDockWidgetIntentDebounced(widgetId);

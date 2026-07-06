@@ -34,11 +34,11 @@ export function useBootReveal(): BootRevealState {
     const startExit = useCallback(() => {
         if (exitStartedRef.current) return;
         exitStartedRef.current = true;
+        setDashboardVisible(true);
         setOverlayPhase('exiting');
         schedule(() => {
             removeStaticBootShell();
             setOverlayPhase('gone');
-            setDashboardVisible(true);
         }, BOOT_EXIT_MS);
     }, [schedule]);
 

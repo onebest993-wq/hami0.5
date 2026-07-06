@@ -295,8 +295,26 @@ export function resetVaultLocalIndexForTests(): void {
 
 if (typeof document !== 'undefined' && !import.meta.env.VITEST) {
     const flush = () => void flushVaultLocalIndexPersist();
+    let hiddenFlushTimer: number | null = null;
     document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden') flush();
+        if (document.visibilityState !== 'hidden') {
+            if (hiddenFlushTimer !== null) {
+                window.clearTimeout(hiddenFlushTimer);
+                hiddenFlushTimer = null;
+            }
+            return;
+        }
+        if (hiddenFlushTimer !== null) window.clearTimeout(hiddenFlushTimer);
+        hiddenFlushTimer = window.setTimeout(() => {
+            hiddenFlushTimer = null;
+            if (document.visibilityState === 'hidden') flush();
+        }, 900);
     });
-    window.addEventListener('pagehide', flush);
+    window.addEventListener('pagehide', () => {
+        if (hiddenFlushTimer !== null) {
+            window.clearTimeout(hiddenFlushTimer);
+            hiddenFlushTimer = null;
+        }
+        flush();
+    });
 }

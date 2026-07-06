@@ -26,13 +26,21 @@ import {
 } from '@/app/hooks/lawyerDashboard/notificationIntentWarm';
 import { hydrateNotificationShellForInstantOpen } from '@/app/runtime/notificationBootHydrator';
 
-export function useLawyerDashboardNotifications(userId: string | null) {
+export function useLawyerDashboardNotifications(
+    userId: string | null,
+    options?: { backgroundRuntimeEnabled?: boolean },
+) {
+    const backgroundRuntimeEnabled = options?.backgroundRuntimeEnabled !== false;
     const notifications = useNotificationStore((s) => s.notifications);
     const storeUnreadCount = useNotificationStore((s) => s.unreadCount);
-    const { pendingCount: caseSharePendingCount } = useIncomingCaseShares(userId, Boolean(userId), {
-        pollIntervalMs: null,
-        deferInitialFetch: true,
-    });
+    const { pendingCount: caseSharePendingCount } = useIncomingCaseShares(
+        userId,
+        Boolean(userId) && backgroundRuntimeEnabled,
+        {
+            pollIntervalMs: null,
+            deferInitialFetch: true,
+        },
+    );
     const notificationsUnreadCount = computeNotificationsShellUnreadCount(
         storeUnreadCount,
         caseSharePendingCount,
@@ -45,7 +53,7 @@ export function useLawyerDashboardNotifications(userId: string | null) {
 
     useNotificationBackgroundSync(userId, {
         panelOpen: showNotifications,
-        enabled: Boolean(userId),
+        enabled: Boolean(userId) && backgroundRuntimeEnabled,
         deferUntilBootIdle: true,
     });
 

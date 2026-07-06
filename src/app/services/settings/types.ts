@@ -48,7 +48,6 @@ export interface DataSettings {
     syncNotes: boolean;
     syncFiles: boolean;
     syncExecution: boolean;
-    weeklyBackupReminder: boolean;
 }
 
 export type LitePerformanceMode = 'auto' | 'on' | 'off';

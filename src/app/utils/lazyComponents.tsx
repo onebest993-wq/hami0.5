@@ -441,23 +441,28 @@ export function prefetchLawyerHomeHubCard(): void {
     void import('@/app/components/lawyer/LawyerHomeHubCard');
 }
 
-/** حاويات الرئيسية — chunk + مكوّنات الرئيسية فوراً */
-export function warmLawyerHomeShell(): void {
+/** الحد الأدنى لواجهة الرئيسية — الهيدر وبطاقات الأرشيف الأساسية فقط */
+export function warmLawyerHomeShellCritical(): void {
     if (typeof window === 'undefined') return;
     void import('@/app/components/lawyer/LawyerDashboardParts/components/Header').catch(() => undefined);
-    prefetchLawyerHomeHubCard();
-    void import('@/app/components/lawyer/LegalCommandCenterDock');
     void import('@/app/components/lawyer/dashboard/commandHub/CommandHubTiles');
+    void import('@/app/components/lawyer/LegalCommandCenterDock').catch(() => undefined);
 }
 
-/** حاويات الرئيسية — تُحمَّل فوراً (تنبيهات + دوك + شريط الأوامر) */
+/** الطبقات الثانوية للرئيسية — التنبيهات والدوك تُسخّن فقط بعد أن يطلبها المسار */
+export function warmLawyerHomeShellSecondary(): void {
+    if (typeof window === 'undefined') return;
+    prefetchLawyerHomeHubCard();
+}
+
+/** حاويات الرئيسية الحرجة فقط */
 export function prefetchLawyerHomeShellCritical(): void {
-    warmLawyerHomeShell();
+    warmLawyerHomeShellCritical();
 }
 
 export function prefetchLawyerHomeShellWidgets(): void {
     if (typeof window === 'undefined') return;
-    prefetchLawyerHomeShellCritical();
+    warmLawyerHomeShellSecondary();
     prefetchSmartRepositoryModal();
     prefetchTransactionsHub();
 }

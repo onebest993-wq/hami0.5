@@ -7,6 +7,7 @@ import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { GlobalNote, ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 
 export type UseLawyerDashboardCalendarClusterParams = {
+    enabled: boolean;
     userId?: string;
     authUserId?: string;
     files: FileData[];
@@ -17,6 +18,7 @@ export type UseLawyerDashboardCalendarClusterParams = {
 };
 
 export function useLawyerDashboardCalendarCluster({
+    enabled,
     userId,
     authUserId,
     files,
@@ -28,6 +30,7 @@ export function useLawyerDashboardCalendarCluster({
     const calendarUserId = resolveCalendarUserId(userId ?? authUserId ?? null);
 
     useIncrementalCalendarSync(
+        enabled,
         calendarUserId,
         files,
         executionFiles,
@@ -37,6 +40,7 @@ export function useLawyerDashboardCalendarCluster({
     );
 
     const clusterScanSources = useClusterScanSources({
+        enabled,
         lawyerId: calendarUserId,
         lawsuitFiles: files,
         executionFiles,
@@ -45,7 +49,7 @@ export function useLawyerDashboardCalendarCluster({
         fieldTasks: quantumTasks,
     });
 
-    useWorkspacePinMaintenance({ clusterScanSources });
+    useWorkspacePinMaintenance({ enabled, clusterScanSources });
 
     return { calendarUserId, clusterScanSources };
 }

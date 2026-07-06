@@ -1,17 +1,17 @@
-/** Phase C Slice 22 — cluster handlers + persistence wiring (extracted from core) */
+// @ts-nocheck
+/** Coercive-heavy cluster: excludes dossier/admin handlers from the full bridge. */
 import { useExecutionDashboardCoreHandlerClusterFoundation } from './useExecutionDashboardCoreHandlerClusterFoundation';
 import { useExecutionDashboardCoreHandlerClusterSeizureCoercive } from './useExecutionDashboardCoreHandlerClusterSeizureCoercive';
-import { useExecutionDashboardCoreHandlerClusterDossier } from './useExecutionDashboardCoreHandlerClusterDossier';
 import { useExecutionDashboardCoreHandlerClusterPartyLifecycle } from './useExecutionDashboardCoreHandlerClusterPartyLifecycle';
 import { useExecutionDashboardCoreHandlerClusterEviction } from './useExecutionDashboardCoreHandlerClusterEviction';
 import { useExecutionDashboardCoreHandlerClusterSeizureFollowup } from './useExecutionDashboardCoreHandlerClusterSeizureFollowup';
 import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
-export type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
 
-export function useExecutionDashboardCoreHandlerCluster(c: ExecutionDashboardCoreHandlerClusterInput) {
+export function useExecutionDashboardCoreHandlerClusterCoerciveHeavy(
+    c: ExecutionDashboardCoreHandlerClusterInput,
+) {
     const foundation = useExecutionDashboardCoreHandlerClusterFoundation(c);
     const {
-        executionCopilotDecisions,
         firstActiveAppealDecisionId,
         removeJudicialCustodianEntry,
         pushTimelineEventBinding,
@@ -20,14 +20,6 @@ export function useExecutionDashboardCoreHandlerCluster(c: ExecutionDashboardCor
         realEstateSeizureHandlers,
         thirdPartySeizureHandlers,
     } = foundation;
-
-    const dossierBlock = useExecutionDashboardCoreHandlerClusterDossier(c, { pushTimelineEvent });
-    const {
-        dossierLifecycleActions,
-        dossierMetaWorkflow,
-        parentDossierPersistence,
-        dossierFollowupHandlers,
-    } = dossierBlock;
 
     const partyBlock = useExecutionDashboardCoreHandlerClusterPartyLifecycle(c, { pushTimelineEvent });
     const {
@@ -91,17 +83,12 @@ export function useExecutionDashboardCoreHandlerCluster(c: ExecutionDashboardCor
 
     return {
         firstActiveAppealDecisionId,
-        executionCopilotDecisions,
         removeJudicialCustodianEntry,
         pushTimelineEventBinding,
         pushTimelineEvent,
         propertyInlineSaveCtx,
         realEstateSeizureHandlers,
         thirdPartySeizureHandlers,
-        dossierLifecycleActions,
-        dossierMetaWorkflow,
-        parentDossierPersistence,
-        dossierFollowupHandlers,
         debtorEmploymentHandler,
         stayHandlers,
         partyDeathHandlers,
@@ -137,4 +124,3 @@ export function useExecutionDashboardCoreHandlerCluster(c: ExecutionDashboardCor
         salarySeizurePatch,
     };
 }
-

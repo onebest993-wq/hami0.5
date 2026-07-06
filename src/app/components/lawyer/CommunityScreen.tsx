@@ -5,11 +5,6 @@ import { ForumPlumPage } from './CommunityScreen/forumPlumTheme';
 import { CommunityScreenBody } from './CommunityScreen/components/CommunityScreenBody';
 import { CommunityScreenAccessGate } from './CommunityScreen/components/CommunityScreenAccessGate';
 import { CommunityScreenOverlays } from './CommunityScreen/components/CommunityScreenOverlays';
-import { prefetchCommunityRepositorySection } from './CommunityScreen/communityScreenLazySections';
-import {
-    prefetchCommunityHeavyOverlays,
-    scheduleCommunityProfileOverlayPrefetch,
-} from './CommunityScreen/communityScreenLazyOverlays';
 import {
     useCommunityScreenController,
     type CommunityScreenControllerProps,
@@ -24,9 +19,6 @@ export const CommunityScreen = (props: CommunityScreenProps) => {
 
     useEffect(() => {
         ensureDeferredFeatureStylesLoaded();
-        prefetchCommunityHeavyOverlays();
-        prefetchCommunityRepositorySection();
-        scheduleCommunityProfileOverlayPrefetch();
     }, []);
 
     if (gateBlocked) {

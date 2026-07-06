@@ -4,7 +4,6 @@
 import { lazy } from 'react';
 import { prefetchExecutionLawArticlesRemote } from '@/app/utils/executionLawRemoteCache';
 import { loadExecutionLawSeedData } from '@/data/executionLawsLoader';
-import { EmployeeAssignmentCoerciveFollowupBlock } from '@/app/components/lawyer/execution/EmployeeAssignmentCoerciveFollowupBlock';
 
 const actionGridSectionImport = () =>
     import('./components/ActionGridSection').then((m) => ({ default: m.ActionGridSection }));
@@ -40,9 +39,10 @@ const personalCoerciveFollowupPanelImport = () =>
 
 export const LazyPersonalCoerciveFollowupPanel = lazy(personalCoerciveFollowupPanelImport);
 
-const employeeAssignmentCoerciveImport = async () => ({
-    default: EmployeeAssignmentCoerciveFollowupBlock,
-});
+const employeeAssignmentCoerciveImport = () =>
+    import('@/app/components/lawyer/execution/EmployeeAssignmentCoerciveFollowupBlock').then((m) => ({
+        default: m.EmployeeAssignmentCoerciveFollowupBlock,
+    }));
 
 export const LazyEmployeeAssignmentCoerciveFollowupBlock = lazy(employeeAssignmentCoerciveImport);
 

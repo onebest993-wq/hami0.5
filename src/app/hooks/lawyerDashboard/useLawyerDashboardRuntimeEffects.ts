@@ -14,14 +14,7 @@ import { prefetchCriminalDashboard, warmLawsuitWorkspace } from '@/app/utils/laz
 import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
 import { enqueueStaggeredBootTask } from '@/app/bootstrap/staggeredBootOrchestrator';
 import { bindDashboardPostInteractiveWarm } from '@/app/runtime/dashboardPostInteractiveWarm';
-import { hydrateFieldTasksShellForInstantOpen } from '@/app/runtime/fieldTasksBootHydrator';
-import { hydrateScheduleShellForInstantOpenWithData } from '@/app/runtime/scheduleBootHydrator';
-import { hydrateProfileShellForInstantOpenWithData } from '@/app/runtime/profileBootHydrator';
-import { hydrateRepositoryBootShellForInstantOpen } from '@/app/runtime/repositoryBootHydrator';
-import { hydrateSettingsShellForInstantOpen } from '@/app/runtime/settingsBootHydrator';
-import { hydrateNotificationShellForInstantOpen } from '@/app/runtime/notificationBootHydrator';
-import { hydrateGlobalSearchShellForInstantOpen } from '@/app/runtime/globalSearchBootHydrator';
-import { hydrateCommunityShellForInstantOpen } from '@/app/runtime/communityBootHydrator';
+import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
 import {
     clearGlobalSearchWarmSnapshot,
     registerGlobalSearchWarmSnapshotProvider,
@@ -38,6 +31,7 @@ import { mapLawsuitFilesToLegalCases } from '@/app/components/lawyer/LawyerDashb
 import type { LegalTask } from '@/app/types/TaskEngine';
 
 export type UseLawyerDashboardRuntimeEffectsParams = {
+    backgroundRuntimeEnabled: boolean;
     user: User | null;
     authUser: User | null | undefined;
     files: FileData[];
@@ -63,6 +57,7 @@ export type UseLawyerDashboardRuntimeEffectsParams = {
 };
 
 export function useLawyerDashboardRuntimeEffects({
+    backgroundRuntimeEnabled,
     user,
     authUser,
     files,
@@ -90,6 +85,9 @@ export function useLawyerDashboardRuntimeEffects({
 
     const calendarDossierFingerprint = useMemo(
         () =>
+            !backgroundRuntimeEnabled
+                ? ''
+                :
             buildCalendarDossierFingerprint(
                 files,
                 executionFiles,
@@ -97,7 +95,14 @@ export function useLawyerDashboardRuntimeEffects({
                 quantumTasks,
                 criminalCasesForCluster,
             ),
-        [files, executionFiles, globalNotes, quantumTasks, criminalCasesForCluster],
+        [
+            backgroundRuntimeEnabled,
+            files,
+            executionFiles,
+            globalNotes,
+            quantumTasks,
+            criminalCasesForCluster,
+        ],
     );
 
     const [debouncedCalendarFingerprint, setDebouncedCalendarFingerprint] = useState(
@@ -105,11 +110,15 @@ export function useLawyerDashboardRuntimeEffects({
     );
 
     useEffect(() => {
+        if (!backgroundRuntimeEnabled) {
+            setDebouncedCalendarFingerprint('');
+            return;
+        }
         const timer = window.setTimeout(() => {
             setDebouncedCalendarFingerprint(calendarDossierFingerprint);
         }, 2_500);
         return () => window.clearTimeout(timer);
-    }, [calendarDossierFingerprint]);
+    }, [backgroundRuntimeEnabled, calendarDossierFingerprint]);
 
     const shellAuthUserId = resolveShellAuthUserId(authUser?.id, user?.id);
     const searchWarmSnapshotRef = useRef<GlobalSearchWarmSnapshot | null>(null);
@@ -125,61 +134,11 @@ export function useLawyerDashboardRuntimeEffects({
           }
         : null;
 
-    /** intent-only: تسخين هيدر فوري، ثم تهيئة القشور تدريجياً بدل burst واحد بعد interactive. */
+    /** intent-only: نكتفي هنا بتسخين الهيدر الخفيف، ولا نُطلق hydrates الأقسام عند أول دخول. */
     useEffect(() => {
         const uid = resolveShellAuthUserId(authUser?.id, user?.id);
-        const unbindWarm = bindDashboardPostInteractiveWarm(uid);
-        const cancelNotificationHydrate = enqueueStaggeredBootTask(
-            'dashboard-hydrate-notifications',
-            () => hydrateNotificationShellForInstantOpen().catch(() => undefined),
-            'secondary',
-        );
-        const cancelGlobalSearchHydrate = enqueueStaggeredBootTask(
-            'dashboard-hydrate-global-search',
-            () => hydrateGlobalSearchShellForInstantOpen().catch(() => undefined),
-            'secondary',
-        );
-        const cancelFieldTasksHydrate = enqueueStaggeredBootTask(
-            'dashboard-hydrate-field-tasks',
-            () => hydrateFieldTasksShellForInstantOpen().catch(() => undefined),
-            'secondary',
-        );
-        const cancelSettingsHydrate = enqueueStaggeredBootTask(
-            'dashboard-hydrate-settings',
-            () => hydrateSettingsShellForInstantOpen().catch(() => undefined),
-            'deferred',
-        );
-        const cancelScheduleHydrate = enqueueStaggeredBootTask(
-            'dashboard-hydrate-schedule',
-            () => hydrateScheduleShellForInstantOpenWithData(uid).catch(() => undefined),
-            'deferred',
-        );
-        const cancelRepositoryHydrate = enqueueStaggeredBootTask(
-            'dashboard-hydrate-repository',
-            () => hydrateRepositoryBootShellForInstantOpen(uid).catch(() => undefined),
-            'deferred',
-        );
-        const cancelProfileHydrate = enqueueStaggeredBootTask(
-            'dashboard-hydrate-profile',
-            () => hydrateProfileShellForInstantOpenWithData(uid).catch(() => undefined),
-            'deferred',
-        );
-        const cancelCommunityHydrate = enqueueStaggeredBootTask(
-            'dashboard-hydrate-community',
-            () => hydrateCommunityShellForInstantOpen().catch(() => undefined),
-            'deferred',
-        );
-        return () => {
-            unbindWarm();
-            cancelSettingsHydrate();
-            cancelFieldTasksHydrate();
-            cancelRepositoryHydrate();
-            cancelNotificationHydrate();
-            cancelGlobalSearchHydrate();
-            cancelScheduleHydrate();
-            cancelProfileHydrate();
-            cancelCommunityHydrate();
-        };
+        if (!uid) return;
+        return bindDashboardPostInteractiveWarm(uid);
     }, [user?.id, authUser?.id]);
 
     useEffect(() => {
@@ -191,31 +150,38 @@ export function useLawyerDashboardRuntimeEffects({
     useEffect(() => {
         const uid = resolveShellAuthUserId(authUser?.id, user?.id);
         if (!isRealSignedIn(uid)) return;
-
-        return enqueueStaggeredBootTask(
-            'notification-shell-badge',
-            () => {
+        let cancelIdle = () => undefined;
+        const timerId = window.setTimeout(() => {
+            cancelIdle = scheduleIdleWork(() => {
+                if (typeof document !== 'undefined' && document.hidden) return;
                 void refreshNotificationShellBadge(uid!);
-            },
-            'secondary',
-        );
+            }, import.meta.env.DEV ? 2_500 : 12_000);
+        }, import.meta.env.DEV ? 1_500 : 8_000);
+        return () => {
+            window.clearTimeout(timerId);
+            cancelIdle();
+        };
     }, [user?.id, authUser?.id]);
 
     useEffect(() => {
+        if (!backgroundRuntimeEnabled) return;
         const uid = resolveCalendarUserId(user?.id ?? authUser?.id ?? null);
         if (!isRealSignedIn(uid)) return;
-
-        return enqueueStaggeredBootTask(
-            'calendar-reconcile',
-            () => {
+        let cancelIdle = () => undefined;
+        const timerId = window.setTimeout(() => {
+            cancelIdle = scheduleIdleWork(() => {
+                if (typeof document !== 'undefined' && document.hidden) return;
                 void (async () => {
                     await SecureStoreService.ensurePersistedReady();
                     await runSmartCalendarReconcileIfNeeded(uid, debouncedCalendarFingerprint);
                 })();
-            },
-            'deferred',
-        );
-    }, [user?.id, authUser?.id, debouncedCalendarFingerprint]);
+            }, import.meta.env.DEV ? 4_000 : 18_000);
+        }, import.meta.env.DEV ? 2_500 : 12_000);
+        return () => {
+            window.clearTimeout(timerId);
+            cancelIdle();
+        };
+    }, [backgroundRuntimeEnabled, user?.id, authUser?.id, debouncedCalendarFingerprint]);
 
     useEffect(() => {
         if (!shellAuthUserId) {

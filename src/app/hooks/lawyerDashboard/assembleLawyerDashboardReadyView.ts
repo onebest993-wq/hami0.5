@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { buildLawyerDashboardTabBundle } from '@/app/hooks/lawyerDashboard/buildLawyerDashboardTabBundle';
 import { buildLawyerDashboardTabStackMask } from '@/app/hooks/lawyerDashboard/buildLawyerDashboardTabStackMask';
 import { shouldMaskLawyerDashboardTabStack, isLawyerDashboardTabMounted } from '@/app/hooks/lawyerDashboard/lawyerDashboardTabStack';
@@ -222,7 +221,7 @@ export function assembleLawyerDashboardReadyView({
         headerProps,
         homeTabProps: {
             ...homeTabProps,
-            active: isLawyerDashboardTabMounted(homeTabProps.visible, tabStackMask),
+            visible: isLawyerDashboardTabMounted(homeTabProps.visible, tabStackMask),
         },
         scheduleTabProps: {
             ...scheduleTabProps,
@@ -230,8 +229,6 @@ export function assembleLawyerDashboardReadyView({
         },
         profileTab: {
             visible: overlays.activeTab === 'profile',
-            active:
-                overlays.activeTab === 'profile' && !shouldMaskLawyerDashboardTabStack(tabStackMask),
             sessionKey: profileTab.profileTabSessionKey,
             perfOpenEpoch: profileTab.profileOpenEpoch,
             onBack: profileTab.closeProfileTab,

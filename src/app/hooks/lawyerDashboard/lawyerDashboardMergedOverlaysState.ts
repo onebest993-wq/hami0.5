@@ -21,7 +21,7 @@ export type LawyerDashboardMergedOverlaysState = ReturnType<typeof useLawyerDash
     ReturnType<typeof useLawyerDashboardScheduleTab> &
     ReturnType<typeof useLawyerDashboardCommunity> &
     ReturnType<typeof useLawyerDashboardHomeTab> & {
-        openGlobalSearch: (seed?: unknown) => void;
+        openGlobalSearch: (seed?: string) => void;
         openSettings: () => void;
         openProfileTab: () => void;
         closeHubShellOverlays: () => void;

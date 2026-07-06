@@ -13,6 +13,9 @@ import {
     clearLocalNotificationCache,
     resetNotificationStoreAfterWipe,
 } from '@/app/services/notifications/notificationLocalCleanup';
+import { purgeClientAuthResidue } from '@/app/utils/authStorage';
+import { clearBffCryptoWrapCredential } from '@/app/utils/bffCryptoSession';
+import { clearCsrfSessionToken } from '@/app/security/csrfSession';
 
 const KV_PROXY_URL = '/api/kv-proxy';
 
@@ -145,6 +148,10 @@ function clearBrowserStorage(): void {
     } catch {
         /* ignore */
     }
+
+    purgeClientAuthResidue();
+    clearBffCryptoWrapCredential();
+    clearCsrfSessionToken();
 }
 
 async function wipeLocalSecureStore(): Promise<void> {
@@ -183,6 +190,12 @@ export async function wipeAllApplicationData(
 
     try {
         persistenceRepository.clear();
+    } catch {
+        /* ignore */
+    }
+
+    try {
+        await supabase.auth.signOut();
     } catch {
         /* ignore */
     }

@@ -100,7 +100,7 @@ describe('useLawyerDashboardTransactions', () => {
         expect(result.current.showTransactions).toBe(false);
     });
 
-    it('يُجهّز host فور تسجيل الدخول', () => {
+    it('لا يُجهّز host تلقائياً عند تسجيل الدخول ويجهّزه فقط عند intent', () => {
         const { result } = renderHook(() =>
             useLawyerDashboardTransactions({
                 userId: 'lawyer-1',
@@ -109,7 +109,7 @@ describe('useLawyerDashboardTransactions', () => {
             }),
         );
 
-        expect(result.current.transactionsHostMounted).toBe(true);
+        expect(result.current.transactionsHostMounted).toBe(false);
 
         act(() => {
             result.current.primeTransactionsHubMount();

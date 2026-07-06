@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useMemo } from 'react';
+import React, { Suspense, memo, useEffect, useMemo } from 'react';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import {
     Book,
@@ -34,17 +34,14 @@ import { HomeBlockPatternOverlay } from './dashboard/HomeBlockPatternOverlay';
 import { resolveDockShellMetrics, scaleDockShellMetrics } from '@/app/services/settings/dockShellLayout';
 import { resolveDockChromeStackGapPx } from '@/app/services/settings/homeDockChromeLayout';
 import { resolveDockItemIconStyles } from '@/app/services/settings/resolveDockItemIconStyles';
-import { EditableDockShell } from './dashboard/homeLayoutEdit/EditableDockShell';
-import { DraggableHomeWidget } from './dashboard/homeLayoutEdit/DraggableHomeWidget';
 import { resolveBlockSizeScale } from '@/app/services/settings/homeBlockScale';
-import { HomeDropZone } from './dashboard/homeLayoutEdit/HomeDropZone';
 import { useHomeLayoutEdit } from './dashboard/homeLayoutEdit/HomeLayoutEditContext';
 import { useHomePageScroll } from './dashboard/homeLayoutEdit/HomeLayoutScrollRoot';
 import type { CommandCenterDockActions } from './dashboard/useCommandCenterDockActions';
 import { useCommandCenterDockActions } from './dashboard/useCommandCenterDockActions';
-import { CommandCenterOverlays } from './dashboard/CommandCenterOverlays';
 import { HAMI_SHELL_CONTAINER } from './dashboard/lawyerShellLayout';
 import { useViewportShellScale } from '@/app/hooks/useViewportShellScale';
+import { lazyWithRetry, type LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
 import {
     prefetchDockWidgetIntentDebounced,
     prefetchDockWidgetIntentImmediate,
@@ -70,6 +67,30 @@ interface LegalCommandCenterDockProps {
 
 const DOCK_SHELL_ITEM_A11Y =
     'touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0F1C]';
+
+const LazyEditableDockShell = lazyWithRetry(() =>
+    import('./dashboard/homeLayoutEdit/EditableDockShell').then((m) => ({
+        default: m.EditableDockShell as unknown as LazyComponent,
+    })),
+);
+
+const LazyDraggableHomeWidget = lazyWithRetry(() =>
+    import('./dashboard/homeLayoutEdit/DraggableHomeWidget').then((m) => ({
+        default: m.DraggableHomeWidget as unknown as LazyComponent,
+    })),
+);
+
+const LazyHomeDropZone = lazyWithRetry(() =>
+    import('./dashboard/homeLayoutEdit/HomeDropZone').then((m) => ({
+        default: m.HomeDropZone as unknown as LazyComponent,
+    })),
+);
+
+const LazyCommandCenterOverlays = lazyWithRetry(() =>
+    import('./dashboard/CommandCenterOverlays').then((m) => ({
+        default: m.CommandCenterOverlays as unknown as LazyComponent,
+    })),
+);
 
 type DockItemProps = {
     widgetId: HomeWidgetId;
@@ -239,6 +260,7 @@ export const LegalCommandCenterDock = memo(function LegalCommandCenterDock({
 
     const shellOverride = overrides.dockShell;
     const dockLiftPx = shellOverride?.dockLiftPx ?? 0;
+    const resolvedDockLiftPx = isEditing ? dockLiftPx : 0;
     const shellIconCount = Math.max(1, visibleDockWidgets.length);
     const shellMetrics = useMemo(
         () =>
@@ -362,6 +384,165 @@ export const LegalCommandCenterDock = memo(function LegalCommandCenterDock({
         return null;
     }
 
+    const dockShellRow = visibleDockWidgets.length > 0 ? (
+        <div
+            data-hami-dock-icons=""
+            className="hami-dock-shell-row relative grid items-end w-full"
+            style={{
+                gridTemplateColumns: `repeat(${visibleDockWidgets.length}, minmax(0, 1fr))`,
+                gap: `${shellMetrics.gapRem}rem`,
+                minHeight: shellMetrics.rowMinHeightPx,
+            }}
+        >
+            {visibleDockWidgets.map((widgetId) => {
+                const cfg = widgetConfigs[widgetId] ?? {
+                    icon: FileText,
+                    label: dockShellLabel(widgetId),
+                };
+                const hidden = !isBlockVisible(overrides[widgetId]);
+                const dockAriaLabel = resolveDockShellItemAriaLabel(
+                    widgetId,
+                    cfg.label,
+                    dockBadgeContext,
+                );
+                const clickHandler = dockItemInteractions.clicks[widgetId] ?? (() => undefined);
+                const item = (
+                    <DockItem
+                        widgetId={widgetId}
+                        icon={cfg.icon}
+                        label={cfg.label}
+                        ariaLabel={dockAriaLabel}
+                        active={cfg.active}
+                        badge={cfg.badge}
+                        reduceMotion={reduceMotion}
+                        disabled={isEditing}
+                        blockOverride={overrides[widgetId]}
+                        homeContainerBorder={homeContainerBorder}
+                        showLabels={shellMetrics.showLabels}
+                        visualStyles={
+                            dockItemVisuals[widgetId] ??
+                            resolveDockItemIconStyles({
+                                accent: themePrimary,
+                                buttonBoxPx: shellMetrics.buttonBoxPx,
+                                iconRadiusRem: shellMetrics.iconRadiusRem,
+                                iconStrokePx: shellMetrics.iconStrokePx,
+                                labelPx: shellMetrics.labelPx,
+                            })
+                        }
+                        onPrefetch={dockItemInteractions.prefetches[widgetId]}
+                        onPointerPrime={dockItemInteractions.pointerPrimes[widgetId]}
+                        onClick={clickHandler}
+                    />
+                );
+
+                if (isEditing) {
+                    return (
+                        <LazyDraggableHomeWidget
+                            key={widgetId}
+                            widgetId={widgetId}
+                            zone="dock"
+                            label={HOME_WIDGET_LABELS[widgetId]}
+                            className={`min-w-0 ${hidden ? 'opacity-45' : ''}`}
+                            blockOverride={overrides[widgetId]}
+                        >
+                            {item}
+                        </LazyDraggableHomeWidget>
+                    );
+                }
+
+                return <React.Fragment key={widgetId}>{item}</React.Fragment>;
+            })}
+        </div>
+    ) : (
+        <div
+            data-hami-dock-icons=""
+            className="hami-dock-shell-row relative flex min-h-[4.75rem] items-center justify-center px-3"
+        >
+            <p className="text-[10px] font-medium text-white/35 text-center leading-relaxed">
+                {isEditing
+                    ? 'اسحب أقساماً هنا للشريط السفلي'
+                    : 'الشريط السفلي فارغ — فعّله من الإعدادات أو انقل أقساماً إليه'}
+            </p>
+        </div>
+    );
+
+    const dockShellInner = (
+        <div
+            data-testid="home-dock-shell-zone"
+            className="hami-home-dock-shell-zone w-full"
+            style={resolvedDockLiftPx ? { transform: `translateY(-${resolvedDockLiftPx}px)` } : undefined}
+        >
+            <div
+                data-hami-block="dockShell"
+                data-hami-dock-count={visibleDockWidgets.length}
+                data-hami-block-border={shellContainerBorderOn ? '1' : '0'}
+                data-testid="home-dock-shell"
+                className={`relative border ${shellClasses} ${shellMetrics.shellPaddingClass}`}
+                style={shellStyle}
+            >
+                <HomeBlockPatternOverlay override={shellOverride} themePrimary={themePrimary} />
+                {shouldShowHomeBlockSheen(shellOverride?.pattern) ? (
+                    <div
+                        className="hami-sovereign-shine absolute inset-0 rounded-[inherit] pointer-events-none"
+                        aria-hidden
+                    />
+                ) : null}
+                {dockShellRow}
+            </div>
+        </div>
+    );
+
+    const editingShell = (
+        <Suspense fallback={dockShellInner}>
+            <LazyHomeDropZone
+                zone="dock"
+                testId="home-dock-drop-target"
+                className={`${HAMI_SHELL_CONTAINER} pointer-events-auto flex flex-col hami-home-dock-chrome-stack w-full min-h-[5.5rem]`}
+            >
+                {showShell ? (
+                    <div
+                        data-testid="home-dock-shell-zone"
+                        className="hami-home-dock-shell-zone w-full"
+                        style={resolvedDockLiftPx ? { transform: `translateY(-${resolvedDockLiftPx}px)` } : undefined}
+                    >
+                        <LazyEditableDockShell
+                            dockCount={visibleDockWidgets.length}
+                            containerBorderOn={shellContainerBorderOn}
+                            className={`relative border ${shellClasses} ${shellMetrics.shellPaddingClass}`}
+                            style={shellStyle}
+                        >
+                            <HomeBlockPatternOverlay override={shellOverride} themePrimary={themePrimary} />
+                            {shouldShowHomeBlockSheen(shellOverride?.pattern) ? (
+                                <div
+                                    className="hami-sovereign-shine absolute inset-0 rounded-[inherit] pointer-events-none"
+                                    aria-hidden
+                                />
+                            ) : null}
+                            {dockShellRow}
+                        </LazyEditableDockShell>
+                    </div>
+                ) : (
+                    <div
+                        data-testid="home-dock-shell-zone"
+                        className="hami-home-dock-shell-zone w-full flex min-h-[5.5rem] items-center justify-center rounded-2xl border border-dashed border-white/15 px-3"
+                    >
+                        <p className="text-[10px] font-medium text-white/35 text-center leading-relaxed">
+                            اسحب أقساماً هنا للشريط السفلي
+                        </p>
+                    </div>
+                )}
+            </LazyHomeDropZone>
+        </Suspense>
+    );
+
+    const normalShell = (
+        <div
+            className={`${HAMI_SHELL_CONTAINER} pointer-events-auto flex flex-col hami-home-dock-chrome-stack w-full`}
+        >
+            {showShell ? dockShellInner : null}
+        </div>
+    );
+
     return (
         <>
             <div
@@ -369,127 +550,13 @@ export const LegalCommandCenterDock = memo(function LegalCommandCenterDock({
                 className={`hami-home-dock-chrome-sticky ${dockSticky ? 'sticky bottom-0' : 'relative'} z-[55] w-full hami-shell-gutter-x pointer-events-none pb-[max(0px,env(safe-area-inset-bottom))] ${isEditing ? 'z-[80]' : ''}`}
                 style={dockChromeStackStyle}
             >
-                <HomeDropZone
-                    zone="dock"
-                    testId="home-dock-drop-target"
-                    className={`${HAMI_SHELL_CONTAINER} pointer-events-auto flex flex-col hami-home-dock-chrome-stack w-full ${isEditing ? 'min-h-[5.5rem]' : ''}`}
-                >
-                    {showShell ? (
-                        <div
-                            data-testid="home-dock-shell-zone"
-                            className="hami-home-dock-shell-zone w-full"
-                            style={dockLiftPx ? { transform: `translateY(-${dockLiftPx}px)` } : undefined}
-                        >
-                                <EditableDockShell
-                                    dockCount={visibleDockWidgets.length}
-                                    containerBorderOn={shellContainerBorderOn}
-                                    className={`relative border ${shellClasses} ${shellMetrics.shellPaddingClass}`}
-                                    style={shellStyle}
-                                >
-                                    <HomeBlockPatternOverlay override={shellOverride} themePrimary={themePrimary} />
-                                    {shouldShowHomeBlockSheen(shellOverride?.pattern) ? (
-                                        <div
-                                            className="hami-sovereign-shine absolute inset-0 rounded-[inherit] pointer-events-none"
-                                            aria-hidden
-                                        />
-                                    ) : null}
-                                    {visibleDockWidgets.length > 0 ? (
-                                        <div
-                                            data-hami-dock-icons=""
-                                            className="hami-dock-shell-row relative grid items-end w-full"
-                                            style={{
-                                                gridTemplateColumns: `repeat(${visibleDockWidgets.length}, minmax(0, 1fr))`,
-                                                gap: `${shellMetrics.gapRem}rem`,
-                                                minHeight: shellMetrics.rowMinHeightPx,
-                                            }}
-                                        >
-                                            {visibleDockWidgets.map((widgetId) => {
-                                                const cfg = widgetConfigs[widgetId] ?? {
-                                                    icon: FileText,
-                                                    label: dockShellLabel(widgetId),
-                                                };
-                                                const hidden = !isBlockVisible(overrides[widgetId]);
-                                                const dockAriaLabel = resolveDockShellItemAriaLabel(
-                                                    widgetId,
-                                                    cfg.label,
-                                                    dockBadgeContext,
-                                                );
-                                                const clickHandler =
-                                                    dockItemInteractions.clicks[widgetId] ?? (() => undefined);
-                                                const item = (
-                                                    <DockItem
-                                                        widgetId={widgetId}
-                                                        icon={cfg.icon}
-                                                        label={cfg.label}
-                                                        ariaLabel={dockAriaLabel}
-                                                        active={cfg.active}
-                                                        badge={cfg.badge}
-                                                        reduceMotion={reduceMotion}
-                                                        disabled={isEditing}
-                                                        blockOverride={overrides[widgetId]}
-                                                        homeContainerBorder={homeContainerBorder}
-                                                        showLabels={shellMetrics.showLabels}
-                                                        visualStyles={
-                                                            dockItemVisuals[widgetId] ??
-                                                            resolveDockItemIconStyles({
-                                                                accent: themePrimary,
-                                                                buttonBoxPx: shellMetrics.buttonBoxPx,
-                                                                iconRadiusRem: shellMetrics.iconRadiusRem,
-                                                                iconStrokePx: shellMetrics.iconStrokePx,
-                                                                labelPx: shellMetrics.labelPx,
-                                                            })
-                                                        }
-                                                        onPrefetch={dockItemInteractions.prefetches[widgetId]}
-                                                        onPointerPrime={dockItemInteractions.pointerPrimes[widgetId]}
-                                                        onClick={clickHandler}
-                                                    />
-                                                );
-                                                if (isEditing) {
-                                                    return (
-                                                        <DraggableHomeWidget
-                                                            key={widgetId}
-                                                            widgetId={widgetId}
-                                                            zone="dock"
-                                                            label={HOME_WIDGET_LABELS[widgetId]}
-                                                            className={`min-w-0 ${hidden ? 'opacity-45' : ''}`}
-                                                            blockOverride={overrides[widgetId]}
-                                                        >
-                                                            {item}
-                                                        </DraggableHomeWidget>
-                                                    );
-                                                }
-                                                return <React.Fragment key={widgetId}>{item}</React.Fragment>;
-                                            })}
-                                        </div>
-                                    ) : (
-                                        <div
-                                            data-hami-dock-icons=""
-                                            className="hami-dock-shell-row relative flex min-h-[4.75rem] items-center justify-center px-3"
-                                        >
-                                            <p className="text-[10px] font-medium text-white/35 text-center leading-relaxed">
-                                                {isEditing
-                                                    ? 'اسحب أقساماً هنا للشريط السفلي'
-                                                    : 'الشريط السفلي فارغ — فعّله من الإعدادات أو انقل أقساماً إليه'}
-                                            </p>
-                                        </div>
-                                    )}
-                                </EditableDockShell>
-                        </div>
-                    ) : isEditing ? (
-                        <div
-                            data-testid="home-dock-shell-zone"
-                            className="hami-home-dock-shell-zone w-full flex min-h-[5.5rem] items-center justify-center rounded-2xl border border-dashed border-white/15 px-3"
-                        >
-                            <p className="text-[10px] font-medium text-white/35 text-center leading-relaxed">
-                                اسحب أقساماً هنا للشريط السفلي
-                            </p>
-                        </div>
-                    ) : null}
-                </HomeDropZone>
+                {isEditing ? editingShell : normalShell}
             </div>
 
             {!externalDockActions ? (
-                <CommandCenterOverlays userId={userId} actions={dockActions} />
+                <Suspense fallback={null}>
+                    <LazyCommandCenterOverlays userId={userId} actions={dockActions} />
+                </Suspense>
             ) : null}
         </>
     );

@@ -192,12 +192,9 @@ export function CommunityScreenBody(props: CommunityScreenBodyProps) {
 
     const [repositoryMounted, setRepositoryMounted] = useState(activeSection === 'repository');
     useEffect(() => {
-        prefetchCommunityRepositorySection();
-        setRepositoryMounted(true);
-    }, []);
-    useEffect(() => {
         if (activeSection === 'repository') {
             prefetchCommunityRepositorySection();
+            setRepositoryMounted(true);
         }
     }, [activeSection]);
 

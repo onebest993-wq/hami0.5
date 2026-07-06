@@ -43,6 +43,7 @@ export function QuantumTasksProvider({ children }: { children: React.ReactNode }
     const tasksRef = useRef<LegalTask[]>(bootTasksRef.current);
     const asyncPersistTimerRef = useRef<number | null>(null);
     const pendingAsyncPersistRef = useRef<LegalTask[] | null>(null);
+    const hiddenFlushTimerRef = useRef<number | null>(null);
 
     const notifyTasksChanged = useCallback(() => {
         try {
@@ -208,17 +209,38 @@ export function QuantumTasksProvider({ children }: { children: React.ReactNode }
 
     useEffect(() => {
         const onPageHide = () => {
+            if (hiddenFlushTimerRef.current !== null) {
+                window.clearTimeout(hiddenFlushTimerRef.current);
+                hiddenFlushTimerRef.current = null;
+            }
             persistQuantumTasksSync(tasksRef.current);
             flushAsyncPersist();
         };
         const onHide = () => {
-            if (document.visibilityState === 'hidden') onPageHide();
+            if (document.visibilityState !== 'hidden') {
+                if (hiddenFlushTimerRef.current !== null) {
+                    window.clearTimeout(hiddenFlushTimerRef.current);
+                    hiddenFlushTimerRef.current = null;
+                }
+                return;
+            }
+            if (hiddenFlushTimerRef.current !== null) {
+                window.clearTimeout(hiddenFlushTimerRef.current);
+            }
+            hiddenFlushTimerRef.current = window.setTimeout(() => {
+                hiddenFlushTimerRef.current = null;
+                if (document.visibilityState === 'hidden') onPageHide();
+            }, 900);
         };
         window.addEventListener('pagehide', onPageHide);
         document.addEventListener('visibilitychange', onHide);
         return () => {
             window.removeEventListener('pagehide', onPageHide);
             document.removeEventListener('visibilitychange', onHide);
+            if (hiddenFlushTimerRef.current !== null) {
+                window.clearTimeout(hiddenFlushTimerRef.current);
+                hiddenFlushTimerRef.current = null;
+            }
             if (asyncPersistTimerRef.current !== null) {
                 window.clearTimeout(asyncPersistTimerRef.current);
             }

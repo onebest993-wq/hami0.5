@@ -8,6 +8,13 @@ import { getSupabaseAdminClient } from './supabaseAdminClient.ts';
 const ROLE_CACHE_TTL_MS = 60_000;
 const roleCache = new Map<string, { role: string | null; expiresAt: number }>();
 
+type ProfileRoleRow = {
+  role?: unknown;
+  is_banned?: unknown;
+  is_deleted?: unknown;
+  is_active?: unknown;
+};
+
 function normalizeRole(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
   const trimmed = raw.trim().toLowerCase();
@@ -26,6 +33,14 @@ function readCachedRole(userId: string): string | null | undefined {
 
 function writeCachedRole(userId: string, role: string | null): void {
   roleCache.set(userId, { role, expiresAt: Date.now() + ROLE_CACHE_TTL_MS });
+}
+
+function isInactiveProfile(row: ProfileRoleRow | null | undefined): boolean {
+  if (!row) return true;
+  if (row.is_banned === true) return true;
+  if (row.is_deleted === true) return true;
+  if (row.is_active === false) return true;
+  return false;
 }
 
 /** Test-only */
@@ -56,13 +71,18 @@ export async function getProfileRole(userId: string): Promise<string | null> {
     return null;
   }
 
-  const { data, error } = await admin.from('profiles').select('role').eq('id', userId).maybeSingle();
+  const { data, error } = await admin
+    .from('profiles')
+    .select('role, is_banned, is_deleted, is_active')
+    .eq('id', userId)
+    .maybeSingle();
   if (error || !data) {
     writeCachedRole(userId, null);
     return null;
   }
 
-  const role = normalizeRole((data as { role?: unknown }).role);
+  const profile = data as ProfileRoleRow;
+  const role = isInactiveProfile(profile) ? null : normalizeRole(profile.role);
   writeCachedRole(userId, role);
   return role;
 }
@@ -80,6 +100,12 @@ export async function isForumModeratorUserId(userId: string): Promise<boolean> {
   if (await isPlatformAdminUserId(userId)) return true;
   const role = await getProfileRole(userId);
   return role === 'moderator';
+}
+
+export async function canAccessLawyerForumUserId(userId: string): Promise<boolean> {
+  if (!userId) return false;
+  const role = await getProfileRole(userId);
+  return role === 'lawyer' || role === 'moderator' || role === 'admin';
 }
 
 export async function resolveForumRoleForUser(userId: string): Promise<UserRole | null> {

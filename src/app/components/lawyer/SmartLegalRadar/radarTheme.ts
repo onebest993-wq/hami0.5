@@ -47,8 +47,8 @@ export const RADAR_LABEL = 'block text-[#E8DCC8]/55 text-[11px] font-bold mb-1.5
 
 export const RADAR_BTN_GOLD =
     'flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ' +
-    'bg-[#C4956A]/18 border border-[#C4956A]/45 text-[#F5EDE0] ' +
-    'hover:bg-[#C4956A]/28 shadow-[0_0_20px_rgba(196,149,106,0.15)]';
+    'bg-[#6A4A34] border border-[#C4956A]/60 text-[#F8F1E5] ' +
+    'hover:bg-[#7A563D] shadow-[0_14px_34px_rgba(20,16,12,0.34),inset_0_1px_0_rgba(255,248,240,0.08)]';
 
 export const RADAR_BTN_GHOST =
     'flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ' +
@@ -61,7 +61,7 @@ export const RADAR_BTN_GHOST_ACTIVE =
     'shadow-[0_0_16px_rgba(196,149,106,0.18)]';
 
 export const RADAR_FORM_OVERLAY =
-    'fixed inset-0 z-[99999] bg-[#14100c]/84 backdrop-blur-[2px] flex items-end sm:items-center justify-center';
+    'fixed inset-0 z-[99999] bg-[#14100c]/94 backdrop-blur-[3px] flex items-end sm:items-center justify-center';
 
 export const RADAR_ICON_GOLD = 'text-[#D4A87A]';
 export const RADAR_ICON_ACCENT = 'text-[#C4956A]';

@@ -3,7 +3,6 @@ export * from './defaults';
 export * from './migrate';
 export * from './apply';
 export { resolveThemeMode } from './apply';
-export { maybeShowWeeklyBackupReminder } from './backupReminder';
 export { settingWiringHint } from './settingsCapabilities';
 export * from './homeLayout';
 export * from './homeBlockLabels';

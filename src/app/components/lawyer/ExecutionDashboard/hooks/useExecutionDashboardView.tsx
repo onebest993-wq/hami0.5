@@ -52,10 +52,31 @@ export const ExecutionDashboardView = React.memo(function ExecutionDashboardView
                     chunkScopeRef={vm.chunkScopeRef}
                     phoneBodyFingerprint={vm.phoneBodyFingerprint}
                     showUnifiedExecutionModal={vm.showUnifiedExecutionModal}
-                    loadHandlerCluster={vm.loadHandlerCluster}
-                    handlerClusterInput={vm.handlerClusterInput}
+                    loadLightHandlerCluster={vm.loadLightHandlerCluster}
+                    loadFollowupHeavyHandlerCluster={vm.loadFollowupHeavyHandlerCluster}
+                    loadFollowupAdminSpecialHandlerCluster={vm.loadFollowupAdminSpecialHandlerCluster}
+                    loadFollowupDossierControlsHandlerCluster={vm.loadFollowupDossierControlsHandlerCluster}
+                    loadFollowupOtherPartyHandlerCluster={vm.loadFollowupOtherPartyHandlerCluster}
+                    loadSeizureHeavyHandlerCluster={vm.loadSeizureHeavyHandlerCluster}
+                    loadCoerciveHeavyHandlerCluster={vm.loadCoerciveHeavyHandlerCluster}
+                    loadDossierSupportHandlerCluster={vm.loadDossierSupportHandlerCluster}
+                    lightHandlerClusterInput={vm.lightHandlerClusterInput}
+                    followupAdminSpecialHandlerClusterInput={vm.followupAdminSpecialHandlerClusterInput}
+                    followupDossierControlsHandlerClusterInput={vm.followupDossierControlsHandlerClusterInput}
+                    followupOtherPartyHandlerClusterInput={vm.followupOtherPartyHandlerClusterInput}
+                    seizureHeavyHandlerClusterInput={vm.seizureHeavyHandlerClusterInput}
+                    coerciveHeavyHandlerClusterInput={vm.coerciveHeavyHandlerClusterInput}
+                    dossierSupportHandlerClusterInput={vm.dossierSupportHandlerClusterInput}
                     handlerClusterMountKey={vm.handlerClusterMountKey}
-                    onHandlerClusterReady={vm.onHandlerClusterReady}
+                    onLightHandlerClusterReady={vm.onLightHandlerClusterReady}
+                    onFollowupAdminSpecialHandlerClusterReady={vm.onFollowupAdminSpecialHandlerClusterReady}
+                    onFollowupDossierControlsHandlerClusterReady={
+                        vm.onFollowupDossierControlsHandlerClusterReady
+                    }
+                    onFollowupOtherPartyHandlerClusterReady={vm.onFollowupOtherPartyHandlerClusterReady}
+                    onSeizureHeavyHandlerClusterReady={vm.onSeizureHeavyHandlerClusterReady}
+                    onCoerciveHeavyHandlerClusterReady={vm.onCoerciveHeavyHandlerClusterReady}
+                    onDossierSupportHandlerClusterReady={vm.onDossierSupportHandlerClusterReady}
                 />
             </ExecutionDashboardRootFrame>
         </ColleagueConsultationProvider>

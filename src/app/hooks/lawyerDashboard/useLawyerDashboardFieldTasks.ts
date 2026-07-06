@@ -15,9 +15,7 @@ import { hydrateFieldTasksShellForInstantOpen } from '@/app/runtime/fieldTasksBo
 import {
     loadFieldTasksSheetModule,
     loadTasksManagerModule,
-    prefetchFieldTasksSheetModule,
 } from '@/app/runtime/fieldTasksHubLoader';
-import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 import { useLawyerDashboardTasksOverlayEscape } from '@/app/hooks/lawyerDashboard/useLawyerDashboardTasksOverlayEscape';
 import { useKeepAliveIdleRelease } from '@/app/hooks/lawyerDashboard/useKeepAliveIdleRelease';
 import type { LawyerDashboardTab } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
@@ -62,19 +60,6 @@ export function useLawyerDashboardFieldTasks({
     const armFieldTasksManagerHost = useCallback(() => {
         setFieldTasksManagerHostMounted(true);
     }, []);
-
-    useEffect(() => {
-        if (!isRealSignedIn(userId)) return;
-        setFieldTasksHostMounted(true);
-        prefetchFieldTasksSheetModule();
-        void hydrateFieldTasksShellForInstantOpen().catch(() => undefined);
-        return scheduleIdleWork(
-            () => {
-                void hydrateFieldTasksShellForInstantOpen().catch(() => undefined);
-            },
-            { minDelayMs: 0, timeoutMs: 4_000 },
-        );
-    }, [userId]);
 
     useEffect(() => {
         const onPageShow = (event: PageTransitionEvent) => {

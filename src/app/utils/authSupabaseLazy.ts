@@ -1,5 +1,6 @@
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import { projectId } from '@/utils/supabase/info';
+import { purgeClientAuthResidue } from '@/app/utils/authStorage';
 
 let clientPromise: Promise<SupabaseClient> | null = null;
 
@@ -48,6 +49,8 @@ export async function signOutSupabase(): Promise<void> {
         await supabase.auth.signOut();
     } catch {
         /* ignore */
+    } finally {
+        purgeClientAuthResidue();
     }
 }
 

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { releaseBodyScrollLock } from '@/app/utils/bodyScrollLock';
@@ -7,27 +7,8 @@ import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { LawyerDashboardTab } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import type { OpenCriminalCaseOptions } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
+import type { GlobalSearchNavigate } from '@/app/services/globalSearchIndex';
 import { warmExecutionDossier } from '@/app/utils/lazyComponents';
-
-type GlobalSearchNav =
-    | { type: 'notifications' }
-    | { type: 'calendar'; date?: string; eventId?: string }
-    | { type: 'repository' }
-    | { type: 'community'; postId?: string }
-    | { type: 'profile' }
-    | { type: 'urgent'; urgentId?: string }
-    | { type: 'criminal'; criminalId: string }
-    | { type: 'transactions'; transactionId?: string }
-    | { type: 'tasks_manager'; taskId?: string }
-    | { type: 'note' | 'voice'; noteId: string }
-    | { type: 'vault' }
-    | {
-          type: 'file';
-          fileId: string | number;
-          stageIndex?: number;
-          eventId?: string;
-      }
-    | { type: 'case'; caseId: string };
 
 import type { OpenNotepadOptions } from '@/app/hooks/lawyerDashboard/useLawyerDashboardRepository';
 import type { OpenScheduleTabOptions } from '@/app/hooks/lawyerDashboard/useLawyerDashboardScheduleTab';
@@ -77,6 +58,13 @@ export function useLawyerDashboardGlobalSearchNav({
     selectCase,
     onNavigateToCase,
 }: UseLawyerDashboardGlobalSearchNavParams) {
+    const filesRef = useRef(files);
+    filesRef.current = files;
+    const executionFilesRef = useRef(executionFiles);
+    executionFilesRef.current = executionFiles;
+    const onNavigateToCaseRef = useRef(onNavigateToCase);
+    onNavigateToCaseRef.current = onNavigateToCase;
+
     const closeGlobalSearch = useCallback(() => {
         setShowGlobalSearch(false);
         setGlobalSearchInitialQuery('');
@@ -84,7 +72,7 @@ export function useLawyerDashboardGlobalSearchNav({
     }, [setGlobalSearchInitialQuery, setShowGlobalSearch]);
 
     const handleGlobalSearchNavigate = useCallback(
-        (nav: GlobalSearchNav) => {
+        (nav: GlobalSearchNavigate) => {
             closeGlobalSearch();
             if (nav.type === 'notifications') {
                 openNotifications();
@@ -143,8 +131,8 @@ export function useLawyerDashboardGlobalSearchNav({
             if (nav.type === 'file') {
                 const id = String(nav.fileId);
                 const target =
-                    files.find((f) => String(f.id) === id) ||
-                    executionFiles.find((f) => String(f.id) === id);
+                    filesRef.current.find((f) => String(f.id) === id) ||
+                    executionFilesRef.current.find((f) => String(f.id) === id);
                 if (target) {
                     if ((target as { type?: string }).type === 'execution') {
                         warmExecutionDossier('urgent');
@@ -169,22 +157,19 @@ export function useLawyerDashboardGlobalSearchNav({
             if (nav.type === 'case') {
                 selectCase(nav.caseId);
                 const target =
-                    files.find((f) => String(f.id) === nav.caseId) ||
-                    executionFiles.find((f) => String(f.id) === nav.caseId);
+                    filesRef.current.find((f) => String(f.id) === nav.caseId) ||
+                    executionFilesRef.current.find((f) => String(f.id) === nav.caseId);
                 if (target) {
                     if ((target as { type?: string }).type === 'execution') {
                         warmExecutionDossier('urgent');
                     }
                     setActiveFile(target as FileData);
                 }
-                onNavigateToCase?.(nav.caseId);
+                onNavigateToCaseRef.current?.(nav.caseId);
             }
         },
         [
             closeGlobalSearch,
-            executionFiles,
-            files,
-            onNavigateToCase,
             openCommunityTab,
             openCriminalCase,
             openNotifications,

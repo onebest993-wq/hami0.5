@@ -1,5 +1,4 @@
 import {
-    prefetchLawyerHomeHubCard,
     prefetchLawyerHomeShellWidgets,
 } from '@/app/utils/lazyComponents';
 
@@ -10,14 +9,12 @@ export function markLawyerShellPrefetchCompleted(): void {
     scheduled = true;
 }
 
-/** prefetch خفيف للـ shell — حاويات الرئيسية فوراً، الباقي عند الخمول */
+/** prefetch خفيف للـ shell — لا يسحب التنبيهات والدوك مبكراً أثناء الإقلاع */
 export function scheduleLawyerShellPrefetch(options?: { delayMs?: number }): void {
     if (typeof window === 'undefined' || scheduled) return;
     scheduled = true;
 
     void import('@/app/components/lawyer/LawyerDashboardParts/components/Header').catch(() => undefined);
-    prefetchLawyerHomeHubCard();
-    void import('@/app/components/lawyer/LegalCommandCenterDock');
 
     const runDeferred = () => {
         prefetchLawyerHomeShellWidgets();

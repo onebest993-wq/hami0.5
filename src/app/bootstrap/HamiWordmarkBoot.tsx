@@ -1,6 +1,8 @@
 import React from 'react';
 
-const WORDMARK = 'حامي';
+const BRAND_MARK_SRC = '/hami-logo-transparent.png';
+const DEVELOPER_NAME = 'أحمد مهدي كريو';
+const DEVELOPER_ROLE = 'المطور المستقل';
 
 export type HamiWordmarkBootPhase = 'enter' | 'idle' | 'exit';
 
@@ -9,9 +11,7 @@ type HamiWordmarkBootProps = {
     className?: string;
 };
 
-/**
- * كلمة «حامي» — شعار إقلاع مزخرف (CSS-only، بدون motion chunk).
- */
+/** شعار الإقلاع الكامل مع توقيع المطور دون قص أو chunk إضافي */
 export function HamiWordmarkBoot({
     phase = 'enter',
     className = '',
@@ -22,21 +22,20 @@ export function HamiWordmarkBoot({
             data-testid="hami-wordmark-boot"
             aria-hidden
         >
-            <div className="hami-boot-wordmark-glow" aria-hidden />
-            <div className="hami-boot-wordmark-ornament hami-boot-wordmark-ornament--top" aria-hidden />
-            <h1 className="hami-boot-wordmark" aria-label="حامي">
-                {WORDMARK.split('').map((char, index) => (
-                    <span
-                        key={`${char}-${index}`}
-                        className="hami-boot-wordmark-char"
-                        style={{ '--char-i': index } as React.CSSProperties}
-                    >
-                        {char}
-                    </span>
-                ))}
-            </h1>
-            <div className="hami-boot-wordmark-ornament hami-boot-wordmark-ornament--bottom" aria-hidden />
-            <div className="hami-boot-wordmark-shimmer" aria-hidden />
+            <div className="hami-boot-brand-mark-shell">
+                <img
+                    className="hami-boot-brand-mark"
+                    src={BRAND_MARK_SRC}
+                    alt=""
+                    loading="eager"
+                    decoding="async"
+                    draggable={false}
+                />
+            </div>
+            <div className="hami-boot-brand-credit" aria-label={`المطور المستقل ${DEVELOPER_NAME}`}>
+                <span className="hami-boot-brand-credit-role">{DEVELOPER_ROLE}</span>
+                <strong className="hami-boot-brand-credit-name">{DEVELOPER_NAME}</strong>
+            </div>
         </div>
     );
 }

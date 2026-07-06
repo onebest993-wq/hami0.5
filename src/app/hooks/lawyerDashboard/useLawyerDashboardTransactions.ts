@@ -12,8 +12,6 @@ import {
     warmTransactionsOnOpen,
 } from '@/app/hooks/lawyerDashboard/transactionsIntentWarm';
 import { loadTransactionsHubModule, prefetchTransactionsHubModule } from '@/app/runtime/transactionsHubLoader';
-import { prefetchTransactionsHub } from '@/app/utils/lazyComponents';
-import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 import type { LawyerArchiveOverlay } from '@/app/hooks/useLawyerExecutionFiles';
 import {
     dismissTransientOverlays,
@@ -53,19 +51,6 @@ export function useLawyerDashboardTransactions({
     useEffect(() => {
         return registerTransactionsWarmUserId(userId);
     }, [userId]);
-
-    useEffect(() => {
-        if (!isRealSignedIn(userId)) return;
-        prefetchTransactionsHub();
-        prefetchTransactionsHubModule();
-        return scheduleIdleWork(
-            () => {
-                armTransactionsHost();
-                warmTransactionsOnOpen(userId);
-            },
-            { minDelayMs: 600, timeoutMs: 2_500 },
-        );
-    }, [armTransactionsHost, userId]);
 
     useEffect(() => {
         return registerDashboardOverlayCloser('transactions', () => {

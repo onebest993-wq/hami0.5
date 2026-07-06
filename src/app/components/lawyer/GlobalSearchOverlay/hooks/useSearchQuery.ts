@@ -49,7 +49,8 @@ export function useSearchQuery(
         const hits = fuse
             .search(normalizeArabic(q))
             .slice(0, PERFORMANCE.MAX_SEARCH_RESULTS)
-            .map((r) => r.item);
+            .map((r) => r.item)
+            .filter((entry) => entry.lifecycle !== 'deleted');
         return groupSearchResults(hits);
     }, [debouncedQuery, fuse, isLoadingIndex]);
 

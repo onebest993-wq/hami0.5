@@ -104,10 +104,14 @@ export function DraggableHomeWidget({
         ghost.style.transform = `translate3d(${left}px, ${top}px, 0)`;
     };
 
-    const cleanupDragListeners = (onMove: (e: PointerEvent) => void, onUp: (e: PointerEvent) => void) => {
+    const cleanupDragListeners = (
+        onMove: (e: PointerEvent) => void,
+        onUp: (e: PointerEvent) => void,
+        onCancel: (e: PointerEvent) => void,
+    ) => {
         window.removeEventListener('pointermove', onMove);
         window.removeEventListener('pointerup', onUp);
-        window.removeEventListener('pointercancel', onUp);
+        window.removeEventListener('pointercancel', onCancel);
     };
 
     const startDragSession = (e: React.PointerEvent<HTMLElement>) => {
@@ -173,8 +177,7 @@ export function DraggableHomeWidget({
         const onUp = (ev: PointerEvent) => {
             if (ev.pointerId !== session.pointerId) return;
             ev.preventDefault();
-            cleanupDragListeners(onMove, onUp);
-            window.removeEventListener('pointercancel', onCancel);
+            cleanupDragListeners(onMove, onUp, onCancel);
             const moved = session.moved;
             dragSessionRef.current = null;
             if (ghostRef.current) ghostRef.current.style.opacity = '0';
@@ -187,8 +190,7 @@ export function DraggableHomeWidget({
 
         const onCancel = (ev: PointerEvent) => {
             if (ev.pointerId !== session.pointerId) return;
-            cleanupDragListeners(onMove, onUp);
-            window.removeEventListener('pointercancel', onCancel);
+            cleanupDragListeners(onMove, onUp, onCancel);
             dragSessionRef.current = null;
             if (ghostRef.current) ghostRef.current.style.opacity = '0';
             if (rootRef.current) rootRef.current.style.minHeight = '';

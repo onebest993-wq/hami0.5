@@ -6,17 +6,22 @@ import type { ClusterScanSources } from './useClusterScanSources';
 
 /** فهرس مسح التثبيتات وتنظيف المثبّتات اليتيمة — يستخدم مصدر المسح المشترك من اللوحة */
 export function useWorkspacePinMaintenance(params: {
+    enabled: boolean;
     clusterScanSources: ClusterScanSources;
 }): void {
-    const { clusterScanSources: sources } = params;
+    const { enabled, clusterScanSources: sources } = params;
     const pruneIneligiblePins = useWorkspaceStore((s) => s.pruneIneligiblePins);
 
     useEffect(() => {
+        if (!enabled) return;
         pruneIneligiblePins();
-    }, [pruneIneligiblePins]);
+    }, [enabled, pruneIneligiblePins]);
 
     const scanIndex = useMemo(
         () =>
+            !enabled
+                ? []
+                :
             buildClusterScanIndex({
                 lawsuitFiles: sources.lawsuitFiles,
                 executionFiles: sources.executionFiles,
@@ -26,8 +31,8 @@ export function useWorkspacePinMaintenance(params: {
                 notes: sources.notes,
                 fieldTasks: sources.fieldTasks,
             }),
-        [sources],
+        [enabled, sources],
     );
 
-    useWorkspacePinPrune(scanIndex, sources.ready);
+    useWorkspacePinPrune(scanIndex, enabled && sources.ready);
 }

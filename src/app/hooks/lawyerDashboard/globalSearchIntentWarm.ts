@@ -6,6 +6,7 @@ import {
     prefetchGlobalSearchOverlayChunk,
     prefetchGlobalSearchSearchEngine,
 } from '@/app/runtime/globalSearchLoader';
+import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
 
 export type GlobalSearchWarmSnapshot = WarmGlobalSearchInput;
 
@@ -13,6 +14,12 @@ let snapshotProvider: (() => GlobalSearchWarmSnapshot | null) | null = null;
 
 function resolveWarmSnapshot(): GlobalSearchWarmSnapshot | null {
     return snapshotProvider?.() ?? null;
+}
+
+function canWarmGlobalSearchExtras(): boolean {
+    if (typeof document !== 'undefined' && document.hidden) return false;
+    if (isLitePerformanceActive()) return false;
+    return true;
 }
 
 /** يُحدَّث من runtime effects — لقطة حية عبر provider بدون effect عند كل تغيير ملف */
@@ -35,7 +42,7 @@ export function warmGlobalSearchOnHover(): void {
     prefetchGlobalSearchOverlay();
     const snap = resolveWarmSnapshot();
     const uid = snap?.userId;
-    if (uid) {
+    if (uid && canWarmGlobalSearchExtras()) {
         void import('@/app/services/globalSearchLoad').then((m) => m.warmGlobalSearchExtras(uid));
     }
     if (snap) {
@@ -51,7 +58,7 @@ export function warmGlobalSearchOnOpen(): void {
     prefetchGlobalSearchOverlayChunk();
     const snap = resolveWarmSnapshot();
     const uid = snap?.userId;
-    if (uid && typeof document !== 'undefined' && !document.hidden) {
+    if (uid && canWarmGlobalSearchExtras()) {
         void import('@/app/services/globalSearchLoad').then((m) => m.warmGlobalSearchExtras(uid));
     }
     queueMicrotask(() => {

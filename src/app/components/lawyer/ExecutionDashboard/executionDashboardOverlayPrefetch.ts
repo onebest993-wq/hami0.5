@@ -63,7 +63,7 @@ export function prefetchExecutionUnifiedSummonsOverlay(): void {
 
 export function prefetchExecutionFollowupOverlay(): void {
     if (skipExecutionOverlayPrefetch()) return;
-    prefetchExecutionCoreHandlers();
+    prefetchExecutionCoreHandlers('seizure');
     prefetchExecutionFollowupDefaultTab();
     prefetchFollowupMemoPanels();
 }
@@ -79,7 +79,7 @@ export function prefetchExecutionActionGridTile(tileKey: string): void {
     switch (tileKey) {
         case 'appt':
         case 'notes':
-            prefetchExecutionCoreHandlers();
+            prefetchExecutionCoreHandlers('light');
             prefetchExecutionNotesOverlay();
             break;
         case 'documents':
@@ -92,8 +92,11 @@ export function prefetchExecutionActionGridTile(tileKey: string): void {
             prefetchExecutionFollowupOverlay();
             break;
         case 'coercive':
+            prefetchExecutionCoreHandlers('coercive');
+            prefetchExecutionFollowupOverlay();
+            break;
         case 'seizure':
-            prefetchExecutionCoreHandlers();
+            prefetchExecutionCoreHandlers('seizure');
             prefetchExecutionFollowupOverlay();
             break;
         case 'finance':

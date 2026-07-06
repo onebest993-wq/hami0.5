@@ -28,6 +28,7 @@ export function useLawyerDashboardCore({
         onNavigateToCase,
         pendingFieldTasksCount,
         quantumTasksFingerprint,
+        backgroundRuntimeEnabled,
     });
 
     const shellFingerprint = orchestration.authGate

@@ -38,6 +38,59 @@ export function ExecutionDashboardShellOverlays({
         executionFollowupModalSnapshot: followupSnapshot,
     };
 
+    const showAnySeizedPropertyPortal = Boolean(
+        scope.seizedPropertyStepModalOpen ||
+            scope.seizedPropertyAuctionResultModalOpen ||
+            scope.seizureMarkModalOpen ||
+            scope.publicationModalOpen,
+    );
+
+    const showAnyOverlay = Boolean(
+        showUnifiedExecutionModal ||
+            props.showExecutionTrashModal ||
+            props.timelineEditDraft ||
+            props.showEditDossierMetaModal ||
+            props.editPartyTarget ||
+            props.heirsQuickView ||
+            props.permanentDeleteTimelineId ||
+            props.showNotesModal ||
+            props.showAppointmentModal ||
+            props.executorScheduleModalOpen ||
+            props.policeAssistanceModalOpen ||
+            props.breakInventoryFurnitureModalOpen ||
+            props.judicialCustodianModalOpen ||
+            props.executionReportPrompt ||
+            props.showDocumentsModal ||
+            props.showRealEstateSeizureModal ||
+            props.showDecisionsModal ||
+            props.showSeizedAssetsModal ||
+            props.showPaymentModal ||
+            props.showTimelineModal ||
+            props.showNotificationModal ||
+            props.showCoerciveModal ||
+            props.showHeirsNotificationModal ||
+            props.showGuarantorDetailsModal ||
+            props.showStayOfExecutionModal ||
+            props.partyDeathModalParty ||
+            props.showPauseModal ||
+            props.alimonyBeneficiaryDeathModalOpen ||
+            props.showUnifiedSummonsModal ||
+            props.showPaymentCalculator ||
+            props.showSettlementCalculator ||
+            props.showLedgerModal ||
+            props.showTransferFileNumberChangeModal ||
+            (props.showLinkedDossierTimeline && props.linkedDossierToView) ||
+            props.showSolidaryCoerciveTargetModal ||
+            props.showEvictionExpenseModal ||
+            props.showEvictionLawyerFeeModal ||
+            props.showEvictionResidentialGraceModal ||
+            showAnySeizedPropertyPortal,
+    );
+
+    if (!showAnyOverlay) {
+        return null;
+    }
+
     return (
         <>
             <ExecutionDashboardEditOverlays {...merged} />
@@ -49,7 +102,9 @@ export function ExecutionDashboardShellOverlays({
                 snapshot={followupSnapshot}
             />
             <ExecutionDashboardSolidaryEvictionOverlays {...merged} />
-            <ExecutionDashboardSeizedPropertyPortals {...pickSeizedPropertyPortalProps(scope)} />
+            {showAnySeizedPropertyPortal ? (
+                <ExecutionDashboardSeizedPropertyPortals {...pickSeizedPropertyPortalProps(scope)} />
+            ) : null}
         </>
     );
 }

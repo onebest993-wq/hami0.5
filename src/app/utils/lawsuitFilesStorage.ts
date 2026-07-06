@@ -72,6 +72,6 @@ export function saveLawsuitFilesRawImmediate(next: unknown[]): void {
         /* persistence may be mocked in tests */
     }
     const serialized = JSON.stringify(payload);
-    void SecureStoreService.setItem(LAWSUIT_FILES_STORAGE_KEY, serialized);
+    SecureStoreService.setItemSync(LAWSUIT_FILES_STORAGE_KEY, serialized);
     SecureStoreService.flushHeavyPersistPending();
 }

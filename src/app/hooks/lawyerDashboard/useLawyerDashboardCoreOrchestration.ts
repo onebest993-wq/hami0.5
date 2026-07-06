@@ -46,7 +46,11 @@ export function useLawyerDashboardCoreOrchestration({
     onNavigateToCase,
     pendingFieldTasksCount,
     quantumTasksFingerprint,
-}: Pick<UseLawyerDashboardCoreParams, 'onNavigateToCase' | 'pendingFieldTasksCount' | 'quantumTasksFingerprint'>) {
+    backgroundRuntimeEnabled,
+}: Pick<
+    UseLawyerDashboardCoreParams,
+    'onNavigateToCase' | 'pendingFieldTasksCount' | 'quantumTasksFingerprint' | 'backgroundRuntimeEnabled'
+>) {
     const criminalBridge = useCriminalDashboardBridge();
     const appearance = useLawyerSettingsAppearance();
     const dataSettings = useLawyerSettingsData();
@@ -65,12 +69,13 @@ export function useLawyerDashboardCoreOrchestration({
     const { user: authUser } = useAuthSafe();
     const { user, authGate } = useLawyerDashboardAuth({
         authUser,
-        weeklyBackupReminder: dataSettings.weeklyBackupReminder,
     });
 
     const shellAuthUserId = resolveShellAuthUserId(authUser?.id, user?.id);
 
-    const notifications = useLawyerDashboardNotifications(shellAuthUserId);
+    const notifications = useLawyerDashboardNotifications(shellAuthUserId, {
+        backgroundRuntimeEnabled,
+    });
     const appAlerts = useLawyerDashboardAppAlerts(user?.id);
     const archiveAndSync = useLawyerDashboardArchiveAndSyncRefs();
 
@@ -185,6 +190,7 @@ export function useLawyerDashboardCoreOrchestration({
 
     const workspace = useLawyerDashboardWorkspace({
         localAutoSave,
+        backgroundRuntimeEnabled,
         user,
         authUserId: authUser?.id,
         refreshAppAlerts: appAlerts.refreshAppAlerts,
@@ -226,6 +232,7 @@ export function useLawyerDashboardCoreOrchestration({
 
     const criminalCasesForCluster = criminalBridge.ready ? criminalBridge.criminalCases : [];
     const { calendarUserId, clusterScanSources } = useLawyerDashboardCalendarCluster({
+        enabled: backgroundRuntimeEnabled,
         userId: user?.id,
         authUserId: authUser?.id,
         files: workspace.files,
@@ -280,6 +287,7 @@ export function useLawyerDashboardCoreOrchestration({
     });
 
     useLawyerDashboardRuntimeEffects({
+        backgroundRuntimeEnabled,
         user,
         authUser,
         files: workspace.files,

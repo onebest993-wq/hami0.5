@@ -190,4 +190,53 @@ describe('buildGlobalSearchIndex (تغطية موسّعة)', () => {
         const ids = index.map((e) => e.id);
         expect(new Set(ids).size).toBe(ids.length);
     });
+
+    it('s4) لا يُدخل العناصر ذات lifecycle=deleted إلى الفهرس من المصدر أو extras المرتبطة', () => {
+        const deletedFile: FileData = {
+            id: 99,
+            type: 'lawsuit',
+            status: 'deleted',
+            caseNo: '2026/محذوف/1',
+            court: 'بغداد',
+            parties: [{ id: 1, name: 'محذوف', role: 'مدعي', isClient: true }],
+            history: [],
+            notes: [{ id: 1, text: 'هذه ملاحظة يجب ألا تظهر', meta: '', stageCtx: '', date: '' }],
+            images: [],
+            date: '',
+            tasks: [],
+        } as FileData;
+
+        const index = buildGlobalSearchIndex({
+            files: [deletedFile],
+            globalNotes: [],
+            cases: [],
+            userId: 'user-1',
+            extras: {
+                quantumTasks: [],
+                calendarEvents: [
+                    {
+                        id: 'cal-1',
+                        userId: 'user-1',
+                        title: 'موعد مرتبط بملف محذوف',
+                        date: '2026-07-06',
+                        type: 'hearing',
+                        caseId: '99',
+                        createdAt: '2026-07-06T00:00:00.000Z',
+                        updatedAt: '2026-07-06T00:00:00.000Z',
+                    },
+                ],
+                urgentCases: [],
+                vaultDocs: [],
+                repositoryDocs: [],
+                threadingTransactions: [],
+                threadingTasks: [],
+                threadingFinance: [],
+                communityPosts: [],
+            },
+        });
+
+        expect(index.some((e) => e.title.includes('محذوف'))).toBe(false);
+        expect(index.some((e) => e.id === 'file-99')).toBe(false);
+        expect(index.some((e) => e.id === 'cal-cal-1')).toBe(false);
+    });
 });

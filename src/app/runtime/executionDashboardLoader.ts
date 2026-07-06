@@ -81,7 +81,8 @@ export function prefetchExecutionDashboardByMode(mode: ExecutionDashboardPrefetc
             break;
         case 'urgent':
             prefetchExecutionDashboardCore();
-            prefetchExecutionShellChunks(true);
+            prefetchExecutionShellChunks(false);
+            scheduleIdleWork(() => prefetchExecutionShellChunks(true), 450);
             break;
         default:
             break;

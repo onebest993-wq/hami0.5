@@ -26,6 +26,10 @@ export type GlobalSearchExtras = {
     communityPosts: CommunityPost[];
 };
 
+export type GlobalSearchExtrasLoadOptions = {
+    includeCommunityPosts?: boolean;
+};
+
 const emptyExtras = (): GlobalSearchExtras => ({
     quantumTasks: [],
     calendarEvents: [],
@@ -38,11 +42,27 @@ const emptyExtras = (): GlobalSearchExtras => ({
     communityPosts: [],
 });
 
-let resolvedExtrasCache: { userId: string; data: GlobalSearchExtras } | null = null;
-let inflightExtras: { userId: string; promise: Promise<GlobalSearchExtras> } | null = null;
+let resolvedExtrasCache: {
+    userId: string;
+    data: GlobalSearchExtras;
+    includeCommunityPosts: boolean;
+} | null = null;
+let inflightExtras: {
+    userId: string;
+    includeCommunityPosts: boolean;
+    promise: Promise<GlobalSearchExtras>;
+} | null = null;
 
-export function getCachedGlobalSearchExtras(userId: string | null): GlobalSearchExtras | null {
+function shouldIncludeCommunityPosts(options?: GlobalSearchExtrasLoadOptions): boolean {
+    return options?.includeCommunityPosts !== false;
+}
+
+export function getCachedGlobalSearchExtras(
+    userId: string | null,
+    options?: GlobalSearchExtrasLoadOptions,
+): GlobalSearchExtras | null {
     if (!userId || resolvedExtrasCache?.userId !== userId) return null;
+    if (shouldIncludeCommunityPosts(options) && !resolvedExtrasCache.includeCommunityPosts) return null;
     return resolvedExtrasCache.data;
 }
 
@@ -60,12 +80,16 @@ export function invalidateGlobalSearchExtrasCache(userId?: string | null): void 
 /** تسخين مصادر البحث في الخلفية — لا يُعيد التحميل إذا كان الكاش سارياً. */
 export function warmGlobalSearchExtras(userId: string | null): void {
     if (!userId) return;
-    void loadGlobalSearchExtras(userId).catch(() => {
+    void loadGlobalSearchExtras(userId, { includeCommunityPosts: false }).catch(() => {
         /* تسخين اختياري */
     });
 }
 
-async function fetchGlobalSearchExtras(userId: string): Promise<GlobalSearchExtras> {
+async function fetchGlobalSearchExtras(
+    userId: string,
+    options?: GlobalSearchExtrasLoadOptions,
+): Promise<GlobalSearchExtras> {
+    const includeCommunityPosts = shouldIncludeCommunityPosts(options);
     const [
         { UrgentActionsDB },
         { persistenceRepository },
@@ -87,7 +111,9 @@ async function fetchGlobalSearchExtras(userId: string): Promise<GlobalSearchExtr
             RepositoryDB.listDocuments().catch(() => [] as RepositoryDocument[]),
             UrgentActionsDB.getState(userId).catch(() => null),
             fetchTransactionsThreadingState(userId).catch(() => null),
-            fetchCommunityPosts().catch(() => [] as CommunityPost[]),
+            includeCommunityPosts
+                ? fetchCommunityPosts().catch(() => [] as CommunityPost[])
+                : Promise.resolve([] as CommunityPost[]),
         ]);
 
     const quantumBlob = persistenceRepository.load<unknown>(QUANTUM_TASKS_STORAGE_KEY);
@@ -111,23 +137,37 @@ async function fetchGlobalSearchExtras(userId: string): Promise<GlobalSearchExtr
 }
 
 /** تحميل مصادر البحث غير المتزامنة من كل أقسام التطبيق — مع كاش جلسة لكل مستخدم. */
-export async function loadGlobalSearchExtras(userId: string | null): Promise<GlobalSearchExtras> {
+export async function loadGlobalSearchExtras(
+    userId: string | null,
+    options?: GlobalSearchExtrasLoadOptions,
+): Promise<GlobalSearchExtras> {
     if (!userId) return emptyExtras();
+    const includeCommunityPosts = shouldIncludeCommunityPosts(options);
 
-    const cached = getCachedGlobalSearchExtras(userId);
+    const cached = getCachedGlobalSearchExtras(userId, options);
     if (cached) return cached;
 
-    if (inflightExtras?.userId === userId) return inflightExtras.promise;
+    if (
+        inflightExtras?.userId === userId &&
+        (inflightExtras.includeCommunityPosts || !includeCommunityPosts)
+    ) {
+        return inflightExtras.promise;
+    }
 
-    const promise = fetchGlobalSearchExtras(userId)
+    const promise = fetchGlobalSearchExtras(userId, options)
         .then((data) => {
-            resolvedExtrasCache = { userId, data };
+            resolvedExtrasCache = { userId, data, includeCommunityPosts };
             return data;
         })
         .finally(() => {
-            if (inflightExtras?.userId === userId) inflightExtras = null;
+            if (
+                inflightExtras?.userId === userId &&
+                inflightExtras.includeCommunityPosts === includeCommunityPosts
+            ) {
+                inflightExtras = null;
+            }
         });
 
-    inflightExtras = { userId, promise };
+    inflightExtras = { userId, includeCommunityPosts, promise };
     return promise;
 }

@@ -595,15 +595,3 @@ export function resetVaultBlobStoreForTests(): void {
 
 export { resolveWriteTimeoutMs as resolveVaultBlobWriteTimeoutMs };
 
-
-
-if (typeof window !== 'undefined' && !import.meta.env.VITEST) {
-
-    window.addEventListener('pagehide', () => {
-
-        void waitForVaultBlobWrites();
-
-    });
-
-}
-

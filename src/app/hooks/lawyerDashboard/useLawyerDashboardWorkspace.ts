@@ -16,6 +16,7 @@ type CriminalBridge = ReturnType<typeof useCriminalDashboardBridge>;
 
 export type UseLawyerDashboardWorkspaceParams = {
     localAutoSave: boolean;
+    backgroundRuntimeEnabled: boolean;
     user: User | null;
     authUserId: string | undefined;
     refreshAppAlerts: () => void;
@@ -31,6 +32,7 @@ export type UseLawyerDashboardWorkspaceParams = {
 
 export function useLawyerDashboardWorkspace({
     localAutoSave,
+    backgroundRuntimeEnabled,
     user,
     authUserId,
     refreshAppAlerts,
@@ -45,7 +47,10 @@ export function useLawyerDashboardWorkspace({
 }: UseLawyerDashboardWorkspaceParams) {
     const [activeFile, setActiveFile] = useState<FileData | ExecutionFile | null>(null);
 
-    const { files, setFiles, reloadLawsuitFiles } = useLawsuitFilesState({ localAutoSave });
+    const { files, setFiles, reloadLawsuitFiles } = useLawsuitFilesState({
+        localAutoSave,
+        backgroundRuntimeEnabled,
+    });
 
     const lawsuitMutations = useLawsuitFileMutations({
         files,
@@ -70,6 +75,7 @@ export function useLawyerDashboardWorkspace({
 
     const notes = useLawyerGlobalNotes({
         localAutoSave,
+        backgroundRuntimeEnabled,
         user,
         authUserId,
         refreshAppAlerts,
@@ -81,6 +87,7 @@ export function useLawyerDashboardWorkspace({
 
     const execution = useLawyerExecutionFiles({
         localAutoSave,
+        backgroundRuntimeEnabled,
         userId: user?.id,
         authUserId,
         refreshAppAlerts,

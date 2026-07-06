@@ -1,6 +1,10 @@
 // @ts-nocheck
-import React, { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import type { CriminalCase } from '@/app/types/criminal';
+import {
+    getBackgroundServicesDeferMs,
+    scheduleIdleWork,
+} from '@/app/runtime/mobileRuntimePolicy';
 
 export type CriminalDashboardBridge = {
     ready: boolean;
@@ -22,6 +26,8 @@ const STUB: CriminalDashboardBridge = {
 };
 
 const CriminalDashboardBridgeContext = createContext<CriminalDashboardBridge>(STUB);
+
+export const CRIMINAL_DASHBOARD_BRIDGE_ACTIVATE_EVENT = 'hami:criminal-dashboard-bridge-activate';
 
 export function useCriminalDashboardBridge(): CriminalDashboardBridge {
     return useContext(CriminalDashboardBridgeContext);
@@ -67,13 +73,12 @@ export function CriminalDashboardBridgeProvider({
     const [bridge, setBridge] = React.useState<CriminalDashboardBridge>(STUB);
     const prevCasesRef = useRef<Record<string, CriminalCase>>({});
     const listFingerprintRef = useRef('');
+    const loadStartedRef = useRef(false);
+    const loadCleanupRef = useRef<(() => void) | null>(null);
 
-    useEffect(() => {
-        if (!enabled) {
-            listFingerprintRef.current = '';
-            setBridge(STUB);
-            return;
-        }
+    const startBridgeLoad = useCallback(() => {
+        if (loadStartedRef.current) return loadCleanupRef.current ?? undefined;
+        loadStartedRef.current = true;
 
         let cancelled = false;
         let unsubStore: (() => void) | undefined;
@@ -143,11 +148,43 @@ export function CriminalDashboardBridgeProvider({
             }
         });
 
-        return () => {
+        const cleanup = () => {
             cancelled = true;
             unsubStore?.();
         };
-    }, [enabled, lawyerId, onCasesChange]);
+        loadCleanupRef.current = cleanup;
+        return cleanup;
+    }, [lawyerId, onCasesChange]);
+
+    useEffect(() => {
+        if (!enabled) {
+            loadCleanupRef.current?.();
+            loadCleanupRef.current = null;
+            loadStartedRef.current = false;
+            listFingerprintRef.current = '';
+            prevCasesRef.current = {};
+            setBridge(STUB);
+            return;
+        }
+
+        const cancelIdle = scheduleIdleWork(startBridgeLoad, {
+            minDelayMs: getBackgroundServicesDeferMs(),
+            timeoutMs: 20_000,
+        });
+        const activateNow = () => {
+            cancelIdle();
+            return startBridgeLoad();
+        };
+
+        window.addEventListener(CRIMINAL_DASHBOARD_BRIDGE_ACTIVATE_EVENT, activateNow);
+
+        return () => {
+            cancelIdle();
+            window.removeEventListener(CRIMINAL_DASHBOARD_BRIDGE_ACTIVATE_EVENT, activateNow);
+            loadCleanupRef.current?.();
+            loadCleanupRef.current = null;
+        };
+    }, [enabled, startBridgeLoad]);
 
     const value = useMemo(() => bridge, [bridge]);
 

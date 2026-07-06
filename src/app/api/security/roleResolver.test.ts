@@ -17,6 +17,7 @@ vi.mock('./supabaseAdminClient.ts', () => ({
 }));
 
 import {
+  canAccessLawyerForumUserId,
   getProfileRole,
   isForumModeratorUserId,
   isPlatformAdminUserId,
@@ -56,5 +57,22 @@ describe('roleResolver', () => {
     process.env.ADMIN_UUID = 'other-admin';
     maybeSingleMock.mockResolvedValue({ data: { role: 'lawyer' }, error: null });
     await expect(isPlatformAdminUserId('attacker-with-fake-meta')).resolves.toBe(false);
+  });
+
+  it('denies forum access for inactive profiles', async () => {
+    maybeSingleMock.mockResolvedValue({
+      data: { role: 'lawyer', is_banned: true, is_deleted: false, is_active: true },
+      error: null,
+    });
+    await expect(getProfileRole('banned-user')).resolves.toBeNull();
+    await expect(canAccessLawyerForumUserId('banned-user')).resolves.toBe(false);
+  });
+
+  it('allows forum access for active lawyer profiles', async () => {
+    maybeSingleMock.mockResolvedValue({
+      data: { role: 'lawyer', is_banned: false, is_deleted: false, is_active: true },
+      error: null,
+    });
+    await expect(canAccessLawyerForumUserId('lawyer-1')).resolves.toBe(true);
   });
 });

@@ -2,7 +2,8 @@ import type { ComponentProps, CSSProperties, MutableRefObject, ReactNode } from 
 import type { User } from '@supabase/supabase-js';
 import type { LawyerDashboardShell } from '@/app/components/lawyer/dashboard/LawyerDashboardShell';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
-import type { GlobalNote, ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
+import type { GlobalNote } from '@/app/components/lawyer/LawyerDashboardParts/types';
+import type { ExecutionFile } from '@/app/types/execution';
 import type { AppearanceSettings } from '@/app/services/settings/types';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';

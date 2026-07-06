@@ -10,7 +10,7 @@ import type { CommunitySection } from '../communitySectionState';
 import type { CommunityScreenBodyProps } from '../components/CommunityScreenBody';
 import type { CommunityScreenOverlaysProps } from '../components/CommunityScreenOverlays';
 import { openForumAddQuestionGuard } from '../components/CommunityScreenBody';
-import { prefetchCommunitySearchOverlay } from '../communityScreenLazyOverlays';
+import { prefetchCommunitySearchOverlay } from '../communityOverlayPrefetch';
 
 export type CommunityScreenPropBuilderContext = {
     onBack?: () => void;

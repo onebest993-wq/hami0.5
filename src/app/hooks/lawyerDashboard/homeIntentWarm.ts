@@ -1,5 +1,8 @@
 import { readPersistedSupabaseAuth } from '@/app/utils/authStorage';
-import { warmLawyerHomeShell } from '@/app/utils/lazyComponents';
+import {
+    warmLawyerHomeShellCritical,
+    warmLawyerHomeShellSecondary,
+} from '@/app/utils/lazyComponents';
 import { prefetchLawyerHomeTabModule } from '@/app/runtime/homeHubLoader';
 import { markLawyerShellPrefetchCompleted } from '@/app/runtime/deferredShellPrefetch';
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
@@ -15,7 +18,8 @@ function warmHomeHubRadarFromSession(): void {
 
 /** عند hover/دخول الرئيسية: prefetch لحاويات الواجهة */
 export function warmHomeOnHover(): void {
-    warmLawyerHomeShell();
+    warmLawyerHomeShellCritical();
+    warmLawyerHomeShellSecondary();
     markLawyerShellPrefetchCompleted();
     prefetchLawyerHomeTabModule();
     warmHomeHubRadarFromSession();
@@ -23,11 +27,15 @@ export function warmHomeOnHover(): void {
 
 /** عند أول عرض للرئيسية — فقط ما يظهر على الشاشة (intent-only للباقي) */
 export function warmHomeOnOpen(): void {
-    warmLawyerHomeShell();
+    warmLawyerHomeShellCritical();
     markLawyerShellPrefetchCompleted();
     prefetchLawyerHomeTabModule();
+    scheduleIdleWork(warmLawyerHomeShellSecondary, {
+        minDelayMs: import.meta.env.DEV ? 400 : 900,
+        timeoutMs: 4_500,
+    });
     scheduleIdleWork(warmHomeHubRadarFromSession, {
-        minDelayMs: import.meta.env.DEV ? 1_500 : 2_500,
-        timeoutMs: 8_000,
+        minDelayMs: import.meta.env.DEV ? 600 : 1_100,
+        timeoutMs: 3_500,
     });
 }

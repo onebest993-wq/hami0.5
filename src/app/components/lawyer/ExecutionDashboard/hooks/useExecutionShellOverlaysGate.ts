@@ -18,6 +18,11 @@ export type ExecutionShellOverlayModalFlags = {
     showPauseModal?: boolean;
     showPaymentCalculator?: boolean;
     showSettlementCalculator?: boolean;
+    showExecutionTrashModal?: boolean;
+    showGuarantorDetailsModal?: boolean;
+    showHeirsNotificationModal?: boolean;
+    showTransferFileNumberChangeModal?: boolean;
+    showRealEstateSeizureModal?: boolean;
 };
 
 /** يؤجّل تركيب overlays حتى idle — أو فوراً عند فتح modal */
@@ -35,7 +40,17 @@ export function useExecutionShellOverlaysGate(modals: ExecutionShellOverlayModal
                     modals.showPaymentModal ||
                     modals.showSeizedAssetsModal ||
                     modals.showNotesModal ||
-                    modals.showAppointmentModal,
+                modals.showAppointmentModal ||
+                modals.showEditDossierMetaModal ||
+                modals.showLedgerModal ||
+                modals.showPauseModal ||
+                modals.showPaymentCalculator ||
+                modals.showSettlementCalculator ||
+                modals.showExecutionTrashModal ||
+                modals.showGuarantorDetailsModal ||
+                modals.showHeirsNotificationModal ||
+                modals.showTransferFileNumberChangeModal ||
+                modals.showRealEstateSeizureModal,
             ),
         [modals],
     );

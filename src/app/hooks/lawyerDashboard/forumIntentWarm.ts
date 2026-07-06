@@ -1,6 +1,5 @@
 import { prefetchCommunityScreenModule } from '@/app/runtime/communityHubLoader';
 import { hydrateCommunityShellForInstantOpen } from '@/app/runtime/communityBootHydrator';
-import { prefetchCommunityHeavyOverlays } from '@/app/components/lawyer/CommunityScreen/communityOverlayPrefetch';
 import { warmForumNotificationsCache } from '@/app/services/forum/forumNotificationsWarmCache';
 import { warmForumPostsCache } from '@/app/services/forum/forumPostsWarmCache';
 import { warmForumSocialCache } from '@/app/services/forum/forumSocialWarmCache';
@@ -27,5 +26,4 @@ export function warmForumOnOpen(userId?: string | null): void {
     if (typeof window === 'undefined') return;
     void hydrateCommunityShellForInstantOpen(true);
     warmForumPostsCache();
-    prefetchCommunityHeavyOverlays();
 }

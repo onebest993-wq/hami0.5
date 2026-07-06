@@ -111,14 +111,27 @@ export type LawyerDashboardTabBundleParams = {
     closeHubShellOverlays: () => void;
 };
 
-export function buildLawyerDashboardTabBundle(
-    params: LawyerDashboardTabBundleParams,
-): {
+type LawyerDashboardTabBundleResult = {
     shouldHideHeader: boolean;
     headerProps: ComponentProps<typeof Header>;
     homeTabProps: ComponentProps<typeof LawyerDashboardHomeTab>;
     scheduleTabProps: ComponentProps<typeof LawyerDashboardScheduleTab>;
-} {
+};
+
+let cachedTabBundle:
+    | {
+          params: LawyerDashboardTabBundleParams;
+          result: LawyerDashboardTabBundleResult;
+      }
+    | null = null;
+
+export function resetBuildLawyerDashboardTabBundleCacheForTests(): void {
+    cachedTabBundle = null;
+}
+
+export function buildLawyerDashboardTabBundle(
+    params: LawyerDashboardTabBundleParams,
+): LawyerDashboardTabBundleResult {
     const shouldHideHeader =
         params.showSettings ||
         params.isNewCaseModalOpen ||
@@ -154,43 +167,50 @@ export function buildLawyerDashboardTabBundle(
         isCriminalDossierOpen: params.isCriminalDossierOpen,
     };
 
-    return {
+    const previous = cachedTabBundle;
+    const nextResult: LawyerDashboardTabBundleResult = {
         shouldHideHeader,
-        headerProps: {
-            shouldShow: computeLawyerDashboardHeaderShouldShow(headerVisibilityInput),
-            unreadCount: params.notificationsUnreadCount,
-            onProfileClick: params.openProfileTab,
-            onProfilePointerEnter: () => {
-                headerPrefetch.onProfilePointerEnter();
-                params.primeProfileTabMount();
-            },
-            onProfilePointerDown: () => {
-                headerPrefetch.onProfilePointerDown();
-                params.primeProfileTabMount();
-            },
-            onSearchClick: params.openGlobalSearch,
-            onSearchPointerEnter: headerPrefetch.onSearchPointerEnter,
-            onSearchPointerDown: headerPrefetch.onSearchPointerDown,
-            onNotificationsClick: params.openNotifications,
-            onNotificationsPointerEnter: () => {
-                headerPrefetch.onNotificationsPointerEnter();
-                params.primeNotificationPanelMount();
-            },
-            onNotificationsPointerDown: () => {
-                headerPrefetch.onNotificationsPointerDown();
-                params.primeNotificationPanelMount();
-            },
-            onSettingsClick: params.openSettings,
-            onSettingsPointerEnter: () => {
-                headerPrefetch.onSettingsPointerEnter();
-                params.primeSettingsShellMount();
-            },
-            onSettingsPointerDown: () => {
-                headerPrefetch.onSettingsPointerDown();
-                params.primeSettingsShellMount();
-            },
-        },
-        homeTabProps: {
+        headerProps:
+            previous && canReuseHeaderProps(previous.params, params)
+                ? previous.result.headerProps
+                : {
+                      shouldShow: computeLawyerDashboardHeaderShouldShow(headerVisibilityInput),
+                      unreadCount: params.notificationsUnreadCount,
+                      onProfileClick: params.openProfileTab,
+                      onProfilePointerEnter: () => {
+                          headerPrefetch.onProfilePointerEnter();
+                          params.primeProfileTabMount();
+                      },
+                      onProfilePointerDown: () => {
+                          headerPrefetch.onProfilePointerDown();
+                          params.primeProfileTabMount();
+                      },
+                      onSearchClick: params.openGlobalSearch,
+                      onSearchPointerEnter: headerPrefetch.onSearchPointerEnter,
+                      onSearchPointerDown: headerPrefetch.onSearchPointerDown,
+                      onNotificationsClick: params.openNotifications,
+                      onNotificationsPointerEnter: () => {
+                          headerPrefetch.onNotificationsPointerEnter();
+                          params.primeNotificationPanelMount();
+                      },
+                      onNotificationsPointerDown: () => {
+                          headerPrefetch.onNotificationsPointerDown();
+                          params.primeNotificationPanelMount();
+                      },
+                      onSettingsClick: params.openSettings,
+                      onSettingsPointerEnter: () => {
+                          headerPrefetch.onSettingsPointerEnter();
+                          params.primeSettingsShellMount();
+                      },
+                      onSettingsPointerDown: () => {
+                          headerPrefetch.onSettingsPointerDown();
+                          params.primeSettingsShellMount();
+                      },
+                  },
+        homeTabProps:
+            previous && canReuseHomeTabProps(previous.params, params)
+                ? previous.result.homeTabProps
+                : {
             visible: params.activeTab === 'home',
             homeTabSessionKey: params.homeTabSessionKey,
             homeHubCardSessionKey: params.homeHubCardSessionKey,
@@ -307,7 +327,10 @@ export function buildLawyerDashboardTabBundle(
                 }
             },
         },
-        scheduleTabProps: {
+        scheduleTabProps:
+            previous && canReuseScheduleTabProps(previous.params, params)
+                ? previous.result.scheduleTabProps
+                : {
             visible: params.activeTab === 'schedule',
             scheduleTabSessionKey: params.scheduleTabSessionKey,
             userId: params.user?.id,
@@ -340,4 +363,115 @@ export function buildLawyerDashboardTabBundle(
             onOpenFieldTasks: params.openFieldTasksSheet,
         },
     };
+
+    cachedTabBundle = {
+        params,
+        result: nextResult,
+    };
+
+    return nextResult;
+}
+
+function canReuseHeaderProps(
+    previous: LawyerDashboardTabBundleParams,
+    next: LawyerDashboardTabBundleParams,
+): boolean {
+    return (
+        previous.showSettings === next.showSettings &&
+        previous.isNewCaseModalOpen === next.isNewCaseModalOpen &&
+        previous.isNotepadOpen === next.isNotepadOpen &&
+        previous.showCommunity === next.showCommunity &&
+        previous.activeTab === next.activeTab &&
+        previous.activeFile === next.activeFile &&
+        previous.archiveType === next.archiveType &&
+        previous.showLawsuitsWorkspace === next.showLawsuitsWorkspace &&
+        previous.showTransactions === next.showTransactions &&
+        previous.showTasksManager === next.showTasksManager &&
+        previous.showDocs === next.showDocs &&
+        previous.isCriminalDossierOpen === next.isCriminalDossierOpen &&
+        previous.notificationsUnreadCount === next.notificationsUnreadCount &&
+        previous.authUserId === next.authUserId &&
+        previous.user?.id === next.user?.id &&
+        previous.openProfileTab === next.openProfileTab &&
+        previous.primeProfileTabMount === next.primeProfileTabMount &&
+        previous.openGlobalSearch === next.openGlobalSearch &&
+        previous.primeGlobalSearchShellMount === next.primeGlobalSearchShellMount &&
+        previous.openNotifications === next.openNotifications &&
+        previous.primeNotificationPanelMount === next.primeNotificationPanelMount &&
+        previous.openSettings === next.openSettings &&
+        previous.primeSettingsShellMount === next.primeSettingsShellMount &&
+        previous.primeVaultShellMount === next.primeVaultShellMount
+    );
+}
+
+function canReuseHomeTabProps(
+    previous: LawyerDashboardTabBundleParams,
+    next: LawyerDashboardTabBundleParams,
+): boolean {
+    return (
+        previous.activeTab === next.activeTab &&
+        previous.homeTabSessionKey === next.homeTabSessionKey &&
+        previous.homeHubCardSessionKey === next.homeHubCardSessionKey &&
+        previous.homeDockChromeSessionKey === next.homeDockChromeSessionKey &&
+        previous.homeLayoutEditMode === next.homeLayoutEditMode &&
+        previous.exitHomeLayoutEdit === next.exitHomeLayoutEdit &&
+        previous.calendarUserId === next.calendarUserId &&
+        previous.clusterScanSources === next.clusterScanSources &&
+        previous.visibleAppAlerts === next.visibleAppAlerts &&
+        previous.appAlertsLoading === next.appAlertsLoading &&
+        previous.appAlertsError === next.appAlertsError &&
+        previous.navigateWorkspaceRoute === next.navigateWorkspaceRoute &&
+        previous.openSecretaryAlert === next.openSecretaryAlert &&
+        previous.dismissAppAlert === next.dismissAppAlert &&
+        previous.handleAlertResolved === next.handleAlertResolved &&
+        previous.setArchiveType === next.setArchiveType &&
+        previous.openNormalNewCaseModal === next.openNormalNewCaseModal &&
+        previous.openCommunityTab === next.openCommunityTab &&
+        previous.theme === next.theme &&
+        previous.shapeClass === next.shapeClass &&
+        previous.closeNotepad === next.closeNotepad &&
+        previous.closeTransactionsHub === next.closeTransactionsHub &&
+        previous.openTransactionsHub === next.openTransactionsHub &&
+        previous.setLawsuitsDossierSection === next.setLawsuitsDossierSection &&
+        previous.setLawsuitsWorkspaceTab === next.setLawsuitsWorkspaceTab &&
+        previous.setShowLawsuitsWorkspace === next.setShowLawsuitsWorkspace &&
+        previous.user?.id === next.user?.id &&
+        previous.authUserId === next.authUserId &&
+        previous.primeScheduleTabMount === next.primeScheduleTabMount &&
+        previous.openScheduleTab === next.openScheduleTab &&
+        previous.primeFieldTasksShellMount === next.primeFieldTasksShellMount &&
+        previous.openFieldTasksSheet === next.openFieldTasksSheet &&
+        previous.pendingFieldTasksCount === next.pendingFieldTasksCount &&
+        previous.primeNotepadShellMount === next.primeNotepadShellMount &&
+        previous.openNotepad === next.openNotepad &&
+        previous.openRepository === next.openRepository &&
+        previous.primeVaultShellMount === next.primeVaultShellMount &&
+        previous.openVaultModal === next.openVaultModal &&
+        previous.fieldTasksSheetOpen === next.fieldTasksSheetOpen &&
+        previous.handleSaveNote === next.handleSaveNote
+    );
+}
+
+function canReuseScheduleTabProps(
+    previous: LawyerDashboardTabBundleParams,
+    next: LawyerDashboardTabBundleParams,
+): boolean {
+    return (
+        previous.activeTab === next.activeTab &&
+        previous.scheduleTabSessionKey === next.scheduleTabSessionKey &&
+        previous.user?.id === next.user?.id &&
+        previous.authUserId === next.authUserId &&
+        previous.calendarSearchFocus === next.calendarSearchFocus &&
+        previous.onClearCalendarSearchFocus === next.onClearCalendarSearchFocus &&
+        previous.backToHomeFromSchedule === next.backToHomeFromSchedule &&
+        previous.files === next.files &&
+        previous.executionFiles === next.executionFiles &&
+        previous.setActiveFile === next.setActiveFile &&
+        previous.openCriminalCase === next.openCriminalCase &&
+        previous.openUrgentInLawsuitsWorkspace === next.openUrgentInLawsuitsWorkspace &&
+        previous.setTransactionsFocusId === next.setTransactionsFocusId &&
+        previous.openTransactionsHub === next.openTransactionsHub &&
+        previous.openNotepad === next.openNotepad &&
+        previous.openFieldTasksSheet === next.openFieldTasksSheet
+    );
 }

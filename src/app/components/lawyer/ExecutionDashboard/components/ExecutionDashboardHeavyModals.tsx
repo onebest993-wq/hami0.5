@@ -36,6 +36,33 @@ import {
 
 export function ExecutionDashboardHeavyModals(props: Record<string, any>) {
     const s = props;
+    const showAnyHeavyModal = Boolean(
+        s.showDocumentsModal ||
+            s.showRealEstateSeizureModal ||
+            s.showDecisionsModal ||
+            s.showSeizedAssetsModal ||
+            s.showPaymentModal ||
+            s.showTimelineModal ||
+            s.showNotificationModal ||
+            s.showCoerciveModal ||
+            s.showHeirsNotificationModal ||
+            s.showGuarantorDetailsModal ||
+            s.showStayOfExecutionModal ||
+            s.partyDeathModalParty ||
+            s.showPauseModal ||
+            s.alimonyBeneficiaryDeathModalOpen ||
+            s.showUnifiedSummonsModal ||
+            s.showPaymentCalculator ||
+            s.showSettlementCalculator ||
+            s.showLedgerModal ||
+            s.showTransferFileNumberChangeModal ||
+            (s.showLinkedDossierTimeline && s.linkedDossierToView),
+    );
+
+    if (!showAnyHeavyModal) {
+        return null;
+    }
+
     return (
         <>
             {s.showDocumentsModal && (
@@ -76,6 +103,7 @@ export function ExecutionDashboardHeavyModals(props: Record<string, any>) {
                 </Suspense>
             ) : null}
 
+            {s.showDecisionsModal ? (
             <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
             <LazyExecutionDecisionsModalContainer
                 showDecisionsModal={s.showDecisionsModal}
@@ -151,6 +179,7 @@ export function ExecutionDashboardHeavyModals(props: Record<string, any>) {
                 }
             />
             </Suspense>
+            ) : null}
 
             {s.showSeizedAssetsModal && (
             <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
@@ -178,6 +207,7 @@ export function ExecutionDashboardHeavyModals(props: Record<string, any>) {
             </Suspense>
             )}
 
+            {s.showTimelineModal ? (
             <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
             <LazyExecutionFullTimelineModalContainer
                 showTimelineModal={s.showTimelineModal}
@@ -198,6 +228,7 @@ export function ExecutionDashboardHeavyModals(props: Record<string, any>) {
                 timelineFilterOptions={s.timelineFilterOptions}
             />
             </Suspense>
+            ) : null}
 
                 {s.showNotificationModal && (
                 <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
@@ -311,6 +342,7 @@ export function ExecutionDashboardHeavyModals(props: Record<string, any>) {
             </Suspense>
             ) : null}
 
+            {s.alimonyBeneficiaryDeathModalOpen ? (
             <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
             <LazyAlimonyBeneficiaryDeathModal
                 open={s.alimonyBeneficiaryDeathModalOpen}
@@ -322,6 +354,7 @@ export function ExecutionDashboardHeavyModals(props: Record<string, any>) {
                 onConfirm={s.handleAlimonyBeneficiaryDeathConfirm}
             />
             </Suspense>
+            ) : null}
             
             {s.showUnifiedSummonsModal ? (
             <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
@@ -458,6 +491,7 @@ export function ExecutionDashboardHeavyModals(props: Record<string, any>) {
             </Suspense>
             )}
 
+            {s.showTransferFileNumberChangeModal ? (
             <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
             <LazyExecutionTransferFileNumberModal
                 open={s.showTransferFileNumberChangeModal}
@@ -473,6 +507,7 @@ export function ExecutionDashboardHeavyModals(props: Record<string, any>) {
                 }}
             />
             </Suspense>
+            ) : null}
 
             {s.showLinkedDossierTimeline && s.linkedDossierToView && (
                 <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>

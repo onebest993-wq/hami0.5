@@ -7,6 +7,7 @@ import { logAction } from '@/app/utils/auditLog';
 import {
     clearDevMockAuth,
     hasPersistedSupabaseSession,
+    purgeClientAuthResidue,
     readDevMockAccessToken,
     readDevMockUser,
     writeDevMockAuth,
@@ -210,7 +211,7 @@ export async function authLogout(bindings: AuthProviderRuntimeBindings): Promise
     if (keepDevMock) {
         applyGuestSession();
     } else {
-        clearDevMockAuth();
+        purgeClientAuthResidue();
     }
     if (isBffAuthEnabled()) {
         try {
@@ -311,7 +312,7 @@ export async function performRootAuthLogout(): Promise<void> {
         writeDevMockAuth(getDevMockLawyerSession().session);
         return;
     }
-    clearDevMockAuth();
+    purgeClientAuthResidue();
     clearCsrfSessionToken();
     await signOutSupabase().catch(() => {});
     if (isBffAuthEnabled()) await bffLogout().catch(() => {});

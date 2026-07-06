@@ -1,4 +1,5 @@
 /** تحميل مسبق لتبويب واحد من محضر المتابعة — لا يجمع كل التبويبات في موجة واحدة */
+import { prefetchExecutionCoreHandlers } from './executionCoreHandlersPrefetch';
 
 export type ExecutionFollowupTabPrefetchId =
     | 'personal'
@@ -35,6 +36,27 @@ export function isExecutionFollowupTabPrefetchId(
 
 export function prefetchExecutionFollowupTab(tabId: string): void {
     if (!isExecutionFollowupTabPrefetchId(tabId)) return;
+    switch (tabId) {
+        case 'personal':
+        case 'coercive':
+            prefetchExecutionCoreHandlers('coercive');
+            break;
+        case 'admin':
+        case 'special':
+            prefetchExecutionCoreHandlers('followup-admin-special');
+            break;
+        case 'seizure_requests':
+            prefetchExecutionCoreHandlers('seizure');
+            break;
+        case 'other_party':
+            prefetchExecutionCoreHandlers('followup-other-party');
+            break;
+        case 'dossier_controls':
+            prefetchExecutionCoreHandlers('followup-dossier-controls');
+            break;
+        default:
+            break;
+    }
     void TAB_LOADERS[tabId]().catch(() => undefined);
 }
 

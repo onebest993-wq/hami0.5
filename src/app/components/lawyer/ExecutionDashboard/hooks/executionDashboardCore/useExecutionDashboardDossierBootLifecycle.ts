@@ -167,15 +167,8 @@ export function useExecutionDashboardShellPrefetch() {
     useEffect(() => {
         prefetchExecutionDashboardShell();
         prefetchExecutionFollowupDefaultTab();
-        const cancelModalContainers = scheduleIdleWork(() => {
-            prefetchExecutionModalContainers();
-        }, 2_000);
-        const cancelOverlays = scheduleIdleWork(() => {
-            prefetchExecutionOverlayModals();
-        }, 4_000);
         return () => {
-            cancelModalContainers();
-            cancelOverlays();
+            // shell/followup prefetch is synchronous and idempotent.
         };
     }, []);
 }

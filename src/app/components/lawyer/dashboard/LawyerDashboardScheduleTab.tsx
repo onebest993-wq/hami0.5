@@ -4,7 +4,7 @@ import { resolveCalendarUserId } from '@/app/services/calendarBridge';
 import { SmartLegalRadar } from '@/app/components/lawyer/SmartLegalRadar';
 import { RadarErrorBoundary } from '@/app/components/lawyer/SmartLegalRadar/RadarErrorBoundary';
 import type { FileData } from '../LawyerShared';
-import type { ExecutionFile } from '../LawyerDashboardParts/types';
+import type { ExecutionFile } from '@/app/types/execution';
 import { coerceExecutionFilePreserveId, isFileData } from '../LawyerDashboardParts/utils';
 
 export type LawyerDashboardScheduleTabProps = {
@@ -81,7 +81,7 @@ export function LawyerDashboardScheduleTab({
                                     (file) => String(file.id ?? '') === sourceEntityId,
                                 );
                                 if (ex) {
-                                    onOpenExecutionFile(coerceExecutionFilePreserveId(ex));
+                                    onOpenExecutionFile(ex);
                                     onBackToHome();
                                     return;
                                 }

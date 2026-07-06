@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import {
     prefetchCriminalDashboard,
 } from '@/app/utils/lazyComponents';
+import { CRIMINAL_DASHBOARD_BRIDGE_ACTIVATE_EVENT } from '@/app/components/lawyer/criminal-system/criminalDashboardBridge';
 import type { LawyerArchiveOverlay } from '@/app/hooks/useLawyerExecutionFiles';
 import {
     readInitialLawyerTab,
@@ -46,6 +47,7 @@ export function useLawyerDashboardOverlays({
         (caseId: string, options?: OpenCriminalCaseOptions) => {
             const trimmed = String(caseId ?? '').trim();
             if (!trimmed) return;
+            window.dispatchEvent(new Event(CRIMINAL_DASHBOARD_BRIDGE_ACTIVATE_EVENT));
             prefetchCriminalDashboard();
 
             if (options?.keepReturnTarget) {

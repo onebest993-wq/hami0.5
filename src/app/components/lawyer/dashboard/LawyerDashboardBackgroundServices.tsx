@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useCallback, useEffect, useRef, type MutableRefObject } from 'react';
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
 import type { User } from '@supabase/supabase-js';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
@@ -13,6 +13,10 @@ import { STORAGE_KEYS } from '@/app/utils/constants';
 import { EXECUTION_FILES_STORAGE_KEY } from '@/app/utils/executionFilesStorage';
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
 import { useCloudSyncStatusStore } from '@/app/services/cloudSync/cloudSyncStatusStore';
+import {
+    getBackgroundServicesDeferMs,
+    scheduleIdleWork,
+} from '@/app/runtime/mobileRuntimePolicy';
 
 export type LawyerDashboardBackgroundServicesProps = {
     user: User;
@@ -41,33 +45,101 @@ export type LawyerDashboardBackgroundServicesProps = {
     refreshAppAlertsRef: MutableRefObject<() => void>;
 };
 
-/**
- * خدمات الخلفية: مزامنة سحابية + realtime + تنبيهات السكرتير.
- * تُحمَّل في chunk منفصل بعد مرحلة interactive.
- */
-export default function LawyerDashboardBackgroundServices(props: LawyerDashboardBackgroundServicesProps) {
-    const {
-        user,
-        syncNotesOn,
-        syncFilesOn,
-        syncExecutionOn,
-        pushAllowed,
+type AlertsBackgroundRuntimeProps = Pick<
+    LawyerDashboardBackgroundServicesProps,
+    | 'lawyerId'
+    | 'files'
+    | 'executionFiles'
+    | 'criminalCases'
+    | 'globalNotes'
+    | 'fieldTasks'
+    | 'onAlerts'
+    | 'refreshAppAlertsRef'
+> & {
+    refreshAlertsLightRef: MutableRefObject<() => void>;
+};
+
+function AlertsBackgroundRuntime({
+    lawyerId,
+    files,
+    executionFiles,
+    criminalCases,
+    globalNotes,
+    fieldTasks,
+    onAlerts,
+    refreshAppAlertsRef,
+    refreshAlertsLightRef,
+}: AlertsBackgroundRuntimeProps) {
+    const { alerts, loading, error, refresh, refreshLight } = useAppAlerts({
+        lawyerId,
         files,
         executionFiles,
         criminalCases,
-        globalNotes,
+        notes: globalNotes,
         fieldTasks,
-        lawyerId,
-        onAlerts,
-        onNotesSynced,
-        onLawsuitFilesSynced,
-        mergeNotesStores,
-        syncExecutionFilesNowRef,
-        syncLawsuitFilesNowRef,
-        syncNotesNowRef,
-        refreshAppAlertsRef,
-    } = props;
+        deferUntilIdle: true,
+    });
 
+    const onAlertsRef = useRef(onAlerts);
+    onAlertsRef.current = onAlerts;
+    const lastAlertsPayloadRef = useRef<{
+        alerts: SecretaryAlert[];
+        loading: boolean;
+        error: string | null;
+    } | null>(null);
+
+    useEffect(() => {
+        const prev = lastAlertsPayloadRef.current;
+        if (
+            prev &&
+            prev.loading === loading &&
+            prev.error === error &&
+            prev.alerts.length === alerts.length &&
+            prev.alerts.every((a, i) => a.id === alerts[i]?.id)
+        ) {
+            return;
+        }
+        lastAlertsPayloadRef.current = { alerts, loading, error };
+        onAlertsRef.current({ alerts, loading, error, refresh });
+    }, [alerts, loading, error, refresh]);
+
+    refreshAppAlertsRef.current = () => void refresh();
+    refreshAlertsLightRef.current = () => void refreshLight();
+
+    return null;
+}
+
+type AdvancedBackgroundRuntimeProps = Pick<
+    LawyerDashboardBackgroundServicesProps,
+    | 'user'
+    | 'syncNotesOn'
+    | 'syncFilesOn'
+    | 'syncExecutionOn'
+    | 'pushAllowed'
+    | 'onNotesSynced'
+    | 'onLawsuitFilesSynced'
+    | 'mergeNotesStores'
+    | 'syncExecutionFilesNowRef'
+    | 'syncLawsuitFilesNowRef'
+    | 'syncNotesNowRef'
+> & {
+    refreshAlertsLightRef: MutableRefObject<() => void>;
+};
+
+function AdvancedBackgroundRuntime({
+    user,
+    syncNotesOn,
+    syncFilesOn,
+    syncExecutionOn,
+    pushAllowed,
+    onNotesSynced,
+    onLawsuitFilesSynced,
+    mergeNotesStores,
+    syncExecutionFilesNowRef,
+    syncLawsuitFilesNowRef,
+    syncNotesNowRef,
+    refreshAlertsLightRef,
+}: AdvancedBackgroundRuntimeProps) {
     const advancedServicesOnceRef = useRef(false);
     const realtimeSyncTimersRef = useRef<Partial<Record<'notes' | 'lawsuit' | 'execution', number>>>({});
 
@@ -112,44 +184,6 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
         store.registerSyncHandler('execution', () => syncExecutionFilesNowRef.current());
     }, [syncNotesNowRef, syncLawsuitFilesNowRef, syncExecutionFilesNowRef]);
 
-    const { alerts, loading, error, refresh, refreshLight } = useAppAlerts({
-        lawyerId,
-        files,
-        executionFiles,
-        criminalCases,
-        notes: globalNotes,
-        fieldTasks,
-        deferUntilIdle: true,
-    });
-
-    const onAlertsRef = useRef(onAlerts);
-    onAlertsRef.current = onAlerts;
-    const lastAlertsPayloadRef = useRef<{
-        alerts: SecretaryAlert[];
-        loading: boolean;
-        error: string | null;
-    } | null>(null);
-
-    useEffect(() => {
-        const prev = lastAlertsPayloadRef.current;
-        if (
-            prev &&
-            prev.loading === loading &&
-            prev.error === error &&
-            prev.alerts.length === alerts.length &&
-            prev.alerts.every((a, i) => a.id === alerts[i]?.id)
-        ) {
-            return;
-        }
-        lastAlertsPayloadRef.current = { alerts, loading, error };
-        onAlertsRef.current({ alerts, loading, error, refresh });
-    }, [alerts, loading, error, refresh]);
-
-    syncExecutionFilesNowRef.current = () => void syncExecutionFilesNow();
-    syncLawsuitFilesNowRef.current = () => void syncLawsuitFilesNow();
-    syncNotesNowRef.current = () => void syncNotesNow();
-    refreshAppAlertsRef.current = () => void refresh();
-
     const scheduleRealtimeSync = useCallback(
         (bucket: 'notes' | 'lawsuit' | 'execution', fn: () => void) => {
             const allowed =
@@ -172,7 +206,7 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
         onExecutionUpdate: async (payload) => {
             scheduleRealtimeSync('execution', () => {
                 void syncExecutionFilesNow();
-                void refreshLight();
+                refreshAlertsLightRef.current();
             });
             if (payload.eventType === 'INSERT' && payload.new) {
                 await PushNotificationService.notifyNewExecution(payload.new.case_no || 'جديد');
@@ -181,7 +215,7 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
         onLawsuitUpdate: async (payload) => {
             scheduleRealtimeSync('lawsuit', () => {
                 void syncLawsuitFilesNow();
-                void refreshLight();
+                refreshAlertsLightRef.current();
             });
             if (payload.eventType === 'INSERT' && payload.new) {
                 await PushNotificationService.notifyNewLawsuit(payload.new.case_no || 'جديد');
@@ -190,7 +224,7 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
         onNoteUpdate: async () => {
             scheduleRealtimeSync('notes', () => {
                 void syncNotesNow();
-                void refreshLight();
+                refreshAlertsLightRef.current();
             });
         },
     });
@@ -220,4 +254,75 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
     }, [user, pushAllowed]);
 
     return null;
+}
+
+/**
+ * خدمات الخلفية: تنبيهات خفيفة أولاً، ثم مزامنة/Realtime/Push بعد idle متأخر.
+ * تُحمَّل في chunk منفصل بعد استقرار shell الأساسية.
+ */
+export default function LawyerDashboardBackgroundServices(props: LawyerDashboardBackgroundServicesProps) {
+    const [advancedServicesReady, setAdvancedServicesReady] = useState(false);
+    const refreshAlertsLightRef = useRef<() => void>(() => undefined);
+
+    useEffect(() => {
+        props.syncExecutionFilesNowRef.current = () => undefined;
+        props.syncLawsuitFilesNowRef.current = () => undefined;
+        props.syncNotesNowRef.current = () => undefined;
+        props.refreshAppAlertsRef.current = () => undefined;
+    }, [
+        props.refreshAppAlertsRef,
+        props.syncExecutionFilesNowRef,
+        props.syncLawsuitFilesNowRef,
+        props.syncNotesNowRef,
+    ]);
+
+    useEffect(() => {
+        if (!props.user?.id) {
+            setAdvancedServicesReady(false);
+            return;
+        }
+
+        const delay = getBackgroundServicesDeferMs();
+        const cancelIdle = scheduleIdleWork(
+            () => setAdvancedServicesReady(true),
+            {
+                minDelayMs: delay,
+                timeoutMs: Math.max(delay + 8_000, 12_000),
+            },
+        );
+
+        return () => cancelIdle();
+    }, [props.user?.id]);
+
+    return (
+        <>
+            <AlertsBackgroundRuntime
+                lawyerId={props.lawyerId}
+                files={props.files}
+                executionFiles={props.executionFiles}
+                criminalCases={props.criminalCases}
+                globalNotes={props.globalNotes}
+                fieldTasks={props.fieldTasks}
+                onAlerts={props.onAlerts}
+                refreshAppAlertsRef={props.refreshAppAlertsRef}
+                refreshAlertsLightRef={refreshAlertsLightRef}
+            />
+            {advancedServicesReady ? (
+                <AdvancedBackgroundRuntime
+                    user={props.user}
+                    syncNotesOn={props.syncNotesOn}
+                    syncFilesOn={props.syncFilesOn}
+                    syncExecutionOn={props.syncExecutionOn}
+                    pushAllowed={props.pushAllowed}
+                    onNotesSynced={props.onNotesSynced}
+                    onLawsuitFilesSynced={props.onLawsuitFilesSynced}
+                    mergeNotesStores={props.mergeNotesStores}
+                    syncExecutionFilesNowRef={props.syncExecutionFilesNowRef}
+                    syncLawsuitFilesNowRef={props.syncLawsuitFilesNowRef}
+                    syncNotesNowRef={props.syncNotesNowRef}
+                    refreshAlertsLightRef={refreshAlertsLightRef}
+                />
+            ) : null}
+        </>
+    );
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { SmartToast } from '@/app/components/ui/SmartToast';
@@ -30,6 +30,7 @@ import { deleteVoiceBlob } from '@/app/services/voice/voiceNoteStorage';
 
 export type UseLawyerGlobalNotesParams = {
     localAutoSave: boolean;
+    backgroundRuntimeEnabled: boolean;
     user: User | null;
     authUserId?: string | null;
     refreshAppAlerts: () => void;
@@ -41,6 +42,7 @@ export type UseLawyerGlobalNotesParams = {
 
 export function useLawyerGlobalNotes({
     localAutoSave,
+    backgroundRuntimeEnabled,
     user,
     authUserId,
     refreshAppAlerts,
@@ -49,8 +51,12 @@ export function useLawyerGlobalNotes({
     openNormalNewCaseModal,
     closeNotepad,
 }: UseLawyerGlobalNotesParams) {
-    const [globalNotes, setGlobalNotes] = useState<GlobalNote[]>([]);
-    const [notesHydrated, setNotesHydrated] = useState(false);
+    const [globalNotes, setGlobalNotes] = useState<GlobalNote[]>(() => {
+        const loaded = persistenceRepository.load<GlobalNote[]>(STORAGE_KEYS.LAWYER_NOTES);
+        return Array.isArray(loaded) ? normalizeNotesList(loaded) : [];
+    });
+    const bootstrapNotesRef = useRef(globalNotes);
+    const [notesHydrated, setNotesHydrated] = useState(true);
     useAutoSave(
         STORAGE_KEYS.LAWYER_NOTES,
         globalNotes,
@@ -60,6 +66,7 @@ export function useLawyerGlobalNotes({
     );
 
     useEffect(() => {
+        if (!backgroundRuntimeEnabled) return;
         let cancelled = false;
         void (async () => {
             await SecureStoreService.ensurePersistedReady();
@@ -72,13 +79,16 @@ export function useLawyerGlobalNotes({
                 }
             }
             if (cancelled) return;
-            setGlobalNotes(loaded ?? []);
+            const normalizedLoaded = Array.isArray(loaded) ? normalizeNotesList(loaded) : [];
+            setGlobalNotes((prev) =>
+                prev === bootstrapNotesRef.current || prev.length === 0 ? normalizedLoaded : prev,
+            );
             setNotesHydrated(true);
         })();
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [backgroundRuntimeEnabled]);
 
     const resolveNotesUserId = useCallback(
         () => user?.id ?? authUserId ?? null,
@@ -106,9 +116,9 @@ export function useLawyerGlobalNotes({
 
     useEffect(() => {
         const uid = resolveNotesUserId();
-        if (!uid || !notesHydrated) return;
+        if (!backgroundRuntimeEnabled || !uid || !notesHydrated) return;
         mergeNotesStores();
-    }, [resolveNotesUserId, mergeNotesStores, notesHydrated]);
+    }, [backgroundRuntimeEnabled, resolveNotesUserId, mergeNotesStores, notesHydrated]);
 
     useEffect(() => {
         const onExternalNotes = () => {

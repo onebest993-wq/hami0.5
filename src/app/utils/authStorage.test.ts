@@ -6,6 +6,7 @@ import {
   hasPersistedSupabaseSession,
   isDevMockAccessToken,
   listSupabaseJwtStorageKeys,
+  purgeClientAuthResidue,
   purgeLegacyCryptoWrapSession,
   purgePersistedSupabaseJwtFromLocalStorage,
   readDevMockAccessToken,
@@ -89,5 +90,25 @@ describe('authStorage dev mock', () => {
     expect(purgeLegacyCryptoWrapSession()).toBe(true);
     expect(sessionStorage.getItem('hami-crypto-session-key')).toBeNull();
     expect(purgeLegacyCryptoWrapSession()).toBe(false);
+  });
+
+  it('purgeClientAuthResidue removes jwt, legacy wrap, and dev mock keys together', () => {
+    const key = `sb-${projectId}-auth-token`;
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        access_token: 'eyJhbGciOiJIUzI1NiJ9.real',
+        refresh_token: 'refresh',
+        user: mockUser('user-1'),
+      }),
+    );
+    writeDevMockAuth(mockSession('dev-access-token-admin-uuid-1', mockUser('admin-uuid-1')));
+    sessionStorage.setItem('hami-crypto-session-key', '{"wrapped":"abc"}');
+
+    expect(purgeClientAuthResidue()).toBe(true);
+    expect(localStorage.getItem(key)).toBeNull();
+    expect(readDevMockAccessToken()).toBeNull();
+    expect(sessionStorage.getItem('hami-crypto-session-key')).toBeNull();
+    expect(purgeClientAuthResidue()).toBe(false);
   });
 });

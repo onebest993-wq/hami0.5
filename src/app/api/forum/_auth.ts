@@ -1,7 +1,7 @@
 import { recordWifeRejection } from '../security/wifeSecurityMonitor.ts';
 import { requireWifeUser } from '../security/bffAuth.ts';
 import { extractUserTokenFromRequest } from '../security/wifeValidator.ts';
-import { isForumModeratorUserId } from '../security/roleResolver.ts';
+import { canAccessLawyerForumUserId, isForumModeratorUserId } from '../security/roleResolver.ts';
 
 /** محامٍ ضيف للعرض التجريبي — قراءة فقط في الإنتاج */
 export const DEMO_GUEST_USER_ID = 'guest-lawyer-1';
@@ -38,6 +38,20 @@ export async function requireForumAuth(request: Request): Promise<
 > {
     const auth = await requireWifeUser(request);
     if (auth.ok === false) return auth;
+
+    if (!isDemoGuestUserId(auth.userId)) {
+        const canAccessForum = await canAccessLawyerForumUserId(auth.userId);
+        if (!canAccessForum) {
+            return {
+                ok: false as const,
+                response: jsonResponse(403, {
+                    ok: false,
+                    error: 'الوصول إلى المنتدى مقتصر على حسابات المحامين المفعلة',
+                    code: 'FORUM_ACCESS_DENIED',
+                }),
+            };
+        }
+    }
 
     const userToken = extractUserTokenFromRequest(request) ?? '';
     const isAdmin = await isForumModeratorUserId(auth.userId);

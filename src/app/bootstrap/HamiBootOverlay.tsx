@@ -13,9 +13,7 @@ function wordmarkPhase(overlayPhase: HamiBootOverlayPhase): HamiWordmarkBootPhas
     return 'idle';
 }
 
-/**
- * طبقة إقلاع كاملة الشاشة — كلمة حامي مركزية حتى جاهزية الواجهة.
- */
+/** طبقة إقلاع كاملة الشاشة — شعار حامي الكامل حتى جاهزية الواجهة. */
 export function HamiBootOverlay({ phase }: HamiBootOverlayProps): React.ReactElement {
     useLayoutEffect(() => {
         if (phase !== 'visible') return;
@@ -43,13 +41,6 @@ export function HamiBootOverlay({ phase }: HamiBootOverlayProps): React.ReactEle
 
             <div className="hami-boot-center-stage">
                 <HamiWordmarkBoot phase={wordmarkPhase(phase)} />
-            </div>
-
-            <div className="hami-boot-skeleton-deferred" aria-hidden>
-                <div className="hami-boot-skeleton-deferred-inner">
-                    <div className="hami-boot-skeleton-wire hami-boot-skeleton-wire--wide" />
-                    <div className="hami-boot-skeleton-wire hami-boot-skeleton-wire--medium" />
-                </div>
             </div>
         </div>
     );

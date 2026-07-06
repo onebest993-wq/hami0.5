@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { Dispatch, SetStateAction } from 'react';
 
@@ -70,6 +70,7 @@ import { resolveCalendarUserId } from '@/app/services/calendarBridge';
 import { unpinWorkspaceItem } from '@/app/workspace/unpinWorkspaceEntity';
 
 import { prefetchArchivePortal, warmExecutionDossier, warmExecutionWorkspace } from '@/app/utils/lazyComponents';
+import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
 
 import {
 
@@ -125,6 +126,8 @@ export type UseLawyerExecutionFilesParams = {
 
     localAutoSave: boolean;
 
+    backgroundRuntimeEnabled: boolean;
+
     userId?: string | null;
 
     authUserId?: string | null;
@@ -145,6 +148,8 @@ export function useLawyerExecutionFiles({
 
     localAutoSave,
 
+    backgroundRuntimeEnabled,
+
     userId,
 
     authUserId,
@@ -163,7 +168,9 @@ export function useLawyerExecutionFiles({
         normalizeExecutionFiles(readExecutionFilesBootstrap()),
     );
 
-    const [storageHydrated, setStorageHydrated] = useState(false);
+    const bootstrapExecutionFilesRef = useRef(executionFiles);
+
+    const [storageHydrated, setStorageHydrated] = useState(true);
 
 
 
@@ -176,6 +183,7 @@ export function useLawyerExecutionFiles({
     }, []);
 
     useEffect(() => {
+        if (!backgroundRuntimeEnabled) return;
 
         let cancelled = false;
 
@@ -193,7 +201,11 @@ export function useLawyerExecutionFiles({
 
             const validFiles = normalizeExecutionFiles(rawList);
 
-            setExecutionFiles((prev) => mergeExecutionFilesPreservingLifecycle(prev, validFiles));
+            setExecutionFiles((prev) =>
+                prev === bootstrapExecutionFilesRef.current
+                    ? mergeExecutionFilesPreservingLifecycle(prev, validFiles)
+                    : prev,
+            );
 
             storageCache.set(EXECUTION_FILES_KEY, validFiles);
 
@@ -207,7 +219,7 @@ export function useLawyerExecutionFiles({
 
         };
 
-    }, []);
+    }, [backgroundRuntimeEnabled]);
 
 
 
@@ -233,13 +245,21 @@ export function useLawyerExecutionFiles({
             storageCache.set(EXECUTION_FILES_KEY, syncList);
         }
 
-        void reconcileExecutionDossierStorageAsync().then(() => {
-            reloadExecutionFiles();
-        });
+        const cancelReconcile = scheduleIdleWork(() => {
+            void reconcileExecutionDossierStorageAsync().then(() => {
+                reloadExecutionFiles();
+            });
+        }, 900);
 
         prefetchArchivePortal();
-        warmExecutionWorkspace();
+        const cancelWarmWorkspace = scheduleIdleWork(() => {
+            warmExecutionWorkspace();
+        }, 650);
 
+        return () => {
+            cancelReconcile();
+            cancelWarmWorkspace();
+        };
     }, [archiveType, reloadExecutionFiles]);
 
 

@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import { X, Loader2, Save, Trash2 } from 'lucide-react';
 import type { EventFormData } from './utils';
@@ -49,7 +50,7 @@ export const EventForm = React.memo(function EventForm({
 
     if (!show) return null;
 
-    return (
+    const content = (
         <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -66,7 +67,7 @@ export const EventForm = React.memo(function EventForm({
                 animate={{ y: 0, opacity: 1, scale: 1 }}
                 exit={{ y: 12, opacity: 0, scale: 0.99 }}
                 transition={{ duration: 0.18, ease: 'easeOut' }}
-                className={`w-full sm:max-w-lg ${RADAR_GLASS_PANEL} rounded-t-2xl sm:rounded-2xl p-5 max-h-[90vh] overflow-y-auto border-t sm:border border-[#F5EDE0]/12`}
+                className={`w-full sm:max-w-lg ${RADAR_GLASS_PANEL} rounded-t-2xl sm:rounded-2xl p-5 max-h-[90vh] overflow-y-auto border-t sm:border border-[#F5EDE0]/12 bg-[#1f1712] sm:bg-[#1f1712] backdrop-blur-none`}
                 data-testid="radar-event-form"
                 onClick={(e) => e.stopPropagation()}
                 style={{ willChange: 'transform, opacity' }}
@@ -177,4 +178,10 @@ export const EventForm = React.memo(function EventForm({
             </motion.div>
         </motion.div>
     );
+
+    if (typeof document === 'undefined') {
+        return content;
+    }
+
+    return createPortal(content, document.body);
 });

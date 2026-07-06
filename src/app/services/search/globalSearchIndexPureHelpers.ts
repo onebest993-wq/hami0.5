@@ -10,6 +10,10 @@ export function withLifecycle(
     return { ...entry, lifecycle };
 }
 
+export function isSearchEntryVisible(entry: Pick<GlobalSearchEntry, 'lifecycle'>): boolean {
+    return entry.lifecycle !== 'deleted';
+}
+
 export function norm(text: string): string {
     return normalizeArabicSearch(text).toLowerCase();
 }
