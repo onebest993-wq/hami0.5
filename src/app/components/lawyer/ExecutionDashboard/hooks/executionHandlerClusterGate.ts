@@ -21,6 +21,7 @@ export type ExecutionHandlerClusterFollowupMode =
     | 'admin-special'
     | 'dossier-controls'
     | 'other-party';
+export type ExecutionHandlerClusterSeizureMode = 'none' | 'requests' | 'log';
 
 export function shouldLoadExecutionHandlerClusterLight(input: ExecutionHandlerClusterGateInput): boolean {
     return Boolean(input.showAppointmentModal || input.showPaymentModal || input.showNotesModal);
@@ -60,7 +61,17 @@ export function shouldLoadExecutionHandlerClusterFollowupOtherParty(
 }
 
 export function shouldLoadExecutionHandlerClusterSeizureHeavy(input: ExecutionHandlerClusterGateInput): boolean {
-    return resolveExecutionHandlerClusterHeavyMode(input) === 'seizure';
+    return resolveExecutionHandlerClusterSeizureMode(input) !== 'none';
+}
+
+export function shouldLoadExecutionHandlerClusterSeizureRequests(
+    input: ExecutionHandlerClusterGateInput,
+): boolean {
+    return resolveExecutionHandlerClusterSeizureMode(input) === 'requests';
+}
+
+export function shouldLoadExecutionHandlerClusterSeizureLog(input: ExecutionHandlerClusterGateInput): boolean {
+    return resolveExecutionHandlerClusterSeizureMode(input) === 'log';
 }
 
 export function shouldLoadExecutionHandlerClusterCoerciveHeavy(input: ExecutionHandlerClusterGateInput): boolean {
@@ -101,7 +112,7 @@ export function resolveExecutionHandlerClusterHeavyMode(
         return 'coercive';
     }
 
-    if (input.showUnifiedSeizureLogModal || input.showSeizedAssetsModal) {
+    if (resolveExecutionHandlerClusterSeizureMode(input) !== 'none') {
         return 'seizure';
     }
 
@@ -132,6 +143,25 @@ export function resolveExecutionHandlerClusterHeavyMode(
 
     if (activeFollowupTab === 'correspondences') {
         return 'none';
+    }
+
+    return 'none';
+}
+
+export function resolveExecutionHandlerClusterSeizureMode(
+    input: ExecutionHandlerClusterGateInput,
+): ExecutionHandlerClusterSeizureMode {
+    if (input.showUnifiedSeizureLogModal) {
+        return 'log';
+    }
+
+    if (!input.showUnifiedExecutionModal) {
+        return 'none';
+    }
+
+    const activeFollowupTab = String(input.unifiedModalTab || '').trim();
+    if (!activeFollowupTab || activeFollowupTab === 'seizure_requests') {
+        return 'requests';
     }
 
     return 'none';

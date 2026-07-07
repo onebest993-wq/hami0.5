@@ -17,7 +17,7 @@ import {
 import {
     prefetchCommunityDeleteConfirmOverlay,
     prefetchCommunityEditPostOverlay,
-} from '../communityScreenLazyOverlays';
+} from '../communityOverlayPrefetch';
 import type { CommunityDualPostLists } from './useCommunityDualPostLists';
 
 export type UseCommunityPostActionsParams = {

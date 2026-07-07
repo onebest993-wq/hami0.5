@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { prefetchRadarEventForm } from '@/app/runtime/radarWidgetLoader';
-import { prefetchCalendarCloudModule } from '@/app/services/calendar/calendarCloudLoader';
+import { prefetchCalendarCloudModule } from '@/app/services/calendar/calendarCloudRuntime';
 import { EMPTY_FORM } from '@/app/components/lawyer/SmartLegalRadar/utils';
 import type { EventFormData } from '@/app/components/lawyer/SmartLegalRadar/utils';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';

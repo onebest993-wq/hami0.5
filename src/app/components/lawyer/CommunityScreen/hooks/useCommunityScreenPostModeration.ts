@@ -9,7 +9,7 @@ import {
 import { resolveCommunityAttachmentUrl } from '@/app/services/forumAttachmentService';
 import { buildForumEditPatch } from '@/app/services/forum/forumEditUtils';
 import { canEditPost, canPinPost } from '../communityPermissions';
-import { prefetchCommunityEditPostOverlay } from '../communityScreenLazyOverlays';
+import { prefetchCommunityEditPostOverlay } from '../communityOverlayPrefetch';
 import { withAllowedClipboardAction } from '@/app/runtime/screenshotDeterrentRuntime';
 import { downloadRepositoryFile } from '../repositoryStorageService';
 import { isRealSignedIn } from '@/app/services/auth/shellAuth';

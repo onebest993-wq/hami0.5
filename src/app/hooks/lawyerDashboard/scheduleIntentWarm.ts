@@ -1,6 +1,6 @@
 import { prefetchScheduleHubModule } from '@/app/runtime/scheduleHubLoader';
 import { hydrateScheduleShellForInstantOpenWithData } from '@/app/runtime/scheduleBootHydrator';
-import { fetchCalendarEvents, prefetchCalendarCloudModule } from '@/app/services/calendar/calendarCloudLoader';
+import { fetchCalendarEvents, prefetchCalendarCloudModule } from '@/app/services/calendar/calendarCloudRuntime';
 import { resolveCalendarUserId } from '@/app/services/calendarBridge';
 import { setCachedCalendarEvents } from '@/app/services/calendar/calendarEventsCache';
 import type { CalendarEvent } from '@/app/services/cloud/lawyerCalendarTypes';

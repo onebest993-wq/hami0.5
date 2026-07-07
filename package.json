@@ -11,7 +11,7 @@
     "lint:fix": "eslint . --ext ts,tsx --fix",
     "build": "vite build",
     "preview": "vite preview",
-    "build:vercel": "node scripts/generate-vercel-api.mjs && vite build",
+    "build:vercel": "vite build",
     "build:demo": "npm run build && node scripts/check-bundle-size.mjs",
     "build:chunks": "npm run build && node scripts/report-chunk-sizes.mjs",
     "health:chunks": "npm run build:chunks && node scripts/chunk-baseline.mjs diff",

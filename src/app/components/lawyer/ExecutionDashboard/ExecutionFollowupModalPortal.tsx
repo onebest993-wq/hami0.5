@@ -853,9 +853,9 @@ export function ExecutionFollowupModalPortal() {
                                                     ) === 'suspended')
                                             }
                                             saving={dossierActionModalSaving}
-                                            onSubmit={(payload) => {
+                                            onSubmit={async (payload) => {
                                                 setDossierActionModalSaving(true);
-                                                return handleDossierAction(payload);
+                                                return await handleDossierAction(payload);
                                             }}
                                         />
                                     </FollowupTabKeepAlivePanel>

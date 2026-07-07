@@ -1,5 +1,5 @@
 import type { CalendarEvent } from '@/app/services/cloud/lawyerCalendarTypes';
-import { fetchCalendarEvents } from '@/app/services/calendar/calendarCloudLoader';
+import { fetchCalendarEvents } from '@/app/services/calendar/calendarCloudRuntime';
 
 let warmed: { lawyerId: string; events: CalendarEvent[] } | null = null;
 let warmPromise: Promise<CalendarEvent[]> | null = null;

@@ -2,7 +2,7 @@ import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
 import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
-import { prefetchCalendarCloudModule } from '@/app/services/calendar/calendarCloudLoader';
+import { prefetchCalendarCloudModule } from '@/app/services/calendar/calendarCloudRuntime';
 import { warmCalendarEventsCache } from '@/app/hooks/lawyerDashboard/scheduleIntentWarm';
 import {
     hydrateScheduleShellForInstantOpen,

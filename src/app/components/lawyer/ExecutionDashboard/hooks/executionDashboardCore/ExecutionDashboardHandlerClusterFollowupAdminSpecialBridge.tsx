@@ -1,10 +1,9 @@
-// @ts-nocheck
 import { useEffect } from 'react';
 import { useExecutionDashboardCoreHandlerClusterFollowupAdminSpecial } from './useExecutionDashboardCoreHandlerClusterFollowupAdminSpecial';
-import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
+import type { FollowupAdminSpecialHandlerClusterInput } from './followupAdminSpecialHandlerClusterInput';
 
 export type ExecutionDashboardHandlerClusterFollowupAdminSpecialBridgeProps = {
-    input: ExecutionDashboardCoreHandlerClusterInput;
+    input: FollowupAdminSpecialHandlerClusterInput;
     onCluster: (cluster: Record<string, unknown>) => void;
 };
 

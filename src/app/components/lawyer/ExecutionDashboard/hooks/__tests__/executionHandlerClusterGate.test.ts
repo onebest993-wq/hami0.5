@@ -118,6 +118,28 @@ describe('executionHandlerClusterGate', () => {
         expect(shouldLoadExecutionHandlerClusterCoerciveHeavy(input)).toBe(false);
     });
 
+    it('does not load seizure heavy cluster for seized assets manager alone', () => {
+        const input = {
+            showUnifiedExecutionModal: false,
+            unifiedModalTab: null,
+            showUnifiedSeizureLogModal: false,
+            showCoerciveModal: false,
+            showAppointmentModal: false,
+            showSeizedAssetsModal: true,
+            showPaymentModal: false,
+            showNotesModal: false,
+            showCoerciveActionForm: false,
+            showEditDossierMetaModal: false,
+            dossierLifecyclePanelOpen: false,
+            isHeaderExpanded: false,
+        };
+
+        expect(resolveExecutionHandlerClusterHeavyMode(input)).toBe('none');
+        expect(shouldLoadExecutionHandlerClusterSeizureHeavy(input)).toBe(false);
+        expect(shouldLoadExecutionHandlerClusterHeavy(input)).toBe(false);
+        expect(shouldLoadExecutionHandlerCluster(input)).toBe(false);
+    });
+
     it('resolves followup heavy mode for non-seizure unified tabs', () => {
         const input = {
             showUnifiedExecutionModal: true,

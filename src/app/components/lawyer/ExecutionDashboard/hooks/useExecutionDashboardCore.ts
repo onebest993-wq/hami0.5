@@ -12,9 +12,11 @@ import {
     shouldLoadExecutionHandlerClusterDossierSupport,
     shouldLoadExecutionHandlerClusterFollowupAdminSpecial,
     shouldLoadExecutionHandlerClusterFollowupDossierControls,
-    shouldLoadExecutionHandlerClusterFollowupOtherParty,
     shouldLoadExecutionHandlerClusterFollowupHeavy,
+    shouldLoadExecutionHandlerClusterFollowupOtherParty,
     shouldLoadExecutionHandlerClusterLight,
+    shouldLoadExecutionHandlerClusterSeizureLog,
+    shouldLoadExecutionHandlerClusterSeizureRequests,
     shouldLoadExecutionHandlerClusterSeizureHeavy,
 } from './executionHandlerClusterGate';
 import { buildExecutionDashboardCoreRuntimeTailInput } from './executionDashboardCore/buildExecutionDashboardCoreRuntimeTailInput';
@@ -24,17 +26,10 @@ import { buildExecutionDashboardCoreModalScopeInput } from './executionDashboard
 import { buildExecutionDashboardCoreChunkFingerprint } from './executionDashboardCore/buildExecutionDashboardCoreChunkFingerprint';
 import { SCOPE_LOCAL_ALL_KEYS, SCOPE_REST_ALL_KEYS } from './executionDashboardCore/buildScopeBundleGroups';
 import { useExecutionDashboardCoreScopeAndChunk } from './executionDashboardCore/useExecutionDashboardCoreScopeAndChunk';
-import {
-    collectDossierSupportHandlerClusterContext,
-    collectFollowupAdminSpecialHandlerClusterContext,
-    collectFollowupDossierControlsHandlerClusterContext,
-    collectFollowupOtherPartyHandlerClusterContext,
-    collectHandlerClusterContext,
-    collectSeizureHeavyHandlerClusterContext,
-} from './executionDashboardCore/collectHandlerClusterContext';
 import { pickHandlerClusterAssemblyHandlers } from './executionDashboardCore/pickHandlerClusterAssemblyHandlers';
 import { pickKeysFromRuntimeBag } from './executionDashboardCore/pickKeysFromRuntimeBag';
-import { buildHandlerClusterCoreInput } from './executionDashboardCore/buildHandlerClusterCoreInput';
+import { pickFollowupAdminSpecialHandlerClusterInput } from './executionDashboardCore/followupAdminSpecialHandlerClusterInput';
+import { pickFollowupOtherPartyHandlerClusterInput } from './executionDashboardCore/followupOtherPartyHandlerClusterInput';
 
 const EMPTY_HANDLER_CLUSTER_INPUT = Object.freeze({});
 
@@ -144,6 +139,9 @@ export function useExecutionDashboardCore({
     const loadFollowupOtherPartyHandlerCluster =
         shouldLoadExecutionHandlerClusterFollowupOtherParty(handlerClusterGateInput);
     const loadSeizureHeavyHandlerCluster = shouldLoadExecutionHandlerClusterSeizureHeavy(handlerClusterGateInput);
+    const loadSeizureRequestsHandlerCluster =
+        shouldLoadExecutionHandlerClusterSeizureRequests(handlerClusterGateInput);
+    const loadSeizureLogHandlerCluster = shouldLoadExecutionHandlerClusterSeizureLog(handlerClusterGateInput);
     const loadCoerciveHeavyHandlerCluster = shouldLoadExecutionHandlerClusterCoerciveHeavy(handlerClusterGateInput);
     const loadDossierSupportHandlerCluster = shouldLoadExecutionHandlerClusterDossierSupport(handlerClusterGateInput);
     const loadAnyHeavyHandlerCluster =
@@ -207,14 +205,13 @@ export function useExecutionDashboardCore({
                 return EMPTY_HANDLER_CLUSTER_INPUT;
             }
 
-            return buildHandlerClusterCoreInput(coreRuntimeVars);
+            return coreRuntimeVars;
         },
         [loadAnyHeavyHandlerCluster, loadLightHandlerCluster, coreRuntimeVars],
     );
 
     const handlerClusterHeavySpreads = useMemo(
         () => {
-            const core = buildHandlerClusterCoreInput(coreRuntimeVars);
             return {
                 followupOrchestrator,
                 seizureOrchestrator,
@@ -227,7 +224,7 @@ export function useExecutionDashboardCore({
                 followupTabAssembly,
                 followupSeizureTabs,
                 decisionsOrchestrator,
-                core,
+                core: coreRuntimeVars,
             };
         },
         [
@@ -249,48 +246,40 @@ export function useExecutionDashboardCore({
     const followupAdminSpecialHandlerClusterInput = useMemo(
         () =>
             loadFollowupAdminSpecialHandlerCluster
-                ? collectFollowupAdminSpecialHandlerClusterContext(handlerClusterHeavySpreads)
+                ? pickFollowupAdminSpecialHandlerClusterInput(handlerClusterHeavySpreads)
                 : EMPTY_HANDLER_CLUSTER_INPUT,
         [loadFollowupAdminSpecialHandlerCluster, handlerClusterHeavySpreads],
     );
 
     const followupDossierControlsHandlerClusterInput = useMemo(
         () =>
-            loadFollowupDossierControlsHandlerCluster
-                ? collectFollowupDossierControlsHandlerClusterContext(handlerClusterHeavySpreads)
-                : EMPTY_HANDLER_CLUSTER_INPUT,
+            loadFollowupDossierControlsHandlerCluster ? handlerClusterHeavySpreads : EMPTY_HANDLER_CLUSTER_INPUT,
         [loadFollowupDossierControlsHandlerCluster, handlerClusterHeavySpreads],
     );
 
     const followupOtherPartyHandlerClusterInput = useMemo(
         () =>
             loadFollowupOtherPartyHandlerCluster
-                ? collectFollowupOtherPartyHandlerClusterContext(handlerClusterHeavySpreads)
+                ? pickFollowupOtherPartyHandlerClusterInput(handlerClusterHeavySpreads)
                 : EMPTY_HANDLER_CLUSTER_INPUT,
         [loadFollowupOtherPartyHandlerCluster, handlerClusterHeavySpreads],
     );
 
     const seizureHeavyHandlerClusterInput = useMemo(
         () =>
-            loadSeizureHeavyHandlerCluster
-                ? collectSeizureHeavyHandlerClusterContext(handlerClusterHeavySpreads)
-                : EMPTY_HANDLER_CLUSTER_INPUT,
+            loadSeizureHeavyHandlerCluster ? handlerClusterHeavySpreads : EMPTY_HANDLER_CLUSTER_INPUT,
         [loadSeizureHeavyHandlerCluster, handlerClusterHeavySpreads],
     );
 
     const coerciveHeavyHandlerClusterInput = useMemo(
         () =>
-            loadCoerciveHeavyHandlerCluster
-                ? collectHandlerClusterContext(handlerClusterHeavySpreads)
-                : EMPTY_HANDLER_CLUSTER_INPUT,
+            loadCoerciveHeavyHandlerCluster ? handlerClusterHeavySpreads : EMPTY_HANDLER_CLUSTER_INPUT,
         [loadCoerciveHeavyHandlerCluster, handlerClusterHeavySpreads],
     );
 
     const dossierSupportHandlerClusterInput = useMemo(
         () =>
-            loadDossierSupportHandlerCluster
-                ? collectDossierSupportHandlerClusterContext(handlerClusterHeavySpreads)
-                : EMPTY_HANDLER_CLUSTER_INPUT,
+            loadDossierSupportHandlerCluster ? handlerClusterHeavySpreads : EMPTY_HANDLER_CLUSTER_INPUT,
         [loadDossierSupportHandlerCluster, handlerClusterHeavySpreads],
     );
 
@@ -348,7 +337,7 @@ export function useExecutionDashboardCore({
     }, []);
 
     const onSeizureHeavyHandlerClusterReady = useCallback((next: Record<string, unknown>) => {
-        setHandlerCluster(next);
+        setHandlerCluster((current) => ({ ...current, ...next }));
         setHandlerClusterEpoch((epoch) => epoch + 1);
     }, []);
 
@@ -540,6 +529,8 @@ export function useExecutionDashboardCore({
         loadFollowupAdminSpecialHandlerCluster,
         loadFollowupDossierControlsHandlerCluster,
         loadFollowupOtherPartyHandlerCluster,
+        loadSeizureRequestsHandlerCluster,
+        loadSeizureLogHandlerCluster,
         loadSeizureHeavyHandlerCluster,
         loadCoerciveHeavyHandlerCluster,
         loadDossierSupportHandlerCluster,

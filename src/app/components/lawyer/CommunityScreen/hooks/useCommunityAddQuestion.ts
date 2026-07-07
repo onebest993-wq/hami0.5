@@ -18,7 +18,7 @@ import {
     VOICE_POST_DEFAULT_CONTENT,
     VOICE_RECORD_MAX_SEC,
 } from '../communityScreenConstants';
-import { prefetchCommunityAddQuestionOverlay } from '../communityScreenLazyOverlays';
+import { prefetchCommunityAddQuestionOverlay } from '../communityOverlayPrefetch';
 import type { CommunityDualPostLists } from './useCommunityDualPostLists';
 import { withForumAsyncTimeout } from '../forumAsync';
 

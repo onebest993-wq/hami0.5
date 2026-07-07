@@ -16,8 +16,13 @@ const executionHandlerClusterFollowupDossierControlsBridgeImport = () =>
     }));
 
 const executionHandlerClusterFollowupOtherPartyBridgeImport = () =>
-    import('./hooks/executionDashboardCore/ExecutionDashboardHandlerClusterFollowupOtherPartyBridge').then((m) => ({
-        default: m.ExecutionDashboardHandlerClusterFollowupOtherPartyBridge,
+    import('./hooks/executionDashboardCore/ExecutionDashboardHandlerClusterFollowupOtherPartyCreditorBridge').then((m) => ({
+        default: m.ExecutionDashboardHandlerClusterFollowupOtherPartyCreditorBridge,
+    }));
+
+const executionHandlerClusterFollowupOtherPartyDebtorBridgeImport = () =>
+    import('./hooks/executionDashboardCore/ExecutionDashboardHandlerClusterFollowupOtherPartyDebtorBridge').then((m) => ({
+        default: m.ExecutionDashboardHandlerClusterFollowupOtherPartyDebtorBridge,
     }));
 
 const executionHandlerClusterDossierSupportBridgeImport = () =>
@@ -26,8 +31,13 @@ const executionHandlerClusterDossierSupportBridgeImport = () =>
     }));
 
 const executionHandlerClusterSeizureHeavyBridgeImport = () =>
-    import('./hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureHeavyBridge').then((m) => ({
-        default: m.ExecutionDashboardHandlerClusterSeizureHeavyBridge,
+    import('./hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureRequestsBridge').then((m) => ({
+        default: m.ExecutionDashboardHandlerClusterSeizureRequestsBridge,
+    }));
+
+const executionHandlerClusterSeizureLogBridgeImport = () =>
+    import('./hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureLogBridge').then((m) => ({
+        default: m.ExecutionDashboardHandlerClusterSeizureLogBridge,
     }));
 
 const executionHandlerClusterCoerciveHeavyBridgeImport = () =>
@@ -45,11 +55,17 @@ export const LazyExecutionDashboardHandlerClusterFollowupDossierControlsBridge =
 export const LazyExecutionDashboardHandlerClusterFollowupOtherPartyBridge = lazy(
     executionHandlerClusterFollowupOtherPartyBridgeImport,
 );
+export const LazyExecutionDashboardHandlerClusterFollowupOtherPartyDebtorBridge = lazy(
+    executionHandlerClusterFollowupOtherPartyDebtorBridgeImport,
+);
 export const LazyExecutionDashboardHandlerClusterDossierSupportBridge = lazy(
     executionHandlerClusterDossierSupportBridgeImport,
 );
 export const LazyExecutionDashboardHandlerClusterSeizureHeavyBridge = lazy(
     executionHandlerClusterSeizureHeavyBridgeImport,
+);
+export const LazyExecutionDashboardHandlerClusterSeizureLogBridge = lazy(
+    executionHandlerClusterSeizureLogBridgeImport,
 );
 export const LazyExecutionDashboardHandlerClusterCoerciveHeavyBridge = lazy(
     executionHandlerClusterCoerciveHeavyBridgeImport,
@@ -71,12 +87,20 @@ export function prefetchExecutionHandlerClusterFollowupOtherPartyBridge(): void 
     void executionHandlerClusterFollowupOtherPartyBridgeImport().catch(() => undefined);
 }
 
+export function prefetchExecutionHandlerClusterFollowupOtherPartyDebtorBridge(): void {
+    void executionHandlerClusterFollowupOtherPartyDebtorBridgeImport().catch(() => undefined);
+}
+
 export function prefetchExecutionHandlerClusterDossierSupportBridge(): void {
     void executionHandlerClusterDossierSupportBridgeImport().catch(() => undefined);
 }
 
 export function prefetchExecutionHandlerClusterSeizureHeavyBridge(): void {
     void executionHandlerClusterSeizureHeavyBridgeImport().catch(() => undefined);
+}
+
+export function prefetchExecutionHandlerClusterSeizureLogBridge(): void {
+    void executionHandlerClusterSeizureLogBridgeImport().catch(() => undefined);
 }
 
 export function prefetchExecutionHandlerClusterCoerciveHeavyBridge(): void {

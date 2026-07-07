@@ -9,6 +9,8 @@ export function useExecutionDashboardCoreHandlerClusterFoundationTimeline(
         executionDataRef,
         executionId,
         parentDossierId,
+        delegationParentFileId,
+        activeSubFileId,
         persistExecutionMerge,
         setTimelineEvents,
         pushTimelineEventRef,
@@ -17,6 +19,8 @@ export function useExecutionDashboardCoreHandlerClusterFoundationTimeline(
     const pushTimelineEventBinding = useExecutionDashboardPushTimelineEvent({
         executionId,
         parentDossierId,
+        delegationParentFileId,
+        activeSubFileId,
         executionDataRef,
         persistExecutionMerge,
         setTimelineEvents,

@@ -11,7 +11,7 @@ import {
     LazyForumMemberProfileOverlay,
     LazyFullscreenImageOverlay,
     LazySearchOverlay,
-} from '@/app/components/lawyer/CommunityScreen/communityScreenLazyOverlays';
+} from '@/app/components/lawyer/CommunityScreen/communityScreenLazyEntries';
 import type { ForumParticipant } from '@/app/services/forum/forumMentionUtils';
 
 export type CommunityScreenOverlaysProps = {

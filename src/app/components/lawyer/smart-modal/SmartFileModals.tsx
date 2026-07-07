@@ -14,7 +14,6 @@ export {
     InterruptionModal,
     ResumeInterruptionModal,
     TransitionModal,
-    TrashModal,
     AddProvisionalOrderModal,
 } from './modals/incidentalAndFlowModals';
 export {

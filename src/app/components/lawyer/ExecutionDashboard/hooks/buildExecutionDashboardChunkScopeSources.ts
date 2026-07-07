@@ -3,7 +3,6 @@ import { spreadExecutionDashboardRuntimeChunkScope } from '../executionDashboard
 import { spreadExecutionDashboardStaticChunkScope } from '../executionDashboardStaticChunkScope';
 import { spreadExecutionDashboardUiChunkScope } from '../executionDashboardUiChunkScope';
 import { spreadExecutionDashboardImportedHelpersChunkScope } from '../executionDashboardImportedHelpersChunkScope';
-import { spreadExecutionDashboardPhoneBodyComponentsChunkScope } from '../executionDashboardPhoneBodyComponentsChunkScope';
 
 /** يدمج chunk scopes الثابتة مع مصادر الـ hook الديناميكية لـ PhoneBody / ShellOverlays */
 export function buildExecutionDashboardChunkScopeSources(
@@ -14,7 +13,6 @@ export function buildExecutionDashboardChunkScopeSources(
         ...spreadExecutionDashboardUiChunkScope(),
         ...spreadExecutionDashboardRuntimeChunkScope(),
         ...spreadExecutionDashboardImportedHelpersChunkScope(),
-        ...spreadExecutionDashboardPhoneBodyComponentsChunkScope(),
         ...spreadExecutionDashboardLazyChunkScope(),
         ...dynamicSources,
     };

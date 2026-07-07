@@ -3,18 +3,19 @@
 import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import {
-    useExecutionDashboardStore,
     filterTimelineEventsForInabaDossier,
     filterTimelineEventsForParentDossier,
     isInabaSubFileId,
     stampInabaTimelineEventMetadata,
     stampParentTimelineEventMetadata,
-} from '@/app/stores';
+} from './executionDashboardTimelineScope';
 import { mergeSimilarRecentTimelineEvent } from '@/app/utils/timelineDedup';
 
 export type UseExecutionDashboardPushTimelineEventParams = {
     executionId: string | undefined;
     parentDossierId: string | undefined;
+    delegationParentFileId?: string | null | undefined;
+    activeSubFileId?: string | null | undefined;
     executionDataRef: MutableRefObject<ExecutionFile | null | undefined>;
     persistExecutionMerge: (patch: Record<string, unknown>) => void;
     setTimelineEvents: Dispatch<SetStateAction<TimelineEvent[]>>;
@@ -23,17 +24,16 @@ export type UseExecutionDashboardPushTimelineEventParams = {
 export function useExecutionDashboardPushTimelineEvent({
     executionId,
     parentDossierId,
+    delegationParentFileId,
+    activeSubFileId,
     executionDataRef,
     persistExecutionMerge,
     setTimelineEvents,
 }: UseExecutionDashboardPushTimelineEventParams) {
     const pushTimelineEvent = useCallback(
         (event: TimelineEvent, options?: { mergePatch?: Record<string, unknown> }) => {
-            const storeSnap = useExecutionDashboardStore.getState();
-            const subId = String(storeSnap.activeSubFileId || '').trim();
-            const parentForStamp = String(
-                storeSnap.delegationParentFileId || parentDossierId || executionId || '',
-            ).trim();
+            const subId = String(activeSubFileId || '').trim();
+            const parentForStamp = String(delegationParentFileId || parentDossierId || executionId || '').trim();
             const eventToApply =
                 subId && isInabaSubFileId(subId) && parentForStamp
                     ? stampInabaTimelineEventMetadata(event, subId, parentForStamp)
@@ -100,7 +100,15 @@ export function useExecutionDashboardPushTimelineEvent({
                 return next;
             });
         },
-        [executionId, persistExecutionMerge, parentDossierId, executionDataRef, setTimelineEvents],
+        [
+            activeSubFileId,
+            delegationParentFileId,
+            executionId,
+            persistExecutionMerge,
+            parentDossierId,
+            executionDataRef,
+            setTimelineEvents,
+        ],
     );
 
     return { pushTimelineEvent };

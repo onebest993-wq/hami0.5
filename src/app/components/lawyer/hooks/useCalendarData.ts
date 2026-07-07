@@ -5,7 +5,7 @@ import {
     saveCalendarEvent,
     updateCalendarEvent,
     deleteCalendarEvent,
-} from '@/app/services/calendar/calendarCloudLoader';
+} from '@/app/services/calendar/calendarCloudRuntime';
 import { CALENDAR_UPDATED_EVENT } from '@/app/services/calendarBridge.types';
 import { resolveCalendarUserId } from '@/app/services/calendar/bridge/core';
 import { isBridgedCalendarEvent } from '@/app/services/calendar/calendarEventAuthorship';

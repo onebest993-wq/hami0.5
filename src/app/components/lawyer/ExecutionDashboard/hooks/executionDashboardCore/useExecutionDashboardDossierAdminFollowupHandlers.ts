@@ -5,11 +5,6 @@ import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import { SPECIAL_REQUEST_MANUAL_MODE } from '../../components/requestsTabConstants';
 import { useStandardSubmit } from '@/app/hooks/useStandardSubmit';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
-import {
-    dispatchDomainIsolationBlocked,
-    isFollowupRequestKindAllowed,
-} from '@/app/utils/executionDomainIsolation';
-import { appendSpecialFollowupRequest } from '@/app/utils/specialFollowupDecisionQueue';
 
 type UseExecutionDashboardDossierAdminFollowupHandlersParams = {
     executionData: ExecutionFile | null | undefined;
@@ -45,6 +40,20 @@ export function useExecutionDashboardDossierAdminFollowupHandlers({
 }: UseExecutionDashboardDossierAdminFollowupHandlersParams) {
     const { runSubmit: runSpecialFollowupSubmit } = useStandardSubmit({
         validate: () => {
+            const d = specialRequestDate.trim();
+            if (!d) return false;
+            return Boolean(specialRequestManualTitle.trim()) && Boolean(specialRequestContent.trim());
+        },
+        validationMessage: 'أكمل موضوع الطلب والتاريخ والتفاصيل',
+        submit: async () => {
+            const [
+                { appendSpecialFollowupRequest },
+                { dispatchDomainIsolationBlocked, isFollowupRequestKindAllowed },
+            ] = await Promise.all([
+                import('@/app/utils/specialFollowupDecisionQueue'),
+                import('@/app/utils/executionDomainIsolation'),
+            ]);
+
             const followupGate = isFollowupRequestKindAllowed(
                 executionData as Record<string, unknown> | null | undefined,
                 decisionsStorageExecutionId,
@@ -54,12 +63,7 @@ export function useExecutionDashboardDossierAdminFollowupHandlers({
                 dispatchDomainIsolationBlocked(followupGate.reasonAr, 'special_followup');
                 return false;
             }
-            const d = specialRequestDate.trim();
-            if (!d) return false;
-            return Boolean(specialRequestManualTitle.trim()) && Boolean(specialRequestContent.trim());
-        },
-        validationMessage: 'أكمل موضوع الطلب والتاريخ والتفاصيل',
-        submit: () => {
+
             const d = specialRequestDate.trim();
             const content = specialRequestContent.trim();
             const title = specialRequestManualTitle.trim() || 'طلب يدوي';

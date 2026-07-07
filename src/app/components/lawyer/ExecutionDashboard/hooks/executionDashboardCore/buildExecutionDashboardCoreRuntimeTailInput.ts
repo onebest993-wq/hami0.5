@@ -58,6 +58,7 @@ export function buildExecutionDashboardCoreRuntimeTailInput(p: {
         viewExecutionData: boot.viewExecutionData,
         currentFile: boot.currentFile,
         activeSubFileId: boot.activeSubFileId,
+        delegationParentFileId: boot.delegationParentFileId,
         activeTabId: boot.activeTabId,
         setActiveTabId: boot.setActiveTabId,
         childDossiers: boot.childDossiers,

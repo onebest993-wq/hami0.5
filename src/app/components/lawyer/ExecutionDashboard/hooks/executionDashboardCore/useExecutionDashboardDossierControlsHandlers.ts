@@ -2,19 +2,7 @@
 import { useCallback, useMemo, type Dispatch, type SetStateAction } from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import type { DossierActionPayload, DossierActionType } from '../../components/DossierActionsModal';
-import { appendSpecialFollowupRequest } from '@/app/utils/specialFollowupDecisionQueue';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
-import {
-    createInabaCorrespondenceLogEntry,
-    getInabaCorrespondenceLog,
-    patchParentInabaCorrespondenceLog,
-} from '../../utils/inabaCorrespondenceLog';
-import {
-    buildDossierActionFullContent,
-    buildDossierActionPayloadJson,
-    DOSSIER_ACTION_TITLE_MAP,
-    validateDossierActionPayload,
-} from './executionDashboardDossierAction';
 
 type UseExecutionDashboardDossierControlsHandlersParams = {
     executionData: ExecutionFile | null | undefined;
@@ -51,7 +39,22 @@ export function useExecutionDashboardDossierControlsHandlers({
     setExecutionStorageTick,
 }: UseExecutionDashboardDossierControlsHandlersParams) {
     const handleDossierAction = useCallback(
-        (payload: DossierActionPayload): boolean => {
+        async (payload: DossierActionPayload): Promise<boolean> => {
+            const [
+                { appendSpecialFollowupRequest },
+                { createInabaCorrespondenceLogEntry, getInabaCorrespondenceLog, patchParentInabaCorrespondenceLog },
+                {
+                    buildDossierActionFullContent,
+                    buildDossierActionPayloadJson,
+                    DOSSIER_ACTION_TITLE_MAP,
+                    validateDossierActionPayload,
+                },
+            ] = await Promise.all([
+                import('@/app/utils/specialFollowupDecisionQueue'),
+                import('../../utils/inabaCorrespondenceLog'),
+                import('./executionDashboardDossierAction'),
+            ]);
+
             const today = getLocalTodayYmd();
             const title = DOSSIER_ACTION_TITLE_MAP[payload.actionType];
             const validation = validateDossierActionPayload(payload);

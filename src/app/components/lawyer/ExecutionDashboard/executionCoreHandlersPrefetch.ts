@@ -7,9 +7,11 @@ import {
     prefetchExecutionHandlerClusterCoerciveHeavyBridge,
     prefetchExecutionHandlerClusterFollowupAdminSpecialBridge,
     prefetchExecutionHandlerClusterFollowupDossierControlsBridge,
+    prefetchExecutionHandlerClusterFollowupOtherPartyDebtorBridge,
     prefetchExecutionHandlerClusterFollowupOtherPartyBridge,
     prefetchExecutionHandlerClusterLightBridge,
     prefetchExecutionHandlerClusterSeizureHeavyBridge,
+    prefetchExecutionHandlerClusterSeizureLogBridge,
 } from './executionDashboardHandlerClusterBridgeLazy';
 
 export function prefetchExecutionCoreHandlers(
@@ -18,7 +20,11 @@ export function prefetchExecutionCoreHandlers(
         | 'followup-admin-special'
         | 'followup-dossier-controls'
         | 'followup-other-party'
+        | 'followup-other-party-debtor'
+        | 'followup-other-party-creditor'
         | 'seizure'
+        | 'seizure-requests'
+        | 'seizure-log'
         | 'coercive'
         | 'dossier-support' = 'coercive',
 ): void {
@@ -36,11 +42,25 @@ export function prefetchExecutionCoreHandlers(
         return;
     }
     if (mode === 'followup-other-party') {
+        return;
+    }
+    if (mode === 'followup-other-party-debtor') {
+        prefetchExecutionHandlerClusterFollowupOtherPartyDebtorBridge();
+        return;
+    }
+    if (mode === 'followup-other-party-creditor') {
         prefetchExecutionHandlerClusterFollowupOtherPartyBridge();
         return;
     }
     if (mode === 'seizure') {
+        return;
+    }
+    if (mode === 'seizure-requests') {
         prefetchExecutionHandlerClusterSeizureHeavyBridge();
+        return;
+    }
+    if (mode === 'seizure-log') {
+        prefetchExecutionHandlerClusterSeizureLogBridge();
         return;
     }
     if (mode === 'dossier-support') {

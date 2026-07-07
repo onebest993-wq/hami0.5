@@ -119,7 +119,11 @@ function withPhoneBodyScopeFallback(scope: Record<string, unknown>): Record<stri
         Bell,
         Calendar,
         DebtorSeizureCategoryBadges,
+        ExecutionInlineAccordion,
+        ExecutionInlineExecutorDecisionActions,
         ExecutionPartyInteractiveBadges,
+        ExecutionToast,
+        FollowupSectionLinkCheckbox,
         MapPin,
         PartyOverflowToggle,
         Phone,
@@ -850,7 +854,7 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
                         }}
                         onConfirm={(payload) => {
                             setDossierActionModalSaving(true);
-                            handleDossierAction(payload);
+                            void handleDossierAction(payload);
                         }}
                         saving={dossierActionModalSaving} currentFileId={currentFileId} inabaTargets={inabaTargets}
                     />

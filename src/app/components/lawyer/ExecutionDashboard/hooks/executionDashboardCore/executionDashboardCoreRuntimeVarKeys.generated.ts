@@ -201,6 +201,7 @@ export const CORE_RUNTIME_VAR_KEYS = [
     "executionMemoBadgePopoverOpen",
     "onClose",
     "activeSubFileId",
+    "delegationParentFileId",
     "activeTabId",
     "setActiveTabId",
     "childDossiers",

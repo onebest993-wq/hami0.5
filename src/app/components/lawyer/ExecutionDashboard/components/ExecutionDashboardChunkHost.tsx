@@ -11,12 +11,16 @@ import {
     LazyExecutionDashboardHandlerClusterCoerciveHeavyBridge,
     LazyExecutionDashboardHandlerClusterFollowupAdminSpecialBridge,
     LazyExecutionDashboardHandlerClusterFollowupDossierControlsBridge,
+    LazyExecutionDashboardHandlerClusterFollowupOtherPartyDebtorBridge,
     LazyExecutionDashboardHandlerClusterFollowupOtherPartyBridge,
     LazyExecutionDashboardHandlerClusterLightBridge,
     LazyExecutionDashboardHandlerClusterSeizureHeavyBridge,
+    LazyExecutionDashboardHandlerClusterSeizureLogBridge,
 } from '../executionDashboardHandlerClusterBridgeLazy';
 import { prefetchExecutionCoreHandlers } from '../executionCoreHandlersPrefetch';
 import type { ExecutionDashboardCoreHandlerClusterInput } from '../hooks/executionDashboardCore/executionDashboardCoreHandlerClusterTypes';
+import type { FollowupAdminSpecialHandlerClusterInput } from '../hooks/executionDashboardCore/followupAdminSpecialHandlerClusterInput';
+import type { FollowupOtherPartyHandlerClusterInput } from '../hooks/executionDashboardCore/followupOtherPartyHandlerClusterInput';
 
 const PHONE_BODY_PLACEHOLDER_CLASS =
     'bg-slate-900/95 w-full max-w-md h-full flex flex-col shadow-2xl border border-slate-700/30';
@@ -41,12 +45,14 @@ export type ExecutionDashboardChunkHostProps = {
     loadFollowupDossierControlsHandlerCluster: boolean;
     loadFollowupOtherPartyHandlerCluster: boolean;
     loadSeizureHeavyHandlerCluster: boolean;
+    loadSeizureRequestsHandlerCluster: boolean;
+    loadSeizureLogHandlerCluster: boolean;
     loadCoerciveHeavyHandlerCluster: boolean;
     loadDossierSupportHandlerCluster: boolean;
     lightHandlerClusterInput: ExecutionDashboardCoreHandlerClusterInput;
-    followupAdminSpecialHandlerClusterInput: ExecutionDashboardCoreHandlerClusterInput;
+    followupAdminSpecialHandlerClusterInput: FollowupAdminSpecialHandlerClusterInput;
     followupDossierControlsHandlerClusterInput: ExecutionDashboardCoreHandlerClusterInput;
-    followupOtherPartyHandlerClusterInput: ExecutionDashboardCoreHandlerClusterInput;
+    followupOtherPartyHandlerClusterInput: FollowupOtherPartyHandlerClusterInput;
     seizureHeavyHandlerClusterInput: ExecutionDashboardCoreHandlerClusterInput;
     coerciveHeavyHandlerClusterInput: ExecutionDashboardCoreHandlerClusterInput;
     dossierSupportHandlerClusterInput: ExecutionDashboardCoreHandlerClusterInput;
@@ -73,6 +79,8 @@ export function ExecutionDashboardChunkHost({
     loadFollowupDossierControlsHandlerCluster,
     loadFollowupOtherPartyHandlerCluster,
     loadSeizureHeavyHandlerCluster,
+    loadSeizureRequestsHandlerCluster,
+    loadSeizureLogHandlerCluster,
     loadCoerciveHeavyHandlerCluster,
     loadDossierSupportHandlerCluster,
     lightHandlerClusterInput,
@@ -96,7 +104,12 @@ export function ExecutionDashboardChunkHost({
             prefetchExecutionCoreHandlers('coercive');
         }
         if (loadSeizureHeavyHandlerCluster) {
-            prefetchExecutionCoreHandlers('seizure');
+            if (loadSeizureRequestsHandlerCluster) {
+                prefetchExecutionCoreHandlers('seizure-requests');
+            }
+            if (loadSeizureLogHandlerCluster) {
+                prefetchExecutionCoreHandlers('seizure-log');
+            }
         }
         if (loadFollowupHeavyHandlerCluster) {
             if (loadFollowupAdminSpecialHandlerCluster) {
@@ -106,7 +119,11 @@ export function ExecutionDashboardChunkHost({
                 prefetchExecutionCoreHandlers('followup-dossier-controls');
             }
             if (loadFollowupOtherPartyHandlerCluster) {
-                prefetchExecutionCoreHandlers('followup-other-party');
+                prefetchExecutionCoreHandlers(
+                    followupOtherPartyHandlerClusterInput.isRepresentingDebtor
+                        ? 'followup-other-party-debtor'
+                        : 'followup-other-party-creditor',
+                );
             }
         }
         if (loadLightHandlerCluster) {
@@ -120,9 +137,12 @@ export function ExecutionDashboardChunkHost({
         loadFollowupAdminSpecialHandlerCluster,
         loadFollowupDossierControlsHandlerCluster,
         loadFollowupOtherPartyHandlerCluster,
+        followupOtherPartyHandlerClusterInput.isRepresentingDebtor,
         loadCoerciveHeavyHandlerCluster,
         loadDossierSupportHandlerCluster,
         loadLightHandlerCluster,
+        loadSeizureLogHandlerCluster,
+        loadSeizureRequestsHandlerCluster,
         loadSeizureHeavyHandlerCluster,
     ]);
 
@@ -143,11 +163,22 @@ export function ExecutionDashboardChunkHost({
             ) : null}
             {loadSeizureHeavyHandlerCluster ? (
                 <Suspense fallback={null}>
-                    <LazyExecutionDashboardHandlerClusterSeizureHeavyBridge
-                        key={`${handlerClusterMountKey}:heavy-seizure`}
-                        input={seizureHeavyHandlerClusterInput}
-                        onCluster={onSeizureHeavyHandlerClusterReady}
-                    />
+                    <>
+                        {loadSeizureRequestsHandlerCluster ? (
+                            <LazyExecutionDashboardHandlerClusterSeizureHeavyBridge
+                                key={`${handlerClusterMountKey}:heavy-seizure-requests`}
+                                input={seizureHeavyHandlerClusterInput}
+                                onCluster={onSeizureHeavyHandlerClusterReady}
+                            />
+                        ) : null}
+                        {loadSeizureLogHandlerCluster ? (
+                            <LazyExecutionDashboardHandlerClusterSeizureLogBridge
+                                key={`${handlerClusterMountKey}:heavy-seizure-log`}
+                                input={seizureHeavyHandlerClusterInput}
+                                onCluster={onSeizureHeavyHandlerClusterReady}
+                            />
+                        ) : null}
+                    </>
                 </Suspense>
             ) : null}
             {loadFollowupAdminSpecialHandlerCluster ? (
@@ -170,11 +201,19 @@ export function ExecutionDashboardChunkHost({
             ) : null}
             {loadFollowupOtherPartyHandlerCluster ? (
                 <Suspense fallback={null}>
-                    <LazyExecutionDashboardHandlerClusterFollowupOtherPartyBridge
-                        key={`${handlerClusterMountKey}:followup-other-party`}
-                        input={followupOtherPartyHandlerClusterInput}
-                        onCluster={onFollowupOtherPartyHandlerClusterReady}
-                    />
+                    {followupOtherPartyHandlerClusterInput.isRepresentingDebtor ? (
+                        <LazyExecutionDashboardHandlerClusterFollowupOtherPartyDebtorBridge
+                            key={`${handlerClusterMountKey}:followup-other-party-debtor`}
+                            input={followupOtherPartyHandlerClusterInput}
+                            onCluster={onFollowupOtherPartyHandlerClusterReady}
+                        />
+                    ) : (
+                        <LazyExecutionDashboardHandlerClusterFollowupOtherPartyBridge
+                            key={`${handlerClusterMountKey}:followup-other-party-creditor`}
+                            input={followupOtherPartyHandlerClusterInput}
+                            onCluster={onFollowupOtherPartyHandlerClusterReady}
+                        />
+                    )}
                 </Suspense>
             ) : null}
             {loadDossierSupportHandlerCluster ? (

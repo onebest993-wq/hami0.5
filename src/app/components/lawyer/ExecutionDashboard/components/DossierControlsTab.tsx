@@ -63,7 +63,7 @@ export type DossierControlsTabProps = {
     inabaCorrespondenceLog: InabaCorrespondenceLogEntry[];
     showRenew: boolean;
     saving?: boolean;
-    onSubmit: (payload: DossierActionPayload) => boolean;
+    onSubmit: (payload: DossierActionPayload) => boolean | Promise<boolean>;
     onExecutorOutcomeApplied?: () => void;
     appealPerspective?: AppealUiPerspective;
 };
@@ -78,7 +78,7 @@ function DossierControlAccordionRow(props: {
     inabaCorrespondenceLog: InabaCorrespondenceLogEntry[];
     onExecutorOutcomeApplied?: () => void;
     saving?: boolean;
-    onSubmit: (payload: DossierActionPayload) => boolean;
+    onSubmit: (payload: DossierActionPayload) => boolean | Promise<boolean>;
     appealPerspective?: AppealUiPerspective;
 }) {
     const {
@@ -114,8 +114,8 @@ function DossierControlAccordionRow(props: {
     );
     const showSubmitForm = expanded && !executorStripVisible;
     const form = useDossierActionForm(item.id, showSubmitForm, parentFileId, inabaTargets);
-    const handleConfirm = () => {
-        const sent = onSubmit(form.buildPayload());
+    const handleConfirm = async () => {
+        const sent = await onSubmit(form.buildPayload());
         if (!sent) return;
         form.resetFields();
     };
@@ -210,8 +210,8 @@ export const DossierControlsTab: React.FC<DossierControlsTabProps> = ({
                     onExecutorOutcomeApplied={onExecutorOutcomeApplied}
                     appealPerspective={appealPerspective}
                     saving={saving}
-                    onSubmit={(payload) => {
-                        const sent = onSubmit(payload);
+                    onSubmit={async (payload) => {
+                        const sent = await onSubmit(payload);
                         if (sent) setExpandedId(null);
                         return sent;
                     }}

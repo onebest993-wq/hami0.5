@@ -1,5 +1,9 @@
 // @ts-nocheck
 import { useEffect } from 'react';
+import {
+    collectDossierSupportHandlerClusterContext,
+    type HandlerClusterContextSpreads,
+} from './collectHandlerClusterContext';
 import { useExecutionDashboardCoreHandlerClusterFoundationCore } from './useExecutionDashboardCoreHandlerClusterFoundationCore';
 import { useExecutionDashboardCoreHandlerClusterDossierSupport } from './useExecutionDashboardCoreHandlerClusterDossierSupport';
 import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
@@ -13,7 +17,8 @@ export function ExecutionDashboardHandlerClusterDossierSupportBridge({
     input,
     onCluster,
 }: ExecutionDashboardHandlerClusterDossierSupportBridgeProps) {
-    const foundation = useExecutionDashboardCoreHandlerClusterFoundationCore(input);
+    const resolvedInput = collectDossierSupportHandlerClusterContext(input as HandlerClusterContextSpreads);
+    const foundation = useExecutionDashboardCoreHandlerClusterFoundationCore(resolvedInput);
     const {
         firstActiveAppealDecisionId,
         removeJudicialCustodianEntry,
@@ -22,7 +27,9 @@ export function ExecutionDashboardHandlerClusterDossierSupportBridge({
         propertyInlineSaveCtx,
     } = foundation;
 
-    const support = useExecutionDashboardCoreHandlerClusterDossierSupport(input, { pushTimelineEvent });
+    const support = useExecutionDashboardCoreHandlerClusterDossierSupport(resolvedInput, {
+        pushTimelineEvent,
+    });
 
     useEffect(() => {
         onCluster({
