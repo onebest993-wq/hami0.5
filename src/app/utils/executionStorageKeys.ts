@@ -27,8 +27,10 @@ import {
     executionStorageKey,
     executionDecisionsStorageKey,
     scopeExecutionDeviceStorageKey,
+    stripExecutionDeviceStorageUserScope,
     getExecutionStorageBundleKeys,
 } from '@/app/utils/executionStorageKeysLite';
+import { EXECUTION_WIPE_KEY_PREFIXES } from '@/app/utils/executionWipeRegistry';
 
 const bundleDeletionInFlight = new Map<string, Promise<void>>();
 
@@ -102,6 +104,27 @@ function isKeyOwnedByExecutionBase(key: string, base: string): boolean {
     return rest === '' || rest.startsWith('_') || rest.startsWith(':');
 }
 
+/**
+ * الشِّق الثاني من الحذف: مدفوع بالبادئات لا بالتعداد.
+ *
+ * حزمة `getExecutionStorageBundleKeys` تُعدّد المفاتيح واحداً واحداً، وهذا
+ * تعداد يتخلّف كلما أضاف أحدهم عائلة مفاتيح جديدة — وهو ما حدث فعلاً فنجا
+ * السجل المالي وحالة مهلة التخلية وفكّ قفل الموظف من «الحذف النهائي».
+ *
+ * فبدل الاعتماد على أن يتذكّر كاتب الكود تحديث قائمة، نمسح هنا كل مفتاح
+ * تملكه عائلة في `EXECUTION_WIPE_KEY_PREFIXES` وينتهي بمعرّف هذه الإضبارة.
+ * كل مفاتيح القسم تُلحق المعرّف بفاصل (`…_7` أو `…:7`)، والفاصل شرط حتى لا
+ * يبتلع حذف الإضبارة `2` مفاتيح الإضبارة `12`.
+ */
+function isKeyOwnedByDossierTail(key: string, id: string): boolean {
+    if (!id || id === 'default') return false;
+    if (!EXECUTION_WIPE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix))) return false;
+    const unscoped = stripExecutionDeviceStorageUserScope(key);
+    if (!unscoped.endsWith(id) || unscoped.length <= id.length) return false;
+    const boundary = unscoped[unscoped.length - id.length - 1];
+    return boundary === '_' || boundary === ':';
+}
+
 export async function removeExecutionStorageBundleAsync(executionId: string | undefined): Promise<void> {
     const id = normalizeExecutionStorageId(executionId);
     const existing = bundleDeletionInFlight.get(id);
@@ -117,7 +140,12 @@ export async function removeExecutionStorageBundleAsync(executionId: string | un
         const allKeys = await SecureStoreService.listKeys();
         await Promise.all(
             allKeys
-                .filter((k) => isKeyOwnedByExecutionBase(k, base) || isKeyOwnedByExecutionBase(k, scopedBase))
+                .filter(
+                    (k) =>
+                        isKeyOwnedByExecutionBase(k, base) ||
+                        isKeyOwnedByExecutionBase(k, scopedBase) ||
+                        isKeyOwnedByDossierTail(k, id),
+                )
                 .map((k) => SecureStoreService.deleteItem(k)),
         );
         purgeExecutionStorageCache(id);

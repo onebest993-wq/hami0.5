@@ -44,6 +44,30 @@ describe('deleting one dossier leaves prefix-neighbour dossiers intact', () => {
         expect(SecureStoreService.getItemSync('hami_unified_funds_ledger_20')).not.toBeNull();
     });
 
+    it('purges a key family nobody remembered to enumerate', async () => {
+        // الحزمة تُعدّد المفاتيح، والتعداد يتخلّف: هكذا نجا السجل المالي.
+        // المسح بالبادئة+المعرّف يجعل العائلة الجديدة محذوفة بلا تعداد.
+        SecureStoreService.setItemSync('hami_eviction_grace_brand_new_5', '{"x":1}');
+        SecureStoreService.setItemSync('hami:employee_personal_unlock:5', '{"x":1}');
+        SecureStoreService.setItemSync('hami_eviction_grace_brand_new_50', '{"x":1}');
+
+        await removeExecutionStorageBundleAsync('5');
+
+        expect(SecureStoreService.getItemSync('hami_eviction_grace_brand_new_5')).toBeNull();
+        expect(SecureStoreService.getItemSync('hami:employee_personal_unlock:5')).toBeNull();
+        expect(SecureStoreService.getItemSync('hami_eviction_grace_brand_new_50')).not.toBeNull();
+    });
+
+    it('leaves keys of other sections alone', async () => {
+        SecureStoreService.setItemSync('lawyer_notes_9', '{"x":1}');
+        SecureStoreService.setItemSync('client_profile_9', '{"x":1}');
+
+        await removeExecutionStorageBundleAsync('9');
+
+        expect(SecureStoreService.getItemSync('lawyer_notes_9')).not.toBeNull();
+        expect(SecureStoreService.getItemSync('client_profile_9')).not.toBeNull();
+    });
+
     it('still purges every suffix family of the deleted dossier', async () => {
         const own = [
             'execution_7',

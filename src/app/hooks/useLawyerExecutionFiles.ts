@@ -36,6 +36,7 @@ import { isRealSignedIn } from '@/app/services/auth/shellAuth';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { debug } from '@/app/utils/debug';
 import { openExecutionDossierWithContract } from '@/app/runtime/executionOpenContract';
+import { purgeDeletedExecutionDossiers } from '@/app/utils/purgeDeletedExecutionDossiers';
 
 const EXECUTION_MUTATION_FEATURE = 'تنفيذ';
 
@@ -573,20 +574,37 @@ export function useLawyerExecutionFiles({
 
                 queueMicrotask(() => {
                     void (async () => {
-                        for (const id of idSet) {
-                            await storageKeys.removeExecutionStorageBundleAsync(id);
+                        const { storageFailures, cloudFailures } = await purgeDeletedExecutionDossiers(
+                            idSet,
+                            {
+                                removeStorageBundle: async (id) => {
+                                    await storageKeys.removeExecutionStorageBundleAsync(id);
+                                },
+                                purgeScopedState: async (id) => {
+                                    await purgeExecutionDossierScopedState(id);
+                                    void removeAllBridgedEventsForEntity('execution', id, userId);
+                                },
+                                deleteFromCloud: async (id) => {
+                                    const { SupabaseService } = await import(
+                                        '@/app/services/SupabaseService'
+                                    );
+                                    await SupabaseService.deleteExecutionFile(id);
+                                },
+                            },
+                        );
 
-                            await purgeExecutionDossierScopedState(id);
+                        if (storageFailures.length > 0) {
+                            debug.warn('[Execution] فشل مسح تخزين الإضابير:', storageFailures);
+                            SmartToast.warning(
+                                storageFailures.length === 1
+                                    ? 'حُذفت الإضبارة — تعذّر مسح بعض بياناتها المحلية'
+                                    : `حُذفت الإضابير — تعذّر مسح بيانات ${storageFailures.length} منها محلياً`,
+                            );
+                        }
 
-                            void removeAllBridgedEventsForEntity('execution', id, userId);
-
-                            try {
-                                const { SupabaseService } = await import('@/app/services/SupabaseService');
-                                await SupabaseService.deleteExecutionFile(id);
-                            } catch (error) {
-                                debug.warn('[Execution] فشل حذف السحابة بعد الحذف المحلي:', id, error);
-                                SmartToast.warning('حُذف محلياً — تعذّر مزامنة الحذف مع السحابة');
-                            }
+                        if (cloudFailures.length > 0) {
+                            debug.warn('[Execution] فشل حذف السحابة بعد الحذف المحلي:', cloudFailures);
+                            SmartToast.warning('حُذف محلياً — تعذّر مزامنة الحذف مع السحابة');
                         }
 
                         void pruneOrphanedBridgeEvents(userId);
