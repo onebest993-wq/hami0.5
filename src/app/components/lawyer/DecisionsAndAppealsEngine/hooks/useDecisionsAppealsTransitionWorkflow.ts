@@ -1,4 +1,5 @@
 import React from 'react';
+import { SmartToast } from '@/app/components/ui/SmartToast';
 import { dispatchDecisionsReload } from '@/app/utils/executorSeizureDecisionQueue';
 import { isExecutionAppealTerminal } from '@/app/utils/executionDecisionAppealActive';
 import type { Decision } from '../types';
@@ -132,8 +133,14 @@ export function useDecisionsAppealsTransitionWorkflow(params: DecisionsAppealsMu
                     appealTimelineLogs: baseLogs,
                 };
                 const next = decisions.map((d) => (d.id === target.id ? cleanedOriginal : d)).concat([copy]);
-                setDecisions(next);
-                persistDecisionsToStorage(next);
+                // كانت نتيجة التثبيت مُهملة كلياً: تُفتح نسخة الطعن على الشاشة
+                // ويُسجَّل حدث «فتح طعن» في الخط الزمني وقد لا يُكتب شيء.
+                const persistedOpen = persistDecisionsToStorage(next);
+                if (!persistedOpen) {
+                    SmartToast.error('تعذّر فتح الطعن — أعد المحاولة');
+                    return;
+                }
+                setDecisions(persistedOpen);
                 queueMicrotask(() => dispatchDecisionsReload());
                 const appealOpenSnap = getMilestoneTimelineSnapshot?.();
                 onTimelineUpdate({
@@ -169,8 +176,12 @@ export function useDecisionsAppealsTransitionWorkflow(params: DecisionsAppealsMu
                     d.id === src ? { ...d, activeAppealCopyId: null } : d
                 );
             }
-            setDecisions(next);
-            persistDecisionsToStorage(next);
+            const persistedTransition = persistDecisionsToStorage(next);
+            if (!persistedTransition) {
+                SmartToast.error('تعذّر حفظ انتقال الطعن — أعد المحاولة');
+                return;
+            }
+            setDecisions(persistedTransition);
             queueMicrotask(() => dispatchDecisionsReload());
             onTimelineUpdate({
                 id: newEventId(),

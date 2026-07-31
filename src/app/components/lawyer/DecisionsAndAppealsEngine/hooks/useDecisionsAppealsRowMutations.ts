@@ -26,14 +26,27 @@ export function useDecisionsAppealsRowMutations(params: DecisionsAppealsMutation
         setShowAddModal,
     } = params;
 
+    /**
+     * كان التثبيت يجري **داخل** مُحدِّث `setDecisions`، والفشل يُتبنّى بـ`?? next`.
+     *
+     * عطلان: React يُنادي المُحدِّث أكثر من مرة (StrictMode/التصيير المتزامن)
+     * فتتكرّر الكتابة أو تجري ثم يُلغى التصيير؛ و`?? next` يجعل الواجهة تعرض
+     * تعديلاً لم يُكتب — يختفي عند إعادة التحميل بلا أي إشارة.
+     *
+     * و`persistDecisionsToStorage` يُعيد `null` عند الفشل وحده، فصار هو الحكم:
+     * لا تُحدَّث الواجهة إلا بما ثُبّت فعلاً.
+     */
     const patchDecisionRow = React.useCallback(
         (decisionId: string, patch: Partial<Decision>) => {
-            setDecisions((prev) => {
-                const next = prev.map((d) => (d.id === decisionId ? { ...d, ...patch } : d));
-                return persistDecisionsToStorage(next) ?? next;
-            });
+            const next = decisions.map((d) => (d.id === decisionId ? { ...d, ...patch } : d));
+            const merged = persistDecisionsToStorage(next);
+            if (!merged) {
+                SmartToast.error('تعذّر حفظ التعديل — أعد المحاولة');
+                return;
+            }
+            setDecisions(merged);
         },
-        [persistDecisionsToStorage, setDecisions]
+        [decisions, persistDecisionsToStorage, setDecisions]
     );
 
     const logAppealTimeline = React.useCallback(
@@ -57,45 +70,53 @@ export function useDecisionsAppealsRowMutations(params: DecisionsAppealsMutation
     );
 
     const handleDeleteDecision = React.useCallback((id: string) => {
-        setDecisions((prev) => {
-            const next = prev.filter((d) => d.id !== id);
-            return persistDecisionsToStorage(next, { removedIds: [id] }) ?? next;
-        });
-    }, [persistDecisionsToStorage, setDecisions]);
+        const next = decisions.filter((d) => d.id !== id);
+        const merged = persistDecisionsToStorage(next, { removedIds: [id] });
+        if (!merged) {
+            SmartToast.error('تعذّر حذف القرار — أعد المحاولة');
+            return;
+        }
+        setDecisions(merged);
+    }, [decisions, persistDecisionsToStorage, setDecisions]);
 
     const handleArchiveDecision = React.useCallback((id: string) => {
-        setDecisions((prev) => {
-            const now = new Date().toISOString();
-            const next = prev.map((d) =>
-                d.id === id
-                    ? {
-                          ...d,
-                          isArchived: true,
-                          requestCycleSuperseded: true,
-                          requestCycleSupersededAt: now,
-                      }
-                    : d
-            );
-            const synced = persistDecisionsToStorage(next) ?? next;
-            const archived = synced.find((d) => d.id === id);
-            if (archived) {
-                applyPersonalCoerciveAppealClosure({
-                    executionId,
-                    row: archived as unknown as Record<string, unknown>,
-                    allDecisions: synced as unknown as Record<string, unknown>[],
-                    forceClose: true,
-                });
-                applyEvictionAppealClosure({
-                    executionId,
-                    row: archived as unknown as Record<string, unknown>,
-                    allDecisions: synced as unknown as Record<string, unknown>[],
-                    forceClose: true,
-                });
-            }
-            queueMicrotask(() => setDecisionsHubTab('archive'));
-            return synced;
-        });
-    }, [executionId, persistDecisionsToStorage, setDecisions, setDecisionsHubTab]);
+        const now = new Date().toISOString();
+        const next = decisions.map((d) =>
+            d.id === id
+                ? {
+                      ...d,
+                      isArchived: true,
+                      requestCycleSuperseded: true,
+                      requestCycleSupersededAt: now,
+                  }
+                : d
+        );
+        const synced = persistDecisionsToStorage(next);
+        if (!synced) {
+            SmartToast.error('تعذّر أرشفة القرار — أعد المحاولة');
+            return;
+        }
+        setDecisions(synced);
+
+        // إغلاق الطعن كان يجري داخل مُحدِّث setState، فتكراره يُنتج إغلاقاً
+        // مزدوجاً وأحداث خط زمني مكرّرة عند إعادة نداء المُحدِّث.
+        const archived = synced.find((d) => d.id === id);
+        if (archived) {
+            applyPersonalCoerciveAppealClosure({
+                executionId,
+                row: archived as unknown as Record<string, unknown>,
+                allDecisions: synced as unknown as Record<string, unknown>[],
+                forceClose: true,
+            });
+            applyEvictionAppealClosure({
+                executionId,
+                row: archived as unknown as Record<string, unknown>,
+                allDecisions: synced as unknown as Record<string, unknown>[],
+                forceClose: true,
+            });
+        }
+        setDecisionsHubTab('archive');
+    }, [decisions, executionId, persistDecisionsToStorage, setDecisions, setDecisionsHubTab]);
 
     const handleAddDecision = () => {
         if (!newTitle.trim() || !newDate) {

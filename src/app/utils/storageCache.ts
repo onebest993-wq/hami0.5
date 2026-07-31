@@ -4,7 +4,7 @@
  */
 import SecureStoreService from '@/app/services/SecureStoreService';
 import {
-  applyExecutionDossierBlobSet,
+  applyExecutionDossierBlobSetWithOutcome,
   isExecutionDossierMainBlobKey,
   readExecutionDossierBlob,
   registerExecutionBlobCacheTouch,
@@ -97,17 +97,22 @@ class StorageCacheClass {
 
   /**
    * الكتابة إلى الـ Cache و LocalStorage
+   *
+   * @returns هل ثُبّتت القيمة فعلاً. كانت `void` فكان كل فشل صامتاً،
+   * وهو ما يجعل الواجهة تُظهر «حُفِظ» والقرص خالياً.
    */
-  set(key: string, value: any): void {
-    if (applyExecutionDossierBlobSet(key, value, (k, v) => this.touchCacheEntry(k, v))) {
-      return;
-    }
-    // الكتابة إلى localStorage
+  set(key: string, value: any): boolean {
+    const executionOutcome = applyExecutionDossierBlobSetWithOutcome(key, value, (k, v) =>
+      this.touchCacheEntry(k, v),
+    );
+    if (executionOutcome === 'persisted') return true;
+    if (executionOutcome === 'rejected-wipe') return false;
+    // 'not-execution-key' | 'invalid-payload' — يُكمل بالمسار العام
     try {
       SecureStoreService.setItemSync(key, JSON.stringify(value));
     } catch (e) {
       console.error('[StorageCache] فشل الحفظ في localStorage:', e);
-      return;
+      return false;
     }
 
     // الكتابة إلى الـ Cache
@@ -117,6 +122,7 @@ class StorageCacheClass {
         timestamp: Date.now()
       });
     }
+    return true;
   }
 
   /**

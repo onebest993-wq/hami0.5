@@ -100,12 +100,14 @@ export function useDecisionsAppealsWaiveAppealMutations(params: DecisionsAppeals
             });
 
             // نفس مسار التظلم — يحلّ معرّف التخزين الصحيح (لا يكتب على executionId الخاطئ بصمت)
-            setDecisions(next);
+            // الترتيب مقصود: كان `setDecisions` يسبق فحص التثبيت، فتبقى الواجهة
+            // على الاستغناء بعد ظهور رسالة الفشل — تضارب بين الشاشة والقرص.
             const persisted = persistDecisionsToStorage(next);
             if (!persisted) {
                 SmartToast.error('تعذّر حفظ الاستغناء عن الطعن. أعد المحاولة.');
                 return;
             }
+            setDecisions(persisted);
             queueMicrotask(() => dispatchDecisionsReload());
 
             const mergedRow = persisted.find((x) => x.id === decision.id) ?? next.find((x) => x.id === decision.id);

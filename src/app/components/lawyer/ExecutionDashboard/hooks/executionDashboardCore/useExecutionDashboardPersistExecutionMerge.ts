@@ -24,6 +24,8 @@ import { storageCache } from '@/app/utils/storageCache';
 
 import { executionStorageKey } from '@/app/utils/executionStorageKeys';
 
+import { debug } from '@/app/utils/debug';
+
 import { sanitizeExecutionPersistPatch } from '../../helpers/executionPersistPatchSanitizer';
 import {
     guardCreditorAgentMutation,
@@ -54,6 +56,14 @@ export type UseExecutionDashboardPersistExecutionMergeParams = {
 };
 
 
+
+/**
+ * نتيجة الكتابة المؤجّلة على القرص.
+ *
+ * `superseded` ليست فشلاً: كتابة أحدث ألغت هذه، وهو سلوك مقصود يمنع كتابة
+ * قديمة من مسح أحدث. الخلط بينها وبين `failed` يُنتج إنذاراً كاذباً.
+ */
+type PersistDiskOutcome = 'persisted' | 'failed' | 'superseded';
 
 /** يؤجّل I/O الثقيل حتى بعد رسم التحديث الفوري في الواجهة. */
 
@@ -177,6 +187,15 @@ export function useExecutionDashboardPersistExecutionMerge({
     /** يمنع كتابة قرص مؤجّلة قديمة من مسح وفاة/إحلال أحدث. */
 
     const persistEpochRef = useRef(0);
+
+    const reportPersistFailure = useCallback(
+        (outcome: PersistDiskOutcome) => {
+            if (outcome !== 'failed') return;
+            debug.warn('[ExecutionPersist] فشل تثبيت التغيير على الجهاز:', executionId);
+            showToast?.('تعذّر حفظ التغيير على الجهاز — أعِد المحاولة', 'error');
+        },
+        [executionId, showToast],
+    );
 
 
 
@@ -311,13 +330,13 @@ export function useExecutionDashboardPersistExecutionMerge({
 
 
 
-                const writeSubDisk = () => {
+                const writeSubDisk = (): PersistDiskOutcome => {
 
-                    if (epoch !== persistEpochRef.current) return;
+                    if (epoch !== persistEpochRef.current) return 'superseded';
 
                     const latest = (executionDataRef.current ?? merged) as ExecutionFile;
 
-                    storageCache.set(cacheKey, latest);
+                    const ok = storageCache.set(cacheKey, latest);
 
                     storageCache.touchCacheEntry(cacheKey, latest);
 
@@ -325,17 +344,21 @@ export function useExecutionDashboardPersistExecutionMerge({
 
                     SecureStoreService.flushHeavyPersistPending();
 
+                    return ok ? 'persisted' : 'failed';
+
                 };
 
                 if (durableDeath) {
 
-                    writeSubDisk();
-
-                } else {
-
-                    schedulePersistIo(writeSubDisk);
+                    return writeSubDisk() === 'persisted';
 
                 }
+
+                schedulePersistIo(() => {
+
+                    reportPersistFailure(writeSubDisk());
+
+                });
 
                 return true;
 
@@ -411,9 +434,9 @@ export function useExecutionDashboardPersistExecutionMerge({
 
 
 
-            const writeMainDisk = (): boolean => {
+            const writeMainDisk = (): PersistDiskOutcome => {
 
-                if (epoch !== persistEpochRef.current) return false;
+                if (epoch !== persistEpochRef.current) return 'superseded';
 
                 const latest = (executionDataRef.current ?? merged) as ExecutionFile;
 
@@ -441,7 +464,7 @@ export function useExecutionDashboardPersistExecutionMerge({
 
                 SecureStoreService.flushHeavyPersistPending();
 
-                return ok;
+                return ok ? 'persisted' : 'failed';
 
             };
 
@@ -449,7 +472,7 @@ export function useExecutionDashboardPersistExecutionMerge({
 
             if (durableDeath) {
 
-                return writeMainDisk();
+                return writeMainDisk() === 'persisted';
 
             }
 
@@ -457,7 +480,10 @@ export function useExecutionDashboardPersistExecutionMerge({
 
             schedulePersistIo(() => {
 
-                writeMainDisk();
+                // كانت نتيجة القرص تُرمى هنا، فتُعيد الدالة true دائماً ويرى
+                // المستخدم «حُفِظ» وقد فشلت الكتابة. الإبلاغ لا يخالف عقد
+                // ui-first: التثبيت مؤجّل كما هو، والفشل وحده يُعلَن.
+                reportPersistFailure(writeMainDisk());
 
             });
 
@@ -484,6 +510,8 @@ export function useExecutionDashboardPersistExecutionMerge({
             isRepresentingDebtor,
 
             showToast,
+
+            reportPersistFailure,
 
         ],
 

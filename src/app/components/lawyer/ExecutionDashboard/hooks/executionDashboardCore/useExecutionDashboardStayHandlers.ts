@@ -137,18 +137,37 @@ export function useExecutionDashboardStayHandlers({
         ],
     );
 
+    /**
+     * كان يُحدّث الحالة المحلية ويُعلن النجاح ولا يُثبّت شيئاً — بخلاف
+     * `handleLiftStayOfExecution` أعلاه. و`executionPaused` يُعاد ترطيبه من
+     * البلوب عند الفتح، فتعود الإضبارة «موقوفة» ويختفي حدث الاستئناف؛ وبما أن
+     * `executionPaused` يُقفل الأدوات الجبرية فالنتيجة قسم مقفل بلا سبب ظاهر.
+     * كان الاستئناف ينتظر حفظ لقطة لاحقة، وإن أُغلقت الإضبارة قبلها فُقد.
+     */
     const handleResumeExecution = useCallback(() => {
         setExecutionPaused(false);
+        const now = new Date().toISOString();
         const newEvent: TimelineEvent = {
-            id: Date.now().toString(),
-            date: new Date().toISOString(),
+            id: nextTimelineId(),
+            date: now.slice(0, 10),
+            timestamp: now,
             title: '▶️ استئناف التنفيذ',
             description: 'تم استئناف التنفيذ بعد مراجعة الدائن',
             type: 'decision',
+            source: 'التنفيذ',
         };
-        setTimelineEvents((prev) => [newEvent, ...prev]);
+        setTimelineEvents((prev) => {
+            const next = [newEvent, ...prev];
+            queueMicrotask(() =>
+                persistExecutionMerge({
+                    executionPaused: false,
+                    timelineEvents: next,
+                }),
+            );
+            return next;
+        });
         showToast('تم استئناف التنفيذ', 'success');
-    }, [setExecutionPaused, setTimelineEvents, showToast]);
+    }, [nextTimelineId, persistExecutionMerge, setExecutionPaused, setTimelineEvents, showToast]);
 
     return {
         handleLiftStayOfExecution,

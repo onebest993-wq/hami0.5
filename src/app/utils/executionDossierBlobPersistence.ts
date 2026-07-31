@@ -227,7 +227,10 @@ function writeExecutionBlobRaw(
     try {
         SecureStoreService.setItemSync(writeKey, incomingRaw);
         // ترحيل: إن كُتب المقيّد وما زال القديم موجوداً — أبقِ التوافق عبر القراءة المزدوجة فقط
-    } catch {
+    } catch (error) {
+        // كان هذا الفرع صامتاً تماماً بينما فرع رفض المسح أعلاه يُحذّر: فقدان
+        // كتابة حقيقي لا يُترك بلا أثر، وإلا ظهرت الواجهة محفوظة والقرص خالياً.
+        debug.warn(`[ExecutionPersist] فشلت كتابة مفتاح "${writeKey}":`, error);
         return false;
     }
     touchExecutionBlobCache(writeKey, data, touch);
@@ -238,27 +241,47 @@ function writeExecutionBlobRaw(
 }
 
 /**
+ * نتيجة كتابة البلوب — «تولّيتُ المفتاح» شيء و«نجحت الكتابة» شيء آخر.
+ *
+ * كان الاثنان مضغوطين في `boolean` واحد، فبدا أن الدالة تُعيد `true` عند الفشل.
+ * وهي في الحقيقة تُعلن التوجيه لا النجاح: لو أعادت `false` لسقطت الكتابة إلى
+ * المسار العام في `storageCache.set` بمفتاح غير مقيَّد بالمالك — أسوأ من الفشل.
+ * الخلل الحقيقي كان أن الفشل لا يُبلَّغ عنه أبداً، وهذا ما تُصلحه النتيجة.
+ */
+export type ExecutionBlobSetOutcome = 'not-execution-key' | 'persisted' | 'rejected-wipe' | 'invalid-payload';
+
+export function applyExecutionDossierBlobSetWithOutcome(
+    key: string,
+    value: unknown,
+    touch?: CacheTouchFn,
+): ExecutionBlobSetOutcome {
+    if (!isExecutionDossierMainBlobKey(key)) return 'not-execution-key';
+    const data =
+        value && typeof value === 'object' && !Array.isArray(value)
+            ? ({ ...(value as Record<string, unknown>) } as Record<string, unknown>)
+            : null;
+    if (!data) return 'invalid-payload';
+
+    if (!writeExecutionBlobRaw(key, data, touch)) return 'rejected-wipe';
+
+    if (isExecutionParentDossierBlobKey(key)) {
+        const id = executionDossierIdFromStorageKey(key);
+        syncExecutionFileInIndex({ ...data, id });
+    }
+    return 'persisted';
+}
+
+/**
  * نقطة اعتراض storageCache.set — كل كتابة execution_{id} تمرّ من هنا.
+ * @returns هل تولّى هذا المسار المفتاح (لا: هل نجحت الكتابة)
  */
 export function applyExecutionDossierBlobSet(
     key: string,
     value: unknown,
     touch?: CacheTouchFn,
 ): boolean {
-    if (!isExecutionDossierMainBlobKey(key)) return false;
-    const data =
-        value && typeof value === 'object' && !Array.isArray(value)
-            ? ({ ...(value as Record<string, unknown>) } as Record<string, unknown>)
-            : null;
-    if (!data) return false;
-
-    if (!writeExecutionBlobRaw(key, data, touch)) return true;
-
-    if (isExecutionParentDossierBlobKey(key)) {
-        const id = executionDossierIdFromStorageKey(key);
-        syncExecutionFileInIndex({ ...data, id });
-    }
-    return true;
+    const outcome = applyExecutionDossierBlobSetWithOutcome(key, value, touch);
+    return outcome !== 'not-execution-key' && outcome !== 'invalid-payload';
 }
 
 /** @deprecated استخدم applyExecutionDossierBlobSet عبر storageCache.set */

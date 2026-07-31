@@ -239,6 +239,83 @@ describe('useExecutionDashboardPersistExecutionMerge ui-first', () => {
         expect(executionDataRef.current?.creditors?.[0]?.name).toBe('قديم');
     });
 
+    /**
+     * كانت نتيجة الكتابة المؤجّلة تُرمى: `writeMainDisk()` تُنادى بلا فحص
+     * و`persistExecutionMerge` تُعيد `true` دائماً. فيرى المستخدم تغييره على
+     * الشاشة وقد فشلت الكتابة على القرص، ولا شيء يُخبره.
+     */
+    it('tells the user when the deferred disk write fails', async () => {
+        const file = makeFile();
+        const executionDataRef = { current: file as ExecutionFile | null };
+        const seizureDraftsByDecisionIdRef = { current: undefined };
+        const setExecutionStorageTick = vi.fn((updater: (n: number) => number) => updater(0));
+        const showToast = vi.fn();
+        vi.spyOn(dossierPersistence, 'persistExecutionDossierBlob').mockImplementation(() => false);
+
+        const { result } = renderHook(() =>
+            useExecutionDashboardPersistExecutionMerge({
+                executionId: 'ex-ui-first',
+                isUnifiedTabActive: false,
+                unifiedTabId: undefined,
+                onUpdate: vi.fn(),
+                executionDataRef,
+                seizureDraftsByDecisionIdRef,
+                setExecutionStorageTick,
+                showToast,
+            }),
+        );
+
+        act(() => {
+            result.current.persistExecutionMerge({
+                creditors: [{ id: 'c1', name: 'جديد', phone: '07701234567', address: 'ب' }],
+            });
+        });
+
+        expect(showToast).not.toHaveBeenCalled();
+
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        expect(showToast).toHaveBeenCalledTimes(1);
+        expect(String(showToast.mock.calls[0]?.[1])).toBe('error');
+    });
+
+    it('stays silent when a newer write supersedes the deferred one', async () => {
+        const file = makeFile();
+        const executionDataRef = { current: file as ExecutionFile | null };
+        const seizureDraftsByDecisionIdRef = { current: undefined };
+        const setExecutionStorageTick = vi.fn((updater: (n: number) => number) => updater(0));
+        const showToast = vi.fn();
+        vi.spyOn(dossierPersistence, 'persistExecutionDossierBlob').mockImplementation(() => true);
+
+        const { result } = renderHook(() =>
+            useExecutionDashboardPersistExecutionMerge({
+                executionId: 'ex-ui-first',
+                isUnifiedTabActive: false,
+                unifiedTabId: undefined,
+                onUpdate: vi.fn(),
+                executionDataRef,
+                seizureDraftsByDecisionIdRef,
+                setExecutionStorageTick,
+                showToast,
+            }),
+        );
+
+        act(() => {
+            result.current.persistExecutionMerge({ notes: 'أولى' });
+            result.current.persistExecutionMerge({ is_creditor_deceased: true });
+        });
+
+        await act(async () => {
+            await Promise.resolve();
+            await Promise.resolve();
+        });
+
+        // الكتابة الملغاة ليست فشلاً — تحذير هنا إنذار كاذب
+        expect(showToast).not.toHaveBeenCalled();
+    });
+
     it('allows party-death patches for debtor agent', () => {
         const file = makeFile();
         const executionDataRef = { current: file as ExecutionFile | null };
